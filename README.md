@@ -1,21 +1,43 @@
+English | [한국어](README.ko.md)
+
 # SuperClaude for SAP (sc4sap)
 
-> SAP 개발 환경에 최적화된 Claude Code 플러그인 | Claude Code plugin optimized for SAP development environments
+> Claude Code plugin for SAP ABAP development on On-Premise S/4HANA
 
-## Overview / 개요
+[![npm version](https://img.shields.io/npm/v/superclaude-for-sap?color=cb3837)](https://www.npmjs.com/package/superclaude-for-sap)
+[![GitHub stars](https://img.shields.io/github/stars/babamba2/superclaude-for-sap?style=flat&color=yellow)](https://github.com/babamba2/superclaude-for-sap)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-SuperClaude for SAP는 On-Premise S/4HANA 환경에서 ABAP 개발을 지원하는 Claude Code 플러그인입니다. MCP ABAP ADT 서버(150+ 도구)를 활용하여 ABAP 오브젝트 생성/수정, 코드 분석, SPRO 컨피그 참조를 제공합니다.
+## What is sc4sap?
 
-SuperClaude for SAP is a Claude Code plugin for ABAP development on On-Premise S/4HANA systems. It leverages the MCP ABAP ADT server (150+ tools) to provide ABAP object CRUD, code analysis, and SPRO configuration reference.
+SuperClaude for SAP transforms Claude Code into a full-stack SAP development assistant. It connects to your SAP system via the [MCP ABAP ADT server](https://github.com/babamba2/abap-mcp-adt-powerup) (150+ tools) to create, read, update, and delete ABAP objects directly — classes, function modules, reports, CDS views, and more.
 
-## Features / 기능
+## Requirements
 
-### 24 SAP-Specialized Agents / SAP 전문 에이전트
-- **10 Core Agents**: Analyst, Architect, Code Reviewer, Critic, Debugger, Doc Specialist, Executor, Planner, QA Tester, Writer — all adapted for SAP/ABAP context
-- **1 BC Consultant**: SAP Basis administration, transport management, system diagnostics
-- **13 Module Consultants**: SD, MM, FI, CO, PP, PM, QM, TR, HCM, WM, TM, Ariba, BW
+![Node.js](https://img.shields.io/badge/Node.js-%3E%3D%2020.0.0-339933?logo=node.js&logoColor=white)
+![Claude Code](https://img.shields.io/badge/Claude_Code-CLI-6B4FBB?logo=anthropic&logoColor=white)
+![SAP S/4HANA](https://img.shields.io/badge/SAP-S%2F4HANA_On--Premise-0FAAFF?logo=sap&logoColor=white)
+![MCP ABAP ADT](https://img.shields.io/badge/MCP_ABAP_ADT-Server_Required-FF6600)
 
-### 14 Skills / 스킬
+| Requirement | Details |
+|-------------|---------|
+| **Node.js** | >= 20.0.0 |
+| **Claude Code** | CLI installed (Max/Pro subscription or API key) |
+| **SAP System** | On-Premise S/4HANA with ADT enabled |
+| **MCP Server** | [abap-mcp-adt-powerup](https://github.com/babamba2/abap-mcp-adt-powerup) configured |
+
+## Features
+
+### 24 SAP-Specialized Agents
+
+| Category | Agents |
+|----------|--------|
+| **Core (10)** | Analyst, Architect, Code Reviewer, Critic, Debugger, Doc Specialist, Executor, Planner, QA Tester, Writer |
+| **Basis (1)** | BC Consultant — system admin, transport management, diagnostics |
+| **Modules (13)** | SD, MM, FI, CO, PP, PM, QM, TR, HCM, WM, TM, Ariba, BW |
+
+### 14 Skills
+
 | Skill | Description |
 |-------|-------------|
 | `sc4sap:setup` | Plugin setup + SPRO config auto-generation |
@@ -33,39 +55,41 @@ SuperClaude for SAP is a Claude Code plugin for ABAP development on On-Premise S
 | `sc4sap:create-object` | ABAP object creation (hybrid mode) |
 | `sc4sap:analyze-code` | ABAP code analysis & improvement |
 
-### SPRO Configuration Reference / SPRO 컨피그 참조
-All 13 SAP modules with comprehensive config data:
-- `configs/{MODULE}/spro.md` — SPRO configuration tables/views
-- `configs/{MODULE}/tcodes.md` — Transaction codes
-- `configs/{MODULE}/bapi.md` — BAPI/FM reference
-- `configs/{MODULE}/workflows.md` — Development workflows
+### SPRO Configuration Reference
 
-### SAP-Specific Hooks / SAP 특화 훅
-- **SPRO Auto-Injection**: Haiku LLM classifies user input → injects relevant module SPRO config
-- **Transport Validation**: Checks transport exists before MCP ABAP Create/Update operations
-- **Auto-Activation**: Triggers ABAP object activation after creation/modification
-- **Syntax Checker**: Auto-runs semantic analysis on ABAP errors
+Built-in reference data for all 13 SAP modules:
 
-## Installation / 설치
+```
+configs/{MODULE}/
+  ├── spro.md       # SPRO configuration tables/views
+  ├── tcodes.md     # Transaction codes
+  ├── bapi.md       # BAPI/FM reference
+  └── workflows.md  # Development workflows
+```
 
-### Prerequisites / 사전 요구사항
-- Claude Code CLI installed
-- Node.js >= 20.0.0
-- MCP ABAP ADT server configured ([abap-mcp-adt-powerup](https://github.com/babamba2/abap-mcp-adt-powerup.git))
-- Access to an On-Premise S/4HANA system
+**Modules**: SD, MM, FI, CO, PP, PM, QM, TR, HCM, WM, TM, Ariba, BW
 
-### Install / 설치 방법
+### SAP-Specific Hooks
+
+- **SPRO Auto-Injection** — Haiku LLM classifies user input and injects relevant module SPRO config
+- **Transport Validation** — Checks transport exists before MCP ABAP Create/Update operations
+- **Auto-Activation** — Triggers ABAP object activation after creation/modification
+- **Syntax Checker** — Auto-runs semantic analysis on ABAP errors
+
+## Installation
+
 ```bash
 # Install from marketplace
 claude plugin install sc4sap
 
 # Or install from source
-cd supclaude4sap
-npm install
-npm run build
+git clone https://github.com/babamba2/superclaude-for-sap.git
+cd superclaude-for-sap
+npm install && npm run build
 ```
 
-### Setup / 설정
+## Setup
+
 ```bash
 # Run the setup skill to configure MCP connection and generate SPRO configs
 /sc4sap:setup
@@ -76,10 +100,9 @@ This will:
 2. Auto-generate SPRO config files from your S/4HANA system
 3. Configure hooks and agents
 
-## Usage / 사용법
+## Quick Start
 
-### Quick Start / 빠른 시작
-```
+```bash
 # Create an ABAP class
 /sc4sap:create-object
 
@@ -93,53 +116,45 @@ This will:
 /sc4sap:autopilot
 ```
 
-### SAP Verification (Ralph) / SAP 검증
-The `sc4sap:ralph` skill uses SAP-native verification:
-1. ABAP syntax check (no errors)
-2. Object activation (successful)
-3. Unit test execution (only if test class exists)
+## Example Use Cases
 
-## Development / 개발
-
-```bash
-# Install dependencies
-npm install
-
-# Build
-npm run build
-
-# Run tests
-npm test
-
-# Run tests once
-npm run test:run
+**ABAP Class Creation & Unit Testing**
+```
+Create a custom sales order validation class ZCL_SD_ORDER_VALIDATOR
+with methods for credit check, delivery date validation, and pricing
+verification. Include ABAP Unit tests for each method.
 ```
 
-## Configuration / 설정
+**Cross-Module Integration Analysis**
+```
+Analyze the integration points between SD billing (VF01) and FI
+accounting document posting. Show me which BAPIs and user exits
+are involved in the billing-to-accounting flow.
+```
 
-### CLAUDE.md
-The plugin includes a `CLAUDE.md` file with SAP development rules:
-- Z/Y prefix naming conventions
-- Transport policies
-- ABAP Clean Code guidelines
+**Module Consultant Workflow**
+```
+As an FI consultant, help me configure automatic payment program
+(F110) for vendor payments via bank transfer. What master data,
+SPRO settings, and custom development are needed?
+```
 
-### Module Consultants
-Each module consultant agent references its `configs/{MODULE}/` directory for domain-specific knowledge including SPRO tables, transaction codes, BAPIs, and workflows.
+## Tech Stack
 
-## Tech Stack / 기술 스택
-- TypeScript + Node.js (ESM)
-- esbuild (bundling)
-- Vitest (testing)
-- MCP SDK (@modelcontextprotocol/sdk)
-- Anthropic SDK (@anthropic-ai/sdk)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js-339933?logo=node.js&logoColor=white)
+![Vitest](https://img.shields.io/badge/Vitest-6E9F18?logo=vitest&logoColor=white)
+![MCP](https://img.shields.io/badge/MCP_SDK-Protocol-FF6600)
 
-## Version / 버전
-- **Current**: v0.1.0
-- **Target System**: On-Premise S/4HANA
-- **Planned (v0.2.0)**: RAP support, multi-system (Dev/QA/Prod)
+## Roadmap
 
-## Author / 저자
+- **v0.1.0** (current) — Core plugin with 24 agents, 14 skills, 13 module configs
+- **v0.2.0** (planned) — RAP support, multi-system (Dev/QA/Prod)
+
+## Author
+
 paek seunghyun
 
-## License / 라이선스
-MIT
+## License
+
+[MIT](LICENSE)
