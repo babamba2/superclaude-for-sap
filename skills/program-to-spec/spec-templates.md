@@ -53,5 +53,5 @@ flowchart LR
 
 ## Excel — sheet naming convention
 
-Sheets named in chosen language; examples for ko:
-`개요`, `선택화면`, `데이터모델`, `처리로직`, `출력`, `권한`, `예외`, `확장점`, `어디서사용`, `부속오브젝트`, `리스크·PII`.
+Sheets named in chosen language; example labels (English):
+`Overview`, `Selection Screen`, `Data Model`, `Processing Logic`, `Output`, `Authorizations`, `Exceptions`, `Enhancement Points`, `Where-Used`, `Dependent Objects`, `Risk & PII`.

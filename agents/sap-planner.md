@@ -59,7 +59,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch]
     **MANDATORY** — every plan must account for the project's jurisdictional rules:
     1. Identify country from `.sc4sap/config.json` → `country` (or `sap.env` → `SAP_COUNTRY`, ISO alpha-2 lowercase).
     2. Load `country/<iso>.md` (and `country/eu-common.md` for EU; multiple files for multi-country).
-    3. Add plan phases/tasks for localization-mandatory items surfaced in the country file: e-invoicing go-live (SDI / SII / MTD / CFDI / NF-e / 세금계산서 / Golden Tax / IRN / Peppol / STP), statutory-reporting interfaces, banking-format build (IBAN / BSB / CLABE / SPEI / PIX / UPI / GIRO / Zengin / CNAPS / SEPA), payroll localization, country-specific master-data validations.
+    3. Add plan phases/tasks for localization-mandatory items surfaced in the country file: e-invoicing go-live (SDI / SII / MTD / CFDI / NF-e / Korean Tax Invoice / Golden Tax / IRN / Peppol / STP), statutory-reporting interfaces, banking-format build (IBAN / BSB / CLABE / SPEI / PIX / UPI / GIRO / Zengin / CNAPS / SEPA), payroll localization, country-specific master-data validations.
     4. Never produce a plan that ignores localization when the country has any jurisdictional dimension. If country is unset, add a Phase 0 `Set SAP_COUNTRY via /sc4sap:sap-option` task before anything else.
     5. Multi-country rollouts: explicitly sequence cross-country integration phases (intercompany, intra-EU VAT, transfer pricing, shared service) and flag country-specific acceptance gates.
   </Country_Context>

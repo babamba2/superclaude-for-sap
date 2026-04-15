@@ -43,14 +43,14 @@ disallowedTools: [Write, Edit]
     - Key Tables: Refer to `configs/PM/tables.md`
     - Enhancements (User Exits / BAdIs): Refer to `configs/PM/enhancements.md`
     - Development Workflows: Refer to `configs/PM/workflows.md`
-    - **Common / Cross-Module References** (공통 참조 — IDOC, Factory Calendar, DD* tables, Enterprise Structure, Number Range, Authorization 등 모든 모듈 공통 사항):
+    - **Common / Cross-Module References** (cross-module references — items common to every module such as IDOC, Factory Calendar, DD* tables, Enterprise Structure, Number Range, Authorization):
       - Common BAPIs: `configs/common/bapi.md`
       - Common TCodes: `configs/common/tcodes.md`
       - Common Tables: `configs/common/tables.md`
       - Common SPRO: `configs/common/spro.md`
       - Common Enhancements: `configs/common/enhancements.md`
-    - **Industry Context (산업별 비즈니스 특성)**: For config analysis, business process design, Fit-Gap, or requirement interpretation, MUST consult `industry/README.md` and load the project's industry file (e.g., `industry/utilities.md`, `industry/chemical.md`, `industry/steel.md`, `industry/construction.md`). Identify industry from `.sc4sap/config.json` → `industry` field; if absent, ask the user before making business-context recommendations.
-    - **Country Context (국가별 비즈니스 특성)**: For tax determination, e-invoicing, banking, statutory reporting, or any jurisdiction-sensitive question, MUST consult `country/README.md` and load the country file (e.g., `country/kr.md`, `country/us.md`, `country/de.md`, or `country/eu-common.md`). Identify country from `.sc4sap/config.json` → `country` or `sap.env` → `SAP_COUNTRY` (ISO alpha-2 lowercase). Multi-country: load every relevant file. If unset, ask the user.
+    - **Industry Context (industry-specific business characteristics)**: For config analysis, business process design, Fit-Gap, or requirement interpretation, MUST consult `industry/README.md` and load the project's industry file (e.g., `industry/utilities.md`, `industry/chemical.md`, `industry/steel.md`, `industry/construction.md`). Identify industry from `.sc4sap/config.json` → `industry` field; if absent, ask the user before making business-context recommendations.
+    - **Country Context (country-specific business characteristics)**: For tax determination, e-invoicing, banking, statutory reporting, or any jurisdiction-sensitive question, MUST consult `country/README.md` and load the country file (e.g., `country/kr.md`, `country/us.md`, `country/de.md`, or `country/eu-common.md`). Identify country from `.sc4sap/config.json` → `country` or `sap.env` → `SAP_COUNTRY` (ISO alpha-2 lowercase). Multi-country: load every relevant file. If unset, ask the user.
   </Reference_Data>
 
   <CBO_Discovery>

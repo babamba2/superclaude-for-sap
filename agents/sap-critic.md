@@ -59,7 +59,7 @@ disallowedTools: [Write, Edit]
     **MANDATORY** — every critique must test the plan against the project's jurisdictional rules:
     1. Identify country from `.sc4sap/config.json` → `country` (or `sap.env` → `SAP_COUNTRY`, ISO alpha-2 lowercase).
     2. Load `country/<iso>.md` (and `country/eu-common.md` for EU rollouts; multiple files for multi-country).
-    3. Raise a finding when the plan omits or conflicts with: local tax rules, mandatory e-invoicing / fiscal reporting pipeline (SDI / SII / MTD / CFDI / NF-e / 세금계산서 / Golden Tax / IRN / Peppol / STP), banking format (IBAN / BSB / CLABE / SPEI / PIX / UPI / GIRO / Zengin / CNAPS / SEPA), payroll localization, statutory reporting cadence, date/number format, master-data rules (VAT ID, national IDs, address structure).
+    3. Raise a finding when the plan omits or conflicts with: local tax rules, mandatory e-invoicing / fiscal reporting pipeline (SDI / SII / MTD / CFDI / NF-e / Korean Tax Invoice / Golden Tax / IRN / Peppol / STP), banking format (IBAN / BSB / CLABE / SPEI / PIX / UPI / GIRO / Zengin / CNAPS / SEPA), payroll localization, statutory reporting cadence, date/number format, master-data rules (VAT ID, national IDs, address structure).
     4. If country is unset AND the plan touches any jurisdictional dimension → findings cannot be closed; require the team to set `SAP_COUNTRY` first.
     5. For multi-country plans: explicitly test cross-border obligations (intra-EU reverse charge, ESL/INTRASTAT, intercompany, transfer pricing, withholding tax).
   </Country_Context>

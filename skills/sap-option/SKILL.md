@@ -15,13 +15,13 @@ Users should not edit `sap.env` blindly; this skill surfaces the current values 
 </Purpose>
 
 <Use_When>
-- User says "sap option", "sap.env 보여줘", "change SAP password", "switch SAP client", "블록리스트 프로파일 바꿔", "loosen blocklist", "whitelist ACDOCA", "view SAP config", "SAP 옵션".
-- User says "산업 바꿔", "change industry", "업종 바꿔", "retail로 바꿔", "switch to cosmetics" — route to the **Industry selection** flow described in `<Industry_Selection>` (updates `SAP_INDUSTRY` in `sap.env` and `industry` in `config.json` atomically).
-- User says "hud", "show status", "show system info", "현재 SAP 상태", "어떤 시스템 붙어있지" — run the status snapshot (workflow step 3) and stop there unless the user then asks to edit.
+- User says "sap option", "show sap.env", "change SAP password", "switch SAP client", "change the blocklist profile", "loosen blocklist", "whitelist ACDOCA", "view SAP config", "SAP options".
+- User says "change the industry", "change industry", "switch industry", "switch to retail", "switch to cosmetics" — route to the **Industry selection** flow described in `<Industry_Selection>` (updates `SAP_INDUSTRY` in `sap.env` and `industry` in `config.json` atomically).
+- User says "hud", "show status", "show system info", "current SAP status", "which system am I connected to" — run the status snapshot (workflow step 3) and stop there unless the user then asks to edit.
 - User wants to change blocklist tier (`MCP_BLOCKLIST_PROFILE`) or manage `MCP_ALLOW_TABLE` / `MCP_BLOCKLIST_EXTEND`.
 - User is rotating credentials, moving to a new SAP system, or flipping language/client.
 - After `/sc4sap:setup` if the user wants to adjust without re-running full setup.
-- User says "hud 한도", "5h limit", "weekly limit", "extra limit", "usage budget", "limit 설정" — route to the **HUD limits** flow (see `<HUD_Limits>`), which edits `~/.claude/settings.json` → `env`, not `sap.env`.
+- User says "hud limit", "5h limit", "weekly limit", "extra limit", "usage budget", "configure limit" — route to the **HUD limits** flow (see `<HUD_Limits>`), which edits `~/.claude/settings.json` → `env`, not `sap.env`.
 </Use_When>
 
 <Status_Snapshot>
@@ -72,15 +72,15 @@ Do not manage keys that are not in this list — warn the user and skip.
 </Managed_Keys>
 
 <Workflow>
-See [workflow.md](workflow.md) 을 참조하세요.
+See [workflow.md](workflow.md).
 </Workflow>
 
 <Industry_Selection>
-See [industry-selection.md](industry-selection.md) 을 참조하세요.
+See [industry-selection.md](industry-selection.md).
 </Industry_Selection>
 
 <HUD_Limits>
-See [hud-limits.md](hud-limits.md) 을 참조하세요.
+See [hud-limits.md](hud-limits.md).
 </HUD_Limits>
 
 <Validation>
@@ -115,9 +115,9 @@ See [hud-limits.md](hud-limits.md) 을 참조하세요.
 </Edge_Cases>
 
 <Standalone_TUI>
-See [standalone-tui.md](standalone-tui.md) 을 참조하세요.
+See [standalone-tui.md](standalone-tui.md).
 </Standalone_TUI>
 
 <Examples>
-See [examples.md](examples.md) 을 참조하세요.
+See [examples.md](examples.md).
 </Examples>

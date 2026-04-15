@@ -10,21 +10,21 @@ Industry is stored in **two places** and must stay in sync:
 
    ```
    Select industry:
-      1) retail          — 리테일/유통
-      2) fashion         — 패션/어패럴
-      3) cosmetics       — 화장품
-      4) tire            — 타이어
-      5) automotive      — 자동차
-      6) pharmaceutical  — 제약
-      7) food-beverage   — 식음료
-      8) chemical        — 화학
-      9) electronics     — 전자/하이테크
-     10) construction    — 건설
-     11) steel           — 철강/금속
-     12) utilities       — 전력/가스/수도
-     13) banking         — 금융
-     14) public-sector   — 공공부문
-     15) other           — 기타 / 산업 미정
+      1) retail          — Retail/Distribution
+      2) fashion         — Fashion/Apparel
+      3) cosmetics       — Cosmetics
+      4) tire            — Tire
+      5) automotive      — Automotive
+      6) pharmaceutical  — Pharmaceutical
+      7) food-beverage   — Food & Beverage
+      8) chemical        — Chemical
+      9) electronics     — Electronics / High-Tech
+     10) construction    — Construction
+     11) steel           — Steel / Metals
+     12) utilities       — Utilities (Power/Gas/Water)
+     13) banking         — Banking / Finance
+     14) public-sector   — Public Sector
+     15) other           — Other / Industry not specified
    ```
 
 3. Accept the number (1–15) or the canonical key.

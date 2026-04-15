@@ -99,7 +99,7 @@ Condensed Clean ABAP rules for sc4sap. Follow every rule unless a project-specif
 - **Authorization checks at every entry point** (`AUTHORITY-CHECK` before read/write of restricted data).
 - **No SQL injection**: never concatenate user input into `EXEC SQL` or dynamic `WHERE`. Use parameter markers.
 - **Mask/skip PII in logs, dumps, and error messages.** PII categories in `exceptions/*.md`.
-- **Data extraction rules are hard rules** — see [`data-extraction-policy.md`](data-extraction-policy.md). `acknowledge_risk` requires explicit user affirmative (`yes` / `승인` / `authorize` / `approve` / `proceed` / `confirmed`). Never auto-set.
+- **Data extraction rules are hard rules** — see [`data-extraction-policy.md`](data-extraction-policy.md). `acknowledge_risk` requires explicit user affirmative (`yes` / `authorize` / `approve` / `proceed` / `confirmed`). Never auto-set.
 
 ## Version Awareness
 

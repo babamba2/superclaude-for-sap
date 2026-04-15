@@ -13,7 +13,7 @@ sc4sap:program is the flagship skill for creating new ABAP programs. It handles 
 </Purpose>
 
 <Use_When>
-- User says "create program", "new report", "ALV program", "CRUD program", "배치 프로그램 만들어줘", etc.
+- User says "create program", "new report", "ALV program", "CRUD program", "make me a batch program", etc.
 - A new ABAP executable program (REPORT) needs to be created from scratch
 - Program requires the Main+Include wrapping convention
 - ALV display is needed (full CL_GUI_ALV_GRID or simple SALV popup)
@@ -75,7 +75,7 @@ Socratic loop runs until every dimension is resolved:
 4. **Screen/GUI** — required? screen numbers? Docking Container layout?
 5. **Data source** — standard tables / Z-tables / BAPI / CDS view
 6. **Package + Transport** — target package, new or existing transport
-7. **Testing scope** — OOP 선택 시 test class methods to cover
+7. **Testing scope** — when OOP is selected, which test class methods to cover
 
 Score ambiguity after each round. Do NOT proceed to spec generation until ≤ 5%. Then write the spec and require explicit user confirmation before any Create* MCP call.
 </Interview_Gating>

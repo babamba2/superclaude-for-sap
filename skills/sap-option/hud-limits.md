@@ -7,7 +7,7 @@ HUD usage-limit env vars are **not** part of `sap.env` — Claude Code only expo
 - `SC4SAP_WEEKLY_LIMIT_USD`       — dollar basis for the 7d percentage (100% at this value).
 - `SC4SAP_WEEKLY_EXTRA_LIMIT_USD` — dollar basis for the `+extra` overage segment (shown only when weekly > base).
 
-**Plan preset shortcut (preferred):** if the user says "내 플랜은 X" / "apply pro plan" / "max20x로 세팅" etc., run:
+**Plan preset shortcut (preferred):** if the user says "my plan is X" / "apply pro plan" / "set up max20x" etc., run:
 
 ```bash
 node "<PLUGIN_ROOT>/scripts/hud/apply-plan.mjs" <plan>

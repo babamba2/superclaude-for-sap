@@ -43,7 +43,7 @@ Applies to: every screen, every dialog message, every literal that the end user 
 
 - [ ] No hardcoded display literals in screen layouts — all field labels reference `TEXT-Txx`
 - [ ] No hardcoded literals in `MESSAGE` statements that aren't dynamic — short labels go through text elements (`MESSAGE TEXT-t01 TYPE 'E'`)
-- [ ] Translatable strings are NOT embedded in string templates with literal text only (`|자재 { lv } 생성|` — the static parts should still come from text elements when reused)
+- [ ] Translatable strings are NOT embedded in string templates with literal text only (`|Material { lv } created|` — the static parts should still come from text elements when reused)
 - [ ] Text elements are created via `CreateTextElement` and present after activation
 
 ### 3. `../../common/constant-rule.md` — Constant Rule

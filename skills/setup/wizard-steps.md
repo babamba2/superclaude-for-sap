@@ -18,25 +18,25 @@ Referenced by `SKILL.md` — this file holds the full 12-step setup wizard.
    - Which ABAP syntax features agents can use in generated code (see ABAP Release Reference below)
    - Store as `SAP_VERSION` (`S4` or `ECC`) and `ABAP_RELEASE` (e.g., `756`) in `.sc4sap/sap.env` and `.sc4sap/config.json`
 
-   Then ask for **Industry (산업/업종)** — present a numbered selection menu. Ask **one question** and wait; do NOT dump descriptions inline:
+   Then ask for **Industry** — present a numbered selection menu. Ask **one question** and wait; do NOT dump descriptions inline:
 
    ```
-   Select your industry (산업/업종):
-      1) retail          — 리테일/유통 (Article, Store, POS, Assortment)
-      2) fashion         — 패션/어패럴 (Style × Color × Size, Season, AFS/FMS)
-      3) cosmetics       — 화장품 (Batch, Shelf Life, Channel Pricing)
-      4) tire            — 타이어 (OE/RE, Mixed Mfg, Mold, Recall)
-      5) automotive      — 자동차 (JIT/JIS, Scheduling Agreement, PPAP)
-      6) pharmaceutical  — 제약 (GMP, Serialization, Batch Status)
-      7) food-beverage   — 식음료 (Catch Weight, FEFO, TPM)
-      8) chemical        — 화학 (Process, DG, Formula Pricing)
-      9) electronics     — 전자/하이테크 (VC/AVC, Serial, RMA)
-     10) construction    — 건설 (PS, POC Billing, Subcontracting)
-     11) steel           — 철강/금속 (Characteristic, Coil, Heat)
-     12) utilities       — 전력/가스/수도 (IS-U, FI-CA, Device)
-     13) banking         — 금융 (FS-CD, FS-BP, Parallel Ledger)
-     14) public-sector   — 공공부문 (FM, GM, Budget Control)
-     15) other           — 기타 / 산업 미정 (일반 표준 기준)
+   Select your industry:
+      1) retail          — Retail/Distribution (Article, Store, POS, Assortment)
+      2) fashion         — Fashion/Apparel (Style × Color × Size, Season, AFS/FMS)
+      3) cosmetics       — Cosmetics (Batch, Shelf Life, Channel Pricing)
+      4) tire            — Tire (OE/RE, Mixed Mfg, Mold, Recall)
+      5) automotive      — Automotive (JIT/JIS, Scheduling Agreement, PPAP)
+      6) pharmaceutical  — Pharmaceutical (GMP, Serialization, Batch Status)
+      7) food-beverage   — Food & Beverage (Catch Weight, FEFO, TPM)
+      8) chemical        — Chemical (Process, DG, Formula Pricing)
+      9) electronics     — Electronics / High-Tech (VC/AVC, Serial, RMA)
+     10) construction    — Construction (PS, POC Billing, Subcontracting)
+     11) steel           — Steel / Metals (Characteristic, Coil, Heat)
+     12) utilities       — Utilities — Power/Gas/Water (IS-U, FI-CA, Device)
+     13) banking         — Banking / Finance (FS-CD, FS-BP, Parallel Ledger)
+     14) public-sector   — Public Sector (FM, GM, Budget Control)
+     15) other           — Other / Industry not specified (applies generic standards)
    ```
 
    This choice determines which `industry/*.md` reference file SAP consultant agents load when doing config analysis, business process design, Fit-Gap, or requirement interpretation. It is **important context**, not just metadata — consultants will ask the user to set it later if it is missing.

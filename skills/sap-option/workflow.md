@@ -17,10 +17,10 @@
 5. **Ask** the user which key(s) to change. Accept:
    - A single key name
    - Multiple keys
-   - "all" / "전체" — walk each managed key one by one
-   - "blocklist" / "블록리스트" — step through only the `MCP_BLOCKLIST_*` / `MCP_ALLOW_TABLE` group
-   - "connection" / "연결" — step through `SAP_*` credentials only
-   - "industry" / "산업" / "업종" — shortcut into industry-selection.md flow
+   - "all" — walk each managed key one by one
+   - "blocklist" — step through only the `MCP_BLOCKLIST_*` / `MCP_ALLOW_TABLE` group
+   - "connection" — step through `SAP_*` credentials only
+   - "industry" — shortcut into industry-selection.md flow
    - "status" / "hud" — return to the status snapshot only (re-render step 3)
 
 6. **For each key to change:**

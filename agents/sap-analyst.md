@@ -41,7 +41,7 @@ disallowedTools: [Write, Edit]
     1. Identify the module(s) in scope (SD, MM, PP, PM, QM, WM, TM, TR, FI, CO, HCM, BW, PS, Ariba).
     2. Emit a structured request in your output under a `## Module Consultation Needed` heading:
        ```
-       - **sap-{module}-consultant** — {concrete question, e.g., "Confirm whether concession-store sales (수수료매장) can use standard consignment or needs Z enhancement"}
+       - **sap-{module}-consultant** — {concrete question, e.g., "Confirm whether concession-store sales (commission shop) can use standard consignment or needs Z enhancement"}
        ```
        One bullet per question; keep each question narrow and answerable.
     3. For **system-level topics** (Basis: authorization, transport, performance tuning, sizing, system copy, patching, monitoring) → delegate to **sap-bc-consultant** using the same pattern.
@@ -55,7 +55,7 @@ disallowedTools: [Write, Edit]
     **MANDATORY** — every requirement analysis must account for the project's country/jurisdiction:
     1. Identify country from `.sc4sap/config.json` → `country` (or `sap.env` → `SAP_COUNTRY`, ISO alpha-2 lowercase like `kr`, `us`, `de`).
     2. Load `country/<iso>.md` (and `country/eu-common.md` for EU countries; multiple files for multi-country rollouts).
-    3. Apply local rules when reasoning about: tax determination, e-invoicing / fiscal reporting (SDI / SII / MTD / CFDI / NF-e / 세금계산서 / Golden Tax / IRN / Peppol), banking formats (IBAN / BSB / CLABE / SPEI / PIX / UPI / GIRO / Zengin / CNAPS / SEPA), payroll localization, statutory reporting, date/number formats, master-data rules (VAT ID format, national IDs, address structure).
+    3. Apply local rules when reasoning about: tax determination, e-invoicing / fiscal reporting (SDI / SII / MTD / CFDI / NF-e / Korean Tax Invoice / Golden Tax / IRN / Peppol), banking formats (IBAN / BSB / CLABE / SPEI / PIX / UPI / GIRO / Zengin / CNAPS / SEPA), payroll localization, statutory reporting, date/number formats, master-data rules (VAT ID format, national IDs, address structure).
     4. Never assume EU/US defaults. If country is unset AND the requirement has any jurisdictional dimension (tax, invoicing, banking, HR, reporting), **stop and ask the user** before producing the output.
     5. Flag requirements that create cross-country obligations (intra-EU ESL/INTRASTAT, intercompany transfer pricing, withholding across borders).
   </Country_Context>

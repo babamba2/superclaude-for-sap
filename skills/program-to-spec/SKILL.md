@@ -13,7 +13,7 @@ Turn legacy or unfamiliar ABAP objects into a reviewable Functional/Technical Sp
 </Purpose>
 
 <Use_When>
-- User says "program to spec", "reverse engineer", "make a spec", "document this program", "기능명세서", "기술명세서", "specification 뽑아줘"
+- User says "program to spec", "reverse engineer", "make a spec", "document this program", "functional specification", "technical specification", "generate a specification"
 - Knowledge transfer / handover of legacy ABAP to another team
 - Preparing a refactoring or rewrite (need to capture as-is behavior)
 - Compliance / audit requires a written spec for custom code
@@ -37,7 +37,7 @@ The interview is a **funnel**: every turn reduces the remaining decision space. 
 **Round 2 — Audience + format (1 question, 2 choices each)**
 - Audience: **Functional** (business readers — SD/FI/MM users) vs **Technical** (developers) vs **Both**
 - Format: **Markdown** (review-friendly, git-friendly) vs **Excel** (project-PMO-friendly, reviewable cell-by-cell)
-- Default if user says "알아서" / "you choose" → Both + Markdown.
+- Default if user says "up to you" / "you choose" → Both + Markdown.
 
 **Round 3 — Depth (pick one)**
 | Depth | Contains |
@@ -82,14 +82,14 @@ Sections: 9 · Tables referenced: 6 · Screens: 1 · GUI status: 1
 File: .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-ko.md
 
 Top-level summary:
-  미결 판매오더를 영업조직·기간 기준으로 조회하여 ALV로 출력하는 리포트.
-  주요 테이블: VBAK, VBAP, VBUK, KNA1 (+ CDS I_SalesOrder).
-  권한: S_TCODE=ZSDR01, S_TABU_DIS=VBAK.
+  Report that lists open sales orders by Sales Organization and date range and displays them via ALV.
+  Main tables: VBAK, VBAP, VBUK, KNA1 (+ CDS I_SalesOrder).
+  Authorizations: S_TCODE=ZSDR01, S_TABU_DIS=VBAK.
 
 Next options:
-  • "Excel 로 다시 뽑아줘"
-  • "Where-used 추가해서 L3 로 확장"
-  • "English 버전 추가"
+  • "Regenerate as Excel"
+  • "Extend to L3 with Where-used"
+  • "Add an English version"
 ```
 </Output_Format>
 
