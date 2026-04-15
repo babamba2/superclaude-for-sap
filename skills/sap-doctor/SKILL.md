@@ -30,10 +30,18 @@ Run all checks in order. Report PASS / FAIL / WARN for each.
 - [ ] Config file exists at `.sc4sap/config.json`
 
 **Layer 2 - MCP Server**
-- [ ] `mcp-abap-adt` appears in Claude Code MCP server list
+- [ ] `plugin:sc4sap:sap` appears in Claude Code MCP server list
 - [ ] MCP server process is running (check via tool availability)
 - [ ] At least one MCP tool (`GetSession`) responds without error
-- [ ] MCP server version is compatible with installed plugin
+- [ ] **Vendor launcher exists** at `<cache>/vendor/abap-mcp-adt/dist/server/launcher.js`
+      (missing launcher = MCP shows green but tool calls fail)
+- [ ] **No plugin version drift**: cache `.claude-plugin/plugin.json` version matches
+      marketplace `.claude-plugin/plugin.json` version. If mismatch, advise user to run
+      `/reload-plugins` or restart Claude Code. The bridge also prints a warning to
+      stderr on every MCP start when drift is detected.
+- [ ] Bridge preflight passes: `node "<plugin>/bridge/mcp-server.cjs" --check` exits 0
+      and prints the SAP connection config banner (this is the same preflight the
+      MCP runtime uses)
 
 **Layer 3 - SAP System Connection**
 - [ ] `GetSession` returns valid system data (system ID, client, user)
