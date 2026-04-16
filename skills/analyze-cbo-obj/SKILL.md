@@ -27,101 +27,15 @@ Projects accumulate Z tables, Z data elements, Z function modules, and ZCL_ clas
 </Do_Not_Use_When>
 
 <Workflow_Steps>
+The 8-step workflow (Step 1 → Step 8) lives in a companion file to keep this skill doc short.
 
-**Step 1 — Ask for the CBO package name** (exactly one question)
-> "Which CBO package do you want to analyze? (e.g., `ZSD_MAIN`, `ZMM_CORE`). If you only know a prefix like `ZSD*`, tell me the prefix and I will search for packages."
-
-- If the user gives a prefix pattern: call `SearchObject(objectType='DEVC', query=<prefix>)` and list matches, then re-ask.
-- Verify the final package with `GetPackage(<name>)`. If it does not exist, report and stop.
-
-**Step 2 — Ask which module this package belongs to** (exactly one question, constrained list)
-> "Which SAP module does this package belong to? Pick one of: SD / MM / PP / PM / QM / WM / TM / TR / FI / CO / HCM / BW / PS / Ariba."
-
-- Valid values = the folder list under `configs/`. Reject anything else and re-ask.
-- Normalize to uppercase (e.g., `sd` → `SD`) and verify `configs/<MODULE>/` exists.
-
-**Step 3 — Walk the package** (auto)
-- `GetPackageContents(package=<name>)` for the root package.
-- If sub-packages exist, walk them with `GetPackageTree`.
-- Collect objects of these types (ignore the rest):
-  | Type | MCP object type | What it represents |
-  |------|-----------------|--------------------|
-  | Table | `TABL` | Transparent / pooled table |
-  | Structure | `STRU` | DDIC structure |
-  | Table type | `TTYP` | DDIC table type |
-  | Data element | `DTEL` | Field semantics |
-  | Domain | `DOMA` | Value range |
-  | View | `VIEW` | DDIC view / CDS view |
-  | Class | `CLAS` | Global class (ZCL_) |
-  | Interface | `INTF` | Global interface (ZIF_) |
-  | Function group | `FUGR` | Function pool (and its FMs) |
-  | Program | `PROG` | Executable / include / module pool |
-
-**Step 4 — Build the reference graph** (auto)
-- For each collected object, call `GetWhereUsed(<object>)` to get its usage locations.
-- Keep only usages whose owning object is **also inside the package** (internal reuse). Drop SAP-standard callers.
-- Rank each object by internal reference count. Label the top tier as "frequently used" using these thresholds (tune per package size):
-  - Small package (<30 objects): ref count ≥ 2
-  - Medium (30–150): ref count ≥ 3
-  - Large (>150): ref count ≥ 5
-- Additionally keep any object whose name ends in patterns that signal shared utility (`*_UTIL*`, `*_HELPER*`, `*_COMMON*`, `*_CONST*`, `*_TYPES*`, `*_MSG*`).
-
-**Step 5 — Infer business purpose** (auto, per frequently-used object)
-For each object in the frequently-used set, collect the signals below and summarise the business purpose in 1–2 sentences:
-- DDIC short description (`GetObjectInfo`)
-- For tables/structures: primary key + foreign keys to SAP standard tables (VBAK/MARA/BKPF/...) from `GetTable` / `GetStructure`
-- For data elements: domain, field label, documentation — via `GetDataElement`
-- For classes: public interface list, key method names — via `GetClass`
-- For function modules: importing/exporting/tables parameters — via `GetFunctionGroup` + `GetFunctionModule`
-- Heuristic role classification: `header / line / log / mapping / classification / config / util / service / event / dto`
-
-**Step 6 — Persist the inventory** (auto)
-Write to `.sc4sap/cbo/<MODULE>/<PACKAGE>/`:
-
-- `index.md` — human-readable summary:
-  - Package name, module, SAP version, scan timestamp
-  - `## Frequently used tables`, `## Frequently used structures`, `## Frequently used data elements`, `## Frequently used classes`, `## Frequently used function modules`, `## Frequently used table types`, `## Frequently used programs/views`
-  - Each entry: object name · ref count · role · one-line business purpose · suggested reuse scenario
-- `inventory.json` — machine-readable, consumed by `program` / `program-to-spec` / `create-object`:
-  ```json
-  {
-    "package": "ZSD_MAIN",
-    "module": "SD",
-    "scanned_at": "<ISO timestamp>",
-    "sap_version": "<S4|ECC>",
-    "objects": [
-      {
-        "name": "ZSD_ORDER_LOG",
-        "type": "TABL",
-        "ref_count": 7,
-        "role": "log",
-        "purpose": "append-only sales-order processing log keyed by VBELN",
-        "keys": ["MANDT", "VBELN", "POSNR", "LOGDATE"],
-        "fk_to_standard": ["VBAK-VBELN", "VBAP-POSNR"],
-        "reuse_hint": "extend this table instead of creating a new order log"
-      }
-    ]
-  }
-  ```
-- `raw-walk.md` (optional) — full list of every object in the package with type + description, for reference. Only generate if user asks for it or package has <200 objects.
-
-**Step 7 — PII / blocklist check** (auto, mandatory)
-Objects whose name contains `PII`, `HR`, `CUST`, `VEND`, `BANK`, `PRICE`, `SALARY`, `PAY`, `CARD` (or similar) must be flagged in `index.md` under a `## Sensitive CBO objects` section and compared against `exceptions/custom-patterns.md`. Suggest the user add matching tables to `.sc4sap/blocklist-extend.txt`. Never call `GetTableContents` here — this skill only reads DDIC metadata, never row data.
-
-**Step 8 — Hand-off summary** (auto)
-Print to the user:
-```
-CBO inventory written:
-  .sc4sap/cbo/<MODULE>/<PACKAGE>/index.md
-  .sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json
-
-Frequently used: N tables · M structures · K data elements · P classes · Q FMs
-Sensitive objects flagged: X
-
-Downstream skills (/sc4sap:create-program, /sc4sap:program-to-spec, /sc4sap:autopilot)
-will read inventory.json first and prefer these assets over creating new ones.
-```
-
+**MUST read [`workflow-steps.md`](./workflow-steps.md)** (in this skill folder) and execute the steps defined there in order whenever this skill runs. Highlights:
+- Step 1 / 1.5 / 2 — Socratic questions: package name → flagship programs (optional) → module.
+- Step 3 / 4 — Walk package (TABL/STRU/TTYP/DTEL/DOMA/VIEW/CLAS/INTF/FUGR/PROG) and build the `GetWhereUsed` graph; objects used by flagship programs receive a `key_boost = len(used_by_key_programs) * 10` so they always rank as "frequently used".
+- Step 5 — Infer business purpose from DDIC metadata (role: header / line / log / mapping / classification / config / util / service / event / dto).
+- Step 6 — Persist `.sc4sap/cbo/<MODULE>/<PACKAGE>/{index.md, inventory.json}` with **pinned (flagship-referenced) objects sorted to the top**; see the JSON schema example inside `workflow-steps.md`.
+- Step 7 — Sensitive-name flagging against `exceptions/custom-patterns.md`; never call `GetTableContents` / `GetSqlQuery`.
+- Step 8 — Hand-off summary for downstream skills.
 </Workflow_Steps>
 
 <Output_Files>

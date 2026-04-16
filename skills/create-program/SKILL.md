@@ -38,8 +38,11 @@ The following rules are **shared across sc4sap skills** and live in `sc4sap/comm
 | Constant rule (no magic literals in logic) | `../../common/constant-rule.md` | Executor, Reviewer |
 | Procedural FORM naming (`_{screen_no}` suffix) | `../../common/procedural-form-naming.md` | Executor (Procedural), Reviewer |
 | Naming conventions (program/include/class/screen) | `../../common/naming-conventions.md` | Planner, Executor, Reviewer |
+| ECC DDIC fallback (Table / DTEL / DOMA on ECC) | `../../common/ecc-ddic-fallback.md` | Planner (gate), Executor (program generation), Reviewer |
 
 Paths are relative to this skill's directory (`sc4sap/skills/create-program/`).
+
+**ECC DDIC fallback gate.** When the planner's object list includes a new Table, Data Element, or Domain AND `SAP_VERSION = ECC`, Phase 4 (Executor) must not call `CreateTable` / `CreateDataElement` / `CreateDomain`. Instead, follow [`../../common/ecc-ddic-fallback.md`](../../common/ecc-ddic-fallback.md): generate a helper report in `$TMP` using the matching template under `skills/create-object/ecc/`, activate the helper, then emit the mandatory user message (SE38 run → uncheck dry-run → SE11 activate + assign transport). Do not treat the DDIC object as created until the user confirms activation. Remaining objects (classes, includes, screens, …) proceed on the normal flow; the plan should sequence the DDIC helpers first so the user can create them before code that depends on them is activated.
 </Shared_Conventions>
 
 <Preflight_SAP_Version_Check>

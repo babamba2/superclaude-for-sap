@@ -43,6 +43,10 @@ sc4sap:create-object handles the full lifecycle of creating a new ABAP object: d
 | GUI Status | `CreateGuiStatus` | PF-Status (menu bar, toolbar, function keys) |
 </Supported_Object_Types>
 
+<ECC_DDIC_Fallback>
+**MANDATORY**: Read [`../../common/ecc-ddic-fallback.md`](../../common/ecc-ddic-fallback.md) before creating any Table / Data Element / Domain. It defines when the ECC branch triggers, the helper-program naming rules, the strict template format (mirroring the files under `ecc/`), and the hard constraints (`$TMP` only, no activate, no CTS).
+</ECC_DDIC_Fallback>
+
 <Hybrid_Mode>
 **Confirm** (interactive):
 - Object name (enforce Z/Y prefix, max 30 chars, uppercase)
@@ -58,53 +62,7 @@ sc4sap:create-object handles the full lifecycle of creating a new ABAP object: d
 </Hybrid_Mode>
 
 <Workflow_Steps>
-
-**Step 1 - Classify Object Type** (auto)
-- Parse user request to determine object type
-- If ambiguous: ask "Do you want a class, program, function module, or other type?"
-
-**Step 2 - Collect Metadata** (confirm required)
-- Object name: suggest name based on description, enforce naming conventions
-  - Z/Y prefix required for customer objects
-  - Max 30 characters
-  - Uppercase only
-  - No special characters except underscore
-- Short description: 1 line, max 60 chars
-- Package: show recent packages or search; warn if `$TMP` (local, not transportable)
-- Transport: list open transports owned by current user; option to create new
-
-**Step 3 - Pre-Creation Check** (auto)
-- Call `SearchObject` to verify the name does not already exist
-- If exists: "Object {name} already exists. Use ralph to modify it instead."
-
-**Step 4 - Create Object** (auto)
-- Call appropriate Create* MCP tool with confirmed metadata
-- For Function Module: create Function Group first if it doesn't exist (`CreateFunctionGroup`)
-- For Service Binding: ensure Service Definition exists first
-- For Screen / GUI Status: parent program must exist first; create program if needed
-
-**Step 5 - Generate Initial Implementation** (auto)
-- Write skeleton code appropriate to object type:
-  - Class: constructor, standard interface implementations if applicable
-  - Program: REPORT statement, basic structure
-  - Function Module: parameter documentation, basic error handling
-  - Table: key fields, client field for client-dependent tables
-  - Interface: method signatures based on described purpose
-  - Screen: PROCESS BEFORE OUTPUT / PROCESS AFTER INPUT flow logic, basic module stubs
-  - GUI Status: standard function key layout (Back/Exit/Cancel), application toolbar
-- Write code via appropriate Update* MCP tool
-
-**Step 6 - Activate** (auto)
-- Activate the object
-- Check `GetInactiveObjects` — must be empty for this object
-- If activation fails: display error, suggest fix, retry once
-
-**Step 7 - Completion Report**
-- Object name and type
-- Package and transport
-- Activation status (ACTIVE / FAILED)
-- Next steps suggestion (e.g., "Add methods with `/sc4sap:ralph`" or "Release with `/sc4sap:release`")
-
+**MANDATORY**: Follow the step sequence defined in [`workflow-steps.md`](workflow-steps.md). It covers Step 1 (classify) → Step 2 (metadata) → Step 3 (pre-creation check) → Step 3.5 (version branch) → Step 4 / Step 4-ECC → Step 5 / Step 6 (standard flow only) → Step 7 (completion report, including the mandatory ECC message format).
 </Workflow_Steps>
 
 <Naming_Convention_Enforcement>
@@ -135,6 +93,7 @@ If the user-provided name violates any rule, suggest a compliant alternative bas
 - `CreateClass` / `CreateInterface` / `CreateProgram` / `CreateFunctionGroup` / `CreateFunctionModule` / `CreateTable` / `CreateStructure` / `CreateDataElement` / `CreateDomain` / `CreateView` / `CreateServiceDefinition` / `CreateServiceBinding` / `CreateBehaviorDefinition` / `CreateScreen` / `CreateGuiStatus`
 - `UpdateClass` / `UpdateProgram` / `UpdateScreen` / `UpdateGuiStatus` / etc. — write initial implementation
 - `GetInactiveObjects` — verify activation
+- **ECC DDIC fallback:** only `CreateProgram` + `UpdateProgram` (target `$TMP`). `CreateTable` / `CreateDataElement` / `CreateDomain` must NOT be attempted when `SAP_VERSION = ECC`.
 </MCP_Tools_Used>
 
 Task: {{ARGUMENTS}}

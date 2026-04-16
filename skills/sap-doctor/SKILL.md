@@ -21,59 +21,48 @@ sc4sap:sap-doctor runs a structured health check across three layers: the SC4SAP
 </Use_When>
 
 <Diagnostic_Checks>
-Run all checks in order. Report PASS / FAIL / WARN for each.
-
-**Layer 1 - Plugin Health**
-- [ ] SC4SAP plugin directory exists and is readable
-- [ ] `package.json` version is current
-- [ ] Skill files present (16 skills in `skills/` directory)
-- [ ] Config file exists at `.sc4sap/config.json`
-
-**Layer 2 - MCP Server**
-- [ ] `plugin:sc4sap:sap` appears in Claude Code MCP server list
-- [ ] MCP server process is running (check via tool availability)
-- [ ] At least one MCP tool (`GetSession`) responds without error
-- [ ] **Vendor launcher exists** at `<cache>/vendor/abap-mcp-adt/dist/server/launcher.js`
-      (missing launcher = MCP shows green but tool calls fail)
-- [ ] **No plugin version drift**: cache `.claude-plugin/plugin.json` version matches
-      marketplace `.claude-plugin/plugin.json` version. If mismatch, advise user to run
-      `/reload-plugins` or restart Claude Code. The bridge also prints a warning to
-      stderr on every MCP start when drift is detected.
-- [ ] Bridge preflight passes: `node "<plugin>/bridge/mcp-server.cjs" --check` exits 0
-      and prints the SAP connection config banner (this is the same preflight the
-      MCP runtime uses)
-
-**Layer 3 - SAP System Connection**
-- [ ] `GetSession` returns valid system data (system ID, client, user)
-- [ ] `GetInactiveObjects` responds (tests developer authorization)
-- [ ] `ListTransports` responds (tests transport authorization S_TRANSPRT)
-- [ ] `SearchObject` with a simple query responds (tests object repository access)
-- [ ] `GetTableContents` on `T000` responds (tests table access)
-
-**Layer 4 - Configuration**
-- [ ] SAP host URL is reachable (HTTPS port)
-- [ ] Configured client matches `GetSession` response
-- [ ] Configured username matches `GetSession` response
+**MANDATORY**: Run the 5-layer diagnostic checklist defined in [`diagnostic-checks.md`](diagnostic-checks.md). It covers Layer 1 (Plugin Health) → Layer 2 (MCP Server) → Layer 3 (SAP System Connection) → Layer 4 (Required ABAP Objects — gated on Layer 2 + 3 PASS) → Layer 5 (Configuration). Report PASS / FAIL / WARN per layer in the order defined there.
 </Diagnostic_Checks>
 
 <Output_Format>
 ```
 SC4SAP Doctor Report
 ====================
-Plugin Health     [PASS]
-MCP Server        [FAIL] mcp-abap-adt not found in MCP server list
-SAP Connection    [SKIP] Cannot test without MCP server
-Configuration     [WARN] No .sc4sap/config.json found
+Plugin Health       [PASS]  v0.2.2 (cache matches marketplace)
+MCP Server          [PASS]  plugin:sc4sap:sap responding, bridge preflight OK
+SAP Connection      [PASS]  SID=S4H · Client=100 · User=PAEK
+Required Objects    [WARN]  9a: 3/3 · 9b: 7/7 (ZCL_S4SAP_CM_ALV inactive)
+Configuration       [PASS]
+
+Issues Found: 0 errors, 1 warning
+
+Fix: Activate ZCL_S4SAP_CM_ALV, or re-run /sc4sap:setup wizard step 9b
+```
+
+Second example — connectivity failure gating Layer 4:
+
+```
+SC4SAP Doctor Report
+====================
+Plugin Health       [PASS]  v0.2.2
+MCP Server          [FAIL]  plugin:sc4sap:sap not responding
+SAP Connection      [SKIP]  Cannot test without MCP server
+Required Objects    [SKIP]  SAP connection not ready
+Configuration       [WARN]  No .sc4sap/config.json found
 
 Issues Found: 1 error, 1 warning
 
-Fix: Run /sc4sap:mcp-setup to install and register mcp-abap-adt
+Fix: Run /sc4sap:mcp-setup to install and register plugin:sc4sap:sap
 ```
 </Output_Format>
 
 <Remediation_Routing>
+- Plugin version drift (cache ≠ marketplace) -> run `/reload-plugins`, then restart Claude Code
 - MCP server missing -> `/sc4sap:mcp-setup`
 - SAP connection error -> display connection troubleshooting from `/sc4sap:mcp-setup` Troubleshooting section
+- Missing ZMCP_ADT_UTILS / ZMCP_ADT_DISPATCH / ZMCP_ADT_TEXTPOOL -> re-run `/sc4sap:setup` (wizard step 9a)
+- Missing ZIF_S4SAP_CM / ZCX_S4SAP_EXCP / ZCL_S4SAP_CM_* -> re-run `/sc4sap:setup` (wizard step 9b)
+- Any 9a/9b object inactive -> activate via ADT, or re-run the matching wizard step to reinstall source and activate
 - Missing config -> run `/sc4sap:setup` wizard
 - Authorization errors -> display required authorization objects (S_DEVELOP, S_TRANSPRT)
 - All pass -> "SC4SAP is healthy. System: {SID} Client: {client} User: {user}"
