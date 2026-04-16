@@ -44,6 +44,15 @@ if (selectedModules.length === 0 || selectedModules[0] === 'all') {
 
 console.log(`[spro] Modules: ${selectedModules.join(', ')}`);
 
+// SAP DDIC table name whitelist — uppercase letter start, A-Z / 0-9 / _ only, 2..30 chars.
+// Anything else is refused before reaching GetSqlQuery. Defends against malicious or
+// malformed entries in configs/{MODULE}/spro.md flowing into a raw SQL string.
+const TABLE_NAME_RE = /^[A-Z][A-Z0-9_]{1,29}$/;
+
+function isValidTableName(name) {
+  return typeof name === 'string' && TABLE_NAME_RE.test(name);
+}
+
 // Parse table names from spro.md
 function parseTablesFromSproMd(modulePath) {
   const content = readFileSync(modulePath, 'utf-8');
@@ -66,10 +75,15 @@ function parseTablesFromSproMd(modulePath) {
     const parts = tableCol.split('/').map(p => p.trim());
     for (const part of parts) {
       // Strip V_ prefix for the query — we'll query the base table
-      const tableName = part.startsWith('V_') ? part.slice(2) : part;
+      const raw = part.startsWith('V_') ? part.slice(2) : part;
       // Skip if it looks like a transaction code (2-4 chars, no numbers pattern)
       if (/^[A-Z]{2,4}\d{2}$/.test(part)) continue; // e.g., VN01
-      if (tableName && tableName.length >= 3 && !tables.has(tableName)) {
+      const tableName = raw.toUpperCase();
+      if (!isValidTableName(tableName)) {
+        if (raw) console.warn(`[spro] Rejected invalid table name from ${modulePath}: ${JSON.stringify(raw)}`);
+        break;
+      }
+      if (!tables.has(tableName)) {
         tables.set(tableName, descCol);
       }
       break; // Take only the first valid table
@@ -81,6 +95,10 @@ function parseTablesFromSproMd(modulePath) {
 
 // Query a table via MCP
 async function queryTable(client, tableName) {
+  // Defense-in-depth: re-validate even if parseTablesFromSproMd was bypassed.
+  if (!isValidTableName(tableName)) {
+    return { success: false, error: `invalid table name rejected: ${JSON.stringify(tableName)}` };
+  }
   try {
     const result = await client.callTool({
       name: 'GetSqlQuery',
