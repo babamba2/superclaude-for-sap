@@ -109,6 +109,36 @@ if (mpVer && mpVer !== cacheVer) {
   console.error('');
 }
 
+// --- 2b. Vendor module-type sentinel --------------------------------------
+// The vendor launcher at dist/server/launcher.js is CommonJS. If vendor's own
+// package.json is missing from the cache (Claude Code's plugin-pack step can
+// strip files not listed in package.json → "files"), Node walks up the tree,
+// finds the plugin-root package.json with "type": "module", and loads the
+// launcher as ESM — crashing with `ReferenceError: exports is not defined`.
+// Drop a minimal sentinel to override module type for the vendor subtree.
+(function ensureVendorPackageJson() {
+  const vendorPkg = path.join(VENDOR_DIR, 'package.json');
+  if (fs.existsSync(vendorPkg)) return;
+  if (!fs.existsSync(VENDOR_DIR)) return; // launcher preflight will handle
+  try {
+    fs.writeFileSync(
+      vendorPkg,
+      JSON.stringify(
+        {
+          type: 'commonjs',
+          _comment:
+            'sc4sap sentinel — overrides parent plugin-root "type": "module" so the CommonJS vendor launcher at dist/server/launcher.js loads correctly under Node 20+. Auto-written by bridge/mcp-server.cjs when the cache is missing vendor/abap-mcp-adt/package.json.',
+        },
+        null,
+        2,
+      ) + '\n',
+    );
+    console.error('[sc4sap] vendor package.json was missing — wrote CommonJS sentinel to ' + vendorPkg);
+  } catch (e) {
+    console.error(`[sc4sap] Could not write vendor sentinel package.json: ${e.message}`);
+  }
+})();
+
 // --- 3. Vendor launcher preflight -----------------------------------------
 
 function attemptAutoBuild() {

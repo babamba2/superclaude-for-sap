@@ -9,7 +9,7 @@
  */
 
 import { execSync } from 'child_process';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -37,6 +37,29 @@ function checkInstallation() {
   return true;
 }
 
+// The plugin-root package.json has "type": "module" because several
+// bridge/script files are ESM. The vendor launcher is CommonJS — if vendor's
+// own package.json is missing (plugin-pack step can strip files), Node
+// inherits "type": "module" and crashes. Write a minimal sentinel to pin
+// the vendor subtree to CommonJS.
+function ensureVendorPackageJson() {
+  const vendorPkg = resolve(VENDOR_DIR, 'package.json');
+  if (existsSync(vendorPkg)) return;
+  writeFileSync(
+    vendorPkg,
+    JSON.stringify(
+      {
+        type: 'commonjs',
+        _comment:
+          'sc4sap sentinel — overrides parent plugin-root "type": "module" so the CommonJS vendor launcher at dist/server/launcher.js loads correctly under Node 20+.',
+      },
+      null,
+      2,
+    ) + '\n',
+  );
+  console.log('[sc4sap] Wrote vendor/abap-mcp-adt/package.json CommonJS sentinel.');
+}
+
 async function main() {
   if (isCheck) {
     const ok = checkInstallation();
@@ -52,6 +75,7 @@ async function main() {
     run('git pull --ff-only', VENDOR_DIR);
     run('npm install', VENDOR_DIR);
     run('npm run build', VENDOR_DIR);
+    ensureVendorPackageJson();
     console.log('[sc4sap] Update complete.');
     return;
   }
@@ -80,6 +104,7 @@ async function main() {
     process.exit(1);
   }
 
+  ensureVendorPackageJson();
   console.log('[sc4sap] abap-mcp-adt installed successfully.');
 }
 
