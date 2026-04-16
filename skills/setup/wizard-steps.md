@@ -69,6 +69,7 @@ Referenced by `SKILL.md` — this file holds the full 12-step setup wizard.
    - `ABAP_RELEASE` (e.g., `750`, `756`, `758`) — from step 2; consumed by agents to gate ABAP syntax features
    - `SAP_INDUSTRY` (e.g., `retail`, `cosmetics`, `automotive`, `other`) — from step 2; consumed by consultant agents to load `industry/<key>.md` for business-context analysis
    - `TLS_REJECT_UNAUTHORIZED=0` (dev only, self-signed certs) — omit or unset in production
+   - `SC4SAP_MCP_AUTOBUILD=1` — auto-rebuild vendor MCP server when missing after a plugin version upgrade. Default `1` so users don't have to re-run `/sc4sap:setup mcp` after every version bump. Set to `0` to disable auto-build and require manual install.
    - **Blocklist policy (optional, defaults to `standard`)** — this is the **MCP server-side guard (L4)** in `abap-mcp-adt-powerup`, read from env vars in `sap.env`. It is distinct from the **PreToolUse hook (L3)** configured in Step 12. Write these as commented examples so the user can uncomment as needed:
      ```
      # Blocklist profile: minimal | standard | strict | off

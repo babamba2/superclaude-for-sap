@@ -14,6 +14,12 @@
  *   3. Vendor launcher existence
  *      - Missing + SC4SAP_MCP_AUTOBUILD=1 → run build script then retry
  *      - Missing + no opt-in            → exit(1) with remediation steps
+ *   4. Vendor node_modules self-heal
+ *      - Launcher present but production deps missing (Claude Code's plugin
+ *        install sometimes drops node_modules entries) → run
+ *        `npm install --omit=dev` inside vendor/abap-mcp-adt automatically.
+ *        Safe and idempotent; no opt-in required so first-time users connect
+ *        without manual setup.
  *
  * The external server is installed via `/sc4sap:setup` or
  * `node scripts/build-mcp-server.mjs`.
@@ -70,6 +76,16 @@ const ENV_FILE = fs.existsSync(CWD_ENV) ? CWD_ENV : PLUGIN_ENV;
 
 if (fs.existsSync(ENV_FILE)) {
   process.env.MCP_ENV_PATH = ENV_FILE;
+  // Pull SC4SAP_MCP_AUTOBUILD from sap.env so users can toggle it there.
+  // sap.env takes precedence over .mcp.json-injected process.env.
+  try {
+    const envText = fs.readFileSync(ENV_FILE, 'utf8');
+    const m = envText.match(/^\s*SC4SAP_MCP_AUTOBUILD\s*=\s*(.+?)\s*$/m);
+    if (m) {
+      const v = m[1].replace(/^["']|["']$/g, '').trim();
+      process.env.SC4SAP_MCP_AUTOBUILD = v;
+    }
+  } catch { /* ignore parse errors; fall back to process.env */ }
 } else {
   console.error('[sc4sap] Config not found. Looked in:');
   console.error(`  - ${CWD_ENV}`);
@@ -132,6 +148,139 @@ if (!fs.existsSync(LAUNCHER)) {
   }
 }
 
-// --- 4. Launch vendor MCP server ------------------------------------------
+// --- 4. Vendor node_modules self-heal -------------------------------------
+
+/**
+ * Verify that vendor's production deps are physically present in node_modules.
+ * Uses directory existence rather than require.resolve because modern packages
+ * with `exports` maps may not expose a default entry resolvable from outside.
+ * Returns the first missing package name, or null if all present.
+ */
+function findMissingDep() {
+  const pkgPath = path.join(VENDOR_DIR, 'package.json');
+  const pkg = readJsonSafe(pkgPath);
+  if (!pkg || !pkg.dependencies) return null;
+  const nm = path.join(VENDOR_DIR, 'node_modules');
+  for (const dep of Object.keys(pkg.dependencies)) {
+    if (!fs.existsSync(path.join(nm, ...dep.split('/')))) return dep;
+  }
+  return null;
+}
+
+/**
+ * Locate the marketplace vendor dir that mirrors this cache vendor.
+ * Returns absolute path to .../marketplaces/<plugin>/vendor/abap-mcp-adt or null.
+ */
+function findMarketplaceVendorDir() {
+  const parts = PLUGIN_ROOT.split(path.sep);
+  for (let i = parts.length - 1; i > 0; i--) {
+    if (parts[i] === 'cache' && parts[i - 1] === 'plugins') {
+      const pluginName = parts[i + 1];
+      if (!pluginName) return null;
+      const rootSegments = parts.slice(0, i);
+      const mp = path.join(
+        rootSegments.join(path.sep),
+        'marketplaces',
+        pluginName,
+        'vendor',
+        'abap-mcp-adt',
+      );
+      return fs.existsSync(mp) ? mp : null;
+    }
+  }
+  return null;
+}
+
+function copyDirSync(src, dest) {
+  fs.mkdirSync(dest, { recursive: true });
+  for (const entry of fs.readdirSync(src, { withFileTypes: true })) {
+    const s = path.join(src, entry.name);
+    const d = path.join(dest, entry.name);
+    if (entry.isSymbolicLink()) {
+      const target = fs.readlinkSync(s);
+      try { fs.symlinkSync(target, d); } catch { /* ignore */ }
+    } else if (entry.isDirectory()) {
+      copyDirSync(s, d);
+    } else {
+      fs.copyFileSync(s, d);
+    }
+  }
+}
+
+function listAllMissingDeps() {
+  const pkg = readJsonSafe(path.join(VENDOR_DIR, 'package.json'));
+  if (!pkg || !pkg.dependencies) return [];
+  const nm = path.join(VENDOR_DIR, 'node_modules');
+  return Object.keys(pkg.dependencies).filter(
+    (d) => !fs.existsSync(path.join(nm, ...d.split('/'))),
+  );
+}
+
+function attemptDepInstall(initialMissing) {
+  console.error('');
+  console.error(`[sc4sap] Vendor dependency missing: ${initialMissing}`);
+  console.error(`[sc4sap] Self-healing vendor in ${VENDOR_DIR}`);
+  console.error('  (one-time install, ~30-60s — please wait)');
+
+  // Pass 1: lockfile-based install (cheap, fixes most cases).
+  try {
+    cp.execSync('npm install --omit=dev --ignore-scripts --no-audit --no-fund', {
+      cwd: VENDOR_DIR,
+      stdio: 'inherit',
+    });
+  } catch (e) {
+    console.error(`[sc4sap] Pass 1 (npm install) failed: ${e.message}`);
+  }
+
+  // Pass 2: leftovers from npm-cache/lockfile drift → copy from marketplace
+  // vendor if available (it has the full node_modules tree).
+  let missing = listAllMissingDeps();
+  if (missing.length > 0) {
+    const mpVendor = findMarketplaceVendorDir();
+    if (mpVendor) {
+      console.error(`[sc4sap] Pass 2 — copying ${missing.length} dep(s) from marketplace vendor`);
+      const mpNm = path.join(mpVendor, 'node_modules');
+      const cacheNm = path.join(VENDOR_DIR, 'node_modules');
+      for (const dep of missing) {
+        const src = path.join(mpNm, ...dep.split('/'));
+        const dest = path.join(cacheNm, ...dep.split('/'));
+        if (fs.existsSync(src)) {
+          try {
+            copyDirSync(src, dest);
+            console.error(`  ✓ ${dep}`);
+          } catch (e) {
+            console.error(`  ✗ ${dep}: ${e.message}`);
+          }
+        } else {
+          console.error(`  ✗ ${dep}: not in marketplace vendor either`);
+        }
+      }
+    } else {
+      console.error('[sc4sap] Pass 2 skipped — marketplace vendor not found.');
+    }
+  }
+
+  missing = listAllMissingDeps();
+  if (missing.length > 0) {
+    console.error(`[sc4sap] Self-heal incomplete — still missing: ${missing.join(', ')}`);
+    return false;
+  }
+  console.error('[sc4sap] Vendor dependencies installed. Starting MCP server...');
+  console.error('');
+  return true;
+}
+
+const missingDep = findMissingDep();
+if (missingDep) {
+  if (!attemptDepInstall(missingDep)) {
+    console.error('');
+    console.error('[sc4sap] Manual recovery:');
+    console.error(`  cd "${VENDOR_DIR}"`);
+    console.error('  npm install --omit=dev');
+    process.exit(1);
+  }
+}
+
+// --- 5. Launch vendor MCP server ------------------------------------------
 
 require(LAUNCHER);
