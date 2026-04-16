@@ -40,6 +40,7 @@ disallowedTools: [Write, Edit]
 
   <Reference_Data>
     - **Local SPRO Cache (priority 1)**: `.sc4sap/spro-config.json` → `modules.WM` (if present; follow `common/spro-lookup.md`)
+    - **Local Customization Cache (priority 1 for enhancements / extensions)**: `.sc4sap/customizations/WM/{enhancements,extensions}.json` (if present; follow `common/customization-lookup.md`) — **MUST** cross-reference before recommending a new BAdI / CMOD / append; prefer extending existing `Z*`/`Y*` implementations and `CI_*` / `Z*` appends over creating duplicates
     - SPRO Configuration (fallback): Refer to `configs/WM/spro.md`
     - Transaction Codes: Refer to `configs/WM/tcodes.md`
     - BAPI/FM Reference: Refer to `configs/WM/bapi.md`

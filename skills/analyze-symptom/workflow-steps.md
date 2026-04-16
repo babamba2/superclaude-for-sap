@@ -32,6 +32,17 @@ Route by available clues and collect evidence before any user question:
    - `GetEnhancementImpl` / `GetEnhancementSpot` → implementation details
    - For any Z* implementation, check recent changes via `GetObjectInfo`
 
+4b. **Z\*/Y\* object or customized SAP include appears in the trace** (MANDATORY reverse lookup before hypothesizing)
+   - Identify the module from the program/include prefix (e.g., `MV45AF*` = SD, `LMIGO*` = MM, `RFFO*` = FI, `ZCL_SD_*` = SD CBO)
+   - Read `.sc4sap/customizations/<MODULE>/enhancements.json`:
+     - If the failing class matches a `badiImplementations[].implClass` → report it as a known BAdI impl against `standardName` and carry the `standardName` into the hypothesis (the root cause can then be explained against the standard BAdI contract)
+     - If the failing include matches a `formBasedExits[].include` → surface `lineCount` and `lastChangedBy` so heavy customization is visible as a likely customer-side cause
+     - If the failing CMOD project matches `cmodProjects[].project` → carry the project + `standardName` into the hypothesis
+   - Read `.sc4sap/customizations/<MODULE>/extensions.json`:
+     - If the failing field starts with `ZZ*`/`YY*` on a standard table → match against `appendStructures[]` and report the append owner + field metadata
+   - If the cache is absent, tell the user: "No customization inventory for `<MODULE>`. Run `/sc4sap:setup customizations` to enable reverse lookup — continuing without it." Do not block the current investigation.
+   - Follow `common/customization-lookup.md`.
+
 5. **Performance suspected** (TIME_OUT, slowness reports)
    - For reproducible programs: `RuntimeRunProgramWithProfiling` → `RuntimeAnalyzeProfilerTrace`
    - Identify bottleneck (DB access / loop / memory)

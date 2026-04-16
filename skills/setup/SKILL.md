@@ -15,16 +15,18 @@ Use `/sc4sap:setup` as the unified setup and configuration entrypoint for SuperC
 /sc4sap:setup doctor           # diagnose installation and SAP connection
 /sc4sap:setup mcp              # configure abap-mcp-adt-powerup MCP server
 /sc4sap:setup spro             # auto-generate SPRO config from S/4HANA system
+/sc4sap:setup customizations   # extract customer Z*/Y* enhancements + extensions
 ```
 
 ## Routing
 
 Process the request by the **first argument only**:
 
-- No argument, `wizard`, or `--force` → run the full setup wizard. **Read `wizard-steps.md`** (in this skill folder) and execute the 12 steps defined there in order.
+- No argument, `wizard`, or `--force` → run the full setup wizard. **Read `wizard-steps.md`** (in this skill folder) and execute the 13 steps defined there in order.
 - `doctor` → route to `/sc4sap:sap-doctor` with remaining args
 - `mcp` → route to `/sc4sap:mcp-setup` with remaining args
 - `spro` → run SPRO config auto-generation. **Read `spro-auto-generation.md`** (in this skill folder) and follow its 3 steps.
+- `customizations` (also accepts `cust` / `enhancements`) → run customer enhancement + extension extraction. **Read `customization-auto-generation.md`** (in this skill folder) and follow its 3 steps.
 
 ## Interaction Style (MANDATORY)
 
@@ -42,8 +44,15 @@ Process the request by the **first argument only**:
 
 ## Companion files (MUST read when relevant)
 
-- `wizard-steps.md` — the 12-step setup wizard. Read before running the full wizard.
-- `spro-auto-generation.md` — SPRO extraction workflow. Read when the first arg is `spro`.
+- `wizard-steps.md` — the 13-step setup wizard **index**. Read before running the full wizard. Heavy steps are split out (see below).
+- `wizard-step-02-system-identification.md` — Step 2 detail (SAP version, ABAP release, Industry). Read when asking the Step 2 sub-questions.
+- `wizard-step-09-abap-objects.md` — Step 9 detail (9a `ZMCP_ADT_UTILS` FMs, 9b ALV OOP handlers, 9c OData-conditional classes). Read before executing Step 9.
+- `wizard-step-11-optional-extraction.md` — Step 11 (SPRO prompt) + 11b (Customization prompt). Read when reaching those optional prompts.
+- `wizard-step-12-blocklist-hook.md` — Step 12 L3 PreToolUse hook install. Read before asking for the blocklist profile.
+- `spro-auto-generation.md` — SPRO extraction workflow. Read when the first arg is `spro` or when Step 11 proceeds.
+- `customization-auto-generation.md` — customer Z*/Y* enhancement + extension extraction. Read when the first arg is `customizations` (also `cust` / `enhancements`) or when running wizard step 11b.
+- `rfc-backend-selection.md` — Step 4bis RFC backend selection (soap/native/gateway/odata).
+- `odata-classes-install.md` — Step 9c OData backend classes install.
 - `hud-statusline.md` — HUD status line spec (displayed segments, env vars, performance, overrides).
 
 ## HUD Status Line

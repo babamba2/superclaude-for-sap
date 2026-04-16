@@ -21,6 +21,7 @@ SuperClaude for SAP transforms Claude Code into a full-stack SAP development ass
 | **🏗️ Formatted Auto Program Maker** | Builds ABAP programs end-to-end following sc4sap conventions: Main + conditional Includes (t/s/c/a/o/i/e/f/_tst), OOP or Procedural split (`LCL_DATA` / `LCL_ALV` / `LCL_EVENT`), full ALV (CL_GUI_ALV_GRID + Docking) or SALV, mandatory Text Elements & CONSTANTS, Dynpro + GUI Status, ABAP Unit tests — all platform-aware (ECC / S4 On-Prem / Cloud). | `/sc4sap:create-program`, `/sc4sap:autopilot` |
 | **🔍 Program Analyze** | Reverse-direction intelligence: read any ABAP object via MCP, run Clean ABAP / performance / security review, or reverse-engineer a program into a Functional / Technical Spec (Markdown or Excel) with Socratic scope narrowing. | `/sc4sap:analyze-code`, `/sc4sap:program-to-spec` |
 | **🩺 Maintenance Diagnosis** | Operational triage loop: inspect ST22 dumps, SAT-style profiler traces, logs, and where-used graphs directly from Claude; narrow hypotheses, surface SAP Note candidates, and diagnose plugin / MCP / SAP connectivity health. | `/sc4sap:analyze-symptom`, `/sc4sap:sap-doctor` |
+| **♻️ CBO Reuse (Brownfield Accelerator)** | Inventory a Customer Business Object (Z) package once — catalogue frequently-used Z tables / FMs / data elements / classes / structures / table types and persist to `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`. `create-program` / `program-to-spec` load the inventory at plan time and **prefer reusing existing CBO assets over creating duplicates** — essential for brownfield systems with hundreds of legacy Z-objects. | `/sc4sap:analyze-cbo-obj` → `/sc4sap:create-program` |
 | **🏭 Industry Context** | 14 industry reference files (`industry/*.md`) — retail, fashion, cosmetics, tire, automotive, pharmaceutical, food-beverage, chemical, electronics, construction, steel, utilities, banking, public-sector. Consultants load the project's industry file to apply business-specific patterns, pitfalls, and SAP IS mappings when doing config analysis, Fit-Gap, or master-data decisions. | All consultants |
 | **🌏 Country / Localization** | 15 per-country files + `eu-common.md` (KR, JP, CN, US, DE, GB, FR, IT, ES, NL, BR, MX, IN, AU, SG, EU common). Covers date/number formats, VAT/GST structure, mandatory e-invoicing (SDI / SII / MTD / CFDI / NF-e / 세금계산서 / Golden Tax / IRN / Peppol / STP), banking formats (IBAN / BSB / CLABE / SPEI / PIX / UPI / SEPA / Zengin …), payroll localization, statutory reporting cadence. Mandatory for analyst / critic / planner; wired into every consultant. | All consultants + analyst / critic / planner |
 | **🤝 Module Consultation** | `sap-analyst`, `sap-critic`, `sap-planner`, and `sap-architect` emit a `## Module Consultation Needed` block whenever the question depends on module-specific business judgement (pricing, copy control, MRP, batch, payroll…) → delegates to `sap-{module}-consultant`. System-level issues → `sap-bc-consultant`. Never invents from general SAP knowledge. | analyst / critic / planner / architect |
@@ -82,10 +83,11 @@ Then point Claude Code at the local plugin directory via `/plugin marketplace ad
 ### Subcommands
 
 ```bash
-/sc4sap:setup              # full wizard (default)
-/sc4sap:setup doctor       # route to /sc4sap:sap-doctor
-/sc4sap:setup mcp          # route to /sc4sap:mcp-setup
-/sc4sap:setup spro         # SPRO config auto-extraction only
+/sc4sap:setup                # full wizard (default)
+/sc4sap:setup doctor         # route to /sc4sap:sap-doctor
+/sc4sap:setup mcp            # route to /sc4sap:mcp-setup
+/sc4sap:setup spro           # SPRO config auto-extraction only
+/sc4sap:setup customizations # Z*/Y* enhancement + extension inventory only
 ```
 
 ### Wizard Steps
@@ -105,6 +107,7 @@ The wizard asks **one question at a time** — never dumps the whole questionnai
 | 9 | **Create `ZMCP_ADT_UTILS`** | Required utility function group (package `$TMP`, local-only). Creates `ZMCP_ADT_DISPATCH` (Screen / GUI Status dispatcher) and `ZMCP_ADT_TEXTPOOL` (Text Pool R/W), both **RFC-enabled** and activated. Skipped if the FG already exists |
 | 10 | **Write `config.json`** | Plugin-side config with `sapVersion` + `abapRelease` (synced with `sap.env`) |
 | 11 | **SPRO extraction (optional)** | Prompt `y/N` — initial extraction is token-heavy but the resulting `.sc4sap/spro-config.json` cache dramatically reduces future token usage. Skipping is fine; static `configs/{MODULE}/*.md` references still work. Runs module-parallel via `scripts/extract-spro.mjs` |
+| 11b | **🆕 Customization inventory (optional)** | Prompt `y/N` — parse each module's `configs/{MODULE}/enhancements.md`, then query live SAP to find which standard exits the customer has actually implemented with `Z*`/`Y*` objects. Writes `.sc4sap/customizations/{MODULE}/{enhancements,extensions}.json`. Hard persistence rules: BAdI only if a Z impl exists; SMOD only if a Z CMOD project includes it; Append Structures + Custom Fields go to a separate `extensions.json`. Consumed by `/sc4sap:create-program` (reuse-first) and `/sc4sap:analyze-symptom` (standard-exit origin lookup). Runs module-parallel via `scripts/extract-customizations.mjs` |
 | 12 | **🔒 Blocklist hook (MANDATORY)** | **(a)** Pick profile — `strict` (default, everything) / `standard` (PII + credentials + HR + transactional finance) / `minimal` (PII + credentials + HR + Tax only) / `custom` (user list in `.sc4sap/blocklist-custom.txt`). **(b)** Install via `node scripts/install-hooks.mjs` (user-level) or `--project` (project-level). **(c)** Smoke-test with a BNKA payload, expect `permissionDecision: deny`. **(d)** Print final hook entry + extend / custom file status. Setup does not complete unless this succeeds |
 
 > **Two blocklist layers, configured separately**
@@ -389,7 +392,7 @@ The Screen / GUI Status / Text Element operations dispatch through RFC-enabled f
 | `soap` (default) | HTTPS `/sap/bc/soap/rfc` | Most setups — works out of the box if ICF node is active |
 | `native` | Direct RFC via `node-rfc` + NW RFC SDK | Power users, lowest latency, requires SDK on each laptop |
 | `gateway` | HTTPS to a sc4sap-rfc-gateway middleware | Teams of 10+ developers, centralised deployment |
-| `odata` | HTTPS OData v2 service `ZMCP_ADT_SRV` | When company blocks `/sap/bc/soap/rfc` but allows OData Gateway — requires one-time Basis registration. See [`docs/odata-backend.md`](docs/odata-backend.md) |
+| 🆕 `odata` | HTTPS OData v2 service `ZMCP_ADT_SRV` | **NEW in v0.2.4** — when the company blocks `/sap/bc/soap/rfc` but allows the OData Gateway. Requires one-time Basis registration of the `ZMCP_ADT_SRV` service. See [`docs/odata-backend.md`](docs/odata-backend.md) for the end-to-end registration + client switch guide |
 
 Switch backends any time with `/sc4sap:sap-option`, reconnect MCP, verify with `/sc4sap:sap-doctor`.
 

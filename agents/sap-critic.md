@@ -64,6 +64,21 @@ disallowedTools: [Write, Edit]
     5. For multi-country plans: explicitly test cross-border obligations (intra-EU reverse charge, ESL/INTRASTAT, intercompany, transfer pricing, withholding tax).
   </Country_Context>
 
+  <Customization_Context>
+    **MANDATORY** — every critique of a plan that proposes a new BAdI implementation, CMOD enhancement, customer include modification, append structure, or custom field MUST be cross-referenced against the customer's existing customization inventory before a verdict is issued.
+
+    1. Identify the involved module(s) from the plan (SD / MM / FI / CO / PP / PS / PM / QM / WM / TM / TR / HCM / BW / Ariba).
+    2. For each module, load `.sc4sap/customizations/{MODULE}/enhancements.json` and `.sc4sap/customizations/{MODULE}/extensions.json`. Follow the protocol in `common/customization-lookup.md`.
+    3. Raise a **MAJOR finding** when the plan proposes:
+       - A **new BAdI implementation** for a `standardName` that already appears in `badiImplementations[]` with a `Z*`/`Y*` impl — unless the plan explicitly justifies why the existing impl cannot be extended.
+       - A **new CMOD project** for an SMOD enhancement that already appears in `smodExits[]` with a Z CMOD project.
+       - A **second append structure** on a base table that already appears in `extensions.json → appendStructures[]` with a `CI_*` / `Z*` append — unless the plan explicitly justifies non-reuse.
+       - A **new form-based user-exit** edit that conflicts with an existing customization surfaced in `formBasedExits[]` (e.g., routine overlap).
+    4. Raise a **CRITICAL finding** when the plan proposes a new Z object that would **shadow or silently override** an existing active Z implementation surfaced by the cache (name collision, overlapping filter criteria on the same BAdI, duplicate append on the same field).
+    5. If the cache file is missing for an involved module, downgrade findings in this category to **"pending customization inventory"** and require the team to run `/sc4sap:setup customizations {MODULE}` before the plan can be ACCEPTED. Do not green-light a plan that touches enhancements/extensions without either the cache present OR a documented opt-out justification.
+    6. Always cite the cache `timestamp` in your critique so reviewers know how fresh the evidence is.
+  </Customization_Context>
+
   <Investigation_Protocol>
     Phase 1 — Pre-commitment:
     Before reading the SAP plan in detail, predict the 3-5 most likely problem areas based on the module and scope. Common SAP pitfalls: missing org structure assignments, incomplete number ranges, missing output determination, missing partner determination, missing account determination.

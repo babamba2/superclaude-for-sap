@@ -1,6 +1,6 @@
 {
   "name": "sc4sap",
-  "version": "0.2.4",
+  "version": "0.3.0",
   "description": "Claude Code plugin for SAP ABAP development — 25 specialized agents, 18 skills (incl. /sc4sap:analyze-cbo-obj), 4 RFC backends (soap/native/gateway/odata), SPRO config for 14 modules.",
   "author": {
     "name": "paek seunghyun"

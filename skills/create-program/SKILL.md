@@ -84,6 +84,27 @@ Reuse gating rule (applied by `sap-planner` and `sap-writer`):
 - If an inventory entry matches the spec's semantic need (same role + matching FK pattern + purpose overlap), **default to reuse**. Only propose a new Z-object when the consultant or user explicitly rejects the candidate, with the rejection reason logged in `plan.md`.
 </CBO_Inventory_Lookup>
 
+<Customization_Inventory_Lookup>
+**Runs immediately after `<CBO_Inventory_Lookup>` and uses the same resolved `<MODULE>`.** Loads the per-module enhancement + extension cache so the planner/writer prefer extending existing customer assets over creating new ones — critical for BAPI extension / BAdI impl / append-structure scenarios.
+
+Steps:
+1. For the resolved `<MODULE>`, check whether `.sc4sap/customizations/<MODULE>/enhancements.json` **and/or** `.sc4sap/customizations/<MODULE>/extensions.json` exist.
+   - **Exists** → Read both files. Treat every `badiImplementations[]` entry, `cmodProjects[]` entry, `formBasedExits[]` entry, and `appendStructures[]` entry as a **reuse candidate**.
+   - **Does not exist** → Print one line to the user:
+     > "No customization inventory at `.sc4sap/customizations/<MODULE>/`. Run `/sc4sap:setup customizations` to scan this module's Z*/Y* enhancements first, or type `skip` to proceed without customization reuse analysis."
+     If the user chooses to skip, record `customization_inventory: "skipped"` in `.sc4sap/program/{PROG}/platform.md` and continue.
+2. Persist the loaded inventory to `.sc4sap/program/{PROG}/customization-context.md`. One bullet per entry:
+   - BAdI impl: `• BAdI {standardName} → existing impl {Z*_CLASS} (impl name: {impl_name}) — reuse target for any new hook into this BAdI`
+   - CMOD project: `• SMOD {standardName} → existing CMOD project {Z_PROJECT} — add new components here instead of creating a second project`
+   - Form-based exit: `• Include {ZXVEDU01|MV45AFZZ|...} ({lineCount} lines) — already customized; read existing logic before adding new FORMs`
+   - Append: `• Table {VBAK|EKKO|...} → existing append {CI_VBAK_ZZ|Z_APPEND_VBAK} fields: [{ZZ_FIELD1}, {ZZ_FIELD2}] — extend this append, do not create a second one`
+3. Follow `common/customization-lookup.md` for the full resolution protocol and "prefer reuse" ✅/❌ examples.
+
+Reuse gating rule (applied by `sap-planner` and `sap-writer`):
+- If the request is to add a BAdI implementation / CMOD component / append field and the cache already lists a `Z*`/`Y*` asset for the same `standardName` or base table, **default to extending the existing asset**. Creating a second parallel Z impl, a second CMOD project for the same SMOD, or a second append on the same standard table is a **MAJOR finding** in Phase 6 review and will block the spec.
+- Rejection requires a written justification in `plan.md` (e.g., "existing ZCL_SD_ORDER_IMPL is used by another business flow and merging would break it").
+</Customization_Inventory_Lookup>
+
 <Interview_Gating>
 **MANDATORY — never skip, never shortcut.** This gate MUST execute on every `sc4sap:create-program` invocation after Phase 0 (Preflight) and before any planner/writer/executor delegation. Skipping even a single dimension, accepting a user's "just build it" to bypass questioning, or inferring answers from context is a protocol violation. If the user pushes to skip, answer: *"The interview is mandatory — I will ask one question at a time until ambiguity ≤ 5%."*
 
@@ -146,6 +167,8 @@ Do not inline or paraphrase phase logic here — update `agent-pipeline.md` inst
 <State_Files>
 - `.sc4sap/program/{PROG}/platform.md` — preflight output
 - `.sc4sap/program/{PROG}/interview.md` — Socratic Q&A log
+- `.sc4sap/program/{PROG}/cbo-context.md` — CBO reuse candidates (written by `<CBO_Inventory_Lookup>`)
+- `.sc4sap/program/{PROG}/customization-context.md` — Z*/Y* BAdI impl / CMOD / form-exit / append reuse candidates (written by `<Customization_Inventory_Lookup>`)
 - `.sc4sap/program/{PROG}/plan.md` — planner output
 - `.sc4sap/program/{PROG}/spec.md` — writer output (requires user confirm)
 - `.sc4sap/program/{PROG}/state.json` — object creation status

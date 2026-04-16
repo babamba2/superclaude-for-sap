@@ -15,6 +15,7 @@ This file is the **index** of development rules. Detailed rules live in `common/
 | Include structure (Main + conditional includes) | [`common/include-structure.md`](common/include-structure.md) |
 | ALV display rules | [`common/alv-rules.md`](common/alv-rules.md) |
 | SPRO lookup protocol (consultant agents, IMG/Customizing) | [`common/spro-lookup.md`](common/spro-lookup.md) |
+| Customization lookup protocol (existing Z*/Y* BAdI impl, CMOD, form-exits, appends — mandatory before recommending new enhancements/extensions) | [`common/customization-lookup.md`](common/customization-lookup.md) |
 | Data extraction policy (blocklist rule, `acknowledge_risk` hard rule, refusal template) | [`common/data-extraction-policy.md`](common/data-extraction-policy.md) |
 | Blocklist (per-category table lists) | [`exceptions/table_exception.md`](exceptions/table_exception.md) (index) + `exceptions/*.md` section files |
 | Industry business-context references (14 industries) | [`industry/README.md`](industry/README.md) + `industry/*.md` |

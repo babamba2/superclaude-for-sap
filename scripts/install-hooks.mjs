@@ -17,7 +17,30 @@ import { fileURLToPath } from 'node:url';
 import { homedir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
-const HOOK_SCRIPT = resolve(__dirname, 'hooks', 'block-forbidden-tables.mjs');
+
+// Resolve the hook script path. Prefer the marketplace path (~/.claude/plugins/
+// marketplaces/sc4sap/...) because it is version-stable — the per-version cache
+// (plugins/cache/sc4sap/sc4sap/<version>/) rotates on every plugin upgrade and
+// leaves behind dead paths in users' settings.json, causing the hook to crash
+// with MODULE_NOT_FOUND and silently fall through ("non-blocking").
+//
+// If this script was invoked from a path that already sits under the marketplace
+// tree, or if the marketplace plugin-root can be located, anchor to that.
+// Otherwise, fall back to the script-relative path (legacy behaviour).
+function resolveHookScript() {
+  const scriptRelative = resolve(__dirname, 'hooks', 'block-forbidden-tables.mjs');
+
+  // Try the well-known marketplace path first.
+  const candidates = [
+    resolve(homedir(), '.claude', 'plugins', 'marketplaces', 'sc4sap', 'scripts', 'hooks', 'block-forbidden-tables.mjs'),
+  ];
+  for (const p of candidates) {
+    if (existsSync(p)) return p;
+  }
+  return scriptRelative;
+}
+
+const HOOK_SCRIPT = resolveHookScript();
 const HOOK_MATCHER = 'mcp__.*__(GetTableContents|GetSqlQuery)';
 const HOOK_MARKER = 'block-forbidden-tables.mjs';
 
