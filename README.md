@@ -1,4 +1,4 @@
-English | [한국어](README.ko.md) | [日本語](README.ja.md)
+English | [한국어](README.ko.md) | [日本語](README.ja.md) | [Deutsch](README.de.md)
 
 # SuperClaude for SAP (sc4sap)
 
@@ -661,6 +661,8 @@ Common uses: rotate `SAP_PASSWORD`, switch `SAP_CLIENT`, change `MCP_BLOCKLIST_P
 ## Acknowledgments
 
 This project was inspired by [**oh-my-claudecode**](https://github.com/huryechan/oh-my-claudecode) by **허예찬 (Hur Ye-chan)**. The multi-agent orchestration patterns, Socratic deep-interview gating, ralph/autopilot pipelines, and the overall plugin philosophy here all trace back to that work. Huge thanks — sc4sap would not exist in this form without it.
+
+The bundled MCP server (`abap-mcp-adt-powerup`) builds on [**mcp-abap-adt**](https://github.com/fr0ster/mcp-abap-adt) by **fr0ster**. That project provided the original ADT-over-MCP foundation — request shaping, endpoint coverage, object I/O — that every sc4sap tool call relies on. It was an enormous help; genuine thanks to fr0ster for the pioneering work.
 
 ## Author
 

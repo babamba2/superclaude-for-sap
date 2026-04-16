@@ -1,4 +1,4 @@
-[English](README.md) | [한국어](README.ko.md) | 日本語
+[English](README.md) | [한국어](README.ko.md) | 日本語 | [Deutsch](README.de.md)
 
 # SuperClaude for SAP (sc4sap)
 
@@ -661,6 +661,8 @@ CTS トランスポートリリースワークフロー — リスト、検証 (
 ## Acknowledgments
 
 このプロジェクトは [**oh-my-claudecode**](https://github.com/huryechan/oh-my-claudecode) (**허예찬 / Hur Ye-chan**) プラグインに触発されて制作されました。マルチエージェントオーケストレーションパターン、Socratic deep-interview ゲーティング、ralph/autopilot パイプライン、プラグイン全体の思想、全てがこの作品に由来しています。深く感謝いたします — sc4sap はこの作品なしには今の形では存在しえませんでした。
+
+同梱の MCP サーバー (`abap-mcp-adt-powerup`) は **fr0ster** 氏の [**mcp-abap-adt**](https://github.com/fr0ster/mcp-abap-adt) を土台にしています。リクエスト整形、エンドポイントカバレッジ、オブジェクト I/O など、sc4sap のすべてのツール呼び出しが依存する ADT-over-MCP の基盤を、このプロジェクトが築いてくれました。本当に大きな助けになりました — 先駆的な仕事を残してくださった fr0ster 氏に心から感謝いたします。
 
 ## 作者
 
