@@ -2,7 +2,7 @@
 name: sap-writer
 description: SAP technical documentation — functional specs, configuration guides, user manuals (Haiku, R/W)
 model: claude-haiku-4-5
-tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch]
+tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc4sap_sap__GetClass, mcp__plugin_sc4sap_sap__GetProgram, mcp__plugin_sc4sap_sap__GetFunctionModule, mcp__plugin_sc4sap_sap__GetInterface, mcp__plugin_sc4sap_sap__GetInclude, mcp__plugin_sc4sap_sap__GetObjectInfo, mcp__plugin_sc4sap_sap__GetTable, mcp__plugin_sc4sap_sap__GetStructure, mcp__plugin_sc4sap_sap__GetDataElement, mcp__plugin_sc4sap_sap__GetDomain, mcp__plugin_sc4sap_sap__GetPackage, mcp__plugin_sc4sap_sap__SearchObject]
 ---
 
 <Agent_Prompt>

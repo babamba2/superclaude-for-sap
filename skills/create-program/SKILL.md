@@ -106,22 +106,12 @@ Reuse gating rule (applied by `sap-planner` and `sap-writer`):
 </Customization_Inventory_Lookup>
 
 <Interview_Gating>
-**MANDATORY — never skip, never shortcut.** This gate MUST execute on every `sc4sap:create-program` invocation after Phase 0 (Preflight) and before any planner/writer/executor delegation. Skipping even a single dimension, accepting a user's "just build it" to bypass questioning, or inferring answers from context is a protocol violation. If the user pushes to skip, answer: *"The interview is mandatory — I will ask one question at a time until ambiguity ≤ 5%."*
+**MANDATORY — never skip, never shortcut, never merge.** Phase 1 runs as **two sequential sub-phases** (1A then 1B) on every `sc4sap:create-program` invocation.
 
-**Ambiguity threshold: ≤ 5%** (stricter than deep-interview's "< 5/10").
+Full procedure — two-stage rule, lead agents, dimension lists, skip rules, gates, output files, and enforcement contracts — lives in **[`interview-gating.md`](interview-gating.md)**. Read that file and follow it literally before asking the first question.
 
-Socratic loop runs until every dimension is resolved:
-1. **Purpose** — Report / CRUD / ALV List / Batch / Interface
-2. **Paradigm** — OOP (two-class) vs Procedural (PERFORM)
-3. **Display mode** — None / SALV popup / Full CL_GUI_ALV_GRID
-4. **Screen/GUI** — required? screen numbers? Docking Container layout?
-5. **Data source** — standard tables / Z-tables / BAPI / CDS view
-6. **Package + Transport** — target package, new or existing transport
-7. **Testing scope** — when OOP is selected, which test class methods to cover
-
-Score ambiguity after each round. Do NOT proceed to spec generation until ≤ 5%. Upon reaching ≤ 5%, **immediately proceed to the `<Spec_Approval_Gate>` below** — spec drafting + user approval is the required next step, not implementation.
-
-**Enforcement**: `.sc4sap/program/{PROG}/interview.md` MUST exist before Phase 2 starts, with one Q&A block per resolved dimension and a final ambiguity score ≤ 5%. The Phase 2 planner MUST refuse to run if this file is missing or incomplete.
+**One-line summary**:
+> Phase 1A `sap-{module}-consultant` interviews business context (purpose / reason / company rules / reference assets / standard-SAP alternatives) → file `module-interview.md`, gate ≤ 5% → Phase 1B `sap-analyst` + `sap-architect` interview technical dimensions (purpose-type / paradigm / display / screen / data / package / test) → file `interview.md`, gate ≤ 5% → proceed to `<Spec_Approval_Gate>`. Phase 1B never starts before 1A closes; Phase 2 planner refuses to run if either file is missing.
 </Interview_Gating>
 
 <Spec_Approval_Gate>
@@ -138,7 +128,8 @@ Full procedure — required steps, enforcement contract, rationale, spec templat
 
 Read that file before dispatching any agent. It is the authoritative source for:
 - Phase 0 — SAP Version Preflight
-- Phase 1 — Socratic Interview (+ module consultant co-host)
+- Phase 1A — Module Interview (`sap-{module}-consultant`, business context)
+- Phase 1B — Program Interview (`sap-analyst` + `sap-architect`, technical dimensions)
 - Phase 2 — Planning (`sap-planner` + consultants, CBO reuse gate, SPRO lookup)
 - Phase 3 — Spec Writing (`sap-writer`)
 - Phase 4 — Implementation (`sap-executor`)
@@ -165,8 +156,9 @@ Do not inline or paraphrase phase logic here — update `agent-pipeline.md` inst
 </MCP_Tools_Used>
 
 <State_Files>
-- `.sc4sap/program/{PROG}/platform.md` — preflight output
-- `.sc4sap/program/{PROG}/interview.md` — Socratic Q&A log
+- `.sc4sap/program/{PROG}/platform.md` — Phase 0 preflight output
+- `.sc4sap/program/{PROG}/module-interview.md` — Phase 1A business interview (consultant-led: purpose / reason / company-specific rules / reference assets / standard-SAP alternatives)
+- `.sc4sap/program/{PROG}/interview.md` — Phase 1B technical interview (analyst+architect-led: 7 dimensions Q&A log)
 - `.sc4sap/program/{PROG}/cbo-context.md` — CBO reuse candidates (written by `<CBO_Inventory_Lookup>`)
 - `.sc4sap/program/{PROG}/customization-context.md` — Z*/Y* BAdI impl / CMOD / form-exit / append reuse candidates (written by `<Customization_Inventory_Lookup>`)
 - `.sc4sap/program/{PROG}/plan.md` — planner output

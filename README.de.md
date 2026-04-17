@@ -20,7 +20,7 @@ SuperClaude for SAP verwandelt Claude Code in einen vollwertigen SAP-Entwicklung
 | **🔌 Automatische MCP-Installation** | `abap-mcp-adt-powerup` wird beim Setup automatisch installiert, konfiguriert und die Verbindung getestet. Keine manuelle MCP-Verdrahtung, kein Editieren der `claude_desktop_config.json` — Zugangsdaten landen in `.sc4sap/sap.env`, und die Hook-/Blocklist-Schichten registrieren sich selbst. | `/sc4sap:setup` |
 | **🏗️ Formatierter Auto-Programm-Maker** | Erstellt ABAP-Programme durchgängig nach sc4sap-Konventionen: Main + konditionale Includes (t/s/c/a/o/i/e/f/_tst), OOP- oder prozeduraler Split (`LCL_DATA` / `LCL_ALV` / `LCL_EVENT`), volles ALV (CL_GUI_ALV_GRID + Docking) oder SALV, verpflichtende Text-Elemente & CONSTANTS, Dynpro + GUI-Status, ABAP-Unit-Tests — alles plattform-aware (ECC / S4 On-Prem / Cloud). | `/sc4sap:create-program`, `/sc4sap:autopilot` |
 | **🔍 Programm-Analyse** | Intelligenz in Gegenrichtung: beliebiges ABAP-Objekt über MCP einlesen, Clean-ABAP-/Performance-/Security-Review laufen lassen oder ein Programm als Fach-/Technische Spezifikation (Markdown oder Excel) mit sokratischem Scope-Narrowing reverse-engineeren. | `/sc4sap:analyze-code`, `/sc4sap:program-to-spec` |
-| **🩺 Wartungsdiagnose** | Operative Triage-Schleife: ST22-Dumps, SAT-ähnliche Profiler-Traces, Logs und Where-Used-Graphen direkt aus Claude inspizieren; Hypothesen eingrenzen, SAP-Note-Kandidaten aufzeigen und Plugin- / MCP- / SAP-Konnektivität diagnostizieren. | `/sc4sap:analyze-symptom`, `/sc4sap:sap-doctor` |
+| **🩺 Wartungsdiagnose** | Operative Triage-Schleife: ST22-Dumps, SM02-Systemmeldungen, /IWFND/ERROR_LOG-Gateway-Errors, SAT-ähnliche Profiler-Traces, Logs und Where-Used-Graphen direkt aus Claude inspizieren; Hypothesen eingrenzen, SAP-Note-Kandidaten aufzeigen und Plugin- / MCP- / SAP-Konnektivität diagnostizieren. | `/sc4sap:analyze-symptom`, `/sc4sap:sap-doctor` |
 | **♻️ CBO-Reuse (Brownfield-Beschleuniger)** | Ein Customer-Business-Object-(Z-)Paket einmal inventarisieren — häufig verwendete Z-Tabellen / FMs / Datenelemente / Klassen / Strukturen / Tabellentypen katalogisieren und nach `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json` persistieren. `create-program` / `program-to-spec` laden das Inventar zur Planungszeit und **bevorzugen die Wiederverwendung bestehender CBO-Assets gegenüber Duplikaten** — essenziell für Brownfield-Systeme mit Hunderten von Legacy-Z-Objekten. | `/sc4sap:analyze-cbo-obj` → `/sc4sap:create-program` |
 | **🏭 Branchenkontext** | 14 Branchen-Referenzdateien (`industry/*.md`) — Retail, Fashion, Cosmetics, Tire, Automotive, Pharmaceutical, Food-Beverage, Chemical, Electronics, Construction, Steel, Utilities, Banking, Public-Sector. Consultants laden die branchenspezifische Datei des Projekts, um bei Konfigurationsanalyse, Fit-Gap oder Stammdatenentscheidungen geschäftsspezifische Muster, Fallstricke und SAP-IS-Mappings anzuwenden. | Alle Consultants |
 | **🌏 Länder / Lokalisierung** | 15 Länderdateien + `eu-common.md` (KR, JP, CN, US, DE, GB, FR, IT, ES, NL, BR, MX, IN, AU, SG, EU-common). Deckt Datums-/Zahlenformate, VAT/GST-Struktur, verpflichtende E-Invoicing (SDI / SII / MTD / CFDI / NF-e / 세금계산서 / Golden Tax / IRN / Peppol / STP), Bankformate (IBAN / BSB / CLABE / SPEI / PIX / UPI / SEPA / Zengin …), Payroll-Lokalisierung und gesetzliche Meldefristen ab. Pflicht für Analyst / Critic / Planner; in jeden Consultant verdrahtet. | Alle Consultants + Analyst / Critic / Planner |
@@ -136,6 +136,7 @@ Der Wizard stellt **immer nur eine Frage auf einmal** — kippt nie den ganzen F
 - `sap-analyst` / `sap-critic` / `sap-planner` → geben `## Module Consultation Needed` aus → `sap-{module}-consultant` (fachliche Semantik) oder `sap-bc-consultant` (systemweit)
 - `sap-architect` → gibt `## Consultation Needed` aus → `sap-bc-consultant` für Basis-Themen (Transportstrategie, Berechtigungen, Performance, Sizing, Systemkopie, Patching) oder `sap-{module}-consultant` für modul-spezifische Design-Fragen
 - `sap-analyst` / `sap-critic` / `sap-planner` haben zusätzlich einen **verpflichtenden Country-Context-Block**, der das Laden von `country/<iso>.md` vor der Ausgabe erzwingt
+- **Direkter MCP-Lesezugriff für Core-Agents** — `sap-analyst`, `sap-architect`, `sap-code-reviewer`, `sap-critic`, `sap-debugger`, `sap-doc-specialist`, `sap-planner`, `sap-qa-tester`, `sap-writer` tragen jetzt Read-only-MCP-Tools (Paket / DDIC / Klasse / Programm / Where-Used / Runtime-Dump) und prüfen SAP-Objekte direkt statt über Hand-off. Schreib-CRUD bleibt bei `sap-executor`, `sap-planner`, `sap-writer`, `sap-qa-tester`, `sap-debugger`.
 
 ### 18 Skills
 
@@ -173,7 +174,7 @@ sc4sap basiert auf **[abap-mcp-adt-powerup](https://github.com/babamba2/abap-mcp
 | **Behavior Definition / Implementation (RAP)** | `Get/Read BehaviorDefinition`, `Get/Read BehaviorImplementation` | `Create*` | `Update*` | `Delete*` | Vollständiger RAP-BDEF-+-BHV-Zyklus |
 | **Service Definition / Binding** | `Get/Read ServiceDefinition`, `Get/Read ServiceBinding`, `ListServiceBindingTypes`, `ValidateServiceBinding` | `Create*` | `Update*` | `Delete*` | OData-V2/V4-Bereitstellung und Validierung |
 | **Enhancements / BAdI** | `GetEnhancements`, `GetEnhancementSpot`, `GetEnhancementImpl` | — | — | — | Auffinden von Erweiterungspunkten |
-| **Runtime & Profiling** | `RuntimeListDumps`, `RuntimeAnalyzeDump`, `RuntimeGetDumpById`, `RuntimeListProfilerTraceFiles`, `RuntimeGetProfilerTraceData`, `RuntimeAnalyzeProfilerTrace`, `RuntimeCreateProfilerTraceParameters`, `RuntimeRunProgramWithProfiling`, `RuntimeRunClassWithProfiling` | — | — | — | ST22-Dump-Analyse + SAT-artiges Profiling komplett aus Claude heraus |
+| **Runtime & Profiling** | `RuntimeListDumps`, `RuntimeAnalyzeDump`, `RuntimeGetDumpById`, `RuntimeListSystemMessages`, `RuntimeGetGatewayErrorLog`, `RuntimeListProfilerTraceFiles`, `RuntimeGetProfilerTraceData`, `RuntimeAnalyzeProfilerTrace`, `RuntimeCreateProfilerTraceParameters`, `RuntimeRunProgramWithProfiling`, `RuntimeRunClassWithProfiling` | — | — | — | ST22-Dump-Analyse + SM02-Systemmeldungen + /IWFND/ERROR_LOG-Gateway-Errors + SAT-artiges Profiling komplett aus Claude heraus |
 | **Semantik / AST** | `GetAbapAST`, `GetAbapSemanticAnalysis`, `GetAbapSystemSymbols`, `GetAdtTypes`, `GetTypeInfo`, `GetWhereUsed` | — | — | — | Reichere Analyse als reine Syntaxprüfung |
 | **Unit-Tests (ABAP + CDS)** | `GetUnitTest`, `GetUnitTestResult`, `GetUnitTestStatus`, `GetCdsUnitTest`, `GetCdsUnitTestResult`, `GetCdsUnitTestStatus` | `CreateUnitTest`, `CreateCdsUnitTest` | `UpdateUnitTest`, `UpdateCdsUnitTest` | `DeleteUnitTest`, `DeleteCdsUnitTest` | ABAP-Unit und CDS-Test-Framework |
 | **Transport** | `GetTransport`, `ListTransports` | `CreateTransport` | — | — | Vollständiger Transport-Lebenszyklus im MCP |
@@ -190,7 +191,7 @@ Insbesondere Dynpro- / GUI-Status- / Text-Element-CRUD ermöglicht es der klassi
 | `common/include-structure.md` | Main-Programm + konditionales Include-Set (t/s/c/a/o/i/e/f/_tst) |
 | `common/oop-pattern.md` | Zwei-Klassen-OOP-Split (`LCL_DATA` + `LCL_ALV` + optional `LCL_EVENT`) |
 | `common/alv-rules.md` | Full ALV (CL_GUI_ALV_GRID + Docking-Container) vs SALV + SALV-Factory-Fieldcatalog-Muster |
-| `common/text-element-rule.md` | Text-Elemente verpflichtend — keine hartcodierten Anzeige-Literale |
+| `common/text-element-rule.md` | Text-Elemente verpflichtend — keine hartcodierten Anzeige-Literale; **Zwei-Pass-Sprachregel** (primäre Anmeldesprache + `'E'`-Sicherheitsnetz werden IMMER gemeinsam angelegt; fehlender Pass = MAJOR-Review-Befund) |
 | `common/constant-rule.md` | `CONSTANTS` verpflichtend für Magic-Literale außerhalb des Fieldcatalogs |
 | `common/procedural-form-naming.md` | `_{screen_no}`-Suffix für ALV-gebundene FORMs |
 | `common/naming-conventions.md` | Gemeinsames Naming für Programme, Includes, LCL_*, Screens, GUI-Status |
@@ -461,7 +462,7 @@ Flaggschiff-Programm-Anlage-Pipeline mit Main + Include-Wrapping, OOP oder proze
 → "Make an ALV report for open sales orders, selection screen by sales org + date range"
 ```
 
-**Ablauf** — SAP-Version-Preflight (`.sc4sap/config.json`) → sokratisches Interview → Planner-Spec → User-Bestätigung → Executor schreibt Main-Programm + konditionale Includes (t/s/c/a/o/i/e/f/_tst) + Screen + GUI-Status + Text-Elemente → qa-tester schreibt ABAP-Unit → code-reviewer-Gate → aktivieren. Verzweigt je Plattform (ECC / S4 On-Prem / Cloud Public verbietet klassisches Dynpro → automatische Umleitung auf `if_oo_adt_classrun` / SALV / RAP).
+**Ablauf** — SAP-Version-Preflight (`.sc4sap/config.json`) → **Phase 1A Modul-Interview** (Modul-Consultant führt — Industry/Country-Preflight, Geschäftszweck / Pain Point / firmenspezifische Regeln / Referenz-Assets, verpflichtender Vorschlag einer Standard-SAP-Alternative; schreibt `module-interview.md`, Gate ≤ 5%) → **Phase 1B Programm-Interview** (`sap-analyst` + `sap-architect` klären 7 technische Dimensionen — Zweck-Typ / Paradigma / Anzeige / Screen / Daten / Paket / Testumfang; schreibt `interview.md`, Gate ≤ 5%) → `sap-planner` konsolidiert beide Dateien → Spec → User-Freigabe → Executor schreibt Main-Programm + konditionale Includes (t/s/c/a/o/i/e/f/_tst) + Screen + GUI-Status + Text-Elemente → qa-tester schreibt ABAP-Unit → code-reviewer-Gate → aktivieren. Phase 1B startet nie vor Abschluss von Phase 1A. Verzweigt je Plattform (ECC / S4 On-Prem / Cloud Public verbietet klassisches Dynpro → automatische Umleitung auf `if_oo_adt_classrun` / SALV / RAP).
 
 > _Screenshot-Platzhalter — Programm-Pipeline mit ALV-Output_
 
@@ -508,7 +509,7 @@ Schrittweise Runtime- / operative Fehleruntersuchung: Dumps, Logs, SAP-Note-Kand
 → "Dump MESSAGE_TYPE_X in ZFI_POSTING at line 234 during F110"
 ```
 
-**Ablauf** — `RuntimeListDumps` / `RuntimeGetDumpById` / `RuntimeAnalyzeDump` → Stacktrace parsen → SAP-Note-Kandidatensuche → Root-Cause-Hypothese → Behebungsoptionen (Config / Code / User-Action).
+**Ablauf** — `RuntimeListDumps` / `RuntimeGetDumpById` / `RuntimeAnalyzeDump` (ST22) — optional ergänzt um `RuntimeListSystemMessages` (SM02 Banner-Meldungen) und `RuntimeGetGatewayErrorLog` (/IWFND/ERROR_LOG) für vollständigen Operations-Kontext — → Stacktrace parsen → SAP-Note-Kandidatensuche → Root-Cause-Hypothese → Behebungsoptionen (Config / Code / User-Action).
 
 > _Screenshot-Platzhalter — Dump-Analyse und Note-Kandidaten_
 

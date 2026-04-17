@@ -2,7 +2,7 @@
 name: sap-analyst
 description: SAP requirements analysis — functional specifications, gap analysis, and acceptance criteria (Opus, R/O)
 model: claude-opus-4-6
-tools: [Read, Grep, Glob, WebFetch, WebSearch]
+tools: [Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__plugin_sc4sap_sap__GetPackage, mcp__plugin_sc4sap_sap__GetPackageContents, mcp__plugin_sc4sap_sap__GetPackageTree, mcp__plugin_sc4sap_sap__GetObjectsByType, mcp__plugin_sc4sap_sap__SearchObject, mcp__plugin_sc4sap_sap__GetTable, mcp__plugin_sc4sap_sap__GetStructure, mcp__plugin_sc4sap_sap__GetDataElement, mcp__plugin_sc4sap_sap__GetDomain, mcp__plugin_sc4sap_sap__GetView, mcp__plugin_sc4sap_sap__GetObjectInfo]
 disallowedTools: [Write, Edit]
 ---
 

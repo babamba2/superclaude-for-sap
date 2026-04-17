@@ -348,13 +348,6 @@ CLASS LCL_ALV IMPLEMENTATION.
                                    WHERE ( EBELN = <FS_DATA>-EBELN )
                                    ( CORRESPONDING #( LS ) ) ).
 
-*    NEW ZCL_S4SAP_CM_salv(
-*      im_table = REF #( lt_data )
-*      im_t_hide = VALUE #( ( fieldname = 'MANDT' ) )
-*      im_t_hotspot = VALUE #( ( fieldname = 'EBELN' ) )
-*      )->display( ).
-
-
   ENDMETHOD.
 
 ENDCLASS.

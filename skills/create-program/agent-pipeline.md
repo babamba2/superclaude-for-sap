@@ -7,19 +7,54 @@ Authoritative pipeline for the `sc4sap:create-program` skill. `SKILL.md` referen
 - Block or redirect incompatible requests (e.g., classical Dynpro on Cloud Public)
 - Output: `.sc4sap/program/{PROG}/platform.md`
 
-## Phase 1 — Socratic Interview (skill itself + module consultant co-host)
-- Dimensions pre-filtered by resolved platform
-- Loop question → ambiguity score → until ≤ 5%
-- **Consultant co-interview (mandatory when the request touches an SAP business module)**:
-  - As soon as the user's initial request reveals the target module (SD / MM / FI / CO / PP / PS / QM / PM / WM / HCM / TM / TR / Ariba / BW / BC), summon the matching consultant agent (`sap-sd-consultant`, `sap-mm-consultant`, `sap-fi-consultant`, `sap-co-consultant`, `sap-pp-consultant`, `sap-ps-consultant`, `sap-qm-consultant`, `sap-pm-consultant`, `sap-wm-consultant`, `sap-hcm-consultant`, `sap-tm-consultant`, `sap-tr-consultant`, `sap-ariba-consultant`, `sap-bw-consultant`, `sap-bc-consultant`) **before the first question**.
-  - The consultant participates in question authoring: it contributes module-specific dimensions (master data, customizing views, standard BAPIs/FMs, authorization objects, common pitfalls) that the generic interview would miss.
-  - Questions are still delivered one dimension per turn (see `feedback_one_question_at_a_time`), but the consultant decides *which* business dimension to probe next when the module is business-heavy.
-  - If the module is ambiguous in the initial request, ask the user which module this concerns **first**, then summon the consultant — do not proceed with generic questions without a consultant present.
-  - Multi-module request: summon each consultant in parallel and reconcile their question streams through the skill.
-  - Skip consultant only for pure technical utilities with zero business logic (e.g., generic string helper, file converter).
-- Consultant contribution is appended to `.sc4sap/program/{PROG}/interview.md` and carried into Phase 2 so `sap-planner` does not re-interview.
+## Phase 1 — Two-stage Socratic Interview
+
+Phase 1 splits into **Phase 1A (Module Interview)** and **Phase 1B (Program Interview)**, run sequentially. Phase 1B never starts before Phase 1A closes. Authoritative dimension list lives in `SKILL.md` → `<Interview_Gating>`.
+
+### Phase 1A — Module Interview (module consultant lead)
+
+- **Lead agent**: `sap-{module}-consultant` (`sap-sd-consultant`, `sap-mm-consultant`, `sap-fi-consultant`, `sap-co-consultant`, `sap-pp-consultant`, `sap-ps-consultant`, `sap-qm-consultant`, `sap-pm-consultant`, `sap-wm-consultant`, `sap-hcm-consultant`, `sap-tm-consultant`, `sap-tr-consultant`, `sap-ariba-consultant`, `sap-bw-consultant`, `sap-bc-consultant`)
+- **Trigger**: As soon as Phase 0 closes. If the target module is unclear from the initial request, the FIRST question is "which module?" — consultant cannot be summoned until resolved. Multi-module: summon each consultant in parallel and reconcile question streams through the skill.
+- **Industry / Country context preflight (MANDATORY — runs before the first business question)**:
+  - Read `.sc4sap/config.json` (`industry`, `country`) and `.sc4sap/sap.env` (`SAP_INDUSTRY`, `SAP_COUNTRY`). Precedence: `config.json` > `sap.env`.
+  - **If `industry` is set** → load `industry/<key>.md` and use it as the consultant's business-context backdrop (do NOT re-ask the user).
+  - **If `country` is set** → load `country/<iso>.md` (ISO alpha-2 lowercase, e.g. `kr`, `us`, `de`, `eu-common`); multi-country: load each file and flag cross-country touchpoints. Do NOT re-ask the user.
+  - **If either value is missing** → asking is **MANDATORY** before dimension 1. Do not infer from the project name, package, or prior interviews. Blocking questions:
+    - Industry missing: *"Which industry does this program belong to? (see `industry/README.md` for the supported keys — e.g. `automotive`, `retail`, `pharma`, …)"*
+    - Country missing: *"Which country / localization applies? (ISO alpha-2 lowercase, e.g. `kr`, `us`, `de`, or `eu-common` for EU-wide; multiple allowed)"*
+  - Offer to persist the answer: *"Save to `.sc4sap/config.json` so future runs skip this question? (yes/no)"*. On `yes`, write the value; on `no`, keep it for this run only.
+  - Record resolved values in `.sc4sap/program/{PROG}/module-interview.md` header (`industry:`, `country:`, `source: config.json | sap.env | user-this-run`).
+- **Question dimensions** (one per turn, owned by consultant):
+  1. Module identification (single / multi)
+  2. Business purpose — what business outcome does this program produce
+  3. Business reason / pain point — current Gap, manual workaround, regulatory driver
+  4. Company-specific business rules — deviations from SAP standard process
+  5. Reference assets — existing CBO packages, prior Z programs, vendor add-ons
+     - When a reference Z program is named: consultant MAY invoke `sc4sap:program-to-spec` at depth **L1 (Overview only)** for that single object. Inline the Purpose / inputs / outputs / 1-paragraph flow into `module-interview.md`. Do NOT generate a full `spec.md` artifact for the reference object.
+  6. **Standard SAP solution screen (mandatory)** — consultant MUST propose at least one standard alternative (Fiori app, standard report/transaction, BAPI flow, CDS analytical query, embedded analytics) BEFORE agreeing to a custom build. Each rejection logged with reason.
+- **Skip rule**: Skip Phase 1A only for pure technical utilities with zero business logic (e.g., generic string helper, file converter). Default behavior is "do not skip".
+- **Gate**: business ambiguity ≤ 5%
+- **Output**: `.sc4sap/program/{PROG}/module-interview.md`
+- **Enforcement**: Phase 1B refuses to start if this file is missing or its ambiguity score > 5%.
+
+### Phase 1B — Program Interview (analyst + architect lead)
+
+- **Pre-condition**: `module-interview.md` exists; business gate passed
+- **Lead agents**: `sap-analyst` (functional decomposition — owns dimensions 1, 5) + `sap-architect` (technical structure — owns dimensions 2, 3, 4, 7); both contribute to dimension 6. Skill itself orchestrates the question stream, one dimension per turn.
+- **Question dimensions** (pre-filtered by resolved platform):
+  1. Purpose-type — Report / CRUD / ALV List / Batch / Interface
+  2. Paradigm — OOP (two-class) vs Procedural (PERFORM)
+  3. Display mode — None / SALV popup / Full CL_GUI_ALV_GRID
+  4. Screen/GUI — required? screen numbers? Docking Container / Splitter / TOP_OF_PAGE layout?
+  5. Data source — standard tables / Z-tables / BAPI / CDS view (must be consistent with Phase 1A reference assets)
+  6. Package + Transport — target package, new or existing transport
+  7. Testing scope — when OOP is selected, which test class methods to cover
+- **Gate**: technical ambiguity ≤ 5%
+- **Output**: `.sc4sap/program/{PROG}/interview.md`
+- **Enforcement**: Phase 2 `sap-planner` MUST refuse to run if either `module-interview.md` or `interview.md` is missing or incomplete. Both files are passed forward to Phase 2 so the planner does not re-interview.
 
 ## Phase 2 — Planning: `sap-planner` (+ module consultant when needed)
+- **Inputs (mandatory read before planning)**: `module-interview.md` (Phase 1A — business context, standard-SAP rejections, reference assets) AND `interview.md` (Phase 1B — technical decisions). The planner MUST reconcile both — if a Phase 1B technical choice contradicts a Phase 1A business rule (e.g., chose custom Z-table when consultant proposed standard CDS), raise the conflict back to the user before producing `plan.md`.
 - **CBO reuse gate (mandatory when `.sc4sap/program/{PROG}/cbo-context.md` exists)**: Before designing any new Z-object (table / structure / class / FM / data element), scan `cbo-context.md` for a reuse candidate. Default to reuse when role + FK pattern + purpose overlap. Every new-object proposal in the plan must include a one-line justification of why no CBO candidate fits.
 - **Customization reuse gate (mandatory when `.sc4sap/program/{PROG}/customization-context.md` exists)**: Before proposing a new BAdI implementation, CMOD component, form-based user-exit FORM, or append structure, scan `customization-context.md` for an existing customer asset covering the same `standardName` / base table. Default to **extending the existing asset**. Every new-enhancement/extension proposal in the plan must include a written justification of why no customization candidate fits (follow `common/customization-lookup.md`). Creating a second parallel impl when one already exists is a MAJOR finding in Phase 6.
 - Apply shared conventions: `include-structure.md`, `naming-conventions.md`
@@ -47,7 +82,7 @@ Authoritative pipeline for the `sc4sap:create-program` skill. `SKILL.md` referen
   - Display spec.md contents in chat (or surface the path prominently)
   - Block every downstream `Create*` / `Update*` MCP call
   - Wait for **explicit approval keyword** from user: `승인` / `approve` / `ok` / `proceed` / `go ahead` / `confirmed`
-  - Silence or ambiguous responses (`yes`, `그냥 해`, `빨리`, `try it`) are **change requests**, not approvals — loop back and revise
+  - Silence or ambiguous responses (`yes`, `Just do it`, `Quick`, `try it`) are **change requests**, not approvals — loop back and revise
   - On approval: append `## Approval` section to spec.md with approver / timestamp / keyword, THEN proceed to Phase 4
   - Phase 4 Executor MUST refuse to run if spec.md missing, lacks Approval footer, or was modified after approval was logged
 

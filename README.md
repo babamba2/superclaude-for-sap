@@ -20,7 +20,7 @@ SuperClaude for SAP transforms Claude Code into a full-stack SAP development ass
 | **🔌 Auto MCP Install** | `abap-mcp-adt-powerup` is auto-installed, configured, and connection-tested during setup. No manual MCP wiring, no `claude_desktop_config.json` editing — credentials go to `.sc4sap/sap.env` and the hook/blocklist layers register themselves. | `/sc4sap:setup` |
 | **🏗️ Formatted Auto Program Maker** | Builds ABAP programs end-to-end following sc4sap conventions: Main + conditional Includes (t/s/c/a/o/i/e/f/_tst), OOP or Procedural split (`LCL_DATA` / `LCL_ALV` / `LCL_EVENT`), full ALV (CL_GUI_ALV_GRID + Docking) or SALV, mandatory Text Elements & CONSTANTS, Dynpro + GUI Status, ABAP Unit tests — all platform-aware (ECC / S4 On-Prem / Cloud). | `/sc4sap:create-program`, `/sc4sap:autopilot` |
 | **🔍 Program Analyze** | Reverse-direction intelligence: read any ABAP object via MCP, run Clean ABAP / performance / security review, or reverse-engineer a program into a Functional / Technical Spec (Markdown or Excel) with Socratic scope narrowing. | `/sc4sap:analyze-code`, `/sc4sap:program-to-spec` |
-| **🩺 Maintenance Diagnosis** | Operational triage loop: inspect ST22 dumps, SAT-style profiler traces, logs, and where-used graphs directly from Claude; narrow hypotheses, surface SAP Note candidates, and diagnose plugin / MCP / SAP connectivity health. | `/sc4sap:analyze-symptom`, `/sc4sap:sap-doctor` |
+| **🩺 Maintenance Diagnosis** | Operational triage loop: inspect ST22 dumps, SM02 system messages, /IWFND/ERROR_LOG Gateway errors, SAT-style profiler traces, logs, and where-used graphs directly from Claude; narrow hypotheses, surface SAP Note candidates, and diagnose plugin / MCP / SAP connectivity health. | `/sc4sap:analyze-symptom`, `/sc4sap:sap-doctor` |
 | **♻️ CBO Reuse (Brownfield Accelerator)** | Inventory a Customer Business Object (Z) package once — catalogue frequently-used Z tables / FMs / data elements / classes / structures / table types and persist to `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`. `create-program` / `program-to-spec` load the inventory at plan time and **prefer reusing existing CBO assets over creating duplicates** — essential for brownfield systems with hundreds of legacy Z-objects. | `/sc4sap:analyze-cbo-obj` → `/sc4sap:create-program` |
 | **🏭 Industry Context** | 14 industry reference files (`industry/*.md`) — retail, fashion, cosmetics, tire, automotive, pharmaceutical, food-beverage, chemical, electronics, construction, steel, utilities, banking, public-sector. Consultants load the project's industry file to apply business-specific patterns, pitfalls, and SAP IS mappings when doing config analysis, Fit-Gap, or master-data decisions. | All consultants |
 | **🌏 Country / Localization** | 15 per-country files + `eu-common.md` (KR, JP, CN, US, DE, GB, FR, IT, ES, NL, BR, MX, IN, AU, SG, EU common). Covers date/number formats, VAT/GST structure, mandatory e-invoicing (SDI / SII / MTD / CFDI / NF-e / 세금계산서 / Golden Tax / IRN / Peppol / STP), banking formats (IBAN / BSB / CLABE / SPEI / PIX / UPI / SEPA / Zengin …), payroll localization, statutory reporting cadence. Mandatory for analyst / critic / planner; wired into every consultant. | All consultants + analyst / critic / planner |
@@ -136,6 +136,7 @@ The wizard asks **one question at a time** — never dumps the whole questionnai
 - `sap-analyst` / `sap-critic` / `sap-planner` → emit `## Module Consultation Needed` → `sap-{module}-consultant` (business semantics) or `sap-bc-consultant` (system-level)
 - `sap-architect` → emits `## Consultation Needed` → `sap-bc-consultant` for Basis topics (transport strategy, authorization, performance, sizing, system copy, patching) or `sap-{module}-consultant` for module design questions
 - `sap-analyst` / `sap-critic` / `sap-planner` additionally have a **mandatory Country Context** block that forces loading `country/<iso>.md` before producing output
+- **Direct MCP read access for Core agents** — `sap-analyst`, `sap-architect`, `sap-code-reviewer`, `sap-critic`, `sap-debugger`, `sap-doc-specialist`, `sap-planner`, `sap-qa-tester`, `sap-writer` now carry read-only MCP tools (package / DDIC / class / program / where-used / runtime-dump), so they inspect SAP objects directly instead of relying on hand-offs. Write-side CRUD stays on `sap-executor`, `sap-planner`, `sap-writer`, `sap-qa-tester`, `sap-debugger`.
 
 ### 18 Skills
 
@@ -173,7 +174,7 @@ sc4sap is backed by **[abap-mcp-adt-powerup](https://github.com/babamba2/abap-mc
 | **Behavior Definition / Implementation (RAP)** | `Get/Read BehaviorDefinition`, `Get/Read BehaviorImplementation` | `Create*` | `Update*` | `Delete*` | Full RAP BDEF + BHV cycle |
 | **Service Definition / Binding** | `Get/Read ServiceDefinition`, `Get/Read ServiceBinding`, `ListServiceBindingTypes`, `ValidateServiceBinding` | `Create*` | `Update*` | `Delete*` | OData V2/V4 exposure and validation |
 | **Enhancements / BAdI** | `GetEnhancements`, `GetEnhancementSpot`, `GetEnhancementImpl` | — | — | — | Discovery of extension points |
-| **Runtime & Profiling** | `RuntimeListDumps`, `RuntimeAnalyzeDump`, `RuntimeGetDumpById`, `RuntimeListProfilerTraceFiles`, `RuntimeGetProfilerTraceData`, `RuntimeAnalyzeProfilerTrace`, `RuntimeCreateProfilerTraceParameters`, `RuntimeRunProgramWithProfiling`, `RuntimeRunClassWithProfiling` | — | — | — | ST22 dump analysis + SAT-style profiling entirely from Claude |
+| **Runtime & Profiling** | `RuntimeListDumps`, `RuntimeAnalyzeDump`, `RuntimeGetDumpById`, `RuntimeListSystemMessages`, `RuntimeGetGatewayErrorLog`, `RuntimeListProfilerTraceFiles`, `RuntimeGetProfilerTraceData`, `RuntimeAnalyzeProfilerTrace`, `RuntimeCreateProfilerTraceParameters`, `RuntimeRunProgramWithProfiling`, `RuntimeRunClassWithProfiling` | — | — | — | ST22 dump analysis + SM02 system messages + /IWFND/ERROR_LOG Gateway errors + SAT-style profiling entirely from Claude |
 | **Semantic / AST** | `GetAbapAST`, `GetAbapSemanticAnalysis`, `GetAbapSystemSymbols`, `GetAdtTypes`, `GetTypeInfo`, `GetWhereUsed` | — | — | — | Richer analysis than plain syntax check |
 | **Unit Tests (ABAP + CDS)** | `GetUnitTest`, `GetUnitTestResult`, `GetUnitTestStatus`, `GetCdsUnitTest`, `GetCdsUnitTestResult`, `GetCdsUnitTestStatus` | `CreateUnitTest`, `CreateCdsUnitTest` | `UpdateUnitTest`, `UpdateCdsUnitTest` | `DeleteUnitTest`, `DeleteCdsUnitTest` | Both ABAP Unit and CDS test framework |
 | **Transport** | `GetTransport`, `ListTransports` | `CreateTransport` | — | — | Full transport lifecycle in MCP |
@@ -190,7 +191,7 @@ Cross-skill authoring rules live in `common/` so every skill and agent follows t
 | `common/include-structure.md` | Main program + conditional include set (t/s/c/a/o/i/e/f/_tst) |
 | `common/oop-pattern.md` | Two-class OOP split (`LCL_DATA` + `LCL_ALV` + optional `LCL_EVENT`) |
 | `common/alv-rules.md` | Full ALV (CL_GUI_ALV_GRID + Docking Container) vs SALV + SALV-factory fieldcatalog pattern |
-| `common/text-element-rule.md` | Mandatory Text Elements — no hardcoded display literals |
+| `common/text-element-rule.md` | Mandatory Text Elements — no hardcoded display literals; **two-pass language rule** (primary logon language + `'E'` safety-net ALWAYS added; missing either row is a MAJOR review finding) |
 | `common/constant-rule.md` | Mandatory `CONSTANTS` for non-fieldcatalog magic literals |
 | `common/procedural-form-naming.md` | `_{screen_no}` suffix for ALV-bound FORMs |
 | `common/naming-conventions.md` | Shared naming for programs, includes, LCL_*, screens, GUI status |
@@ -461,7 +462,7 @@ Flagship program creation pipeline with Main + Include wrapping, OOP or Procedur
 → "Make an ALV report for open sales orders, selection screen by sales org + date range"
 ```
 
-**Flow** — SAP version preflight (`.sc4sap/config.json`) → Socratic interview → planner spec → user confirm → executor writes Main program + conditional Includes (t/s/c/a/o/i/e/f/_tst) + Screen + GUI Status + Text Elements → qa-tester writes ABAP Unit → code-reviewer gate → activate. Branches by platform (ECC / S4 On-Prem / Cloud Public forbids classical Dynpro → auto-redirect to `if_oo_adt_classrun` / SALV / RAP).
+**Flow** — SAP version preflight (`.sc4sap/config.json`) → **Phase 1A Module Interview** (module consultant leads — industry/country preflight, business purpose / pain point / company rules / reference assets, mandatory standard-SAP alternative proposal; writes `module-interview.md`, gate ≤ 5%) → **Phase 1B Program Interview** (`sap-analyst` + `sap-architect` resolve 7 technical dimensions — purpose-type / paradigm / display / screen / data / package / test scope; writes `interview.md`, gate ≤ 5%) → `sap-planner` reconciles both files → spec → user approval → executor writes Main + conditional Includes (t/s/c/a/o/i/e/f/_tst) + Screen + GUI Status + Text Elements → qa-tester writes ABAP Unit → code-reviewer gate → activate. Phase 1B never starts before Phase 1A closes. Branches by platform (ECC / S4 On-Prem / Cloud Public forbids classical Dynpro → auto-redirect to `if_oo_adt_classrun` / SALV / RAP).
 
 > _Screenshot placeholder — program pipeline with ALV output_
 
@@ -508,7 +509,7 @@ Step-by-step runtime / operational error investigation: dumps, logs, SAP Note ca
 → "Dump MESSAGE_TYPE_X in ZFI_POSTING at line 234 during F110"
 ```
 
-**Flow** — `RuntimeListDumps` / `RuntimeGetDumpById` / `RuntimeAnalyzeDump` → stack trace parse → SAP Note candidate search → root cause hypothesis → remediation options (config / code / user action).
+**Flow** — `RuntimeListDumps` / `RuntimeGetDumpById` / `RuntimeAnalyzeDump` (ST22) — with optional `RuntimeListSystemMessages` (SM02 banner messages) and `RuntimeGetGatewayErrorLog` (/IWFND/ERROR_LOG) for full operational context — → stack trace parse → SAP Note candidate search → root cause hypothesis → remediation options (config / code / user action).
 
 > _Screenshot placeholder — dump analysis and Note candidates_
 

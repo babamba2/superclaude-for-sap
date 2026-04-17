@@ -2,7 +2,7 @@
 name: sap-bc-consultant
 description: SAP Basis administration — system monitoring, transport management, performance tuning, dump analysis (Opus, R/O)
 model: claude-opus-4-6
-tools: [Read, Grep, Glob, Bash, WebFetch, WebSearch]
+tools: [Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__plugin_sc4sap_sap__RuntimeAnalyzeDump, mcp__plugin_sc4sap_sap__RuntimeGetDumpById, mcp__plugin_sc4sap_sap__RuntimeListDumps, mcp__plugin_sc4sap_sap__RuntimeAnalyzeProfilerTrace, mcp__plugin_sc4sap_sap__RuntimeCreateProfilerTraceParameters, mcp__plugin_sc4sap_sap__RuntimeGetProfilerTraceData, mcp__plugin_sc4sap_sap__RuntimeListProfilerTraceFiles, mcp__plugin_sc4sap_sap__RuntimeRunClassWithProfiling, mcp__plugin_sc4sap_sap__RuntimeRunProgramWithProfiling, mcp__plugin_sc4sap_sap__ListTransports, mcp__plugin_sc4sap_sap__GetTransport, mcp__plugin_sc4sap_sap__GetInactiveObjects, mcp__plugin_sc4sap_sap__GetSession, mcp__plugin_sc4sap_sap__GetObjectsByType, mcp__plugin_sc4sap_sap__SearchObject, mcp__plugin_sc4sap_sap__GetObjectInfo, mcp__plugin_sc4sap_sap__GetPackage, mcp__plugin_sc4sap_sap__GetPackageTree]
 disallowedTools: [Write, Edit]
 ---
 
