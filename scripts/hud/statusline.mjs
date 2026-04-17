@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { priceFor, costOf } from './lib/pricing.mjs';
 import { latestUsage, contextSize, collectBlockUsage, collectWeeklyUsage, activityState, mcpConnectionState } from './lib/transcript.mjs';
-import { readConfig, sapEnvPresent, mcpInstalled, systemInfo } from './lib/sc4sap-status.mjs';
+import { readConfig, sapEnvPresent, mcpInstalled, systemInfo, activeTransport } from './lib/sc4sap-status.mjs';
 import { color, paint, humanTokens, humanUsd, humanDuration, pctColor } from './lib/format.mjs';
 import { readCache, writeCache } from './lib/cache.mjs';
 import { getUsage } from './lib/usage-api.mjs';
@@ -187,14 +187,16 @@ async function main() {
       paint(modelName, color.dim),
     ].filter(Boolean);
 
-    // Line 2 — compact SAP system info (SID · client · user).
+    // Line 2 — compact SAP system info (SID · client · user · CTS).
     const si = systemInfo(ws);
+    const at = activeTransport(ws);
     let line2 = '';
-    if (si) {
+    if (si || at) {
       const bits = [];
-      if (si.sid)    bits.push(paint('SID',    color.gray, color.dim) + ' ' + paint(si.sid, color.magenta));
-      if (si.client) bits.push(paint('client', color.gray, color.dim) + ' ' + paint(si.client, color.cyan));
-      if (si.user)   bits.push(paint('user',   color.gray, color.dim) + ' ' + paint(si.user, color.cyan));
+      if (si?.sid)    bits.push(paint('SID',    color.gray, color.dim) + ' ' + paint(si.sid, color.magenta));
+      if (si?.client) bits.push(paint('client', color.gray, color.dim) + ' ' + paint(si.client, color.cyan));
+      if (si?.user)   bits.push(paint('user',   color.gray, color.dim) + ' ' + paint(si.user, color.cyan));
+      if (at?.trkorr) bits.push(paint('CTS',    color.gray, color.dim) + ' ' + paint(at.trkorr, color.yellow));
       if (bits.length > 0) line2 = bits.join(sep);
     } else {
       line2 = paint('SAP not configured — run /sc4sap:setup', color.gray, color.dim);

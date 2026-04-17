@@ -94,6 +94,23 @@ function readDotenv(path) {
   } catch { return null; }
 }
 
+// Resolve the pinned active transport (TRKORR + description) for HUD line 2.
+// Source: cwd/.sc4sap/config.json → activeTransport.{trkorr,description}.
+// Returns null when not pinned or unreadable.
+export function activeTransport(workspaceDir) {
+  const candidates = [
+    join(workspaceDir, '.sc4sap', 'config.json'),
+    ...ROOTS.map((r) => join(r, '.sc4sap', 'config.json')),
+  ];
+  const hit = firstExisting(candidates);
+  if (!hit) return null;
+  try {
+    const at = JSON.parse(readFileSync(hit, 'utf8')).activeTransport;
+    if (!at || !at.trkorr) return null;
+    return { trkorr: at.trkorr, description: at.description || null };
+  } catch { return null; }
+}
+
 // Resolve system info (SID / client / user) for HUD line 2. Priority:
 //   1. cwd/.sc4sap/config.json → systemInfo.{sid,client,user}
 //      (set by /sc4sap:setup after a successful GetSession)
