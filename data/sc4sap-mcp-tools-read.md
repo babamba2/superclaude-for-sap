@@ -1,0 +1,93 @@
+# SC4SAP MCP Tool Catalog — Read operations
+
+Get / Read / List / Search handlers — schema, metadata, object introspection, and navigation. Part of [sc4sap-mcp-tools.md](sc4sap-mcp-tools.md).
+
+**EXCLUDED from this list (prompt-gated, never auto-approved)**: `mcp__plugin_sc4sap_sap__GetTableContents`, `mcp__plugin_sc4sap_sap__GetSqlQuery`. See the index file for the rationale.
+
+## Get*
+
+- mcp__plugin_sc4sap_sap__GetAbapAST
+- mcp__plugin_sc4sap_sap__GetAbapSemanticAnalysis
+- mcp__plugin_sc4sap_sap__GetAbapSystemSymbols
+- mcp__plugin_sc4sap_sap__GetAdtTypes
+- mcp__plugin_sc4sap_sap__GetBehaviorDefinition
+- mcp__plugin_sc4sap_sap__GetBehaviorImplementation
+- mcp__plugin_sc4sap_sap__GetCdsUnitTest
+- mcp__plugin_sc4sap_sap__GetCdsUnitTestResult
+- mcp__plugin_sc4sap_sap__GetCdsUnitTestStatus
+- mcp__plugin_sc4sap_sap__GetClass
+- mcp__plugin_sc4sap_sap__GetDataElement
+- mcp__plugin_sc4sap_sap__GetDomain
+- mcp__plugin_sc4sap_sap__GetEnhancementImpl
+- mcp__plugin_sc4sap_sap__GetEnhancementSpot
+- mcp__plugin_sc4sap_sap__GetEnhancements
+- mcp__plugin_sc4sap_sap__GetFunctionGroup
+- mcp__plugin_sc4sap_sap__GetFunctionModule
+- mcp__plugin_sc4sap_sap__GetGuiStatus
+- mcp__plugin_sc4sap_sap__GetGuiStatusList
+- mcp__plugin_sc4sap_sap__GetInactiveObjects
+- mcp__plugin_sc4sap_sap__GetInclude
+- mcp__plugin_sc4sap_sap__GetIncludesList
+- mcp__plugin_sc4sap_sap__GetInterface
+- mcp__plugin_sc4sap_sap__GetLocalDefinitions
+- mcp__plugin_sc4sap_sap__GetLocalMacros
+- mcp__plugin_sc4sap_sap__GetLocalTestClass
+- mcp__plugin_sc4sap_sap__GetLocalTypes
+- mcp__plugin_sc4sap_sap__GetMetadataExtension
+- mcp__plugin_sc4sap_sap__GetNodeStructureLow
+- mcp__plugin_sc4sap_sap__GetObjectInfo
+- mcp__plugin_sc4sap_sap__GetObjectNodeFromCache
+- mcp__plugin_sc4sap_sap__GetObjectStructure
+- mcp__plugin_sc4sap_sap__GetObjectStructureLow
+- mcp__plugin_sc4sap_sap__GetObjectsByType
+- mcp__plugin_sc4sap_sap__GetObjectsList
+- mcp__plugin_sc4sap_sap__GetPackage
+- mcp__plugin_sc4sap_sap__GetPackageContents
+- mcp__plugin_sc4sap_sap__GetPackageTree
+- mcp__plugin_sc4sap_sap__GetProgFullCode
+- mcp__plugin_sc4sap_sap__GetProgram
+- mcp__plugin_sc4sap_sap__GetScreen
+- mcp__plugin_sc4sap_sap__GetScreensList
+- mcp__plugin_sc4sap_sap__GetServiceBinding
+- mcp__plugin_sc4sap_sap__GetServiceDefinition
+- mcp__plugin_sc4sap_sap__GetSession
+- mcp__plugin_sc4sap_sap__GetStructure
+- mcp__plugin_sc4sap_sap__GetTable
+- mcp__plugin_sc4sap_sap__GetTextElement
+- mcp__plugin_sc4sap_sap__GetTransaction
+- mcp__plugin_sc4sap_sap__GetTransport
+- mcp__plugin_sc4sap_sap__GetTypeInfo
+- mcp__plugin_sc4sap_sap__GetUnitTest
+- mcp__plugin_sc4sap_sap__GetUnitTestResult
+- mcp__plugin_sc4sap_sap__GetUnitTestStatus
+- mcp__plugin_sc4sap_sap__GetView
+- mcp__plugin_sc4sap_sap__GetVirtualFoldersLow
+- mcp__plugin_sc4sap_sap__GetWhereUsed
+
+## Read*
+
+- mcp__plugin_sc4sap_sap__ReadBehaviorDefinition
+- mcp__plugin_sc4sap_sap__ReadBehaviorImplementation
+- mcp__plugin_sc4sap_sap__ReadClass
+- mcp__plugin_sc4sap_sap__ReadDataElement
+- mcp__plugin_sc4sap_sap__ReadDomain
+- mcp__plugin_sc4sap_sap__ReadFunctionGroup
+- mcp__plugin_sc4sap_sap__ReadFunctionModule
+- mcp__plugin_sc4sap_sap__ReadGuiStatus
+- mcp__plugin_sc4sap_sap__ReadInterface
+- mcp__plugin_sc4sap_sap__ReadMetadataExtension
+- mcp__plugin_sc4sap_sap__ReadPackage
+- mcp__plugin_sc4sap_sap__ReadProgram
+- mcp__plugin_sc4sap_sap__ReadScreen
+- mcp__plugin_sc4sap_sap__ReadServiceBinding
+- mcp__plugin_sc4sap_sap__ReadServiceDefinition
+- mcp__plugin_sc4sap_sap__ReadStructure
+- mcp__plugin_sc4sap_sap__ReadTable
+- mcp__plugin_sc4sap_sap__ReadView
+
+## List* / Search* / Describe*
+
+- mcp__plugin_sc4sap_sap__DescribeByList
+- mcp__plugin_sc4sap_sap__ListServiceBindingTypes
+- mcp__plugin_sc4sap_sap__ListTransports
+- mcp__plugin_sc4sap_sap__SearchObject

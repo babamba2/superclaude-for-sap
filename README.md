@@ -558,6 +558,8 @@ Full ABAP program pipeline from spec to activated, tested objects. Handles the M
 
 Internal permission bootstrap. Auto-invoked as Step 0 by `create-program`, `create-object`, `analyze-cbo-obj`, `analyze-code`, `analyze-symptom`, `team`, and `setup`. Writes explicit allowlist entries to `.claude/settings.local.json` for MCP tool namespaces (SAP plugin, legacy ADT, Notion, IDE) and file-op tools (`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Agent`), deliberately **excluding** `GetTableContents` and `GetSqlQuery` so row-level data extraction keeps surfacing per-call prompts. Direct invocation (`/sc4sap:trust-session`) is refused with a redirect message pointing to the appropriate parent skill.
 
+> ⚠️ **"Always allow" pitfall** — when a `GetTableContents` / `GetSqlQuery` permission prompt appears, choose **"Allow once"**, never **"Always allow"**. Claude Code appends the tool ID to `permissions.allow` on "Always allow", which permanently disables this safeguard. Recovery: re-run any parent skill — `trust-session` Step 2 scans for and strips `GetTableContents` / `GetSqlQuery` entries on every invocation.
+
 ---
 
 ### `/sc4sap:deep-interview`
