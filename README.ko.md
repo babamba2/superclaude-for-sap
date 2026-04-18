@@ -557,6 +557,8 @@ Customer Business Object (CBO) 인벤토리 스캐너. Z 패키지를 훑어 재
 
 내부 권한 부트스트랩. `create-program`, `create-object`, `analyze-cbo-obj`, `analyze-code`, `analyze-symptom`, `team`, `setup`의 Step 0에서 자동 호출. `.claude/settings.local.json`에 MCP 네임스페이스(SAP 플러그인, 레거시 ADT, Notion, IDE)와 파일 작업 툴(`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Agent`)의 명시적 allowlist를 기입하며, `GetTableContents` / `GetSqlQuery`는 의도적으로 제외해 행 단위 데이터 추출이 매번 사용자 승인을 받도록 유지합니다. 직접 호출(`/sc4sap:trust-session`)은 부모 skill로 안내하는 거부 메시지와 함께 차단됩니다.
 
+> ⚠️ **"Always allow" 함정** — `GetTableContents` / `GetSqlQuery` 승인 프롬프트가 뜨면 반드시 **"Allow once"**를 선택하세요. **"Always allow"**를 누르면 Claude Code가 해당 툴 ID를 `permissions.allow`에 영구 추가하여 safeguard가 무력화됩니다. 복구 방법: 부모 skill을 다시 한 번 실행하면 `trust-session` Step 2가 매 호출마다 `GetTableContents` / `GetSqlQuery` entry를 자동으로 스캔·제거합니다.
+
 ---
 
 ### `/sc4sap:deep-interview`

@@ -96,18 +96,29 @@ Every subsequent `Agent` call made by the calling skill MUST pass `mode: "dontAs
 <Execution_Steps>
 0. **Standalone gate** — if `<Standalone_Invocation_Refusal>` conditions match, refuse and STOP. Do not proceed to step 1.
 1. Read `.claude/settings.local.json` (create `{"permissions":{"allow":[]}}` skeleton if missing).
-2. **Strip forbidden wildcards if any** — remove the following entries from `permissions.allow` when found (they violate the "SAP handlers only + scoped file I/O" policy):
+2. **Strip forbidden entries if any** — remove the following entries from `permissions.allow` when found (they violate the "SAP handlers only + scoped file I/O" policy):
+
+   **Wildcards** (too broad):
    - `mcp__plugin_sc4sap_sap__*` — would auto-approve the excluded row-data tools
    - `mcp__mcp-abap-adt__*` — same reason
    - `mcp__claude_ai_Notion__*`, `mcp__ide__*` — non-SAP MCP; must prompt
-   - `Read(*)`, `Write(*)`, `Edit(*)`, `Glob(*)`, `Grep(*)` — too broad; replaced by path-scoped entries in Step 4.
-3. **Enumerate SAP tools explicitly** — for the two ABAP MCP namespaces, append individual tool entries to `permissions.allow`. Pull the canonical tool list from `data/sc4sap-mcp-tools.md`; SKIP `GetTableContents` and `GetSqlQuery` in both namespaces. Required tool categories:
-   - `Get*` (object inspection) — GetClass, GetProgram, GetFunctionModule, GetInterface, GetInclude, GetTable, GetStructure, GetDataElement, GetDomain, GetView, GetPackage, GetPackageContents, GetPackageTree, GetTransport, GetSession, GetAbapSemanticAnalysis, GetAbapAST, GetObjectInfo, GetObjectStructure, GetTypeInfo, GetWhereUsed, GetEnhancements, GetEnhancementImpl, GetEnhancementSpot, GetBehaviorDefinition, GetBehaviorImplementation, GetServiceDefinition, GetServiceBinding, GetMetadataExtension, GetScreen, GetGuiStatus, GetTextElement, GetInactiveObjects, GetUnitTest, GetUnitTestResult, GetUnitTestStatus, GetCdsUnitTest, GetCdsUnitTestResult, GetCdsUnitTestStatus, GetLocalDefinitions, GetLocalTypes, GetLocalMacros, GetLocalTestClass, GetProgFullCode, GetAdtTypes, GetIncludesList, GetScreensList, GetGuiStatusList
-   - `Read*` (read-optimized views) — all `Read*` tools
-   - `Create*` / `Update*` / `Delete*` — all object-lifecycle tools
-   - `List*` / `Search*` — ListTransports, SearchObject, DescribeByList
-   - `Runtime*` — all runtime/profiler tools
-   - `RunUnitTest`, `CreateTransport`, `ValidateServiceBinding`
+   - `Read(*)`, `Write(*)`, `Edit(*)`, `Glob(*)`, `Grep(*)` — replaced by path-scoped entries in Step 4.
+
+   **Individual row-data tools** (must NEVER auto-approve — safeguard recovery):
+   - `mcp__plugin_sc4sap_sap__GetSqlQuery`
+   - `mcp__plugin_sc4sap_sap__GetTableContents`
+   - `mcp__mcp-abap-adt__GetSqlQuery`
+   - `mcp__mcp-abap-adt__GetTableContents`
+
+   Rationale for the individual strip: Claude Code's "Always allow" button appends the specific tool identifier to `permissions.allow` when the user approves a prompt. Without this cleanup, a single accidental "Always allow" click on a row-data tool would permanently disable the safeguard. Every trust-session invocation re-enforces the policy by removing any such entry that may have crept in since the last run.
+3. **Enumerate SAP tools from the canonical catalog** — the authoritative tool list lives in the `data/sc4sap-mcp-tools-*.md` partials (operation-class split: `-write.md`, `-read.md`, `-runtime.md`). Execution:
+   1. Resolve the plugin root and glob `${CLAUDE_PLUGIN_ROOT}/data/sc4sap-mcp-tools-*.md` (one level deep, hyphen-suffixed partials only — exclude the index file `sc4sap-mcp-tools.md` which contains no tool bullets). If `CLAUDE_PLUGIN_ROOT` is unavailable, fall back to the cache copy: `~/.claude/plugins/cache/sc4sap/sc4sap/*/data/sc4sap-mcp-tools-*.md`.
+   2. If the glob matches zero files, ABORT Step 3 with error: `"trust-session: canonical tool catalog partials missing — reinstall or update sc4sap plugin"` (do NOT fall back to LLM-recalled lists).
+   3. For every matched file, read it. Extract each line matching the pattern `- mcp__plugin_sc4sap_sap__<Name>` — that is a tool identifier to append to `permissions.allow` for the `mcp__plugin_sc4sap_sap__` namespace.
+   4. For the legacy `mcp__mcp-abap-adt__` namespace, re-emit each identifier with the prefix swapped (`mcp__plugin_sc4sap_sap__` → `mcp__mcp-abap-adt__`) and append those too.
+   5. `GetTableContents` and `GetSqlQuery` are already absent from every partial by policy — no additional skip logic needed. Do NOT add them even if somehow encountered.
+   6. Dedupe: skip any identifier already present in `permissions.allow`.
+   7. Wildcard prohibition (re-emphasis): never write `mcp__plugin_sc4sap_sap__*` or `mcp__mcp-abap-adt__*` — enumeration only.
 4. **Sub-agent + scoped file ops** — append the following entries to `permissions.allow` only if not already present:
    ```
    Agent(*)

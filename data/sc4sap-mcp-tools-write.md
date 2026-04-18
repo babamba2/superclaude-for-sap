@@ -1,0 +1,85 @@
+# SC4SAP MCP Tool Catalog — Write operations
+
+Create / Update / Delete handlers for ABAP object lifecycle. Part of [sc4sap-mcp-tools.md](sc4sap-mcp-tools.md).
+
+## Create*
+
+- mcp__plugin_sc4sap_sap__CreateBehaviorDefinition
+- mcp__plugin_sc4sap_sap__CreateBehaviorImplementation
+- mcp__plugin_sc4sap_sap__CreateCdsUnitTest
+- mcp__plugin_sc4sap_sap__CreateClass
+- mcp__plugin_sc4sap_sap__CreateDataElement
+- mcp__plugin_sc4sap_sap__CreateDomain
+- mcp__plugin_sc4sap_sap__CreateFunctionGroup
+- mcp__plugin_sc4sap_sap__CreateFunctionModule
+- mcp__plugin_sc4sap_sap__CreateGuiStatus
+- mcp__plugin_sc4sap_sap__CreateInclude
+- mcp__plugin_sc4sap_sap__CreateInterface
+- mcp__plugin_sc4sap_sap__CreateMetadataExtension
+- mcp__plugin_sc4sap_sap__CreatePackage
+- mcp__plugin_sc4sap_sap__CreateProgram
+- mcp__plugin_sc4sap_sap__CreateScreen
+- mcp__plugin_sc4sap_sap__CreateServiceBinding
+- mcp__plugin_sc4sap_sap__CreateServiceDefinition
+- mcp__plugin_sc4sap_sap__CreateStructure
+- mcp__plugin_sc4sap_sap__CreateTable
+- mcp__plugin_sc4sap_sap__CreateTextElement
+- mcp__plugin_sc4sap_sap__CreateTransport
+- mcp__plugin_sc4sap_sap__CreateUnitTest
+- mcp__plugin_sc4sap_sap__CreateView
+
+## Update*
+
+- mcp__plugin_sc4sap_sap__UpdateBehaviorDefinition
+- mcp__plugin_sc4sap_sap__UpdateBehaviorImplementation
+- mcp__plugin_sc4sap_sap__UpdateCdsUnitTest
+- mcp__plugin_sc4sap_sap__UpdateClass
+- mcp__plugin_sc4sap_sap__UpdateDataElement
+- mcp__plugin_sc4sap_sap__UpdateDomain
+- mcp__plugin_sc4sap_sap__UpdateFunctionGroup
+- mcp__plugin_sc4sap_sap__UpdateFunctionModule
+- mcp__plugin_sc4sap_sap__UpdateGuiStatus
+- mcp__plugin_sc4sap_sap__UpdateInclude
+- mcp__plugin_sc4sap_sap__UpdateInterface
+- mcp__plugin_sc4sap_sap__UpdateLocalDefinitions
+- mcp__plugin_sc4sap_sap__UpdateLocalMacros
+- mcp__plugin_sc4sap_sap__UpdateLocalTestClass
+- mcp__plugin_sc4sap_sap__UpdateLocalTypes
+- mcp__plugin_sc4sap_sap__UpdateMetadataExtension
+- mcp__plugin_sc4sap_sap__UpdateProgram
+- mcp__plugin_sc4sap_sap__UpdateScreen
+- mcp__plugin_sc4sap_sap__UpdateServiceBinding
+- mcp__plugin_sc4sap_sap__UpdateServiceDefinition
+- mcp__plugin_sc4sap_sap__UpdateStructure
+- mcp__plugin_sc4sap_sap__UpdateTable
+- mcp__plugin_sc4sap_sap__UpdateTextElement
+- mcp__plugin_sc4sap_sap__UpdateUnitTest
+- mcp__plugin_sc4sap_sap__UpdateView
+
+## Delete*
+
+- mcp__plugin_sc4sap_sap__DeleteBehaviorDefinition
+- mcp__plugin_sc4sap_sap__DeleteBehaviorImplementation
+- mcp__plugin_sc4sap_sap__DeleteCdsUnitTest
+- mcp__plugin_sc4sap_sap__DeleteClass
+- mcp__plugin_sc4sap_sap__DeleteDataElement
+- mcp__plugin_sc4sap_sap__DeleteDomain
+- mcp__plugin_sc4sap_sap__DeleteFunctionGroup
+- mcp__plugin_sc4sap_sap__DeleteFunctionModule
+- mcp__plugin_sc4sap_sap__DeleteGuiStatus
+- mcp__plugin_sc4sap_sap__DeleteInclude
+- mcp__plugin_sc4sap_sap__DeleteInterface
+- mcp__plugin_sc4sap_sap__DeleteLocalDefinitions
+- mcp__plugin_sc4sap_sap__DeleteLocalMacros
+- mcp__plugin_sc4sap_sap__DeleteLocalTestClass
+- mcp__plugin_sc4sap_sap__DeleteLocalTypes
+- mcp__plugin_sc4sap_sap__DeleteMetadataExtension
+- mcp__plugin_sc4sap_sap__DeleteProgram
+- mcp__plugin_sc4sap_sap__DeleteScreen
+- mcp__plugin_sc4sap_sap__DeleteServiceBinding
+- mcp__plugin_sc4sap_sap__DeleteServiceDefinition
+- mcp__plugin_sc4sap_sap__DeleteStructure
+- mcp__plugin_sc4sap_sap__DeleteTable
+- mcp__plugin_sc4sap_sap__DeleteTextElement
+- mcp__plugin_sc4sap_sap__DeleteUnitTest
+- mcp__plugin_sc4sap_sap__DeleteView
