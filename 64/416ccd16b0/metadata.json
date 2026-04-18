@@ -1,0 +1,50 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "64416ccd16b0",
+  "strategy": "manual-commit",
+  "branch": "active",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CLAUDE.md",
+    "README.de.md",
+    "README.ja.md",
+    "README.ko.md",
+    "README.md",
+    "common/active-modules.md",
+    "docs/CHANGELOG.de.md",
+    "docs/CHANGELOG.ja.md",
+    "docs/CHANGELOG.ko.md",
+    "docs/CHANGELOG.md",
+    "docs/FEATURES.de.md",
+    "docs/FEATURES.ja.md",
+    "docs/FEATURES.ko.md",
+    "docs/FEATURES.md",
+    "docs/INSTALLATION.de.md",
+    "docs/INSTALLATION.ja.md",
+    "docs/INSTALLATION.ko.md",
+    "docs/INSTALLATION.md",
+    "sc4sap.png",
+    "skills/analyze-cbo-obj/SKILL.md",
+    "skills/create-object/SKILL.md",
+    "skills/create-program/SKILL.md",
+    "skills/sap-option/workflow.md",
+    "skills/setup/rfc-backend-selection.md",
+    "skills/setup/wizard-step-09-abap-objects.md",
+    "skills/setup/wizard-steps.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/64/416ccd16b0/0/metadata.json",
+      "transcript": "/64/416ccd16b0/0/full.jsonl",
+      "content_hash": "/64/416ccd16b0/0/content_hash.txt",
+      "prompt": ""
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 32,
+    "cache_creation_tokens": 59333,
+    "cache_read_tokens": 607900,
+    "output_tokens": 2753,
+    "api_call_count": 12
+  }
+}
