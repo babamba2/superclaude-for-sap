@@ -42,6 +42,12 @@ SuperClaude for SAP verwandelt Claude Code in einen Full-Stack-SAP-Entwicklungsa
 - 🎯 **[Funktionen im Detail →](docs/FEATURES.de.md)** — 25 Agenten, 18 Skills, MCP-Tools, RFC-Backends, Hooks, Datenextraktionsrichtlinie
 - 📜 **[Changelog →](docs/CHANGELOG.de.md)** — Versionshistorie und Breaking Changes
 
+
+<p align="center">
+  <img src="sc4sap_unleashed.png" alt="SC4SAP Unleashed" width="720"/>
+</p>
+
+
 ## Autor
 
 - **paek seunghyun** &nbsp; [![LinkedIn](https://img.shields.io/badge/-LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/seunghyun-paek-5b83b7183/)
