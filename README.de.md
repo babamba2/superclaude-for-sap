@@ -45,7 +45,9 @@ SuperClaude for SAP verwandelt Claude Code in einen Full-Stack-SAP-Entwicklungsa
 ## Unleashed
 
 <p align="center">
-  <img src="sc4sap_unleashed.png" alt="SC4SAP Unleashed" width="720"/>
+  <a href="sc4sap_unleashed.png">
+    <img src="sc4sap_unleashed.png" alt="SC4SAP Unleashed" width="100%"/>
+  </a>
 </p>
 
 ## Autor

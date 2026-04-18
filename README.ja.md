@@ -45,7 +45,9 @@ SuperClaude for SAP は Claude Code をフルスタック SAP 開発アシスタ
 ## Unleashed
 
 <p align="center">
-  <img src="sc4sap_unleashed.png" alt="SC4SAP Unleashed" width="720"/>
+  <a href="sc4sap_unleashed.png">
+    <img src="sc4sap_unleashed.png" alt="SC4SAP Unleashed" width="100%"/>
+  </a>
 </p>
 
 ## 作者
