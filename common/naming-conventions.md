@@ -49,6 +49,31 @@ Sub-types to verify at first use (ask user before defaulting):
 - Suffixes appended to the main program name: `t` / `s` / `c` / `a` / `o` / `i` / `e` / `f` / `_tst`
 - Role mapping: see `include-structure.md`
 
+## Function Groups & Function Modules (company standard — confirmed 2026-04-19)
+
+**No underscore between `Z` and the 2-letter module.** The fixed tag `FG` / `FM` separates module code from purpose.
+
+| Object | Pattern | Example |
+|---|---|---|
+| Function Group | `Z{MODULE}FG_{PURPOSE}` | `ZMMFG_HISTORY`, `ZFIFG_CLEARING`, `ZSDFG_ORDER` |
+| Function Module | `Z{MODULE}FM_{PURPOSE}` | `ZMMFM_GET_HISTORY`, `ZFIFM_POST_CLEAR`, `ZSDFM_ORDER_CREATE` |
+| RFC Function Module | `Z{MODULE}FM_RFC_{PURPOSE}` | `ZSDFM_RFC_ORDER_CREATE` |
+
+Forbidden: `Z_{MODULE}_{NAME}` (e.g., `Z_MM_MATERIAL_READ`) and `ZFG_{MODULE}_...` prefix-style tag are obsolete — do not emit.
+
+An FM and its parent FG share the same module code. Keep each side's `{PURPOSE}` short and distinct — e.g., FG `ZMMFG_HISTORY` hosts FMs `ZMMFM_GET_HISTORY`, `ZMMFM_POST_HISTORY`.
+
+## Global Classes & Interfaces
+
+| Object | Pattern | Example |
+|---|---|---|
+| Global Class | `ZCL_{MODULE}_{PURPOSE}` | `ZCL_MM_HISTORY`, `ZCL_FI_CLEARING` |
+| Global Interface | `ZIF_{MODULE}_{PURPOSE}` | `ZIF_MM_HISTORY`, `ZIF_FI_CLEARING` |
+| Global Exception | `ZCX_{MODULE}_{PURPOSE}` | `ZCX_MM_HISTORY_FAILED` |
+| Global Test Class | `ZCL_{MODULE}_{PURPOSE}_TEST` | `ZCL_MM_HISTORY_TEST` |
+
+Per-type pattern details for other object types (tables, structures, data elements, domains, programs, DDIC views, search helps, RAP/OData artifacts, IDoc, enhancements, packages) live in [`../configs/common/naming-conventions-objects.md`](../configs/common/naming-conventions-objects.md).
+
 ## Local Classes
 
 - `LCL_DATA` — data extraction

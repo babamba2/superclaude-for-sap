@@ -83,3 +83,11 @@ Create / Update / Delete handlers for ABAP object lifecycle. Part of [sc4sap-mcp
 - mcp__plugin_sc4sap_sap__DeleteTextElement
 - mcp__plugin_sc4sap_sap__DeleteUnitTest
 - mcp__plugin_sc4sap_sap__DeleteView
+
+## Activate*
+
+- mcp__plugin_sc4sap_sap__ActivateObjects
+
+## Patch*
+
+- mcp__plugin_sc4sap_sap__PatchGuiStatus

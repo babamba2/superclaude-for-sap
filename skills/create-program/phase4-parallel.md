@@ -57,7 +57,7 @@ Final step:
 Sub-order within G1 (DDIC has internal dependencies):
 1. **Parallel**: `CreateDomain` for all new domains
 2. **Parallel**: `CreateDataElement` for all new data elements (depends on step 1 for domain refs)
-3. **Parallel**: `CreateTable` + `CreateStructure` (depend on step 2 for field types)
+3. **Parallel**: `CreateTable` + `CreateStructure` (depend on step 2 for field types) — **every field's type decision MUST follow [`../../common/field-typing-rule.md`](../../common/field-typing-rule.md)** (priority: Standard DE → existing CBO DE → new CBO DE → raw data type + length). Raw primitives like `LIFNR CHAR 10` / `MATNR CHAR 40` / `BUKRS CHAR 4` are rejected at review.
 4. **Parallel**: `CreateView` (CDS views) — depend on step 3 tables
 
 Between steps, NO activation call — SAP can create inactive chains. Activation happens once at the final batch step.

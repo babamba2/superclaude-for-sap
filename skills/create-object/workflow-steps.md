@@ -35,6 +35,7 @@ Detailed step sequence for `sc4sap:create-object`. Referenced from `SKILL.md` �
 - Pick the matching reference file in `ecc/` (table / domain / element) and `Read` it.
 - Compute helper program name per the naming table in [`../../common/ecc-ddic-fallback.md`](../../common/ecc-ddic-fallback.md). Verify ≤ 30 chars.
 - Call `CreateProgram` with `program_name = <helper>`, `package_name = '$TMP'`, `program_type = 'executable'`, description "Create DDIC {type} {name} on ECC".
+- **Field list MUST follow [`../../common/field-typing-rule.md`](../../common/field-typing-rule.md)** — each `add_field` call uses `rollname` (priority 1–3 Data Element); primitive data-type+length is priority 4 and requires inline justification.
 - Call `UpdateProgram` with the generated source — substitute only the target name, field / fixed-value / label content, and the description. Keep the template skeleton verbatim.
 - Activate the helper program (`activate = true`).
 - **Skip Step 5, Step 6** — the DDIC object itself is not created now; the user must run the helper in SE38.
@@ -44,7 +45,7 @@ Detailed step sequence for `sc4sap:create-object`. Referenced from `SKILL.md` �
   - Class: constructor, standard interface implementations if applicable
   - Program: REPORT statement, basic structure
   - Function Module: parameter documentation, basic error handling
-  - Table: key fields, client field for client-dependent tables
+  - Table / Structure: key fields, client field for client-dependent tables; **every field's type follows [`../../common/field-typing-rule.md`](../../common/field-typing-rule.md)** — Standard DE first, CBO DE next, raw data type + length only as a justified last resort
   - Interface: method signatures based on described purpose
   - Screen: PROCESS BEFORE OUTPUT / PROCESS AFTER INPUT flow logic, basic module stubs
   - GUI Status: standard function key layout (Back/Exit/Cancel), application toolbar
