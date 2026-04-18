@@ -59,6 +59,12 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 **MANDATORY**: Read [`../../common/ecc-ddic-fallback.md`](../../common/ecc-ddic-fallback.md) before creating any Table / Data Element / Domain. It defines when the ECC branch triggers, the helper-program naming rules, the strict template format (mirroring the files under `ecc/`), and the hard constraints (`$TMP` only, no activate, no CTS).
 </ECC_DDIC_Fallback>
 
+<Field_Typing_Rule>
+**MANDATORY** for every Table / Structure / Table Type field-type decision (standard MCP flow **and** ECC helper-program fallback): read [`../../common/field-typing-rule.md`](../../common/field-typing-rule.md).
+
+Priority: **Standard DE (1)** → **existing CBO DE (2)** → **new CBO DE (3)** → **Data Type + Length (4, last resort)**. Raw primitives like `LIFNR CHAR 10` / `MATNR CHAR 40` / `BUKRS CHAR 4` are forbidden when an authoritative SAP data element exists. Before each field, run `SearchObject` against `DTEL` and check `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`.
+</Field_Typing_Rule>
+
 <Hybrid_Mode>
 **Confirm** (interactive):
 - Object name (enforce Z/Y prefix, max 30 chars, uppercase)

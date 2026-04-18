@@ -26,8 +26,10 @@ SuperClaude for SAP は Claude Code をフルスタック SAP 開発アシスタ
 | 🔌 **MCP 自動インストール** | `/sc4sap:setup` 中に `abap-mcp-adt-powerup` を自動インストール・設定・接続テスト。手動 MCP 配線不要。 |
 | 🏗️ **自動プログラムメーカー** | ABAP プログラムのエンドツーエンド生成:Main + 条件付き Include、OOP/Procedural、フル ALV + Docking、Dynpro + GUI ステータス、必須 Text Elements、ABAP Unit — プラットフォーム対応(ECC / S4 On-Prem / Cloud)。 |
 | 🔍 **プログラム解析** | MCP で ABAP オブジェクトを読み取り → Clean ABAP / パフォーマンス / セキュリティレビュー、または機能/技術仕様へのリバースエンジニアリング(Markdown/Excel)。 |
+| 🧪 **コード解析** | `/sc4sap:analyze-code` — `sap-code-reviewer` 専用の静的レビュー:Clean ABAP / パフォーマンス / セキュリティ / SAP 標準準拠。重大度順の指摘と具体的な修正提案。 |
 | 🩺 **運用診断** | 運用トリアージ:ST22 ダンプ、SM02、/IWFND/ERROR_LOG、プロファイラトレース、ログ、where-used — すべて Claude から。 |
 | ♻️ **CBO 再利用** | Z パッケージを一度棚卸し → `create-program` / `program-to-spec` が既存 CBO 資産を優先再利用。ブラウンフィールドに必須。 |
+| 🧷 **CBO 拡張認識 (CMOD / GGB1·2 / BAdI / APPEND)** | ユーザーエグジット (CMOD)、置換/検証 (GGB1/GGB2)、BAdI 実装、APPEND ストラクチャを棚卸し。`create-program` / BAPI 呼び出しでは既存の拡張フィールド(例:BAPI `EXTENSIONIN` / テーブル append)を新規 CBO より優先;ダンプ・障害対応では拡張ポイントを第一容疑者として検査。 |
 | 🏭 **業界コンテキスト** | 14 業界リファレンス (retail, fashion, cosmetics, tire, automotive, pharma, F&B, chemical, electronics, construction, steel, utilities, banking, public-sector)。 |
 | 🌏 **国別ローカライゼーション** | 15 カ国 + EU 共通 (KR/JP/CN/US/DE/GB/FR/IT/ES/NL/BR/MX/IN/AU/SG)。適格請求書、銀行、給与、税制。 |
 | 🧩 **アクティブモジュール認識** | クロスモジュール統合ヒント:MM + PS 有効 → MM CBO に WBS フィールド自動提案;SD + CO 有効 → CO-PA 派生。[詳細 →](common/active-modules.md) |

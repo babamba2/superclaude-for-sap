@@ -36,11 +36,20 @@ Per-type naming patterns for ABAP objects. Companion to [naming-conventions.md](
 
 ### Function Groups & Modules / 함수 그룹 및 모듈
 
+**Authoritative pattern (company standard — confirmed 2026-04-19). No underscore between `Z` and the 2-letter module; the tag `FG` / `FM` separates module from purpose.**
+
 | Type | Pattern | Example |
 |------|---------|---------|
-| Function Group | `ZFG_{MODULE}_{NAME}` or `Z{MODULE}_{DESCRIPTION}` | `ZFG_MM_MATERIAL`, `ZMM_MATERIAL` |
-| Function Module | `Z_{MODULE}_{NAME}` or `Z_{FG}_{NAME}` | `Z_MM_MATERIAL_READ` |
-| RFC Function Module | `Z_{MODULE}_RFC_{NAME}` | `Z_SD_RFC_ORDER_CREATE` |
+| Function Group | `Z{MODULE}FG_{PURPOSE}` | `ZMMFG_HISTORY`, `ZFIFG_CLEARING`, `ZSDFG_ORDER` |
+| Function Module | `Z{MODULE}FM_{PURPOSE}` | `ZMMFM_GET_HISTORY`, `ZFIFM_POST_CLEAR`, `ZSDFM_ORDER_CREATE` |
+| RFC Function Module | `Z{MODULE}FM_RFC_{PURPOSE}` | `ZSDFM_RFC_ORDER_CREATE` |
+
+**Forbidden alternatives (do NOT emit):**
+- `Z_{MODULE}_{NAME}` — the leading `Z_MM_...` form is obsolete.
+- `ZFG_{MODULE}_...` / `ZFM_{MODULE}_...` — prefix-style tag before module is not the company standard.
+- Mixing FM and FG with different module codes (FM and its parent FG share the same module).
+
+When an FM belongs to an existing FG, the FM purpose string should remain short and distinct from the FG purpose — e.g., FG `ZMMFG_HISTORY` + FM `ZMMFM_GET_HISTORY` / `ZMMFM_POST_HISTORY`.
 
 ### Data Dictionary / 데이터 사전
 
