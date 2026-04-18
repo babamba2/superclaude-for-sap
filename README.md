@@ -42,11 +42,11 @@ SuperClaude for SAP transforms Claude Code into a full-stack SAP development ass
 - 🎯 **[Features Deep-Dive →](docs/FEATURES.md)** — 25 agents, 18 skills, MCP tools, RFC backends, hooks, data-extraction policy
 - 📜 **[Changelog →](docs/CHANGELOG.md)** — version history and breaking changes
 
+## Unleashed
 
 <p align="center">
   <img src="sc4sap_unleashed.png" alt="SC4SAP Unleashed" width="720"/>
 </p>
-
 
 ## Author
 
