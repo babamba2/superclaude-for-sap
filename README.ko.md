@@ -555,7 +555,13 @@ Customer Business Object (CBO) 인벤토리 스캐너. Z 패키지를 훑어 재
 
 ### `/sc4sap:trust-session` (내부 전용)
 
-내부 권한 부트스트랩. `create-program`, `create-object`, `analyze-cbo-obj`, `analyze-code`, `analyze-symptom`, `team`, `setup`의 Step 0에서 자동 호출. `.claude/settings.local.json`에 MCP 네임스페이스(SAP 플러그인, 레거시 ADT, Notion, IDE)와 파일 작업 툴(`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Agent`)의 명시적 allowlist를 기입하며, `GetTableContents` / `GetSqlQuery`는 의도적으로 제외해 행 단위 데이터 추출이 매번 사용자 승인을 받도록 유지합니다. 직접 호출(`/sc4sap:trust-session`)은 부모 skill로 안내하는 거부 메시지와 함께 차단됩니다.
+내부 권한 부트스트랩. `create-program`, `create-object`, `analyze-cbo-obj`, `analyze-code`, `analyze-symptom`, `team`, `setup`의 Step 0에서 자동 호출. `.claude/settings.local.json`에 다음 범위로 **명시적·열거된** allowlist를 기입합니다:
+
+- **SAP MCP 핸들러만** — `mcp__plugin_sc4sap_sap__*` 및 `mcp__mcp-abap-adt__*` 도구 전체 중 `GetTableContents` / `GetSqlQuery` 제외. `data/sc4sap-mcp-tools-*.md` 카탈로그에서 열거 (와일드카드는 두 행-데이터 도구를 무의식적으로 포함시키므로 금지).
+- **경로 스코프 파일 I/O** — `Read/Write/Edit/Glob/Grep(.sc4sap/**)` + `Read/Glob/Grep(sc4sap/**)`. `.sc4sap/**` 바깥 쓰기는 여전히 프롬프트.
+- **서브에이전트 디스패치** — Phase 6 병렬 리뷰가 프롬프트 없이 돌도록 `Agent(*)` 포함.
+
+비 SAP MCP (`mcp__claude_ai_Notion__*`, `mcp__ide__*`), `Bash`, `WebFetch`, `WebSearch`, `.sc4sap/**` 바깥 쓰기는 프롬프트 유지. Step 2는 매 호출마다 stale 와일드카드와 실수로 추가된 `GetTableContents`/`GetSqlQuery` 개별 entry를 추가로 제거합니다 (safeguard recovery). 직접 호출(`/sc4sap:trust-session`)은 부모 skill로 안내하는 거부 메시지와 함께 차단됩니다.
 
 > ⚠️ **"Always allow" 함정** — `GetTableContents` / `GetSqlQuery` 승인 프롬프트가 뜨면 반드시 **"Allow once"**를 선택하세요. **"Always allow"**를 누르면 Claude Code가 해당 툴 ID를 `permissions.allow`에 영구 추가하여 safeguard가 무력화됩니다. 복구 방법: 부모 skill을 다시 한 번 실행하면 `trust-session` Step 2가 매 호출마다 `GetTableContents` / `GetSqlQuery` entry를 자동으로 스캔·제거합니다.
 

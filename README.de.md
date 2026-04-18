@@ -555,7 +555,13 @@ Programm-Full-Pipeline von der Spezifikation bis zu aktivierten, getesteten ABAP
 
 ### `/sc4sap:trust-session` (nur intern)
 
-Interner Berechtigungs-Bootstrap. Wird automatisch als Step 0 von `create-program`, `create-object`, `analyze-cbo-obj`, `analyze-code`, `analyze-symptom`, `team` und `setup` aufgerufen. Schreibt explizite Allowlist-Einträge in `.claude/settings.local.json` für MCP-Tool-Namespaces (SAP-Plugin, Legacy-ADT, Notion, IDE) und Datei-Operationen (`Read`, `Write`, `Edit`, `Glob`, `Grep`, `Agent`), **ausgenommen** `GetTableContents` und `GetSqlQuery`, damit zeilen-basierte Datenextraktion weiterhin pro Aufruf eine Benutzer-Bestätigung auslöst. Direkte Ausführung (`/sc4sap:trust-session`) wird mit einer Weiterleitung zum passenden Eltern-Skill abgelehnt.
+Interner Berechtigungs-Bootstrap. Wird automatisch als Step 0 von `create-program`, `create-object`, `analyze-cbo-obj`, `analyze-code`, `analyze-symptom`, `team` und `setup` aufgerufen. Schreibt **explizite, aufgezählte** Allowlist-Einträge in `.claude/settings.local.json`:
+
+- **Nur SAP-MCP-Handler** — alle `mcp__plugin_sc4sap_sap__*` und `mcp__mcp-abap-adt__*` Tools AUSSER `GetTableContents` / `GetSqlQuery`, aufgezählt aus dem kanonischen Katalog `data/sc4sap-mcp-tools-*.md` (Wildcards verboten — sie würden die Zeilen-Daten-Ausschlüsse stillschweigend einschließen).
+- **Pfadbeschränkte Datei-I/O** — `Read/Write/Edit/Glob/Grep(.sc4sap/**)` + `Read/Glob/Grep(sc4sap/**)`. Schreibzugriffe außerhalb von `.sc4sap/**` lösen weiterhin Prompts aus.
+- **Sub-Agent-Dispatch** — `Agent(*)`, damit der parallele Phase-6-Review prompt-frei läuft.
+
+Nicht-SAP-MCP (`mcp__claude_ai_Notion__*`, `mcp__ide__*`), `Bash`, `WebFetch`, `WebSearch` und Schreibzugriffe außerhalb `.sc4sap/**` bleiben prompt-gesteuert. Step 2 entfernt bei jedem Aufruf zusätzlich alte Wildcards und versehentlich hinzugefügte `GetTableContents`/`GetSqlQuery`-Einzeleinträge (Safeguard-Wiederherstellung). Direkte Ausführung (`/sc4sap:trust-session`) wird mit einer Weiterleitung zum passenden Eltern-Skill abgelehnt.
 
 > ⚠️ **„Always allow"-Falle** — erscheint ein `GetTableContents` / `GetSqlQuery`-Bestätigungs-Prompt, wählen Sie stets **„Allow once"** — niemals **„Always allow"**. Bei „Always allow" fügt Claude Code die Tool-ID dauerhaft zu `permissions.allow` hinzu und deaktiviert die Sicherheitskontrolle. Wiederherstellung: Führen Sie ein beliebiges Eltern-Skill erneut aus — `trust-session` Step 2 scannt und entfernt `GetTableContents` / `GetSqlQuery`-Einträge bei jedem Aufruf automatisch.
 
