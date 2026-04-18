@@ -42,11 +42,11 @@ SuperClaude for SAP は Claude Code をフルスタック SAP 開発アシスタ
 - 🎯 **[機能詳細 →](docs/FEATURES.ja.md)** — 25 エージェント、18 スキル、MCP ツール、RFC バックエンド、フック、データ抽出ポリシー
 - 📜 **[変更履歴 →](docs/CHANGELOG.ja.md)** — バージョン履歴と破壊的変更
 
+## Unleashed
 
 <p align="center">
   <img src="sc4sap_unleashed.png" alt="SC4SAP Unleashed" width="720"/>
 </p>
-
 
 ## 作者
 
