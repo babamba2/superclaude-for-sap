@@ -12,6 +12,10 @@ Performs structured root cause analysis for SAP operational incidents by connect
 sc4sap:analyze-symptom is the first-line triage skill for SAP production incidents. Rather than bombarding the user with questions, it **directly investigates the SAP system through MCP** to gather evidence it can collect on its own. It then asks the user only about gaps that MCP cannot fill, narrows hypotheses to 2–3 categories, and produces SAP Note search keywords plus recommended next actions.
 </Purpose>
 
+<Response_Prefix>
+Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
+</Response_Prefix>
+
 <Use_When>
 - User reports a symptom using words like "error", "dump", "failing", "broken", "not working", "timeout", "slow"
 - User has at least one clue: error message, TCode, program name, job name, or affected user/data

@@ -12,6 +12,10 @@ Full CTS (Change and Transport System) transport release workflow. Hybrid mode: 
 sc4sap:release guides you through the complete CTS transport release process: listing available transports, selecting the target, validating pre-release conditions, performing the release, and confirming import readiness. It prevents releasing transports with syntax errors or inactive objects.
 </Purpose>
 
+<Response_Prefix>
+Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
+</Response_Prefix>
+
 <Use_When>
 - User says "release", "release transport", "release CTS", "push to QAS", or "transport release"
 - A development cycle is complete and objects need to move to the next system (QAS/PRD)

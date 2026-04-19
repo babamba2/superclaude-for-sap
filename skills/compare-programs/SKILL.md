@@ -17,6 +17,10 @@ This skill crystallizes **why each variant exists** so a consultant can:
 - brief a handover or knowledge transfer without reading ABAP.
 </Purpose>
 
+<Response_Prefix>
+Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
+</Response_Prefix>
+
 <Use_When>
 - User says "compare programs", "what's the difference between A and B", "MM vs CO version", "country-specific programs", or equivalent in the user's language
 - Consultant handover / AMS transition — need to document "when to use which"

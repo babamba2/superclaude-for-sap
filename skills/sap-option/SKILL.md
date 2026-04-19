@@ -14,6 +14,10 @@ Single entrypoint to **inspect live SAP state** and **edit the values stored in 
 Users should not edit `sap.env` blindly; this skill surfaces the current values (masking secrets), explains each option, lets the user pick what to change, and writes the file back safely with a backup.
 </Purpose>
 
+<Response_Prefix>
+Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
+</Response_Prefix>
+
 <Use_When>
 - User says "sap option", "show sap.env", "change SAP password", "switch SAP client", "change the blocklist profile", "loosen blocklist", "whitelist ACDOCA", "view SAP config", "SAP options".
 - User says "change the industry", "change industry", "switch industry", "switch to retail", "switch to cosmetics" — route to the **Industry selection** flow described in `<Industry_Selection>` (updates `SAP_INDUSTRY` in `sap.env` and `industry` in `config.json` atomically).

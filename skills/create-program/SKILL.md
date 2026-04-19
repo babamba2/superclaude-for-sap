@@ -12,6 +12,8 @@ Core ABAP program creation skill. Generates a Main Program wrapped with conditio
 sc4sap:create-program is the flagship skill for creating new ABAP programs. It handles a wide range of purposes (Report, CRUD, ALV list, Batch, Interface). Before coding starts, it runs an internal Socratic interview to resolve ambiguity, then produces a confirmed spec, then orchestrates coding and QA agents to deliver activated, tested ABAP objects following sc4sap conventions.
 </Purpose>
 
+<Response_Prefix>Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.</Response_Prefix>
+
 <Use_When>
 - User says "create program", "new report", "ALV program", "CRUD program", "make me a batch program", etc.
 - A new ABAP executable program (REPORT) needs to be created from scratch

@@ -12,6 +12,10 @@ Diagnoses the full SC4SAP stack: plugin installation, MCP server status, and liv
 sc4sap:sap-doctor runs a structured health check across three layers: the SC4SAP plugin itself, the mcp-abap-adt MCP server registration, and the live SAP system connection. It surfaces problems with clear remediation steps so you can get back to development quickly.
 </Purpose>
 
+<Response_Prefix>
+Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
+</Response_Prefix>
+
 <Use_When>
 - Something isn't working and you're not sure where the problem is
 - After initial setup to confirm everything is configured correctly

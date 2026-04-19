@@ -3,6 +3,47 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.2] — 2026-04-20
+
+### Added — 4-Tier Context Loading Model + Response Prefix
+
+**Tier 1 (Global Mandatory — every agent/skill, every session)** — five files now unconditionally loaded at session start: `data-extraction-policy.md` (safety), `sap-version-reference.md` (platform), `naming-conventions.md` (namespace), `context-loading-protocol.md` (meta), `model-routing-rule.md` (routing).
+
+**Tier 2 (Role-Mandatory — per agent role group)** — fixed additional set loaded at session start based on the agent's declared role group. Seven role groups:
+
+| Role group | Agents | Tier 2 adds |
+|---|---|---|
+| Code Writer | executor, qa-tester, debugger | clean-code, abap-release-reference, transport-client-rule, include-structure |
+| Reviewer | code-reviewer, critic | clean-code, abap-release-reference, include-structure (per-bucket narrowing) |
+| Planner / Architect | planner, architect | include-structure, active-modules, customization-lookup, field-typing-rule |
+| Analyst / Writer | analyst, writer | active-modules |
+| Doc Specialist | doc-specialist | *(none — task-driven)* |
+| Module Consultant | 14 module consultants | spro-lookup, customization-lookup, active-modules, configs/{MODULE}/*.md |
+| Basis Consultant | bc-consultant | transport-client-rule, configs/common/*.md |
+
+**Tier 3 (Triggered)** — unchanged from v0.5.0 (ALV, paradigm, CALL SCREEN, ECC, Cloud, module, industry, country, DDIC, FM, text, constant).
+
+**Tier 4 (Per-Task Kit)** — unchanged (skill phase / Wave / reviewer bucket declaration).
+
+### Added — Response Prefix Convention
+
+Every `/sc4sap:*` skill-triggered response now begins with `[Model: <main-model> · Dispatched: <sub-summary>]` so the user sees at a glance which model is doing the work. Defined in `model-routing-rule.md` § *Response Prefix Convention*; each of the 15 `/sc4sap:*` SKILL.md files has a `<Response_Prefix>` block pointing to the convention.
+
+### Changed
+
+- **`common/context-loading-protocol.md`** — rewritten around the 4-tier model with role-mandatory tables.
+- **25 `agents/*.md` files** — each gained a `<Mandatory_Baseline>` block identifying its role group and Tier 2 additions (at `<Agent_Prompt>` entry, before `<Role>`).
+- **15 `skills/*/SKILL.md` files** — `<Response_Prefix>` block after `</Purpose>`.
+- **`common/model-routing-rule.md`** — added § *Response Prefix Convention* (88 → 128 lines).
+- **`CLAUDE.md`** — top intro now names the 4 tiers + the 5 Tier-1 files explicitly.
+
+### Expected effect
+
+- Tier 1/2 reads happen once per session, not once per turn → cache friendly.
+- Tier 4 kit declarations remain minimal (narrow per wave/bucket).
+- Per-dispatch token savings vs v0.5.0: additional ~15% on consultant dispatches (configs/{MODULE}/*.md no longer ambiguously loaded).
+- Response prefix gives the user real-time visibility into model routing without opening transcripts.
+
 ## [0.5.1] — 2026-04-20
 
 ### Added — Multi-Executor Split for Phase 4 bulk work

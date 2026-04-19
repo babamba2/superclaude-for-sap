@@ -86,3 +86,43 @@ This gives Opus the cheap agent's inventory + the specific failure point, rather
 - `skills/create-program/phase4-parallel.md` — per-Wave model column above is authoritative.
 - `skills/create-program/agent-pipeline.md` — each Phase bullet states its expected model.
 - `skills/create-program/phase6-buckets.md` — reviewer bucket dispatch + Opus escalation ladder uses this rule.
+
+## Response Prefix Convention — `/sc4sap:*` skills
+
+Every sc4sap skill (`/sc4sap:*`) MUST cause the main-thread response to begin with a model-routing prefix line, so the user can see at a glance which model is doing the work and which sub-agents were dispatched.
+
+**Format (first line of the skill-triggered response):**
+
+```
+[Model: <main-model> · Dispatched: <sub-summary>]
+```
+
+- `<main-model>` — the model the main conversation thread runs on (e.g., `Opus 4.7`, `Sonnet 4.6`, `Haiku 4.5`). Read from the session's model identity; does NOT change mid-session.
+- `<sub-summary>` — a compact list of `Agent(...)` dispatches issued during the response, with model + count. Examples:
+  - `Sonnet×2` — two Sonnet sub-agent dispatches.
+  - `Opus×1 (planner), Sonnet×3 (executor)` — role-annotated when helpful.
+  - Omit the `· Dispatched: ...` portion entirely when the response uses no `Agent(...)` dispatches.
+
+**Examples:**
+
+```
+[Model: Opus 4.7]
+— pure main-thread response, no sub-agent dispatches
+
+[Model: Opus 4.7 · Dispatched: Sonnet×2]
+— main thread + two parallel Sonnet executors (e.g., Phase 4 Wave 2 G4-prep split)
+
+[Model: Opus 4.7 · Dispatched: Opus×1 (planner)]
+— Phase 2 planner dispatch
+
+[Model: Opus 4.7 · Dispatched: Sonnet×3 (B3a executor range α/β/γ)]
+— Multi-Executor Split per multi-executor-split.md Strategy A
+```
+
+**When the prefix applies:**
+
+- Every response that resulted from invoking a `/sc4sap:*` skill — not every conversation turn.
+- Continuation turns on the same skill-triggered task (follow-ups, verification, clarifications) keep the prefix.
+- A user message that pivots to unrelated work drops the prefix starting with that turn.
+
+**Each sc4sap SKILL.md MUST include** a `<Response_Prefix>` block near the top pointing at this section, so every skill inherits the convention without restating it.

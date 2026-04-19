@@ -12,6 +12,10 @@ Walks a CBO (Customer Business Object) package, inventories every project-built 
 Projects accumulate Z tables, Z data elements, Z function modules, and ZCL_ classes that encode domain logic. New development too often recreates near-duplicates because nobody has a compact inventory of what already exists. `analyze-cbo-obj` produces that inventory — once per package — and writes it to a file that later `sc4sap:` skills read automatically, so the next spec / program / object creation defaults to reusing proven CBO assets.
 </Purpose>
 
+<Response_Prefix>
+Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
+</Response_Prefix>
+
 <Use_When>
 - Starting development on a module that already has a sizeable Z-package
 - Onboarding onto an AMS / support engagement (need a map of custom assets)

@@ -12,6 +12,10 @@ Follows OMC `deep-interview` pattern adapted for SAP. Conducts a structured Socr
 sc4sap:deep-interview asks targeted questions to resolve ambiguity in SAP requirements. It gates on a mathematical ambiguity threshold: only when requirements are sufficiently specified does it produce a validated spec file and offer to proceed to `/sc4sap:create-program` or `/sc4sap:create-object`.
 </Purpose>
 
+<Response_Prefix>
+Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
+</Response_Prefix>
+
 <Use_When>
 - Requirement is vague (no object names, package, transport, or system details)
 - User says "deep interview", "ask me questions", "help me spec this", or "I'm not sure what I need"

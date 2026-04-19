@@ -8,6 +8,10 @@ level: 2
 
 Use `/sc4sap:setup` as the unified setup and configuration entrypoint for SuperClaude for SAP.
 
+<Response_Prefix>
+Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
+</Response_Prefix>
+
 ## Usage
 
 ```bash
