@@ -2,12 +2,26 @@
 
 **All user-visible text MUST use Text Elements** — no hardcoded display literals.
 
-## Scope
+## Scope — Four Text Pool Types (MUST verify ALL that apply)
 
-- ALV column caption: `<fs_fieldcat>-coltext = text-f01.`
-- Screen title: `text-t01`
-- Messages / tooltips: `text-m01`
-- Selection screen labels: maintained via Text Element editor
+ABAP text pools split into four distinct row types. `CreateTextElement` / `UpdateTextElement` writes ONE type per call — the executor MUST emit every applicable type, not just `I`.
+
+| Type ID | Purpose | Where seen | When required |
+|---------|---------|------------|---------------|
+| `I` — Text Symbol   | Inline code literals `TEXT-xxx` | ALV coltext, MESSAGE text, titles in code | Always when any `TEXT-xxx` appears in source |
+| `S` — Selection Text | Labels of SELECT-OPTIONS / PARAMETERS on selection screen | Selection screen field labels | **Always — once per `SELECT-OPTIONS` / `PARAMETERS` name, including those inside `SELECTION-SCREEN BEGIN OF BLOCK`** |
+| `R` — Program Title  | Report title (short description) | SE38 title bar / system list | Always — one row per program |
+| `H` — List Heading   | Classic list headings (TOP-OF-PAGE) | Classical list output only | Only when program uses classical WRITE lists — skip for ALV-only |
+
+**Anti-pattern (this bug has been seen)**: executor creates `I` + `R` rows and skips `S`. Runtime result — every selection-screen field displays its technical name (`S_BUDAT`, `P_FILE`) instead of a human label. `GetTextElement(text_type='S')` returns empty. This is a MAJOR Phase 6 finding.
+
+## Scope — Surface References
+
+- ALV column caption: `<fs_fieldcat>-coltext = text-f01.` → type `I`
+- Screen title in code: `text-t01` → type `I`
+- Messages / tooltips: `text-m01` → type `I`
+- **Selection screen label** for every `SELECT-OPTIONS s_budat FOR ...` / `PARAMETERS p_file TYPE ...` → type `S`, key = parameter name (`S_BUDAT`, `P_FILE`)
+- Program title (SE38 description) → type `R`
 
 ## Language Strategy (MANDATORY — two passes)
 
@@ -31,8 +45,15 @@ For the `create-program` skill, the planner's text-element table in `plan.md` mu
 
 ## Enforcement
 
-- `CreateTextElement` MCP registers each text id per program/screen.
+- `CreateTextElement` MCP registers each text id per program/screen — caller MUST pass `text_type` explicitly (`I` / `S` / `R` / `H`); no default.
+- For every program, the executor emits (per language pass, primary + `'E'`):
+  - 1× type `R` (program title)
+  - N× type `I` (one per `TEXT-xxx` literal in source)
+  - **M× type `S` (one per SELECT-OPTIONS/PARAMETERS name)**
+  - 0 or P× type `H` (only if classical list output)
+- Post-write verify via `ReadTextElementsBulk(program, language)`: `counts.R ≥ 1` AND `counts.I == N` AND `counts.S == M`. Mismatch → fail fast, re-emit missing rows before leaving Phase 4.
 - `sap-code-reviewer` **must fail the review** if:
   - hardcoded display literals are found, OR
   - any text id is missing its primary-language row, OR
-  - any text id is missing its `'E'` safety-net row.
+  - any text id is missing its `'E'` safety-net row, OR
+  - **selection-screen `SELECT-OPTIONS` / `PARAMETERS` names exist in source but `counts.S` is 0 or smaller than the count of those declarations.**

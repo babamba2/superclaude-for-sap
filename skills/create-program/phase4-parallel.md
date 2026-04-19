@@ -70,7 +70,12 @@ All three groups launch in a single multi-tool-use message. Within each group, m
 
 - **G2**: parallel `CreateInterface` + `CreateClass` calls. If a class `IMPLEMENTS` an interface, SAP tolerates inactive interface refs during creation — activation resolves them in the final batch.
 - **G3**: `CreateFunctionGroup` first (small-serial), then parallel `CreateFunctionModule` within the group. Each `UpdateFunctionModule` body **MUST follow [`../../common/function-module-rule.md`](../../common/function-module-rule.md)** — inline `IMPORTING / EXPORTING / CHANGING / TABLES / EXCEPTIONS` clauses directly in the `FUNCTION` statement (not as `*"` comments, not as shadow locals). Empty signature placeholder `" You can use the template 'functionModuleParameter' ...` is a failure marker.
-- **G4-prep**: parallel `CreateTextElement` calls (trivial — just strings).
+- **G4-prep**: parallel `CreateTextElement` calls. **MANDATORY — emit all four applicable types per [`../../common/text-element-rule.md`](../../common/text-element-rule.md)**:
+  - Type `R` — 1× program title (per language pass).
+  - Type `I` — one per `TEXT-xxx` literal used in source (ALV coltext, MESSAGE, titles in code).
+  - **Type `S` — one per `SELECT-OPTIONS` and `PARAMETERS` name on the selection screen.** Skipping `S` is the single most common Phase 4 regression — runtime shows `S_BUDAT` / `P_FILE` instead of human labels. Do not rely on a later pass to add them.
+  - Type `H` — only when the program emits classical WRITE lists (skip for ALV-only).
+  - After creation (for every language pass), call `ReadTextElementsBulk(program, language)` and verify: `counts.R ≥ 1` AND `counts.I == emitted_I` AND `counts.S == declared_select_options_and_parameters`. On mismatch, re-emit the missing rows before Wave 3 starts.
 
 ### Wave 3 — G5 (Includes + Main Program)
 
@@ -91,17 +96,26 @@ On syntax errors, parse locations → identify offending include(s) → **parall
 
 ### Wave 4 — G4-late (Screens + GUI Status)
 
-Needs the main program. Parallel:
-- `CreateScreen` per screen number
-- `CreateGuiStatus` per status (references function codes defined in the main program's CONSTANTS)
+Needs the main program. **Each screen and each GUI Status MUST follow the 3-step `Create → Update(body) → VerifyNonEmpty` protocol** — `Create*` alone creates an empty shell; it does NOT populate flow logic, PFKEYS, menus, or titles. Skipping the `Update*` step has been a recurring Phase 4 regression (screens with `* MODULE STATUS_0100.` commented out and empty GUI statuses passing review).
 
-## Final Step — Batch Activation
+**Per screen (parallel across screens):**
+1. `CreateScreen(program, screen_number, ...)` — shell + field list.
+2. `UpdateScreen(program, screen_number, flow_logic=...)` — flow logic MUST include uncommented `MODULE STATUS_xxxx.` and `MODULE USER_COMMAND_xxxx.` lines (PBO / PAI). Every field the screen needs (including the `OKCODE` field bound to `GV_OKCODE`) must be in the field list.
+3. **Verify**: `GetScreen(program, screen_number)` → `flow_logic` contains a non-comment `MODULE ... OUTPUT.` line AND a non-comment `MODULE ... INPUT.` line. Lines starting with `*` or `"` do NOT count as implementation. On failure → re-`UpdateScreen` with the correct body; do not advance to activation.
 
-Single call:
-```
-GetInactiveObjects(transport=...) → list of all inactive objects from this session
-→ single activate call against the full list
-```
+**Per GUI Status (parallel across statuses):**
+1. `CreateGuiStatus(program, status_name, ...)` — shell.
+2. `UpdateGuiStatus(program, status_name, pfkeys=..., menu=..., toolbar=..., title=...)` — populate PFKEYS (BACK/EXIT/CANC at minimum), application toolbar entries for SAVE/REFRESH/etc., and the status title. **A separate title row per status code must also be emitted (CUAD `TIT` entry).**
+3. **Verify**: `GetGuiStatus(program, status_name)` → `definition.STA[*].CODE` matches requested AND the status has non-empty function codes (not just an empty `STA` + `TIT` pair). On failure → re-`UpdateGuiStatus`; do not advance.
+
+**Anti-pattern to block**: reporting "Screen/GUI 생성 완료" after only `Create*` returned 200. The empty-shell state is indistinguishable from success unless `Get*` is called after `Update*`. Reviewer treats missing verify step as MAJOR finding.
+
+## Final Step — Batch Activation + Post-Activation Verification
+
+1. `GetInactiveObjects(transport=...)` → list inactive objects from this session.
+2. Single `ActivateObjects` call against the full list.
+3. **Mandatory post-activation verification (NEW)** — call `GetInactiveObjects` again and filter for entries whose `name` matches this program's prefix (`{PROG}*`) AND every created FG/CLAS/TABL from the plan. The expected count is **exactly 0**. Any non-zero result means activation partially failed (common case: an include body references an identifier that was never activated, so the include stays inactive while the main program activates).
+4. If step 3 returns > 0 entries: do NOT report "활성화 완료" / "completed". Re-run step 1 targeting the remaining items; on persistent failure (2 attempts) escalate to Phase 7 and surface the exact list of still-inactive objects to the user. Past regression: reviewer reported "5/5 프로그램 활성화 OK" while 30+ sub-includes remained in inactive state — step 3 blocks that class of false positive.
 
 SAP's ADT activation accepts a list and resolves dependencies atomically. If one object fails (rare at this point), reorder by dependency chain and retry the remaining set. Persistent failure → Phase 7.
 
