@@ -3,6 +3,25 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.1] — 2026-04-20
+
+### Added — OK_CODE Binding Pattern for Procedural Screens
+
+- **`common/ok-code-pattern.md`** *(new, 104 lines)* — Authoritative 3-step contract for wiring screen user commands: (1) TOP declares `DATA: gv_okcode TYPE sy-ucomm.`, (2) Screen's `fields_to_containers[]` OKCODE entry has `NAME=GV_OKCODE`, (3) PAI `user_command_xxxx` FORM copies `gv_okcode` to a local, `CLEAR gv_okcode`, `CASE` on the local. Blocks the silent-failure mode where `CASE sy-ucomm.` works on the main screen but breaks on the first popup / ALV toolbar event because the popup runtime overwrites `sy-ucomm`.
+
+### Changed — Reviewer and Phase-4 Wave 4
+
+- **`skills/create-program/phase4-parallel.md`** Wave 4 — `UpdateScreen` payload MUST set `fields_to_containers[].NAME=GV_OKCODE` for the OKCODE field; Verify step now checks NAME binding in addition to flow-logic uncommenting.
+- **`skills/create-program/phase6-review.md`** §1 — New reviewer check for the 3-step contract; `CASE sy-ucomm.` inside a `user_command_xxxx` FORM is a MAJOR finding.
+- **`skills/create-program/phase6-output-format.md`** — Added OK_CODE-broken pattern to the enumerated false-positive list.
+- **`common/include-structure.md`** TOP row — Link to `ok-code-pattern.md` + explicit `CASE sy-ucomm` warning.
+- **`common/clean-code-procedural.md`** — PAI user-command routing rule references the new pattern file.
+- **`CLAUDE.md`** index — Added row linking to `ok-code-pattern.md`.
+
+### Motivation
+
+Observed during the ZMMR00010–ZMMR00200 batch fix: every `user_command_xxxx` FORM reads `sy-ucomm` directly, none bind `gv_okcode`. Programs work today on the single main screen but are time-bombs the first time a popup is introduced. The rule was missing from the plugin so first-time users could ship this bug unchallenged.
+
 ## [0.4.0] — 2026-04-19
 
 ### Changed — Phase 4 / Phase 6 Hardening

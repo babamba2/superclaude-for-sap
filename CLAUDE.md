@@ -16,6 +16,7 @@ This file is the **index** of development rules. Detailed rules live in `common/
 | OOP two-class split pattern | [`common/oop-pattern.md`](common/oop-pattern.md) |
 | Include structure (Main + conditional includes) | [`common/include-structure.md`](common/include-structure.md) |
 | ALV display rules | [`common/alv-rules.md`](common/alv-rules.md) |
+| OK_CODE binding pattern (TOP decl + screen NAME + PAI FORM routing; never `CASE sy-ucomm`) | [`common/ok-code-pattern.md`](common/ok-code-pattern.md) |
 | SPRO lookup protocol (consultant agents, IMG/Customizing) | [`common/spro-lookup.md`](common/spro-lookup.md) |
 | Customization lookup protocol (existing Z*/Y* BAdI impl, CMOD, form-exits, appends — mandatory before recommending new enhancements/extensions) | [`common/customization-lookup.md`](common/customization-lookup.md) |
 | Data extraction policy (blocklist rule, `acknowledge_risk` hard rule, refusal template) | [`common/data-extraction-policy.md`](common/data-extraction-policy.md) |

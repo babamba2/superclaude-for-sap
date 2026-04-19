@@ -37,6 +37,7 @@ When generating a Procedural program's main `REPORT` source, the executor MUST s
 - **Length** under ~50 lines — procedural logic is often more linear than OOP methods, but beyond 50 lines comprehension drops. Extract to sub-FORMs.
 - **Screen-bound FORMs end with `_{screen_no}` suffix** (`process_save_0100`, `init_fields_0200`) per [`procedural-form-naming.md`](procedural-form-naming.md). Utility FORMs (shared across screens) get no suffix.
 - **PBO / PAI module names** — `STATUS_0100`, `USER_COMMAND_0100`, `MODIFY_SCREEN_0100`. Body of a module should be one line: `PERFORM f_status_0100.` — all logic lives in the FORM, not the module.
+- **PAI user-command routing — MUST follow the OK_CODE binding pattern** in [`ok-code-pattern.md`](ok-code-pattern.md). Declare `gv_okcode TYPE sy-ucomm.` in TOP, bind the screen's OKCODE field NAME to `GV_OKCODE`, and in the `user_command_xxxx` FORM copy `gv_okcode` to a local, `CLEAR gv_okcode`, then `CASE` on the local. Reading `sy-ucomm` directly inside the FORM breaks silently on popup / ALV-event flows and is a MAJOR Phase 6 finding.
 - **No declaration in the middle of a FORM** — all FORM-local declarations at the top, logic below. Inline `DATA(lv_x)` is permitted if `ABAP_RELEASE ≥ 740`, but be sparing: keeping declarations at the top of the FORM improves procedural readability.
 
 ## Procedural Error Handling

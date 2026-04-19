@@ -100,8 +100,8 @@ Needs the main program. **Each screen and each GUI Status MUST follow the 3-step
 
 **Per screen (parallel across screens):**
 1. `CreateScreen(program, screen_number, ...)` — shell + field list.
-2. `UpdateScreen(program, screen_number, flow_logic=...)` — flow logic MUST include uncommented `MODULE STATUS_xxxx.` and `MODULE USER_COMMAND_xxxx.` lines (PBO / PAI). Every field the screen needs (including the `OKCODE` field bound to `GV_OKCODE`) must be in the field list.
-3. **Verify**: `GetScreen(program, screen_number)` → `flow_logic` contains a non-comment `MODULE ... OUTPUT.` line AND a non-comment `MODULE ... INPUT.` line. Lines starting with `*` or `"` do NOT count as implementation. On failure → re-`UpdateScreen` with the correct body; do not advance to activation.
+2. `UpdateScreen(program, screen_number, flow_logic=..., fields_to_containers=...)` — flow logic MUST include uncommented `MODULE STATUS_xxxx.` and `MODULE USER_COMMAND_xxxx.` lines (PBO / PAI). Every field the screen needs must be in the field list. **OK_CODE field binding is mandatory per [`../../common/ok-code-pattern.md`](../../common/ok-code-pattern.md)**: the `fields_to_containers[]` entry with `TYPE=OKCODE` MUST have `NAME=GV_OKCODE` (not the placeholder underscores). A screen whose OKCODE field has no NAME routes user commands into `sy-ucomm` only — breaks silently on popup flows and is a MAJOR Phase 6 finding.
+3. **Verify**: `GetScreen(program, screen_number)` → (a) `flow_logic` contains a non-comment `MODULE ... OUTPUT.` line AND a non-comment `MODULE ... INPUT.` line (lines starting with `*` or `"` do NOT count), AND (b) `fields_to_containers[]` OKCODE entry has `NAME=GV_OKCODE`. On failure → re-`UpdateScreen` with the correct body; do not advance to activation.
 
 **Per GUI Status (parallel across statuses):**
 1. `CreateGuiStatus(program, status_name, ...)` — shell.
