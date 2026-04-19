@@ -1,0 +1,19 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "e7f024d5126c",
+  "strategy": "manual-commit",
+  "branch": "active",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CLAUDE.md",
+    "skills/create-object/SKILL.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/e7/f024d5126c/0/metadata.json",
+      "transcript": "/e7/f024d5126c/0/full.jsonl",
+      "content_hash": "/e7/f024d5126c/0/content_hash.txt",
+      "prompt": ""
+    }
+  ]
+}
