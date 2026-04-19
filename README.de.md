@@ -35,11 +35,12 @@ SuperClaude for SAP verwandelt Claude Code in einen Full-Stack-SAP-Entwicklungsa
 | 🌏 **Länder-/Lokalisierung** | 15 länderspezifische Dateien + EU-Common (KR/JP/CN/US/DE/GB/FR/IT/ES/NL/BR/MX/IN/AU/SG). E-Invoicing, Banking, Payroll, Steuerlokalisierung. |
 | 🧩 **Aktive-Modul-Erkennung** | Cross-Module-Integrationshinweise: MM + PS aktiv → WBS-Felder für MM-CBOs vorschlagen; SD + CO aktiv → CO-PA-Ableitung. [Details →](common/active-modules.md) |
 | 🤝 **Modul-Consulting** | `sap-analyst` / `sap-critic` / `sap-planner` / `sap-architect` delegieren an 14 Modulberater + 1 BC-Berater, wenn Business-Urteil erforderlich ist. |
+| ❓ **Berater fragen** | `/sc4sap:ask-consultant` — benutzerseitige direkte Q&A mit einem Modulberater. Automatisches Routing nach SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC anhand der Schlüsselwörter, Antwort basierend auf der konfigurierten SAP-Umgebung (Version, Branche, Land, aktive Module). Nur-Lese — keine MCP-Schreibvorgänge, keine Zeilenextraktion. |
 
 ## Dokumentation
 
 - 📦 **[Installation & Setup →](docs/INSTALLATION.de.md)** — Anforderungen, Installationsoptionen, Wizard-Schritte, Blocklist-Konfiguration
-- 🎯 **[Funktionen im Detail →](docs/FEATURES.de.md)** — 25 Agenten, 18 Skills, MCP-Tools, RFC-Backends, Hooks, Datenextraktionsrichtlinie
+- 🎯 **[Funktionen im Detail →](docs/FEATURES.de.md)** — 25 Agenten, 19 Skills, MCP-Tools, RFC-Backends, Hooks, Datenextraktionsrichtlinie
 - 📜 **[Changelog →](docs/CHANGELOG.de.md)** — Versionshistorie und Breaking Changes
 
 ## Unleashed

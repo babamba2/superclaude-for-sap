@@ -36,7 +36,7 @@
 - `sap-analyst` / `sap-critic` / `sap-planner`는 필수 **Country Context** 블록 보유(`country/<iso>.md` 로드)
 - **Core 에이전트의 직접 MCP 읽기 권한** — 패키지/DDIC/클래스/프로그램/where-used/런타임 덤프 툴을 읽기 전용으로 보유. 쓰기 CRUD는 `sap-executor` / `sap-planner` / `sap-writer` / `sap-qa-tester` / `sap-debugger`에 집중
 
-## 18개 스킬
+## 16개 스킬
 
 | 스킬 | 설명 |
 |------|------|
@@ -47,9 +47,11 @@
 | `sc4sap:create-object` | ABAP 객체 생성 (하이브리드 모드 — 전송+패키지 확인, 생성, 활성화) |
 | `sc4sap:create-program` | 풀 ABAP 프로그램 파이프라인 — Main+Include, OOP/Procedural, ALV, Dynpro, Text Elements, ABAP Unit |
 | `sc4sap:program-to-spec` | ABAP 프로그램을 Functional/Technical Spec으로 역공학 (Markdown / Excel) |
+| `sc4sap:compare-programs` | 동일 시나리오를 모듈/국가/페르소나로 분화한 2~5개 ABAP 프로그램을 비교 → 컨설턴트용 Markdown 리포트 |
 | `sc4sap:analyze-code` | ABAP 코드 분석 (Clean ABAP / 성능 / 보안) |
 | `sc4sap:analyze-cbo-obj` | CBO 인벤토리 스캐너 + 교차 모듈 갭 분석 |
 | `sc4sap:analyze-symptom` | SAP 운영 에러/증상 단계별 분석 (덤프, 로그, SAP Note 후보) |
+| `sc4sap:ask-consultant` | 모듈 컨설턴트 에이전트(SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC)에 직접 질의. 읽기 전용 — 설정된 SAP 환경에 맞추어 답변. |
 | `sc4sap:trust-session` | INTERNAL-ONLY — 세션 전체 MCP 권한 부트스트랩 |
 | `sc4sap:deep-interview` | 구현 전 Socratic 요구사항 수집 |
 | `sc4sap:team` | 조정된 병렬 에이전트 실행 (네이티브 Claude Code teams) |

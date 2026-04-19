@@ -54,6 +54,7 @@ Enforcement: L1 agent instructions → L2 this file → L3 `PreToolUse` hook (`s
 - `/sc4sap:compare-programs` — Business-angle side-by-side comparison of 2–5 ABAP programs sharing the same scenario but differing by module / country / persona (reader = consultant) → `.sc4sap/comparisons/*.md` (auto-invokes `trust-session`)
 - `/sc4sap:analyze-symptom` — Dump/error root-cause analysis (auto-invokes `trust-session`)
 - `/sc4sap:analyze-cbo-obj` — Inventory a CBO package → save frequently-used Z objects to `.sc4sap/cbo/<MODULE>/<PACKAGE>/` for reuse by `create-program` / `program-to-spec` (auto-invokes `trust-session`)
+- `/sc4sap:ask-consultant` — Direct user-facing Q&A with a module consultant agent (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC). Auto-routes by keywords, answers against the configured SAP environment. Read-only (no writes, no row extraction).
 - `/sc4sap:team` — Parallel multi-agent orchestration
 - `/sc4sap:deep-interview` — Socratic interview to crystallize a spec before code generation
 - `/sc4sap:release` — CTS transport release workflow

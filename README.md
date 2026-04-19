@@ -35,11 +35,12 @@ SuperClaude for SAP transforms Claude Code into a full-stack SAP development ass
 | 🌏 **Country / Localization** | 15 per-country files + EU-common (KR/JP/CN/US/DE/GB/FR/IT/ES/NL/BR/MX/IN/AU/SG). e-invoicing, banking, payroll, tax localization. |
 | 🧩 **Active-Module Awareness** | Cross-module integration hints: MM + PS active → auto-suggest WBS fields on MM CBOs; SD + CO active → CO-PA derivation. [Details →](common/active-modules.md) |
 | 🤝 **Module Consultation** | `sap-analyst` / `sap-critic` / `sap-planner` / `sap-architect` delegate to 14 module consultants + 1 BC consultant when business judgement is needed. |
+| ❓ **Ask Consultant** | `/sc4sap:ask-consultant` — direct user-facing Q&A with a module consultant. Auto-routes SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC by question keywords, answers against your configured SAP environment (version, industry, country, active modules). Read-only — no MCP writes, no row extraction. |
 
 ## Documentation
 
 - 📦 **[Installation & Setup →](docs/INSTALLATION.md)** — requirements, install options, wizard steps, blocklist configuration
-- 🎯 **[Features Deep-Dive →](docs/FEATURES.md)** — 25 agents, 18 skills, MCP tools, RFC backends, hooks, data-extraction policy
+- 🎯 **[Features Deep-Dive →](docs/FEATURES.md)** — 25 agents, 19 skills, MCP tools, RFC backends, hooks, data-extraction policy
 - 📜 **[Changelog →](docs/CHANGELOG.md)** — version history and breaking changes
 
 ## Unleashed
