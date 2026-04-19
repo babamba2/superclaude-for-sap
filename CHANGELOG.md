@@ -3,6 +3,26 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.4] — 2026-04-20
+
+### Fixed — Plugin manifest version alignment (critical)
+
+The Claude Code plugin marketplace reads **`.claude-plugin/plugin.json` version**, not `package.json` version. Previous v0.4.0–v0.5.3 releases bumped only `package.json`, so users running `/plugin` saw stale `0.3.10` from `plugin.json` while GitHub showed v0.5.3. All three manifests are now synced to `0.5.4`:
+
+- `.claude-plugin/plugin.json` version: `0.3.10` → `0.5.4`
+- `.claude-plugin/marketplace.json` plugins[0].version: `0.2.5` → `0.5.4`
+- `.claude-plugin/marketplace.json` root version: `0.2.2` → `0.5.4`
+- `package.json` / `package-lock.json`: `0.5.3` → `0.5.4`
+- `README.md` / `README.ko.md` / `README.ja.md` / `README.de.md` badge: `v0.2.4` → `v0.5.4`
+
+### Changed — Manifest descriptions updated
+
+`plugin.json` and `marketplace.json` descriptions now reflect all v0.4.x/v0.5.x additions: 16 skills (incl. `ask-consultant`, `compare-programs`), 4-Tier context loading, Sonnet/Opus model routing, OK_CODE binding pattern, Phase 4/6 hardening + Multi-Executor Split.
+
+### Note — Semantic content unchanged
+
+No skill / agent / rule file changed in this release. Only version fields + manifest descriptions. Users on 0.3.10 who upgrade to 0.5.4 get the accumulated v0.4.0–v0.5.3 feature set.
+
 ## [0.5.3] — 2026-04-20
 
 ### Added — `/sc4sap:ask-consultant` skill
