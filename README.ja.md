@@ -34,8 +34,7 @@ SuperClaude for SAP は Claude Code をフルスタック SAP 開発アシスタ
 | 🏭 **業界コンテキスト** | 14 業界リファレンス (retail, fashion, cosmetics, tire, automotive, pharma, F&B, chemical, electronics, construction, steel, utilities, banking, public-sector)。 |
 | 🌏 **国別ローカライゼーション** | 15 カ国 + EU 共通 (KR/JP/CN/US/DE/GB/FR/IT/ES/NL/BR/MX/IN/AU/SG)。適格請求書、銀行、給与、税制。 |
 | 🧩 **アクティブモジュール認識** | クロスモジュール統合ヒント:MM + PS 有効 → MM CBO に WBS フィールド自動提案;SD + CO 有効 → CO-PA 派生。[詳細 →](common/active-modules.md) |
-| 🤝 **モジュールコンサルテーション** | `sap-analyst` / `sap-critic` / `sap-planner` / `sap-architect` がビジネス判断が必要な場合、14 モジュールコンサルタント + 1 BC コンサルタントに委任。 |
-| ❓ **コンサルタントに質問** | `/sc4sap:ask-consultant` — ユーザーがモジュールコンサルタントに直接質問。キーワードで SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC を自動ルーティングし、プロジェクトに設定された SAP 環境(バージョン・業界・国・アクティブモジュール)に沿って回答。読み取り専用 — MCP 書き込みなし、行抽出なし。 |
+| 🤝 **モジュールコンサルテーション** | `sap-analyst` / `sap-critic` / `sap-planner` / `sap-architect` がビジネス判断が必要な場合、14 モジュールコンサルタント + 1 BC コンサルタントに委任。ユーザーが直接質問する場合は `/sc4sap:ask-consultant` — キーワードで SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC を自動ルーティングし、プロジェクトに設定された SAP 環境(バージョン・業界・国・アクティブモジュール)に沿って回答、読み取り専用。 |
 
 ## ドキュメント
 
