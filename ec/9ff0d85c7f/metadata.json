@@ -1,0 +1,18 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "ec9ff0d85c7f",
+  "strategy": "manual-commit",
+  "branch": "active",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CLAUDE.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/ec/9ff0d85c7f/0/metadata.json",
+      "transcript": "/ec/9ff0d85c7f/0/full.jsonl",
+      "content_hash": "/ec/9ff0d85c7f/0/content_hash.txt",
+      "prompt": ""
+    }
+  ]
+}
