@@ -3,6 +3,26 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.3] — 2026-04-20
+
+### Added — `/sc4sap:ask-consultant` skill
+
+New user-facing direct-Q&A skill for consulting with a module consultant agent without running a full create-program / create-object pipeline.
+
+- **`skills/ask-consultant/SKILL.md`** *(new, 117 lines)* — routes the user's question to the matching `sap-{module}-consultant` (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC) based on keyword inference + explicit mention. Multi-module questions dispatch 2-3 consultants in parallel. Answers are rendered against the configured SAP environment (`sapVersion`, `industry`, `country`, `activeModules` from `.sc4sap/config.json` + `.sc4sap/sap.env`).
+- **Read-only**: no `Create*` / `Update*` / `Delete*` / `Activate*` / `CreateTransport` calls. DDIC metadata reads are fine; row extraction (`GetTableContents` / `GetSqlQuery`) is prohibited.
+- **Inherits v0.5.2 conventions**: `<Response_Prefix>` block at top (prefix format `[Model: <main> · Dispatched: Opus×<n> (<consultants>)]`); consultant agents load Tier 1 + Tier 2 per `common/context-loading-protocol.md` so `configs/{MODULE}/*.md` are always available.
+
+### Added — `/sc4sap:compare-programs` skill documentation
+
+`compare-programs` existed in the skills folder but was missing from `docs/FEATURES.md` skill table. Added to all 4 language variants (en/ko/de/ja).
+
+### Changed
+
+- **`README.md` / `README.ko.md` / `README.ja.md` / `README.de.md`** — new "Ask Consultant" row in the Core Capabilities table; `FEATURES →` link updated from "18 skills" to "19 skills" count.
+- **`CLAUDE.md`** (sc4sap root) — `/sc4sap:ask-consultant` added to the Skills list.
+- **`docs/FEATURES.md` (en/ko/de/ja)** — skills table now has 16 entries (added `compare-programs` + `ask-consultant`); heading updated from "18 Skills" to "16 Skills" (matches actual count).
+
 ## [0.5.2] — 2026-04-20
 
 ### Added — 4-Tier Context Loading Model + Response Prefix

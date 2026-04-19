@@ -36,7 +36,7 @@
 - `sap-analyst` / `sap-critic` / `sap-planner` は必須の **Country Context** ブロック (`country/<iso>.md` をロード) を持つ
 - **Core エージェントの直接 MCP 読み取りアクセス** — パッケージ / DDIC / クラス / プログラム / where-used / ランタイムダンプツールを読み取り専用で保有。書き込み CRUD は `sap-executor` / `sap-planner` / `sap-writer` / `sap-qa-tester` / `sap-debugger` に集中
 
-## 18 スキル
+## 16 スキル
 
 | スキル | 説明 |
 |--------|------|
@@ -47,9 +47,11 @@
 | `sc4sap:create-object` | ABAP オブジェクト作成 (ハイブリッドモード — トランスポート + パッケージ確認、作成、アクティブ化) |
 | `sc4sap:create-program` | フル ABAP プログラムパイプライン — Main+Include、OOP/Procedural、ALV、Dynpro、Text Elements、ABAP Unit |
 | `sc4sap:program-to-spec` | ABAP プログラムを機能/技術仕様にリバースエンジニアリング (Markdown / Excel) |
+| `sc4sap:compare-programs` | 同一シナリオをモジュール / 国 / ペルソナで分岐した 2〜5 本の ABAP プログラムを比較 → コンサルタント向け Markdown レポート |
 | `sc4sap:analyze-code` | ABAP コード解析 (Clean ABAP / パフォーマンス / セキュリティ) |
 | `sc4sap:analyze-cbo-obj` | CBO インベントリスキャナー + クロスモジュールギャップ解析 |
 | `sc4sap:analyze-symptom` | SAP 運用エラー/症状のステップバイステップ解析 (ダンプ、ログ、SAP Note 候補) |
+| `sc4sap:ask-consultant` | モジュールコンサルタントエージェント (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC) に直接質問。読み取り専用 — 設定された SAP 環境に沿って回答。 |
 | `sc4sap:trust-session` | INTERNAL-ONLY — セッション全体 MCP パーミッションブートストラップ |
 | `sc4sap:deep-interview` | 実装前の Socratic 要件収集 |
 | `sc4sap:team` | 調整された並列エージェント実行 (ネイティブ Claude Code teams) |
