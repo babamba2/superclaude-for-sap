@@ -28,25 +28,30 @@ Delegate to `sap-code-reviewer`. Pass:
 
 For each created object, fetch source via the appropriate MCP tool (`GetInclude`, `GetProgram`, `GetClass`, `GetInterface`, `GetScreen`, `GetGuiStatus`, `GetTextElement`) and verify against **every** convention below that applies. Record verdict per check: `PASS` / `FIX-APPLIED` / `N/A (reason)`.
 
-### 1. `../../common/alv-rules.md` — ALV Display Rules
+### 1. `../../common/alv-rules.md` — ALV Display Rules + Screen/GUI Population
 
 Applies to: any program that displays a result set in ALV.
 
 - [ ] **Display mode** matches the spec: `CL_GUI_ALV_GRID` for full screens (custom screen + GUI status + Docking Container), `CL_SALV_TABLE` for popups
 - [ ] **Container** for full ALV is `CL_GUI_DOCKING_CONTAINER` (NOT custom container in a Custom Control screen element)
-- [ ] **Field Catalog Construction Standard (CRITICAL — most-often violated)**:
-  - The catalog MUST be extracted via SALV factory and converted with `cl_salv_controller_metadata=>get_lvc_fieldcatalog`. See `alv-rules.md` Step 1 for the canonical FORM signature.
-  - **VIOLATION pattern to flag**: any code that builds `LVC_T_FCAT` by repeated `CLEAR ls_fc / ls_fc-fieldname = ... / APPEND ls_fc TO pt_fcat`. This bypasses DDIC reference resolution and duplicates type metadata that SALV would derive automatically.
-  - Per-field attribute adjustment (`coltext`, `outputlen`, `do_sum`, `no_out`, `hotspot`, `qfieldname`, `cfieldname`) must use a `CASE FIELDNAME` block on the extracted catalog, never inline construction.
+- [ ] **Field Catalog Construction Standard (CRITICAL — most-often violated)**: catalog MUST be extracted via SALV factory and converted with `cl_salv_controller_metadata=>get_lvc_fieldcatalog`. Repeated `APPEND ls_fc TO pt_fcat` inline construction → VIOLATION. Per-field attribute adjustment (`coltext`, `outputlen`, `do_sum`, `no_out`, `hotspot`, `qfieldname`, `cfieldname`) via `CASE FIELDNAME` block only.
+- [ ] **Screen flow logic populated (NEW — reject false positives)**: for every screen created, call `GetScreen(program, screen_number)` and verify `flow_logic` contains at least one `MODULE ... OUTPUT.` line AND one `MODULE ... INPUT.` line that does NOT start with `*` or `"`. A screen whose flow logic is only `* MODULE STATUS_0100.` / `* MODULE USER_COMMAND_0100.` is a MAJOR finding — executor ran `CreateScreen` but skipped `UpdateScreen(flow_logic)`.
+- [ ] **GUI Status populated (NEW)**: for every status created, call `GetGuiStatus(program, status_name)` and verify the status has non-empty PFKEYS / menu / toolbar entries — not just a `STA` + `TIT` shell. An empty GUI status presents a blank toolbar at runtime.
 
-### 2. `../../common/text-element-rule.md` — Text Element Rule
+### 2. `../../common/text-element-rule.md` — Text Element Rule (I / S / R / H)
 
 Applies to: every screen, every dialog message, every literal that the end user can see.
 
 - [ ] No hardcoded display literals in screen layouts — all field labels reference `TEXT-Txx`
-- [ ] No hardcoded literals in `MESSAGE` statements that aren't dynamic — short labels go through text elements (`MESSAGE TEXT-t01 TYPE 'E'`)
-- [ ] Translatable strings are NOT embedded in string templates with literal text only (`|Material { lv } created|` — the static parts should still come from text elements when reused)
-- [ ] Text elements are created via `CreateTextElement` and present after activation
+- [ ] No hardcoded literals in `MESSAGE` statements — use `MESSAGE TEXT-t01 TYPE 'E'`
+- [ ] Translatable strings not embedded in string templates with literal text only
+- [ ] Text elements created via `CreateTextElement` and present after activation
+- [ ] **All four types verified via `ReadTextElementsBulk(program, language)` (NEW — blocks the "Create-without-full-types" regression)**:
+  - `counts.R ≥ 1` (program title present)
+  - `counts.I == count of TEXT-xxx literals in source` (read program source + regex `TEXT-[A-Z0-9]{3}`)
+  - **`counts.S == count of SELECT-OPTIONS + PARAMETERS declarations on the selection screen`** (the most common miss — runtime shows technical names like `S_BUDAT` / `P_FILE`)
+  - `counts.H ≥ 1` only if program uses classical WRITE lists (else 0 is correct)
+- [ ] Every text id exists in BOTH the primary logon language AND `'E'` (run the bulk read twice with different `language=`; both must return the same key set).
 
 ### 3. `../../common/constant-rule.md` — Constant Rule
 
@@ -76,9 +81,11 @@ Applies to: programs implemented with local classes.
 
 Applies to: every multi-include program.
 
-- [ ] Suffix convention followed: `_TOP` / `_SEL` / `_CLASS` / `_PBO` / `_PAI` / `_FORM` / `_TST` (and `_O` / `_I` / `_F` legacy variants if the project uses them)
-- [ ] Empty-by-design includes are NOT created; conditional includes (e.g., `_SEL` for a no-parameter program) are simply omitted, not stubbed
+- [ ] Suffix convention followed: `t` / `s` / `c` / `a` / `o` / `i` / `e` / `f` / `_tst` per the table in `include-structure.md`
+- [ ] Empty-by-design includes are NOT created; conditional includes (e.g., `s` for a no-parameter program) are simply omitted, not stubbed
 - [ ] TOP include holds all global TYPES / DATA / CONSTANTS — no DATA declarations leaking into PBO/PAI/FORM
+- [ ] **Main program contains `INCLUDE` statements for every planned include (NEW — rejects "everything inlined into Main")**: call `GetProgram(main)` and verify the source contains one `INCLUDE {PROG}{SUFFIX}.` line per planned suffix. A Main program where all declarations / forms / modules are inlined is a MAJOR violation of the `common/procedural-sample/main-program.abap` template — event blocks and headers mixed with logic belong in their respective includes.
+- [ ] **Procedural paradigm MUST NOT have `{PROG}E` include (NEW)**: `e` is the OOP ALV event-handler include only. If `paradigm = Procedural` in `interview.md` AND `SearchObject({PROG}E)` returns a hit → MAJOR. Event blocks (`INITIALIZATION`, `AT SELECTION-SCREEN`, `START-OF-SELECTION`, `END-OF-SELECTION`) belong in Main body per `include-structure.md`.
 
 ### 7. `../../common/naming-conventions.md` — Naming Conventions
 
@@ -151,48 +158,6 @@ Applies to: programs that depend on SPRO/IMG configuration.
 - [ ] `GetInactiveObjects` returns 0 entries from the program's object set
 - [ ] All objects assigned to the agreed transport request
 
-## Output File Format
+## Output File Format + Failure Handling
 
-Write to `.sc4sap/program/{PROG}/review.md`:
-
-```markdown
-# Phase 6 Review — {PROG}
-
-**Date**: YYYY-MM-DD
-**Reviewer Agent**: sap-code-reviewer
-**Spec ref**: spec.md
-**Objects reviewed**: list of N objects
-
-## Conventions Checked
-
-| # | Convention | Verdict | Notes |
-|---|------------|---------|-------|
-| 1 | alv-rules.md           | PASS / FIX-APPLIED / N/A | ... |
-| 2 | text-element-rule.md   | ... | ... |
-| 3 | constant-rule.md       | ... | ... |
-| 4 | procedural-form-naming | ... | ... |
-| 5 | oop-pattern.md         | ... | ... |
-| 6 | include-structure.md   | ... | ... |
-| 7 | naming-conventions.md  | ... | ... |
-| 8 | clean-code.md          | ... | ... |
-| 9 | abap-release-reference | ... | ... |
-| 10| sap-version-reference  | ... | ... |
-| 11| spro-lookup.md         | ... | ... |
-| 12| Activation state       | ... | GetInactiveObjects=0 |
-
-## Violations Fixed In-Phase
-
-For each FIX-APPLIED entry: object name, line excerpt, what was changed, why.
-
-## Final Verdict
-
-✅ ALL PASS — proceed to Phase 8
-or
-❌ BLOCKED — list residual violations and reason
-```
-
-## Failure Handling
-
-- On any violation: the reviewer **fixes the violation directly** via `Update*` MCP tools and re-activates. Documentation-only flagging is NOT acceptable.
-- After all fixes, re-fetch sources and re-verify. Loop until ALL PASS or 3 iterations exhausted.
-- If 3 iterations exhausted with residual violations: STOP, write `review.md` with `❌ BLOCKED`, surface to user with the specific violation list. Phase 8 is blocked.
+Split to companion file: [`phase6-output-format.md`](./phase6-output-format.md). Contains the `review.md` template, the violation-fix loop, and the explicit false-positive patterns the reviewer must reject (commented-out flow logic, empty GUI, missing selection texts, inactive includes after "completed" report, Procedural-`E`, inlined Main).
