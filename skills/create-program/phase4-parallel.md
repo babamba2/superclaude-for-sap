@@ -69,7 +69,7 @@ Between steps, NO activation call — SAP can create inactive chains. Activation
 All three groups launch in a single multi-tool-use message. Within each group, members launch in parallel too:
 
 - **G2**: parallel `CreateInterface` + `CreateClass` calls. If a class `IMPLEMENTS` an interface, SAP tolerates inactive interface refs during creation — activation resolves them in the final batch.
-- **G3**: `CreateFunctionGroup` first (small-serial), then parallel `CreateFunctionModule` within the group.
+- **G3**: `CreateFunctionGroup` first (small-serial), then parallel `CreateFunctionModule` within the group. Each `UpdateFunctionModule` body **MUST follow [`../../common/function-module-rule.md`](../../common/function-module-rule.md)** — inline `IMPORTING / EXPORTING / CHANGING / TABLES / EXCEPTIONS` clauses directly in the `FUNCTION` statement (not as `*"` comments, not as shadow locals). Empty signature placeholder `" You can use the template 'functionModuleParameter' ...` is a failure marker.
 - **G4-prep**: parallel `CreateTextElement` calls (trivial — just strings).
 
 ### Wave 3 — G5 (Includes + Main Program)

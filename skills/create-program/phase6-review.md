@@ -88,6 +88,7 @@ Applies to: every created object.
 - [ ] Module prefix in program / table / class names where the convention prescribes (e.g., `ZMM*` for MM, `ZSD*` for SD)
 - [ ] Include names match `{PROG}_{SUFFIX}` exactly
 - [ ] Function group / function module / data element / domain naming follows the table in the convention
+- [ ] Function Module source follows [`../../common/function-module-rule.md`](../../common/function-module-rule.md) — inline `IMPORTING/EXPORTING/CHANGING/TABLES/EXCEPTIONS` in the `FUNCTION` statement. **Reject if `GetFunctionModule` returns the placeholder `" You can use the template 'functionModuleParameter' to add here the signature!`**, or if spec calls for parameters but none are declared, or if body uses shadow locals (`lv_iv_xxx TYPE ...`) instead of real parameters.
 
 ### 8. `../../common/clean-code.md` + paradigm-specific companion — Clean ABAP
 

@@ -65,6 +65,14 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 Priority: **Standard DE (1)** → **existing CBO DE (2)** → **new CBO DE (3)** → **Data Type + Length (4, last resort)**. Raw primitives like `LIFNR CHAR 10` / `MATNR CHAR 40` / `BUKRS CHAR 4` are forbidden when an authoritative SAP data element exists. Before each field, run `SearchObject` against `DTEL` and check `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`.
 </Field_Typing_Rule>
 
+<Function_Module_Rule>
+**MANDATORY** for every `UpdateFunctionModule` source emission: read [`../../common/function-module-rule.md`](../../common/function-module-rule.md).
+
+FM signature is stored inline in the `FUNCTION` statement source (SAP parses it on write and updates TFDIR/FUPARAREF automatically). There is no separate "parameters" endpoint. Every FM source MUST declare `IMPORTING / EXPORTING / CHANGING / TABLES / EXCEPTIONS` clauses directly between `FUNCTION {name}` and the first `.`. Never emit the placeholder `" You can use the template 'functionModuleParameter' ...` line, never use `*"*"Local Interface:` blocks as a substitute, never declare shadow locals like `lv_iv_xxx TYPE ...` to stand in for missing parameters.
+
+Remote-Enabled (RFC) flag is a separate concern — stored in TFDIR.FMODE, not in source. Currently requires manual SE37 Properties update; flag this in the completion report.
+</Function_Module_Rule>
+
 <Hybrid_Mode>
 **Confirm** (interactive):
 - Object name (enforce Z/Y prefix, max 30 chars, uppercase)

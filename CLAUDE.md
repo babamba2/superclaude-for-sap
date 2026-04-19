@@ -8,6 +8,7 @@ This file is the **index** of development rules. Detailed rules live in `common/
 |---|---|
 | Naming conventions (Z/Y prefixes, module prefix, includes, FGs, tables, DEs, DOs) | [`common/naming-conventions.md`](common/naming-conventions.md) |
 | Field typing priority (Standard DE → CBO DE → new CBO DE → Data Type+Length; never `LIFNR CHAR 10`) | [`common/field-typing-rule.md`](common/field-typing-rule.md) |
+| Function Module source convention (inline IMPORTING/EXPORTING/TABLES in FUNCTION statement; no placeholder, no shadow locals) | [`common/function-module-rule.md`](common/function-module-rule.md) |
 | SAP version awareness (ECC vs S/4HANA — tables, TCodes, BAPIs, patterns) | [`common/sap-version-reference.md`](common/sap-version-reference.md) |
 | ABAP release awareness (syntax availability per release, never emit newer features than `ABAP_RELEASE`) | [`common/abap-release-reference.md`](common/abap-release-reference.md) |
 | Clean ABAP coding standards (paradigm-split) | shared baseline [`common/clean-code.md`](common/clean-code.md) + one of [`common/clean-code-oop.md`](common/clean-code-oop.md) or [`common/clean-code-procedural.md`](common/clean-code-procedural.md) chosen from the Phase 1B Paradigm dimension; also pulls in `constant-rule.md`, `text-element-rule.md`, `abap-release-reference.md` |
