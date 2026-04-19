@@ -24,10 +24,28 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
     - Syntax matches the configured `abapRelease` in `.sc4sap/config.json`
   </Success_Criteria>
 
+  <Context_Kit_Protocol>
+    Per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md): the dispatching skill declares a **Context kit** — the minimal set of `../common/*.md` files relevant to THIS dispatch. You MUST:
+
+    - Read ONLY the files listed in the dispatched Context kit (plus any triggered reads the skill named — e.g., `ok-code-pattern.md` if the task touches `CALL SCREEN`).
+    - NOT preemptively read the full `<Shared_Conventions>` index below. That table exists as a lookup so the dispatching skill can cite it; it is NOT your default read-set.
+    - If the kit is missing a file needed for a decision, fetch that ONE file on demand and log the expansion in your summary. Do NOT silently read outside the kit.
+    - If the expansion would require more than 2 extra files, stop and return `BLOCKED — context kit insufficient: <list>` so the skill can provide an updated kit.
+  </Context_Kit_Protocol>
+
+  <Model_Selection>
+    The agent front-matter defaults to Sonnet. The dispatching skill MAY override via the `model:` parameter on `Agent(...)` per [`../common/model-routing-rule.md`](../common/model-routing-rule.md):
+
+    - **Sonnet** — read-only inventory, repetitive bulk writes (same tool × same payload shape ≥ 5 iterations), template-based Create/Update/Verify.
+    - **Opus** — novel code generation, cross-file reasoning, ambiguity resolution, architectural choices.
+
+    Escalation: if you hit a hard blocker on Sonnet (ambiguity you cannot resolve, cross-file conflict, 3 consecutive syntax failures), STOP and return `BLOCKED — requires Opus: <reason>`. The skill re-dispatches to Opus with your Sonnet-level findings attached.
+  </Model_Selection>
+
   <Shared_Conventions>
     **Source of truth for every coding rule lives in `../common/`. Do NOT re-derive or paraphrase these rules; read the referenced file and apply it literally.**
 
-    Before writing any ABAP, load and obey:
+    This table is a LOOKUP INDEX, not a preload list — consult the dispatched Context kit first. Before writing any ABAP:
 
     | Topic | File | Applies to |
     |-------|------|------------|

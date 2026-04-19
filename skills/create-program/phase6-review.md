@@ -28,6 +28,8 @@ Delegate to `sap-code-reviewer`. Pass:
 
 For each created object, fetch source via the appropriate MCP tool (`GetInclude`, `GetProgram`, `GetClass`, `GetInterface`, `GetScreen`, `GetGuiStatus`, `GetTextElement`) and verify against **every** convention below that applies. Record verdict per check: `PASS` / `FIX-APPLIED` / `N/A (reason)`.
 
+**Context kit discipline (per `../../common/context-loading-protocol.md`)**: each §1–§12 below is an independent reviewer bucket. Load ONLY the rule file(s) named in that section when checking it — do NOT preload all 12. On a MAJOR finding, escalate to Opus with the narrow context for that section only.
+
 ### 1. `../../common/alv-rules.md` — ALV Display Rules + Screen/GUI Population
 
 Applies to: any program that displays a result set in ALV.
@@ -37,6 +39,7 @@ Applies to: any program that displays a result set in ALV.
 - [ ] **Field Catalog Construction Standard (CRITICAL — most-often violated)**: catalog MUST be extracted via SALV factory and converted with `cl_salv_controller_metadata=>get_lvc_fieldcatalog`. Repeated `APPEND ls_fc TO pt_fcat` inline construction → VIOLATION. Per-field attribute adjustment (`coltext`, `outputlen`, `do_sum`, `no_out`, `hotspot`, `qfieldname`, `cfieldname`) via `CASE FIELDNAME` block only.
 - [ ] **Screen flow logic populated (NEW — reject false positives)**: for every screen created, call `GetScreen(program, screen_number)` and verify `flow_logic` contains at least one `MODULE ... OUTPUT.` line AND one `MODULE ... INPUT.` line that does NOT start with `*` or `"`. A screen whose flow logic is only `* MODULE STATUS_0100.` / `* MODULE USER_COMMAND_0100.` is a MAJOR finding — executor ran `CreateScreen` but skipped `UpdateScreen(flow_logic)`.
 - [ ] **GUI Status populated (NEW)**: for every status created, call `GetGuiStatus(program, status_name)` and verify the status has non-empty PFKEYS / menu / toolbar entries — not just a `STA` + `TIT` shell. An empty GUI status presents a blank toolbar at runtime.
+- [ ] **OK_CODE binding 3-step contract (NEW)** — per [`../../common/ok-code-pattern.md`](../../common/ok-code-pattern.md): (a) TOP include declares `DATA: gv_okcode TYPE sy-ucomm.`; (b) screen's `fields_to_containers[]` OKCODE entry has `NAME=GV_OKCODE`; (c) the PAI `user_command_xxxx` FORM reads `gv_okcode`, copies to a local, `CLEAR gv_okcode`, CASE on the local. `CASE sy-ucomm.` inside a user-command FORM, or an OKCODE field with no NAME, is MAJOR.
 
 ### 2. `../../common/text-element-rule.md` — Text Element Rule (I / S / R / H)
 

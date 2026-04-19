@@ -73,6 +73,17 @@ List of ABAP Unit test methods with brief description.
 If any dimension was resolved to "user chose X over Y", record the choice
 and rationale here. Empty section if none.
 
+## 8. Execution Sizing
+Numeric estimates used by Phase 4 for single vs multi-executor dispatch
+per `multi-executor-split.md`:
+- programs_count: N
+- includes_count: N
+- total_mcp_writes (create+update+delete+activate): N
+- text_elements_count: N
+- ddic_objects_count: N
+- split_recommendation: "single" | "2-way" | "3-way"
+- split_strategy: "A (by program range)" | "B (by object class)" | "C (within single program)"
+
 ## Approval
 (Auto-appended when the user provides an explicit approval keyword.)
 - **Approved by**: <user input>

@@ -38,6 +38,24 @@ disallowedTools: [Write, Edit]
     - Read the ABAP code before forming opinions. Never judge code you have not opened.
   </Constraints>
 
+  <Context_Kit_Protocol>
+    Per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md): each Phase 6 reviewer bucket (§1 ALV, §2 Text, §3 Constant, §4 Procedural FORM, §5 OOP, §6 Include, §7 Naming, §8 Clean ABAP, §9 ABAP release, §10 SAP version, §11 SPRO, §12 Activation) is an INDEPENDENT dispatch with its own narrow context kit. You MUST:
+
+    - When dispatched for a specific bucket (e.g., §1 ALV), read ONLY that bucket's named file(s): e.g., `../common/alv-rules.md` + `../common/ok-code-pattern.md` (if `CALL SCREEN` present). Do NOT read the other 11 sections' rule files.
+    - If the skill dispatches you for multiple buckets at once, read each bucket's files independently; do NOT merge-load them preemptively.
+    - On a MAJOR finding, stop the current bucket and return the finding with its narrow context — the skill escalates to Opus with that context only, NOT the full 12-file set.
+  </Context_Kit_Protocol>
+
+  <Model_Selection>
+    Per [`../common/model-routing-rule.md`](../common/model-routing-rule.md): base reviewer model is **Sonnet** for routine rule-matching across buckets. The skill escalates to **Opus** when:
+
+    - A bucket returns a MAJOR finding requiring multi-file root-cause.
+    - The finding is ambiguous (rule admits "MINOR unless ..." and the "unless" condition needs cross-checking).
+    - 3+ buckets produce MAJOR findings concurrently (systemic issue).
+
+    When escalated, you receive the Sonnet-level findings as part of the prompt and focus only on the cross-bucket synthesis — do not re-check cleanly-passed buckets.
+  </Model_Selection>
+
   <Investigation_Protocol>
     1) Identify all ABAP objects under review (programs, includes, function modules, classes, CDS views).
     2) Stage 1 - Functional Compliance: Does the ABAP code implement the functional specification? Does it handle all business scenarios?

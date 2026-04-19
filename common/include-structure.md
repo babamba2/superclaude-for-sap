@@ -6,7 +6,7 @@ Shared convention for sc4sap ABAP programs that wrap logic in a Main Program + c
 
 | Include | Suffix | Procedural | OOP | Content |
 |---------|--------|------------|-----|---------|
-| TOP | `{PROG}t` | Always | Always | `TYPES`, `DATA`, `CONSTANTS` declarations. **MUST declare `DATA: gv_okcode TYPE sy-ucomm.`** when a screen is present (required for `OKCODE` field binding on screen 0100). |
+| TOP | `{PROG}t` | Always | Always | `TYPES`, `DATA`, `CONSTANTS` declarations. **MUST declare `DATA: gv_okcode TYPE sy-ucomm.`** when a screen is present — full 3-step binding contract (TOP decl + screen OK_CODE NAME + PAI FORM routing) in [`ok-code-pattern.md`](ok-code-pattern.md); `CASE sy-ucomm` in PAI is a MAJOR Phase 6 finding. |
 | Selection Screen | `{PROG}s` | Always | Always | `SELECTION-SCREEN`, `PARAMETERS`, `SELECT-OPTIONS` |
 | FORM / Logic | `{PROG}f` | Always | Optional | `PERFORM` business logic |
 | Class Definition | `{PROG}c` | **NEVER** | OOP | `LCL_DATA` — data extraction class |
