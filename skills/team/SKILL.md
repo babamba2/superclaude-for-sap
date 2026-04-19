@@ -12,6 +12,10 @@ Follows OMC `team` pattern adapted for SAP. Coordinates multiple specialized SAP
 sc4sap:team spins up N coordinated agents that divide and conquer a SAP development task. Each agent is assigned a role (sap-developer, sap-code-reviewer, sap-transport-manager, etc.) and works on its slice of the task list simultaneously, with results merged at the end.
 </Purpose>
 
+<Response_Prefix>
+Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
+</Response_Prefix>
+
 <Use_When>
 - Task has multiple independent SAP objects to create or modify (e.g., class + interface + unit test)
 - User wants parallel development across multiple ABAP programs or packages

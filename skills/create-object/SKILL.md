@@ -12,6 +12,10 @@ Guided ABAP object creation workflow. Hybrid mode: confirms transport and packag
 sc4sap:create-object handles the full lifecycle of creating a new ABAP object: determining the right object type, confirming package and transport assignment, creating the object via MCP, generating a well-structured initial implementation, and activating it — all in one workflow.
 </Purpose>
 
+<Response_Prefix>
+Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
+</Response_Prefix>
+
 <Use_When>
 - User says "create", "new class", "new program", "create object", "add a function module", "new table", etc.
 - A new ABAP development artifact needs to be created from scratch

@@ -1,6 +1,6 @@
 # SuperClaude for SAP (sc4sap) — Development Rules
 
-This file is the **index** of development rules — NOT a payload to preload. Detailed rules live in `common/` and `exceptions/`. Consult files on demand per [`common/context-loading-protocol.md`](common/context-loading-protocol.md); every dispatch declares its minimal context kit. Everything referenced below is MANDATORY for every sc4sap session (agents, skills, direct user requests, pipelines).
+This file is the **index** of development rules — NOT a payload to preload. Detailed rules live in `common/` and `exceptions/`. Consult files on demand per [`common/context-loading-protocol.md`](common/context-loading-protocol.md) — 4-tier model: **Tier 1** global mandatory safety baseline (always loaded: `data-extraction-policy`, `sap-version-reference`, `naming-conventions`, `context-loading-protocol`, `model-routing-rule`), **Tier 2** role-mandatory per agent group, **Tier 3** triggered reads, **Tier 4** per-task kit. Everything referenced below is MANDATORY for every sc4sap session (agents, skills, direct user requests, pipelines).
 
 ## Development Standards — References
 
