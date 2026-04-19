@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.5.5",
+  "checkpoint_id": "3d2d5d8517b3",
+  "session_id": "03be3c83-6fe7-4642-82bc-ba1d67ee5bec",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-19T17:17:25.5285795Z",
+  "branch": "active",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CLAUDE.md",
+    "skills/analyze-cbo-obj/SKILL.md",
+    "skills/create-object/SKILL.md",
+    "skills/create-program/SKILL.md"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "09d983974192",
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-19T17:17:25.5269898Z",
+    "agent_lines": 0,
+    "agent_removed": 1,
+    "human_added": 309,
+    "human_modified": 486,
+    "human_removed": 0,
+    "total_committed": 795,
+    "total_lines_changed": 850,
+    "agent_percentage": 0.1176470588235294,
+    "metric_version": 2
+  }
+}
