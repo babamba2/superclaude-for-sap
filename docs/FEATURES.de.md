@@ -9,6 +9,8 @@
 - [Skills — Beispiele & Workflow](#skills--beispiele--workflow)
 - [MCP ABAP ADT Server — Alleinstellungsmerkmale](#mcp-abap-adt-server--alleinstellungsmerkmale)
 - [Gemeinsame Konventionen](#gemeinsame-konventionen-common)
+- [Context-Loading-Architektur (v0.5.2+)](#context-loading-architektur-v052)
+- [Response-Prefix-Konvention (v0.5.2+)](#response-prefix-konvention-v052)
 - [Branchen-Referenz](#branchen-referenz-industry)
 - [Länder-/Lokalisierung](#länderlokalisierungsreferenz-country)
 - [Aktive-Modul-Integration](#aktive-modul-integration)
@@ -157,6 +159,74 @@ Cross-Skill-Authoring-Regeln leben in `common/`. `CLAUDE.md` ist ein dünner Ind
 | `spro-lookup.md` | SPRO-Lookup-Priorität (lokaler Cache → statisch → MCP) |
 | `data-extraction-policy.md` | Agenten-Verweigerungsprotokoll + `acknowledge_risk` HARD RULE |
 | `active-modules.md` | Cross-Module-Integrationsmatrix (MM↔PS, SD↔CO, QM↔PP…) |
+| `context-loading-protocol.md` | 4-Tier On-Demand-Dateiladung (global → role → triggered → per-task) |
+| `model-routing-rule.md` | Sonnet / Opus / Haiku Routing + Response-Prefix-Konvention |
+| `ok-code-pattern.md` | Prozedurales Screen-OK_CODE-3-Schritt-Vertrag (TOP-Deklaration → Screen NAME → PAI-FORM-Local-Routing) |
+| `field-typing-rule.md` | DDIC-Feld-Typing-Priorität (Standard DE → CBO DE → neues DE → Primitiv) |
+| `function-module-rule.md` | FM-Source-Konvention (Inline IMPORTING/EXPORTING/TABLES Signatur) |
+| `transport-client-rule.md` | Jedes `CreateTransport` erfordert expliziten Client aus `sap.env` |
+| `ecc-ddic-fallback.md` | ECC `$TMP` Helper-Report-Pfad für Table/DTEL/Domain-Erstellung |
+| `cloud-abap-constraints.md` | Verbotene Statements + Cloud-native API-Ersatz für S/4 Cloud Public |
+| `customization-lookup.md` | Bestehende Z*/Y* BAdI-Impl / CMOD / Form-Exit / Append Reuse-Gate |
+
+## Context-Loading-Architektur (v0.5.2+)
+
+Die Regel-Korpus von sc4sap ist umfangreich — 25+ `common/*.md` + 14 `configs/{MODULE}/*.md` + 30+ Industry/Country-Dateien. Jede Agent-Dispatch die ganze Korpus zu laden verschwendet Tokens und verdünnt die Modell-Aufmerksamkeit. Das **4-Tier Context-Loading-Modell** (definiert in [`common/context-loading-protocol.md`](../common/context-loading-protocol.md)) trennt "immer-geladene Safety-Railings" von "rollen-spezifischer Baseline" von "bedingungs-getriggert" von "per-task Kit".
+
+| Tier | Geladen wann | Dateien |
+|------|--------------|---------|
+| **Tier 1 — Global Mandatory** | Jeder Agent, jeder Skill, jeder Session-Start | `data-extraction-policy.md`, `sap-version-reference.md`, `naming-conventions.md`, `context-loading-protocol.md`, `model-routing-rule.md` |
+| **Tier 2 — Role-Mandatory** | Rollen-Gruppe festes Set, Session-Start | variiert nach Rollen-Gruppe (siehe unten) |
+| **Tier 3 — Triggered Reads** | Wenn eine Bedingung im aktuellen Task übereinstimmt | ALV → `alv-rules.md` · Procedural → `clean-code-procedural.md` + `ok-code-pattern.md` · `CALL SCREEN` → `ok-code-pattern.md` · ECC → `ecc-ddic-fallback.md` · industry/country gesetzt → entsprechende Datei · etc. |
+| **Tier 4 — Per-Task Kit** | Vom dispatcher-Skill/Phase/Bucket deklariert | pro Wave in `phase4-parallel.md`, pro §1-§12 in `phase6-review.md` |
+
+### Tier 2 Rollen-Gruppen
+
+| Rollen-Gruppe | Agenten | Tier 2 fügt hinzu |
+|---------------|---------|-------------------|
+| **Code Writer** | `sap-executor`, `sap-qa-tester`, `sap-debugger` | `clean-code.md`, `abap-release-reference.md`, `transport-client-rule.md`, `include-structure.md` (+ Paradigma-Datei) |
+| **Reviewer** | `sap-code-reviewer`, `sap-critic` | `clean-code.md`, `abap-release-reference.md`, `include-structure.md` (Phase-6 Bucket-Verengung) |
+| **Planner / Architect** | `sap-planner`, `sap-architect` | `include-structure.md`, `active-modules.md`, `customization-lookup.md`, `field-typing-rule.md` |
+| **Analyst / Writer** | `sap-analyst`, `sap-writer` | `active-modules.md` |
+| **Doc Specialist** | `sap-doc-specialist` | *(keine — task-getrieben)* |
+| **Module Consultant** | 14 Modul-Consultants (SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, BW, Ariba) | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, `configs/{MODULE}/{spro,tcodes,bapi,tables,enhancements,workflows}.md` |
+| **Basis Consultant** | `sap-bc-consultant` | `transport-client-rule.md`, `configs/common/*.md` |
+
+### Durchsetzung
+
+Jede `agents/*.md` deklariert ihre Rollen-Gruppe in einem `<Mandatory_Baseline>`-Block am Anfang von `<Agent_Prompt>`. Agent lädt Tier 1 + Tier 2 beim Session-Start vor jedem MCP-Aufruf. Skill-Prompts deklarieren nur Tier 4 (per-task) Ergänzungen; Tier 1+2 werden vorausgesetzt. Bei MAJOR Blocker gibt der Agent `BLOCKED — context kit insufficient: <list>` zurück, damit der Skill ein aktualisiertes Kit liefert.
+
+### Gemessene Effekte
+
+- Per-Dispatch Tokens: −40 bis −60% gegenüber pre-v0.5.0 implizitem Load-All-Muster.
+- Opus-Nutzungsanteil in `/sc4sap:create-program`: −50% (Routing-Matrix in `model-routing-rule.md`).
+- Reviewer MAJOR-Finding-Erkennung: verbessert — jedes §1-§12 läuft nur mit seiner relevanten Regel im Kontext.
+
+## Response-Prefix-Konvention (v0.5.2+)
+
+Jede `/sc4sap:*`-Skill-getriggerte Antwort beginnt mit einer einzeiligen Prefix-Zeile, damit der Benutzer auf einen Blick sieht, welches Modell die Arbeit erledigt und welche Sub-Agents dispatched wurden:
+
+```
+[Model: <main-model> · Dispatched: <sub-summary>]
+```
+
+Beispiele:
+
+```
+[Model: Opus 4.7]
+— reine Main-Thread-Antwort, keine Sub-Agent-Dispatches
+
+[Model: Opus 4.7 · Dispatched: Sonnet×2]
+— Main + zwei parallele Sonnet-Executor (Wave 2 G4-prep Text-Bulk)
+
+[Model: Opus 4.7 · Dispatched: Opus×1 (planner)]
+— Phase-2-Planner-Dispatch
+
+[Model: Opus 4.7 · Dispatched: Sonnet×3 (B3a executor range α/β/γ)]
+— Multi-Executor-Split nach multi-executor-split.md Strategie A
+```
+
+Die Konvention wird durch einen `<Response_Prefix>`-Block in jeder `/sc4sap:*` SKILL.md durchgesetzt, der auf [`common/model-routing-rule.md`](../common/model-routing-rule.md) § *Response Prefix Convention* verweist. Das Prefix gilt nur für skill-getriggerte Turns und wird bei einem thematischen Wechsel durch den Benutzer in diesem Turn entfernt.
 
 ## Branchen-Referenz (`industry/`)
 

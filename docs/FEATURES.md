@@ -9,6 +9,8 @@
 - [Skills — Examples & Workflow](#skills--examples--workflow)
 - [MCP ABAP ADT Server Capabilities](#mcp-abap-adt-server--unique-capabilities)
 - [Shared Conventions](#shared-conventions-common)
+- [Context Loading Architecture (v0.5.2+)](#context-loading-architecture-v052)
+- [Response Prefix Convention (v0.5.2+)](#response-prefix-convention-v052)
 - [Industry Reference](#industry-reference-industry)
 - [Country / Localization](#country--localization-reference-country)
 - [Active-Module Integration](#active-module-integration)
@@ -157,6 +159,74 @@ Cross-skill authoring rules live in `common/` so every skill and agent follows t
 | `spro-lookup.md` | SPRO lookup priority (local cache → static → MCP) |
 | `data-extraction-policy.md` | Agent refusal protocol + `acknowledge_risk` HARD RULE |
 | `active-modules.md` | Cross-module integration matrix (MM↔PS, SD↔CO, QM↔PP, …) |
+| `context-loading-protocol.md` | 4-tier on-demand file loading (global → role → triggered → per-task) |
+| `model-routing-rule.md` | Sonnet / Opus / Haiku routing + Response Prefix Convention |
+| `ok-code-pattern.md` | Procedural screen OK_CODE 3-step contract (TOP decl → screen NAME → PAI FORM local routing) |
+| `field-typing-rule.md` | DDIC field typing priority (Standard DE → CBO DE → new DE → primitive) |
+| `function-module-rule.md` | FM source convention (inline IMPORTING/EXPORTING/TABLES signature) |
+| `transport-client-rule.md` | Every `CreateTransport` requires explicit client from `sap.env` |
+| `ecc-ddic-fallback.md` | ECC `$TMP` helper-report path for Table/DTEL/Domain creation |
+| `cloud-abap-constraints.md` | Forbidden statements + Cloud-native API replacements for S/4 Cloud Public |
+| `customization-lookup.md` | Existing Z*/Y* BAdI impl / CMOD / form-exit / append reuse gate |
+
+## Context Loading Architecture (v0.5.2+)
+
+sc4sap's rule corpus is large — 25+ `common/*.md` + 14 `configs/{MODULE}/*.md` + 30+ industry/country files. Loading every file on every agent dispatch wastes tokens and dilutes model attention. The **4-tier context loading model** (defined in [`common/context-loading-protocol.md`](../common/context-loading-protocol.md)) separates "always-load safety rails" from "role-specific baseline" from "condition-triggered" from "per-task kit".
+
+| Tier | When loaded | Files |
+|------|-------------|-------|
+| **Tier 1 — Global Mandatory** | Every agent, every skill, every session start | `data-extraction-policy.md`, `sap-version-reference.md`, `naming-conventions.md`, `context-loading-protocol.md`, `model-routing-rule.md` |
+| **Tier 2 — Role-Mandatory** | Agent's role group fixed set, session start | varies by role group (see below) |
+| **Tier 3 — Triggered Reads** | When a condition matches the current task | ALV → `alv-rules.md` · Procedural → `clean-code-procedural.md` + `ok-code-pattern.md` · `CALL SCREEN` → `ok-code-pattern.md` · ECC → `ecc-ddic-fallback.md` · industry/country set → corresponding file · etc. |
+| **Tier 4 — Per-Task Kit** | Declared by the dispatching skill/phase/bucket | per wave in `phase4-parallel.md`, per §1-§12 in `phase6-review.md` |
+
+### Tier 2 role groups
+
+| Role group | Agents | Tier 2 adds |
+|------------|--------|-------------|
+| **Code Writer** | `sap-executor`, `sap-qa-tester`, `sap-debugger` | `clean-code.md`, `abap-release-reference.md`, `transport-client-rule.md`, `include-structure.md` (+ paradigm file) |
+| **Reviewer** | `sap-code-reviewer`, `sap-critic` | `clean-code.md`, `abap-release-reference.md`, `include-structure.md` (per-bucket narrowing in Phase 6) |
+| **Planner / Architect** | `sap-planner`, `sap-architect` | `include-structure.md`, `active-modules.md`, `customization-lookup.md`, `field-typing-rule.md` |
+| **Analyst / Writer** | `sap-analyst`, `sap-writer` | `active-modules.md` |
+| **Doc Specialist** | `sap-doc-specialist` | *(none — task-driven only)* |
+| **Module Consultant** | 14 module consultants (SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, BW, Ariba) | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, `configs/{MODULE}/{spro,tcodes,bapi,tables,enhancements,workflows}.md` |
+| **Basis Consultant** | `sap-bc-consultant` | `transport-client-rule.md`, `configs/common/*.md` |
+
+### Enforcement
+
+Every `agents/*.md` file declares its role group in a `<Mandatory_Baseline>` block at the top of `<Agent_Prompt>`. The agent loads Tier 1 + Tier 2 at session start before any MCP call. Skill prompts declare only Tier 4 (per-task) additions; Tier 1+2 are assumed. On a MAJOR blocker the agent returns `BLOCKED — context kit insufficient: <list>` so the skill can provide an updated kit.
+
+### Measured effects
+
+- Per-dispatch tokens: −40 to −60% vs pre-v0.5.0 implicit load-all pattern.
+- Opus usage share in `/sc4sap:create-program`: −50% (routing matrix in `model-routing-rule.md`).
+- Reviewer MAJOR-finding detection: improved — each of §1-§12 runs with only its relevant rule in context instead of skimming 12 rule files at once.
+
+## Response Prefix Convention (v0.5.2+)
+
+Every `/sc4sap:*` skill-triggered response begins with a one-line prefix so the user can see at a glance which model is running the work and which sub-agents were dispatched:
+
+```
+[Model: <main-model> · Dispatched: <sub-summary>]
+```
+
+Examples:
+
+```
+[Model: Opus 4.7]
+— pure main-thread response, no sub-agent dispatches
+
+[Model: Opus 4.7 · Dispatched: Sonnet×2]
+— main thread + two parallel Sonnet executors (Wave 2 G4-prep text bulk)
+
+[Model: Opus 4.7 · Dispatched: Opus×1 (planner)]
+— Phase 2 planner dispatch
+
+[Model: Opus 4.7 · Dispatched: Sonnet×3 (B3a executor range α/β/γ)]
+— Multi-Executor Split per multi-executor-split.md Strategy A
+```
+
+The convention is enforced by a `<Response_Prefix>` block in every `/sc4sap:*` SKILL.md pointing to [`common/model-routing-rule.md`](../common/model-routing-rule.md) § *Response Prefix Convention*. The prefix applies only to skill-triggered turns and unrelated-pivot user messages drop the prefix on the turn they arrive.
 
 ## Industry Reference (`industry/`)
 

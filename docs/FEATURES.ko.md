@@ -9,6 +9,8 @@
 - [스킬 — 예시 & 워크플로우](#스킬--예시--워크플로우)
 - [MCP ABAP ADT 서버 기능](#mcp-abap-adt-서버-고유-기능)
 - [공유 컨벤션](#공유-컨벤션-common)
+- [컨텍스트 로딩 아키텍처 (v0.5.2+)](#컨텍스트-로딩-아키텍처-v052)
+- [응답 프리픽스 규약 (v0.5.2+)](#응답-프리픽스-규약-v052)
 - [산업 레퍼런스](#산업-레퍼런스-industry)
 - [국가/로컬라이제이션](#국가로컬라이제이션-레퍼런스-country)
 - [활성 모듈 통합](#활성-모듈-통합)
@@ -157,6 +159,74 @@ sc4sap은 **[abap-mcp-adt-powerup](https://github.com/babamba2/abap-mcp-adt-powe
 | `spro-lookup.md` | SPRO 조회 우선순위 (로컬 캐시 → 정적 → MCP) |
 | `data-extraction-policy.md` | 에이전트 거부 프로토콜 + `acknowledge_risk` HARD RULE |
 | `active-modules.md` | 교차 모듈 통합 매트릭스 (MM↔PS, SD↔CO, QM↔PP…) |
+| `context-loading-protocol.md` | 4-tier 온디맨드 파일 로딩 (global → role → triggered → per-task) |
+| `model-routing-rule.md` | Sonnet / Opus / Haiku 라우팅 + 응답 프리픽스 규약 |
+| `ok-code-pattern.md` | Procedural 스크린 OK_CODE 3단계 계약 (TOP 선언 → 스크린 NAME → PAI FORM 로컬 라우팅) |
+| `field-typing-rule.md` | DDIC 필드 타이핑 우선순위 (Standard DE → CBO DE → 신규 DE → 프리미티브) |
+| `function-module-rule.md` | FM 소스 규약 (IMPORTING/EXPORTING/TABLES 인라인 시그니처) |
+| `transport-client-rule.md` | 모든 `CreateTransport`는 `sap.env`의 명시적 client 필수 |
+| `ecc-ddic-fallback.md` | ECC `$TMP` 헬퍼 리포트 경로 (Table/DTEL/Domain 생성) |
+| `cloud-abap-constraints.md` | S/4 Cloud Public 금지 구문 + Cloud-native API 대체 |
+| `customization-lookup.md` | 기존 Z*/Y* BAdI 구현 / CMOD / form-exit / append 재사용 게이트 |
+
+## 컨텍스트 로딩 아키텍처 (v0.5.2+)
+
+sc4sap의 규칙 코퍼스는 방대함 — 25+ `common/*.md` + 14 `configs/{MODULE}/*.md` + 30+ 산업/국가 파일. 모든 agent dispatch마다 전체 파일을 로드하는 건 토큰 낭비 + 모델 주의력 희석. **4-tier 컨텍스트 로딩 모델**([`common/context-loading-protocol.md`](../common/context-loading-protocol.md) 정의)은 "항상 로드해야 하는 안전 가드레일"과 "역할별 기본 세트"와 "조건 트리거"와 "per-task 킷"을 분리합니다.
+
+| Tier | 로드 시점 | 파일 |
+|------|-----------|------|
+| **Tier 1 — 글로벌 필수** | 모든 agent, 모든 skill, 세션 시작 | `data-extraction-policy.md`, `sap-version-reference.md`, `naming-conventions.md`, `context-loading-protocol.md`, `model-routing-rule.md` |
+| **Tier 2 — 역할별 필수** | agent의 역할 그룹 고정 세트, 세션 시작 | 역할 그룹에 따라 상이 (아래 참조) |
+| **Tier 3 — 트리거 로드** | 현재 task가 조건 매칭 시 | ALV → `alv-rules.md` · Procedural → `clean-code-procedural.md` + `ok-code-pattern.md` · `CALL SCREEN` → `ok-code-pattern.md` · ECC → `ecc-ddic-fallback.md` · industry/country 설정 시 → 해당 파일 · 등 |
+| **Tier 4 — Per-Task 킷** | dispatch하는 skill/phase/bucket이 선언 | `phase4-parallel.md`의 wave별, `phase6-review.md`의 §1-§12별 |
+
+### Tier 2 역할 그룹
+
+| 역할 그룹 | 에이전트 | Tier 2 추가 로드 |
+|-----------|----------|-------------------|
+| **Code Writer** | `sap-executor`, `sap-qa-tester`, `sap-debugger` | `clean-code.md`, `abap-release-reference.md`, `transport-client-rule.md`, `include-structure.md` (+ 패러다임 파일) |
+| **Reviewer** | `sap-code-reviewer`, `sap-critic` | `clean-code.md`, `abap-release-reference.md`, `include-structure.md` (Phase 6 버킷별 축소) |
+| **Planner / Architect** | `sap-planner`, `sap-architect` | `include-structure.md`, `active-modules.md`, `customization-lookup.md`, `field-typing-rule.md` |
+| **Analyst / Writer** | `sap-analyst`, `sap-writer` | `active-modules.md` |
+| **Doc Specialist** | `sap-doc-specialist` | *(없음 — task 구동)* |
+| **Module Consultant** | 14개 모듈 컨설턴트 (SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, BW, Ariba) | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, `configs/{MODULE}/{spro,tcodes,bapi,tables,enhancements,workflows}.md` |
+| **Basis Consultant** | `sap-bc-consultant` | `transport-client-rule.md`, `configs/common/*.md` |
+
+### 강제 적용
+
+모든 `agents/*.md` 파일은 `<Agent_Prompt>` 상단에 `<Mandatory_Baseline>` 블록으로 역할 그룹을 선언. Agent는 MCP 호출 전에 세션 시작 시점에 Tier 1 + Tier 2를 로드. Skill 프롬프트는 Tier 4 (per-task) 추가만 선언하며 Tier 1+2는 전제. MAJOR 블로커 발생 시 agent는 `BLOCKED — context kit insufficient: <list>`를 반환하여 skill이 업데이트된 킷을 제공하도록 함.
+
+### 측정 효과
+
+- Per-dispatch 토큰: pre-v0.5.0 암묵적 load-all 대비 −40 ~ −60%.
+- `/sc4sap:create-program`의 Opus 사용 비중: −50% (`model-routing-rule.md` 라우팅 매트릭스 기준).
+- Reviewer MAJOR 발견 정확도: 향상 — §1-§12 각 버킷이 12개 규칙 동시 훑기 대신 해당 규칙만 컨텍스트에 둠.
+
+## 응답 프리픽스 규약 (v0.5.2+)
+
+모든 `/sc4sap:*` skill 트리거 응답은 다음 한 줄 프리픽스로 시작하여, 사용자가 어느 모델이 작업 중이고 어떤 sub-agent가 디스패치됐는지 한눈에 파악할 수 있도록 함:
+
+```
+[Model: <main-model> · Dispatched: <sub-summary>]
+```
+
+예시:
+
+```
+[Model: Opus 4.7]
+— 순수 메인 스레드 응답, sub-agent 디스패치 없음
+
+[Model: Opus 4.7 · Dispatched: Sonnet×2]
+— 메인 + 병렬 Sonnet executor 2개 (Wave 2 G4-prep 텍스트 벌크)
+
+[Model: Opus 4.7 · Dispatched: Opus×1 (planner)]
+— Phase 2 planner 디스패치
+
+[Model: Opus 4.7 · Dispatched: Sonnet×3 (B3a executor 범위 α/β/γ)]
+— multi-executor-split.md Strategy A 기반 Multi-Executor Split
+```
+
+규약은 모든 `/sc4sap:*` SKILL.md의 `<Response_Prefix>` 블록이 [`common/model-routing-rule.md`](../common/model-routing-rule.md) § *Response Prefix Convention*를 참조하여 강제. 프리픽스는 skill 트리거된 턴에만 적용되며, 무관한 주제로 전환하는 사용자 메시지는 해당 턴부터 프리픽스가 제거됨.
 
 ## 산업 레퍼런스 (`industry/`)
 

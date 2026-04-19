@@ -9,6 +9,8 @@
 - [スキル — 例 & ワークフロー](#スキル--例--ワークフロー)
 - [MCP ABAP ADT サーバー機能](#mcp-abap-adt-サーバー--固有機能)
 - [共有規約](#共有規約-common)
+- [コンテキストローディングアーキテクチャ (v0.5.2+)](#コンテキストローディングアーキテクチャ-v052)
+- [レスポンスプリフィックス規約 (v0.5.2+)](#レスポンスプリフィックス規約-v052)
 - [業界リファレンス](#業界リファレンス-industry)
 - [国別ローカライゼーション](#国別ローカライゼーションリファレンス-country)
 - [アクティブモジュール統合](#アクティブモジュール統合)
@@ -157,6 +159,74 @@ sc4sap は **[abap-mcp-adt-powerup](https://github.com/babamba2/abap-mcp-adt-pow
 | `spro-lookup.md` | SPRO 照会優先順位 (ローカルキャッシュ → 静的 → MCP) |
 | `data-extraction-policy.md` | エージェント拒否プロトコル + `acknowledge_risk` HARD RULE |
 | `active-modules.md` | クロスモジュール統合マトリックス (MM↔PS, SD↔CO, QM↔PP…) |
+| `context-loading-protocol.md` | 4-tier オンデマンドファイルロード (global → role → triggered → per-task) |
+| `model-routing-rule.md` | Sonnet / Opus / Haiku ルーティング + レスポンスプリフィックス規約 |
+| `ok-code-pattern.md` | Procedural スクリーン OK_CODE 3 段階契約 (TOP 宣言 → スクリーン NAME → PAI FORM ローカルルーティング) |
+| `field-typing-rule.md` | DDIC フィールドタイピング優先順位 (Standard DE → CBO DE → 新 DE → プリミティブ) |
+| `function-module-rule.md` | FM ソース規約 (IMPORTING/EXPORTING/TABLES インラインシグネチャ) |
+| `transport-client-rule.md` | すべての `CreateTransport` は `sap.env` からの明示的 client 必須 |
+| `ecc-ddic-fallback.md` | ECC `$TMP` ヘルパーレポートパス (Table/DTEL/Domain 作成) |
+| `cloud-abap-constraints.md` | S/4 Cloud Public 禁止ステートメント + Cloud-native API 代替 |
+| `customization-lookup.md` | 既存 Z*/Y* BAdI 実装 / CMOD / form-exit / append 再利用ゲート |
+
+## コンテキストローディングアーキテクチャ (v0.5.2+)
+
+sc4sap のルールコーパスは膨大 — 25+ `common/*.md` + 14 `configs/{MODULE}/*.md` + 30+ 業界/国別ファイル。エージェントディスパッチごとに全ファイルをロードするとトークン浪費 + モデル注意力の希薄化が発生。**4-tier コンテキストローディングモデル** ([`common/context-loading-protocol.md`](../common/context-loading-protocol.md) で定義) は「常にロードする安全ガードレール」「役割別ベースライン」「条件トリガー」「per-task キット」を分離。
+
+| Tier | ロードタイミング | ファイル |
+|------|-----------------|----------|
+| **Tier 1 — グローバル必須** | すべてのエージェント、すべてのスキル、セッション開始 | `data-extraction-policy.md`, `sap-version-reference.md`, `naming-conventions.md`, `context-loading-protocol.md`, `model-routing-rule.md` |
+| **Tier 2 — 役割別必須** | エージェントの役割グループ固定セット、セッション開始 | 役割グループによって異なる (下記参照) |
+| **Tier 3 — トリガーロード** | 現在のタスクが条件に一致する場合 | ALV → `alv-rules.md` · Procedural → `clean-code-procedural.md` + `ok-code-pattern.md` · `CALL SCREEN` → `ok-code-pattern.md` · ECC → `ecc-ddic-fallback.md` · industry/country 設定 → 該当ファイル · 等 |
+| **Tier 4 — Per-Task キット** | ディスパッチするスキル/phase/bucket が宣言 | `phase4-parallel.md` の wave 別、`phase6-review.md` の §1-§12 別 |
+
+### Tier 2 役割グループ
+
+| 役割グループ | エージェント | Tier 2 追加 |
+|-------------|-------------|-------------|
+| **Code Writer** | `sap-executor`, `sap-qa-tester`, `sap-debugger` | `clean-code.md`, `abap-release-reference.md`, `transport-client-rule.md`, `include-structure.md` (+ パラダイムファイル) |
+| **Reviewer** | `sap-code-reviewer`, `sap-critic` | `clean-code.md`, `abap-release-reference.md`, `include-structure.md` (Phase 6 バケット別絞り込み) |
+| **Planner / Architect** | `sap-planner`, `sap-architect` | `include-structure.md`, `active-modules.md`, `customization-lookup.md`, `field-typing-rule.md` |
+| **Analyst / Writer** | `sap-analyst`, `sap-writer` | `active-modules.md` |
+| **Doc Specialist** | `sap-doc-specialist` | *(なし — タスク駆動)* |
+| **Module Consultant** | 14 モジュールコンサルタント (SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, BW, Ariba) | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, `configs/{MODULE}/{spro,tcodes,bapi,tables,enhancements,workflows}.md` |
+| **Basis Consultant** | `sap-bc-consultant` | `transport-client-rule.md`, `configs/common/*.md` |
+
+### 強制
+
+すべての `agents/*.md` は `<Agent_Prompt>` の先頭の `<Mandatory_Baseline>` ブロックで役割グループを宣言。エージェントは MCP 呼び出し前のセッション開始時に Tier 1 + Tier 2 をロード。スキルプロンプトは Tier 4 (per-task) の追加のみを宣言し、Tier 1+2 は前提。MAJOR ブロッカー時はエージェントが `BLOCKED — context kit insufficient: <list>` を返し、スキルが更新されたキットを提供。
+
+### 測定効果
+
+- Per-dispatch トークン: pre-v0.5.0 の暗黙的 load-all パターン比 −40 ~ −60%。
+- `/sc4sap:create-program` での Opus 使用比率: −50% (`model-routing-rule.md` ルーティングマトリックス)。
+- Reviewer MAJOR 発見検出精度: 向上 — §1-§12 の各バケットが 12 ルール同時スキャンではなく該当ルールのみをコンテキストに保持。
+
+## レスポンスプリフィックス規約 (v0.5.2+)
+
+すべての `/sc4sap:*` スキルトリガーレスポンスは、ユーザーがどのモデルが作業中でどの sub-agent がディスパッチされたかを一目で確認できるよう、以下の一行プリフィックスで開始:
+
+```
+[Model: <main-model> · Dispatched: <sub-summary>]
+```
+
+例:
+
+```
+[Model: Opus 4.7]
+— 純粋なメインスレッド応答、sub-agent ディスパッチなし
+
+[Model: Opus 4.7 · Dispatched: Sonnet×2]
+— メイン + 並列 Sonnet executor 2 個 (Wave 2 G4-prep テキストバルク)
+
+[Model: Opus 4.7 · Dispatched: Opus×1 (planner)]
+— Phase 2 planner ディスパッチ
+
+[Model: Opus 4.7 · Dispatched: Sonnet×3 (B3a executor 範囲 α/β/γ)]
+— multi-executor-split.md Strategy A による Multi-Executor Split
+```
+
+規約は、すべての `/sc4sap:*` SKILL.md の `<Response_Prefix>` ブロックが [`common/model-routing-rule.md`](../common/model-routing-rule.md) § *Response Prefix Convention* を参照して強制。プリフィックスはスキルトリガーされたターンのみに適用され、無関係な話題転換のユーザーメッセージは当該ターンからプリフィックスが除去される。
 
 ## 業界リファレンス (`industry/`)
 
