@@ -2,9 +2,30 @@
 
 Authoritative content for the `<Interview_Gating>` block referenced by `SKILL.md`. Phase 1 of the pipeline. **MANDATORY — never skip, never shortcut, never merge.**
 
-Phase 1 runs as **two sequential sub-phases** (1A then 1B) on every `sc4sap:create-program` invocation. Skipping a dimension, accepting "just build it" to bypass questioning, or inferring answers from context is a protocol violation. If the user pushes to skip, answer: *"The interview is mandatory — I will run Module Interview first, then Program Interview, one question at a time."*
+Phase 1 runs as **two sequential sub-phases** (1A then 1B) on every `sc4sap:create-program` invocation. Skipping a dimension, accepting "just build it" to bypass questioning, inferring answers from context, **or bulk-proposing multiple dimensions in a single message** is a protocol violation. If the user pushes to skip, answer: *"The interview is mandatory — I will run Module Interview first, then Program Interview, one question at a time."*
 
 **Two-stage rule**: Phase 1B (technical) NEVER starts before Phase 1A (business) closes. The technical conversation has no meaning without business context.
+
+---
+
+## One-Question-Per-Turn Rule (applies to BOTH Phase 1A and Phase 1B)
+
+**This rule is the single most important enforcement in the entire interview — it protects first-time users who need to understand each decision.** Both sub-phases run as Socratic dialogue, one dimension per message, regardless of user impatience.
+
+**Hard prohibitions**:
+- ❌ Do NOT dump all remaining dimensions into a single table/proposal block for "batch approval" — even if the user says *"알아서 해줘"*, *"figure it out"*, *"just decide"*, *"ok everything"*, *"batch them"*.
+- ❌ Do NOT present Q2, Q3, Q4 as sub-questions of Q1. One dimension = one message = wait for user answer.
+- ❌ Do NOT pre-answer on the user's behalf and ask only *"approve?"*. The user must actively choose for each dimension.
+
+**Handling an impatient user** (`"알아서 해줘"` / *"you decide"*):
+1. Acknowledge the fatigue politely.
+2. Explain: *"I will keep going one question at a time — this protects you from decisions you didn't see. I can propose a default per question which you confirm with a single word."*
+3. Continue with **the next single dimension only**, presenting your recommended default as part of that one question (not as part of a block).
+4. Wait for the user's response. Advance only after they confirm or modify that one dimension.
+
+**First-time user safeguard**: The person running `/sc4sap:create-program` for the first time does not know what "Paradigm OOP vs Procedural" or "Full CL_GUI_ALV_GRID vs SALV" actually means. Bulk-proposing all 7 dimensions at once denies them the chance to ask "what does this mean?" on each one. Always keep the door open for one dimension at a time.
+
+**Recovery clause**: If you already bulk-proposed (protocol violation), apologize, roll back, and restart the sub-phase from the first unanswered dimension with strict one-question cadence. Do NOT count a block "ok" as approval for a block proposal — it is invalid by protocol.
 
 ---
 
@@ -49,7 +70,7 @@ Phase 1 runs as **two sequential sub-phases** (1A then 1B) on every `sc4sap:crea
 
 **Lead agents**: `sap-analyst` (functional decomposition) + `sap-architect` (technical structure). The skill itself orchestrates the question stream; analyst owns dimensions 1, 5; architect owns dimensions 2, 3, 4, 7; both contribute to dimension 6.
 
-**Dimensions** (one question per turn, pre-filtered by resolved platform):
+**Dimensions** (one question per turn, pre-filtered by resolved platform — see the global One-Question-Per-Turn Rule above; bulk-proposing all 7 dimensions at once is a protocol violation):
 1. **Purpose-type** — Report / CRUD / ALV List / Batch / Interface
 2. **Paradigm** — OOP (two-class) vs Procedural (PERFORM)
 3. **Display mode** — None / SALV popup / Full CL_GUI_ALV_GRID
@@ -57,6 +78,8 @@ Phase 1 runs as **two sequential sub-phases** (1A then 1B) on every `sc4sap:crea
 5. **Data source** — standard tables / Z-tables / BAPI / CDS view (consistent with Phase 1A reference assets)
 6. **Package + Transport** — target package, new or existing transport
 7. **Testing scope** — when OOP is selected, which test class methods to cover
+
+For each dimension, the skill may propose a recommended default (derived from Phase 1A context + CBO inventory + platform constraints). The proposal belongs to the **single question** for that dimension — never merge proposals across dimensions into a table.
 
 **Gate**: technical ambiguity ≤ 5%. Do NOT proceed to Phase 2 until ≤ 5%. Upon reaching ≤ 5%, immediately proceed to `<Spec_Approval_Gate>`.
 
