@@ -147,13 +147,21 @@ async function scanBadiImplementations(client, badiName) {
   return { ok: true, implementations: [...impls].filter((n) => Z_PATTERN.test(n)) };
 }
 
-// SMOD — find CMOD projects (Z/Y namespace) including this enhancement.
+// SMOD — find ACTIVE CMOD projects (Z/Y namespace) including this enhancement.
+// Tables used:
+//   MODACT  — CMOD project ↔ SMOD membership (NAME=project, MEMBER=SMOD name)
+//   MODATTR — CMOD project header; STATUS='A' means activated in CMOD
+// Both are Customizing/metadata tables (not transactional row data).
+// Historical note: prior code queried MODSAP here, which is the SAP-delivered
+// SMOD definition repository and holds no customer CMOD membership at all —
+// every call returned 0 rows regardless of system state (see issue #29).
 async function scanSmodCmod(client, smodName) {
-  // MODSAP table maps SMOD enhancement → CMOD project membership.
-  // This is metadata (not row business data) and is not in the blocklist.
-  const sql = `SELECT NAME, MEMBER FROM MODSAP WHERE MEMBER = '${smodName}'`;
+  const sql =
+    'SELECT a~NAME, a~MEMBER FROM MODACT AS a '
+    + 'INNER JOIN MODATTR AS b ON a~NAME = b~NAME '
+    + `WHERE b~STATUS = 'A' AND a~MEMBER = '${smodName}'`;
   const r = await callTool(client, 'GetSqlQuery', { sql_query: sql, row_number: 50 });
-  if (!r.ok || !r.json) return { ok: false, error: r.error || 'no MODSAP data' };
+  if (!r.ok || !r.json) return { ok: false, error: r.error || 'no MODACT data' };
   const rows = r.json.rows || [];
   const cmodProjects = rows
     .map((row) => row.NAME || row.name)
