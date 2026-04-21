@@ -66,39 +66,87 @@ Dann in Claude Code `/plugin marketplace add <lokaler-pfad>` auf das lokale Plug
 /sc4sap:setup customizations # Nur Z*/Y* Enhancement- + Extension-Inventar
 ```
 
+### Multi-Profile-Architektur (0.6.0+)
+
+sc4sap unterstützt mehrere SAP-Verbindungen (Dev / QA / Prod × N Mandanten) in derselben Claude-Code-Session.
+
+```
+~/.sc4sap/                                    ← Home-Verzeichnis (geteilt über Repos)
+└── profiles/
+    ├── KR-DEV/{sap.env, config.json}         ← ein Profil pro Verbindung
+    ├── KR-QA/ {sap.env, config.json}
+    └── KR-PRD/{sap.env, config.json}
+
+<project>/.sc4sap/                            ← Projekt-Root (Engagement-Scope)
+├── active-profile.txt                        ← "KR-DEV"
+└── work/
+    ├── KR-DEV/{program, cbo, customizations, ...}
+    └── KR-PRD/{...}
+```
+
+Das Tier-Enum (`DEV` / `QA` / `PRD`) steuert die Readonly-Durchsetzung: QA/PRD-Profile blockieren `Create*` / `Update*` / `Delete*` in zwei Schichten — einem PreToolUse-Hook (L1, vor der Wire-Request) und dem internen MCP-Server-Guard (L2, nicht umgehbar). QA/PRD-Profile lehnen auch die Installation der ABAP-Utilities in Schritt 9 **ab** — transportieren Sie die Utilities stattdessen per CTS vom passenden DEV-Profil.
+
+Passwörter werden im OS-Keychain gespeichert (Windows Credential Manager / macOS Keychain / Linux libsecret) via `@napi-rs/keyring`. Wenn der Keychain nicht verfügbar ist (headless / Docker / fehlendes Optional-Dep), fällt sc4sap transparent auf Klartext in der Profil-Env zurück und warnt.
+
+Volles Design: [`multi-profile-design.md`](multi-profile-design.md). Artefakt-Auflösungsregeln: [`../common/multi-profile-artifact-resolution.md`](../common/multi-profile-artifact-resolution.md).
+
 ### Wizard-Schritte
 
-Der Wizard stellt **eine Frage nach der anderen** — kein kompletter Fragenkatalog auf einmal. Bestehende Werte in `.sc4sap/sap.env` / `.sc4sap/config.json` werden angezeigt, Enter zum Beibehalten.
+Der Wizard stellt **eine Frage nach der anderen** — kein kompletter Fragenkatalog auf einmal. Bestehende Profilwerte werden angezeigt, Enter zum Beibehalten.
 
 | # | Schritt | Was passiert |
 |---|---------|-------------|
+| **0** | **Legacy-Erkennung & Profil-Bootstrap** | Läuft **vor** allen anderen Fragen. Ruft `sap-profile-cli.mjs detect-legacy` auf. Wird ein Pre-0.6.0 `<project>/.sc4sap/sap.env` gefunden → Weiterleitung zur Migration (Alias + Tier erfassen → `sap-profile-cli.mjs migrate` → nach `sap.env.legacy` archivieren → Projekt-`config.json` löschen → `active-profile.txt` auf das neue Profil setzen → weiter ab Schritt 5). Keine Legacy + keine Profile → Neuinstallation ab Schritt 1. Profile bereits vorhanden → Umschalten oder neues Profil anlegen anbieten |
 | 1 | **Versionsprüfung** | Claude-Code-Versionskompatibilität verifizieren |
 | 2 | **SAP-Version + Branche** | `S4` / `ECC` wählen, ABAP-Release eingeben, Branche aus 15er-Menü wählen. Steuert SPRO-Tabellen / BAPIs / TCodes + ABAP-Syntax-Gating + branchenspezifische Konfigurationsmuster |
 | 3 | **MCP-Server installieren** | `abap-mcp-adt-powerup` nach `<PLUGIN_ROOT>/vendor/abap-mcp-adt/` klonen+bauen. Übersprungen wenn bereits installiert (`--update` zum Auffrischen) |
-| 4 | **SAP-Verbindung** | Ein Feld pro Frage — `SAP_URL`, `SAP_CLIENT`, `SAP_AUTH_TYPE`, `SAP_USERNAME`, `SAP_PASSWORD`, `SAP_LANGUAGE`, `SAP_SYSTEM_TYPE`, `SAP_VERSION`, `ABAP_RELEASE`, `SAP_ACTIVE_MODULES` (kommagetrennt), `TLS_REJECT_UNAUTHORIZED`. Geschrieben nach `.sc4sap/sap.env` |
-| 4bis | **RFC-Backend-Auswahl** | `soap` / `native` / `gateway` / `odata` / `zrfc` wählen — siehe [RFC-Backends](FEATURES.de.md#-rfc-backend-auswahl) |
-| 5 | **MCP neu verbinden** | Aufforderung `/mcp` auszuführen, damit der neu installierte Server startet |
+| **4** | **Profilerstellung & SAP-Verbindung** | Erfasst `alias` (`^[A-Z0-9_-]+$`, Konvention `{ISO-COUNTRY}-{TIER}` z. B. `KR-DEV`), `SAP_TIER` (`DEV`/`QA`/`PRD`), optional Same-Company-Meta-Copy, dann Verbindungsfelder (`SAP_URL`, `SAP_CLIENT`, `SAP_AUTH_TYPE`, `SAP_USERNAME`, `SAP_PASSWORD`, `SAP_LANGUAGE`, `SAP_SYSTEM_TYPE`) einzeln. Schreiben delegiert an `sap-profile-cli.mjs add` → Profil-Env nach `~/.sc4sap/profiles/<alias>/`, Passwort in OS-Keychain, Zeiger `<project>/.sc4sap/active-profile.txt=<alias>`. `<project>/.sc4sap/sap.env` und `<project>/.sc4sap/config.json` werden **niemals** erstellt |
+| 4bis | **RFC-Backend-Auswahl** | `soap` / `native` / `gateway` / `odata` / `zrfc` wählen. Alle `SAP_RFC_*`-Keys landen in der aktiven Profil-Env. Siehe [RFC-Backends](FEATURES.de.md#-rfc-backend-auswahl) |
+| 5 | **MCP neu verbinden** | `/mcp` ausführen. Das `ReloadProfile`-Tool des Servers liest Zeiger + Profil-Env (mit Keychain-Auflösung) und erneuert die gecachete Verbindung — kein Neustart von Claude Code nötig |
 | 6 | **Verbindung testen** | `GetSession`-Roundtrip gegen SAP |
-| 7 | **Systeminfo bestätigen** | System-ID, Mandant, Benutzer anzeigen |
+| 7 | **Systeminfo bestätigen** | System-ID, Mandant, Benutzer, Sprache anzeigen. Nach `~/.sc4sap/profiles/<alias>/config.json → systemInfo` schreiben (nicht in den Projekt-Ordner) |
 | 8 | **ADT-Berechtigungsprüfung** | `GetInactiveObjects` zur Verifikation von ADT-Berechtigungen |
-| 9 | **`ZMCP_ADT_UTILS` erstellen** | Benötigte Utility-Funktionsgruppe (Paket `$TMP`). Erstellt `ZMCP_ADT_DISPATCH` + `ZMCP_ADT_TEXTPOOL`, RFC-fähig und aktiviert |
-| 10 | **`config.json` schreiben** | Plugin-seitige Konfig — `sapVersion`, `abapRelease`, `industry`, `activeModules`, `systemInfo` |
-| 11 | **SPRO-Extraktion (optional)** | `y/N` — die Erstextraktion ist tokenintensiv, aber der resultierende `.sc4sap/spro-config.json`-Cache reduziert den zukünftigen Tokenverbrauch drastisch |
-| 11b | **Customizing-Inventar (optional)** | `y/N` — parsed `enhancements.md` jedes Moduls, dann live SAP abfragen, welche Standard-Exits der Kunde tatsächlich mit `Z*`/`Y*`-Objekten implementiert hat. Schreibt `.sc4sap/customizations/{MODULE}/{enhancements,extensions}.json` |
-| 12 | **🔒 Blocklist-Hook (PFLICHT)** | Profil wählen (`strict`/`standard`/`minimal`/`custom`), via `node scripts/install-hooks.mjs` installieren, mit BNKA-Payload Smoke-Test. Setup abgeschlossen erst, wenn dies erfolgreich ist |
+| **9** | **ABAP-Utility-Objekte erstellen (Tier-gesichert)** | **Nur DEV.** Installiert `ZMCP_ADT_UTILS` FG + `ZIF_S4SAP_CM` / `ZCL_S4SAP_CM_*` ALV-OOP-Handler (+ OData / ZRFC-Klassen falls in 4bis gewählt). System-Dedup per `SAP_URL + SAP_CLIENT` — ein Sibling-DEV-Profil auf demselben Host verwendet die Installation wieder. Auf **QA / PRD** wird Schritt 9 **abgelehnt** und ein CTS-Import-Leitfaden ausgegeben — Utilities vom passenden DEV-System per Standard-TMS-Route transportieren |
+| 10 | **Profil-`config.json` finalisieren** | `sapVersion`, `abapRelease`, `industry`, `activeModules`, `namingConvention`, `blocklistProfile`, `activeTransport` nach `~/.sc4sap/profiles/<alias>/config.json` schreiben. Das Projekt-`.sc4sap/` enthält im Multi-Profile-Modus **keine** `config.json` |
+| 11 | **SPRO-Extraktion (optional)** | `y/N` — tokenintensiv; cached nach `<project>/.sc4sap/work/<alias>/spro-config.json`. Spätere Skills nutzen den Cache wieder |
+| 11b | **Customizing-Inventar (optional)** | `y/N` — scant `Z*`/`Y*`-Enhancements + Append-Strukturen; schreibt `<project>/.sc4sap/work/<alias>/customizations/{MODULE}/{enhancements,extensions}.json` |
+| **12** | **🔒 PreToolUse-Hooks (PFLICHT)** | Installiert **beide** Hooks `block-forbidden-tables.mjs` (Row-Extraction-Guard) UND `tier-readonly-guard.mjs` (Tier-basierter Mutations-Guard) in `.claude/settings.json` via `node scripts/install-hooks.mjs --project`. Smoke-Tests beider. Setup abgeschlossen erst, wenn beide erfolgreich sind |
+| 13 | **HUD-Statuszeile** | sc4sap-Statuszeile in `~/.claude/settings.json` registrieren. Nach Neustart zeigt das HUD `{alias} [{tier}] {🔒 if readonly}` + Tokenverbrauch |
 
-> **Zwei Blocklist-Schichten, separat konfiguriert**
-> - **L3 (Schritt 12)** — Claude Code `PreToolUse`-Hook, Profil in `.sc4sap/config.json` → `blocklistProfile`. Feuert in jeder Claude-Code-Session, unabhängig vom MCP-Server
-> - **L4 (Schritt 4, optional)** — MCP-Server-interner Guard, Profil in `sap.env` → `MCP_BLOCKLIST_PROFILE`. Gilt nur für `abap-mcp-adt-powerup`
+> **Defense-in-Depth — drei Enforcement-Schichten**
+> - **L1a (Schritt 12, Row-Extraction)** — Claude Code `PreToolUse`-Hook. Profil in `~/.sc4sap/profiles/<alias>/config.json → blocklistProfile`. Lehnt `GetTableContents` / `GetSqlQuery` auf sensiblen Tabellen ab
+> - **L1b (Schritt 12, Tier)** — Claude Code `PreToolUse`-Hook. Liest bei jedem Aufruf den `SAP_TIER` des aktiven Profils neu (stateless). Lehnt Mutationen auf QA/PRD ab
+> - **L2 (MCP-Server, nicht umgehbar)** — Interner Guard von `abap-mcp-adt-powerup`. Row-Extraction via `sap.env → MCP_BLOCKLIST_PROFILE`; Tier via `@readonly(tier)`-Dekorator, gesetzt bei `ReloadProfile`. Feuert auch wenn die Hooks fehlen oder fehlerhaft konfiguriert sind
 >
-> Typisch: L3 `strict`, L4 `standard`. L3 ändern durch erneutes `/sc4sap:setup`; L4 via `/sc4sap:sap-option`.
+> L1-Hooks fallen bei IO/Parse-Fehlern OPEN; der L2-MCP-Guard ist immer aktiv. Empfohlene Defaults: L1a `strict`, MCP-Server-Blocklist `standard`.
 
 ## Nach dem Setup
 
+### Profilverwaltung
+
+- Aktives System umschalten: `/sc4sap:sap-option switch <alias>` (oder interaktiver Picker — via `AskUserQuestion` mit Tier + Tools-Matrix-Preview)
+- Weiteren Mandanten / Tier hinzufügen: `/sc4sap:sap-option add` (Wizard: Alias → Tier → optional Same-Company-Meta-Copy → Verbindung + Keychain-Passwort)
+- Profilliste: `/sc4sap:sap-option list` — Alias, Tier-Badge, Host, `●`-Marker für aktives Profil
+- Entfernen / rotieren / purgen: `/sc4sap:sap-option remove|edit|purge` — Soft-Delete nach `~/.sc4sap/profiles/.trash/<alias>-<ts>/`, 7-Tage-Auto-Purge
+- Tier ist an einem bestehenden Profil unveränderlich — Ändern via remove + add
+
+### Health & Wartung
+
 - Health-Check: `/sc4sap:sap-doctor`
-- Credentials rotieren / L4-Blocklist anpassen: `/sc4sap:sap-option`
-- SPRO neu extrahieren: `/sc4sap:setup spro`
-- Aktive Module bearbeiten: `/sc4sap:sap-option modules`
+- Credentials rotieren / Branche ändern / L2-MCP-Blocklist anpassen: `/sc4sap:sap-option`
+- SPRO neu extrahieren: `/sc4sap:setup spro` (aktives Profil erforderlich)
+- Customizing-Inventar erneut ausführen: `/sc4sap:setup customizations` (aktives Profil erforderlich)
+
+### Migrations-Rollback (0.6.0-Upgrade rückgängig)
+
+```bash
+mv .sc4sap/sap.env.legacy .sc4sap/sap.env
+rm .sc4sap/active-profile.txt
+rm -rf ~/.sc4sap/profiles/<alias>
+# Falls das Passwort im Keychain gespeichert wurde (kein Plaintext-Fallback):
+echo '{"service":"sc4sap","account":"<alias>/<user>"}' \
+  | node "$CLAUDE_PLUGIN_ROOT/scripts/sap-profile-cli.mjs" keychain-delete
+```
 
 ---
 
