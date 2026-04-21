@@ -23,6 +23,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { resolveConfigJsonPath } from '../lib/profile-resolve.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EXCEPTIONS_DIR = resolve(__dirname, '..', '..', 'exceptions');
@@ -34,17 +35,23 @@ const INDEX_FILE = 'table_exception.md';
 const TIER_ORDER = { minimal: 1, standard: 2, strict: 3 };
 const DEFAULT_PROFILE = 'strict';
 
+// Walk up from cwd to find a project directory (one that contains .sc4sap/),
+// then resolve the active-profile.txt pointer through the shared resolver so
+// the active profile's config.json is preferred over any legacy project-local
+// config.json that may have been left behind.
 function resolveProjectConfig() {
-  // Look for .sc4sap/config.json walking up from cwd.
   let dir = process.cwd();
   for (let i = 0; i < 8; i++) {
-    const candidate = resolve(dir, '.sc4sap', 'config.json');
-    if (existsSync(candidate)) return { configPath: candidate, projectDir: dir };
+    if (existsSync(join(dir, '.sc4sap'))) {
+      const hit = resolveConfigJsonPath(dir);
+      if (hit) return { configPath: hit.path, projectDir: dir, source: hit.source, alias: hit.alias };
+      return { configPath: null, projectDir: dir, source: null, alias: null };
+    }
     const parent = dirname(dir);
     if (parent === dir) break;
     dir = parent;
   }
-  return { configPath: null, projectDir: process.cwd() };
+  return { configPath: null, projectDir: process.cwd(), source: null, alias: null };
 }
 
 function loadProfile(configPath) {

@@ -158,6 +158,21 @@ function listProfiles() {
     .filter((f) => f !== '.trash' && statSync(join(dir, f)).isDirectory())
     .sort();
 }
+// Mask SAP_PASSWORD for display. Output must NEVER reveal a plaintext
+// password. Accepted display values:
+//   ""                                 — no password configured
+//   "keychain:<service>/<account>"     — safe reference (no secret leaks)
+//   "plaintext (masked)"               — a raw password sits in the env
+//                                        file; surface the fact without
+//                                        revealing the value so the user
+//                                        knows to re-run `sap-option edit`.
+function maskPasswordField(raw) {
+  const v = String(raw || '');
+  if (v === '') return '';
+  if (v.startsWith('keychain:')) return v;
+  return 'plaintext (masked)';
+}
+
 function readProfile(alias) {
   const envPath = join(profilesDir(), alias, 'sap.env');
   if (!existsSync(envPath)) return null;
@@ -175,7 +190,7 @@ function readProfile(alias) {
     industry: env.SAP_INDUSTRY || '',
     activeModules: env.SAP_ACTIVE_MODULES || '',
     description: env.SAP_DESCRIPTION || '',
-    passwordRef: env.SAP_PASSWORD || '',
+    passwordRef: maskPasswordField(env.SAP_PASSWORD),
   };
 }
 function readActiveAlias(cwd) {

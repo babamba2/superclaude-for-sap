@@ -13,6 +13,7 @@ import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { homedir } from 'os';
 import { readStdin } from './lib/stdin.mjs';
+import { readActiveConfigJson } from './lib/profile-resolve.mjs';
 
 function readJsonFile(filePath) {
   try {
@@ -24,10 +25,13 @@ function readJsonFile(filePath) {
 }
 
 function readConfig(directory) {
-  // Check project-level config first, then global
-  const projectConfig = readJsonFile(join(directory, '.sc4sap', 'config.json'));
-  if (projectConfig?.codeSimplifier?.enabled) return projectConfig;
+  // Multi-profile: prefer the active profile's config.json (falls through to
+  // legacy project `.sc4sap/config.json` when no active-profile.txt exists).
+  const active = readActiveConfigJson(directory);
+  if (active?.config?.codeSimplifier?.enabled) return active.config;
 
+  // Global user-home fallback — `~/.sc4sap/config.json` — retained for users
+  // who configured the opt-in there before the multi-profile migration.
   const globalConfig = readJsonFile(join(homedir(), '.sc4sap', 'config.json'));
   return globalConfig;
 }

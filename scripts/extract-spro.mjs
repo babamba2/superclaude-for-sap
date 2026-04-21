@@ -20,13 +20,15 @@ import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { resolveArtifactBase, resolveSapEnvPath } from './lib/profile-resolve.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const CONFIGS_DIR = resolve(ROOT, 'configs');
-// Output to project-root .sc4sap/ (cwd), matching the convention used by
-// bridge/mcp-server.cjs and the block-forbidden-tables hook.
-const OUTPUT_DIR = resolve(process.cwd(), '.sc4sap');
+// Output under the active profile's artifact base (`.sc4sap/work/<alias>/`) in
+// multi-profile mode, or `.sc4sap/` in legacy mode. The shared resolver walks
+// `<cwd>/.sc4sap/active-profile.txt` to determine the right folder.
+const OUTPUT_DIR = resolveArtifactBase(process.cwd());
 // Single module → per-module file; multiple/all → merged file
 const isSingleModule = () => selectedModules.length === 1;
 const getOutputFile = () => isSingleModule()
@@ -53,17 +55,18 @@ function isValidTableName(name) {
   return typeof name === 'string' && TABLE_NAME_RE.test(name);
 }
 
-// Resolve active SAP version (S4 | ECC | null) from .sc4sap/sap.env.
-// Used to filter rows in modules whose spro.md has a System column
-// (e.g. MM) so that ECC-only rows are skipped on S/4 and vice versa.
+// Resolve active SAP version (S4 | ECC | null) from the active profile's
+// sap.env (multi-profile) or the legacy project sap.env. Used to filter rows
+// in modules whose spro.md has a System column (e.g. MM) so that ECC-only
+// rows are skipped on S/4 and vice versa.
 function resolveSapVersion() {
   if (process.env.SAP_VERSION) return process.env.SAP_VERSION.trim().toUpperCase();
-  const candidates = [
-    resolve(process.cwd(), '.sc4sap', 'sap.env'),
-    resolve(ROOT, '.sc4sap', 'sap.env'),
-  ];
+  const hit = resolveSapEnvPath(process.cwd());
+  const fallback = resolve(ROOT, '.sc4sap', 'sap.env');
+  const candidates = [];
+  if (hit) candidates.push(hit.path);
+  if (existsSync(fallback)) candidates.push(fallback);
   for (const p of candidates) {
-    if (!existsSync(p)) continue;
     try {
       const text = readFileSync(p, 'utf-8');
       const m = text.match(/^\s*SAP_VERSION\s*=\s*(.+?)\s*$/m);

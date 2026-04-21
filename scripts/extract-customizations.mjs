@@ -7,9 +7,10 @@
 // (via the MCP server) to find which ones the customer has actually
 // implemented with Z-namespace or Y-namespace objects.
 //
-// Outputs:
-//   .sc4sap/customizations/{MODULE}/enhancements.json   (BAdI impl, SMOD -> CMOD Z-namespace)
-//   .sc4sap/customizations/{MODULE}/extensions.json     (Append Structures + Custom Fields)
+// Outputs (multi-profile: `.sc4sap/work/<activeAlias>/customizations/...`;
+//          legacy: `.sc4sap/customizations/...`):
+//   {artifactBase}/customizations/{MODULE}/enhancements.json   (BAdI impl, SMOD -> CMOD Z-namespace)
+//   {artifactBase}/customizations/{MODULE}/extensions.json     (Append Structures + Custom Fields)
 //
 // Persistence rules requested by user:
 //   - BAdI  -> record only when at least one Z/Y implementation exists
@@ -29,15 +30,18 @@
 //
 
 import { readFileSync, writeFileSync, mkdirSync, readdirSync, existsSync, statSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { resolve, dirname, join } from 'path';
 import { fileURLToPath } from 'url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { resolveArtifactBase } from './lib/profile-resolve.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..');
 const CONFIGS_DIR = resolve(ROOT, 'configs');
-const OUTPUT_DIR = resolve(process.cwd(), '.sc4sap', 'customizations');
+// Output path is `<artifactBase>/customizations/` — artifactBase resolves to
+// `.sc4sap/work/<alias>/` in multi-profile mode, `.sc4sap/` in legacy mode.
+const OUTPUT_DIR = join(resolveArtifactBase(process.cwd()), 'customizations');
 const BRIDGE = resolve(ROOT, 'bridge', 'mcp-server.cjs');
 
 const Z_PATTERN = /^[ZY]/i;

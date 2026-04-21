@@ -15,6 +15,7 @@ import path from 'node:path';
 import os from 'node:os';
 import readline from 'node:readline/promises';
 import { stdin as input, stdout as output } from 'node:process';
+import { resolveSapEnvPath } from './lib/profile-resolve.mjs';
 
 // ───── ANSI helpers ─────────────────────────────────────────────────────────
 const NC = process.env.NO_COLOR === '1';
@@ -122,13 +123,23 @@ function renderTable(entries) {
 async function main() {
   const args = process.argv.slice(2);
   const fileArgIdx = args.indexOf('--file');
-  const filePath = fileArgIdx >= 0
-    ? path.resolve(args[fileArgIdx + 1])
-    : path.resolve(process.cwd(), '.sc4sap', 'sap.env');
+
+  // Resolve the env path:
+  //   1. --file <path> wins when supplied.
+  //   2. Otherwise, consult the shared resolver which follows
+  //      `<cwd>/.sc4sap/active-profile.txt` → `~/.sc4sap/profiles/<alias>/sap.env`
+  //      (multi-profile) and falls back to the legacy project `sap.env`.
+  let filePath;
+  if (fileArgIdx >= 0) {
+    filePath = path.resolve(args[fileArgIdx + 1]);
+  } else {
+    const hit = resolveSapEnvPath(process.cwd());
+    filePath = hit?.path || path.resolve(process.cwd(), '.sc4sap', 'sap.env');
+  }
 
   if (!fs.existsSync(filePath)) {
     console.error(paint(`\n  ✗ sap.env not found: ${filePath}`, C.red));
-    console.error(paint('    Run `/sc4sap:setup` inside Claude Code first, or pass --file <path>.\n', C.dim));
+    console.error(paint('    Run `/sc4sap:setup` inside Claude Code first (or `/sc4sap:sap-option add` to register a profile), or pass --file <path>.\n', C.dim));
     process.exit(1);
   }
 
