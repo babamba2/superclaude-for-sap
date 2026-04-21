@@ -124,7 +124,22 @@
       "Bash(scoop bucket *)",
       "Bash(entire --version)",
       "Bash(scoop list *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git -c user.email=\"s2hoon326@gmail.com\" -c user.name=\"babamba2\" commit -m \"wip: local snapshot before pulling origin/active\")",
+      "Bash(git -c user.email=\"s2hoon326@gmail.com\" -c user.name=\"babamba2\" merge origin/active --no-ff --no-commit)",
+      "Bash(git -c user.email=\"s2hoon326@gmail.com\" -c user.name=\"babamba2\" commit --no-verify -m \"merge origin/active into LOCAL \\(program-to-spec + scripts/spec: keep LOCAL; others: take remote\\)\")",
+      "Bash(curl *)",
+      "mcp__plugin_sc4sap_sap__CreateInterface",
+      "mcp__plugin_sc4sap_sap__CreateClass",
+      "mcp__plugin_sc4sap_sap__UpdateInterface",
+      "mcp__plugin_sc4sap_sap__UpdateClass",
+      "Bash(gh --version)",
+      "Bash(gh repo *)",
+      "Bash(where gh *)",
+      "Bash(command -v gh.exe)",
+      "Read(//c/Program Files/GitHub CLI/**)",
+      "Bash(git -c user.email=s2hoon326@gmail.com -c user.name=babamba2 commit -m 'chore\\(settings\\): allow git/curl and MCP class/interface write tools *)"
     ]
   }
 }
