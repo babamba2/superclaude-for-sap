@@ -11,7 +11,7 @@
 > Claude Code plugin for SAP ABAP development — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private)
 
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)
-[![Plugin version](https://img.shields.io/badge/sc4sap-v0.5.4-6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
+[![Plugin version](https://img.shields.io/badge/sc4sap-v0.6.0-6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
 [![GitHub stars](https://img.shields.io/github/stars/babamba2/superclaude-for-sap?style=flat&color=yellow)](https://github.com/babamba2/superclaude-for-sap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -24,6 +24,7 @@ SuperClaude for SAP transforms Claude Code into a full-stack SAP development ass
 | Capability | What it does |
 |------------|--------------|
 | 🔌 **Auto MCP Install** | `abap-mcp-adt-powerup` is auto-installed, configured, and connection-tested during `/sc4sap:setup`. No manual MCP wiring. |
+| 🌐 **Multi-Environment Profiles (Dev / QA / Prod)** | Register multiple SAP systems per company (e.g. `KR-DEV`, `KR-QA`, `KR-PRD`, `US-DEV`) and hot-switch between them in-session via `/sc4sap:sap-option`. **QA and Prod profiles are auto-protected**: a 2-layer defense (PreToolUse hook + MCP-server guard) blocks `Create*/Update*/Delete*`, `CreateTransport`, and runtime code execution tools — bypassing the hook does not bypass enforcement. Passwords are stored in the **OS keychain** (`@napi-rs/keyring` — Windows Credential Manager / macOS Keychain / libsecret) so `.sc4sap/` never leaks secrets to git. Artifacts (specs, CBO catalogs, audits) are isolated per profile with read-only cross-view so QA sessions can inspect Dev-produced specs without contaminating them. |
 | 🏗️ **Formatted Auto Program Maker** | Builds ABAP programs end-to-end: Main + conditional Includes (OOP/Procedural), full ALV + Docking, Dynpro + GUI Status, mandatory Text Elements, ABAP Unit tests — platform-aware (ECC / S4 On-Prem / Cloud). |
 | 🔍 **Program Analyze** | Read any ABAP object via MCP, run Clean ABAP / performance / security review, or reverse-engineer into Functional/Technical Spec (Markdown/Excel). |
 | 🧪 **Analyze Code** | `/sc4sap:analyze-code` — dedicated static review pass (`sap-code-reviewer`): Clean ABAP, performance, security, SAP standard compliance. Severity-ranked findings with concrete fix suggestions. |

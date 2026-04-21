@@ -22,6 +22,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 - User says "sap option", "show sap.env", "change SAP password", "switch SAP client", "change the blocklist profile", "loosen blocklist", "whitelist ACDOCA", "view SAP config", "SAP options".
 - User says "change the industry", "change industry", "switch industry", "switch to retail", "switch to cosmetics" — route to the **Industry selection** flow described in `<Industry_Selection>` (updates `SAP_INDUSTRY` in `sap.env` and `industry` in `config.json` atomically).
 - User says "hud", "show status", "show system info", "current SAP status", "which system am I connected to" — run the status snapshot (workflow step 3) and stop there unless the user then asks to edit.
+- User says "switch profile", "switch to KR-QA", "change system", "use the PRD system", "list profiles", "add a new profile", "register another system", "remove profile", "edit KR-DEV", "rotate credentials for KR-PRD" — route to the **Profile management** flow described in `<Profile_Management>` (see [`profile-management.md`](profile-management.md)).
 - User wants to change blocklist tier (`MCP_BLOCKLIST_PROFILE`) or manage `MCP_ALLOW_TABLE` / `MCP_BLOCKLIST_EXTEND`.
 - User is rotating credentials, moving to a new SAP system, or flipping language/client.
 - After `/sc4sap:setup` if the user wants to adjust without re-running full setup.
@@ -32,6 +33,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 When invoked with `status` / `show` / `hud` (or as the preamble to any edit flow), render this panel. Keep it compact — roughly 10–14 lines — and silence sections that can't be fetched (e.g. MCP disconnected) rather than failing.
 
 Contents (only show rows you could resolve):
+- **Active profile**: `<alias> [<tier>]` with `🔒` if tier≠DEV — from `<project>/.sc4sap/active-profile.txt` + `~/.sc4sap/profiles/<alias>/sap.env` → `SAP_TIER`. Show `(legacy)` when no active-profile.txt is set and a legacy `sap.env` is in use.
 - **System**: `<SID>` · client `<MANDT>` · user `<BNAME>` · lang `<SPRAS>`   *(from `GetSession`)*
 - **Connection**: `<SAP_URL>` · auth `<SAP_AUTH_TYPE>` · type `<SAP_SYSTEM_TYPE>` · version `<SAP_VERSION>` · ABAP `<ABAP_RELEASE>`
 - **RFC backend**: `<SAP_RFC_BACKEND or "soap (default)">` — if `native`, append `· ashost <SAP_RFC_ASHOST>:<SAP_RFC_SYSNR>` or `· mshost <SAP_RFC_MSHOST>/<SAP_RFC_SYSID>`; if `gateway`, append `· <SAP_RFC_GATEWAY_URL>` (token masked); if `odata`, append `· <SAP_RFC_ODATA_SERVICE_URL>` (with CSRF TTL = `<SAP_RFC_ODATA_CSRF_TTL_SEC or "600">`s)
@@ -84,6 +86,10 @@ Do not manage keys that are not in this list — warn the user and skip.
 <Workflow>
 See [workflow.md](workflow.md).
 </Workflow>
+
+<Profile_Management>
+See [profile-management.md](profile-management.md). Handles multi-environment (Dev/QA/Prod) connection switching, tier-based readonly enforcement, OS-keychain-backed password storage, profile add/edit/remove/purge, and migration from legacy single-profile `.sc4sap/sap.env`.
+</Profile_Management>
 
 <Industry_Selection>
 See [industry-selection.md](industry-selection.md).
