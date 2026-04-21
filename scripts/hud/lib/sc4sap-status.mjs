@@ -1,5 +1,6 @@
 // Lightweight sc4sap-specific status: SAP version, ABAP release, MCP build, sap.env presence.
 import { existsSync, readFileSync, statSync, readdirSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { join, resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -109,6 +110,60 @@ export function activeTransport(workspaceDir) {
     if (!at || !at.trkorr) return null;
     return { trkorr: at.trkorr, description: at.description || null };
   } catch { return null; }
+}
+
+// Resolve the active sc4sap profile for HUD line 2. Reads the project-local
+// pointer `<ws>/.sc4sap/active-profile.txt`, locates the user-level env file
+// at `$SC4SAP_HOME_DIR/profiles/<alias>/sap.env` (or `~/.sc4sap/profiles/...`),
+// and extracts SAP_TIER. Falls back to the legacy single-profile `sap.env` if
+// no pointer exists.
+//
+// Returns { alias, tier, readonly, legacy } or null if no profile data at all.
+export function activeProfile(workspaceDir) {
+  const pointer = join(workspaceDir, '.sc4sap', 'active-profile.txt');
+  let alias = null;
+  if (existsSync(pointer)) {
+    try {
+      const raw = readFileSync(pointer, 'utf8').trim();
+      if (raw.length > 0) alias = raw;
+    } catch { /* ignore */ }
+  }
+
+  const sc4sapHome = process.env.SC4SAP_HOME_DIR || join(homedir(), '.sc4sap');
+
+  let envPath;
+  let legacy;
+  if (alias) {
+    envPath = join(sc4sapHome, 'profiles', alias, 'sap.env');
+    legacy = false;
+  } else {
+    envPath = join(workspaceDir, '.sc4sap', 'sap.env');
+    legacy = true;
+  }
+
+  const env = readDotenv(envPath);
+  if (!env) {
+    // legacy path might live in plugin roots for cache installs
+    if (legacy) {
+      for (const r of ROOTS) {
+        const fallback = readDotenv(join(r, '.sc4sap', 'sap.env'));
+        if (fallback) {
+          const tier = normalizeTier(fallback.SAP_TIER);
+          return { alias: null, tier, readonly: tier !== 'DEV', legacy: true };
+        }
+      }
+    }
+    return null;
+  }
+
+  const tier = normalizeTier(env.SAP_TIER);
+  return { alias, tier, readonly: tier !== 'DEV', legacy };
+}
+
+function normalizeTier(value) {
+  const v = String(value || '').trim().toUpperCase();
+  if (v === 'DEV' || v === 'QA' || v === 'PRD') return v;
+  return 'DEV';
 }
 
 // Resolve system info (SID / client / user) for HUD line 2. Priority:

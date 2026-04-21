@@ -6,7 +6,7 @@
 import { join } from 'path';
 import { priceFor, costOf } from './lib/pricing.mjs';
 import { latestUsage, contextSize, collectBlockUsage, collectWeeklyUsage, activityState, mcpConnectionState } from './lib/transcript.mjs';
-import { readConfig, sapEnvPresent, mcpInstalled, systemInfo, activeTransport } from './lib/sc4sap-status.mjs';
+import { readConfig, sapEnvPresent, mcpInstalled, systemInfo, activeTransport, activeProfile } from './lib/sc4sap-status.mjs';
 import { color, paint, humanTokens, humanUsd, humanDuration, pctColor } from './lib/format.mjs';
 import { readCache, writeCache } from './lib/cache.mjs';
 import { getUsage } from './lib/usage-api.mjs';
@@ -187,12 +187,21 @@ async function main() {
       paint(modelName, color.dim),
     ].filter(Boolean);
 
-    // Line 2 — compact SAP system info (SID · client · user · CTS).
+    // Line 2 — compact SAP system info (profile · tier · SID · client · user · CTS).
+    const ap = activeProfile(ws);
     const si = systemInfo(ws);
     const at = activeTransport(ws);
     let line2 = '';
-    if (si || at) {
+    if (ap || si || at) {
       const bits = [];
+      if (ap?.alias) {
+        const lock = ap.readonly ? ' 🔒' : '';
+        bits.push(
+          paint(ap.alias, color.cyan) + ' ' + paint(`[${ap.tier}]${lock}`, color.gray, color.dim),
+        );
+      } else if (ap && ap.legacy && ap.readonly) {
+        bits.push(paint(`(legacy) [${ap.tier}] 🔒`, color.gray, color.dim));
+      }
       if (si?.sid)    bits.push(paint('SID',    color.gray, color.dim) + ' ' + paint(si.sid, color.magenta));
       if (si?.client) bits.push(paint('client', color.gray, color.dim) + ' ' + paint(si.client, color.cyan));
       if (si?.user)   bits.push(paint('user',   color.gray, color.dim) + ' ' + paint(si.user, color.cyan));

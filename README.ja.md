@@ -11,7 +11,7 @@
 > SAP ABAP 開発向け Claude Code プラグイン — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private) 対応
 
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)
-[![Plugin version](https://img.shields.io/badge/sc4sap-v0.5.4-6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
+[![Plugin version](https://img.shields.io/badge/sc4sap-v0.6.0-6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
 [![GitHub stars](https://img.shields.io/github/stars/babamba2/superclaude-for-sap?style=flat&color=yellow)](https://github.com/babamba2/superclaude-for-sap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -24,6 +24,7 @@ SuperClaude for SAP は Claude Code をフルスタック SAP 開発アシスタ
 | 機能 | 説明 |
 |------|------|
 | 🔌 **MCP 自動インストール** | `/sc4sap:setup` 中に `abap-mcp-adt-powerup` を自動インストール・設定・接続テスト。手動 MCP 配線不要。 |
+| 🌐 **マルチ環境プロファイル (Dev / QA / Prod)** | 会社・ティア別に複数の SAP システム(`KR-DEV`、`KR-QA`、`KR-PRD`、`US-DEV` など)を登録し、`/sc4sap:sap-option` でセッション中に即時切り替え。**QA / Prod プロファイルは自動で読み取り専用保護**:PreToolUse フックと MCP サーバーガードの 2 層防御が `Create*/Update*/Delete*`、`CreateTransport`、コード実行ツールをブロック — フックを回避してもサーバー側で依然として拒否。パスワードは **OS 資格情報ストア** (`@napi-rs/keyring` — Windows Credential Manager / macOS Keychain / libsecret) に保管され、`.sc4sap/` が git にシークレットを漏洩させるリスクなし。成果物(仕様書、CBO カタログ、監査)はプロファイル別に分離され、読み取り専用のクロスビューを提供 — QA セッションが Dev 生成の仕様を汚染せずに参照可能。 |
 | 🏗️ **自動プログラムメーカー** | ABAP プログラムのエンドツーエンド生成:Main + 条件付き Include、OOP/Procedural、フル ALV + Docking、Dynpro + GUI ステータス、必須 Text Elements、ABAP Unit — プラットフォーム対応(ECC / S4 On-Prem / Cloud)。 |
 | 🔍 **プログラム解析** | MCP で ABAP オブジェクトを読み取り → Clean ABAP / パフォーマンス / セキュリティレビュー、または機能/技術仕様へのリバースエンジニアリング(Markdown/Excel)。 |
 | 🧪 **コード解析** | `/sc4sap:analyze-code` — `sap-code-reviewer` 専用の静的レビュー:Clean ABAP / パフォーマンス / セキュリティ / SAP 標準準拠。重大度順の指摘と具体的な修正提案。 |

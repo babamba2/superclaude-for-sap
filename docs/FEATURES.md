@@ -7,6 +7,7 @@
 - [25 SAP-Specialized Agents](#25-sap-specialized-agents)
 - [18 Skills](#18-skills)
 - [Skills — Examples & Workflow](#skills--examples--workflow)
+- [Multi-Environment Profiles (Dev / QA / Prod)](#-multi-environment-profiles-dev--qa--prod)
 - [MCP ABAP ADT Server Capabilities](#mcp-abap-adt-server--unique-capabilities)
 - [Shared Conventions](#shared-conventions-common)
 - [Context Loading Architecture (v0.5.2+)](#context-loading-architecture-v052)
@@ -42,7 +43,7 @@
 |-------|-------------|
 | `sc4sap:setup` | Plugin setup — auto-installs MCP server, generates SPRO config, installs blocklist hook |
 | `sc4sap:mcp-setup` | Standalone MCP ABAP ADT server install / reconfigure guide |
-| `sc4sap:sap-option` | View / edit `.sc4sap/sap.env` (credentials, RFC backend, blocklist, active modules) |
+| `sc4sap:sap-option` | View / edit SAP profiles (credentials, RFC backend, blocklist, active modules), **manage multi-environment profiles** (Dev/QA/Prod switch/add/remove), and HUD usage limits |
 | `sc4sap:sap-doctor` | Plugin + MCP + SAP diagnostics (6 layers) |
 | `sc4sap:create-object` | ABAP object creation (hybrid mode — transport + package confirm, create, activate) |
 | `sc4sap:create-program` | Full ABAP program pipeline — Main+Include, OOP/Procedural, ALV, Dynpro, Text Elements, ABAP Unit |
@@ -121,6 +122,78 @@ Plugin + MCP + SAP connectivity diagnostics. First thing to run when something's
 
 ### `/sc4sap:sap-option`
 View and edit `.sc4sap/sap.env` — credentials, RFC backend, blocklist policy, active modules. Secrets masked.
+
+## 🌐 Multi-Environment Profiles (Dev / QA / Prod)
+
+**Multinational SAP customers run a 3-tier landscape per legal entity** (Sandbox / Dev / QA / Prod; often several legal entities: KR, US, DE…). sc4sap supports managing all of them from a single Claude Code session, with **automatic safety rails on non-Dev tiers.**
+
+### Profile storage
+
+| Where | What |
+|---|---|
+| `~/.sc4sap/profiles/<alias>/sap.env` | User-level profile definition (connection, tier, industry, modules). Shared across all repos. |
+| `~/.sc4sap/profiles/<alias>/config.json` | User-level per-profile config (naming convention, systemInfo, activeTransport history). |
+| `~/.sc4sap/profiles/.trash/` | Soft-deleted profiles, auto-purged 7 days after removal. |
+| `<project>/.sc4sap/active-profile.txt` | Project-level pointer — which profile this repo talks to right now. |
+| `<project>/.sc4sap/work/<alias>/` | Project artifacts (specs, CBO catalogs, audits) per profile. Read-only cross-view: a QA session can see Dev-produced specs, but writes always land under the active profile. |
+
+### Tier-based readonly enforcement (Strict policy)
+
+`SAP_TIER` is an enum: `DEV` | `QA` | `PRD`. Non-canonical tiers (Sandbox, Staging, Pre-Prod, Training) map to the safer equivalent (e.g. Staging → PRD).
+
+| Tool family | DEV | QA | PRD |
+|---|---|---|---|
+| `Create*` / `Update*` / `Delete*` (DDIC, ABAP, CDS, BO, SB, MDE, Screen, GUI, Package) | ✓ | ✗ | ✗ |
+| `CreateTransport` | ✓ | ✗ | ✗ |
+| `RunUnitTest` | ✓ | ✓ | ✗ |
+| `RuntimeRunProgramWithProfiling` / `RuntimeRunClassWithProfiling` | ✓ | ✗ | ✗ |
+| `Get*` / `Read*` / `Search*` / `RuntimeAnalyze*` / `RuntimeList*` / `ValidateServiceBinding` | ✓ | ✓ | ✓ |
+
+Two-layer defense:
+- **Layer 1 — PreToolUse hook** (`scripts/hooks/tier-readonly-guard.mjs`) installed via `scripts/install-hooks.mjs`. Fires before the tool request is sent; emits a clear deny reason the LLM can explain to the user.
+- **Layer 2 — MCP server guard** (`abap-mcp-adt-powerup/src/lib/readonlyGuard.ts`) — uncircumventable. Even if the user disables hooks or skips the plugin install, the server rejects mutation tools on QA/PRD with `ERR_READONLY_TIER`. `ReloadProfile` is always allowed so users can switch back to Dev without an escape hatch debate.
+
+### OS keychain for passwords (`@napi-rs/keyring`)
+
+Profiles store `SAP_PASSWORD=keychain:sc4sap/<alias>/<user>` — a reference, not the secret. The real value lives in the OS credential store:
+
+| OS | Backend |
+|---|---|
+| Windows | Credential Manager |
+| macOS | Keychain |
+| Linux | libsecret (GNOME Keyring / KWallet) |
+
+Implementation uses `@napi-rs/keyring` — Rust + N-API prebuilt binaries (no `node-gyp` compilation on install, no rebuild on Node version bumps). Declared as `optionalDependencies`; headless environments (Docker, CI) gracefully fall back to `SAP_PASSWORD_STORAGE=file` (plaintext with a prominent warning). Existing plaintext `.sc4sap/sap.env` files are migrated into the keychain on first upgrade.
+
+### Switching, adding, removing profiles
+
+All via `/sc4sap:sap-option`:
+
+- **Switch** — interactive picker (native `AskUserQuestion` UI) with per-profile preview panel showing connection details + the tools-allowed matrix. Writes `active-profile.txt`, calls `mcp__sap__ReloadProfile` on the MCP server (no Claude Code restart needed), and the HUD re-renders with the new `alias [tier] 🔒` badge.
+- **Add** — wizard captures alias, tier, host/client/user, password (streamed directly to keychain, never shown on-screen). Same-company auto-detection: adding `KR-QA` while `KR-DEV` exists offers to copy `SAP_INDUSTRY`, `SAP_ACTIVE_MODULES`, `ABAP_RELEASE`, and the `namingConvention` block.
+- **Remove** — requires the user to type the alias verbatim for confirmation. Archives to `.trash/{alias}-{timestamp}/` instead of hard-deleting. Refuses if the alias is the active profile.
+- **Edit** — modifies non-tier fields (tier is immutable through this path to prevent accidental PRD → DEV downgrades). Password edits rewrite the keychain entry.
+- **Purge** — permanently deletes `.trash/*` older than 7 days (or `--all` for immediate full clear).
+
+### Migration from legacy single-profile `sap.env`
+
+Existing users upgrading to the multi-profile release see a SessionStart banner (`scripts/legacy-migration-banner.mjs`) the first time they start Claude Code in a project with `.sc4sap/sap.env` but no `active-profile.txt`. The banner points them to `/sc4sap:sap-option` which drives a two-question migration wizard (alias, tier). The legacy file is renamed to `sap.env.legacy` for rollback; no data is deleted.
+
+### HUD
+
+Line 2 of the statusline shows `{alias} [{tier}]` with a 🔒 when `tier != DEV`. Color is not used — the lock icon is the single, theme-independent signal.
+
+```
+ KR-DEV [DEV]       SID S4H · client 100 · user DEVELOPER · CTS S4HK904224
+ KR-PRD [PRD] 🔒    SID S4P · client 400 · user READER
+```
+
+### Related files
+
+- Design: [`multi-profile-design.md`](multi-profile-design.md)
+- Implementation plan: [`multi-profile-implementation-plan.md`](multi-profile-implementation-plan.md)
+- CLI: `scripts/sap-profile-cli.mjs` (list / switch / add / remove / migrate / purge / keychain-set / keychain-delete)
+- Skill companions: `skills/sap-option/profile-management.md`, `skills/sap-option/migration.md`
 
 ## MCP ABAP ADT Server — Unique Capabilities
 

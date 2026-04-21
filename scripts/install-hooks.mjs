@@ -1,38 +1,47 @@
 #!/usr/bin/env node
 /**
- * sc4sap install-hooks — register the data-extraction PreToolUse hook in the
- * user's Claude Code `settings.json`.
+ * sc4sap install-hooks — register sc4sap PreToolUse hooks in Claude Code
+ * `settings.json`. Installs two hooks:
+ *
+ *   1. block-forbidden-tables   — row-extraction safety for
+ *      `GetTableContents` / `GetSqlQuery`.
+ *   2. tier-readonly-guard      — tier-based readonly enforcement (QA/PRD)
+ *      for mutation + runtime-execution MCP tools.
  *
  * Usage:
  *   node scripts/install-hooks.mjs              # install into user settings (~/.claude/settings.json)
  *   node scripts/install-hooks.mjs --project    # install into project .claude/settings.json
- *   node scripts/install-hooks.mjs --uninstall  # remove the hook
+ *   node scripts/install-hooks.mjs --uninstall  # remove both sc4sap hooks
  *
- * Idempotent: detects the sc4sap hook by command substring and upserts it.
+ * Idempotent: detects each hook by marker (basename) and upserts it. Existing
+ * single-hook installs (block-forbidden-tables only) are preserved — the new
+ * tier-readonly-guard hook is appended without disturbing them.
  */
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { homedir } from 'node:os';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { homedir } from 'node:os';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-// Resolve the hook script path. Prefer the marketplace path (~/.claude/plugins/
-// marketplaces/sc4sap/...) because it is version-stable — the per-version cache
-// (plugins/cache/sc4sap/sc4sap/<version>/) rotates on every plugin upgrade and
-// leaves behind dead paths in users' settings.json, causing the hook to crash
-// with MODULE_NOT_FOUND and silently fall through ("non-blocking").
-//
-// If this script was invoked from a path that already sits under the marketplace
-// tree, or if the marketplace plugin-root can be located, anchor to that.
-// Otherwise, fall back to the script-relative path (legacy behaviour).
-function resolveHookScript() {
-  const scriptRelative = resolve(__dirname, 'hooks', 'block-forbidden-tables.mjs');
-
-  // Try the well-known marketplace path first.
+/**
+ * Resolve a hook script path. Prefers the version-stable marketplace location
+ * so upgrades don't leave dead paths in users' settings.json.
+ */
+function resolveHookScript(basename) {
+  const scriptRelative = resolve(__dirname, 'hooks', basename);
   const candidates = [
-    resolve(homedir(), '.claude', 'plugins', 'marketplaces', 'sc4sap', 'scripts', 'hooks', 'block-forbidden-tables.mjs'),
+    resolve(
+      homedir(),
+      '.claude',
+      'plugins',
+      'marketplaces',
+      'sc4sap',
+      'scripts',
+      'hooks',
+      basename,
+    ),
   ];
   for (const p of candidates) {
     if (existsSync(p)) return p;
@@ -40,9 +49,21 @@ function resolveHookScript() {
   return scriptRelative;
 }
 
-const HOOK_SCRIPT = resolveHookScript();
-const HOOK_MATCHER = 'mcp__.*__(GetTableContents|GetSqlQuery)';
-const HOOK_MARKER = 'block-forbidden-tables.mjs';
+const HOOKS = [
+  {
+    marker: 'block-forbidden-tables.mjs',
+    matcher: 'mcp__.*__(GetTableContents|GetSqlQuery)',
+    testHint:
+      'Test it with a dry-run MCP GetTableContents on BNKA — the call should be denied.',
+  },
+  {
+    marker: 'tier-readonly-guard.mjs',
+    matcher:
+      'mcp__.*__(Create|Update|Delete|RunUnitTest|RuntimeRunProgramWithProfiling|RuntimeRunClassWithProfiling)',
+    testHint:
+      'Test it by switching to a QA/PRD profile via /sc4sap:sap-option, then calling an Update* tool — the call should be denied.',
+  },
+];
 
 const args = new Set(process.argv.slice(2));
 const useProject = args.has('--project');
@@ -64,51 +85,82 @@ function loadSettings() {
 
 function saveSettings(obj) {
   mkdirSync(dirname(settingsPath), { recursive: true });
-  writeFileSync(settingsPath, JSON.stringify(obj, null, 2) + '\n', 'utf8');
+  writeFileSync(settingsPath, `${JSON.stringify(obj, null, 2)}\n`, 'utf8');
+}
+
+function findGroup(settings, { marker, matcher }) {
+  return settings.hooks.PreToolUse.find(
+    (g) =>
+      g &&
+      g.matcher === matcher &&
+      Array.isArray(g.hooks) &&
+      g.hooks.some(
+        (h) => typeof h?.command === 'string' && h.command.includes(marker),
+      ),
+  );
+}
+
+function installOne(settings, spec) {
+  const scriptPath = resolveHookScript(spec.marker);
+  const command = `node "${scriptPath.replace(/\\/g, '/')}"`;
+
+  const existing = findGroup(settings, spec);
+  if (existing) {
+    for (const h of existing.hooks) {
+      if (typeof h?.command === 'string' && h.command.includes(spec.marker)) {
+        h.command = command;
+      }
+    }
+    return { action: 'updated', command };
+  }
+
+  settings.hooks.PreToolUse.push({
+    matcher: spec.matcher,
+    hooks: [{ type: 'command', command }],
+  });
+  return { action: 'installed', command };
+}
+
+function uninstallOne(settings, spec) {
+  const before = settings.hooks.PreToolUse.length;
+  settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter(
+    (g) => !findGroup({ hooks: { PreToolUse: [g] } }, spec),
+  );
+  return before !== settings.hooks.PreToolUse.length;
 }
 
 const settings = loadSettings();
 settings.hooks ||= {};
 settings.hooks.PreToolUse ||= [];
 
-// Find existing sc4sap group (by matcher + marker).
-let group = settings.hooks.PreToolUse.find(
-  (g) =>
-    g && g.matcher === HOOK_MATCHER &&
-    Array.isArray(g.hooks) &&
-    g.hooks.some((h) => typeof h?.command === 'string' && h.command.includes(HOOK_MARKER)),
-);
-
 if (uninstall) {
-  if (!group) {
-    console.log('[sc4sap] No sc4sap hook found — nothing to remove.');
-    process.exit(0);
+  let removed = 0;
+  for (const spec of HOOKS) {
+    if (uninstallOne(settings, spec)) {
+      console.log(`[sc4sap] Removed ${spec.marker} hook.`);
+      removed++;
+    }
   }
-  settings.hooks.PreToolUse = settings.hooks.PreToolUse.filter((g) => g !== group);
-  saveSettings(settings);
-  console.log(`[sc4sap] Removed hook from ${settingsPath}`);
+  if (removed === 0) {
+    console.log('[sc4sap] No sc4sap hooks found — nothing to remove.');
+  } else {
+    saveSettings(settings);
+    console.log(`[sc4sap] Updated ${settingsPath}`);
+  }
   process.exit(0);
 }
 
-const command = `node "${HOOK_SCRIPT.replace(/\\/g, '/')}"`;
-
-if (group) {
-  // Update the command path in case the plugin moved.
-  for (const h of group.hooks) {
-    if (typeof h?.command === 'string' && h.command.includes(HOOK_MARKER)) {
-      h.command = command;
-    }
-  }
-} else {
-  settings.hooks.PreToolUse.push({
-    matcher: HOOK_MATCHER,
-    hooks: [{ type: 'command', command }],
-  });
+const results = [];
+for (const spec of HOOKS) {
+  results.push({ spec, result: installOne(settings, spec) });
 }
-
 saveSettings(settings);
-console.log(`[sc4sap] Installed PreToolUse hook in ${settingsPath}`);
-console.log(`        matcher: ${HOOK_MATCHER}`);
-console.log(`        command: ${command}`);
-console.log('');
-console.log('Test it with a dry-run MCP GetTableContents on BNKA — the call should be denied.');
+
+console.log(`[sc4sap] Updated ${settingsPath}`);
+for (const { spec, result } of results) {
+  console.log('');
+  console.log(`  ${result.action}: ${spec.marker}`);
+  console.log(`    matcher: ${spec.matcher}`);
+  console.log(`    command: ${result.command}`);
+  console.log(`    ${spec.testHint}`);
+}

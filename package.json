@@ -1,6 +1,6 @@
 {
   "name": "superclaude-for-sap",
-  "version": "0.5.4",
+  "version": "0.6.0",
   "description": "SuperClaude for SAP — Claude Code plugin for SAP On-Premise S/4HANA development",
   "type": "module",
   "main": "dist/index.js",
@@ -45,6 +45,9 @@
     "better-sqlite3": "^12.6.2",
     "commander": "^12.1.0",
     "zod": "^3.23.8"
+  },
+  "optionalDependencies": {
+    "@napi-rs/keyring": "^1.1.0"
   },
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.1.0",

@@ -3,6 +3,31 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-04-21
+
+### Added — Multi-environment profiles (Dev / QA / Prod)
+
+Register multiple SAP systems per company and hot-switch between them without restarting Claude Code. Targets the multinational 3-tier landscape (`KR-DEV`, `KR-QA`, `KR-PRD`, `US-DEV`, …).
+
+**Key pieces**
+
+- **Profile storage** — user-level definitions at `~/.sc4sap/profiles/<alias>/{sap.env,config.json}` (shared across repos); project-level pointer at `<project>/.sc4sap/active-profile.txt`; artifacts per-profile under `<project>/.sc4sap/work/<alias>/` with read-only cross-view.
+- **Tier-based readonly enforcement** — `SAP_TIER` enum (`DEV` | `QA` | `PRD`). QA/PRD profiles auto-block `Create*/Update*/Delete*`, `CreateTransport`, and runtime-execution tools. Two-layer defense:
+  - Layer 1: PreToolUse hook `scripts/hooks/tier-readonly-guard.mjs` (installed via `scripts/install-hooks.mjs`) — fast, explanatory deny.
+  - Layer 2: MCP-server guard in `abap-mcp-adt-powerup/src/lib/readonlyGuard.ts` — uncircumventable; fires even when the hook is missing, disabled, or the plugin is not yet installed. `ReloadProfile` always allowed (the escape hatch back to DEV).
+- **OS keychain passwords** — `SAP_PASSWORD=keychain:sc4sap/<alias>/<user>` references resolved via `@napi-rs/keyring` (Windows Credential Manager / macOS Keychain / libsecret). Declared as `optionalDependencies`; headless environments fall back to plaintext with a loud warning. Added to both `sc4sap` and `abap-mcp-adt-powerup` package.json.
+- **MCP server extensions** (`abap-mcp-adt-powerup`) — new `src/lib/{profile,readonlyGuard,secrets}.ts` (37 new unit tests, no regression on 276 existing), `ReloadProfile` MCP tool, launcher startup hook that activates the profile before the config manager runs. Guard wired into `BaseHandlerGroup.registerToolOnServer` so every tool is checked from a single chokepoint.
+- **`sap-option` multi-profile UX** — new `skills/sap-option/profile-management.md` and `skills/sap-option/migration.md` companions describing switch / add / remove / edit / purge / migrate flows. Status snapshot now shows active profile + tier.
+- **HUD** — Line 2 renders `{alias} [{tier}]` with a 🔒 when tier ≠ DEV. No color is used; the lock icon is the single, theme-independent readonly signal.
+- **Profile CLI** (`scripts/sap-profile-cli.mjs`) — JSON-in/JSON-out backend for skill flows: `list`, `show`, `switch`, `add`, `remove`, `purge`, `migrate`, `detect-legacy`, `keychain-set`, `keychain-delete`, `version`.
+- **Legacy auto-detection** — SessionStart hook `scripts/legacy-migration-banner.mjs` emits a one-time notice when a project has `.sc4sap/sap.env` but no `active-profile.txt`, pointing the user to `/sc4sap:sap-option`. The migration wizard records the version threshold (`multiProfileSince: "0.6.0"`) so the CLI can make upgrade-aware decisions.
+
+**Design docs**: [`docs/multi-profile-design.md`](multi-profile-design.md), [`docs/multi-profile-implementation-plan.md`](multi-profile-implementation-plan.md).
+
+### Non-breaking
+
+Projects that never migrate keep working: the profile loader falls back to legacy `<project>/.sc4sap/sap.env` and treats missing `SAP_TIER` as `DEV` (permissive). Migration is explicit — triggered only when the user runs `/sc4sap:sap-option` after the banner.
+
 ## [0.5.4] — 2026-04-20
 
 ### Fixed — Plugin manifest version alignment (critical)

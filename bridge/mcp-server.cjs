@@ -182,8 +182,10 @@ if (!fs.existsSync(LAUNCHER)) {
 
 /**
  * Verify that vendor's production deps are physically present in node_modules.
- * Uses directory existence rather than require.resolve because modern packages
- * with `exports` maps may not expose a default entry resolvable from outside.
+ * Checks for the dep's package.json rather than just the directory: Claude Code's
+ * plugin-pack step on some setups leaves empty node_modules/<dep>/ stubs, which
+ * a plain fs.existsSync(dir) would treat as "installed" and skip the self-heal
+ * below (issue #27). package.json is the minimum marker of a real install.
  * Returns the first missing package name, or null if all present.
  */
 function findMissingDep() {
@@ -192,7 +194,7 @@ function findMissingDep() {
   if (!pkg || !pkg.dependencies) return null;
   const nm = path.join(VENDOR_DIR, 'node_modules');
   for (const dep of Object.keys(pkg.dependencies)) {
-    if (!fs.existsSync(path.join(nm, ...dep.split('/')))) return dep;
+    if (!fs.existsSync(path.join(nm, ...dep.split('/'), 'package.json'))) return dep;
   }
   return null;
 }
@@ -242,7 +244,7 @@ function listAllMissingDeps() {
   if (!pkg || !pkg.dependencies) return [];
   const nm = path.join(VENDOR_DIR, 'node_modules');
   return Object.keys(pkg.dependencies).filter(
-    (d) => !fs.existsSync(path.join(nm, ...d.split('/'))),
+    (d) => !fs.existsSync(path.join(nm, ...d.split('/'), 'package.json')),
   );
 }
 
