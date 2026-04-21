@@ -10,6 +10,12 @@ sc4sap의 모든 주요 변경사항이 여기에 기록됩니다. 전체 릴리
 
 ## [미출시]
 
+_아직 미출시 변경사항 없음._
+
+---
+
+## [0.6.1] - 2026-04-21
+
 ### 추가
 - **`/sc4sap:setup` 멀티 프로필 인식** — 위저드에 Step 0 (레거시 감지 + 프로필 부트스트랩)와 전용 프로필 생성 플로우 (`skills/setup/wizard-step-04-profile-creation.md`) 추가. 0.6.0 이전 `<project>/.sc4sap/sap.env` 사용자는 `sap-profile-cli.mjs migrate`로 자동 마이그레이션; 신규 설치는 `~/.sc4sap/profiles/<alias>/` 아래 첫 프로필을 OS 키체인 연동 비밀번호 저장으로 생성.
 - **Tier 게이트 Step 9** — ABAP 유틸리티 설치 (`ZMCP_ADT_UTILS`, `ZCL_S4SAP_CM_*`, OData/ZRFC 클래스) 는 `SAP_TIER=DEV`에서만 실행. QA/PRD 프로필은 설치 거부 + CTS import 가이드 출력; DEV 설치는 `SAP_URL+SAP_CLIENT` 기준으로 sibling 프로필 간 중복 제거 (`~/.sc4sap/profiles/<alias>/.abap-utils-installed` sentinel).

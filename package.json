@@ -1,6 +1,6 @@
 {
   "name": "superclaude-for-sap",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "description": "SuperClaude for SAP — Claude Code plugin for SAP On-Premise S/4HANA development",
   "type": "module",
   "main": "dist/index.js",

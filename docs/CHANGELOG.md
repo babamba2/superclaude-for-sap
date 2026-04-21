@@ -10,6 +10,12 @@ The project adheres to [Semantic Versioning](https://semver.org/) and the [Keep 
 
 ## [Unreleased]
 
+_No unreleased changes yet._
+
+---
+
+## [0.6.1] - 2026-04-21
+
 ### Added
 - **`/sc4sap:setup` multi-profile awareness** — setup wizard now has Step 0 (legacy detection + profile bootstrap) and a dedicated profile-creation flow (`skills/setup/wizard-step-04-profile-creation.md`). Migrates pre-0.6.0 `<project>/.sc4sap/sap.env` users automatically via `sap-profile-cli.mjs migrate`; fresh installs create their first profile under `~/.sc4sap/profiles/<alias>/` with OS-keychain-backed password storage.
 - **Tier-gated Step 9** — ABAP utility installation (`ZMCP_ADT_UTILS`, `ZCL_S4SAP_CM_*`, OData/ZRFC classes) now only runs on `SAP_TIER=DEV`. QA/PRD profiles refuse installation and print CTS import guidance; DEV installs are deduped across sibling profiles on the same `SAP_URL+SAP_CLIENT` via `~/.sc4sap/profiles/<alias>/.abap-utils-installed` sentinel.
