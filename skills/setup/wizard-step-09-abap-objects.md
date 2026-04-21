@@ -2,6 +2,55 @@
 
 Referenced by [`wizard-steps.md`](wizard-steps.md) — this file holds the full Step 9 content: three bundles installed in package `$TMP` (**local-only, not transportable** by design — these are developer/reuse helpers, not business logic).
 
+## 9.0 — Tier gate (MANDATORY — runs before 9a)
+
+Read `SAP_TIER` from `~/.sc4sap/profiles/<activeAlias>/sap.env`. Branch:
+
+| Tier | Behaviour |
+|---|---|
+| `DEV` | Proceed to system-dedup check (9.0b) → 9a → 9b → 9c/9d as applicable |
+| `QA` / `PRD` | **REFUSE all install steps**. Print the CTS import block below and skip to Step 10. |
+
+### QA/PRD — CTS import guidance (print verbatim)
+
+> ⚠️  Step 9 ABAP object installation is disabled on QA/PRD tiers by design.
+>
+> The utility objects (`ZMCP_ADT_UTILS` function group, `ZIF_S4SAP_CM` interface,
+> `ZCL_S4SAP_CM_*` ALV OOP classes, and optionally `ZCL_ZMCP_ADT_*` OData
+> classes / `ZCL_MCP_RFC_HTTP_HANDLER` ICF handler) must be transported into
+> this system via the Change & Transport System (CTS), not installed ad-hoc.
+>
+> Recommended path:
+>   1. Install the utilities on the matching DEV profile first
+>      (`/sc4sap:sap-option switch {ISO}-DEV` → `/sc4sap:setup`).
+>   2. Collect them in a CTS Workbench request on DEV (transaction `SE09`).
+>   3. Release the transport on DEV, then import to QA/PRD via the standard
+>      TMS import queue (transaction `STMS` on the target system).
+>
+> Why: the utilities live in package `$TMP` (local-only) on DEV by default —
+> you will need to either (a) move them to a transportable package before
+> releasing, or (b) re-create them in a transportable package on DEV as part
+> of a one-time bootstrap transport. Talk to your Basis team for the package
+> assignment (common choice: `Z_SC4SAP_UTILS`, delivery class `S` or `C`).
+
+Record the skip in `~/.sc4sap/profiles/<alias>/.abap-utils-installed`:
+
+```json
+{ "installedAt": null, "dedupKey": "<SAP_URL>#<SAP_CLIENT>", "skippedReason": "tier=<QA|PRD>", "objects": [] }
+```
+
+Proceed to Step 10 after printing the guidance.
+
+## 9.0b — System dedup check (DEV only)
+
+Compute `dedupKey = SAP_URL + '#' + SAP_CLIENT`. Iterate sibling profiles under `~/.sc4sap/profiles/*/.abap-utils-installed`; if any sentinel has the same `dedupKey` AND `installedAt != null`, skip the actual install and reuse:
+
+```json
+{ "installedAt": "2026-04-21T...", "dedupKey": "<same>", "skippedReason": "already-installed-on-sibling", "via": "<siblingAlias>", "objects": [...] }
+```
+
+If no match, proceed to 9a. Write the sentinel on successful activation of the final bundle.
+
 ## 9a. Function Modules `ZMCP_ADT_UTILS`
 
 Required by the MCP server for Screen, GUI Status, and Text Element operations.

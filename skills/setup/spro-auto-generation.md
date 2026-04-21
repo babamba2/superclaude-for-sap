@@ -4,9 +4,11 @@ Referenced by `SKILL.md` — this file holds the full SPRO extraction workflow.
 
 Reads S/4HANA configuration tables to generate a local SPRO reference config using the extraction script `scripts/extract-spro.mjs`.
 
+> **Multi-profile artifact path**: outputs are written under `<project>/.sc4sap/work/<activeAlias>/` (read [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md)). `<activeAlias>` comes from `<project>/.sc4sap/active-profile.txt`. Legacy mode (no active-profile pointer) falls back to `<project>/.sc4sap/` directly. `extract-spro.mjs` is expected to read the pointer itself and resolve the write path accordingly.
+
 > **Token Usage Notice**
 > - 🔺 **Initial extraction** consumes significant tokens (queries dozens–hundreds of tables per module via MCP).
-> - ✅ **Subsequent development** reads the local cache (`.sc4sap/spro-config.json`), dramatically reducing token usage.
+> - ✅ **Subsequent development** reads the local cache (`.sc4sap/work/<activeAlias>/spro-config.json`), dramatically reducing token usage.
 > - 💡 No need to re-query the SAP system for the same config on every session — cost-efficient for repeated work.
 > - ⚙️  Re-extract only when SAP customizing changes, using `--force` or per-module refresh.
 
@@ -34,7 +36,7 @@ node scripts/extract-spro.mjs CO   # background
 **Execution rules:**
 - **MUST** run each module as a separate `Bash` call with `run_in_background: true`
 - **MUST** launch all modules simultaneously in a single message (parallel tool calls)
-- Each module process independently connects to the MCP server, queries all tables from `configs/{MODULE}/spro.md`, and writes results to `.sc4sap/spro-config-{MODULE}.json`
+- Each module process independently connects to the MCP server, queries all tables from `configs/{MODULE}/spro.md`, and writes results to `.sc4sap/work/<activeAlias>/spro-config-{MODULE}.json`
 - The script automatically sets `row_number: 9999` to retrieve ALL rows
 - Wait for all background processes to complete before proceeding
 
@@ -42,7 +44,7 @@ node scripts/extract-spro.mjs CO   # background
 
 After all modules complete:
 
-1. Read each `.sc4sap/spro-config-{MODULE}.json` and merge into a single `.sc4sap/spro-config.json`:
+1. Read each `.sc4sap/work/<activeAlias>/spro-config-{MODULE}.json` and merge into a single `.sc4sap/work/<activeAlias>/spro-config.json`:
    ```json
    {
      "timestamp": "2026-04-13T...",

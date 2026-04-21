@@ -11,7 +11,7 @@ Would you like to extract SPRO config now? (y/N)
 - Optional. You can run `/sc4sap:setup spro` anytime later.
 - 🔺 Initial download consumes significant tokens (dozens to hundreds of tables per module).
 - ✅ Once cached locally, future development sessions use the local cache
-   (.sc4sap/spro-config.json), dramatically reducing token usage.
+   (.sc4sap/work/<activeAlias>/spro-config.json), dramatically reducing token usage.
 - ⏭️  Skipping is fine — the plugin works with static configs/ references by default.
 ```
 

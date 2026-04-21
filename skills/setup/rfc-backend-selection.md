@@ -23,7 +23,7 @@ Pick RFC backend for Screen / GUI Status / Text Element ops:
 Full detail on soap/native/gateway/odata is in `docs/user-guide/CLIENT_CONFIGURATION.md`. The condensed option summary above is what you present to the user.
 
 - Accept `soap` / `native` / `gateway` / `odata` / `zrfc` (or 1/2/3/4/5). Default `soap` if the user presses Enter.
-- Write the choice to `sap.env` as `SAP_RFC_BACKEND=soap|native|gateway|odata|zrfc`.
+- Write the choice to the **active profile's** env (`~/.sc4sap/profiles/<alias>/sap.env`, resolved from `<project>/.sc4sap/active-profile.txt`) as `SAP_RFC_BACKEND=soap|native|gateway|odata|zrfc`. Never write it to `<project>/.sc4sap/sap.env` — that file does not exist in multi-profile mode (decision §4.3 of the setup gap plan).
 
 ### ⚠️ Backend-specific preflight — bootstrap order
 
@@ -52,7 +52,7 @@ Run this preflight before Step 5:
 
 ## If the user chose `native`
 
-Collect these additional fields one at a time and append to `sap.env`:
+Collect these additional fields one at a time and append to the **active profile's** `sap.env` (`~/.sc4sap/profiles/<alias>/sap.env`):
 
 ```
 # --- Native RFC (only when SAP_RFC_BACKEND=native) ---
@@ -85,7 +85,7 @@ Then run the native preflight before Step 5:
 
 ## If the user chose `gateway`
 
-Collect the gateway fields one at a time and append to `sap.env`:
+Collect the gateway fields one at a time and append to the **active profile's** `sap.env` (`~/.sc4sap/profiles/<alias>/sap.env`):
 
 ```
 # --- Gateway RFC (only when SAP_RFC_BACKEND=gateway) ---
@@ -102,7 +102,7 @@ Then run the gateway preflight before Step 5:
 
 ## If the user chose `odata`
 
-Collect the OData fields one at a time and append to `sap.env`:
+Collect the OData fields one at a time and append to the **active profile's** `sap.env` (`~/.sc4sap/profiles/<alias>/sap.env`):
 
 ```
 # --- OData RFC (only when SAP_RFC_BACKEND=odata) ---
@@ -133,7 +133,7 @@ The preflight procedure itself detects the scenario: if step 1 fails with "class
 
 ## If the user chose `zrfc`
 
-Collect the ZRFC field and append to `sap.env`:
+Collect the ZRFC field and append to the **active profile's** `sap.env` (`~/.sc4sap/profiles/<alias>/sap.env`):
 
 ```
 # --- ZRFC (only when SAP_RFC_BACKEND=zrfc) ---

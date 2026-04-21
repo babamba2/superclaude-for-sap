@@ -1,12 +1,16 @@
-# Wizard Step 12 — 🔒 Data Extraction Blocklist (PreToolUse Hook, L3)
+# Wizard Step 12 — 🔒 PreToolUse Hooks (Blocklist + Tier Readonly Guard, L1)
 
-Referenced by [`wizard-steps.md`](wizard-steps.md). **MANDATORY — not skippable.** Install the Claude Code `PreToolUse` hook that blocks row extraction from sensitive tables *before* the MCP call is even made.
+Referenced by [`wizard-steps.md`](wizard-steps.md). **MANDATORY — not skippable.** Install TWO Claude Code `PreToolUse` hooks:
 
-> **Two-layer model — do not conflate:**
-> - **L3 (this step)** = Claude Code PreToolUse hook, config in `.sc4sap/config.json` → `blocklistProfile`. Values: `strict` | `standard` | `minimal` | `custom`. Fires for any Claude Code session regardless of which MCP server is in use.
-> - **L4 (step 4, optional)** = MCP server internal guard, config in `sap.env` → `MCP_BLOCKLIST_PROFILE`. Values: `minimal` | `standard` | `strict` | `off`. Applies only to `abap-mcp-adt-powerup`.
+1. **`block-forbidden-tables.mjs`** — blocks row extraction from sensitive tables (`GetTableContents` / `GetSqlQuery`) before the MCP call.
+2. **`tier-readonly-guard.mjs`** — blocks mutations (`Create*` / `Update*` / `Delete*`) + code execution (`RunUnitTest`, `RuntimeRun*WithProfiling`) when the active profile is `QA` or `PRD`. Layer 1 of the two-layer tier defense (MCP server guard = Layer 2).
+
+> **Defense-in-depth model — do not conflate:**
+> - **L1 (this step, row-extraction)** = Claude Code PreToolUse hook, config in `.sc4sap/config.json` → `blocklistProfile`. Values: `strict` | `standard` | `minimal` | `custom`. Fires regardless of MCP server.
+> - **L1 (this step, tier)** = Claude Code PreToolUse hook, reads `SAP_TIER` from the active profile's `sap.env` every call (stateless).
+> - **L2 (MCP server)** = `abap-mcp-adt-powerup` internal guard. For row extraction: `sap.env` → `MCP_BLOCKLIST_PROFILE`. For tier: `@readonly(tier)` decorator set at `ReloadProfile` time. Uncircumventable.
 >
-> They enforce similar intent but are **independent**. Typical setups run L3 on `strict` (the default) and leave L4 on `standard`. A user can change L3 here (or by editing `config.json`); L4 is changed via `/sc4sap:sap-option`.
+> Both hooks fail OPEN on IO/parse errors (the L2 MCP guard still enforces); the L1 hooks exist to give faster, contextual rejection before a wire request is sent.
 
 ## Step A — Profile Selection
 
@@ -35,27 +39,54 @@ Any profile merges in extra entries from .sc4sap/blocklist-extend.txt if present
 - Write the chosen value to `.sc4sap/config.json` as `blocklistProfile`
 - If `custom`: prompt user to create `.sc4sap/blocklist-custom.txt` now (one table name or pattern per line) or after setup; warn that an empty custom list means no enforcement at L3
 
-## Step B — Install the Hook (mandatory)
+## Step B — Install BOTH hooks (mandatory)
 
-Run `node scripts/install-hooks.mjs` (defaults to user-level `~/.claude/settings.json`).
-- If the user prefers project-level enforcement: `node scripts/install-hooks.mjs --project`
-- On success, report: "✅ PreToolUse hook installed. Profile: {profile}"
+Per decision §4.4, install at the **project level** (`.claude/settings.json`):
 
-## Step C — Verification (smoke test)
+```bash
+node "$CLAUDE_PLUGIN_ROOT/scripts/install-hooks.mjs" --project
+```
 
-Pipe a BNKA test payload to the hook script and confirm it returns a `deny` decision. Example (bash):
+The installer is idempotent and registers both `block-forbidden-tables.mjs` and `tier-readonly-guard.mjs`. Pre-existing single-hook installs are preserved — the tier guard is appended, not substituted.
+
+On success, report: `"✅ PreToolUse hooks installed (block-forbidden-tables + tier-readonly-guard). Blocklist profile: {profile}"`
+
+## Step C — Verification (smoke tests — BOTH hooks)
+
+### C.1 — block-forbidden-tables
 
 ```bash
 echo '{"tool_name":"mcp__plugin_sc4sap_sap__GetTableContents","tool_input":{"table_name":"BNKA"}}' \
-  | node scripts/hooks/block-forbidden-tables.mjs
+  | node "$CLAUDE_PLUGIN_ROOT/scripts/hooks/block-forbidden-tables.mjs"
 ```
 
-Expected: JSON containing `"permissionDecision":"deny"` in `hookSpecificOutput`. If not, halt setup and surface the error. (The hook matches tool names by substring — any name containing `GetTableContents` or `GetSqlQuery` works.)
+Expected: JSON with `"permissionDecision":"deny"` in `hookSpecificOutput`.
+
+### C.2 — tier-readonly-guard
+
+Skip actively testing when the active profile is `DEV` (the guard should return `allow`, which is indistinguishable from the hook being absent at this step). Instead, emit a dry-run diagnostic: write a temporary fake active pointer to a scratch dir pointing at a synthetic `QA` profile, pipe an `UpdateClass` payload, confirm `deny`:
+
+```bash
+TMP=$(mktemp -d)
+mkdir -p "$TMP/.sc4sap" "$HOME/.sc4sap/profiles/_SMOKE_QA"
+printf '_SMOKE_QA' > "$TMP/.sc4sap/active-profile.txt"
+printf 'SAP_TIER=QA\nSAP_URL=http://x\nSAP_CLIENT=100\n' > "$HOME/.sc4sap/profiles/_SMOKE_QA/sap.env"
+( cd "$TMP" && echo '{"tool_name":"mcp__plugin_sc4sap_sap__UpdateClass","tool_input":{}}' \
+  | node "$CLAUDE_PLUGIN_ROOT/scripts/hooks/tier-readonly-guard.mjs" )
+# Cleanup
+rm -rf "$TMP" "$HOME/.sc4sap/profiles/_SMOKE_QA"
+```
+
+Expected: `"permissionDecision":"deny"` with a `reason` referencing the QA tier. If the response is `allow`, the hook is not resolving the pointer correctly — halt setup and diagnose.
+
+If either smoke test fails, halt setup and surface the error.
 
 ## Step D — Final Confirmation
 
-- Print profile, extend file path (exists? yes/no), custom file path (for custom mode), and the full settings.json hook entry.
-- Remind the user they can change the **L3 hook profile** anytime by re-running `/sc4sap:setup` or editing `.sc4sap/config.json` → `blocklistProfile`.
-- For the **L4 MCP-server profile** (`MCP_BLOCKLIST_PROFILE` in `sap.env`), direct them to `/sc4sap:sap-option`.
+- Print: blocklist profile, extend file path (exists? y/n), custom file path (for custom mode), and the `.claude/settings.json` hook entries for BOTH hooks.
+- Remind the user:
+  - The **row-extraction L1 hook** can be re-tuned by re-running `/sc4sap:setup` or editing `.sc4sap/config.json` → `blocklistProfile`.
+  - The **tier guard L1 hook** reads `SAP_TIER` from the active profile every call — no setting to tune; changing tier requires profile remove+add via `/sc4sap:sap-option`.
+  - The **L2 MCP-server profile** (`MCP_BLOCKLIST_PROFILE` in the profile's `sap.env`) is managed via `/sc4sap:sap-option`.
 
-Setup cannot complete without Step 12 succeeding. If the hook install fails (no node, permission error, etc.), stop and report — do not mark setup as done.
+Setup cannot complete without Step 12 succeeding. If either hook install or smoke test fails (no node, permission error, path resolution bug, etc.), stop and report — do not mark setup as done.
