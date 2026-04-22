@@ -1,6 +1,6 @@
 {
   "name": "@babamba2/superclaude-for-sap",
-  "version": "0.6.4",
+  "version": "0.6.5",
   "description": "SuperClaude for SAP — Claude Code plugin for SAP On-Premise S/4HANA development",
   "type": "module",
   "main": "dist/index.js",
@@ -37,7 +37,7 @@
     "test:coverage": "vitest run --coverage",
     "lint": "eslint src",
     "format": "prettier --write src/**/*.ts",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "tsc"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.78.0",

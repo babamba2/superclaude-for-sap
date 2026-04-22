@@ -3,6 +3,15 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.5] — 2026-04-22
+
+### Changed — Publish workflow
+
+- `prepublishOnly` simplified from `"npm run build"` to `"tsc"`. The full `build` script (which also runs `scripts/build-mcp-server.mjs` to clone and verify the vendor at the pinned SHA) is preserved for manual maintainer use (`npm run build`) but no longer executes during `npm publish`.
+- Rationale: `vendor/` is not shipped in the tgz (`files` field excludes it) and the bridge re-clones it lazily at install-time, so publishing had no reason to materialize a ~500MB `vendor/abap-mcp-adt/` under the project root. This was a quality-of-life fix for maintainers.
+
+No other changes — 0.6.5 is a pure publish-workflow follow-up to 0.6.4.
+
 ## [0.6.4] — 2026-04-22
 
 ### Changed — Vendor pin bump
