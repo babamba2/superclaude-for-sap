@@ -1,0 +1,36 @@
+메모리를 확인해보고, 클로드 재연결을 했음. ECC 분기점이 안되서, ● ECC 분기 코드는 있어 (line 124). 문제는 process.env.SAP_VERSION이 MCP server 프로세스에 안 전달됨. MCP launch config 확인할게.
+
+  Searched for 1 pattern, read 1 file, listed 2 directories (ctrl+o to expand)
+
+● Root cause 후보 보임. Bridge는 MCP_ENV_PATH만 세팅, sap.env 전체 파싱은 vendor launcher가 해. vendor launcher가 SAP_VERSION까지 export하는지 확인.
+
+  Searched for 2 patterns, read 1 file (ctrl+o to expand)
+
+● Error 출처 찾아볼게 — "Domain is not supported" 메시지가 어디서 throw되는지 확인.
+
+  Searched for 2 patterns (ctrl+o to expand)
+
+● Bash(ls ~/.claude/plugins/cache/sc4sap/sc4sap/0.6.1/vendor/abap-mcp-adt/node_modules/@babamba2/ 2>/dev/null; echo "==="; find ~/.claude/plugins/cache/sc4sap/sc4sap/0…)
+  ⎿  ===
+
+● Bash(ls ~/.claude/plugins/cache/sc4sap/sc4sap/0.6.1/vendor/abap-mcp-adt/node_modules/ 2>/dev/null | head -30; echo "==="; find ~/.claude/plugins/cache/sc4sap/sc4sap/…)
+  ⎿  @biomejs
+     @mcp-abap-adt
+     @modelcontextprotocol
+     … +27 lines (ctrl+o to expand)
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● 핵심 발견 — MCP server가 실제로 로드하는 핸들러는 .claude/plugins/cache/sc4sap/sc4sap/0.6.1/vendor/abap-mcp-adt/dist/이야. 여기 ECC 분기가 들어갔는지 확인할게.
+
+  Searched for 1 pattern, read 1 file (ctrl+o to expand)
+
+● 찾았어. Running MCP server가 로드하는 cache dist (~/.claude/plugins/cache/sc4sap/sc4sap/0.6.1/vendor/abap-mcp-adt/dist/)에 ECC 분기 코드가 없어. 이게 3-location sync 메모리에 나오는 "cache"이야.
+
+  Recalled 1 memory (ctrl+o to expand)
+
+● Project vendor + sc4sap marketplace vendor 상태부터 검증.
+
+  Searching for 1 pattern… (ctrl+o to expand)
+
+✶ Waddling… (6m 59s · ↓ 11.6k tokens · almost done thinking) 까지 진행함.
