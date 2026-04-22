@@ -3,7 +3,7 @@
   "checkpoint_id": "a24ce06cd84d",
   "session_id": "03be3c83-6fe7-4642-82bc-ba1d67ee5bec",
   "strategy": "manual-commit",
-  "created_at": "2026-04-22T06:36:31.0605093Z",
+  "created_at": "2026-04-22T06:36:33.2111288Z",
   "branch": "active",
   "checkpoints_count": 1,
   "files_touched": [
@@ -24,15 +24,15 @@
     "turn_count": 26
   },
   "initial_attribution": {
-    "calculated_at": "2026-04-22T06:36:31.0522028Z",
+    "calculated_at": "2026-04-22T06:36:33.2002584Z",
     "agent_lines": 0,
-    "agent_removed": 5,
-    "human_added": 1542,
-    "human_modified": 165,
+    "agent_removed": 0,
+    "human_added": 1507,
+    "human_modified": 200,
     "human_removed": 0,
     "total_committed": 1707,
-    "total_lines_changed": 1744,
-    "agent_percentage": 0.286697247706422,
+    "total_lines_changed": 1739,
+    "agent_percentage": 0,
     "metric_version": 2
   }
 }
