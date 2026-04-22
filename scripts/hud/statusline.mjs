@@ -176,7 +176,7 @@ async function main() {
     // Assemble — compact one-liner
     const sep = paint(' │ ', color.gray);
     const parts = [
-      paint('SC4SAP HUD', color.bold, color.cyan),
+      paint('sc4sap', color.bold, color.cyan),
       `MCP${mcp} ENV${env}`,
       actStr,
       segment('ctx', ctxStr),
@@ -213,7 +213,7 @@ async function main() {
 
     process.stdout.write(parts.join(sep) + '\n' + line2);
   } catch {
-    process.stdout.write(paint('SC4SAP HUD', color.cyan) + ' ' + paint('hud error', color.red));
+    process.stdout.write(paint('sc4sap', color.cyan) + ' ' + paint('hud error', color.red));
   }
 }
 
