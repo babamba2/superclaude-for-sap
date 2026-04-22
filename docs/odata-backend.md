@@ -1,22 +1,22 @@
-# OData RFC Backend
+# OData RFC Backend (default since 2026-04-22)
 
-Guide for operating the `SAP_RFC_BACKEND=odata` transport in sc4sap.
+Guide for operating the `SAP_RFC_BACKEND=odata` transport in sc4sap. Since 2026-04-22 this is the **default** backend for new profiles — hardened SAP installs increasingly disable `/sap/bc/soap/rfc`, and OData routes through standard Gateway authorization (S_SERVICE) instead of S_RFC.
 
 ## What this is
 
-A fourth RFC transport for the Screen / GUI Status / Text Element operations — alongside `soap`, `native`, and `gateway`. Instead of hitting `/sap/bc/soap/rfc` (SOAP) or spawning node-rfc locally (native) or routing through a middleware (gateway), the client calls a **custom OData v2 service** (`ZMCP_ADT_SRV`) on SAP that internally dispatches to the existing `ZMCP_ADT_DISPATCH` / `ZMCP_ADT_TEXTPOOL` function modules.
+The default RFC transport for the Screen / GUI Status / Text Element operations — alternative to `soap`, `native`, `gateway`, `zrfc`. Instead of hitting `/sap/bc/soap/rfc` (SOAP) or spawning node-rfc locally (native) or routing through a middleware (gateway), the client calls a **custom OData v2 service** (`ZMCP_ADT_SRV`) on SAP that internally dispatches to the existing `ZMCP_ADT_DISPATCH` / `ZMCP_ADT_TEXTPOOL` function modules.
 
 ## When to use it
 
+- **Default choice** for fresh installs
 - Your IT policy has **disabled `/sap/bc/soap/rfc`** but permits `/sap/opu/odata/` services (very common in hardened SAP Gateway installs)
 - You want SAP's standard audit / logging pipeline (`/IWFND/ERROR_LOG`, `/IWFND/TRACES`)
 - You do not want to install the NW RFC SDK on developer laptops (same as `gateway` backend, but without running separate middleware infrastructure)
 
 ## When NOT to use it
 
-- S/4HANA Cloud Public — SEGW is not available; use SOAP if possible
-- You already have SOAP working — no functional gain over SOAP
-- Your organisation cannot grant `/IWBEP/REG_SERVICE` or SEGW `Register Service` auth to anyone and cannot spare a Basis session — registration is required one-time
+- S/4HANA Cloud Public — SEGW is not available; pick `soap` if reachable
+- Your organisation cannot grant `/IWBEP/REG_SERVICE` or SEGW `Register Service` auth to anyone and cannot spare a Basis session — registration is required one-time; in that case fall back to `soap` (if ICF node active) or `zrfc` (one class + one SICF node)
 
 ## Architecture
 

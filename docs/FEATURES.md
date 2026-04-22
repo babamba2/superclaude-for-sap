@@ -378,7 +378,7 @@ Matrix verified on ECC 7.40 (BASIS 7.40, SAP_SYSTEM_TYPE=onprem, SAP_VERSION=ECC
 | Enhancements | `GetEnhancements`, `GetEnhancementSpot`, `GetEnhancementImpl` | ❌ | `/sap/bc/adt/enhancements` 404 on BASIS < 7.50 — use SE18 / SE19 / CMOD / SMOD |
 | Transport | `ListTransports`, `GetTransport`, `CreateTransport` | ✅ | — |
 | Runtime / Dumps | `RuntimeListDumps`, `RuntimeAnalyzeDump`, `RuntimeGetDumpById` | ✅ | ST22 via ADT |
-| Screen / GUI Status | `GetScreen`, `GetGuiStatus`, `GetTextElement` (+ Create/Update) | ℹ️ | RFC-dispatched — requires `SAP_RFC_BACKEND` preflight (soap / native / gateway / odata / zrfc) |
+| Screen / GUI Status | `GetScreen`, `GetGuiStatus`, `GetTextElement` (+ Create/Update) | ℹ️ | RFC-dispatched — requires `SAP_RFC_BACKEND` preflight (odata / soap / native / gateway / zrfc) |
 | RAP / Behavior / Service / MetadataExt | all `*BehaviorDefinition`, `*BehaviorImplementation`, `*ServiceDefinition`, `*ServiceBinding`, `*MetadataExtension` | ❌ | S/4HANA-only — RAP stack does not exist on ECC |
 | Table contents | `GetTableContents`, `GetSqlQuery` | ℹ️ | Works, but gated per-profile by the data-extraction blocklist (see §Data Extraction Blocklist) |
 
@@ -474,10 +474,10 @@ Screen / GUI Status / Text Element operations dispatch through RFC-enabled FMs o
 
 | `SAP_RFC_BACKEND` | How | When to use |
 |---|---|---|
-| `soap` (default) | HTTPS `/sap/bc/soap/rfc` | Most setups — works out of the box if ICF node is active |
+| `odata` (default) | HTTPS OData v2 `ZMCP_ADT_SRV` | Works on hardened Gateway installs; routes through standard Gateway auth (S_SERVICE). [docs/odata-backend.md](odata-backend.md) |
+| `soap` | HTTPS `/sap/bc/soap/rfc` | Classic path when `/sap/bc/soap/rfc` ICF node is active (increasingly disabled in production) |
 | `native` | `node-rfc` + NW RFC SDK | Lowest latency; requires paid SDK. _Deprecated — use `zrfc`_ |
 | `gateway` | HTTPS to sc4sap-rfc-gateway middleware | Teams of 10+, centralized |
-| `odata` | HTTPS OData v2 `ZMCP_ADT_SRV` | SOAP blocked but OData Gateway allowed. [docs/odata-backend.md](odata-backend.md) |
 | 🆕 `zrfc` | HTTPS ICF handler `/sap/bc/rest/zmcp_rfc` | SOAP closed AND OData Gateway hard (typical ECC). No SDK, no Gateway — one class + one SICF node |
 
 Switch any time via `/sc4sap:sap-option`, reconnect MCP, verify with `/sc4sap:sap-doctor`.
@@ -501,7 +501,7 @@ For large SAP development teams (10s of developers), sc4sap supports a **central
 
 Gateway forwards developer credentials via `X-SAP-*` headers — SAP's audit log identifies the real user.
 
-> **Private repository.** Gateway source is at a private repo because the Docker image must be built against the SAP-licensed NW RFC SDK (cannot be redistributed). Organizations contact the maintainer for access, clone, download SDK themselves (S-user), build inside their network. Open-source users: continue with `SAP_RFC_BACKEND=soap` (default).
+> **Private repository.** Gateway source is at a private repo because the Docker image must be built against the SAP-licensed NW RFC SDK (cannot be redistributed). Organizations contact the maintainer for access, clone, download SDK themselves (S-user), build inside their network. Open-source users: use `SAP_RFC_BACKEND=odata` (default) or `zrfc` — both need no SDK.
 
 Client-side design is public at `abap-mcp-adt-powerup/src/lib/gatewayRfc.ts` — the HTTP contract is documented, any compliant middleware (Node/Java/Python) works.
 

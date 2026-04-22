@@ -1,6 +1,6 @@
 {
   "name": "sc4sap",
-  "version": "0.6.2",
+  "version": "0.6.3",
   "description": "Claude Code plugin for SAP ABAP development — 25 specialized agents (10 core + BC + 14 module consultants), 16 workflow skills (create-program with Phase 4/6 hardening & multi-executor split, create-object, program-to-spec, compare-programs, analyze-code/symptom/cbo-obj, ask-consultant, deep-interview, team, release, setup/mcp-setup, sap-option/sap-doctor, internal trust-session), 4-Tier context loading (Tier 1 safety baseline + Tier 2 role-mandatory + Tier 3 triggered + Tier 4 per-task kit), Sonnet/Opus/Haiku model routing, OK_CODE binding pattern for Procedural screens, paradigm-split Clean ABAP, 4 RFC backends (soap/native/gateway/odata), SPRO config for 14 modules.",
   "author": {
     "name": "paek seunghyun"

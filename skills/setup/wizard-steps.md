@@ -49,7 +49,7 @@ Clone (`github.com/babamba2/abap-mcp-adt-powerup.git`) and build the external MC
 
 Full procedure: **[`wizard-step-04-profile-creation.md`](wizard-step-04-profile-creation.md)**. Collects `alias` + `SAP_TIER` + connection fields, then delegates write to `sap-profile-cli.mjs add` (profile env in `~/.sc4sap/profiles/<alias>/`, password in OS keychain, active pointer in `<project>/.sc4sap/active-profile.txt`). NO file is written under `<project>/.sc4sap/sap.env` or `<project>/.sc4sap/config.json`.
 
-**4bis. RFC backend selection (MANDATORY — ask before Step 5)** — pick the transport for Screen / GUI Status / Text Element ops (soap / native / gateway / odata / zrfc) and run the backend-specific preflight. Full procedure lives in **[`rfc-backend-selection.md`](rfc-backend-selection.md)** — all `SAP_RFC_*` keys are written to the active profile env, never to the project folder.
+**4bis. RFC backend selection (MANDATORY — ask before Step 5)** — pick the transport for Screen / GUI Status / Text Element ops (odata (default) / soap / native / gateway / zrfc) and run the backend-specific preflight. Full procedure lives in **[`rfc-backend-selection.md`](rfc-backend-selection.md)** — all `SAP_RFC_*` keys are written to the active profile env, never to the project folder.
 
 ## Step 5 — Reconnect MCP
 

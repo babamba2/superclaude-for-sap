@@ -36,7 +36,7 @@ Contents (only show rows you could resolve):
 - **Active profile**: `<alias> [<tier>]` with `🔒` if tier≠DEV — from `<project>/.sc4sap/active-profile.txt` + `~/.sc4sap/profiles/<alias>/sap.env` → `SAP_TIER`. Show `(legacy)` when no active-profile.txt is set and a legacy `sap.env` is in use.
 - **System**: `<SID>` · client `<MANDT>` · user `<BNAME>` · lang `<SPRAS>`   *(from `GetSession`)*
 - **Connection**: `<SAP_URL>` · auth `<SAP_AUTH_TYPE>` · type `<SAP_SYSTEM_TYPE>` · version `<SAP_VERSION>` · ABAP `<ABAP_RELEASE>`
-- **RFC backend**: `<SAP_RFC_BACKEND or "soap (default)">` — if `native`, append `· ashost <SAP_RFC_ASHOST>:<SAP_RFC_SYSNR>` or `· mshost <SAP_RFC_MSHOST>/<SAP_RFC_SYSID>`; if `gateway`, append `· <SAP_RFC_GATEWAY_URL>` (token masked); if `odata`, append `· <SAP_RFC_ODATA_SERVICE_URL>` (with CSRF TTL = `<SAP_RFC_ODATA_CSRF_TTL_SEC or "600">`s)
+- **RFC backend**: `<SAP_RFC_BACKEND or "odata (default)">` — if `odata` (or unset), append `· <SAP_RFC_ODATA_SERVICE_URL>` (with CSRF TTL = `<SAP_RFC_ODATA_CSRF_TTL_SEC or "600">`s); if `native`, append `· ashost <SAP_RFC_ASHOST>:<SAP_RFC_SYSNR>` or `· mshost <SAP_RFC_MSHOST>/<SAP_RFC_SYSID>`; if `gateway`, append `· <SAP_RFC_GATEWAY_URL>` (token masked)
 - **Industry**: `<SAP_INDUSTRY or "(not set)">` — drives which `industry/*.md` consultant agents load
 - **Inactive objects**: `<count>` (0 = green, >0 = red)   *(from `GetInactiveObjects`)*
 - **Active transport (pinned)**: `<TRKORR> — <description>` if present in `config.json` → `activeTransport`, else "-"
@@ -73,7 +73,7 @@ Blocklist policy (optional — guard for `GetTableContents` / `GetSqlQuery`):
 - `MCP_ALLOW_TABLE`        — comma-separated whitelist for audited bypass
 
 RFC backend (optional — selects transport for Screen / GUI Status / Text Element ops):
-- `SAP_RFC_BACKEND` — `soap` (default) | `native` | `gateway` | `odata`
+- `SAP_RFC_BACKEND` — `odata` (default) | `soap` | `native` | `gateway` | `zrfc`
 
 Per-backend env blocks (Native / Gateway / OData credentials and knobs) live in [`rfc-managed-keys.md`](rfc-managed-keys.md). Read that file when the user asks to change the RFC backend or edit any `SAP_RFC_*` field.
 

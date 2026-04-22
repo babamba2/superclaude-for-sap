@@ -6,10 +6,10 @@ Three MCP operation families (Screen, GUI Status, Text Element) dispatch through
 
 ```
 Pick RFC backend for Screen / GUI Status / Text Element ops:
-  1) soap    — HTTPS via /sap/bc/soap/rfc (default, no extra install)
-  2) native  — Direct TCP via SAP NW RFC SDK (requires paid SDK + build tools)
-  3) gateway — Remote RFC Gateway middleware via HTTPS/JSON (central SDK host)
-  4) odata   — SAP OData v2 service ZMCP_ADT_SRV via HTTPS (SEGW + Gateway reg)
+  1) odata   — SAP OData v2 service ZMCP_ADT_SRV via HTTPS (default, SEGW + Gateway reg)
+  2) soap    — HTTPS via /sap/bc/soap/rfc (requires ICF node active, often disabled)
+  3) native  — Direct TCP via SAP NW RFC SDK (requires paid SDK + build tools)
+  4) gateway — Remote RFC Gateway middleware via HTTPS/JSON (central SDK host)
   5) zrfc    — Custom ICF handler /sap/bc/rest/zmcp_rfc via HTTPS
                Best when company blocks /sap/bc/soap/rfc AND OData Gateway is
                hard (typical ECC). Needs neither SDK nor Gateway registration —
@@ -20,9 +20,11 @@ Pick RFC backend for Screen / GUI Status / Text Element ops:
                  • Reuses SAP_USERNAME/PASSWORD/CLIENT as Basic auth
 ```
 
+Default changed 2026-04-22: OData is now the default because hardened SAP installs increasingly disable the legacy `/sap/bc/soap/rfc` ICF node, while OData Gateway is almost always reachable and routes through standard Gateway authorization (S_SERVICE) instead of S_RFC. Existing profiles that already pinned `SAP_RFC_BACKEND=soap` keep working unchanged.
+
 Full detail on soap/native/gateway/odata is in `docs/user-guide/CLIENT_CONFIGURATION.md`. The condensed option summary above is what you present to the user.
 
-- Accept `soap` / `native` / `gateway` / `odata` / `zrfc` (or 1/2/3/4/5). Default `soap` if the user presses Enter.
+- Accept `odata` / `soap` / `native` / `gateway` / `zrfc` (or 1/2/3/4/5). Default `odata` if the user presses Enter.
 - Write the choice to the **active profile's** env (`~/.sc4sap/profiles/<alias>/sap.env`, resolved from `<project>/.sc4sap/active-profile.txt`) as `SAP_RFC_BACKEND=soap|native|gateway|odata|zrfc`. Never write it to `<project>/.sc4sap/sap.env` — that file does not exist in multi-profile mode (decision §4.3 of the setup gap plan).
 
 ### ⚠️ Backend-specific preflight — bootstrap order

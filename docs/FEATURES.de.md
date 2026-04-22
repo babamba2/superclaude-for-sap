@@ -366,10 +366,10 @@ Screen / GUI Status / Text Element Operationen dispatchen über RFC-fähige FMs 
 
 | `SAP_RFC_BACKEND` | Wie | Wann verwenden |
 |---|---|---|
-| `soap` (Standard) | HTTPS `/sap/bc/soap/rfc` | Die meisten Setups — läuft sofort, wenn ICF-Node aktiv ist |
+| `odata` (Standard) | HTTPS OData v2 `ZMCP_ADT_SRV` | Funktioniert auf gehärteten Gateway-Installationen; läuft über Standard-Gateway-Autorisierung (S_SERVICE). [docs/odata-backend.md](odata-backend.md) |
+| `soap` | HTTPS `/sap/bc/soap/rfc` | Klassischer Pfad, wenn `/sap/bc/soap/rfc` ICF-Node aktiv ist (wird in Produktion zunehmend deaktiviert) |
 | `native` | `node-rfc` + NW RFC SDK | Niedrigste Latenz; erfordert bezahltes SDK. _Veraltet — `zrfc` verwenden_ |
 | `gateway` | HTTPS zu sc4sap-rfc-gateway Middleware | 10+ Teams, zentralisiert |
-| `odata` | HTTPS OData v2 `ZMCP_ADT_SRV` | SOAP blockiert, OData Gateway erlaubt. [docs/odata-backend.md](odata-backend.md) |
 | 🆕 `zrfc` | HTTPS ICF-Handler `/sap/bc/rest/zmcp_rfc` | SOAP zu, OData Gateway schwierig (typisches ECC). Kein SDK, kein Gateway — eine Klasse + ein SICF-Node |
 
 Jederzeit wechseln via `/sc4sap:sap-option`, MCP neu verbinden, mit `/sc4sap:sap-doctor` verifizieren.
@@ -393,7 +393,7 @@ Für große SAP-Entwicklungsteams (Dutzende Entwickler) unterstützt sc4sap ein 
 
 Gateway leitet Entwickler-Credentials via `X-SAP-*`-Header weiter — SAP-Audit-Log identifiziert den echten User.
 
-> **Privates Repository.** Gateway-Quellcode in einem privaten Repo — Docker-Image muss gegen das SAP-lizenzierte NW RFC SDK gebaut werden (nicht redistribuierbar). Organisationen kontaktieren den Maintainer für Zugang, klonen, SDK selbst herunterladen (S-User), Image im eigenen Netz bauen. Open-Source-Nutzer: weiterhin `SAP_RFC_BACKEND=soap` (Standard).
+> **Privates Repository.** Gateway-Quellcode in einem privaten Repo — Docker-Image muss gegen das SAP-lizenzierte NW RFC SDK gebaut werden (nicht redistribuierbar). Organisationen kontaktieren den Maintainer für Zugang, klonen, SDK selbst herunterladen (S-User), Image im eigenen Netz bauen. Open-Source-Nutzer: `SAP_RFC_BACKEND=odata` (Standard) oder `zrfc` — beide ohne SDK.
 
 Clientseitiges Design ist öffentlich (`abap-mcp-adt-powerup/src/lib/gatewayRfc.ts`) — der HTTP-Kontrakt ist dokumentiert, jede konforme Middleware (Node/Java/Python) funktioniert.
 

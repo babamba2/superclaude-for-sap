@@ -60,11 +60,46 @@ Required by the MCP server for Screen, GUI Status, and Text Element operations.
    - `CreateFunctionGroup` — name: `ZMCP_ADT_UTILS`, package: `$TMP`, description: `MCP ADT Utility Functions`
    - `CreateFunctionModule` — name: `ZMCP_ADT_DISPATCH`, group: `ZMCP_ADT_UTILS`, description: `MCP ADT Dispatcher for Screen/GUI Status`
    - `CreateFunctionModule` — name: `ZMCP_ADT_TEXTPOOL`, group: `ZMCP_ADT_UTILS`, description: `MCP ADT Text Pool Read/Write`
-   - `UpdateFunctionModule` — for each FM, read the ABAP source from `abap/zmcp_adt_dispatch.abap` and `abap/zmcp_adt_textpool.abap` in the plugin directory, then upload via UpdateFunctionModule
-   - Both function modules MUST be set as **RFC-enabled**
-   - Activate all objects
+   - `UpdateFunctionModule` — for each FM, read the ABAP source from the plugin directory and upload via UpdateFunctionModule. **Pick the file per `SAP_VERSION`** from the active profile's `sap.env`:
+     - `SAP_VERSION=S4` → `abap/zmcp_adt_dispatch.abap`, `abap/zmcp_adt_textpool.abap`  (primary / S/4HANA)
+     - `SAP_VERSION=ECC` → `abap/zmcp_adt_dispatch_ecc.abap`, `abap/zmcp_adt_textpool_ecc.abap`  (ABAP 7.40 / ECC)
+     - Fallback (value absent or unrecognised): treat as S4 and log a warning.
+   - **Invariant — FM object name is always `ZMCP_ADT_DISPATCH` / `ZMCP_ADT_TEXTPOOL`** regardless of which source file is picked. The MCP client calls those names directly (`callDispatch` / `callTextpool` in `rfcBackend`), and the `FUNCTION <name>` identifier at the top of every variant file is exactly `zmcp_adt_dispatch` / `zmcp_adt_textpool` (no `_ecc` suffix). Release-specific variants exist only as sibling files at the *source* layer (`*_ecc.abap`), never at the installed-object layer.
+   - Known ECC/S4 divergences that justify the sibling files:
+     - **`RS_CUA_INTERNAL_FETCH` table param `TIT`** — ECC 7.40 expects `rsmpe_titt`; S/4HANA primary uses `rsmpe_tit`. Passing the wrong one fails with "parameter TIT — types match, but not the length".
+     - **Screen container/field line types** — `RPY_DYCATT` / `RPY_DYFIELD` exist on S/4HANA but not ECC 7.40. ECC variant declares internal tables using the FM's actual TABLES-parameter table types (`DYCATT_TAB`, `DYFATC_TAB`) instead.
+     - **Source header format** — ADT REST API (used by UpdateFunctionModule) rejects the SE37-style `*"Local Interface:` comment block ("Parameter comment blocks are not allowed"). The ECC variant uses inline `FUNCTION ... IMPORTING ... EXPORTING.` syntax; the S/4 primary keeps the SE37 display format for human reading (this blocks MCP pour on S/4 currently — once resolved we can keep one format everywhere).
+   - When uploading, pass `transport_request=LOCAL` (objects are in `$TMP` and not transportable).
+   - Both function modules MUST be set as **RFC-enabled**.
+   - Activate all objects.
 3. If already found, skip creation and report "ZMCP_ADT_UTILS already exists"
 4. Test by calling `SearchObject` for `ZMCP_ADT_DISPATCH` to verify
+
+## 9a.2 — DDIC Write Fallback FMs (ECC ONLY — skip on S/4HANA)
+
+**Tier gate:** Read `SAP_VERSION` from `sap.env`. If `S4`, skip 9a.2 entirely — the MCP server uses ADT's native DDIC write paths on S/4HANA. If `ECC`, proceed below.
+
+**Why:** ECC's ADT REST API does not support DDIC writes (TABL / DTEL / DOMA), so the MCP server falls back to RFC-exposed wrappers around `DDIF_*_PUT` / `DDIF_*_ACTIVATE`. These four FMs provide that fallback.
+
+1. All four FMs live in the same function group `ZMCP_ADT_UTILS` (created in 9a) — do NOT create a separate group.
+2. Create each FM via `CreateFunctionModule` (group: `ZMCP_ADT_UTILS`, transport: `LOCAL`):
+   - `ZMCP_ADT_DDIC_TABL` — description `MCP DDIC: Table CREATE/UPDATE/DELETE (ECC)`
+   - `ZMCP_ADT_DDIC_DTEL` — description `MCP DDIC: DataElement CREATE/UPDATE/DELETE (ECC)`
+   - `ZMCP_ADT_DDIC_DOMA` — description `MCP DDIC: Domain CREATE/UPDATE/DELETE (ECC)`
+   - `ZMCP_ADT_DDIC_ACTIVATE` — description `MCP DDIC: Activate TABL/DTEL/DOMA (ECC)`
+3. Upload sources via `UpdateFunctionModule` (pass `activate=true`, `transport_request=LOCAL`):
+   - `abap/zmcp_adt_ddic_tabl_ecc.abap` → `ZMCP_ADT_DDIC_TABL`
+   - `abap/zmcp_adt_ddic_dtel_ecc.abap` → `ZMCP_ADT_DDIC_DTEL`
+   - `abap/zmcp_adt_ddic_doma_ecc.abap` → `ZMCP_ADT_DDIC_DOMA`
+   - `abap/zmcp_adt_ddic_activate_ecc.abap` → `ZMCP_ADT_DDIC_ACTIVATE`
+4. **Install order matters — DTEL / DOMA / TABL must all be present before running any CREATE flow, and ACTIVATE must be present before any CREATE action returns.** Install in the order listed above (TABL → DTEL → DOMA → ACTIVATE); the precheck requires every sibling's FORM references to resolve inside the function group.
+5. **FORM naming invariant** — each FM defines its TADIR helper with a FM-specific suffix: `register_tadir_tabl` / `_dtel` / `_doma`. Do NOT rename to a shared `register_tadir` — ADT's FG-wide precheck treats duplicate FORMs across sibling FMs as compile errors.
+6. **FM object name invariant** — installed names must be exactly `ZMCP_ADT_DDIC_TABL` / `_DTEL` / `_DOMA` / `_ACTIVATE`. The MCP client calls those names directly; the `FUNCTION <name>` identifier inside every ECC variant file matches (no `_ecc` suffix). Release-specific variants exist only as sibling source files, never at the installed-object layer — same pattern as 9a.
+7. These FMs MUST be set as **RFC-enabled** (same manual SE37 step as dispatch/textpool — `TFDIR.FMODE` is not writable via ADT REST).
+8. Test (optional, requires SE38 access): the plugin ships `abap/Z_TEST_DDIC_ROUNDTRIP.abap` as a one-shot smoke test. Running it in SE38 executes CREATE + ACTIVATE for a domain → data element → table chain and prints the subrc/message/result of each step. All six steps should return `subrc=0`.
+9. After install: re-verify via `SearchObject` for each of the four FM names.
+
+**S/4HANA note:** if `SAP_VERSION=S4`, these four ECC-only files are NOT installed. S/4HANA's `sc4sap` MCP server handles DDIC writes directly via ADT endpoints (`CreateTable` / `CreateDataElement` / `CreateDomain`). Do not port these FMs to the S/4 primary layer.
 
 ## 9b. ALV OOP Reuse Handlers `ZIF_S4SAP_CM` / `ZCX_S4SAP_EXCP` / `ZCL_S4SAP_CM_*`
 

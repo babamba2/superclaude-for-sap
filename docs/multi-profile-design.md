@@ -75,7 +75,7 @@ SAP_VERSION=S4
 ABAP_RELEASE=816
 SAP_INDUSTRY=tire
 SAP_ACTIVE_MODULES=MM,SD,FI,CO,PP
-SAP_RFC_BACKEND=soap
+SAP_RFC_BACKEND=odata
 
 # Tier + description (NEW)
 SAP_TIER=DEV                # enum: DEV | QA | PRD   (required)

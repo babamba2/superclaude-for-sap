@@ -3,6 +3,23 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.3] — 2026-04-22
+
+### Added — ECC DDIC write path via OData RFC fallback
+
+ECC 7.40 ADT REST lacks `/sap/bc/adt/ddic/{tables,dataelements,domains}` endpoints. This release ships the runtime integration so MCP DDIC tools route through server-side FMs when `SAP_VERSION=ECC`.
+
+- **ABAP side** — 6 new pre-release-branch source files under `abap/` (`zmcp_adt_ddic_{activate,doma,dtel,tabl}_ecc.abap`, `zmcp_adt_{dispatch,textpool}_ecc.abap`) feeding 4 RFC FMs (`ZMCP_ADT_DDIC_{TABL,DTEL,DOMA,ACTIVATE}`) + 4 OData FunctionImports on `ZMCP_ADT_SRV`.
+- **MCP server** (`abap-mcp-adt-powerup` v4.8.0+) — 9 DDIC handlers patched with `SAP_VERSION=ECC` branch. Full: Domain C/U/D + DataElement C/U/D (type_kind=domain only) + Table Delete. Inform-only: Table Create/Update (CDS-DDL translator deferred).
+
+### Changed
+
+- `docs/FEATURES.{md,ko,de,ja}.md`, `docs/multi-profile-design.md`, `docs/odata-backend.md`: refresh matrix and narrative for the ECC DDIC path.
+- `skills/sap-option/*`, `skills/setup/{rfc-backend-selection,wizard-steps,wizard-step-09-abap-objects}.md`: SAP option UX and wizard refinements.
+- `abap/zmcp_adt_dispatch.abap`, `abap/zmcp_adt_textpool.abap`: local refinements aligned with the new ECC variants.
+
+Note: 0.6.1 and 0.6.2 were tagged but their notes were not written; see `git log v0.6.0..v0.6.2` for the intermediate changes.
+
 ## [0.6.0] — 2026-04-21
 
 ### Added — Multi-environment profiles (Dev / QA / Prod)
