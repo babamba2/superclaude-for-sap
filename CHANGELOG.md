@@ -3,6 +3,30 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.10] — 2026-04-24
+
+Follow-up patch to 0.6.9. Three independent fixes + one missing implementation; no behavioural changes to the keychain bundle landed in 0.6.9.
+
+### Fixed — HUD showed "SAP not configured" when launched from a subdirectory
+
+`scripts/hud/lib/sc4sap-status.mjs` resolved the active profile only at the exact `cwd`, while the MCP server walked up the ancestry chain — so launching Claude Code from a nested dev repo (e.g. the plugin source inside a larger workspace) produced HUD line 2 "SAP not configured" even though the MCP connection, `/sc4sap:sap-doctor`, and tool calls all reported the profile live.
+
+`scripts/lib/profile-resolve.mjs` now exposes a shared `findDotSc4sapDir()` + `resolveWorkspaceRoot()`. `readActiveAlias()`, `resolveSapEnvPath()`, and `resolveConfigJsonPath()` accept a `startDir` and walk up until they find a `.sc4sap/` that contains profile state (`active-profile.txt`, `sap.env`, or `config.json`) — skipping any intermediate `.sc4sap/` that holds only artifact folders (`comparisons/`, `test-reports/`, `cbo/`). Falls back to the first `.sc4sap/` on the chain when no ancestor has state. The HUD's `activeProfile()` switched to the shared resolver; downstream `SID` / `client` / `user` fields now render correctly from any subdirectory.
+
+### Fixed — Blocklist `deny` rule short-circuited by built-in `warn` pattern
+
+`scripts/hooks/block-forbidden-tables.mjs` previously returned the first matching blocklist rule (exact-table lookup first, then the first matching pattern in iteration order). If a user extended `.sc4sap/blocklist-extend.txt` with a strict `deny` rule for a table that also matched a looser built-in `warn` pattern, the `warn` match could win the first-match race and the aggregate `deny > warn` decision downstream never saw the user's `deny`.
+
+Replaced the single-match helper with `matchBlocklistAll()` (returns every matching rule) + `effectiveHitForTable()` (collapses matches by `deny > warn > first-rule`). User overrides in `blocklist-extend.txt` now always take precedence over built-in defaults for the same table.
+
+### Added — `scripts/prune-cache.mjs` implementation (Layer 7 cache hygiene)
+
+`skills/sap-doctor/SKILL.md` advertised `/sc4sap:sap-doctor --prune` and `--prune --yes` flags since the doctor skill was introduced, but the underlying `scripts/prune-cache.mjs` implementation had never been committed — running the option hit "script not found" at runtime.
+
+Ships the missing script (227 LOC, dry-run by default, `--yes` to actually delete; `--json` for machine output). It resolves the active plugin version from the marketplace `plugin.json`, walks `~/.claude/plugins/cache/<marketplace>/sc4sap/` to list stale version directories (each typically carrying its own ~500–800 MB `vendor/abap-mcp-adt/node_modules/` subtree), reports sizes in MB, and refuses to run when the active version cannot be resolved. Never touches the marketplace directory or the active cache directory.
+
+`skills/sap-doctor/diagnostic-checks.md` gains a "Layer 7 — Cache Hygiene" section: PASS at zero stale versions, INFO when stale < 500 MB, WARN when stale ≥ 500 MB. Runs independently of Layer 2/3 connectivity so cache bloat is reported even when the SAP system is unreachable.
+
 ## [0.6.9] — 2026-04-24
 
 ### Fixed — Keychain storage silently degraded to plaintext on git-clone installs
