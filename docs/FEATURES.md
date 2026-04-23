@@ -235,7 +235,7 @@ Cross-skill authoring rules live in `common/` so every skill and agent follows t
 | `data-extraction-policy.md` | Agent refusal protocol + `acknowledge_risk` HARD RULE |
 | `active-modules.md` | Cross-module integration matrix (MM↔PS, SD↔CO, QM↔PP, …) |
 | `context-loading-protocol.md` | 4-tier on-demand file loading (global → role → triggered → per-task) |
-| `model-routing-rule.md` | Sonnet / Opus / Haiku routing + Response Prefix Convention |
+| `model-routing-rule.md` | Sonnet / Opus / Haiku routing + Response Prefix Convention + Phase Banner Convention. See **[`skill-model-architecture.md`](skill-model-architecture.md)** for the concrete per-skill / per-phase model allocation that applies this rule across all 12 skills. |
 | `ok-code-pattern.md` | Procedural screen OK_CODE 3-step contract (TOP decl → screen NAME → PAI FORM local routing) |
 | `field-typing-rule.md` | DDIC field typing priority (Standard DE → CBO DE → new DE → primitive) |
 | `function-module-rule.md` | FM source convention (inline IMPORTING/EXPORTING/TABLES signature) |

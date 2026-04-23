@@ -15,6 +15,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { homedir } from 'node:os';
 import https from 'node:https';
+import { hudCacheDir } from './cache.mjs';
 
 const API_HOST = 'api.anthropic.com';
 const API_PATH = '/api/oauth/usage';
@@ -66,21 +67,23 @@ function fetchUsage(token, signal) {
   });
 }
 
-function cachePath(workspaceDir) {
-  return join(workspaceDir, '.sc4sap', '.hud-usage.json');
+// Cache path is per-USER, not per-workspace (see cache.mjs § hudCacheDir for rationale).
+// `workspaceDir` args below are kept only for caller signature compatibility.
+function cachePath() {
+  return join(hudCacheDir(), '.hud-usage.json');
 }
 
-function readCache(workspaceDir) {
+function readCache(_workspaceDir) {
   try {
-    const p = cachePath(workspaceDir);
+    const p = cachePath();
     if (!existsSync(p)) return null;
     return JSON.parse(readFileSync(p, 'utf8'));
   } catch { return null; }
 }
 
-function writeCache(workspaceDir, obj) {
+function writeCache(_workspaceDir, obj) {
   try {
-    const p = cachePath(workspaceDir);
+    const p = cachePath();
     mkdirSync(dirname(p), { recursive: true });
     writeFileSync(p, JSON.stringify(obj), 'utf8');
   } catch { /* ignore */ }

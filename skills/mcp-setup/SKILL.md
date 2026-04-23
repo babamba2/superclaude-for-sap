@@ -2,6 +2,7 @@
 name: sc4sap:mcp-setup
 description: Guide to install and configure the abap-mcp-adt-powerup MCP server for SAP ADT connectivity
 level: 2
+model: haiku
 ---
 
 # SC4SAP MCP Setup
@@ -108,5 +109,34 @@ Installed at: `${CLAUDE_PLUGIN_ROOT}/vendor/abap-mcp-adt/` (internal directory n
 - The MCP server communicates only with the SAP host in `SAP_URL`. No outbound calls to third parties.
 - Row-extraction on sensitive tables is gated by the blocklist policy above (`MCP_BLOCKLIST_PROFILE`, `MCP_BLOCKLIST_EXTEND`, `MCP_ALLOW_TABLE`). See `common/data-extraction-policy.md`.
 </Security_Notes>
+
+<Health_Check>
+When `ARGUMENTS` is `check` / `verify` / `status` (case-insensitive), run the vendor pin health check inline and report — do not print the full installation guide.
+
+**Execution**:
+1. Resolve plugin root (from `CLAUDE_PLUGIN_ROOT` env; fallback to cache path `~/.claude/plugins/cache/sc4sap/sc4sap/<version>/`).
+2. Run: `node "<plugin>/scripts/build-mcp-server.mjs" --check`
+3. Read the script's exit code and stdout/stderr.
+4. Format the result for the user:
+
+| Exit | Meaning | User message (follow conversation language) |
+|---|---|---|
+| **0** + `pinned to <SHA> ✓` on stdout | OK — vendor matches expected pin | ✅ abap-mcp-adt vendor verified · pinned to `<SHA>` (truncate to first 12 chars) |
+| **0** + `pin cannot be verified` on stderr | WARN — launcher OK, `.git` stripped (packaged cache install) | ⚠️ Vendor launcher present, but pin cannot be verified (packaged cache lacks `.git`). Expected pin: `<SHA>`. To force a verifiable reinstall: `node scripts/build-mcp-server.mjs --update`. |
+| **1** | FAIL — vendor missing | ❌ abap-mcp-adt not installed. Run: `node scripts/build-mcp-server.mjs` (or `/sc4sap:setup mcp`). |
+| **2** | FAIL — pin drift | ❌ abap-mcp-adt vendor drift detected (current HEAD ≠ pinned SHA). Run: `node scripts/build-mcp-server.mjs --update`. |
+
+**Output format** (single block):
+```
+MCP Vendor Health Check
+=======================
+Status:  <OK|WARN|FAIL>
+Pin:     <expected SHA>
+Current: <current HEAD or "unverified" or "not installed">
+Action:  <user message from table above>
+```
+
+STOP after printing — do not fall through to the full installation guide.
+</Health_Check>
 
 Task: {{ARGUMENTS}}

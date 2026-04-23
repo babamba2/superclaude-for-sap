@@ -51,9 +51,13 @@ Full procedure: **[`wizard-step-04-profile-creation.md`](wizard-step-04-profile-
 
 **4bis. RFC backend selection (MANDATORY — ask before Step 5)** — pick the transport for Screen / GUI Status / Text Element ops (odata (default) / soap / native / gateway / zrfc) and run the backend-specific preflight. Full procedure lives in **[`rfc-backend-selection.md`](rfc-backend-selection.md)** — all `SAP_RFC_*` keys are written to the active profile env, never to the project folder.
 
+> **On failure (preflight / handler install / SM59 / SICF / transport error)**: escalate to `sap-bc-consultant` per `SKILL.md` → `<Error_Escalation_Paths>`. Pure Basis domain — Basis consultant owns this ground. Emit banner `▶ phase=4bis.escalate (basis) · agent=sap-bc-consultant · model=Opus 4.7`, dispatch with the error context + profile env (password masked) + attempted backend type, surface the returned diagnosis to the user, and ask whether to retry or abort.
+
 ## Step 5 — Reconnect MCP
 
 Prompt user to reconnect via `/mcp`. The MCP server's `ReloadProfile` tool reads the active pointer + profile env (with keychain resolution) and refreshes its cached connection. No Claude Code restart is needed.
+
+> **Steps 5–8 error escalation**: any failure across Step 5 reconnect, Step 6 `GetSession`, Step 7 systemInfo persist, or Step 8 `GetInactiveObjects` triggers a single `general-purpose` agent dispatch with `model: "opus"` override per `SKILL.md` → `<Error_Escalation_Paths>`. The agent investigates all three layers (SAP ADT, MCP server, Claude Code plugin) because most setup errors are cross-layer (MCP framework bugs, Node runtime issues, profile resolution). Emit banner `▶ phase=5-8.escalate (triage) · agent=general-purpose · model=Opus 4.7`, dispatch with the failed-step number + MCP call attempted + error detail + masked profile env, surface the diagnosis + remediation, then ask whether to retry or abort.
 
 ## Step 6 — Connection Test
 

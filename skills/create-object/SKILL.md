@@ -2,6 +2,7 @@
 name: sc4sap:create-object
 description: ABAP object creation workflow — confirm transport+package, auto-create and activate
 level: 3
+model: sonnet
 ---
 
 # SC4SAP Create Object
@@ -15,6 +16,10 @@ sc4sap:create-object handles the full lifecycle of creating a new ABAP object: d
 <Response_Prefix>
 Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
 </Response_Prefix>
+
+<Phase_Banner>
+Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+</Phase_Banner>
 
 <Use_When>
 - User says "create", "new class", "new program", "create object", "add a function module", "new table", etc.
@@ -92,9 +97,22 @@ Remote-Enabled (RFC) flag is a separate concern — stored in TFDIR.FMODE, not i
 </Hybrid_Mode>
 
 <Workflow_Steps>
-**MANDATORY**: Follow the step sequence defined in [`workflow-steps.md`](workflow-steps.md). It covers Step 1 (classify) → Step 2 (metadata) → Step 3 (pre-creation check) → Step 3.5 (version branch) → Step 4 / Step 4-ECC → Step 5 / Step 6 (standard flow only) → Step 7 (completion report, including the mandatory ECC message format).
+**MANDATORY**: Follow the step sequence defined in [`workflow-steps.md`](workflow-steps.md).
 
-At Step 2 (metadata collection) — when the object belongs to a specific SAP module (MM table, SD structure, PS data element, …) — read `SAP_ACTIVE_MODULES` from `sap.env` / `config.json` and consult [`../../common/active-modules.md`](../../common/active-modules.md). If companion modules are active, proactively suggest integration fields (e.g., creating an MM CBO table in a landscape with PS active → suggest adding `PS_POSID` / `AUFNR`). Do NOT add silently — propose to user and let them accept/decline.
+Per-step model allocation (skill main thread runs on Haiku 4.5 per frontmatter; creation + report delegate to agents):
+
+| Step | Owner | Model | Role |
+|------|-------|-------|------|
+| 0 Trust | skill-to-skill | Haiku | permission bootstrap |
+| 1 Classify | main | **Haiku** | keyword → object type |
+| 2 Metadata | main | **Haiku** | name / package / transport / description (Q&A + `SearchObject` + `ListTransports` + naming validation) |
+| 3 Pre-Creation Check | main | **Haiku** | `SearchObject` (name-exists guard) |
+| 3.5 Version Branch | main | **Haiku** | `SAP_VERSION` ECC vs S/4 routing |
+| **4 + 5 + 6 Create + Implement + Activate (standard flow)** | **`sap-executor`** with `model: "opus"` override | **Opus 4.7** | One dispatch covers: `CreateClass`/`CreateProgram`/... → `UpdateClass`/`UpdateProgram`/... with initial implementation code → `ActivateObjects` → `GetInactiveObjects` verify. The Opus override is justified because Step 5 is novel code generation (`common/model-routing-rule.md` § Tier 2) — field typing priority 1–4, class constructor + method signatures, FM inline parameter declarations, etc. |
+| **4-ECC DDIC Helper Program (ECC fallback)** | **`sap-executor`** with `model: "opus"` override | **Opus 4.7** | ECC-only branch for Table/DTEL/DOMA. Executor picks the matching template from `skills/create-object/ecc/`, substitutes names, fills the field list per `common/field-typing-rule.md`, and `CreateProgram` + `UpdateProgram` + `ActivateObjects` the helper into `$TMP`. |
+| **7 Completion Report** | **`sap-writer`** (Haiku base — no override) | **Haiku 4.5** | Pure formatting from the executor's structured return. Localizes to the user's current conversation language. For ECC fallback, uses the mandatory report format in `workflow-steps.md` § Step 7 verbatim (do NOT rephrase the ⚠ header + 3-step SE38/SE11 checklist). |
+
+At Step 2 (metadata collection) — when the object belongs to a specific SAP module (MM table, SD structure, PS data element, …) — the main thread reads `SAP_ACTIVE_MODULES` from `sap.env` / `config.json` and consults [`../../common/active-modules.md`](../../common/active-modules.md). If companion modules are active, proactively suggest integration fields (e.g., creating an MM CBO table in a landscape with PS active → suggest adding `PS_POSID` / `AUFNR`). Do NOT add silently — propose to user and let them accept/decline, then pass the confirmed field list through to the executor dispatch.
 </Workflow_Steps>
 
 <Naming_Convention_Enforcement>

@@ -88,13 +88,47 @@ function installVendorDeps() {
   }
 }
 
+// Verify both the launcher AND the pinned SHA. Returns one of:
+//   'ok'            — launcher present, HEAD matches PINNED_SHA
+//   'drift'         — launcher present, HEAD != PINNED_SHA (user needs --update)
+//   'unverified'    — launcher present, vendor has no .git (packaged cache install);
+//                     we cannot cryptographically confirm the pin but the install
+//                     is likely intact. Treated as a non-fatal WARN by callers.
+//   'not_installed' — launcher missing
 function checkInstallation() {
   if (!existsSync(LAUNCHER)) {
     console.error('[sc4sap] abap-mcp-adt is NOT installed.');
-    return false;
+    console.error('[sc4sap] Fix: node scripts/build-mcp-server.mjs');
+    return 'not_installed';
   }
-  console.log('[sc4sap] abap-mcp-adt is installed and built.');
-  return true;
+
+  const gitDir = resolve(VENDOR_DIR, '.git');
+  if (!existsSync(gitDir)) {
+    console.warn('[sc4sap] abap-mcp-adt launcher present, but vendor has no .git — pin cannot be verified.');
+    console.warn(`[sc4sap]   This is normal for packaged cache installs that strip .git.`);
+    console.warn(`[sc4sap]   Expected pin: ${PINNED_SHA}`);
+    console.warn(`[sc4sap]   To force a verified reinstall: node scripts/build-mcp-server.mjs --update`);
+    return 'unverified';
+  }
+
+  let head;
+  try {
+    head = capture('git rev-parse HEAD', VENDOR_DIR);
+  } catch (e) {
+    console.warn(`[sc4sap] abap-mcp-adt launcher present, but git HEAD read failed (${e.message}).`);
+    return 'unverified';
+  }
+
+  if (head !== PINNED_SHA) {
+    console.error('[sc4sap] abap-mcp-adt vendor drift detected.');
+    console.error(`[sc4sap]   expected: ${PINNED_SHA}`);
+    console.error(`[sc4sap]   current:  ${head}`);
+    console.error('[sc4sap] Fix: node scripts/build-mcp-server.mjs --update');
+    return 'drift';
+  }
+
+  console.log(`[sc4sap] abap-mcp-adt is installed and pinned to ${PINNED_SHA} ✓`);
+  return 'ok';
 }
 
 // The plugin-root package.json has "type": "module" because several
@@ -122,8 +156,13 @@ function ensureVendorPackageJson() {
 
 async function main() {
   if (isCheck) {
-    const ok = checkInstallation();
-    process.exit(ok ? 0 : 1);
+    const status = checkInstallation();
+    // Exit codes consumed by /sc4sap:sap-doctor and /sc4sap:mcp-setup:
+    //   0 — ok or unverified (non-fatal; `unverified` surfaces as WARN upstream)
+    //   1 — vendor not installed at all
+    //   2 — vendor installed but pinned SHA drift
+    const exitCode = status === 'not_installed' ? 1 : status === 'drift' ? 2 : 0;
+    process.exit(exitCode);
   }
 
   if (isUpdate) {

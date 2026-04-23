@@ -2,6 +2,7 @@
 name: sc4sap:sap-doctor
 description: Diagnose SC4SAP plugin health, MCP server connectivity, and SAP system connection (renamed from `doctor` to avoid conflict with Claude Code's built-in `/doctor`)
 level: 2
+model: haiku
 ---
 
 # SC4SAP Doctor

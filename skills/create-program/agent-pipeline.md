@@ -82,7 +82,14 @@ Phase 1 splits into **Phase 1A (Module Interview)** and **Phase 1B (Program Inte
 
 **Skip consultant when**: pure technical utility with no business logic (e.g., a generic string helper class, a pure file converter) — `sap-planner` proceeds alone.
 
-## Phase 3 — Spec Writing: `sap-writer`
+## Phase 3 — Spec Writing: `sap-writer` (Opus override — MANDATORY)
+
+> **Model**: dispatch `sap-writer` with **`model: "opus"` override** — the writer's base model is Haiku 4.5 (report formatting), but spec writing is design + narrative work that `common/model-routing-rule.md` § Tier 2 / Per-wave table classifies as Opus territory. The spec is the single most critical artifact between interview and Phase 4 implementation; Haiku-level output is unacceptable here.
+>
+> ```
+> ▶ phase=3 (writer-spec) · agent=sap-writer · model=Opus 4.7
+> ```
+
 - Produce functional + technical spec from plan
 - **CBO reuse (mandatory when `cbo-context.md` exists)**: every spec section that references an existing CBO asset must name it explicitly (e.g., "writes to existing table `ZSD_ORDER_LOG`") and include a one-line reason for reuse.
 - **Customization reuse (mandatory when `customization-context.md` exists)**: when the spec extends a BAdI / SMOD / form-based exit / append, it MUST reference the existing `Z*`/`Y*` implementation class, CMOD project, include, or append structure by name (e.g., "add new method to existing BAdI impl `ZCL_SD_ORDER_IMPL`"; "extend existing append `CI_VBAK_ZZ` with field `ZZ_DELIVERY_PRIORITY`"). Never silently introduce a parallel Z-object when a reuse target exists in `customization-context.md`.
@@ -137,15 +144,27 @@ Full procedure — `trust-session` invocation, auto/manual/hybrid mode prompt, s
 - Activation failures persisting after retry
 - Runtime dumps during test execution
 
-## Phase 8 — Completion Report
-- **Pre-condition (HARD GATE)**: `.sc4sap/program/{PROG}/review.md` must exist and end in PASS verdicts for every applicable convention. If missing or contains unresolved violations, return to Phase 6 — do not write the report and do not tell the user the program is done.
+## Phase 8 — Completion Report: `sap-writer` (Sonnet override)
+
+> **Model**: dispatch `sap-writer` with **`model: "sonnet"` override** — base Haiku is sufficient for pure templating, but the Phase 8 report aggregates review verdicts + timing metrics + transport metadata + convention-compliance narrative, which `common/model-routing-rule.md` Per-wave table classifies as Sonnet tier. The report is the skill's final deliverable to the user; light reasoning over structured state keeps wording precise without paying Opus cost.
+>
+> ```
+> ▶ phase=8 (writer-report) · agent=sap-writer · model=Sonnet 4.6
+> ```
+
+Dispatch input (writer receives, does NOT re-fetch via MCP):
+
+- **Pre-condition (HARD GATE, enforced by main before dispatching)**: `.sc4sap/program/{PROG}/review.md` must exist and end in PASS verdicts for every applicable convention. If missing or contains unresolved violations, return to Phase 6 — do not dispatch Phase 8 and do not tell the user the program is done.
 - Objects created + activation status
 - Transport number
-- Test results summary
+- Test results summary (Phase 5, if run)
 - Reference to `review.md` (Phase 6 verdicts)
-- **Timing summary** — read per-phase `timing` / `sec` fields from `state.json` and include a total-duration table (Phase 4 parallel gains, Phase 6 bucket gains, Opus escalation ratio)
-- File: `.sc4sap/program/{PROG}/report.md`
-- In `manual`/`hybrid` mode: prompt before writing the report
+- **Timing summary** — per-phase `timing` / `sec` fields from `state.json` so the writer can render the total-duration table (Phase 4 parallel gains, Phase 6 bucket gains, Opus escalation ratio)
+- User conversation language (so the report localizes — Korean / English / Japanese / etc.)
+
+Output:
+- File: `.sc4sap/program/{PROG}/report.md` (written by the writer agent)
+- In `manual`/`hybrid` mode: main prompts the user before dispatching Phase 8
 
 ## State.json — Resume Support (C-2)
 

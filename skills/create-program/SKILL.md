@@ -2,6 +2,7 @@
 name: sc4sap:create-program
 description: Create ABAP programs (Report/CRUD/ALV/Batch) with Main+Include structure, OOP or Procedural, and full agent-driven coding/QA pipeline
 level: 4
+model: sonnet
 ---
 
 # SC4SAP Create Program
@@ -13,6 +14,8 @@ sc4sap:create-program is the flagship skill for creating new ABAP programs. It h
 </Purpose>
 
 <Response_Prefix>Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.</Response_Prefix>
+
+<Phase_Banner>Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.</Phase_Banner>
 
 <Use_When>
 - User says "create program", "new report", "ALV program", "CRUD program", "make me a batch program", etc.
@@ -77,42 +80,13 @@ Outputs:
 - Interview dimensions pre-filtered by platform (e.g., ALV-Full hidden on Cloud Public)
 </Preflight_SAP_Version_Check>
 
-<CBO_Inventory_Lookup>
-**Runs immediately after package + module are resolved during the interview** (Phase 1 dimension #6) and feeds every downstream phase.
+<Inventory_Lookups>
+**Runs immediately after package + module are resolved during the interview** (Phase 1 dimension #6) and feeds every downstream phase. Two sequential inventory passes: **CBO Inventory** (reusable Z*/Y* objects in the target package — delegated to `sap-stocker` on cache miss) then **Customization Inventory** (existing BAdI impls / CMOD projects / form-based exits / appends per module).
 
-Steps:
-1. Resolve `<MODULE>` (from interview) and `<PACKAGE>` (from interview dimension #6).
-2. Check whether `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json` exists.
-   - **Exists** → Read it. Extract the `objects[]` array. Treat every entry as a **reuse candidate** and surface it in Phase 2 / Phase 3 so the planner and writer prefer the existing asset over creating a new one.
-   - **Does not exist** → Print one line to the user:
-     > "No CBO inventory at `.sc4sap/cbo/<MODULE>/<PACKAGE>/`. Run `/sc4sap:analyze-cbo-obj` first to map reusable Z objects, or type `skip` to proceed without reuse analysis."
-     If the user chooses to skip, record `cbo_inventory: "skipped"` in `.sc4sap/program/{PROG}/platform.md` and continue. If the user runs the CBO skill, resume here once it completes.
-3. Persist the loaded inventory to `.sc4sap/program/{PROG}/cbo-context.md` — one bullet per reusable object: name · type · role · one-line purpose · `reuse_hint`. Planner, writer, and executor all read this file.
-
-Reuse gating rule (applied by `sap-planner` and `sap-writer`):
-- If an inventory entry matches the spec's semantic need (same role + matching FK pattern + purpose overlap), **default to reuse**. Only propose a new Z-object when the consultant or user explicitly rejects the candidate, with the rejection reason logged in `plan.md`.
-</CBO_Inventory_Lookup>
-
-<Customization_Inventory_Lookup>
-**Runs immediately after `<CBO_Inventory_Lookup>` and uses the same resolved `<MODULE>`.** Loads the per-module enhancement + extension cache so the planner/writer prefer extending existing customer assets over creating new ones — critical for BAPI extension / BAdI impl / append-structure scenarios.
-
-Steps:
-1. For the resolved `<MODULE>`, check whether `.sc4sap/customizations/<MODULE>/enhancements.json` **and/or** `.sc4sap/customizations/<MODULE>/extensions.json` exist.
-   - **Exists** → Read both files. Treat every `badiImplementations[]` entry, `cmodProjects[]` entry, `formBasedExits[]` entry, and `appendStructures[]` entry as a **reuse candidate**.
-   - **Does not exist** → Print one line to the user:
-     > "No customization inventory at `.sc4sap/customizations/<MODULE>/`. Run `/sc4sap:setup customizations` to scan this module's Z*/Y* enhancements first, or type `skip` to proceed without customization reuse analysis."
-     If the user chooses to skip, record `customization_inventory: "skipped"` in `.sc4sap/program/{PROG}/platform.md` and continue.
-2. Persist the loaded inventory to `.sc4sap/program/{PROG}/customization-context.md`. One bullet per entry:
-   - BAdI impl: `• BAdI {standardName} → existing impl {Z*_CLASS} (impl name: {impl_name}) — reuse target for any new hook into this BAdI`
-   - CMOD project: `• SMOD {standardName} → existing CMOD project {Z_PROJECT} — add new components here instead of creating a second project`
-   - Form-based exit: `• Include {ZXVEDU01|MV45AFZZ|...} ({lineCount} lines) — already customized; read existing logic before adding new FORMs`
-   - Append: `• Table {VBAK|EKKO|...} → existing append {CI_VBAK_ZZ|Z_APPEND_VBAK} fields: [{ZZ_FIELD1}, {ZZ_FIELD2}] — extend this append, do not create a second one`
-3. Follow `common/customization-lookup.md` for the full resolution protocol and "prefer reuse" ✅/❌ examples.
-
-Reuse gating rule (applied by `sap-planner` and `sap-writer`):
-- If the request is to add a BAdI implementation / CMOD component / append field and the cache already lists a `Z*`/`Y*` asset for the same `standardName` or base table, **default to extending the existing asset**. Creating a second parallel Z impl, a second CMOD project for the same SMOD, or a second append on the same standard table is a **MAJOR finding** in Phase 6 review and will block the spec.
-- Rejection requires a written justification in `plan.md` (e.g., "existing ZCL_SD_ORDER_IMPL is used by another business flow and merging would break it").
-</Customization_Inventory_Lookup>
+Full procedure (when-to-stock, three-option prompt, dispatch template, persistence paths, reuse-gating rules) lives in **[`inventory-lookups.md`](inventory-lookups.md)**. Read and follow literally. Output files consumed by planner / writer / executor:
+- `.sc4sap/program/{PROG}/cbo-context.md`
+- `.sc4sap/program/{PROG}/customization-context.md`
+</Inventory_Lookups>
 
 <Interview_Gating>
 **MANDATORY — never skip, never shortcut, never merge.** Phase 1 runs as **two sequential sub-phases** (1A then 1B) on every `sc4sap:create-program` invocation.
@@ -184,8 +158,8 @@ Do not inline or paraphrase phase logic here — update `agent-pipeline.md` inst
 - `.sc4sap/program/{PROG}/platform.md` — Phase 0 preflight output
 - `.sc4sap/program/{PROG}/module-interview.md` — Phase 1A business interview (consultant-led: purpose / reason / company-specific rules / reference assets / standard-SAP alternatives)
 - `.sc4sap/program/{PROG}/interview.md` — Phase 1B technical interview (analyst+architect-led: 7 dimensions Q&A log)
-- `.sc4sap/program/{PROG}/cbo-context.md` — CBO reuse candidates (written by `<CBO_Inventory_Lookup>`)
-- `.sc4sap/program/{PROG}/customization-context.md` — Z*/Y* BAdI impl / CMOD / form-exit / append reuse candidates (written by `<Customization_Inventory_Lookup>`)
+- `.sc4sap/program/{PROG}/cbo-context.md` — CBO reuse candidates (written by `<Inventory_Lookups>` / [`inventory-lookups.md`](inventory-lookups.md))
+- `.sc4sap/program/{PROG}/customization-context.md` — Z*/Y* BAdI impl / CMOD / form-exit / append reuse candidates (written by `<Inventory_Lookups>` / [`inventory-lookups.md`](inventory-lookups.md))
 - `.sc4sap/program/{PROG}/plan.md` — planner output
 - `.sc4sap/program/{PROG}/spec.md` — writer output (requires user confirm)
 - `.sc4sap/program/{PROG}/state.json` — execution_mode + per-phase status/timing (schema in `execution-mode.md`, drives resume support)

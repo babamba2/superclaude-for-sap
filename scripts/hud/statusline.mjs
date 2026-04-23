@@ -8,7 +8,7 @@ import { priceFor, costOf } from './lib/pricing.mjs';
 import { latestUsage, contextSize, collectBlockUsage, collectWeeklyUsage, activityState, mcpConnectionState } from './lib/transcript.mjs';
 import { readConfig, sapEnvPresent, mcpInstalled, systemInfo, activeTransport, activeProfile } from './lib/sc4sap-status.mjs';
 import { color, paint, humanTokens, humanUsd, humanDuration, pctColor } from './lib/format.mjs';
-import { readCache, writeCache } from './lib/cache.mjs';
+import { readCache, writeCache, hudCacheDir } from './lib/cache.mjs';
 import { getUsage } from './lib/usage-api.mjs';
 import { probeMcpState } from './lib/mcp-probe.mjs';
 
@@ -36,6 +36,64 @@ function tryParse(s) { try { return JSON.parse(s || '{}'); } catch { return {}; 
 function segment(label, value, labelColor = color.gray) {
   if (!value) return '';
   return paint(label, labelColor, color.dim) + ' ' + value;
+}
+
+// Locale detection for the context-capacity warning line.
+// Priority:
+//   1. SC4SAP_HUD_LANG       — explicit override (e.g. `ko`, `ja`, `en`)
+//   2. OS locale env vars     — LC_ALL / LANG / LANGUAGE
+//   3. Intl.DateTimeFormat    — Node.js-resolved system locale
+//   4. 'en' fallback
+function detectHudLang() {
+  const explicit = (process.env.SC4SAP_HUD_LANG || '').trim().toLowerCase();
+  if (explicit) return explicit.slice(0, 2);
+  const sysEnv = process.env.LC_ALL || process.env.LANG || process.env.LANGUAGE || '';
+  if (sysEnv) {
+    const s = sysEnv.toLowerCase();
+    if (s.startsWith('ko')) return 'ko';
+    if (s.startsWith('ja')) return 'ja';
+    if (s.startsWith('zh')) return 'zh';
+    if (s.startsWith('de')) return 'de';
+  }
+  try {
+    const loc = (Intl.DateTimeFormat().resolvedOptions().locale || '').toLowerCase();
+    if (loc.startsWith('ko')) return 'ko';
+    if (loc.startsWith('ja')) return 'ja';
+    if (loc.startsWith('zh')) return 'zh';
+    if (loc.startsWith('de')) return 'de';
+  } catch { /* ignore */ }
+  return 'en';
+}
+
+// Context-capacity warning shown as a third HUD line when ctx usage reaches 70%+.
+// Two variants, keyed on the same threshold pctColor uses for color (90%):
+//   • 70–89% (yellow / "approaching"): "about to full" — soft heads-up
+//   • 90%+   (red / "full"):           "is full" — actionable alert
+// Localized by OS/explicit locale; color follows pctColor.
+const CTX_WARN_THRESHOLD = 70;
+const CTX_WARN_FULL_THRESHOLD = 90;
+const CTX_WARN_MESSAGES_APPROACHING = {
+  en: 'your context capacity is about to full, consider /compact',
+  ko: '컨텍스트 한도에 곧 도달합니다 — /compact 를 고려하세요',
+  ja: 'コンテキスト容量がまもなく満杯になります — /compact の実行を検討してください',
+  zh: '上下文容量即将满 — 请考虑 /compact',
+  de: 'Kontext ist fast voll — /compact in Erwägung ziehen',
+};
+const CTX_WARN_MESSAGES_FULL = {
+  en: 'your context capacity is full, consider /compact',
+  ko: '컨텍스트 한도에 도달했습니다 — /compact 를 고려하세요',
+  ja: 'コンテキスト容量が満杯です — /compact の実行を検討してください',
+  zh: '上下文容量已满 — 请考虑 /compact',
+  de: 'Kontext ist voll — /compact in Erwägung ziehen',
+};
+function ctxWarningLine(ctxPct) {
+  if (ctxPct < CTX_WARN_THRESHOLD) return '';
+  const lang = detectHudLang();
+  const dict = ctxPct >= CTX_WARN_FULL_THRESHOLD
+    ? CTX_WARN_MESSAGES_FULL
+    : CTX_WARN_MESSAGES_APPROACHING;
+  const msg = dict[lang] || dict.en;
+  return paint('⚠ ' + msg, pctColor(ctxPct));
 }
 
 async function main() {
@@ -110,7 +168,7 @@ async function main() {
       const rc = remain < 30 * 60 * 1000 ? color.red : remain < 60 * 60 * 1000 ? color.yellow : color.cyan;
       blockStr = paint(humanDuration(remain), rc);
 
-      const wcp = join(ws, '.sc4sap', '.hud-week.json');
+      const wcp = join(hudCacheDir(), '.hud-week.json');
       let weekly = readCache(wcp, 60_000);
       if (!weekly) {
         const r = collectWeeklyUsage(transcript, priceFor, costOf);
@@ -211,7 +269,9 @@ async function main() {
       line2 = paint('SAP not configured — run /sc4sap:setup', color.gray, color.dim);
     }
 
-    process.stdout.write(parts.join(sep) + '\n' + line2);
+    const ctxWarn = ctxWarningLine(ctxPct);
+    const out = parts.join(sep) + '\n' + line2 + (ctxWarn ? '\n' + ctxWarn : '');
+    process.stdout.write(out);
   } catch {
     process.stdout.write(paint('sc4sap', color.cyan) + ' ' + paint('hud error', color.red));
   }

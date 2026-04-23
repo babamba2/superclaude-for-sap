@@ -1,20 +1,25 @@
 ---
 name: sc4sap:analyze-code
-description: ABAP code analysis — read via MCP, analyze with sap-code-reviewer, suggest improvements
+description: ABAP code analysis — delegate source reads + AST/semantic/where-used analysis + rule-based review to sap-code-reviewer, then optionally render a rich briefing via sap-writer
 level: 2
+model: sonnet
 ---
 
 # SC4SAP Analyze Code
 
-Reads ABAP source code directly from the connected SAP system via MCP tools, performs deep structural and semantic analysis using the sap-code-reviewer agent, and produces an actionable improvement report.
+Reviews an ABAP object by delegating the heavy work (source read, structural/semantic/where-used analysis, 14-dimension rule matching) to `sap-code-reviewer` (Opus 4.7). The main thread only handles Socratic intake, report formatting, and the follow-up action menu — all on Haiku for cost efficiency.
 
 <Purpose>
-sc4sap:analyze-code gives you a comprehensive code review of any ABAP object in your SAP system — without leaving Claude Code. It leverages the AST, semantic analysis, and where-used capabilities of mcp-abap-adt to go beyond surface-level review into actual type safety, performance patterns, and SAP best practice compliance.
+sc4sap:analyze-code provides a comprehensive, severity-rated ABAP code review backed by the AST, semantic analysis, and where-used data that only the live SAP system can produce. The flow is deliberately thin on the main thread: the reviewer agent owns context-heavy work so the skill orchestrator stays light.
 </Purpose>
 
 <Response_Prefix>
 Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
 </Response_Prefix>
+
+<Phase_Banner>
+Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+</Phase_Banner>
 
 <Use_When>
 - User says "analyze", "review code", "check this class", "what's wrong with", "analyze code", or "code review"
@@ -25,15 +30,15 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 </Use_When>
 
 <Do_Not_Use_When>
-- User wants to modify the code immediately -- use `/sc4sap:create-program` (for full program flows) or direct `UpdateClass` / `UpdateProgram` / `UpdateInclude` MCP calls
-- Object doesn't exist yet -- use `/sc4sap:create-object`
-- User just wants to read the source -- use `ReadClass`, `ReadProgram` etc. directly
+- User wants to modify the code immediately → `/sc4sap:create-program` (full program flows) or direct `UpdateClass` / `UpdateProgram` / `UpdateInclude` MCP calls
+- Object doesn't exist yet → `/sc4sap:create-object`
+- User just wants to read the source → `ReadClass`, `ReadProgram` etc. directly
 </Do_Not_Use_When>
 
 <Session_Trust_Bootstrap>
 **MANDATORY — runs as Step 0 before any MCP call or user interaction.**
 
-Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:analyze-code` to pre-grant all MCP tool + file-op permissions for this session (eliminates per-tool "Allow this tool?" prompts during the 6-step review flow).
+Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:analyze-code` to pre-grant all MCP tool + file-op permissions for this session (eliminates per-tool "Allow this tool?" prompts during the review flow).
 
 - If `.sc4sap/session-trust.log` already has a line within the last 24h, skip silently.
 - Otherwise run it and surface the one-line confirmation.
@@ -43,21 +48,26 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Session_Trust_Bootstrap>
 
 <Companion_Files>
-**MANDATORY**: Read the companion files below before executing. Each covers a self-contained section of this skill:
+**MANDATORY**: Read the companion files below before executing.
 
 | Companion | Scope |
 |-----------|-------|
-| [`analysis-dimensions.md`](analysis-dimensions.md) | 9 `common/` rule files to load + 14 evaluation dimensions the sap-code-reviewer agent scores against |
-| [`workflow.md`](workflow.md) | 6-step execution flow (Identify → Read → Structural Analysis → Review → Report → Actions) |
-| [`output-and-tools.md`](output-and-tools.md) | Report output format + full MCP tool list used by this skill |
+| [`analysis-dimensions.md`](analysis-dimensions.md) | 9 `common/` rule files that the **reviewer agent** (not main) loads + 14 evaluation dimensions |
+| [`workflow.md`](workflow.md) | 4-step execution flow: Identify → Review (delegated) → Report (branching) → Actions |
+| [`output-and-tools.md`](output-and-tools.md) | Report output format + MCP tool list used **by the reviewer agent** |
 </Companion_Files>
 
 <Execution_Summary>
-1. Load rule context from `analysis-dimensions.md` (9 `common/` rule files).
-2. Follow the 6 steps in `workflow.md`.
-3. Emit the report using the format in `output-and-tools.md`.
+Orchestration is **1 main-thread Socratic intake + one delegated dispatch to `sap-code-reviewer` + a branching report + main-thread action menu**.
 
-Do not skip the companion-file reads — the scoring rubric, workflow, and report schema all live there.
+- **Step 1 (main · Haiku)** — Identify: ask for (or confirm) the ABAP object name + type; verify via `SearchObject`.
+- **Step 2 (delegated · Opus 4.7)** — Dispatch to `sap-code-reviewer` with only the object reference. The reviewer agent **itself** reads source (via `GetClass`/`GetProgram`/`GetProgFullCode`/...), runs structural analysis (`GetAbapAST` + `GetAbapSemanticAnalysis` + `GetWhereUsed`), loads the 9 `common/` rule files, and evaluates all 14 dimensions. Returns: findings list (severity · location · rule ref · fix suggestion) + summary metrics.
+- **Step 3 (branching)**:
+  - **Branch A — canned** (default: no Critical findings AND < 10 findings total) → main (Haiku) formats the standard report template from [`output-and-tools.md`](output-and-tools.md).
+  - **Branch B — briefing** (Critical present OR ≥ 10 findings) → dispatch `sap-writer` (Haiku) for a rich reader-facing report with code examples and impact explanations. Fallback to Branch A on writer failure.
+- **Step 4 (main · Haiku)** — Follow-up action menu: show where-used · explain finding #N · save report · delegate fix to `sap-executor` (user's choice).
+
+Full spec in [`workflow.md`](workflow.md). Main thread NEVER calls `ReadClass` / `GetAbapAST` / `GetWhereUsed` directly — that context stays inside the reviewer agent so the orchestrator window remains small even for large objects.
 </Execution_Summary>
 
 Task: {{ARGUMENTS}}

@@ -36,11 +36,13 @@ SuperClaude for SAP transforms Claude Code into a full-stack SAP development ass
 | 🌏 **Country / Localization** | 15 per-country files + EU-common (KR/JP/CN/US/DE/GB/FR/IT/ES/NL/BR/MX/IN/AU/SG). e-invoicing, banking, payroll, tax localization. |
 | 🧩 **Active-Module Awareness** | Cross-module integration hints: MM + PS active → auto-suggest WBS fields on MM CBOs; SD + CO active → CO-PA derivation. [Details →](common/active-modules.md) |
 | 🤝 **Module Consultation** | `sap-analyst` / `sap-critic` / `sap-planner` / `sap-architect` delegate to 14 module consultants + 1 BC consultant when business judgement is needed. Users can also ask a module consultant directly via `/sc4sap:ask-consultant` — auto-routes SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC by keywords, answers against the configured SAP environment (version, industry, country, active modules), read-only. |
+| ⚡ **Per-Phase Model Routing** | Every skill runs on a cost-tuned main thread (Haiku for config / diagnostics / Q&A, Sonnet for analyze / create / compare orchestration) while delegating heavy work to specialized agents (Opus for novel ABAP generation, cross-module synthesis, and incident triage; Sonnet for facts extraction; Haiku for report rendering). Model choice is visible in every response prefix + per-phase banner (e.g. `▶ phase=3 (writer-spec) · agent=sap-writer · model=Opus 4.7`). Full matrix — per-skill, per-phase — in [docs/skill-model-architecture.md](docs/skill-model-architecture.md). |
 
 ## Documentation
 
 - 📦 **[Installation & Setup →](docs/INSTALLATION.md)** — requirements, install options, wizard steps, blocklist configuration
 - 🎯 **[Features Deep-Dive →](docs/FEATURES.md)** — 25 agents, 19 skills, MCP tools, RFC backends, hooks, data-extraction policy
+- 🧠 **[Skill Model Architecture →](docs/skill-model-architecture.md)** — per-skill / per-phase model allocation (Haiku 4.5 / Sonnet 4.6 / Opus 4.7), model override patterns, escalation ladders, design rationale
 - 📜 **[Changelog →](docs/CHANGELOG.md)** — version history and breaking changes
 
 ## Unleashed

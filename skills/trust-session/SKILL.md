@@ -3,6 +3,7 @@ name: sc4sap:trust-session
 description: INTERNAL-ONLY permission bootstrap. Grants MCP tool + file-op permissions for the current session (except GetTableContents / GetSqlQuery, which remain prompt-gated). MUST be invoked by a parent skill (create-program, setup, team, analyze-*, create-object) — direct user invocation is rejected with a redirect message.
 level: 2
 internal: true
+model: haiku
 ---
 
 # SC4SAP Trust Session (Internal-Only)

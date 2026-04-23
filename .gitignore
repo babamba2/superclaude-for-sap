@@ -7,3 +7,8 @@ vendor/
 .env
 .DS_Store
 .claude/settings.local.json
+
+# local dev tool state (never commit)
+.claude/
+.cursor/
+.entire/

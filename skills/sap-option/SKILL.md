@@ -2,6 +2,7 @@
 name: sc4sap:sap-option
 description: View SAP system status snapshot and edit values in `.sc4sap/sap.env` (connection, blocklist) and HUD usage limits in `~/.claude/settings.json` → `env` — single entrypoint for all sc4sap runtime options
 level: 2
+model: haiku
 ---
 
 # SC4SAP Option

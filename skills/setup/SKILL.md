@@ -2,6 +2,7 @@
 name: sc4sap:setup
 description: Plugin setup — detect legacy single-profile state (migrate → multi-profile), create or register a SAP connection profile under ~/.sc4sap/profiles/<alias>/, install abap-mcp-adt-powerup MCP server, optionally install DEV-only ZMCP_ADT_UTILS + ZCL_S4SAP_CM_* ALV OOP handlers (tier-gated), register both PreToolUse hooks (blocklist + tier-readonly-guard), optional SPRO / customizations extraction
 level: 2
+model: haiku
 ---
 
 # SC4SAP Setup
@@ -11,6 +12,27 @@ Use `/sc4sap:setup` as the unified setup and configuration entrypoint for SuperC
 <Response_Prefix>
 Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
 </Response_Prefix>
+
+<Phase_Banner>
+Multi-phase skill. Before each `Agent(...)` dispatch (including the two conditional error-escalation paths below), emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+</Phase_Banner>
+
+<Error_Escalation_Paths>
+Setup's happy path runs entirely on the main thread (Haiku 4.5 per frontmatter) — it's configuration work, not code generation. Two step-ranges escalate on failure:
+
+| Source step(s) | Agent | Model | Why |
+|----------------|-------|-------|-----|
+| **4bis RFC backend** — preflight failure, handler install error, SICF service misconfigured, SM59 test fails, ZRFC ICF handler returns 5xx | **`sap-bc-consultant`** | **Opus 4.7** (frontmatter) | Pure Basis domain — RFC destinations, SICF, SM59, transport of handler class. Basis consultant owns this ground. |
+| **5 Reconnect / 6 GetSession / 7 systemInfo persist / 8 GetInactiveObjects** — any failure (HTTP error, auth reject, parse failure, timeout, authorization object missing) | **`general-purpose`** (with `model: "opus"` override) | **Opus 4.7** | 3-layer stack (SAP ADT + MCP server + Claude Code plugin). Most errors are cross-layer (MCP framework bugs, Node runtime issues, profile resolution) — pure SAP consultant has a blind spot. general-purpose + Opus spans `Read`/`Grep`/`Bash`/`WebFetch`/`WebSearch` across all three layers. |
+
+Each escalation emits its own phase banner:
+```
+▶ phase=4bis.escalate (basis) · agent=sap-bc-consultant · model=Opus 4.7
+▶ phase=5-8.escalate (triage) · agent=general-purpose · model=Opus 4.7
+```
+
+After the escalation agent returns a diagnosis + remediation checklist, the main thread (Haiku) surfaces it to the user and asks whether to retry the failed step or abort setup.
+</Error_Escalation_Paths>
 
 ## Usage
 

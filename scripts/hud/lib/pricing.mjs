@@ -1,6 +1,9 @@
 // Pricing per 1M tokens (USD). Update when Anthropic changes rates.
 // Keys match model.id prefix match (longest-first lookup).
+// The [1m] suffix in model IDs (e.g. `claude-opus-4-7[1m]`) is transparently handled
+// by startsWith() — the entry matches regardless of whether the 1M indicator is present.
 export const PRICING = {
+  'claude-opus-4-7':    { input: 15, output: 75, cacheWrite: 18.75, cacheRead: 1.5,  ctx: 1_000_000 },
   'claude-opus-4-6':    { input: 15, output: 75, cacheWrite: 18.75, cacheRead: 1.5,  ctx: 1_000_000 },
   'claude-opus-4':      { input: 15, output: 75, cacheWrite: 18.75, cacheRead: 1.5,  ctx: 200_000 },
   'claude-sonnet-4-6':  { input: 3,  output: 15, cacheWrite: 3.75,  cacheRead: 0.3,  ctx: 1_000_000 },

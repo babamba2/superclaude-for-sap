@@ -2,6 +2,7 @@
 name: sc4sap:analyze-symptom
 description: Step-by-step root cause analysis for SAP operational errors. Uses MCP to directly inspect dumps, logs, transports, and where-used relations, then narrows hypotheses with minimal user questions and provides SAP Note search keywords.
 level: 2
+model: sonnet
 ---
 
 # SC4SAP Analyze Symptom
@@ -15,6 +16,10 @@ sc4sap:analyze-symptom is the first-line triage skill for SAP production inciden
 <Response_Prefix>
 Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
 </Response_Prefix>
+
+<Phase_Banner>
+Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+</Phase_Banner>
 
 <Use_When>
 - User reports a symptom using words like "error", "dump", "failing", "broken", "not working", "timeout", "slow"
@@ -96,7 +101,22 @@ Evidence collection strategy — prefer MCP auto-query, fall back to manual TCod
 </Evidence_Collection_Matrix>
 
 <Workflow_Steps>
-**MANDATORY**: Follow the step sequence defined in [`workflow-steps.md`](workflow-steps.md). It covers Step 1 (initial triage) → Step 2 (MCP-driven auto-investigation) → Step 3 (gap identification) → Step 4 (minimal user questions) → Step 5 (hypothesis narrowing) → Step 6 (SAP Note search strategy) → Step 7 (recommended actions) → Step 8 (escalation routing).
+**MANDATORY**: Follow the step sequence defined in [`workflow-steps.md`](workflow-steps.md).
+
+Per-step model allocation (skill main thread runs on Haiku 4.5 per frontmatter; heavy analysis is delegated):
+
+| Step | Owner | Model | Role |
+|------|-------|-------|------|
+| 0 Trust | skill-to-skill | Haiku | permission bootstrap |
+| 1 Initial Triage | main | **Haiku** | clue parsing + `GetSession` |
+| **2 Investigate + Gap + Narrow** | **`sap-debugger`** with `model: "opus"` override | **Opus 4.7** | auto-investigation (dump/transport/code/enhancement/customization) + gap identification + 2–3 hypotheses with confidence/evidence/confirmation-path + priority questions. One dispatch per round. |
+| 3 User Questions | main | **Haiku** | render debugger's priority questions + collect answers (max 3/round) |
+| (multi-round) repeat Step 2 | `sap-debugger` (Opus override) | Opus 4.7 | re-run with new user-supplied evidence |
+| 4 SAP Note Keywords | main | **Haiku** | assemble copy-paste search strings from debugger's sap_note_hints |
+| 5 Recommended Actions | main | **Haiku** | static classification by actor (immediate / access-required / escalation) |
+| 6 Escalation Routing | main | **Haiku** | point to next skill or agent (sap-debugger write mode, /sc4sap:analyze-code, module consultant, etc.) |
+
+sap-debugger's tool set already covers `RuntimeAnalyzeDump`, profiler, transport queries, code reads, enhancement lookup, and customization cache reads — see the agent's Investigation_Protocol for the full inventory. The `model: "opus"` override is appropriate here because symptom triage is cross-file reasoning (dump × transport × source × customization × profiler) with ambiguity resolution (8-category framework), which `common/model-routing-rule.md` § Tier 2 classifies as Opus territory.
 </Workflow_Steps>
 
 <Question_Strategy>
@@ -122,8 +142,12 @@ Per-round report template and the final-round consolidated report structure live
 
 <MCP_Tools_Used>
 
-**System / Context**
+Only `GetSession` is called by the main thread (Step 1 intake). Every other tool below is called **by the `sap-debugger` agent** inside its Step 2 dispatch — the orchestrator never holds dump payloads, full source, or transport object lists.
+
+**Main thread (Haiku · Step 1 only)**
 - `GetSession` — system ID, client, release, SP level, current user
+
+**Reviewer agent (`sap-debugger` with Opus override · Step 2 dispatch)**
 
 **Dump Analysis**
 - `RuntimeListDumps` — recent dumps

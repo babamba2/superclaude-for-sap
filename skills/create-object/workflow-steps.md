@@ -1,79 +1,101 @@
 # create-object Workflow Steps
 
-Detailed step sequence for `sc4sap:create-object`. Referenced from `SKILL.md` → `<Workflow_Steps>`.
+Referenced from `SKILL.md` → `<Workflow_Steps>`. Main thread runs Haiku 4.5; object creation / implementation / activation and the final report are delegated to agents so the orchestrator stays light.
 
-**Step 1 - Classify Object Type** (auto)
-- Parse user request to determine object type
-- If ambiguous: ask "Do you want a class, program, function module, or other type?"
+Full Agent prompt bodies live in [`dispatch-prompts.md`](dispatch-prompts.md) (kept separate to honor the 200-line cap).
 
-**Step 2 - Collect Metadata** (confirm required)
-- Object name: suggest name based on description, enforce naming conventions
-  - Z/Y prefix required for customer objects
-  - Max 30 characters
-  - Uppercase only
-  - No special characters except underscore
-- Short description: 1 line, max 60 chars
-- Package: show recent packages or search; warn if `$TMP` (local, not transportable)
-- Transport: list open transports owned by current user; option to create new
+## Step 0 — Trust Session (skill-to-skill, Haiku)
 
-**Step 3 - Pre-Creation Check** (auto)
-- Call `SearchObject` to verify the name does not already exist
-- If exists: "Object {name} already exists. Modify it with direct MCP `Update*` calls (`UpdateClass`, `UpdateProgram`, `UpdateInclude`, etc.)."
+Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:create-object`. Skip silently if already trusted within 24h.
 
-**Step 3.5 - Version Branch Decision** (auto)
+## Step 1 — Classify Object Type (main thread, Haiku)
+
+- Parse user request to determine object type (class / interface / program / function module / table / structure / data element / domain / CDS view / service definition / service binding / behavior definition / screen / GUI status).
+- If ambiguous: ask a single clarifying question and stop.
+
+## Step 2 — Collect Metadata (main thread, Haiku)
+
+- **Object name**: suggest based on description; enforce `Z`/`Y` prefix, ≤ 30 chars, uppercase, no special chars except underscore. Reject generic names (`ZTEST` / `ZTEMP` / `ZDUMMY`).
+- **Short description**: 1 line, ≤ 60 chars.
+- **Package**: show recent packages or search via `GetPackage`; warn if `$TMP` (local, non-transportable).
+- **Transport**: list open transports owned by current user via `ListTransports`; offer create-new if no suitable TR exists.
+- **Module-active context** (conditional): when the object targets a specific module (MM table, SD structure, PS data element, …), read `SAP_ACTIVE_MODULES` from `sap.env` / `config.json` and consult `common/active-modules.md`. If companion modules are active, propose integration fields (e.g., MM table in a landscape with PS active → suggest `PS_POSID` / `AUFNR`). User accepts/declines; pass the confirmed field list to the executor dispatch.
+
+## Step 3 — Pre-Creation Check (main thread, Haiku)
+
+- Call `SearchObject(<name>, <type>)` to verify the name does NOT already exist.
+- If it exists: *"Object {name} already exists. Modify via direct MCP `Update*` calls (`UpdateClass`, `UpdateProgram`, `UpdateInclude`, etc.)."* Stop.
+
+## Step 3.5 — Version Branch Decision (main thread, Haiku)
+
 - Read `SAP_VERSION` from `.sc4sap/config.json` (or `sap.env`).
-- If `SAP_VERSION = ECC` **and** object type ∈ {Table, Data Element, Domain}: go to Step 4-ECC.
-- Otherwise: go to Step 4 (standard flow).
+- If `SAP_VERSION = ECC` **and** object type ∈ {Table, Data Element, Domain} → go to Step 4-ECC.
+- Otherwise → go to Step 4 (standard flow).
 
-**Step 4 - Create Object (standard flow — S/4HANA or non-DDIC on ECC)** (auto)
-- Call appropriate Create* MCP tool with confirmed metadata
-- For Function Module: create Function Group first if it doesn't exist (`CreateFunctionGroup`)
-- For Service Binding: ensure Service Definition exists first
-- For Screen / GUI Status: parent program must exist first; create program if needed
+## Step 4 + 5 + 6 — Create + Implement + Activate (one `sap-executor` dispatch, Opus override)
 
-**Step 4-ECC - Generate DDIC Helper Program (ECC + Table/DTEL/DOMA)** (auto)
-- Pick the matching reference file in `ecc/` (table / domain / element) and `Read` it.
-- Compute helper program name per the naming table in [`../../common/ecc-ddic-fallback.md`](../../common/ecc-ddic-fallback.md). Verify ≤ 30 chars.
-- Call `CreateProgram` with `program_name = <helper>`, `package_name = '$TMP'`, `program_type = 'executable'`, description "Create DDIC {type} {name} on ECC".
-- **Field list MUST follow [`../../common/field-typing-rule.md`](../../common/field-typing-rule.md)** — each `add_field` call uses `rollname` (priority 1–3 Data Element); primitive data-type+length is priority 4 and requires inline justification.
-- Call `UpdateProgram` with the generated source — substitute only the target name, field / fixed-value / label content, and the description. Keep the template skeleton verbatim.
-- Activate the helper program (`activate = true`).
-- **Skip Step 5, Step 6** — the DDIC object itself is not created now; the user must run the helper in SE38.
+**Standard flow (S/4HANA, or non-DDIC on ECC).** Single dispatch covers object creation, initial implementation code, and activation — no round-trip to the main thread between them. Opus override is required because Step 5 is novel code generation per `common/model-routing-rule.md` § Tier 2 (field typing priority 1–4, class/FM body, etc.).
 
-**Step 5 - Generate Initial Implementation (standard flow only)** (auto)
-- Write skeleton code appropriate to object type:
-  - Class: constructor, standard interface implementations if applicable
-  - Program: REPORT statement, basic structure
-  - Function Module: parameter documentation, basic error handling
-  - Table / Structure: key fields, client field for client-dependent tables; **every field's type follows [`../../common/field-typing-rule.md`](../../common/field-typing-rule.md)** — Standard DE first, CBO DE next, raw data type + length only as a justified last resort
-  - Interface: method signatures based on described purpose
-  - Screen: PROCESS BEFORE OUTPUT / PROCESS AFTER INPUT flow logic, basic module stubs
-  - GUI Status: standard function key layout (Back/Exit/Cancel), application toolbar
-- Write code via appropriate Update* MCP tool
-
-**Step 6 - Activate (standard flow only)** (auto)
-- Activate the object
-- Check `GetInactiveObjects` — must be empty for this object
-- If activation fails: display error, suggest fix, retry once
-
-**Step 7 - Completion Report**
-
-*Standard flow:*
-- Object name and type
-- Package and transport
-- Activation status (ACTIVE / FAILED)
-- Next steps suggestion (e.g., "Add methods with direct `UpdateClass` MCP calls" or "Release with `/sc4sap:release`")
-
-*ECC DDIC fallback flow (MANDATORY message format):*
+Emit phase banner:
 ```
-⚠ ECC detected — DDIC {Table|Data Element|Domain} cannot be created via MCP.
-Helper program generated instead:
-  Program : <HELPER_NAME>           (package $TMP, activated)
-  Target  : <DDIC_OBJECT_NAME>      ({type})
-
-Next steps (manual, in ECC):
-  1. SE38 → run <HELPER_NAME>                 (dry-run previews field layout)
-  2. Uncheck p_dryrun → re-run                (writes inactive DDIC version)
-  3. SE11 → open <DDIC_OBJECT_NAME>           (activate, assign package + transport)
+▶ phase=4 (executor-create) · agent=sap-executor · model=Opus 4.7
 ```
-Do not claim the DDIC object is created. Do not propose follow-up automation until the user confirms activation in SE11.
+
+Dispatch shape:
+```
+Agent({
+  subagent_type: "sap-executor",
+  model: "opus",                    // override base Sonnet
+  description: "Create + implement <TYPE> <NAME>",
+  prompt: "<standard-flow prompt per dispatch-prompts.md § Step 4+5+6>",
+  mode: "dontAsk"
+})
+```
+
+On `BLOCKED` or `FAILED` activation: main surfaces the error verbatim via Step 7 writer (flow = `failed`); do NOT retry from main.
+
+## Step 4-ECC — DDIC Helper Program (one `sap-executor` dispatch, Opus override)
+
+**ECC branch only** (SAP_VERSION=ECC + Table/DTEL/DOMA). The DDIC object itself cannot be created via MCP on ECC; the executor generates a helper ABAP program the user runs in SE38.
+
+Emit phase banner:
+```
+▶ phase=4-ECC (executor-helper) · agent=sap-executor · model=Opus 4.7
+```
+
+Dispatch shape:
+```
+Agent({
+  subagent_type: "sap-executor",
+  model: "opus",
+  description: "ECC DDIC helper — <TYPE> <NAME>",
+  prompt: "<ecc-helper prompt per dispatch-prompts.md § Step 4-ECC>",
+  mode: "dontAsk"
+})
+```
+
+## Step 7 — Completion Report (one `sap-writer` dispatch, Haiku)
+
+Pure formatting from the executor's structured return. Writer localizes to the user's current conversation language. For ECC fallback, uses the MANDATORY verbatim format (do NOT rephrase the ⚠ header + 3-step SE38/SE11 checklist).
+
+Emit phase banner:
+```
+▶ phase=7 (report) · agent=sap-writer · model=Haiku 4.5
+```
+
+Dispatch shape:
+```
+Agent({
+  subagent_type: "sap-writer",
+  description: "Create-object completion report",
+  prompt: "<report prompt per dispatch-prompts.md § Step 7>",
+  mode: "dontAsk"
+})
+```
+
+## Safety Rails
+
+- ECC DDIC: NEVER call `CreateTable` / `CreateDataElement` / `CreateDomain` when `SAP_VERSION = ECC` — enforced in the Step 4-ECC executor prompt.
+- Field typing: NEVER emit `LIFNR CHAR 10` / `MATNR CHAR 40` / `BUKRS CHAR 4` or any other raw-primitive declaration where an authoritative SAP Data Element exists — enforced by `common/field-typing-rule.md`.
+- FM signature: NEVER emit the placeholder `" You can use the template 'functionModuleParameter' ..."` line, never use `*"*"Local Interface:` blocks as a substitute — enforced by `common/function-module-rule.md`.
+- Naming: validated by main before dispatch (Step 2); executor performs a second-pass check and refuses on violation.

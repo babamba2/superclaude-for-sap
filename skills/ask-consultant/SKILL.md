@@ -2,6 +2,7 @@
 name: sc4sap:ask-consultant
 description: Direct operational Q&A with a SAP module consultant agent. Auto-routes the question to the matching sap-{module}-consultant and answers against the configured SAP environment (version, industry, country, active modules).
 level: 2
+model: haiku
 ---
 
 # SC4SAP Ask Consultant
@@ -15,6 +16,10 @@ Single entrypoint for asking a SAP module consultant agent an operational questi
 <Response_Prefix>
 Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
 </Response_Prefix>
+
+<Phase_Banner>
+Multi-phase skill. Before each `Agent(...)` dispatch (including every parallel consultant spawn and the optional synthesis pass), emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+</Phase_Banner>
 
 <Use_When>
 - User says "ask consultant", "ask {module}", "consultant", "SD 컨설턴트", "MM 컨설턴트", "물어봐", "자문", "consult", etc.
@@ -67,12 +72,55 @@ Supported consultants (15 total):
 </Module_Routing>
 
 <Workflow_Steps>
-1. **Trust bootstrap** (§ `<Session_Trust_Bootstrap>`).
-2. **Environment load** — read `config.json` + `sap.env`; surface resolved values to the user on the FIRST turn only (one line: `SAP: <version> · <industry> · <country> · active: <modules>`).
-3. **Module routing** — apply § `<Module_Routing>`. If ambiguous, ask one question and stop.
-4. **Dispatch** — `Agent(subagent_type="sc4sap:sap-{module}-consultant", model="opus", mode="dontAsk", prompt=<user question + environment context + expected format>)`. For multi-module, dispatch in parallel in a single message.
-5. **Aggregate** — if multiple consultants replied, combine into one coherent answer; note any disagreements between modules and flag them.
-6. **Return** — present the answer to the user. Offer follow-up paths: `/sc4sap:create-program` (if the answer leads to a new build), `/sc4sap:program-to-spec` (if user wants the existing asset documented), `/sc4sap:analyze-code` (if quality review needed).
+Per-step model allocation (skill frontmatter pins the main thread to Haiku; Agent dispatches carry their own model):
+
+1. **Trust bootstrap** — § `<Session_Trust_Bootstrap>`. (Haiku · skill-to-skill)
+2. **Environment load** — read `config.json` + `sap.env`; surface resolved values on the FIRST turn only (one line: `SAP: <version> · <industry> · <country> · active: <modules>`). (Haiku · main thread)
+3. **Module routing** — apply § `<Module_Routing>`. If ambiguous, ask one question and stop. (Haiku · main thread)
+4. **Consultant dispatch** — one `Agent(...)` per resolved module (parallel in a single message when 2–3 modules match).
+   Emit phase banner per dispatch:
+   ```
+   ▶ phase=4 (consultant-<MODULE>) · agent=sap-<module>-consultant · model=Opus 4.7
+   ```
+   Dispatch shape:
+   ```
+   Agent({
+     subagent_type: "sap-<module>-consultant",   // frontmatter already pins claude-opus-4-7
+     description: "<MODULE> consultation — <topic>",
+     prompt: <user question + environment context + expected format>,
+     mode: "dontAsk"
+   })
+   ```
+5. **Synthesis (conditional — only when ≥ 2 consultants replied)** — dispatch `sap-writer` with `model: "sonnet"` override. Writer's base model is Haiku (pure formatting); Sonnet override gives the light cross-domain reasoning needed to detect agreement / disagreement between consultant answers without jumping to Opus.
+   Emit banner:
+   ```
+   ▶ phase=5 (synthesis) · agent=sap-writer · model=Sonnet 4.6
+   ```
+   Dispatch shape:
+   ```
+   Agent({
+     subagent_type: "sap-writer",
+     model: "sonnet",   // override base Haiku — synthesis needs light reasoning
+     description: "Cross-module synthesis — <modules>",
+     prompt: """
+       Synthesize the following consultant answers for the user question.
+       Identify shared points, flag disagreements (with a one-line "WHY they differ" note),
+       and produce a cross-module summary. Do NOT re-answer the question — only compose
+       from the supplied consultant outputs.
+
+       User question: <question>
+       Environment: <sapVersion> · <industry> · <country> · modules: <list>
+
+       Consultant answers:
+       <MODULE_A>: <answer_a>
+       <MODULE_B>: <answer_b>
+       [...]
+     """,
+     mode: "dontAsk"
+   })
+   ```
+   On single-consultant case: SKIP Step 5 entirely — main thread (Haiku) just forwards the consultant's answer to Step 6.
+6. **Return & follow-up** — present the final answer (single-consultant: verbatim; multi-consultant: synthesis output as the body + per-module subsections). Offer follow-up paths: `/sc4sap:create-program` (if the answer leads to a new build), `/sc4sap:program-to-spec` (if user wants the existing asset documented), `/sc4sap:analyze-code` (if quality review needed). (Haiku · main thread)
 
 **No writes**: this skill never calls `Create*` / `Update*` / `Delete*` / `Activate*` / `CreateTransport`. If the consultant's answer suggests a change, the user must run a separate creation / modification skill.
 
@@ -97,7 +145,11 @@ Return the consultant's answer verbatim, prefixed with the consultant identity a
 - /sc4sap:analyze-code — to review existing code
 ```
 
-For multi-module dispatches, the `🧭 Consultant` line lists all names and the body has one subsection per consultant, followed by a `🔗 Cross-module notes` subsection synthesizing the answer.
+For multi-module dispatches, the `🧭 Consultant` line lists all names, the body leads with the sap-writer synthesis (Sonnet) — shared points, disagreements, cross-module summary — followed by one verbatim subsection per consultant.
+
+Dispatch-summary examples in the prefix:
+- Single consultant: `[Model: Haiku 4.5 · Dispatched: Opus×1 (sap-mm-consultant)]`
+- Multi-consultant: `[Model: Haiku 4.5 · Dispatched: Opus×2 (sap-mm-consultant, sap-fi-consultant), Sonnet×1 (sap-writer synthesis)]`
 </Output_Format>
 
 <Related_Skills>

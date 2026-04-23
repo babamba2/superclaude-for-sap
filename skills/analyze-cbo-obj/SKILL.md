@@ -2,6 +2,7 @@
 name: sc4sap:analyze-cbo-obj
 description: Analyze a CBO (Customer Business Object) package — discover frequently-used Z tables / function modules / data elements / classes / structures / table types — and save a per-module / per-package reference file so later `program` / `program-to-spec` runs prefer existing CBO elements over new ones.
 level: 2
+model: sonnet
 ---
 
 # SC4SAP Analyze CBO Objects
@@ -15,6 +16,10 @@ Projects accumulate Z tables, Z data elements, Z function modules, and ZCL_ clas
 <Response_Prefix>
 Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
 </Response_Prefix>
+
+<Phase_Banner>
+Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+</Phase_Banner>
 
 <Use_When>
 - Starting development on a module that already has a sizeable Z-package
@@ -43,16 +48,15 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Session_Trust_Bootstrap>
 
 <Workflow_Steps>
-The 8-step workflow (Step 1 → Step 8) lives in a companion file to keep this skill doc short.
+Orchestration is **3 main-thread Socratic steps (Haiku) + one delegated dispatch to `sap-stocker` (Sonnet) + a branching hand-off**. Detailed spec lives in [`workflow-steps.md`](./workflow-steps.md).
 
-**MUST read [`workflow-steps.md`](./workflow-steps.md)** (in this skill folder) and execute the steps defined there in order whenever this skill runs. Highlights:
-- Step 1 / 1.5 / 2 — Socratic questions: package name → flagship programs (optional) → module.
-- Step 3 / 4 — Walk package (TABL/STRU/TTYP/DTEL/DOMA/VIEW/CLAS/INTF/FUGR/PROG) and build the `GetWhereUsed` graph; objects used by flagship programs receive a `key_boost = len(used_by_key_programs) * 10` so they always rank as "frequently used".
-- Step 5 — Infer business purpose from DDIC metadata (role: header / line / log / mapping / classification / config / util / service / event / dto).
-- **Step 5b — Cross-module gap analysis**: read `SAP_ACTIVE_MODULES` from `sap.env` / `config.json`, then for each CBO flag **expected-but-missing** integration fields per the matrix in [`../../common/active-modules.md`](../../common/active-modules.md). Example: MM CBO in a landscape with PS active but no `PS_POSID` / `PROJ_POSID_INT` / `AUFNR` fields found → record under `inventory.json → crossModuleGaps[]` as a potential integration gap.
-- Step 6 — Persist `.sc4sap/cbo/<MODULE>/<PACKAGE>/{index.md, inventory.json}` with **pinned (flagship-referenced) objects sorted to the top**; see the JSON schema example inside `workflow-steps.md`.
-- Step 7 — Sensitive-name flagging against `exceptions/custom-patterns.md`; never call `GetTableContents` / `GetSqlQuery`.
-- Step 8 — Hand-off summary for downstream skills.
+- **Step 1 / 1.5 / 2 (main thread · Haiku)** — Socratic intake: package name → flagship programs (optional `<KEY_PROGRAMS>`) → module. Frontmatter `model: haiku` pins the main thread to Haiku 4.5 for cost-efficient Q&A — no domain judgment required for intake.
+- **Step 3–7 (delegated · Sonnet 4.6)** — One `Agent(...)` dispatch to `sap-stocker`. The stocker runs its own Investigation_Protocol: walk → `GetWhereUsed` graph → pin/frequency tiering → business-purpose inference → cross-module gap analysis (per [`../../common/active-modules.md`](../../common/active-modules.md)) → sensitive-name flagging → persist `index.md` + `inventory.json` → return a `Logic-heavy: <bool>` flag. Authoritative spec: [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md) § Investigation_Protocol + § Output_Format.
+- **Step 8 (branching)**:
+  - **Branch A** (`Logic-heavy: false`, DDIC-dominant) — canned summary printed by main thread (Haiku). No agent dispatch.
+  - **Branch B** (`Logic-heavy: true`, FM/CLAS/INTF/large-PROG in inventory) — dispatch `sap-writer` (Haiku 4.5) for a reader-facing briefing: pinned highlights · business-logic assets · cross-module gaps · sensitive objects · next-step hint. Writer BLOCKED → fallback to Branch A.
+
+Main thread NEVER calls `GetPackageContents` / `GetWhereUsed` itself for the inventory pass — that context stays inside the stocker so the orchestrator window remains small even for large packages (200+ objects).
 </Workflow_Steps>
 
 <Output_Files>
