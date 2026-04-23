@@ -1,8 +1,8 @@
 # Analysis Dimensions
 
-**MANDATORY**: Before analyzing, load the authoritative SC4SAP rule set from `common/` — these rules are the single source of truth for what the sap-code-reviewer agent enforces.
+**Rule loading is owned by the `sap-code-reviewer` agent**, not the main thread. When dispatched by `analyze-code` (see `workflow.md` Step 2), the reviewer reads the files below itself and evaluates the 14 dimensions against them. The main skill orchestrator never needs to preload them — keeping the orchestrator context light.
 
-## Rule Files (Load Before Scoring)
+## Rule Files (loaded by the reviewer agent)
 
 | Rule File | Scope |
 |-----------|-------|
@@ -17,8 +17,6 @@
 | `common/data-extraction-policy.md` | Sensitive table extraction policy (PII, credentials, HR, financial) |
 
 Also reference `configs/common/naming-conventions.md` as the module-aware naming extension.
-
-**Load these files** (via Read) and pass them to the sap-code-reviewer agent as rule context before scoring findings.
 
 ---
 

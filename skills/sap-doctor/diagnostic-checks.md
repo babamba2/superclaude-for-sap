@@ -17,6 +17,12 @@ Run all checks in order. Report PASS / FAIL / WARN for each.
 - [ ] At least one MCP tool (`GetSession`) responds without error
 - [ ] **Vendor launcher exists** at `<cache>/vendor/abap-mcp-adt/dist/server/launcher.js`
       (missing launcher = MCP shows green but tool calls fail)
+- [ ] **Vendor pin matches expected SHA**: run `node "<plugin>/scripts/build-mcp-server.mjs" --check`
+      and interpret its exit code:
+      - **exit 0** + stdout "pinned to <SHA> ✓" → PASS
+      - **exit 0** + stderr "pin cannot be verified" (`.git` stripped during packaging) → WARN — note that vendor cryptographic verification is unavailable for this cache install; suggest `/sc4sap:setup mcp` after the next sc4sap update to replace cache vendor with a verifiable clone
+      - **exit 1** → FAIL — vendor not installed; advise `node scripts/build-mcp-server.mjs`
+      - **exit 2** → FAIL — pin drift (current HEAD ≠ pinned SHA); advise `node scripts/build-mcp-server.mjs --update`
 - [ ] **No plugin version drift**: cache `.claude-plugin/plugin.json` version matches
       marketplace `.claude-plugin/plugin.json` version. If mismatch, advise user to run
       `/reload-plugins` or restart Claude Code. The bridge also prints a warning to

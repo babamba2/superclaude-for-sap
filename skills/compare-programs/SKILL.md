@@ -2,6 +2,7 @@
 name: sc4sap:compare-programs
 description: Business-angle comparison of 2–5 ABAP programs that share the same business scenario but diverge by module (MM vs CO), country (KR vs EU), persona (controller vs warehouse), or time horizon. Reader = functional consultant.
 level: 2
+model: sonnet
 ---
 
 # SC4SAP Compare Programs
@@ -20,6 +21,10 @@ This skill crystallizes **why each variant exists** so a consultant can:
 <Response_Prefix>
 Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
 </Response_Prefix>
+
+<Phase_Banner>
+Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+</Phase_Banner>
 
 <Use_When>
 - User says "compare programs", "what's the difference between A and B", "MM vs CO version", "country-specific programs", or equivalent in the user's language
@@ -53,15 +58,19 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 | Companion | Scope |
 |-----------|-------|
 | [`comparison-scope.md`](comparison-scope.md) | 10 business comparison dimensions + default scope + scope-selection prompt template |
-| [`workflow.md`](workflow.md) | 6-step execution flow (Input → Scope → Read → Analyze → Render → Follow-up) |
+| [`workflow.md`](workflow.md) | 6-step execution flow (Input → Scope → Facts × N → Analyze → Render → Follow-up) |
+| [`dispatch-prompts.md`](dispatch-prompts.md) | Full `Agent(...)` prompt bodies for Steps 3, 4, 4b, 5 (kept out of workflow.md to honor the 200-line cap) |
 | [`report-template.md`](report-template.md) | Markdown report skeleton (Executive Summary → Matrix → Per-program detail → Recommendation) |
 </Companion_Files>
 
 <Agent_Composition>
-- **Main**: `sap-analyst` — owns the business narrative, writes the Executive Summary and Recommendation sections, reader = consultant.
-- **Module specialists (conditional)**: if programs clearly belong to a single module or pair (MM, CO, SD, FI, …), delegate dimension-specific passes to the matching `sap-{module}-consultant` agent(s) — e.g. an MM-vs-CO comparison pulls both `sap-mm-consultant` and `sap-co-consultant`. The main `sap-analyst` synthesizes.
-- **Code structure pass**: `sap-code-reviewer` is used ONLY to extract structural facts (selection-screen fields, main DB tables, authorization objects, ALV columns) — NOT to score quality. Quality review is out of scope for this skill.
-- **Rendering**: `sap-writer` renders the final Markdown using `report-template.md`.
+Per-step model allocation. Skill frontmatter pins the main thread to Haiku; each `Agent(...)` carries its own model (frontmatter or explicit override).
+
+- **Main orchestrator (Haiku 4.5)** — Steps 1, 2, 6: intake, scope confirmation, follow-up menu. Holds NO source code / AST / screens in its own context; all MCP-heavy work runs inside agents.
+- **Facts extraction (`sap-code-reviewer` × N, Sonnet 4.6 via `model: "sonnet"` override)** — Step 3 (absorbs the old "Read Phase"). Each reviewer reads ONE program itself (`GetProgFullCode` / `GetAbapAST` / screens / GUI status / text elements / where-used) and returns structural facts only — no quality scoring. Sonnet is sufficient because this pass is rule-based extraction, not novel code generation; matches the base tier of `common/model-routing-rule.md` § Tier 1.
+- **Analysis + narrative (`sap-analyst` × 1, Opus 4.7)** — Step 4: a SINGLE dispatch covering module classification + dimension scoring + executive summary + recommendation. Keeps the analyst's context continuous across reasoning layers instead of fragmenting into 4 chained calls.
+- **Module specialists (conditional, `sap-{module}-consultant` × K, Opus 4.7)** — Step 4b: when programs span 2+ modules (MM+CO, SD+FI, etc.), each distinct module gets a consultant dispatch to explain "what would a {module} user use this for". The analyst's scoring consumes these in its narrative.
+- **Rendering (`sap-writer` × 1, Haiku 4.5)** — Step 5: renders the final Markdown using `report-template.md`. Pure formatting from structured state.
 
 All Agent dispatches pass `mode: "dontAsk"` (trust-session already granted in Step 0).
 </Agent_Composition>

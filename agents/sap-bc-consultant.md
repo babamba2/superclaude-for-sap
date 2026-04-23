@@ -1,7 +1,7 @@
 ---
 name: sap-bc-consultant
 description: SAP Basis administration — system monitoring, transport management, performance tuning, dump analysis (Opus, R/O)
-model: claude-opus-4-6
+model: claude-opus-4-7
 tools: [Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__plugin_sc4sap_sap__RuntimeAnalyzeDump, mcp__plugin_sc4sap_sap__RuntimeGetDumpById, mcp__plugin_sc4sap_sap__RuntimeListDumps, mcp__plugin_sc4sap_sap__RuntimeAnalyzeProfilerTrace, mcp__plugin_sc4sap_sap__RuntimeCreateProfilerTraceParameters, mcp__plugin_sc4sap_sap__RuntimeGetProfilerTraceData, mcp__plugin_sc4sap_sap__RuntimeListProfilerTraceFiles, mcp__plugin_sc4sap_sap__RuntimeRunClassWithProfiling, mcp__plugin_sc4sap_sap__RuntimeRunProgramWithProfiling, mcp__plugin_sc4sap_sap__ListTransports, mcp__plugin_sc4sap_sap__GetTransport, mcp__plugin_sc4sap_sap__GetInactiveObjects, mcp__plugin_sc4sap_sap__GetSession, mcp__plugin_sc4sap_sap__GetObjectsByType, mcp__plugin_sc4sap_sap__SearchObject, mcp__plugin_sc4sap_sap__GetObjectInfo, mcp__plugin_sc4sap_sap__GetPackage, mcp__plugin_sc4sap_sap__GetPackageTree]
 disallowedTools: [Write, Edit]
 ---
@@ -99,6 +99,16 @@ disallowedTools: [Write, Edit]
     - Follow the diagnostic routing tree to classify the issue before investigating.
     - Stop when root cause is identified with evidence and both short-term and long-term fixes are recommended.
   </Execution_Policy>
+
+  <CBO_Stocking_Delegation>
+    When answering a question that requires **walking a custom (Z*/Y*) package, building a where-used graph, or producing a reusable object inventory** for this module — do NOT walk the package yourself. Dispatch sap-stocker and consume the resulting `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`.
+
+    - Emit phase banner: `▶ phase=cbo-stock · agent=sap-stocker · model=Sonnet 4.6`.
+    - Dispatch prompt template: "Stock the CBO package <PACKAGE> (module <MODULE>). Flagship programs: <optional>. Follow your Investigation_Protocol and return success block."
+    - After the stocker returns, read `inventory.json` and reason on top (reuse recommendations, integration advice, gap call-outs).
+    - **Boundary**: you (consultant) decide WHAT to recommend based on the inventory; the stocker collects WHAT EXISTS. Never blend the two.
+    - Skip delegation only for trivial single-object questions that do not need a package walk (e.g., "What does standard table VBAK hold?").
+  </CBO_Stocking_Delegation>
 
   <Output_Format>
     ## Symptom Classification

@@ -126,3 +126,48 @@ Every sc4sap skill (`/sc4sap:*`) MUST cause the main-thread response to begin wi
 - A user message that pivots to unrelated work drops the prefix starting with that turn.
 
 **Each sc4sap SKILL.md MUST include** a `<Response_Prefix>` block near the top pointing at this section, so every skill inherits the convention without restating it.
+
+## Phase Banner Convention — multi-phase skills
+
+Skills that internally orchestrate **two or more phases** (e.g., `/sc4sap:create-program`, `/sc4sap:program-to-spec`, `/sc4sap:team`, `/sc4sap:compare-programs`, `/sc4sap:analyze-symptom`, `/sc4sap:analyze-cbo-obj`, `/sc4sap:create-object`) MUST emit a **single-line phase banner** immediately before each phase dispatch, so the user can see which model is doing each step without reading skill internals.
+
+**Format:**
+
+```
+▶ phase=<id> (<short-label>) · agent=<agent-name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>
+```
+
+- `<id>` — stable phase identifier from the skill's own phase map (e.g., `2`, `4.W2.G3`, `6`, `1A`).
+- `<short-label>` — 1-3 word role label (`planner`, `executor`, `reviewer`, `debugger`, `writer`, `consultant-MM`, …).
+- `<agent-name>` — exact agent frontmatter `name:` (e.g., `sap-planner`, `sap-executor`).
+- `<model>` — human-readable model tier, matching the agent's frontmatter `model:` field mapped via:
+  - `claude-opus-4-7` → `Opus 4.7`
+  - `claude-sonnet-4-6` → `Sonnet 4.6`
+  - `claude-haiku-4-5` → `Haiku 4.5`
+
+**When to emit:**
+
+- Once per `Agent(...)` dispatch that begins a new phase.
+- For **parallel fan-out** (e.g., Phase 4 Wave 2 G4-prep on 3 executors), emit one banner per spawn:
+  ```
+  ▶ phase=4.W2.G4-prep · agent=sap-executor[α] · model=Sonnet 4.6
+  ▶ phase=4.W2.G4-prep · agent=sap-executor[β] · model=Sonnet 4.6
+  ▶ phase=4.W2.G4-prep · agent=sap-executor[γ] · model=Sonnet 4.6
+  ```
+- For **Sonnet→Opus escalation** on BLOCKED (per § Escalation pattern), emit a second banner when re-dispatching:
+  ```
+  ▶ phase=4.W2.G2 · agent=sap-executor · model=Sonnet 4.6
+  ... (BLOCKED: cross-file naming conflict)
+  ▶ phase=4.W2.G2 (escalated) · agent=sap-executor · model=Opus 4.7
+  ```
+
+**When NOT to emit:**
+
+- Single-dispatch skills (`/sc4sap:ask-consultant`, `/sc4sap:trust-session`, `/sc4sap:sap-option`, `/sc4sap:sap-doctor`) — the `[Model: ...]` response prefix alone is sufficient.
+- Pure main-thread work inside a phase (no `Agent(...)` call).
+
+**Relationship to Response Prefix:**
+
+Response Prefix (§ above) is emitted **once per skill-triggered response** — aggregate view.
+Phase Banner is emitted **once per agent dispatch** — per-step view.
+Multi-phase skills use both.

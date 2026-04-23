@@ -65,6 +65,7 @@ Enforcement: L1 agent instructions → L2 this file → L3 `PreToolUse` hook (`s
 
 ### Agents
 - Core: `sap-analyst`, `sap-architect`, `sap-code-reviewer`, `sap-critic`, `sap-debugger`, `sap-doc-specialist`, `sap-executor`, `sap-planner`, `sap-qa-tester`, `sap-writer`
+- Discovery: `sap-stocker` — CBO inventory / where-used graph / reusable object cataloging (Sonnet, R/O SAP + R/W on `.sc4sap/cbo/`). Consumed by `/sc4sap:analyze-cbo-obj`, `/sc4sap:create-program` (CBO reuse gate), and module consultants via their `<CBO_Stocking_Delegation>` block.
 - Basis: `sap-bc-consultant`
 - Module consultants: `sap-sd-`, `sap-mm-`, `sap-pp-`, `sap-pm-`, `sap-qm-`, `sap-wm-`, `sap-tm-`, `sap-tr-`, `sap-fi-`, `sap-co-`, `sap-hcm-`, `sap-bw-`, `sap-ps-`, `sap-ariba-consultant`
 

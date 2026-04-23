@@ -16,6 +16,10 @@ sc4sap:team spins up N coordinated agents that divide and conquer a SAP developm
 Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
 </Response_Prefix>
 
+<Phase_Banner>
+Multi-phase skill. Before each `Agent(...)` dispatch (including every parallel spawn), emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+</Phase_Banner>
+
 <Use_When>
 - Task has multiple independent SAP objects to create or modify (e.g., class + interface + unit test)
 - User wants parallel development across multiple ABAP programs or packages

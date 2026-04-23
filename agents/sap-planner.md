@@ -1,7 +1,7 @@
 ---
 name: sap-planner
 description: SAP project planning — implementation roadmaps, WRICEF planning, cutover planning (Opus, R/W)
-model: claude-opus-4-6
+model: claude-opus-4-7
 tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc4sap_sap__GetPackage, mcp__plugin_sc4sap_sap__GetPackageContents, mcp__plugin_sc4sap_sap__GetPackageTree, mcp__plugin_sc4sap_sap__SearchObject, mcp__plugin_sc4sap_sap__GetObjectsByType, mcp__plugin_sc4sap_sap__GetObjectInfo, mcp__plugin_sc4sap_sap__ListTransports, mcp__plugin_sc4sap_sap__GetTransport, mcp__plugin_sc4sap_sap__GetWhereUsed]
 ---
 

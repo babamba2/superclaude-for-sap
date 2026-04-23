@@ -12,14 +12,16 @@
 
 import { execFileSync } from 'node:child_process';
 import { join } from 'node:path';
-import { readCache, writeCache } from './cache.mjs';
+import { readCache, writeCache, hudCacheDir } from './cache.mjs';
 
 const TTL_MS = 30_000;
 const PROBE_TIMEOUT_MS = 3000;
 const PATTERN = /bridge[\\\/]mcp-server|abap-mcp-adt[\\\/]dist[\\\/]server[\\\/]launcher/i;
 
+// `workspaceDir` is accepted for signature compatibility but no longer used —
+// the probe result (MCP bridge alive or not) is system-wide, not workspace-specific.
 export function probeMcpState(workspaceDir) {
-  const cachePath = join(workspaceDir, '.sc4sap', '.hud-mcp-probe.json');
+  const cachePath = join(hudCacheDir(), '.hud-mcp-probe.json');
   const cached = readCache(cachePath, TTL_MS);
   if (cached && (cached.state === 'ok' || cached.state === 'error' || cached.state === 'unknown')) {
     return cached.state;

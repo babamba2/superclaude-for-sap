@@ -29,8 +29,13 @@ Top fix: Eliminate SELECT inside LOOP (line 67) — highest performance impact
 
 ## MCP Tools Used
 
-- `SearchObject` — verify object exists
-- `ReadClass` / `ReadProgram` / `ReadFunctionModule` / `ReadInterface` / `ReadView` — read source
+**Only `SearchObject` is called by the main thread (Step 1 intake verification).** Every other MCP tool below is called **by the `sap-code-reviewer` agent** inside its dispatch (Step 2), keeping the orchestrator context light.
+
+### Main thread (Haiku)
+- `SearchObject` — verify object exists during Step 1 intake
+
+### Reviewer agent (Opus 4.7, inside Step 2 dispatch)
+- `GetClass` / `GetProgram` / `GetFunctionModule` / `GetInterface` / `GetView` — read source
 - `GetProgFullCode` — full program source including includes
 - `GetAbapAST` — parse tree and structural analysis
 - `GetAbapSemanticAnalysis` — semantic and type analysis
