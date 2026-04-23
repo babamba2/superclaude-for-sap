@@ -226,11 +226,29 @@ function extractTables(toolName, toolInput) {
   return tables;
 }
 
-function matchBlocklist(name, { exact, patterns }) {
+// Return every rule a table matches (exact hit first, then each matching
+// pattern). Earlier versions returned only the first match, which let a
+// built-in `warn` pattern short-circuit a stricter user-extended `deny` —
+// the aggregate `deny > warn` decision downstream never saw the deny rule.
+// Callers decide precedence via `effectiveHitForTable`.
+function matchBlocklistAll(name, { exact, patterns }) {
   const upper = name.toUpperCase();
-  if (exact.has(upper)) return exact.get(upper);
-  for (const p of patterns) if (p.re.test(upper)) return p;
-  return null;
+  const matches = [];
+  if (exact.has(upper)) matches.push(exact.get(upper));
+  for (const p of patterns) if (p.re.test(upper)) matches.push(p);
+  return matches;
+}
+
+// Collapse all rules matching `table` into one effective hit using
+// deny > warn > first-rule precedence. Returns null when no rule matches.
+function effectiveHitForTable(table, blocklist) {
+  const matches = matchBlocklistAll(table, blocklist);
+  if (matches.length === 0) return null;
+  const deny = matches.find((m) => (m.action || 'deny') === 'deny');
+  if (deny) return { table, ...deny };
+  const warn = matches.find((m) => m.action === 'warn');
+  if (warn) return { table, ...warn };
+  return { table, ...matches[0] };
 }
 
 function readStdin() {
@@ -276,8 +294,8 @@ async function main() {
   const tables = extractTables(toolName, toolInput);
   const hits = [];
   for (const t of tables) {
-    const m = matchBlocklist(t, blocklist);
-    if (m) hits.push({ table: t, ...m });
+    const h = effectiveHitForTable(t, blocklist);
+    if (h) hits.push(h);
   }
   if (hits.length === 0) process.exit(0);
 
