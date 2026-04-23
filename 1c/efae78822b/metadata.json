@@ -5,10 +5,7 @@
   "branch": "active",
   "checkpoints_count": 1,
   "files_touched": [
-    "CLAUDE.md",
-    "skills/analyze-cbo-obj/SKILL.md",
-    "skills/create-object/SKILL.md",
-    "skills/create-program/SKILL.md"
+    "CLAUDE.md"
   ],
   "sessions": [
     {
