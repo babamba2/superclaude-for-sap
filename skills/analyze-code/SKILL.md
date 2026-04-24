@@ -9,6 +9,7 @@ model: sonnet
 
 Reviews an ABAP object by delegating the heavy work (source read, structural/semantic/where-used analysis, 14-dimension rule matching) to `sap-code-reviewer` (Opus 4.7). The main thread only handles Socratic intake, report formatting, and the follow-up action menu — all on Haiku for cost efficiency.
 
+
 <Purpose>
 sc4sap:analyze-code provides a comprehensive, severity-rated ABAP code review backed by the AST, semantic analysis, and where-used data that only the live SAP system can produce. The flow is deliberately thin on the main thread: the reviewer agent owns context-heavy work so the skill orchestrator stays light.
 </Purpose>

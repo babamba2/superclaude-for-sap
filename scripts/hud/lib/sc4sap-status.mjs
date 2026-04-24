@@ -7,6 +7,8 @@ import {
   resolveConfigJsonPath,
   resolveSapEnvPath,
   resolveArtifactBase,
+  resolveWorkspaceRoot,
+  readActiveAlias,
 } from '../../lib/profile-resolve.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -127,23 +129,16 @@ export function activeTransport(workspaceDir) {
   } catch { return null; }
 }
 
-// Resolve the active sc4sap profile for HUD line 2. Reads the project-local
-// pointer `<ws>/.sc4sap/active-profile.txt`, locates the user-level env file
-// at `$SC4SAP_HOME_DIR/profiles/<alias>/sap.env` (or `~/.sc4sap/profiles/...`),
-// and extracts SAP_TIER. Falls back to the legacy single-profile `sap.env` if
-// no pointer exists.
+// Resolve the active sc4sap profile for HUD line 2. Walks up from
+// `workspaceDir` (via the shared resolver) looking for the nearest
+// `.sc4sap/active-profile.txt`; locates the user-level env file at
+// `$SC4SAP_HOME_DIR/profiles/<alias>/sap.env` (or `~/.sc4sap/profiles/...`),
+// and extracts SAP_TIER. Falls back to the legacy single-profile `sap.env`
+// if no pointer exists.
 //
 // Returns { alias, tier, readonly, legacy } or null if no profile data at all.
 export function activeProfile(workspaceDir) {
-  const pointer = join(workspaceDir, '.sc4sap', 'active-profile.txt');
-  let alias = null;
-  if (existsSync(pointer)) {
-    try {
-      const raw = readFileSync(pointer, 'utf8').trim();
-      if (raw.length > 0) alias = raw;
-    } catch { /* ignore */ }
-  }
-
+  const alias = readActiveAlias(workspaceDir);
   const sc4sapHome = process.env.SC4SAP_HOME_DIR || join(homedir(), '.sc4sap');
 
   let envPath;
@@ -152,7 +147,7 @@ export function activeProfile(workspaceDir) {
     envPath = join(sc4sapHome, 'profiles', alias, 'sap.env');
     legacy = false;
   } else {
-    envPath = join(workspaceDir, '.sc4sap', 'sap.env');
+    envPath = join(resolveWorkspaceRoot(workspaceDir), '.sc4sap', 'sap.env');
     legacy = true;
   }
 

@@ -1,0 +1,112 @@
+name: Rebundle keyring
+
+# Recreate runtime-deps/keyring/ + integrity.json entirely on GitHub Actions so
+# the maintainer does not need npm access on their local machine. Trigger via
+# Actions → Rebundle keyring → "Run workflow" in the GitHub UI.
+#
+# Motivation: the dev network blocks npm. Any bundle update (version bump,
+# bug fix, fresh .node binaries) must run npm install on an npm-capable host.
+# CI is npm-capable by default — delegate the install step there.
+
+on:
+  workflow_dispatch:
+    inputs:
+      keyring_version:
+        description: '@napi-rs/keyring version to install (leave empty to keep current)'
+        required: false
+        default: ''
+      commit_note:
+        description: 'Optional note appended to the rebundle commit body'
+        required: false
+        default: ''
+
+permissions:
+  contents: write
+
+# Serialize rebundle runs; queue rather than cancel so an in-flight bundle
+# push is never interrupted by a second trigger.
+concurrency:
+  group: rebundle
+  cancel-in-progress: false
+
+jobs:
+  rebundle:
+    name: rebundle · refresh-integrity · verify · commit
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout active
+        uses: actions/checkout@v4
+        with:
+          ref: active
+          fetch-depth: 0
+          # Use a token that can push back to the branch. The default
+          # GITHUB_TOKEN is fine for same-repo pushes once
+          # permissions.contents: write is set (above).
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # Hermetic install — no postinstall scripts from any dep. Matches
+      # scripts/build-mcp-server.mjs convention.
+      - name: Install base dependencies
+        run: npm ci --ignore-scripts
+
+      - name: Bump @napi-rs/keyring (optional)
+        if: inputs.keyring_version != ''
+        run: npm install --save-exact --ignore-scripts "@napi-rs/keyring@${{ inputs.keyring_version }}"
+
+      # Each platform-native package declares an os/cpu pair that does NOT
+      # match ubuntu-x64, so npm would skip them without --force. We want
+      # the .node binaries for every supported platform in node_modules/
+      # so bundle-keyring.mjs can copy them into runtime-deps/.
+      - name: Install all cross-platform native binaries
+        run: |
+          npm install --no-save --force --ignore-scripts \
+            @napi-rs/keyring-win32-x64-msvc \
+            @napi-rs/keyring-darwin-x64 \
+            @napi-rs/keyring-darwin-arm64 \
+            @napi-rs/keyring-linux-x64-gnu
+
+      - name: Rebundle into runtime-deps/
+        run: node scripts/bundle-keyring.mjs
+
+      - name: Regenerate integrity.json
+        run: node scripts/bundle-keyring.mjs --refresh-integrity
+
+      - name: Verify (offline SHA-256)
+        run: node scripts/bundle-keyring.mjs --verify
+
+      - name: Check (platform completeness)
+        run: node scripts/bundle-keyring.mjs --check
+
+      - name: Resolve bundled version
+        id: ver
+        run: |
+          ver=$(node -p "require('./package-lock.json').packages['node_modules/@napi-rs/keyring'].version")
+          echo "version=${ver}" >> "$GITHUB_OUTPUT"
+
+      - name: Commit + push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add runtime-deps/ package.json package-lock.json
+          if git diff --cached --quiet; then
+            echo "[rebundle] No bundle drift — nothing to commit."
+            exit 0
+          fi
+          # [skip ci] prevents ci.yml from re-running on this auto-push;
+          # the rebundle itself already ran --verify + --check.
+          note="${{ inputs.commit_note }}"
+          subject="chore(bundle): rebundle @napi-rs/keyring@${{ steps.ver.outputs.version }} via CI [skip ci]"
+          if [ -n "$note" ]; then
+            printf '%s\n\n%s\n' "$subject" "$note" | git commit -F -
+          else
+            git commit -m "$subject"
+          fi
+          git push origin active
+          echo "[rebundle] Pushed new bundle for @napi-rs/keyring@${{ steps.ver.outputs.version }}."

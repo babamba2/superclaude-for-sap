@@ -12,6 +12,7 @@ Session-scoped permission auto-approval. When a long-running parent skill enters
 
 **⚠️ This skill is NOT user-facing.** It exists only as a sub-routine of other skills. Direct `/sc4sap:trust-session` invocation by the user is rejected — see `<Standalone_Invocation_Refusal>` below.
 
+
 <Purpose>
 Eliminate permission prompts for automated SAP pipelines by writing a wildcard allowlist to `.claude/settings.local.json` at session start, and by enforcing `mode: "dontAsk"` on every downstream `Agent` dispatch. Must ride on the authority of a parent skill so the user's permission grant is contextual, not blanket.
 </Purpose>

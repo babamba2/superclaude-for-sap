@@ -15,7 +15,7 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 
 export function sc4sapHome() {
   return process.env.SC4SAP_HOME_DIR || join(homedir(), '.sc4sap');
@@ -25,10 +25,58 @@ export function profilesDir() {
   return join(sc4sapHome(), 'profiles');
 }
 
-// Returns the active alias (reading <workspace>/.sc4sap/active-profile.txt),
-// or null when the pointer is missing / empty / unreadable.
-export function readActiveAlias(workspaceDir) {
-  const pointer = join(workspaceDir, '.sc4sap', 'active-profile.txt');
+// Walk up from `startDir` looking for the effective `.sc4sap/` directory.
+// Users often launch Claude Code from a subdirectory of their workspace
+// (e.g., the plugin dev repo inside a larger project), so resolving profile
+// state only at the exact cwd diverges from the MCP server's walk-up
+// behaviour and leaves the HUD showing "SAP not configured" while the MCP
+// connection is alive.
+//
+// Nested-.sc4sap handling: a subdirectory may contain its own `.sc4sap/`
+// holding only artifact folders (e.g. `comparisons/`, `test-reports/`) while
+// the real profile state (active-profile.txt, sap.env, config.json) lives
+// at a higher ancestor. Prefer the first `.sc4sap/` on the chain that
+// actually contains profile state; fall back to the first `.sc4sap/` seen
+// when no ancestor has state. Returns null only when no `.sc4sap/` exists
+// anywhere on the chain. Depth-limited as a paranoia guard.
+function hasProfileState(dotSc4sapDir) {
+  return (
+    existsSync(join(dotSc4sapDir, 'active-profile.txt')) ||
+    existsSync(join(dotSc4sapDir, 'sap.env')) ||
+    existsSync(join(dotSc4sapDir, 'config.json'))
+  );
+}
+
+function findDotSc4sapDir(startDir) {
+  let cur = startDir;
+  let firstHit = null;
+  for (let i = 0; i < 64; i++) {
+    const candidate = join(cur, '.sc4sap');
+    if (existsSync(candidate)) {
+      if (hasProfileState(candidate)) return candidate;
+      if (!firstHit) firstHit = candidate;
+    }
+    const parent = dirname(cur);
+    if (!parent || parent === cur) break;
+    cur = parent;
+  }
+  return firstHit;
+}
+
+// The directory that *contains* the effective `.sc4sap/` — i.e., the
+// workspace root as the plugin sees it. Falls back to `startDir` when no
+// `.sc4sap/` exists anywhere on the ancestry chain.
+export function resolveWorkspaceRoot(startDir) {
+  const hit = findDotSc4sapDir(startDir);
+  return hit ? dirname(hit) : startDir;
+}
+
+// Returns the active alias (reading the nearest ancestor's
+// .sc4sap/active-profile.txt), or null when the pointer is missing /
+// empty / unreadable.
+export function readActiveAlias(startDir) {
+  const root = resolveWorkspaceRoot(startDir);
+  const pointer = join(root, '.sc4sap', 'active-profile.txt');
   if (!existsSync(pointer)) return null;
   try {
     const raw = readFileSync(pointer, 'utf8').trim();
@@ -39,37 +87,40 @@ export function readActiveAlias(workspaceDir) {
 }
 
 // Returns { path, source: 'profile' | 'legacy' } or null.
-export function resolveSapEnvPath(workspaceDir) {
-  const alias = readActiveAlias(workspaceDir);
+export function resolveSapEnvPath(startDir) {
+  const alias = readActiveAlias(startDir);
   if (alias) {
     const p = join(profilesDir(), alias, 'sap.env');
     if (existsSync(p)) return { path: p, source: 'profile', alias };
   }
-  const legacy = join(workspaceDir, '.sc4sap', 'sap.env');
+  const root = resolveWorkspaceRoot(startDir);
+  const legacy = join(root, '.sc4sap', 'sap.env');
   if (existsSync(legacy)) return { path: legacy, source: 'legacy', alias: null };
   return null;
 }
 
 // Returns { path, source: 'profile' | 'legacy' } or null.
-export function resolveConfigJsonPath(workspaceDir) {
-  const alias = readActiveAlias(workspaceDir);
+export function resolveConfigJsonPath(startDir) {
+  const alias = readActiveAlias(startDir);
   if (alias) {
     const p = join(profilesDir(), alias, 'config.json');
     if (existsSync(p)) return { path: p, source: 'profile', alias };
   }
-  const legacy = join(workspaceDir, '.sc4sap', 'config.json');
+  const root = resolveWorkspaceRoot(startDir);
+  const legacy = join(root, '.sc4sap', 'config.json');
   if (existsSync(legacy)) return { path: legacy, source: 'legacy', alias: null };
   return null;
 }
 
 // Returns the base directory for per-profile artifacts.
-// - Multi-profile: <workspace>/.sc4sap/work/<alias>/
-// - Legacy:        <workspace>/.sc4sap/
+// - Multi-profile: <workspace-root>/.sc4sap/work/<alias>/
+// - Legacy:        <workspace-root>/.sc4sap/
 // Always returns a string (never null) — callers may need to create it.
-export function resolveArtifactBase(workspaceDir) {
-  const alias = readActiveAlias(workspaceDir);
-  if (alias) return join(workspaceDir, '.sc4sap', 'work', alias);
-  return join(workspaceDir, '.sc4sap');
+export function resolveArtifactBase(startDir) {
+  const root = resolveWorkspaceRoot(startDir);
+  const alias = readActiveAlias(startDir);
+  if (alias) return join(root, '.sc4sap', 'work', alias);
+  return join(root, '.sc4sap');
 }
 
 // Parse a minimal KEY=VALUE dotenv file into a plain object.

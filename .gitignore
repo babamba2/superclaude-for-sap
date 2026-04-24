@@ -12,3 +12,7 @@ vendor/
 .claude/
 .cursor/
 .entire/
+
+# exception: bundled keyring for git-clone distribution
+!runtime-deps/**/node_modules/
+!runtime-deps/**/node_modules/**

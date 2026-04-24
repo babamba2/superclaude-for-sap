@@ -2,11 +2,13 @@
 name: sc4sap:deep-interview
 description: Socratic deep interview to crystallize SAP requirements before autonomous execution
 level: 2
+model: haiku
 ---
 
 # SC4SAP Deep Interview
 
 Follows OMC `deep-interview` pattern adapted for SAP. Conducts a structured Socratic interview to crystallize SAP development requirements before any code is written. Prevents wasted execution cycles on underspecified ABAP tasks.
+
 
 <Purpose>
 sc4sap:deep-interview asks targeted questions to resolve ambiguity in SAP requirements. It gates on a mathematical ambiguity threshold: only when requirements are sufficiently specified does it produce a validated spec file and offer to proceed to `/sc4sap:create-program` or `/sc4sap:create-object`.

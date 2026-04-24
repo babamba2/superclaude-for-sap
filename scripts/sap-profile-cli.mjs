@@ -48,10 +48,20 @@ import {
 import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-// Polyfill `require` for ESM so @napi-rs/keyring (CJS) loads lazily without
-// breaking pure-ESM execution paths.
+// Polyfill `require` for ESM so CJS modules load without breaking pure-ESM
+// execution paths. Used by non-keyring imports; keyring uses a dedicated
+// require anchored at runtime-deps/keyring/ — see loadKeyring below.
 globalThis.require ||= createRequire(import.meta.url);
+
+// @napi-rs/keyring lives in runtime-deps/keyring/ (committed to the repo so
+// git-clone installs work without npm install). Anchor createRequire there so
+// Node resolves `@napi-rs/keyring` from runtime-deps/keyring/node_modules/
+// rather than the plugin-root node_modules/ (which is empty for end users).
+const KEYRING_REQUIRE = createRequire(
+  join(dirname(fileURLToPath(import.meta.url)), '..', 'runtime-deps', 'keyring', 'package.json'),
+);
 
 const KEYCHAIN_SERVICE_DEFAULT = 'sc4sap';
 
@@ -118,7 +128,7 @@ function normalizeTier(v) {
 
 function loadKeyring() {
   try {
-    return require('@napi-rs/keyring').Entry;
+    return KEYRING_REQUIRE('@napi-rs/keyring').Entry;
   } catch {
     return null;
   }

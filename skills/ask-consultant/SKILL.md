@@ -9,6 +9,7 @@ model: haiku
 
 Single entrypoint for asking a SAP module consultant agent an operational question. The skill auto-selects the right consultant(s) from the question text + project config, honors the configured SAP environment, and returns a faithful answer — no code generation, no object creation, just the consultant's judgment.
 
+
 <Purpose>
 `/sc4sap:ask-consultant` is the "ask a human consultant" button inside Claude. Users hit it when they need SPRO guidance, business-process advice, configuration walkthroughs, integration touchpoints, localization rules, or BAdI / CMOD / append decisions — the kind of question normally answered by an SD / MM / FI / CO / PP / PS / PM / QM / TR / HCM / WM / TM / BW / Ariba / Basis consultant. The skill does NOT write code or change the SAP system; it reads config + consults the agent + returns the answer.
 </Purpose>

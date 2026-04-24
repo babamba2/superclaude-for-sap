@@ -2,11 +2,13 @@
 name: sc4sap:team
 description: N coordinated SAP agents on a shared task list using Claude Code native teams
 level: 3
+model: sonnet
 ---
 
 # SC4SAP Team
 
 Follows OMC `team` pattern adapted for SAP. Coordinates multiple specialized SAP agents working in parallel on a shared task list using Claude Code native team mode.
+
 
 <Purpose>
 sc4sap:team spins up N coordinated agents that divide and conquer a SAP development task. Each agent is assigned a role (sap-developer, sap-code-reviewer, sap-transport-manager, etc.) and works on its slice of the task list simultaneously, with results merged at the end.

@@ -3,6 +3,94 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.11] — 2026-04-24
+
+### Added — `runtime-deps/` bundle integrity verification (offline, Stage 3-lite v1)
+
+The keyring bundle landed in 0.6.9 had no tamper detection — any modification to a committed `.node` binary (intentional or accidental) would go unnoticed. 0.6.11 closes that gap with an offline integrity check.
+
+- `runtime-deps/keyring/integrity.json` — new manifest. Per package, records the SHA-512 `npmIntegrity` copied verbatim from `package-lock.json` (provenance) plus per-file SHA-256 hashes in `ssri` format (tamper detection). Schema version 1, 5 packages, 19 files on initial generation.
+- `scripts/bundle-keyring.mjs` — two new subcommands:
+  - `--refresh-integrity` — regenerates `integrity.json` from the current bundle + `package-lock.json`. Run after any bundle update.
+  - `--verify` — offline SHA-256 re-hash and compare against the recorded manifest. Reports missing / unexpected files and hash mismatches individually. Exit codes: `0` pass, `7` manifest missing, `8` integrity failed.
+- `docs/bundle-integrity.md` — new maintainer doc covering the workflow, `--verify` semantics, what is and is not detected, and Stage 3-lite v2 (upstream re-verification) as deferred scope.
+
+End-to-end verified: clean `--verify` passes on 19 files across 5 packages; a single-byte tamper in `runtime-deps/keyring/node_modules/@napi-rs/keyring/index.js` is detected with exact expected-vs-actual SHA-256 diff; re-bundling restores the expected state.
+
+CI hook not auto-installed — the repo has no `.github/workflows/`. `docs/bundle-integrity.md` documents pre-commit / pre-push invocation until CI is wired.
+
+### Fixed — 0.6.9 CHANGELOG misstated bundled `@napi-rs/keyring` version
+
+The 0.6.9 release note said the bundled package was `@napi-rs/keyring@1.1.0`. The actual installed and committed version per `package-lock.json` was **`1.2.0`**; the 0.6.9 bundle bytes are unchanged, only the description was wrong. `integrity.json` records the correct `1.2.0` version and registry `resolved` URL for every entry.
+
+## [0.6.10] — 2026-04-24
+
+Follow-up patch to 0.6.9. Three independent fixes + one missing implementation; no behavioural changes to the keychain bundle landed in 0.6.9.
+
+### Fixed — HUD showed "SAP not configured" when launched from a subdirectory
+
+`scripts/hud/lib/sc4sap-status.mjs` resolved the active profile only at the exact `cwd`, while the MCP server walked up the ancestry chain — so launching Claude Code from a nested dev repo (e.g. the plugin source inside a larger workspace) produced HUD line 2 "SAP not configured" even though the MCP connection, `/sc4sap:sap-doctor`, and tool calls all reported the profile live.
+
+`scripts/lib/profile-resolve.mjs` now exposes a shared `findDotSc4sapDir()` + `resolveWorkspaceRoot()`. `readActiveAlias()`, `resolveSapEnvPath()`, and `resolveConfigJsonPath()` accept a `startDir` and walk up until they find a `.sc4sap/` that contains profile state (`active-profile.txt`, `sap.env`, or `config.json`) — skipping any intermediate `.sc4sap/` that holds only artifact folders (`comparisons/`, `test-reports/`, `cbo/`). Falls back to the first `.sc4sap/` on the chain when no ancestor has state. The HUD's `activeProfile()` switched to the shared resolver; downstream `SID` / `client` / `user` fields now render correctly from any subdirectory.
+
+### Fixed — Blocklist `deny` rule short-circuited by built-in `warn` pattern
+
+`scripts/hooks/block-forbidden-tables.mjs` previously returned the first matching blocklist rule (exact-table lookup first, then the first matching pattern in iteration order). If a user extended `.sc4sap/blocklist-extend.txt` with a strict `deny` rule for a table that also matched a looser built-in `warn` pattern, the `warn` match could win the first-match race and the aggregate `deny > warn` decision downstream never saw the user's `deny`.
+
+Replaced the single-match helper with `matchBlocklistAll()` (returns every matching rule) + `effectiveHitForTable()` (collapses matches by `deny > warn > first-rule`). User overrides in `blocklist-extend.txt` now always take precedence over built-in defaults for the same table.
+
+### Added — `scripts/prune-cache.mjs` implementation (Layer 7 cache hygiene)
+
+`skills/sap-doctor/SKILL.md` advertised `/sc4sap:sap-doctor --prune` and `--prune --yes` flags since the doctor skill was introduced, but the underlying `scripts/prune-cache.mjs` implementation had never been committed — running the option hit "script not found" at runtime.
+
+Ships the missing script (227 LOC, dry-run by default, `--yes` to actually delete; `--json` for machine output). It resolves the active plugin version from the marketplace `plugin.json`, walks `~/.claude/plugins/cache/<marketplace>/sc4sap/` to list stale version directories (each typically carrying its own ~500–800 MB `vendor/abap-mcp-adt/node_modules/` subtree), reports sizes in MB, and refuses to run when the active version cannot be resolved. Never touches the marketplace directory or the active cache directory.
+
+`skills/sap-doctor/diagnostic-checks.md` gains a "Layer 7 — Cache Hygiene" section: PASS at zero stale versions, INFO when stale < 500 MB, WARN when stale ≥ 500 MB. Runs independently of Layer 2/3 connectivity so cache bloat is reported even when the SAP system is unreachable.
+
+## [0.6.9] — 2026-04-24
+
+### Fixed — Keychain storage silently degraded to plaintext on git-clone installs
+
+Claude Code plugin installation is a **git clone**, not an `npm install`. `@napi-rs/keyring` was declared in `optionalDependencies`, but since end users receive only what is committed to the repo (and `node_modules/` is gitignored), the plugin shipped with no keyring module at all. At runtime `scripts/sap-profile-cli.mjs` → `loadKeyring()` → `require('@napi-rs/keyring')` failed silently, `keychainWrite()` threw `KeychainUnavailableError`, and `cmdAdd` caught the error and wrote `SAP_PASSWORD=<plaintext>` to `sap.env` with only a stderr warning that the setup wizard never surfaced. New profiles created via `/sc4sap:sap-option` therefore stored passwords in plaintext regardless of OS keychain support.
+
+**Fix — bundle keyring under `runtime-deps/`**:
+- `runtime-deps/keyring/package.json` — `createRequire` anchor.
+- `runtime-deps/keyring/node_modules/@napi-rs/keyring/` — JS wrapper (56 KB).
+- `runtime-deps/keyring/node_modules/@napi-rs/keyring-<platform>/` — native binaries for `win32-x64-msvc`, `darwin-x64`, `darwin-arm64`, `linux-x64-gnu` (combined ~4.3 MB).
+- `scripts/bundle-keyring.mjs` — idempotent `npm install` output → `runtime-deps/` copy, with `--check` to verify all 4 platform binaries are present.
+- `scripts/sap-profile-cli.mjs` — `loadKeyring()` now uses a `KEYRING_REQUIRE` anchored at `runtime-deps/keyring/package.json` so resolution goes through the committed bundle, not the plugin-root `node_modules/` (which is empty for end users).
+- `.gitignore` — negation rule `!runtime-deps/**/node_modules/**` so the bundle is tracked despite the global `node_modules/` ignore.
+- `.gitattributes` — NEW, `runtime-deps/** -text` + `*.node binary` so native binaries and package metadata survive cross-platform checkout without CRLF normalization.
+
+**Verified end-to-end**: `git checkout-index` to a tmp location (simulates a first-time user's machine with no `node_modules/` populated) → `node scripts/sap-profile-cli.mjs version` runs → `createRequire` at the bundle anchor resolves `@napi-rs/keyring` from `runtime-deps/keyring/node_modules/@napi-rs/keyring/index.js`. Separate 2026-04-23 verification confirmed the same chain delivers HTTP 200 on SAP OData `$metadata` with a keychain-referenced password on a live SAP system.
+
+**Bundle size**: 4.4 MB committed (Linux x64 binary dominates at 3.0 MB; Windows/macOS binaries each ~450–470 KB).
+
+**Post-install behaviour**: `/sc4sap:sap-option` and the setup wizard now store new profile passwords as `SAP_PASSWORD=keychain:<service>/<alias>/<user>` and write the plaintext into the OS-native credential store (Windows Credential Manager / macOS Keychain / libsecret), matching the design documented in `scripts/sap-profile-cli.mjs` since 0.6.0. Existing plaintext profiles remain functional; they can be migrated in-place by deleting and re-adding the profile after upgrading to 0.6.9.
+
+### Deferred — Stage 3-lite bundle integrity verification
+
+Design recorded in `.sc4sap/stage3-lite-bundle-integrity.md`. Adds an `integrity.json` sidecar under `runtime-deps/<module>/` populated from `package-lock.json`'s npm SHA-512 integrity field, plus `scripts/bundle-keyring.mjs --verify` which recomputes the hash of the bundled tarball contents and fails CI on mismatch. Out of scope for 0.6.9 so the keychain fix can ship immediately; will land in a follow-up patch.
+
+## [0.6.8] — 2026-04-24
+
+### Reverted — `<Main_Thread_Dispatch>` enforcement layer (0.6.7)
+
+Reverts the enforcement layer introduced in 0.6.7. The per-skill `model:` frontmatter returns to being a **declarative hint**; no active sub-dispatch is performed.
+
+**Why**: 2026-04-23 smoke validation (`.sc4sap/test-reports/enforcement-validation-20260423.md`) confirmed a Claude Code architectural limit — sub-dispatched `general-purpose` agents do not receive the `Agent`/`Task` spawn tool and do not have the `mcp__plugin_sc4sap_sap__*` MCP tools in their deferred-tool registry. The 0.6.7 design assumed a Sonnet sub-orchestrator could fan out to phase agents (`sap-code-reviewer`, `sap-stocker`, `sap-analyst`, …); empirically it cannot. 12/14 in-scope skills were functionally broken under 0.6.7; the 2 file-only skills that happened to work did so only by falling back to local file reads rather than live MCP calls.
+
+**What reverted**:
+- `common/main-thread-dispatch.md` — deleted (0.6.7 new file).
+- `common/model-routing-rule.md` — `§ Main-Thread Dispatch Enforcement` section removed; phase banner convention restored (single-dispatch skills no longer emit `phase=0 (bootstrap)`).
+- `docs/skill-model-architecture.md` — "Enforcement layer (v0.6.7+)" note removed.
+- `skills/*/SKILL.md` × 14 — `<Main_Thread_Dispatch>` block removed from `ask-consultant`, `sap-doctor`, `sap-option`, `mcp-setup`, `setup`, `deep-interview`, `trust-session`, `create-program`, `create-object`, `team`, `analyze-cbo-obj`, `analyze-code`, `analyze-symptom`, `compare-programs`.
+
+**What kept**:
+- Frontmatter `model:` fields remain on all 14 skills (including `deep-interview: haiku` and `team: sonnet` which were added in 0.6.7) — they serve as model-routing guidance for future redesign and for documentation readers, without runtime enforcement.
+
+**Operational impact**: users whose Claude Code session is on a larger model than a skill's declared target will see the skill run at session-model cost. This matches 0.6.6 and earlier behavior.
+
 ## [0.6.5] — 2026-04-22
 
 ### Changed — Publish workflow

@@ -1,0 +1,9 @@
+{
+  "name": "sc4sap-keyring-bundle",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Bundled @napi-rs/keyring + platform-specific native binaries for end-user distribution. Populated by scripts/bundle-keyring.mjs — do not npm install here.",
+  "dependencies": {
+    "@napi-rs/keyring": "^1.1.0"
+  }
+}

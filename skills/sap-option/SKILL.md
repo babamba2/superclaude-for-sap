@@ -9,6 +9,7 @@ model: haiku
 
 Single entrypoint to **inspect live SAP state** and **edit the values stored in `.sc4sap/sap.env`** — the dotenv file that holds SAP connection credentials, TLS settings, and the `abap-mcp-adt-powerup` blocklist policy for row-extraction safety.
 
+
 <Purpose>
 `sap.env` is the single source of truth for per-user runtime configuration of the sc4sap MCP server. This skill also replaces the former `/sc4sap:hud` snapshot: before editing, it shows a compact status panel (system ID, client, user, inactive object count, active transport, blocklist profile) so the user can confirm which system they are about to change settings for.
 

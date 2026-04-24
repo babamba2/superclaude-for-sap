@@ -9,6 +9,7 @@ model: haiku
 
 Diagnoses the full SC4SAP stack: plugin installation, MCP server status, and live SAP system connectivity. Reports findings with actionable fixes for each issue found.
 
+
 <Purpose>
 sc4sap:sap-doctor runs a structured health check across three layers: the SC4SAP plugin itself, the mcp-abap-adt MCP server registration, and the live SAP system connection. It surfaces problems with clear remediation steps so you can get back to development quickly.
 </Purpose>
@@ -26,8 +27,17 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 </Use_When>
 
 <Diagnostic_Checks>
-**MANDATORY**: Run the 5-layer diagnostic checklist defined in [`diagnostic-checks.md`](diagnostic-checks.md). It covers Layer 1 (Plugin Health) → Layer 2 (MCP Server) → Layer 3 (SAP System Connection) → Layer 4 (Required ABAP Objects — gated on Layer 2 + 3 PASS) → Layer 5 (Configuration). Report PASS / FAIL / WARN per layer in the order defined there.
+**MANDATORY**: Run the diagnostic checklist defined in [`diagnostic-checks.md`](diagnostic-checks.md). It covers Layer 1 (Plugin Health) → Layer 2 (MCP Server) → Layer 3 (SAP System Connection) → Layer 4 (Required ABAP Objects — gated on Layer 2 + 3 PASS) → Layer 5 (Configuration) → Layer 6 (RFC Backend, conditional) → Layer 7 (Cache Hygiene, always runs). Report PASS / FAIL / WARN / INFO per layer in the order defined there.
 </Diagnostic_Checks>
+
+<Cache_Management>
+`/sc4sap:sap-doctor` accepts two cache flags passed via `{{ARGUMENTS}}`:
+
+- `--prune` — after running the normal diagnostic report, invoke `node "<plugin>/scripts/prune-cache.mjs"` (dry-run) and render its output directly. No files are deleted.
+- `--prune --yes` — after the normal report, invoke the script with `--yes` to actually delete every stale version directory.
+
+Always show the ACTIVE version first and explicitly exclude it from deletion. If no stale versions exist, print "Cache is clean — nothing to prune." and return. If the script exits non-zero, surface the stderr verbatim in the doctor report and do NOT swallow the failure.
+</Cache_Management>
 
 <Output_Format>
 ```
@@ -38,10 +48,12 @@ MCP Server          [PASS]  plugin:sc4sap:sap responding, bridge preflight OK
 SAP Connection      [PASS]  SID=S4H · Client=100 · User=PAEK
 Required Objects    [WARN]  9a: 3/3 · 9b: 7/7 (ZCL_S4SAP_CM_ALV inactive)
 Configuration       [PASS]
+Cache Hygiene       [WARN]  3 stale versions consuming 1.7 GB (0.5.4, 0.6.0, 0.6.1)
 
-Issues Found: 0 errors, 1 warning
+Issues Found: 0 errors, 2 warnings
 
 Fix: Activate ZCL_S4SAP_CM_ALV, or re-run /sc4sap:setup wizard step 9b
+     /sc4sap:sap-doctor --prune --yes   (reclaim 1.7 GB)
 ```
 
 Second example — connectivity failure gating Layer 4:
@@ -54,6 +66,7 @@ MCP Server          [FAIL]  plugin:sc4sap:sap not responding
 SAP Connection      [SKIP]  Cannot test without MCP server
 Required Objects    [SKIP]  SAP connection not ready
 Configuration       [WARN]  No .sc4sap/config.json found
+Cache Hygiene       [PASS]  0 stale versions
 
 Issues Found: 1 error, 1 warning
 
@@ -70,6 +83,7 @@ Fix: Run /sc4sap:mcp-setup to install and register plugin:sc4sap:sap
 - Any 9a/9b object inactive -> activate via ADT, or re-run the matching wizard step to reinstall source and activate
 - Missing config -> run `/sc4sap:setup` wizard
 - Authorization errors -> display required authorization objects (S_DEVELOP, S_TRANSPRT)
+- Stale cache ≥ 500 MB -> `/sc4sap:sap-doctor --prune` to preview, then `/sc4sap:sap-doctor --prune --yes` to delete
 - All pass -> "SC4SAP is healthy. System: {SID} Client: {client} User: {user}"
 </Remediation_Routing>
 

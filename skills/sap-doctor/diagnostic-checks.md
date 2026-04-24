@@ -69,3 +69,19 @@ Report counts at the layer level: `9a: 3/3 installed`, `9b: 7/7 installed, 7/7 a
 **Layer 6 - RFC Backend (conditional — branches on `SAP_RFC_BACKEND`)**
 
 Per-backend check lists for `soap` / `native` / `gateway` / `odata` live in **[`diagnostic-checks-rfc.md`](diagnostic-checks-rfc.md)**. Resolve `SAP_RFC_BACKEND` from `sap.env` first (default `soap`), then execute the matching sub-section from that file. Output a one-line banner stating which sub-section was executed.
+
+**Layer 7 - Cache Hygiene**
+
+Each plugin update leaves its previous `~/.claude/plugins/cache/<marketplace>/sc4sap/<version>/` directory behind — Claude Code does not auto-clean them. Because each version carries its own `vendor/abap-mcp-adt/node_modules/` (500–800 MB), stale cache grows monotonically.
+
+Run `node "<plugin>/scripts/prune-cache.mjs"` (dry-run — no side effects) and parse its output. Interpret:
+
+- **staleCount = 0** → PASS (cache clean)
+- **staleCount > 0 AND totalStaleBytes < 500 MB** → INFO — note count + size but do not escalate
+- **staleCount > 0 AND totalStaleBytes ≥ 500 MB** → WARN — list each stale version + size, surface remediation
+
+Report format: `{count} stale version(s) consuming {size} MB ({version list})`.
+
+Remediation: `node "<plugin>/scripts/prune-cache.mjs" --yes` deletes every stale directory. The script refuses to touch the active version or the marketplace directory, so it is safe to run once the user has seen the dry-run preview.
+
+Gate: Layer 7 is independent of Layer 2/3 and always runs — cache bloat is orthogonal to connectivity.

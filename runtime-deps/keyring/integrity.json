@@ -1,0 +1,56 @@
+{
+  "schema": 1,
+  "generated": "2026-04-23T23:53:59.310Z",
+  "source": "package-lock.json + runtime-deps/keyring/node_modules/",
+  "entries": {
+    "@napi-rs/keyring@1.2.0": {
+      "npmIntegrity": "sha512-d0d4Oyxm+v980PEq1ZH2PmS6cvpMIRc17eYpiU47KgW+lzxklMu6+HOEOPmxrpnF/XQZ0+Q78I2mgMhbIIo/dg==",
+      "resolved": "https://registry.npmjs.org/@napi-rs/keyring/-/keyring-1.2.0.tgz",
+      "files": {
+        "LICENSE": "sha256-ApZe1n4p+HGlP3p6+lk6DdyAIPhszOD6rxqlkhW1Jp4=",
+        "README.md": "sha256-JBIiPpceT0WaNu4yjM3JbttZjCaedQwTpfAoL42i+FI=",
+        "index.d.ts": "sha256-ME08/YQwRuCVN04Os/e/toKkNAYRVrv0ExJzeGoFJxc=",
+        "index.js": "sha256-FlSZ9HQCXbRDTq3DlCMGkGp/obkklC2Dhz2v+vFjdq4=",
+        "keytar.d.ts": "sha256-g2WzDb/OHpIEKBHpRf4xFeuqOwprtL9D29v8uRXuzGI=",
+        "keytar.js": "sha256-SJ00WdRSy2O1JaPl6o0rxWeYSD1vIbkWKEUS5I+U9TY=",
+        "package.json": "sha256-dHjLIJAHKHyiCUQTROtPLzfrVW7DdQFChHcsPZL7C+0="
+      }
+    },
+    "@napi-rs/keyring-win32-x64-msvc@1.2.0": {
+      "npmIntegrity": "sha512-xFlx/TsmqmCwNU9v+AVnEJgoEAlBYgzFF5Ihz1rMpPAt4qQWWkMd4sCyM1gMJ1A/GnRqRegDiQpwaxGUHFtFbA==",
+      "resolved": "https://registry.npmjs.org/@napi-rs/keyring-win32-x64-msvc/-/keyring-win32-x64-msvc-1.2.0.tgz",
+      "files": {
+        "README.md": "sha256-+w9XKLOqIICVAPbIKvgFtFW0KplVTQq6xYk+2Tvp3VU=",
+        "keyring.win32-x64-msvc.node": "sha256-TtLrJKgoHfGPL27SOWcw0yN7raRvnoAB15y6Z/p0Vg0=",
+        "package.json": "sha256-NX3T4gR2Q12Ydy3umySUHB1Jh/U0A6SD7/coDa5ECho="
+      }
+    },
+    "@napi-rs/keyring-darwin-x64@1.2.0": {
+      "npmIntegrity": "sha512-dBHjtKRCj4ByfnfqIKIJLo3wueQNJhLRyuxtX/rR4K/XtcS7VLlRD01XXizjpre54vpmObj63w+ZpHG+mGM8uA==",
+      "resolved": "https://registry.npmjs.org/@napi-rs/keyring-darwin-x64/-/keyring-darwin-x64-1.2.0.tgz",
+      "files": {
+        "README.md": "sha256-QAwO8dQJH5h2SmGC5jusjtw6fvNI8jDmZD25OIu31LE=",
+        "keyring.darwin-x64.node": "sha256-FoHNeYdp8Jkc1DxTGubEVAhpItHgXusz70TbVqGcM6A=",
+        "package.json": "sha256-QTJ4A8vC7DJDIcUUV1282xijFKpFeNssAhOiq6xLumw="
+      }
+    },
+    "@napi-rs/keyring-darwin-arm64@1.2.0": {
+      "npmIntegrity": "sha512-CA83rDeyONDADO25JLZsh3eHY8yTEtm/RS6ecPsY+1v+dSawzT9GywBMu2r6uOp1IEhQs/xAfxgybGAFr17lSA==",
+      "resolved": "https://registry.npmjs.org/@napi-rs/keyring-darwin-arm64/-/keyring-darwin-arm64-1.2.0.tgz",
+      "files": {
+        "README.md": "sha256-Wp3cBa4En8qwkX5wMAxYXAu/pyY1WtrhCTGGHeuz2g4=",
+        "keyring.darwin-arm64.node": "sha256-MwDN0FZSWuaq6zLsjKAcIfpJ5z/VlMqLrv0NHzVoo4g=",
+        "package.json": "sha256-eZvPUC1qh7dEh3E/r8EMMFcltuQnyed6Hy8dDpLxPI8="
+      }
+    },
+    "@napi-rs/keyring-linux-x64-gnu@1.2.0": {
+      "npmIntegrity": "sha512-8E+7z4tbxSJXxIBqA+vfB1CGajpCDRyTyqXkBig5NtASrv4YXcntSo96Iah2QDR5zD3dSTsmbqJudcj9rKKuHQ==",
+      "resolved": "https://registry.npmjs.org/@napi-rs/keyring-linux-x64-gnu/-/keyring-linux-x64-gnu-1.2.0.tgz",
+      "files": {
+        "README.md": "sha256-xPzSD4o0t1boxwbDpZIMcLMnGmN0a9cYjh0CjsNLULg=",
+        "keyring.linux-x64-gnu.node": "sha256-gX4L+U0OYHhtfCJVYB/nCuC39oT4JU7BJMO7aaE/P5c=",
+        "package.json": "sha256-PqVZ9Jl0ZUMc21nmd8Q0OvGUzSmPtuaFM8oWzPitlmo="
+      }
+    }
+  }
+}
