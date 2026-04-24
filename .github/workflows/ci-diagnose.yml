@@ -1,0 +1,110 @@
+name: CI diagnose
+
+# Runs AFTER the main CI workflow completes. If CI failed, invokes the
+# Anthropic API to produce a structured diagnosis of the failure, posts it
+# as a comment on the originating PR, and uploads it as an artifact.
+#
+# For the comment step to work, the repo must have a secret named
+# ANTHROPIC_API_KEY. Add at:
+#   Repo → Settings → Secrets and variables → Actions → New repository secret
+#
+# Security note: workflow_run always executes using the workflow definition
+# on the DEFAULT BRANCH and with write permissions scoped here. This means
+# PR branches cannot modify ci-diagnose.yml to grant themselves elevated
+# access — the diagnose run is always the main-branch version.
+
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+
+jobs:
+  diagnose:
+    # Only diagnose actual failures; skip success / cancelled / skipped.
+    if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    permissions:
+      contents: read
+      pull-requests: write
+      actions: read
+
+    steps:
+      - name: Checkout (main branch — diagnose script source of truth)
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Fetch failed-step log from triggering run
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          mkdir -p /tmp/ci-diagnose
+          # --log-failed is scoped to the failed steps only; much smaller than --log
+          gh run view ${{ github.event.workflow_run.id }} \
+            --repo ${{ github.repository }} \
+            --log-failed > /tmp/ci-diagnose/fail.log || true
+          if [ ! -s /tmp/ci-diagnose/fail.log ]; then
+            echo "[fetch-log] --log-failed was empty, falling back to full log"
+            gh run view ${{ github.event.workflow_run.id }} \
+              --repo ${{ github.repository }} \
+              --log > /tmp/ci-diagnose/fail.log || true
+          fi
+          ls -la /tmp/ci-diagnose/
+          wc -l /tmp/ci-diagnose/fail.log || true
+
+      - name: Resolve PR number for this run
+        id: pr
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          pr=$(gh run view ${{ github.event.workflow_run.id }} \
+            --repo ${{ github.repository }} \
+            --json pullRequests \
+            --jq '.pullRequests[0].number // empty' 2>/dev/null || true)
+          if [ -z "$pr" ]; then
+            echo "[pr-lookup] no associated PR — will skip comment step, artifact still uploaded"
+          else
+            echo "[pr-lookup] PR #$pr"
+          fi
+          echo "number=$pr" >> "$GITHUB_OUTPUT"
+
+      - name: Ask Claude to diagnose
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          CI_LOG_PATH: /tmp/ci-diagnose/fail.log
+          OUTPUT_PATH: /tmp/ci-diagnose/diagnose.md
+          RUN_URL: ${{ github.event.workflow_run.html_url }}
+          PR_NUMBER: ${{ steps.pr.outputs.number }}
+          TRIGGER_SHA: ${{ github.event.workflow_run.head_sha }}
+        run: node scripts/ci/diagnose-failure.mjs
+        # The script exits 1 on API failure but still writes a stub
+        # diagnosis — we want the comment step to post either way, so
+        # treat a non-zero exit here as non-fatal.
+        continue-on-error: true
+
+      - name: Post diagnosis as PR comment
+        if: ${{ steps.pr.outputs.number != '' }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ ! -s /tmp/ci-diagnose/diagnose.md ]; then
+            echo "[comment] diagnose.md missing or empty — nothing to post"
+            exit 0
+          fi
+          gh pr comment ${{ steps.pr.outputs.number }} \
+            --repo ${{ github.repository }} \
+            --body-file /tmp/ci-diagnose/diagnose.md
+          echo "[comment] posted to PR #${{ steps.pr.outputs.number }}"
+
+      - name: Attach diagnosis as artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-diagnose
+          path: /tmp/ci-diagnose/diagnose.md
+          if-no-files-found: warn
+          retention-days: 14
