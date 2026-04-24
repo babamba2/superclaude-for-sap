@@ -184,4 +184,6 @@ Worker suffix enables parallel Type B deliberations (e.g., 2 executors on 2 dist
 
 - [`../docs/team-consultation-architecture.md`](../docs/team-consultation-architecture.md) — full architecture, 4 team types (A/B/C/D), rollout plan.
 - [`model-routing-rule.md`](model-routing-rule.md) — prefix + banner conventions.
-- Per-skill teamMode details: `skills/ask-consultant/team-mode.md` + `team-rounds.md` (Type A), `skills/compare-programs/team-mode.md` (Type A), `skills/create-program/team-mode.md` (Type A — Phase 1A/2) + `team-mode-b.md` (Type B — Phase 4), `skills/analyze-code/team-mode.md` (Type B).
+- Per-skill teamMode details: `skills/ask-consultant/team-mode.md` + `team-rounds.md` (Type A), `skills/compare-programs/team-mode.md` (Type A), `skills/create-program/team-mode.md` (Type A — Phase 1A/2) + `team-mode-b.md` (Type B — Phase 4) + `team-mode-d.md` (Type D — Phase 1A↔1B bridge), `skills/analyze-code/team-mode.md` (Type B), `skills/analyze-symptom/team-mode.md` (Type C Incident Triage).
+
+Type C (Incident Triage) and Type D (Interview Synthesis) reuse the Type A message types (POSITION / CHALLENGE / REFINEMENT / CONCUR / ESCALATE) with role-specific semantics per the per-skill files. They do NOT introduce new message types beyond Type A and Type B.

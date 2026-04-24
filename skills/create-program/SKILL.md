@@ -18,7 +18,7 @@ sc4sap:create-program is the flagship skill for creating new ABAP programs. It h
 
 <Phase_Banner>Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.</Phase_Banner>
 
-<Team_Mode>Three teamMode integration points — Type A: **Phase 1A** (post-interview cross-module consistency check) and **Phase 2** (planner conflict resolution) — see [`team-mode.md`](team-mode.md). Type B: **Phase 4 Wave 2/3** (executor's novel code gets live consultant review before activation when code touches 2+ modules) — see [`team-mode-b.md`](team-mode-b.md). Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) (§ Type A and § Type B).</Team_Mode>
+<Team_Mode>Four teamMode integration points — Type A: **Phase 1A** (post-interview cross-module consistency) + **Phase 2** (planner conflict resolution) — see [`team-mode.md`](team-mode.md). Type B: **Phase 4 Wave 2/3** (executor's novel code gets live consultant review) — see [`team-mode-b.md`](team-mode-b.md). Type D: **Phase 1A↔1B bridge** (analyst + architect + consultant parallel synthesis on contested dimensions) — see [`team-mode-d.md`](team-mode-d.md). Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md).</Team_Mode>
 
 <Use_When>
 - User says "create program", "new report", "ALV program", "CRUD program", "make me a batch program", etc.

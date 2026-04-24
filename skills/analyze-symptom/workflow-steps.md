@@ -16,6 +16,8 @@ Exit condition: `<CLUES>` + `<SESSION_INFO>` resolved.
 
 ## Step 2 — Investigate + Gap + Narrow (one `sap-debugger` dispatch per round, Opus override)
 
+> **teamMode variant (Type C Incident Triage)** — after round 1 completes, if debugger's hypothesis cites code in a Z/Y object or customized SAP include AND the affected module is non-BC AND debugger's confidence is `med` or lower, activate Type C teamMode per [`team-mode.md`](team-mode.md) BEFORE Step 3 (user confirmation). Debugger + sap-bc-consultant + sap-<module>-consultant cross-check hypothesis; final synthesis includes tri-lens evidence trail.
+
 Emit phase banner per `common/model-routing-rule.md` § Phase Banner Convention:
 ```
 ▶ phase=2 (debugger-r<N>) · agent=sap-debugger · model=Opus 4.7
