@@ -20,7 +20,7 @@ Emit phase banner per `common/model-routing-rule.md` § Phase Banner Convention:
 Dispatch the reviewer with a **minimal prompt** — the agent reads everything itself:
 ```
 Agent({
-  subagent_type: "sap-code-reviewer",
+  subagent_type: "sc4sap:sap-code-reviewer",
   description: "ABAP review — <OBJECT_NAME>",
   prompt: """
     Review ABAP object <OBJECT_NAME> (type: <OBJECT_TYPE>).
@@ -68,7 +68,7 @@ Triggered when `complexity_hint = "briefing"`. Emit banner:
 Dispatch:
 ```
 Agent({
-  subagent_type: "sap-writer",
+  subagent_type: "sc4sap:sap-writer",
   description: "ABAP review briefing — <OBJECT_NAME>",
   prompt: """
     Render a reader-facing briefing for the code review of <OBJECT_NAME> (language =

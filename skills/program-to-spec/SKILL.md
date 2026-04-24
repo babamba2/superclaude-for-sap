@@ -2,6 +2,7 @@
 name: sc4sap:program-to-spec
 description: Reverse-engineer an ABAP program into a Functional/Technical Specification artifact (Markdown or Excel). Socratic scope narrowing from "everything" to "only what the user needs".
 level: 2
+model: sonnet
 ---
 
 # SC4SAP Program → Specification
@@ -11,6 +12,12 @@ Reads an existing ABAP program (Report / Module Pool / FM Group / Class / CDS / 
 <Purpose>
 Turn legacy or unfamiliar ABAP objects into a reviewable Functional/Technical Spec for handover, documentation audit, AMS transition, refactoring preparation, or compliance artifacts. Unlike `analyze-code` (quality-focused), this skill is **documentation-focused**: it describes what the program DOES, not what's wrong with it.
 </Purpose>
+
+<Response_Prefix>Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.</Response_Prefix>
+
+<Phase_Banner>Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.</Phase_Banner>
+
+<Team_Mode>**No teamMode integration.** program-to-spec targets a single object (one program / class / FM group / CDS / RAP BO) and performs read-only structural extraction — no cross-module synthesis, no authoring conflict, no incident triage. See [`../../docs/team-consultation-architecture.md`](../../docs/team-consultation-architecture.md) § 6 gating logic. Future extension: if a target's `GetWhereUsed` graph spans ≥ 2 modules AND user picks L3/L4 depth, Type A (module consultants annotating cross-module concerns in Step 3) could be added — not in current scope.</Team_Mode>
 
 <Use_When>
 - User says "program to spec", "reverse engineer", "make a spec", "document this program", "functional specification", "technical specification", "generate a specification"
@@ -26,6 +33,18 @@ Turn legacy or unfamiliar ABAP objects into a reviewable Functional/Technical Sp
 - User wants to **fix** the program → direct MCP `Update*` calls or re-run `/sc4sap:create-program`
 - Object does not exist yet
 </Do_Not_Use_When>
+
+<Session_Trust_Bootstrap>
+**MANDATORY — runs as Step 0a before any MCP call or user interaction.**
+
+Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:program-to-spec` to pre-grant MCP tool + file-op permissions (eliminates per-tool prompts during structural reads + screen rendering pipeline).
+
+- If `.sc4sap/session-trust.log` already has a line within the last 24h, skip silently.
+- Otherwise run it and surface the one-line confirmation.
+- All `Agent` dispatches within this skill MUST pass `mode: "dontAsk"`.
+
+Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
+</Session_Trust_Bootstrap>
 
 <Socratic_Scope_Narrowing>
 The interview is a **funnel**: every turn reduces the remaining decision space. Score remaining ambiguity 0–10 after each answer; stop when **≤3**.
@@ -83,6 +102,20 @@ The Markdown L2 skeleton and the Excel sheet-naming convention live in a compani
 
 **MUST read `spec-templates.md`** (in this skill folder) when rendering the artifact in Step 4.
 </Spec_Templates>
+
+<Agent_Composition>
+Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; each `Agent(...)` carries its own model (frontmatter or explicit override).
+
+- **Main orchestrator (Sonnet 4.6)** — Steps 0, 1, 1.5, 2, 5: Socratic interview orchestration, object classification routing, CBO context preload, Step 5 review loop. State tracking across depth / format / language dimensions needs Sonnet headroom.
+- **Analysis (`sap-analyst` × 1, Opus 4.7, frontmatter)** — Step 3 primary dispatch: extracts business purpose, inputs, outputs, data sources (including CBO-annotated Z-references when `cbo-context.md` exists), main-logic narrative, authorization checks, error cases. One dispatch covers all narrative dimensions to keep context continuous.
+- **Rendering (`sap-writer` × 1)** — Step 3 second dispatch (or Step 4 render invocation):
+  - **L1 / L2 depth** → **Haiku 4.5** base (frontmatter). Pure templating from structured analyst output.
+  - **L3 / L4 depth** → **Sonnet 4.6** override (`model: "sonnet"`) — longer narrative + deeper cross-reference + stronger consistency requirement.
+  - **Excel output** → Haiku still sufficient (driver wiring is mechanical fill-in); depth-driven override above still applies.
+- **Audit verification (`sap-critic` × 1, Opus 4.7, frontmatter, conditional L4 only)** — Step 3 gate: verifies every claim in the rendered spec cross-references a concrete line range in source. Skip for L1 / L2 / L3.
+
+All Agent dispatches pass `mode: "dontAsk"` (trust-session granted in Step 0a).
+</Agent_Composition>
 
 <Output_Format>
 ```

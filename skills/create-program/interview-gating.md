@@ -60,6 +60,8 @@ Phase 1 runs as **two sequential sub-phases** (1A then 1B) on every `sc4sap:crea
 
 **Enforcement**: `.sc4sap/program/{PROG}/module-interview.md` MUST exist before Phase 1B starts. Phase 1B refuses to run if this file is missing or its ambiguity score > 5%.
 
+**Phase 1B execution-style gate (MANDATORY after Phase 1A close)**: Before Phase 1B starts, the skill MUST present the user with a binary choice — `legacy` (sequential 7-dim interview, one question per turn) vs `type-d` (team-direct synthesis per [`team-mode-d.md`](team-mode-d.md)). Persist the answer to `state.json → phase1b.execution_style`. See [`team-mode-d.md`](team-mode-d.md) § Gating for the prompt template + recommendation heuristic.
+
 ---
 
 ## Phase 1B — Program Interview (Analyst + Architect lead)

@@ -227,6 +227,7 @@ form_team = (member_count ≥ 2)
 | `analyze-code` | reviewer가 § 1-2(업무) 소견 중 크로스모듈 건 ≥ 1 발견 |
 | `analyze-symptom` | 덤프/증상이 Z/Y 객체에 기인 AND 영향 모듈 ≠ BC 단독 |
 | `create-program` 1A↔1B | 스펙 차원 중 analyst/architect/consultant 입장이 첫 패스에 충돌하는 것 ≥ 1 |
+| `program-to-spec` | **N/A — 해당 없음**. 단일 객체 read-only 역공학으로 크로스모듈 합성·작성 충돌·인시던트 triage 모두 없음. 향후 고려: `GetWhereUsed` 그래프가 2+ 모듈에 걸치고 사용자가 L3/L4 depth 선택 시 Type A 적용 가능 (컨설턴트가 Step 3에서 크로스모듈 관심사 주석). 현재 scope 아님. |
 
 ## 7. 플랫폼 제약 (Claude Code)
 

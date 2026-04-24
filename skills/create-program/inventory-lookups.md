@@ -16,7 +16,7 @@ Steps:
      - **(A) stock now** → Emit phase banner `▶ phase=1.CBO-stock · agent=sap-stocker · model=Sonnet 4.6` and dispatch:
        ```
        Agent({
-         subagent_type: "sap-stocker",
+         subagent_type: "sc4sap:sap-stocker",
          description: "CBO inventory — <PACKAGE>",
          prompt: "Stock the CBO package <PACKAGE> (module <MODULE>). Flagship programs: none (invoked from create-program). Follow your Investigation_Protocol and return success block.",
          mode: "dontAsk"

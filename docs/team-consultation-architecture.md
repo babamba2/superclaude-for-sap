@@ -227,6 +227,7 @@ Concrete triggers per skill:
 | `analyze-code` | reviewer finds ≥ 1 § 1-2 (business) finding that crosses modules |
 | `analyze-symptom` | dump/symptom originates in Z/Y object AND affected module ≠ BC-pure |
 | `create-program` 1A↔1B | spec has ≥ 1 dimension where analyst/architect/consultant positions conflict in first pass |
+| `program-to-spec` | **N/A — not applicable**. Single-object read-only reverse-engineering with no cross-module synthesis, no authoring conflict, no incident triage. Future consideration: Type A could apply if `GetWhereUsed` graph spans ≥ 2 modules AND user picks L3/L4 depth (consultants annotate cross-module concerns in Step 3). Not in current scope. |
 
 ## 7. Constraints (Claude Code platform)
 

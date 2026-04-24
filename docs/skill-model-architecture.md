@@ -2,7 +2,7 @@
 
 Per-skill / per-phase model allocation across the sc4sap plugin. This document is the single source of truth for *which Claude model runs each step of each skill*, why that choice was made, and how the overrides work in practice.
 
-> **Scope**: all 12 user-facing skills + 16 agents. Companion planning docs, spec files, and per-phase rule files are not repeated here — see [`../skills/<name>/SKILL.md`](../skills) and [`../agents/`](../agents) for the primary sources. This doc summarizes the runtime model decisions they encode.
+> **Scope**: all 13 user-facing skills + 16 agents. Companion planning docs, spec files, and per-phase rule files are not repeated here — see [`../skills/<name>/SKILL.md`](../skills) and [`../agents/`](../agents) for the primary sources. This doc summarizes the runtime model decisions they encode.
 
 ## 1. Three-Tier Model Strategy
 
@@ -34,6 +34,7 @@ Every skill targets a specific main-thread tier via its `model:` frontmatter —
 | `compare-programs` | **Sonnet** | Orchestrates multi-program analysis; matrix assembly |
 | `create-object` | **Sonnet** | Metadata validation + executor/writer orchestration |
 | `create-program` | **Sonnet** | 9-phase pipeline orchestration, resume logic, state.json |
+| `program-to-spec` | **Sonnet** | Reverse-engineering pipeline: Socratic interview → structural inventory → analyst+writer delegation → render (MD/xlsx); depth / format / language state across turns |
 
 **Upgrade rationale for analyze/create/compare cluster** (as of this revision): these skills sit on the critical development path. A Sonnet main thread gives enough reasoning headroom for state reconciliation and edge-case handling even while heavy lifting is delegated to specialist agents. Haiku would be too shallow to reliably orchestrate multi-round flows.
 
@@ -109,6 +110,15 @@ Flagship skill. Full phase-by-phase in [`../skills/create-program/agent-pipeline
 | 7 Debug | `sap-debugger` | Opus (escalation) | failure-only |
 | **8 Completion Report** | `sap-writer` | **Sonnet 4.6** (override) | Report composition from structured state |
 
+#### `program-to-spec` — Sonnet main, 2-3 dispatches
+- Step 3 — `sap-analyst` (Opus 4.7, frontmatter) — business purpose + inputs/outputs + data sources + main logic narrative + auth checks + error cases (single dispatch covers all narrative dimensions; CBO-annotated when `cbo-context.md` preloaded)
+- Step 3 — `sap-writer`:
+  - **L1 / L2 depth** → Haiku 4.5 base (pure templating from analyst output)
+  - **L3 / L4 depth** → **Sonnet 4.6** override (`model: "sonnet"`) — longer narrative + deeper cross-reference + stronger consistency requirement
+- Step 3 (conditional, L4 only) — `sap-critic` (Opus 4.7, frontmatter) — verify every claim cross-references a concrete line range in source
+
+Excel output uses the same writer tier (depth-driven) — xlsx driver fill-in is mechanical; rendering depth determines tier, not format.
+
 ## 4. Design Patterns
 
 ### Pattern 1 — Main orchestrates, agent does heavy lifting
@@ -124,6 +134,7 @@ The `Agent(...)` tool's `model` parameter overrides the agent's frontmatter. Use
 - `sap-code-reviewer` → Sonnet for facts-only extraction (`compare-programs`)
 - `sap-writer` → Opus for spec writing (`create-program` Phase 3)
 - `sap-writer` → Sonnet for reports (`create-program` Phase 8, `ask-consultant` synthesis)
+- `sap-writer` → Sonnet for L3/L4 specs (`program-to-spec` Step 3)
 - `general-purpose` → Opus for cross-layer diagnosis (`setup` Steps 5–8 escalation)
 
 Rationale: one agent can serve multiple skills at different model tiers without cloning the agent.

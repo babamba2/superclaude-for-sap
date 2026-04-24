@@ -32,10 +32,19 @@ Never skip entirely unless the user supplies `object=... depth=L2 format=md lang
 - Object archetype: ALV report / batch job / BDC / FM wrapper / CDS view / RAP BO / enhancement impl / utility class
 - Drives which spec template is applied in Step 3.
 
-**Step 3 — Delegate to sap-analyst + sap-writer**
-- **sap-analyst** extracts: business purpose, inputs (selection screen / importing params), outputs (ALV cols / exporting params / OData entity), data sources (tables + CDS + BAPIs), main logic narrative, error cases, authorization checks (`AUTHORITY-CHECK` statements). When `cbo-context.md` exists, the analyst cross-references every Z-object mentioned against the inventory and replaces opaque "Z-table" / "Z-class" labels with the inventory's documented role + business purpose.
-- **sap-writer** renders into the chosen format (MD or Excel) at the chosen depth + language.
-- **sap-critic** gate (only if L4): verifies every claim cross-references a line range.
+**Step 3 — Delegate to sap-analyst + sap-writer** (+ sap-critic on L4)
+
+Emit Phase Banner before each dispatch (see `SKILL.md` § Phase_Banner):
+
+```
+▶ phase=3.analyst · agent=sap-analyst · model=Opus 4.7
+▶ phase=3.writer · agent=sap-writer · model=<Haiku 4.5 for L1/L2 | Sonnet 4.6 override for L3/L4>
+▶ phase=3.critic (L4 only) · agent=sap-critic · model=Opus 4.7
+```
+
+- **sap-analyst** (Opus 4.7, frontmatter) extracts: business purpose, inputs (selection screen / importing params), outputs (ALV cols / exporting params / OData entity), data sources (tables + CDS + BAPIs), main logic narrative, error cases, authorization checks (`AUTHORITY-CHECK` statements). When `cbo-context.md` exists, the analyst cross-references every Z-object mentioned against the inventory and replaces opaque "Z-table" / "Z-class" labels with the inventory's documented role + business purpose.
+- **sap-writer** (Haiku 4.5 base; **`model: "sonnet"` override for L3/L4 depth** — longer narrative + deeper cross-reference + stronger consistency requirement) renders into the chosen format (MD or Excel) at the chosen depth + language.
+- **sap-critic** (Opus 4.7, frontmatter) gate (only if L4): verifies every claim cross-references a line range.
 
 **Step 3.5 — Draw screens (MANDATORY when screens exist)**
 

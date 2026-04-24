@@ -47,6 +47,15 @@ Phase 1 splits into **Phase 1A (Module Interview)** and **Phase 1B (Program Inte
 - **Enforcement**: Phase 1B refuses to start if this file is missing or its ambiguity score > 5%.
 - **teamMode variant (Type A)**: when `module_set.length ≥ 2` AND per-consultant answers cite cross-module touchpoints (dim 3/4/5), run a post-interview reconciliation team per [`team-mode.md`](team-mode.md) § Phase 1A BEFORE writing `module-interview.md`. Single-module or no-touchpoint paths skip teamMode.
 
+### Phase 1A → 1B Execution-Style Gate (MANDATORY)
+
+After `module-interview.md` is finalized, the skill MUST prompt the user to pick Phase 1B execution style:
+
+- **`legacy`** → Phase 1B runs per § Phase 1B below (sequential 7-dim user interview, one question per turn).
+- **`type-d`** → Phase 1B runs per [`team-mode-d.md`](team-mode-d.md) (team-direct synthesis by analyst + architect + 1-2 consultants).
+
+Persist to `.sc4sap/program/{PROG}/state.json` → `phase1b.execution_style`. Phase 1B does not start until the user has answered. See [`team-mode-d.md`](team-mode-d.md) § Gating for the prompt template + recommendation heuristic.
+
 ### Phase 1B — Program Interview (analyst + architect lead)
 
 - **Pre-condition**: `module-interview.md` exists; business gate passed

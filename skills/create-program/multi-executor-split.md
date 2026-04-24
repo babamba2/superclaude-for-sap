@@ -4,7 +4,7 @@ Companion file split from [`phase4-parallel.md`](./phase4-parallel.md). Referenc
 
 ## When to split
 
-Phase 4 default is single-executor (one `Agent(sap-executor, ...)` dispatch per Wave). When the planned scope is large, the skill splits into **up to 3 parallel executors** to stay within model-call budgets and reduce wall-clock time. Planner emits the sizing into `plan.md` (see `agent-pipeline.md` Phase 2); the skill reads it and decides at Wave 3 entry.
+Phase 4 default is single-executor (one `Agent({subagent_type: "sc4sap:sap-executor", ...})` dispatch per Wave). When the planned scope is large, the skill splits into **up to 3 parallel executors** to stay within model-call budgets and reduce wall-clock time. Planner emits the sizing into `plan.md` (see `agent-pipeline.md` Phase 2); the skill reads it and decides at Wave 3 entry.
 
 ## Thresholds — trigger a split when ANY is true
 

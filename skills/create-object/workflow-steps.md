@@ -44,7 +44,7 @@ Emit phase banner:
 Dispatch shape:
 ```
 Agent({
-  subagent_type: "sap-executor",
+  subagent_type: "sc4sap:sap-executor",
   model: "opus",                    // override base Sonnet
   description: "Create + implement <TYPE> <NAME>",
   prompt: "<standard-flow prompt per dispatch-prompts.md § Step 4+5+6>",
@@ -66,7 +66,7 @@ Emit phase banner:
 Dispatch shape:
 ```
 Agent({
-  subagent_type: "sap-executor",
+  subagent_type: "sc4sap:sap-executor",
   model: "opus",
   description: "ECC DDIC helper — <TYPE> <NAME>",
   prompt: "<ecc-helper prompt per dispatch-prompts.md § Step 4-ECC>",
@@ -86,7 +86,7 @@ Emit phase banner:
 Dispatch shape:
 ```
 Agent({
-  subagent_type: "sap-writer",
+  subagent_type: "sc4sap:sap-writer",
   description: "Create-object completion report",
   prompt: "<report prompt per dispatch-prompts.md § Step 7>",
   mode: "dontAsk"

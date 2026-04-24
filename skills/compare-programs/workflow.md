@@ -38,7 +38,7 @@ For each program in `compared_objects`, emit phase banner:
 Dispatch shape (repeat per program, parallel in one message):
 ```
 Agent({
-  subagent_type: "sap-code-reviewer",
+  subagent_type: "sc4sap:sap-code-reviewer",
   model: "sonnet",   // override base Opus — facts-only extraction doesn't need Opus judgment
   description: "Facts — <PROG>",
   prompt: "<facts-extraction prompt per dispatch-prompts.md § Step 3>, target=<PROG>, type=<TYPE>",
@@ -62,7 +62,7 @@ Emit phase banner:
 Dispatch:
 ```
 Agent({
-  subagent_type: "sap-analyst",
+  subagent_type: "sc4sap:sap-analyst",
   description: "Compare — analyst synthesis",
   prompt: """
     Compare <N> programs across dimensions <active_dimensions>.
@@ -106,7 +106,7 @@ For each module in `module_set`:
 Dispatch shape:
 ```
 Agent({
-  subagent_type: "sap-<module>-consultant",   // frontmatter pins Opus 4.7
+  subagent_type: "sc4sap:sap-<module>-consultant",   // frontmatter pins Opus 4.7
   description: "<MODULE> angle on compared programs",
   prompt: """
     From a <MODULE> consultant's view, briefly explain (2–3 sentences each) which of these
@@ -131,7 +131,7 @@ Emit banner:
 Dispatch:
 ```
 Agent({
-  subagent_type: "sap-writer",
+  subagent_type: "sc4sap:sap-writer",
   description: "Render comparison report",
   prompt: """
     Render the comparison report using skills/compare-programs/report-template.md as the skeleton.

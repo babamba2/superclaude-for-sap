@@ -32,7 +32,7 @@ Replaces `SKILL.md` Step 4. The lead:
    Spawn shape:
    ```
    Agent({
-     subagent_type: "sap-<module>-consultant",
+     subagent_type: "sc4sap:sap-<module>-consultant",
      team_name: "<team_name>",
      name: "sap-<module>-consultant",
      description: "Round 1 POSITION — <MODULE>",

@@ -3,6 +3,34 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.12] — 2026-04-24
+
+### Added — Phase 1B execution-style user choice (create-program, Type D gating)
+
+Type D (Phase 1A↔1B Interview Synthesis) now activates only when the user explicitly chooses it. Immediately after Phase 1A close (`module-interview.md` finalized, business ambiguity ≤ 5%), the skill prompts a binary choice: **(1) Legacy sequential** 7-dim `sap-analyst` + `sap-architect` interview (one question per turn), or **(2) Type D team synthesis** — analyst + architect + 1-2 consultants compose `interview.md` directly via R1 POSITION + optional R2 REFINEMENT rounds. Previous auto-gating based on `module_set.length ≥ 2` is replaced with a recommendation heuristic that only fires when the user defers with "알아서" / "you decide". Persists to `.sc4sap/program/{PROG}/state.json` → `phase1b.execution_style` (`legacy` | `type-d`).
+
+- `skills/create-program/team-mode-d.md` — §Gating rewritten: user-choice prompt + recommendation heuristic + persistence schema (+39 lines, 85 → 114)
+- `skills/create-program/agent-pipeline.md` — "Phase 1A → 1B Execution-Style Gate" section inserted between Phase 1A and Phase 1B
+- `skills/create-program/interview-gating.md` — execution-style gate reference added at Phase 1A close enforcement line
+- `skills/create-program/SKILL.md` — `<Team_Mode>` block clarifies Type D is user-chosen, not auto-gated
+
+### Added — program-to-spec conforms to skill-model-architecture + team-consultation docs
+
+`program-to-spec` was the 13th user-facing skill but missing from `docs/skill-model-architecture.md` § 2 (which claimed "12 user-facing skills") and lacked the standard block conventions (Response_Prefix, Phase_Banner, Team_Mode, Session_Trust_Bootstrap, Agent_Composition) that `compare-programs` and other Sonnet-main skills carry.
+
+- `skills/program-to-spec/SKILL.md` — frontmatter `model: sonnet` + 5 standard blocks (145 → 178 lines). `Agent_Composition` codifies: `sap-analyst` Opus for Step 3 narrative extraction, `sap-writer` Haiku base for L1/L2 (Sonnet override for L3/L4 depth), `sap-critic` Opus for L4 line-range verification gate.
+- `skills/program-to-spec/workflow-steps.md` — Phase Banner emission added at Step 3 dispatches (3.analyst / 3.writer / 3.critic)
+- `docs/skill-model-architecture.md` — scope updated to "13 user-facing skills", §2 table row added, §3 dispatch map sub-section added, Pattern 3 override example (`sap-writer` → Sonnet for L3/L4 specs) added
+- `docs/team-consultation-architecture.md` + `.ko.md` — §6 gating table row: `program-to-spec` N/A (single-object read-only reverse-engineering), with future-extension note for L3/L4 depth + ≥ 2-module `GetWhereUsed` graph scenario
+
+### Fixed — `sc4sap:` subagent_type prefix sweep across skill docs
+
+Every `Agent(...)` dispatch example in skill MDs now uses the fully-qualified `"sc4sap:sap-<name>"` form — bare `"sap-<name>"` fails at runtime due to Claude Code plugin auto-namespacing (memory `feedback_sc4sap_subagent_prefix`). Files touched: `skills/analyze-cbo-obj/workflow-steps.md`, `skills/analyze-code/workflow.md`, `skills/analyze-symptom/workflow-steps.md`, `skills/ask-consultant/SKILL.md`, `skills/ask-consultant/team-rounds.md`, `skills/compare-programs/team-mode.md`, `skills/compare-programs/workflow.md`, `skills/create-object/workflow-steps.md`, `skills/create-program/inventory-lookups.md`, `skills/create-program/multi-executor-split.md`, `skills/create-program/phase6-buckets.md`. `phase6-buckets.md` additionally reformats the 4-bucket dispatch block from the abbreviated positional signature to full JSON form with `description` + `prompt`.
+
+### Validated — Phase 7 Type D runtime (Phase 1A↔1B bridge, create-program)
+
+First end-to-end Type D validation on S4-DEV (profile switched from HKT-DEV). Target: ZCOR00010 — raw material COGS variance report on plant 1710 / USD / S/4HANA 2022. 4-way synthesis (`sap-analyst` + `sap-architect` + `sap-co-consultant` + `sap-mm-consultant`) × 2 rounds (R1 POSITION bundled on Phase 1B Dims 1-7 → R2 REFINEMENT on Dim 5 data-source only). Convergence: **7/7 CONCUR**, residual_disagreement = []. Key withdrawals: `sap-mm-consultant` withdrew MBEW-VERPR for variance-axis (conceded MLDOC authority to CO); `sap-co-consultant` narrowed MBEW "fallback only" to "price-history authority" (accepted MM's MBEWH period-trail scope). Final Dim 5 architecture: 3-axis business model (price-history MBEW/MBEWH × actual-COGS MLDOC × GL-impact ACDOCA) backed by 3 custom CDS views. Wall-clock: ~12 min; 11 audit files under `.sc4sap/team-audit/create-program-p1b-zcor00010-20260424-130820/`. User-facing report: `.sc4sap/program/ZCOR00010/phase7-type-d-report.md`.
+
 ## [0.6.11] — 2026-04-24
 
 ### Added — `runtime-deps/` bundle integrity verification (offline, Stage 3-lite v1)

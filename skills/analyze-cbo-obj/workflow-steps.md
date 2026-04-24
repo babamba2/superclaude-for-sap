@@ -36,7 +36,7 @@ Emit phase banner per `common/model-routing-rule.md` § Phase Banner Convention:
 Dispatch with the collected intake as context:
 ```
 Agent({
-  subagent_type: "sap-stocker",
+  subagent_type: "sc4sap:sap-stocker",
   description: "CBO inventory — <PACKAGE>",
   prompt: """
     Stock the CBO package <PACKAGE> (module <MODULE>).
@@ -127,7 +127,7 @@ Emit phase banner:
 Dispatch:
 ```
 Agent({
-  subagent_type: "sap-writer",
+  subagent_type: "sc4sap:sap-writer",
   description: "CBO briefing — <MODULE>/<PACKAGE>",
   prompt: """
     Read .sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json and produce a reader-facing briefing for the user (language = user's current conversation language; default Korean).

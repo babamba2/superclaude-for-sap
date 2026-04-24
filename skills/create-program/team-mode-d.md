@@ -2,14 +2,43 @@
 
 Companion to `team-mode.md` (Type A — Phase 1A/2) + `team-mode-b.md` (Type B — Phase 4). Applies Type D (Interview Synthesis Team) of [`../../docs/team-consultation-architecture.md`](../../docs/team-consultation-architecture.md) to the **Phase 1A ↔ Phase 1B bridge** — live cross-check of business requirements against technical feasibility DURING interview, before spec is frozen. Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) — reuses Type A message types with role-specific semantics.
 
-## Gating
+## Gating — user choice (MANDATORY prompt at Phase 1A close)
 
-teamMode activates at the transition from Phase 1A (module interview) to Phase 1B (program interview) when ALL:
+Type D activates **only when the user explicitly chooses it**. Immediately after `module-interview.md` is finalized (Phase 1A business ambiguity ≤ 5%) and before Phase 1B starts, the skill MUST present a binary execution-style prompt and wait for the user's explicit answer.
 
-1. `module_set.length ≥ 2` OR Phase 1A flagged ≥ 1 dimension where consultant's answer implies a non-trivial technical choice (e.g., "CDS view needed" vs "Z-table ok").
-2. Phase 1B would otherwise dispatch `sap-analyst` + `sap-architect` sequentially. When a module consultant's recommendation constrains the technical options, running the three in parallel as a team surfaces conflicts BEFORE spec is frozen — saves rework in Phase 2/3/6.
+### Prompt (starter text; localize freely)
 
-When not satisfied → skip Type D; Phase 1B runs as legacy (analyst + architect sequential, consultant output already in `module-interview.md`).
+> Phase 1B can run in two execution styles:
+>
+> - **(1) Legacy sequential** — `sap-analyst` + `sap-architect` ask you each of the 7 technical dimensions, one per turn. Slower; full per-dimension user control.
+> - **(2) Type D team synthesis** — `sap-analyst` + `sap-architect` + 1-2 consultants compose `interview.md` directly via R1 POSITION (+ optional R2 REFINEMENT) rounds, synthesizing answers from Phase 1A context + domain expertise. You review the composed file before Phase 2. Faster; surfaces cross-role conflicts early.
+
+### Recommendation heuristic (lead uses only when user says "알아서" / "you decide")
+
+- Suggest **Type D** when `module_set.length ≥ 2` AND Phase 1A answers imply non-trivial technical choices (e.g., CDS vs Z-table, Full-ALV vs SALV).
+- Suggest **Legacy** otherwise (single-module OR all Phase 1A answers technically trivial).
+
+The user answer is authoritative — the heuristic is guidance, not auto-gating.
+
+### Persistence
+
+Persist the choice to `.sc4sap/program/{PROG}/state.json`:
+
+```
+"phase1b": {
+  "execution_style": "legacy" | "type-d",
+  "chosen_at": "<ISO-8601>",
+  "chosen_by": "user" | "lead-default"
+}
+```
+
+### On "legacy"
+
+Skip the rest of this file. Phase 1B runs per [`agent-pipeline.md`](agent-pipeline.md) § Phase 1B (analyst + architect sequential questioning of the 7 dimensions, one per turn).
+
+### On "type-d"
+
+Continue with the rounds below.
 
 ## Team composition
 

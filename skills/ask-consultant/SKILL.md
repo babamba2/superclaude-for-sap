@@ -90,7 +90,7 @@ Per-step model allocation (skill frontmatter pins the main thread to Haiku; Agen
    Dispatch shape:
    ```
    Agent({
-     subagent_type: "sap-<module>-consultant",   // frontmatter already pins claude-opus-4-7
+     subagent_type: "sc4sap:sap-<module>-consultant",   // frontmatter already pins claude-opus-4-7
      description: "<MODULE> consultation — <topic>",
      prompt: <user question + environment context + expected format>,
      mode: "dontAsk"
@@ -105,7 +105,7 @@ Per-step model allocation (skill frontmatter pins the main thread to Haiku; Agen
    Dispatch shape:
    ```
    Agent({
-     subagent_type: "sap-writer",
+     subagent_type: "sc4sap:sap-writer",
      model: "sonnet",   // override base Haiku — synthesis needs light reasoning
      description: "Cross-module synthesis — <modules>",
      prompt: """

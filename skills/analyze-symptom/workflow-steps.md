@@ -26,7 +26,7 @@ Emit phase banner per `common/model-routing-rule.md` § Phase Banner Convention:
 Dispatch:
 ```
 Agent({
-  subagent_type: "sap-debugger",
+  subagent_type: "sc4sap:sap-debugger",
   model: "opus",                                  // override base Sonnet — production incident triage needs Opus
   description: "Symptom triage — round <N>",
   prompt: """
