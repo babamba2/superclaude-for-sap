@@ -22,6 +22,10 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 Multi-phase skill. Before each `Agent(...)` dispatch (including every parallel consultant spawn and the optional synthesis pass), emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
 </Phase_Banner>
 
+<Team_Mode>
+When module routing produces ≥ 2 consultants, Step 4 doubles as teamMode Round 1. If Round 1 POSITIONs diverge (per [`team-mode.md`](team-mode.md) § Divergence check), escalate to Rounds 2-3 and use the teamMode synthesis variant instead of Step 5 legacy synthesis. Single-consultant questions and aligned Round 1 → legacy synthesis (Step 5) unchanged. See [`team-mode.md`](team-mode.md) for orchestration + shared task list layout + response prefix variant. Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md).
+</Team_Mode>
+
 <Use_When>
 - User says "ask consultant", "ask {module}", "consultant", "SD 컨설턴트", "MM 컨설턴트", "물어봐", "자문", "consult", etc.
 - User has an operational / configuration question that does NOT require code generation or MCP writes.
@@ -92,6 +96,7 @@ Per-step model allocation (skill frontmatter pins the main thread to Haiku; Agen
      mode: "dontAsk"
    })
    ```
+   **teamMode variant**: when N ≥ 2, Step 4 doubles as Round 1 of teamMode — use the Round 1 spawn shape in [`team-rounds.md`](team-rounds.md) § Round 1 (adds `team_name`, `name`, charter-file reference; consultants write POSITION files instead of returning directly).
 5. **Synthesis (conditional — only when ≥ 2 consultants replied)** — dispatch `sap-writer` with `model: "sonnet"` override. Writer's base model is Haiku (pure formatting); Sonnet override gives the light cross-domain reasoning needed to detect agreement / disagreement between consultant answers without jumping to Opus.
    Emit banner:
    ```
@@ -120,6 +125,7 @@ Per-step model allocation (skill frontmatter pins the main thread to Haiku; Agen
      mode: "dontAsk"
    })
    ```
+   **teamMode variant**: if Round 1 POSITIONs diverged (per [`team-rounds.md`](team-rounds.md) § Divergence check), do NOT run the legacy synthesis above — follow [`team-rounds.md`](team-rounds.md) Rounds 2-3 then [`team-mode.md`](team-mode.md) § Synthesis (task-list–driven writer dispatch).
    On single-consultant case: SKIP Step 5 entirely — main thread (Haiku) just forwards the consultant's answer to Step 6.
 6. **Return & follow-up** — present the final answer (single-consultant: verbatim; multi-consultant: synthesis output as the body + per-module subsections). Offer follow-up paths: `/sc4sap:create-program` (if the answer leads to a new build), `/sc4sap:program-to-spec` (if user wants the existing asset documented), `/sc4sap:analyze-code` (if quality review needed). (Haiku · main thread)
 
@@ -151,6 +157,7 @@ For multi-module dispatches, the `🧭 Consultant` line lists all names, the bod
 Dispatch-summary examples in the prefix:
 - Single consultant: `[Model: Haiku 4.5 · Dispatched: Opus×1 (sap-mm-consultant)]`
 - Multi-consultant: `[Model: Haiku 4.5 · Dispatched: Opus×2 (sap-mm-consultant, sap-fi-consultant), Sonnet×1 (sap-writer synthesis)]`
+- Multi-consultant teamMode: `[Model: Haiku 4.5 · Dispatched: Opus×2 (sap-mm-consultant, sap-fi-consultant), Sonnet×1 (sap-writer team-synthesis) · Team: 2 members × 2 rounds]`
 </Output_Format>
 
 <Related_Skills>

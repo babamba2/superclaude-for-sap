@@ -22,6 +22,10 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
 </Phase_Banner>
 
+<Team_Mode>
+Type B (Coder ↔ Consultant) teamMode activates between Step 2 (reviewer full review) and Step 3 (report) when reviewer's findings include a **business-alignment dimension** (§ 1 Business Purpose, § 2 Rule Faithfulness, § 13 Cross-Module Side-Effects) AND the object touches 2+ modules. Reviewer becomes Worker, module consultants become Peers; consultants live-validate the reviewer's business-alignment findings. See [`team-mode.md`](team-mode.md). Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Type B.
+</Team_Mode>
+
 <Use_When>
 - User says "analyze", "review code", "check this class", "what's wrong with", "analyze code", or "code review"
 - Before releasing a transport, to catch issues early

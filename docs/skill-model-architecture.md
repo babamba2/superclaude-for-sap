@@ -18,7 +18,7 @@ Model choice follows [`common/model-routing-rule.md`](../common/model-routing-ru
 
 ## 2. Main-Thread Model by Skill
 
-Every skill's main thread (orchestrator) runs at one specific tier per its `model:` frontmatter. Per-step work delegated to `Agent(...)` carries its own model (frontmatter or explicit override).
+Every skill targets a specific main-thread tier via its `model:` frontmatter — this is **declarative only**; the runtime main thread follows whatever model the user's Claude Code session is configured to (per CHANGELOG 0.6.8). Per-step work delegated to `Agent(...)` carries its own model (frontmatter or explicit override), which IS runtime-effective.
 
 | Skill | Main | Rationale |
 |---|---|---|

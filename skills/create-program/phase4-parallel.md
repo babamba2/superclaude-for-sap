@@ -74,6 +74,8 @@ Between steps, NO activation call — SAP can create inactive chains. Activation
 
 ### Wave 2 — G2 + G3 + G4-prep (parallel)
 
+> **teamMode variant (Type B)** — within G2 (Classes) and G3 (Function Modules), if the drafted code touches tables/FMs in 2+ modules AND is novel business logic, activate Type B teamMode per [`team-mode-b.md`](team-mode-b.md) BEFORE `ActivateObjects`. Consultants live-review; findings annotated `peer-validated` propagate to Phase 6 (avoids double-review). Skip for template-fill / boilerplate.
+
 - **Context kit**: `../../common/oop-pattern.md` (OOP), `../../common/function-module-rule.md`, `../../common/text-element-rule.md` (G4-prep)
 - **Model**: Opus for G2/G3 (novel classes/FMs); **Sonnet for G4-prep** (bulk repetitive CreateTextElement)
 
@@ -89,6 +91,8 @@ All three groups launch in a single multi-tool-use message. Within each group, m
   - After creation (for every language pass), call `ReadTextElementsBulk(program, language)` and verify: `counts.R ≥ 1` AND `counts.I == emitted_I` AND `counts.S == declared_select_options_and_parameters`. On mismatch, re-emit the missing rows before Wave 3 starts.
 
 ### Wave 3 — G5 (Includes + Main Program)
+
+> **teamMode variant (Type B)** — same pattern as Wave 2 for novel cross-module business logic in event blocks / FORM routines. See [`team-mode-b.md`](team-mode-b.md). Skip for pure-structural includes (TOP decl, selection screen, PBO/PAI boilerplate).
 
 - **Context kit**: `../../common/include-structure.md`, `../../common/procedural-sample/main-program.abap` OR `../../common/oop-sample/zrsc4sap_oop_ex.prog.abap` (per paradigm), `../../common/clean-code-procedural.md` OR `../../common/clean-code-oop.md`, `../../common/ok-code-pattern.md` (if `CALL SCREEN` present)
 - **Model**: Opus — code layout + cross-include reference resolution

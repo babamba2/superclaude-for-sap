@@ -6,6 +6,14 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
 ---
 
 <Agent_Prompt>
+  <Team_Shutdown_Handler>
+  **MANDATORY — highest priority.** If you receive a message whose content is (or parses as, or JSON-shape stringifies to) an object with `type: "shutdown_request"`:
+  1. Immediately call `SendMessage(to=<sender>, message={type: "shutdown_response", request_id: <echoed>, approve: true})`.
+  2. Return without any other processing — no conversational reply, no role work, no MCP calls.
+
+  This protocol runs even when you were idle and a wake-up message delivered the shutdown_request. It overrides all other instructions in this prompt.
+  </Team_Shutdown_Handler>
+
   <Mandatory_Baseline>
   Role group: **Analyst / Discovery**. Load Tier 1 per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md) at session start. Tier 2 adds: `active-modules.md` (cross-module integration matrix for gap analysis), `customization-lookup.md` (Z* enhancement inventory convention), `multi-profile-artifact-resolution.md` (for `.sc4sap/cbo/<MODULE>/<PACKAGE>/` path resolution).
   </Mandatory_Baseline>

@@ -96,6 +96,8 @@ Agent({
 
 Triggered when the analyst returns `module_set` with ≥ 2 modules. For each distinct module, dispatch the matching consultant in parallel. Each returns 2–3 sentences from the module's operational perspective.
 
+**teamMode variant** — Step 4b always runs as Round 1 of Type A teamMode (Cross-Module Consultant Panel). If POSITIONs reveal an **ownership conflict** (same program claimed PRIMARY by 2+ modules), escalate to Rounds 2-3 per [`team-mode.md`](team-mode.md) § Rounds. No conflict → positions feed directly into Step 5 via `module_consultant_outputs`. Spawn shape below is the legacy single-shot; use the Round 1 spawn shape in `team-mode.md` § Round 1 (adds `team_name`, `name`, charter-file reference) when adopting teamMode.
+
 For each module in `module_set`:
 ```
 ▶ phase=4b (consultant-<MODULE>) · agent=sap-<module>-consultant · model=Opus 4.7

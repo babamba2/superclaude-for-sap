@@ -45,6 +45,7 @@ Phase 1 splits into **Phase 1A (Module Interview)** and **Phase 1B (Program Inte
 - **Gate**: business ambiguity ≤ 5%
 - **Output**: `.sc4sap/program/{PROG}/module-interview.md`
 - **Enforcement**: Phase 1B refuses to start if this file is missing or its ambiguity score > 5%.
+- **teamMode variant (Type A)**: when `module_set.length ≥ 2` AND per-consultant answers cite cross-module touchpoints (dim 3/4/5), run a post-interview reconciliation team per [`team-mode.md`](team-mode.md) § Phase 1A BEFORE writing `module-interview.md`. Single-module or no-touchpoint paths skip teamMode.
 
 ### Phase 1B — Program Interview (analyst + architect lead)
 
@@ -64,6 +65,7 @@ Phase 1 splits into **Phase 1A (Module Interview)** and **Phase 1B (Program Inte
 
 ## Phase 2 — Planning: `sap-planner` (+ module consultant when needed)
 - **Inputs (mandatory read before planning)**: `module-interview.md` (Phase 1A — business context, standard-SAP rejections, reference assets) AND `interview.md` (Phase 1B — technical decisions). The planner MUST reconcile both — if a Phase 1B technical choice contradicts a Phase 1A business rule (e.g., chose custom Z-table when consultant proposed standard CDS), raise the conflict back to the user before producing `plan.md`.
+- **teamMode variant (Type A)**: when the planner detects a Phase 1A↔1B conflict OR the plan spans 2+ modules with contested CBO/customization ownership, activate Phase 2 teamMode per [`team-mode.md`](team-mode.md) § Phase 2. Consultants produce a reconciled resolution that feeds into `plan.md` § *Conflict Resolutions* before the standard plan body. Single-module / no-conflict paths skip teamMode.
 - **CBO reuse gate (mandatory when `.sc4sap/program/{PROG}/cbo-context.md` exists)**: Before designing any new Z-object (table / structure / class / FM / data element), scan `cbo-context.md` for a reuse candidate. Default to reuse when role + FK pattern + purpose overlap. Every new-object proposal in the plan must include a one-line justification of why no CBO candidate fits.
 - **Customization reuse gate (mandatory when `.sc4sap/program/{PROG}/customization-context.md` exists)**: Before proposing a new BAdI implementation, CMOD component, form-based user-exit FORM, or append structure, scan `customization-context.md` for an existing customer asset covering the same `standardName` / base table. Default to **extending the existing asset**. Every new-enhancement/extension proposal in the plan must include a written justification of why no customization candidate fits (follow `common/customization-lookup.md`). Creating a second parallel impl when one already exists is a MAJOR finding in Phase 6.
 - Apply shared conventions: `include-structure.md`, `naming-conventions.md`

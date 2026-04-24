@@ -27,6 +27,10 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
 </Phase_Banner>
 
+<Team_Mode>
+Step 4b is the integration point for Type A teamMode (Cross-Module Consultant Panel). When `module_set ≥ 2` (existing Step 4b gate), Round 1 runs always — positions are parsed for **ownership conflicts** (same program claimed PRIMARY by 2+ modules). On conflict, escalate to Rounds 2-3 per [`team-mode.md`](team-mode.md). No conflict → positions pass directly to Step 5 writer render (legacy path). Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md).
+</Team_Mode>
+
 <Use_When>
 - User says "compare programs", "what's the difference between A and B", "MM vs CO version", "country-specific programs", or equivalent in the user's language
 - Consultant handover / AMS transition — need to document "when to use which"

@@ -16,7 +16,7 @@ Shared ALV display rules for sc4sap programs.
 
 ## Field Catalog Construction Standard
 
-Reference: `sc4sap/tests/field-catalog-guide.abap`.
+Reference: `sc4sap/common/alv-sample/field-catalog-guide.abap`.
 
 ### Step 1 — Auto-Extract via SALV Factory
 

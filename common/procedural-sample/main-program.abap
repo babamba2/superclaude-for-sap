@@ -21,58 +21,89 @@
 * format, Screen/GUI/Text completion protocols).
 ************************************************************************
 *&---------------------------------------------------------------------*
-*& Sample Report Program Template
-*& Program  : ZRSC4SAP_PRC_EX
-*& Author   : SVT_00005
-*& Date     : 2026-04-03
-*& S/4HANA  : 2025 Release
-*& Version  : v1.0 - Include Structure Change Completed
-*& Desc     : Sample Report Program Template
-*&
-*&
+*&  Module      : SD Module
+*&  Program ID  : ZSDR23070
+*&  Tcode       : ZSDR23070
+*&  Title       : Sales Order Status List
+*&  Description : Warehouse sales order list w/ status
 *&---------------------------------------------------------------------*
-REPORT ZRSC4SAP_PRC_EX.
-
-INCLUDE ZRSC4SAP_PRC_EXT. "TOP   — declare `DATA: gv_okcode TYPE sy-ucomm.` here
-INCLUDE ZRSC4SAP_PRC_EXS. "SELECTION SCREEN
-INCLUDE ZRSC4SAP_PRC_EXC. "CLASS
-INCLUDE ZRSC4SAP_PRC_EXA. "ALV
-INCLUDE ZRSC4SAP_PRC_EXO. "PBO
-INCLUDE ZRSC4SAP_PRC_EXI. "PAI
-INCLUDE ZRSC4SAP_PRC_EXF. "FORM
+*&  Change History
+*&---------------------------------------------------------------------*
+*& Change No   |  Changed by  |  Change Date
+*& CH-001      |  SVT_000005  |  2026-01-12
+*& Description : Initialization
+*&---------------------------------------------------------------------*
+REPORT  zsdr23070
+        NO STANDARD PAGE HEADING
+        MESSAGE-ID zsd11.
 
 *&---------------------------------------------------------------------*
-*& INITIALIZATION
+* Program Define - Program Top Include
 *&---------------------------------------------------------------------*
-INITIALIZATION.
+INCLUDE zsdr23070t.
 
 *&---------------------------------------------------------------------*
-*& AT SELECTION-SCREEN
+* ALV GRID CLASS INCLUDE - Default Include
 *&---------------------------------------------------------------------*
+INCLUDE zsdr23070c.
+
+*&---------------------------------------------------------------------*
+* Program Define - Selection Screen & Select-Option
+*&---------------------------------------------------------------------*
+INCLUDE zsdr23070s.
+
+*&---------------------------------------------------------------------*
+* Program Define - Screen PBO
+*&---------------------------------------------------------------------*
+INCLUDE zsdr23070o.
+
+*&---------------------------------------------------------------------*
+* Program Define - Screen PAI
+*&---------------------------------------------------------------------*
+INCLUDE zsdr23070i.
+
+*&---------------------------------------------------------------------*
+* for ALV Grid
+*&---------------------------------------------------------------------*
+INCLUDE zsdr23070a.
+
+*&---------------------------------------------------------------------*
+* Program Define - Business Logic Form
+*&---------------------------------------------------------------------*
+INCLUDE zsdr23070f.
+
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN
+*----------------------------------------------------------------------*
 AT SELECTION-SCREEN.
+  PERFORM check_common_authority.
 
-*&---------------------------------------------------------------------*
-*& AT SELECTION-SCREEN OUTPUT 
-*&---------------------------------------------------------------------*
+  PERFORM check_screen_input.
+
 AT SELECTION-SCREEN OUTPUT.
+  PERFORM set_screen_output.
 
-*&---------------------------------------------------------------------*
-*& AT SELECTION-SCREEN
-*&---------------------------------------------------------------------*
-AT SELECTION-SCREEN OUTPUT FOR FIELD P_FILE.
+AT SELECTION-SCREEN ON VALUE-REQUEST FOR p_var.
+  PERFORM set_screen_variant.
 
-    PERFROM GET_FILE.
+*----------------------------------------------------------------------*
+* INITIALIZATION
+*----------------------------------------------------------------------*
+INITIALIZATION.
+  PERFORM set_screen.
 
-*&---------------------------------------------------------------------*
-*& START-OF-SELECTION
-*&---------------------------------------------------------------------*
+*----------------------------------------------------------------------*
+* START-OF-SELECTION
+*----------------------------------------------------------------------*
 START-OF-SELECTION.
+  PERFORM start_of_selection.
 
-    PERFORM GET_DATA.
-
-*&---------------------------------------------------------------------*
-*& END-OF-SELECTION
-*&---------------------------------------------------------------------*
+*----------------------------------------------------------------------*
+* END-OF-SELECTION
+*----------------------------------------------------------------------*
 END-OF-SELECTION.
-
-    PERFORM DISPLAY.
+  IF p_bat = 'X'.
+    PERFORM batch_data_collection.
+  ELSE.
+    PERFORM end_of_selection.
+  ENDIF.
