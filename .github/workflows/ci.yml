@@ -1,0 +1,51 @@
+name: CI
+
+on:
+  push:
+    branches: [active, main]
+  pull_request:
+    branches: [active, main]
+
+# Cancel superseded runs on the same branch so a fast push doesn't hog agents.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: verify · typecheck · test
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      # --ignore-scripts keeps install hermetic — the plugin distributes
+      # runtime-deps/ pre-populated, so we do not need any postinstall
+      # step to produce a working tree, and skipping scripts removes a
+      # class of supply-chain risk from the CI image.
+      - name: Install dependencies
+        run: npm ci --ignore-scripts
+
+      # Primary gate. `runtime-deps/keyring/` is committed to the repo as
+      # the keychain bundle; this step fails the build if any committed
+      # byte drifted from runtime-deps/keyring/integrity.json.
+      # See docs/bundle-integrity.md.
+      - name: Verify runtime-deps bundle integrity
+        run: node scripts/bundle-keyring.mjs --verify
+
+      - name: Verify runtime-deps bundle completeness
+        run: node scripts/bundle-keyring.mjs --check
+
+      - name: TypeScript typecheck
+        run: npx tsc --noEmit
+
+      - name: Validation tests
+        run: npm run test:run
