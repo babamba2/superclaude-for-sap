@@ -1354,22 +1354,30 @@ async function buildImages() {
     // its original location (scripts/spec/...) OR was copied as a
     // throwaway per-spec driver to .sc4sap/specs/_drivers/, to an absolute
     // Desktop folder, or into a plugin cache. Search order:
-    //   (1) next to this file                       → in-place / plugin cache
-    //   (2) walk up + 'scripts/spec/...'            → driver under project root
-    //   (3) process.cwd() + 'scripts/spec/...'      → invocation from root
+    //   (1) next to this file                          → in-place / plugin cache
+    //   (2) walk up + 'scripts/spec/...'               → consumer layout (scripts/ at root)
+    //   (3) walk up + 'sc4sap/scripts/spec/...'        → plugin-dev layout (source inside sc4sap/)
+    //   (4) process.cwd() + 'scripts/spec/...'         → invocation from project root, consumer
+    //   (5) process.cwd() + 'sc4sap/scripts/spec/...'  → invocation from project root, dev
+    //   (6) CLAUDE_PLUGIN_ROOT env (Claude Code plugin cache runtime)
     const hereDir = dirname(fileURLToPath(import.meta.url));
     const candidates = [join(hereDir, 'screen-image-renderer.mjs')];
     let cur = hereDir;
     for (let i = 0; i < 8; i++) {
       candidates.push(join(cur, 'scripts', 'spec', 'screen-image-renderer.mjs'));
+      candidates.push(join(cur, 'sc4sap', 'scripts', 'spec', 'screen-image-renderer.mjs'));
       const parent = dirname(cur);
       if (parent === cur) break;
       cur = parent;
     }
     candidates.push(join(process.cwd(), 'scripts', 'spec', 'screen-image-renderer.mjs'));
+    candidates.push(join(process.cwd(), 'sc4sap', 'scripts', 'spec', 'screen-image-renderer.mjs'));
+    if (process.env.CLAUDE_PLUGIN_ROOT) {
+      candidates.push(join(process.env.CLAUDE_PLUGIN_ROOT, 'scripts', 'spec', 'screen-image-renderer.mjs'));
+    }
     const rendererPath = candidates.find(p => existsSync(p));
     if (!rendererPath) {
-      console.warn('[screen-images] screen-image-renderer.mjs not resolvable — falling back to wireframe. Searched:\n  - ' + candidates.slice(0, 5).join('\n  - '));
+      console.warn('[screen-images] screen-image-renderer.mjs not resolvable — falling back to wireframe. Searched:\n  - ' + candidates.slice(0, 8).join('\n  - '));
       return [];
     }
     const { renderScreenImages } = await import(pathToFileURL(rendererPath).href);
