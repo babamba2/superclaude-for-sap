@@ -1,0 +1,45 @@
+{
+  "cli_version": "0.5.6",
+  "checkpoint_id": "8d6e4161a0e5",
+  "session_id": "da5cf111-1f90-4695-8a4c-dc9c11204619",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-26T11:24:34.2463379Z",
+  "branch": "entire/checkpoints/v3",
+  "checkpoints_count": 0,
+  "files_touched": [
+    ".omc/checkpoints/session-20260426-2020-xlsx-v9-cell-formatting.md",
+    "scripts/spec/rich-xlsx-template.mjs",
+    "skills/program-to-spec/workflow-steps.md"
+  ],
+  "agent": "Claude Code",
+  "model": "",
+  "turn_id": "0fc1c097c5e0",
+  "token_usage": {
+    "input_tokens": 116,
+    "cache_creation_tokens": 131935,
+    "cache_read_tokens": 7054159,
+    "output_tokens": 51865,
+    "api_call_count": 56
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-26T11:24:34.1421085Z",
+    "agent_lines": 90,
+    "agent_removed": 4,
+    "human_added": 0,
+    "human_modified": 0,
+    "human_removed": 0,
+    "total_committed": 90,
+    "total_lines_changed": 94,
+    "agent_percentage": 100,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    }
+  ]
+}

@@ -1,22 +1,33 @@
 {
-  "cli_version": "0.5.5",
+  "cli_version": "0.5.6",
   "checkpoint_id": "8d6e4161a0e5",
   "strategy": "manual-commit",
+  "branch": "entire/checkpoints/v3",
   "checkpoints_count": 0,
-  "files_touched": null,
+  "files_touched": [
+    ".omc/checkpoints/session-20260426-2020-xlsx-v9-cell-formatting.md",
+    "scripts/spec/rich-xlsx-template.mjs",
+    "skills/program-to-spec/workflow-steps.md"
+  ],
   "sessions": [
     {
       "metadata": "/8d/6e4161a0e5/0/metadata.json",
       "transcript": "/8d/6e4161a0e5/0/full.jsonl",
       "content_hash": "/8d/6e4161a0e5/0/content_hash.txt",
       "prompt": "/8d/6e4161a0e5/0/prompt.txt"
+    },
+    {
+      "metadata": "/8d/6e4161a0e5/1/metadata.json",
+      "transcript": "/8d/6e4161a0e5/1/full.jsonl",
+      "content_hash": "/8d/6e4161a0e5/1/content_hash.txt",
+      "prompt": "/8d/6e4161a0e5/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 15,
-    "cache_creation_tokens": 53549,
-    "cache_read_tokens": 209419,
-    "output_tokens": 900,
-    "api_call_count": 5
+    "input_tokens": 131,
+    "cache_creation_tokens": 185484,
+    "cache_read_tokens": 7263578,
+    "output_tokens": 52765,
+    "api_call_count": 61
   }
 }
