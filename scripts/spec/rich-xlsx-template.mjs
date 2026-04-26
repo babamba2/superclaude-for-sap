@@ -130,6 +130,8 @@ const R = (r, c) => colLetter(c) + (r + 1);
 //    15 BL               | 16 BR              | 17 frame-top TLR bold grey
 //    18 all-border left  | 19 grey header     | 20 yellow highlight
 //    21 bold bordered cell (for flow diagram nodes)
+//    22 wrap (no border) | 23 wrap + border   | 24 wrap header (grey)
+//    25 centered (no border, no fill) — flow-arrow rows ↓
 // =============================================================
 const BORDER_DEFS = [
   '<border><left/><right/><top/><bottom/><diagonal/></border>',
@@ -172,6 +174,7 @@ const CELL_XFS = [
   { wrap: true, valign: 'top' },                                             // 22 wrap (no border)
   { border: 1, wrap: true, valign: 'top', halign: 'left' },                  // 23 wrap + border (long values)
   { border: 1, fill: 2, font: 1, wrap: true, halign: 'center', valign: 'center' }, // 24 wrap header — light grey (v8)
+  { halign: 'center', valign: 'center' },                                    // 25 centered no-border no-fill — flow arrows
 ];
 
 function stylesXml() {
@@ -421,22 +424,50 @@ function visualWidth(s) {
 //                        screen real estate without clipping
 //   WRAP_THRESHOLD  = 55 cells wider than this switch to wrapText +
 //                        multi-line row height (≈ 2 Korean sentences)
-const WIDTH_PADDING  = 6;
-const WIDTH_MIN      = 12;
-const WIDTH_MAX      = 100;
-const WRAP_THRESHOLD = 55;
-const LINE_HEIGHT_PT = 17;   // per wrapped line (was 15 — Calibri 11pt needs ≥16 for CJK)
-const MAX_ROW_HEIGHT = 300;  // row-height cap (was 180 — some rules/long narratives need 5+ lines)
+const WIDTH_PADDING     = 6;
+const WIDTH_MIN         = 12;
+const WIDTH_MAX         = 100;
+const WRAP_THRESHOLD    = 55;
+const LINE_HEIGHT_PT    = 16.875; // per wrapped line — matches Google Sheets' xlsx baseline
+                                  // (16.875 × 2 = 33.75, × 4 = 67.5 — the common 2-/4-line heights
+                                  // produced when reviewers re-save in Sheets). v8 used 17 which
+                                  // gave 34 / 68 — visually identical but didn't round-trip cleanly.
+const HEADER_ROW_HEIGHT = 22.5;   // explicit row-1 height for bold header — gives the title row
+                                  // breathing room above data, matches the reference reviewers expect.
+const WARNING_ROW_HEIGHT = 22.5;  // sheet 3 yellow warning rows — same breathing room as headers.
+const MAX_ROW_HEIGHT    = 300;    // row-height cap (some rules/long narratives need 5+ lines)
 
-function textSheet(rows) {
+// Row height per line count — Google Sheets uses inconsistent multipliers
+// (16.875 for 2/4 lines, 17 for 3 lines). Single-multiplier formulas give
+// 50.625 instead of 51 for 3-line rows. The lookup table reproduces REF
+// exactly for 2-, 3-, 4-line cells; 5+ falls back to LINE_HEIGHT_PT × n.
+const HEIGHT_BY_LINES = { 2: 33.75, 3: 51, 4: 67.5 };
+function rowHeightForLines(n) {
+  return HEIGHT_BY_LINES[n] ?? Math.min(n * LINE_HEIGHT_PT, MAX_ROW_HEIGHT);
+}
+
+// textSheet(rows, opts) — opts.colWidths is an optional array of explicit column widths
+// (in xlsx col-width units, e.g. 26, 145.71). When provided, auto-fit is bypassed and
+// consecutive same-width entries are grouped (`<col min=4 max=6 width=12/>`). When omitted,
+// the v4 CJK-aware auto-fit metric runs (WIDTH_MAX=100, WRAP_THRESHOLD=55).
+//
+// Use explicit colWidths when reverse-engineering a known reference (program-to-spec output
+// must match the analyst's reviewed widths) — auto-fit is fine for greenfield specs.
+function textSheet(rows, opts = {}) {
   const cells = {};
   const rowHeights = {};
   const maxCols = Math.max(...rows.map(r => r.length));
+  const explicitWidths = Array.isArray(opts.colWidths) ? opts.colWidths : null;
 
-  // Pass 1 — measure column widths using CJK-aware metric.
-  // Cap per-cell contribution at WRAP_THRESHOLD so a single giant
-  // description doesn't blow up the column; it'll wrap instead.
-  const cols = [];
+  // Pass 1a — ALWAYS compute auto-fit widths first (CJK-aware, capped at
+  // WRAP_THRESHOLD). These drive ROW HEIGHT calculations even when the
+  // emitted column widths are overridden via colWidths — this matches the
+  // reference behavior where users widened specific columns in Sheets but
+  // row heights kept their original "narrow column wrap" line counts. If
+  // we computed row heights against the wide explicit widths, every long
+  // cell would shrink to 2 lines and the spec would lose the visual rhythm
+  // reviewers expect (220-char Note → 4 lines @ 67.5, not 2 @ 33.75).
+  const autoCols = [];
   for (let c = 0; c < maxCols; c++) {
     let maxVw = 0;
     for (const row of rows) {
@@ -444,35 +475,61 @@ function textSheet(rows) {
       maxVw = Math.max(maxVw, Math.min(vw, WRAP_THRESHOLD));
     }
     const width = Math.min(Math.max(maxVw + WIDTH_PADDING, WIDTH_MIN), WIDTH_MAX);
-    cols.push({ min: c + 1, max: c + 1, width });
+    autoCols.push({ min: c + 1, max: c + 1, width });
   }
 
-  // Pass 2 — emit cells, apply wrap style for long values, compute row heights.
+  // Pass 1b — emitted cols. Use explicit widths when provided (with same-width
+  // grouping). Auto-fit otherwise.
+  let cols;
+  if (explicitWidths) {
+    cols = [];
+    let i = 0;
+    while (i < explicitWidths.length) {
+      const w = explicitWidths[i];
+      let j = i;
+      while (j + 1 < explicitWidths.length && explicitWidths[j + 1] === w) j++;
+      cols.push({ min: i + 1, max: j + 1, width: w });
+      i = j + 1;
+    }
+    if (explicitWidths.length < maxCols) {
+      cols.push({ min: explicitWidths.length + 1, max: maxCols, width: WIDTH_MIN });
+    }
+  } else {
+    cols = autoCols;
+  }
+
+  // Header row gets explicit breathing room (REF baseline). Data rows stay
+  // at the workbook default (~15) unless they contain a "long" cell.
+  if (rows.length > 0) rowHeights[1] = HEADER_ROW_HEIGHT;
+
+  // Pass 2 — emit cells, apply wrap style for long values, compute row heights
+  // against AUTO-FIT widths so wraps match the reference cadence.
   rows.forEach((row, rIdx) => {
     let maxLines = 1;
+    let anyLong = false;
     row.forEach((val, cIdx) => {
       const ref = R(rIdx, cIdx);
       const vw = visualWidth(val);
-      const colW = cols[cIdx]?.width ?? WIDTH_MIN;
-      const usable = Math.max(1, colW - WIDTH_PADDING);
+      const usable = Math.max(1, (autoCols[cIdx]?.width ?? WIDTH_MIN) - WIDTH_PADDING);
       const isLong = vw > WRAP_THRESHOLD;
       // Header row 0 → style 4 (bold grey border, non-wrap) for short headers,
       //                style 24 (wrap header) when long.
       // Data rows    → style 23 (wrap + border) when long, else style 18
       //                (all-border + left align). Every data cell gets a
-      //                border so the spec reads as a uniform grid — mixed
-      //                border / no-border looks broken at any zoom level.
+      //                border so the spec reads as a uniform grid.
       const style = rIdx === 0
         ? (isLong ? 24 : 4)
         : (isLong ? 23 : 18);
       cells[ref] = { v: val, s: style };
       if (isLong) {
+        anyLong = true;
         const lines = Math.ceil(vw / usable);
         if (lines > maxLines) maxLines = lines;
       }
     });
-    if (maxLines > 1) {
-      rowHeights[rIdx + 1] = Math.min(maxLines * LINE_HEIGHT_PT, MAX_ROW_HEIGHT);
+    if (rIdx > 0 && anyLong) {
+      const lines = Math.max(2, maxLines);
+      rowHeights[rIdx + 1] = rowHeightForLines(lines);
     }
   });
 
@@ -480,8 +537,90 @@ function textSheet(rows) {
 }
 
 // =============================================================
+// appendProcessFlow — append a vertical flowchart below the data
+//   table on a textSheet payload. Used by build() to decorate the
+//   Processing Logic sheet automatically when PROCESS_FLOW is non-empty.
+//
+// Layout (3-col span = matches the ABAP Logic sheet's #/Event/Step grid):
+//   row N+1   blank spacer
+//   row N+2   "Process Flow Chart" heading       (style 17, A:C merged)
+//   row N+3   first node (box / decision)        (A:C merged, ↓ stacked)
+//   row N+4   "↓"                                 (style 25, no border)
+//   row N+5   next node ...
+//
+// Node convention (each PROCESS_FLOW item is a single string):
+//   · Plain text                → bordered box (style 21)
+//   · Prefix '?' → decision       → yellow box (style 20), '?' stripped, '◇ ' added
+//   · Prefix '!' → terminal/exit  → bordered box, '■ ' added (END / RETURN /
+//                                   LEAVE LIST-PROCESSING markers)
+//
+// Decision branches that need a separate side-arm row are described inside
+// the decision string itself with " → " (e.g. "? gt_result IS INITIAL → MESSAGE + LEAVE")
+// — the renderer keeps everything on one row so the chart stays compact in
+// a 3-column grid. For programs that need true two-branch fan-out, drivers
+// can render the branch as the next node prefixed with "└─ " or similar.
+// =============================================================
+function appendProcessFlow(payload, items, opts = {}) {
+  if (!Array.isArray(items) || items.length === 0) return payload;
+  const { cells, merges, rowHeights, cols } = payload;
+  const heading = opts.heading || 'Process Flow Chart';
+  const colSpan = Math.max(1, Math.min(3, cols.length || 3));
+  const lastCol = colLetter(colSpan - 1);
+
+  // Find next free row by scanning current cells.
+  let maxRow = 0;
+  for (const ref of Object.keys(cells)) {
+    const m = /^([A-Z]+)(\d+)$/.exec(ref);
+    if (m) maxRow = Math.max(maxRow, +m[2]);
+  }
+
+  let r = maxRow + 2; // 1 blank spacer row between table and heading
+
+  // Heading row — style 17 (grey + bold + all borders).
+  cells[R(r - 1, 0)] = { v: heading, s: 17 };
+  for (let c = 1; c < colSpan; c++) cells[R(r - 1, c)] = { s: 17 };
+  if (colSpan > 1) merges.push(`A${r}:${lastCol}${r}`);
+  rowHeights[r] = 22;
+  r++;
+
+  items.forEach((raw, idx) => {
+    const txt = String(raw ?? '');
+    const isDecision = /^\?\s*/.test(txt);
+    const isTerminal = /^!\s*/.test(txt);
+    const label = isDecision ? `◇ ${txt.replace(/^\?\s*/, '')}`
+                : isTerminal ? `■ ${txt.replace(/^!\s*/, '')}`
+                : txt;
+    const style = isDecision ? 20 : 21;
+
+    cells[R(r - 1, 0)] = { v: label, s: style };
+    for (let c = 1; c < colSpan; c++) cells[R(r - 1, c)] = { s: style };
+    if (colSpan > 1) merges.push(`A${r}:${lastCol}${r}`);
+    rowHeights[r] = 24;
+    r++;
+
+    if (idx < items.length - 1) {
+      // Centered "↓" arrow row, no border / no fill — visually links boxes.
+      cells[R(r - 1, 0)] = { v: '↓', s: 25 };
+      for (let c = 1; c < colSpan; c++) cells[R(r - 1, c)] = { s: 25 };
+      if (colSpan > 1) merges.push(`A${r}:${lastCol}${r}`);
+      rowHeights[r] = 16;
+      r++;
+    }
+  });
+
+  return payload;
+}
+
+// =============================================================
 // TODO (per-spec): SHEETS_DATA — fill with text sheets.
-//   Shape: [{ name: 'Overview', rows: [[header...], [row...], ...] }, ...]
+//   Shape: [{ name: 'Overview', rows: [[header...], [row...], ...], colWidths? }, ...]
+//
+//   Optional `colWidths`: array of explicit column widths in xlsx units
+//   (e.g. [26, 145.71]). When provided, auto-fit is bypassed and consecutive
+//   same-width entries are grouped into a single <col> XML node. Use this when
+//   reverse-engineering a known reference file (the analyst's reviewed widths
+//   must round-trip exactly). Omit for greenfield specs — auto-fit picks
+//   reasonable widths from the v4 CJK-aware metric.
 // =============================================================
 const SHEETS_DATA = [
   // Example — REPLACE:
@@ -495,6 +634,37 @@ const SHEETS_DATA = [
   //   ],
   // },
 ];
+
+// =============================================================
+// TODO (per-spec): PROCESS_FLOW — vertical flowchart appended to the
+//   `Processing Logic` sheet (matched by name = PROCESS_FLOW_SHEET).
+//
+//   Each entry is one node string. Conventions:
+//     · plain text   → bordered box (style 21)
+//     · '?' prefix   → decision (yellow style 20), prefix stripped → '◇ '
+//     · '!' prefix   → terminal/exit (bordered), prefix stripped → '■ '
+//
+//   Decisions can fold a single branch into the same row using ' → ',
+//   e.g. '? gt_result IS INITIAL → MESSAGE + LEAVE LIST-PROCESSING'.
+//
+//   Empty array = no flowchart rendered (the heading is also skipped).
+//   Localise PROCESS_FLOW_HEADING per spec language as needed.
+//
+// Example:
+//   const PROCESS_FLOW = [
+//     'INITIALIZATION — set S_ERDAT default (current month BOM~EOM)',
+//     'User submits selection screen',
+//     'FORM get_data — SELECT VBAK + VBAP + KNA1 + MAKT (4-way JOIN)',
+//     '? gt_result IS INITIAL → MESSAGE "데이터 없음" + LEAVE LIST-PROCESSING',
+//     'FORM display_alv — cl_salv_table=>factory + columns + aggregations',
+//     'go_salv->display() — ALV displayed',
+//     '? hotspot click on VBELN → CALL TRANSACTION VA03 SKIP FIRST SCREEN',
+//     '! END',
+//   ];
+// =============================================================
+const PROCESS_FLOW = [];
+const PROCESS_FLOW_SHEET = 'Processing Logic';   // sheet name to attach flowchart to
+const PROCESS_FLOW_HEADING = 'Process Flow Chart'; // localise per spec language
 
 // =============================================================
 // TODO (per-spec): SCREEN_PARAMS — parameters of the object.
@@ -880,12 +1050,21 @@ function screensSheet({
 } = {}) {
   const cells = {};
   const merges = [];
+  // Col F (col 6) is widened so the Parameters table's Type column (E:F merge)
+  // can show full SELECT-OPTIONS / DDIC type strings without clipping
+  // (e.g. "SELECT-OPTIONS → VBAK-VKORG (VKORG CHAR4)" — 40 chars). Other B..P
+  // cols stay at 14 to preserve the selection-screen widget grid (B:E label,
+  // F:H low input, K:M high input). The fallback wireframe's F:H low-input
+  // merge becomes lopsided (50.71 + 14 + 14 = 78.71 vs K:M 42), but PNG embed
+  // is the v8.1+ primary path so the wireframe is rarely seen.
   const cols = [
-    { min: 1, max: 1, width: 3 },
-    { min: 2, max: 16, width: 14 },
-    { min: 17, max: 17, width: 3 },
+    { min: 1, max: 1,  width: 3      },
+    { min: 2, max: 5,  width: 14     },
+    { min: 6, max: 6,  width: 50.71  },
+    { min: 7, max: 16, width: 14     },
+    { min: 17, max: 17, width: 3     },
   ];
-  const rowHeights = { 1: 24 };
+  const rowHeights = { 1: 30 };
 
   // Row 1 — sheet title (always rendered, grey style 2, merged A:Q).
   screenFullRow(cells, merges, 1, SHEET_TITLE, 2);
@@ -920,6 +1099,7 @@ function screensSheet({
     for (const msg of WARNINGS) {
       r += 1;
       screenFullRow(cells, merges, r, String(msg), 20);
+      rowHeights[r] = WARNING_ROW_HEIGHT;
     }
   }
 
@@ -1043,7 +1223,18 @@ function build(outPath, { images = [] } = {}) {
   if (alvImg) alvImg.anchorCell = `B${alvStartRow}`;
 
   const seen = new Set();
-  const dataSheets = SHEETS_DATA.map(s => ({ name: sanitizeSheetName(s.name, seen), payload: textSheet(s.rows) }));
+  const dataSheets = SHEETS_DATA.map(s => {
+    // textSheet honours per-sheet colWidths when the driver supplies them
+    // (used to round-trip a known reference file's column widths exactly).
+    const payload = textSheet(s.rows, { colWidths: s.colWidths });
+    // Auto-attach the process flowchart under the Processing Logic sheet
+    // (or whichever sheet the driver names as PROCESS_FLOW_SHEET). Empty
+    // PROCESS_FLOW = no-op, so other sheets pass through untouched.
+    if (s.name === PROCESS_FLOW_SHEET && Array.isArray(PROCESS_FLOW) && PROCESS_FLOW.length) {
+      appendProcessFlow(payload, PROCESS_FLOW, { heading: PROCESS_FLOW_HEADING });
+    }
+    return { name: sanitizeSheetName(s.name, seen), payload };
+  });
   const inputsSheet = {
     name: sanitizeSheetName(INPUTS_SHEET_NAME, seen),
     payload: screensSheet({ hasSelectionImg, hasAlvImg, alvStartRow, paramsStartRow }),
