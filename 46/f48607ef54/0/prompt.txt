@@ -1,0 +1,21 @@
+origin/active 브랜치 내용 pull 해올건데 specfix 브랜치를 새로 개설하고 이 브랜치에 pull 해와줘, 기존 layout 브랜치는 제거해주고
+
+---
+
+active 브랜치 pull 해온거지?
+
+---
+
+/sc4sap:program-to-spec ZMMR1001
+
+---
+
+서버 연결됐으니까 이어서 다시 해줘
+
+---
+
+지금 터미널 경로가 어디야
+
+---
+
+지금 origin/active 브랜치 specfix 브랜치로 pull 해와주고 마켓플레이스랑 캐시 패치도 같이 해줘

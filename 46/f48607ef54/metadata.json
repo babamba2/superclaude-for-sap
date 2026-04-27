@@ -1,0 +1,25 @@
+{
+  "cli_version": "0.5.6",
+  "checkpoint_id": "46f48607ef54",
+  "strategy": "manual-commit",
+  "branch": "specfix",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "skills/program-to-spec/workflow-steps.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/46/f48607ef54/0/metadata.json",
+      "transcript": "/46/f48607ef54/0/full.jsonl",
+      "content_hash": "/46/f48607ef54/0/content_hash.txt",
+      "prompt": "/46/f48607ef54/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 5160,
+    "cache_creation_tokens": 1936009,
+    "cache_read_tokens": 95334646,
+    "output_tokens": 303442,
+    "api_call_count": 270
+  }
+}
