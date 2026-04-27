@@ -1,0 +1,1 @@
+sc4sap-landing 폴더 안에 html 고칠거야, 일단 가장먼저 entire status 확인해서 프롬프트 세션 attach 해주고, 그다음에 작업할 내용 말해줄게
