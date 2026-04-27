@@ -1,0 +1,67 @@
+{
+  "cli_version": "0.5.6",
+  "checkpoint_id": "46f48607ef54",
+  "session_id": "f861f33a-b5e6-463c-8c6d-0959f1675c8b",
+  "strategy": "manual-commit",
+  "created_at": "2026-04-27T14:36:48.6111883Z",
+  "branch": "specfix",
+  "checkpoints_count": 2,
+  "files_touched": [
+    "scripts/spec/screen-image-renderer.mjs",
+    "skills/program-to-spec/workflow-steps.md"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-4-7[1m]",
+  "turn_id": "b9e709a0d14d",
+  "token_usage": {
+    "input_tokens": 154,
+    "cache_creation_tokens": 223377,
+    "cache_read_tokens": 13130518,
+    "output_tokens": 100272,
+    "api_call_count": 99
+  },
+  "session_metrics": {
+    "turn_count": 11
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-04-27T14:36:48.5384561Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 10,
+    "human_modified": 1025,
+    "human_removed": 0,
+    "total_committed": 741,
+    "total_lines_changed": 1035,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 152,
+      "user_lines_removed": 142,
+      "agent_lines_added": 740,
+      "agent_lines_removed": 630,
+      "user_added_per_file": {
+        "skills/program-to-spec/workflow-steps.md": 152
+      },
+      "user_removed_per_file": {
+        "skills/program-to-spec/workflow-steps.md": 142
+      }
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 883,
+      "agent_lines_removed": 763
+    }
+  ]
+}
