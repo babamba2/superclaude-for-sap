@@ -1,0 +1,45 @@
+클로드 코드 재시작했어. 아래 작업내용 참고 
+● 원인 확정:
+
+  ┌─────────────────────────────────────────────────┬───────┬───────────────────┐
+  │                      위치                       │ 버전  │ 4개 read ECC 분기 │
+  ├─────────────────────────────────────────────────┼───────┼───────────────────┤
+  │ marketplaces/abap-mcp-adt-powerup/              │ 4.8.3 │ ✅ 있음           │
+  ├─────────────────────────────────────────────────┼───────┼───────────────────┤
+  │ cache/sc4sap/sc4sap/0.6.11/vendor/abap-mcp-adt/ │ 4.8.1 │ ❌ 없음           │
+  └─────────────────────────────────────────────────┴───────┴───────────────────┘
+
+  MCP 런타임이 캐시의 4.8.1 vendor를 로드합니다. 4.8.1 시점엔 Create/Update/Delete + BAdI에는 ECC 분기가 들어가 있지만, Get(read) 4개의 RFC 폴백은 4.8.2/4.8.3에서 추가됨 → 캐시엔 아직 그게 없음. (마켓플레이스에 4개
+  read ECC 분기 0건 매치, marketplace dist에는 그 분기 4건 매치 — 패턴 일치)
+
+  조치 옵션:
+  - A. 마켓플레이스 4.8.3의 dist/ + src/를 cache/sc4sap/sc4sap/0.6.11/vendor/abap-mcp-adt/로 full replace → Claude Code 재시작
+  - B. sc4sap plugin 버전을 0.6.12로 bump하고 marketplace에서 재미러링되도록 → Claude Code 재시작 (정공법)
+
+  메모 feedback_vendor_patch_version_check.md 권장은 마이너 버전 갭(4.8.1→4.8.3)에서 full vendor replace + node_modules 포함이라 A가 빠른 길이긴 합니다. 어느 쪽으로 갈까요?
+
+✻ Brewed for 5m 44s
+
+❯ A 하자                                                                                                                                                                                                               
+
+● 진행할게요. 안전망으로 캐시 vendor를 백업한 뒤 통째로 교체합니다.
+
+  Listed 1 directory (ctrl+o to expand)
+
+● 800M 양쪽 다 큰데, 마켓플레이스가 SoT라 재복제 가능합니다. 그래도 안전망 백업 만든 뒤 통째 교체할게요. .git/.github은 캐시엔 불필요하니 제외.
+
+● Bash(cd c:/Users/pssps/.claude/plugins/cache/sc4sap/sc4sap/0.6.11/vendor && mv abap-mcp-adt abap-mcp-adt.bak.20260429 && echo "backup created" && ls -la)
+  ⎿  backup created
+     total 20
+     drwxr-xr-x 1 pssps 197609 0 Apr 29 10:19 .
+     … +2 lines (ctrl+o to expand)
+  ⎿  Shell cwd was reset to C:\Users\pssps\Documents\Projects\sc4sap_project
+
+● Bash(SRC="c:/Users/pssps/.claude/plugins/marketplaces/abap-mcp-adt-powerup"; DEST="c:/Users/pssps/.claude/plugins/cache/sc4sap/sc4sap/0.6.11/vendor/abap-mcp-adt"; mk…)
+  ⎿  copy done
+     778M       c:/Users/pssps/.claude/plugins/cache/sc4sap/sc4sap/0.6.11/vendor/abap-mcp-adt
+  ⎿  (timeout 5m)
+
+  Searched for 2 patterns (ctrl+o to expand)               
+                                                 
+● 교체 완료. 캐시 vendor가 4.8.3 + ECC 분기 포함된 상태입니다. Claude Code 한 번 재시작해주시면 5개 모두 다시 호출해서 검증할게요. (백업은 abap-mcp-adt.bak.20260429, 검증 후 정리)
