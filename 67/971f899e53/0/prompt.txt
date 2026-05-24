@@ -35,3 +35,11 @@ ZMMRTEST004
 ---
 
 오케이 이거 플러그인에 내장된거지?
+
+---
+
+오케이 지금 specfix 브랜치 커밋하고 origin/active 브랜치에 push 해줘, program-to-spec 기능 수정된 파일들 + asset(template_base.xlsx) 폴더 << 이번 기능수정된 파일들만 추려서 푸시해줘
+
+---
+
+오케이 지금 specfix 브랜치 커밋하고 origin/active 브랜치에 push 해줘, program-to-spec 기능 수정된 파일들 + asset(template_base.xlsx) 폴더 << 이번 기능수정된 파일들만 추려서 푸시해줘, 깃허브 작업 전에 enitre attach 확인해주고
