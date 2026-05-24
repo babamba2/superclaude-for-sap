@@ -3,8 +3,9 @@
   "checkpoint_id": "67971f899e53",
   "strategy": "manual-commit",
   "branch": "specfix",
-  "checkpoints_count": 7,
+  "checkpoints_count": 17,
   "files_touched": [
+    "asset/template_base.xlsx",
     "scripts/spec/build-xlsx.mjs",
     "scripts/spec/image-swap.mjs",
     "scripts/spec/rich-xlsx-template.mjs",
@@ -21,13 +22,19 @@
       "transcript": "/67/971f899e53/0/full.jsonl",
       "content_hash": "/67/971f899e53/0/content_hash.txt",
       "prompt": "/67/971f899e53/0/prompt.txt"
+    },
+    {
+      "metadata": "/67/971f899e53/1/metadata.json",
+      "transcript": "/67/971f899e53/1/full.jsonl",
+      "content_hash": "/67/971f899e53/1/content_hash.txt",
+      "prompt": "/67/971f899e53/1/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 13542,
-    "cache_creation_tokens": 779282,
-    "cache_read_tokens": 14643775,
-    "output_tokens": 171986,
-    "api_call_count": 99
+    "input_tokens": 21537,
+    "cache_creation_tokens": 2010843,
+    "cache_read_tokens": 74867752,
+    "output_tokens": 472512,
+    "api_call_count": 353
   }
 }

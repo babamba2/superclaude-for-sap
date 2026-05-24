@@ -1,0 +1,142 @@
+{
+  "cli_version": "0.5.6",
+  "checkpoint_id": "67971f899e53",
+  "session_id": "801b7a83-2db1-40db-b723-180c7b32ce5d",
+  "strategy": "manual-commit",
+  "created_at": "2026-05-24T05:54:44.0279523Z",
+  "branch": "specfix",
+  "checkpoints_count": 10,
+  "files_touched": [
+    "asset/template_base.xlsx",
+    "scripts/spec/build-xlsx.mjs",
+    "scripts/spec/rich-xlsx-template.mjs",
+    "scripts/spec/screen-image-renderer.mjs",
+    "scripts/spec/template-clone.mjs",
+    "skills/program-to-spec/SKILL.md",
+    "skills/program-to-spec/spec-templates.md",
+    "skills/program-to-spec/workflow-steps.md"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-haiku-4-5-20251001",
+  "turn_id": "be345fd9810a",
+  "token_usage": {
+    "input_tokens": 7995,
+    "cache_creation_tokens": 1231561,
+    "cache_read_tokens": 60223977,
+    "output_tokens": 300526,
+    "api_call_count": 254
+  },
+  "session_metrics": {
+    "turn_count": 18
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-05-24T05:54:43.8525322Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 2130,
+    "human_removed": 1549,
+    "total_committed": 0,
+    "total_lines_changed": 3679,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 2656,
+      "user_lines_removed": 2195,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "scripts/spec/rich-xlsx-template.mjs": 1655,
+        "scripts/spec/screen-image-renderer.mjs": 992,
+        "양식예시_extracted/sharedStrings.xml": 1,
+        "양식예시_extracted/styles.xml": 1,
+        "양식예시_extracted/worksheets_sheet1.xml": 1,
+        "양식예시_extracted/worksheets_sheet2.xml": 1,
+        "양식예시_extracted/worksheets_sheet3.xml": 1,
+        "양식예시_extracted/worksheets_sheet4.xml": 1,
+        "양식예시_extracted/worksheets_sheet5.xml": 1,
+        "양식예시_extracted/worksheets_sheet6.xml": 1,
+        "양식예시_extracted/worksheets_sheet7.xml": 1
+      },
+      "user_removed_per_file": {
+        "scripts/spec/rich-xlsx-template.mjs": 1464,
+        "scripts/spec/screen-image-renderer.mjs": 731
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2740,
+      "agent_lines_removed": 2195
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2750,
+      "agent_lines_removed": 2195
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 86,
+      "user_lines_removed": 22,
+      "agent_lines_added": 2763,
+      "agent_lines_removed": 2195,
+      "user_added_per_file": {
+        "scripts/spec/rich-xlsx-template.mjs": 86
+      },
+      "user_removed_per_file": {
+        "scripts/spec/rich-xlsx-template.mjs": 22
+      }
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2827,
+      "agent_lines_removed": 2195
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2818,
+      "agent_lines_removed": 2195
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 202,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2818,
+      "agent_lines_removed": 2195,
+      "user_added_per_file": {
+        "scripts/spec/template-clone.mjs": 202
+      }
+    },
+    {
+      "checkpoint_number": 8,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 3370,
+      "agent_lines_removed": 2556
+    },
+    {
+      "checkpoint_number": 9,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1616,
+      "agent_lines_removed": 2781
+    },
+    {
+      "checkpoint_number": 10,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1616,
+      "agent_lines_removed": 2781
+    }
+  ]
+}
