@@ -1,0 +1,141 @@
+{
+  "cli_version": "0.5.6",
+  "checkpoint_id": "67971f899e53",
+  "session_id": "3ab4ecb6-36b6-41a5-8fe8-4cd4349c65b2",
+  "strategy": "manual-commit",
+  "created_at": "2026-05-24T05:54:42.3346436Z",
+  "branch": "specfix",
+  "checkpoints_count": 7,
+  "files_touched": [
+    "scripts/spec/build-xlsx.mjs",
+    "scripts/spec/image-swap.mjs",
+    "scripts/spec/rich-xlsx-template.mjs",
+    "scripts/spec/screen-image-renderer.mjs",
+    "scripts/spec/template-clone.mjs",
+    "scripts/spec/xlsx-zip.mjs",
+    "skills/program-to-spec/SKILL.md",
+    "skills/program-to-spec/spec-templates.md",
+    "skills/program-to-spec/workflow-steps.md"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-sonnet-4-6",
+  "turn_id": "cb473402d55e",
+  "token_usage": {
+    "input_tokens": 13542,
+    "cache_creation_tokens": 779282,
+    "cache_read_tokens": 14643775,
+    "output_tokens": 171986,
+    "api_call_count": 99
+  },
+  "session_metrics": {
+    "turn_count": 13
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-05-24T05:54:42.20814Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 1822,
+    "human_removed": 2510,
+    "total_committed": 309,
+    "total_lines_changed": 4332,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 1616,
+      "user_lines_removed": 2781,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "scripts/spec/screen-image-renderer.mjs": 1064,
+        "scripts/spec/template-clone.mjs": 208,
+        "skills/program-to-spec/SKILL.md": 174,
+        "skills/program-to-spec/spec-templates.md": 69,
+        "skills/program-to-spec/workflow-steps.md": 101
+      },
+      "user_removed_per_file": {
+        "scripts/spec/build-xlsx.mjs": 225,
+        "scripts/spec/rich-xlsx-template.mjs": 1464,
+        "scripts/spec/screen-image-renderer.mjs": 731,
+        "skills/program-to-spec/SKILL.md": 181,
+        "skills/program-to-spec/spec-templates.md": 28,
+        "skills/program-to-spec/workflow-steps.md": 152
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1616,
+      "agent_lines_removed": 2781
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1806,
+      "agent_lines_removed": 2779
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1959,
+      "agent_lines_removed": 2779
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 1985,
+      "agent_lines_removed": 2779
+    },
+    {
+      "checkpoint_number": 6,
+      "user_lines_added": 258,
+      "user_lines_removed": 89,
+      "agent_lines_added": 2014,
+      "agent_lines_removed": 2779,
+      "user_added_per_file": {
+        "scripts/spec/build-spec.mjs": 92,
+        "skills/program-to-spec/SKILL.md": 10,
+        "skills/program-to-spec/spec-templates.md": 58,
+        "skills/program-to-spec/workflow-steps.md": 16,
+        "tmp_image_spec.json": 78,
+        "tmp_tr.json": 4
+      },
+      "user_removed_per_file": {
+        "skills/program-to-spec/SKILL.md": 4,
+        "skills/program-to-spec/spec-templates.md": 59,
+        "skills/program-to-spec/workflow-steps.md": 26
+      }
+    },
+    {
+      "checkpoint_number": 7,
+      "user_lines_added": 174,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2009,
+      "agent_lines_removed": 2779,
+      "user_added_per_file": {
+        "scripts/spec/build-spec.mjs": 92,
+        "tmp_image_spec.json": 78,
+        "tmp_tr.json": 4
+      }
+    },
+    {
+      "checkpoint_number": 8,
+      "user_lines_added": 174,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2009,
+      "agent_lines_removed": 2779,
+      "user_added_per_file": {
+        "scripts/spec/build-spec.mjs": 92,
+        "tmp_image_spec.json": 78,
+        "tmp_tr.json": 4
+      }
+    }
+  ]
+}

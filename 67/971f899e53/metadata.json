@@ -1,0 +1,33 @@
+{
+  "cli_version": "0.5.6",
+  "checkpoint_id": "67971f899e53",
+  "strategy": "manual-commit",
+  "branch": "specfix",
+  "checkpoints_count": 7,
+  "files_touched": [
+    "scripts/spec/build-xlsx.mjs",
+    "scripts/spec/image-swap.mjs",
+    "scripts/spec/rich-xlsx-template.mjs",
+    "scripts/spec/screen-image-renderer.mjs",
+    "scripts/spec/template-clone.mjs",
+    "scripts/spec/xlsx-zip.mjs",
+    "skills/program-to-spec/SKILL.md",
+    "skills/program-to-spec/spec-templates.md",
+    "skills/program-to-spec/workflow-steps.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/67/971f899e53/0/metadata.json",
+      "transcript": "/67/971f899e53/0/full.jsonl",
+      "content_hash": "/67/971f899e53/0/content_hash.txt",
+      "prompt": "/67/971f899e53/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 13542,
+    "cache_creation_tokens": 779282,
+    "cache_read_tokens": 14643775,
+    "output_tokens": 171986,
+    "api_call_count": 99
+  }
+}
