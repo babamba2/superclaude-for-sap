@@ -27,3 +27,7 @@ program-to-spec 기능 수정하는거 맞지?
 ---
 
 ㅇㅇ 좋음, origin/active 브랜치에 현재 로컬 브랜치 내용 push 할건데, progrma-to-spec 기능수정관련된 파일들이랑, package-to-process 기능추가 관련된 파일들만 커밋 후 푸쉬해주고, readme 파일에 package-to-process 내용 추가해줘(너무 분량 과하게 작성하지 말고 기능 핵심만)
+
+---
+
+이거 컨텍스트 기록 entire에도 기록해야되니까 그 작업도좀 해줄래?
