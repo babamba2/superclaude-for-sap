@@ -70,6 +70,16 @@ const LEGEND = {
     hotspot_label:  'Hotspot (더블클릭 이동)',
     editable_cell:  '노랑 셀',
     editable_label: '편집 가능',
+    block_label:    '조회 조건',
+    option_label:   '옵션',
+    flow_heading:   '처리 흐름도',
+    pane_caption:   '트리 노드 클릭 시 우측 갱신',
+    fc_terminal:    '시작 · 종료',
+    fc_process:     '처리',
+    fc_decision:    '분기 (조건)',
+    fc_message:     '메시지 · 예외',
+    fc_yes:         '예',
+    fc_no:          '아니오',
   },
   en: {
     required:       'Required',
@@ -82,6 +92,16 @@ const LEGEND = {
     hotspot_label:  '= Hotspot (click to navigate)',
     editable_cell:  'Yellow cell',
     editable_label: '= Editable',
+    block_label:    'Selection Criteria',
+    option_label:   'Options',
+    flow_heading:   'Process Flow',
+    pane_caption:   'Click a tree node to refresh the right pane',
+    fc_terminal:    'Start · End',
+    fc_process:     'Process',
+    fc_decision:    'Decision',
+    fc_message:     'Message · Exception',
+    fc_yes:         'Yes',
+    fc_no:          'No',
   },
   ja: {
     required:       '必須入力',
@@ -94,6 +114,16 @@ const LEGEND = {
     hotspot_label:  '= Hotspot (ダブルクリックで遷移)',
     editable_cell:  '黄色セル',
     editable_label: '= 編集可能',
+    block_label:    '照会条件',
+    option_label:   'オプション',
+    flow_heading:   '処理フロー',
+    pane_caption:   'ツリーノードをクリックすると右側を更新',
+    fc_terminal:    '開始 · 終了',
+    fc_process:     '処理',
+    fc_decision:    '分岐 (条件)',
+    fc_message:     'メッセージ · 例外',
+    fc_yes:         'はい',
+    fc_no:          'いいえ',
   },
 };
 function legendFor(lang) { return LEGEND[lang] || LEGEND.ko; }
@@ -140,12 +170,17 @@ function approxTextWidthPx(s) {
  */
 export function renderSelectionScreenSVG({
   fields = [],
-  blockLabel = '조회 조건',
+  blockLabel = null,
   optionFields = [],
-  optionBlockLabel = '옵션',
+  optionBlockLabel = null,
   lang = 'ko',
 } = {}) {
   const L = legendFor(lang);
+  // Lang-aware defaults: when the caller omits the block labels, fall back to
+  // the localized strings so an EN/JA spec never inherits the Korean default
+  // (and vice-versa). Explicit caller values always win.
+  blockLabel = blockLabel || L.block_label;
+  optionBlockLabel = optionBlockLabel || L.option_label;
   const rowH = 24;
   const padTop = 40, padBottom = 60, optionBlockH = optionFields.length ? 24 + optionFields.length * rowH : 0;
 
@@ -452,7 +487,8 @@ function labelLinesAndHeight(label, boxW, kind) {
   return lines;
 }
 
-export function renderProcessFlowSVG(items = [], { lang = 'ko', heading = 'Process Flow Chart', width = 760, orientation = 'vertical' } = {}) {
+export function renderProcessFlowSVG(items = [], { lang = 'ko', heading = null, width = 760, orientation = 'vertical' } = {}) {
+  heading = heading || legendFor(lang).flow_heading;
   if (orientation === 'horizontal') {
     return renderProcessFlowHorizontalSVG(items, { lang, heading });
   }
@@ -613,7 +649,8 @@ function pfHorizontalLayout(items) {
   return { boxes, totalW };
 }
 
-export function renderProcessFlowHorizontalSVG(items = [], { lang = 'ko', heading = 'Process Flow Chart' } = {}) {
+export function renderProcessFlowHorizontalSVG(items = [], { lang = 'ko', heading = null } = {}) {
+  heading = heading || legendFor(lang).flow_heading;
   const BLUE = '#0A4F8C';
   const YELLOW = '#FFFDE7';
   const GRAY_FILL = '#EFEFEF';
@@ -663,6 +700,183 @@ export function processFlowHorizontalMetrics(items = []) {
   const { totalW } = pfHorizontalLayout(items);
   const totalH = PF_H_PAD_TOP + PF_H_BOX_H + PF_H_PAD_BOT;
   return { width: Math.round(totalW * RENDER_SCALE), height: Math.round(totalH * RENDER_SCALE) };
+}
+
+// ──────────────────────────────────────────────────────────────
+// Branching flowchart renderer (v12) — Mermaid-style decision flow
+//
+// Why: the linear horizontal renderer can only show a single chain of boxes.
+// Real ABAP report logic branches (validation fail → re-enter, empty result →
+// exit) and loops back. To make the xlsx "처리 흐름도" read like the Markdown
+// spec's `flowchart TD`, this renderer consumes a small graph:
+//   {
+//     nodes: [{ id, type:'start'|'end'|'process'|'decision'|'io', label,
+//               lane?: 'right' }],          // lane:'right' = exception side-path
+//     edges: [{ from, to, label?, route? }] // route auto-derived from geometry
+//   }
+// Layout: spine nodes (lane != 'right', in array order) stack down the centre
+// column; side nodes align to the y of the decision that branches into them.
+// Edges enter side targets from the east so loop-backs / exits never collide
+// with the vertical spine arrows. `\n` in a label forces a line break.
+// Design: rounded process boxes, amber decision diamonds, red message
+// parallelograms, blue start/end pills, drop-shadows, marker arrowheads,
+// colour-coded 예/아니오 edge chips, and a localized shape legend.
+// ──────────────────────────────────────────────────────────────
+
+const FC_CENTER_X = 250;
+const FC_RIGHT_X  = 620;
+const FC_WIDTH    = 800;
+const FC_PROC_W   = 300;
+const FC_DEC_W    = 240;
+const FC_LINE_H   = 17;
+const FC_VGAP     = 48;
+const FC_PAD_TOP  = 66;
+const FC_PAD_BOT  = 56;
+const FC_INK      = '#2B3A4A';
+const FC_EDGE     = '#5E7388';
+
+function fcWrap(label, maxPx) {
+  return String(label ?? '').split('\n').flatMap(seg => wrapTextPx(seg, maxPx));
+}
+
+function fcMeasure(n) {
+  const type = n.type || 'process';
+  if (type === 'decision') {
+    const lines = fcWrap(n.label, FC_DEC_W - 86);
+    return { type, w: FC_DEC_W, h: Math.max(92, lines.length * FC_LINE_H + 34), lines };
+  }
+  if (type === 'start' || type === 'end') {
+    const lines = fcWrap(n.label, 240);
+    const tw = Math.max(...lines.map(l => approxTextWidthPx(l)));
+    return { type, w: Math.max(120, tw + 56), h: Math.max(42, lines.length * FC_LINE_H + 18), lines };
+  }
+  const W = FC_PROC_W;
+  const lines = fcWrap(n.label, W - 30);
+  return { type, w: W, h: Math.max(46, lines.length * FC_LINE_H + 20), lines };
+}
+
+function layoutFlowchart(graph = {}) {
+  const nodes = graph.nodes || [];
+  const edges = graph.edges || [];
+  const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
+  const pos = {};
+  // Stack spine nodes (centre column).
+  let y = FC_PAD_TOP;
+  for (const n of nodes) {
+    if (n.lane === 'right') continue;
+    const m = fcMeasure(n);
+    pos[n.id] = { ...m, x: FC_CENTER_X, yTop: y, cy: y + m.h / 2 };
+    y += m.h + FC_VGAP;
+  }
+  let maxY = y - FC_VGAP;
+  // Place side nodes aligned to the decision that points at them.
+  for (const n of nodes) {
+    if (n.lane !== 'right') continue;
+    const m = fcMeasure(n);
+    const src = edges.find(e => e.to === n.id && pos[e.from]);
+    const cy = src ? pos[src.from].cy : FC_PAD_TOP + m.h / 2;
+    pos[n.id] = { ...m, x: FC_RIGHT_X, yTop: cy - m.h / 2, cy };
+    if (cy + m.h / 2 > maxY) maxY = cy + m.h / 2;
+  }
+  return { nodes, edges, byId, pos, width: FC_WIDTH, height: maxY + FC_PAD_BOT };
+}
+
+function fcNodeSvg(p, n) {
+  const cx = p.x, cy = p.cy, w = p.w, h = p.h, top = p.yTop;
+  const startY = cy - ((p.lines.length - 1) * FC_LINE_H) / 2 + 4;
+  const texts = (fill, weight) => p.lines.map((ln, i) =>
+    `<text x="${cx}" y="${startY + i * FC_LINE_H}" text-anchor="middle" font-size="12.5"${weight ? ' font-weight="700"' : ''} fill="${fill}">${xml(ln)}</text>`).join('');
+  if (p.type === 'decision') {
+    const dx = w / 2, dy = h / 2;
+    return `<polygon points="${cx},${top} ${cx + dx},${cy} ${cx},${top + h} ${cx - dx},${cy}" fill="#FFF6D8" stroke="#D9A400" stroke-width="1.6" filter="url(#fcsh)"/>${texts(FC_INK)}`;
+  }
+  if (p.type === 'start' || p.type === 'end') {
+    return `<rect x="${cx - w / 2}" y="${top}" width="${w}" height="${h}" rx="${h / 2}" ry="${h / 2}" fill="#2E6FB0" stroke="#24598F" stroke-width="1.4" filter="url(#fcsh)"/>${texts('#FFFFFF', true)}`;
+  }
+  if (p.type === 'io') {
+    const sk = 14, L = cx - w / 2, R = cx + w / 2;
+    return `<polygon points="${L + sk},${top} ${R},${top} ${R - sk},${top + h} ${L},${top + h}" fill="#FCE7E4" stroke="#C0563E" stroke-width="1.5" filter="url(#fcsh)"/>${texts(FC_INK)}`;
+  }
+  return `<rect x="${cx - w / 2}" y="${top}" width="${w}" height="${h}" rx="7" ry="7" fill="#F4F8FC" stroke="#5A85AE" stroke-width="1.5" filter="url(#fcsh)"/>${texts(FC_INK)}`;
+}
+
+function fcChip(x, y, text, color) {
+  const w = approxTextWidthPx(text) + 12;
+  return `<rect x="${x - w / 2}" y="${y - 11}" width="${w}" height="16" rx="3" fill="#FFFFFF" stroke="#D7DEE6"/>`
+    + `<text x="${x}" y="${y + 1}" text-anchor="middle" font-size="11" font-weight="700" fill="${color}">${xml(text)}</text>`;
+}
+
+function fcEdgeSvg(e, L, lang) {
+  const a = L.pos[e.from], b = L.pos[e.to];
+  if (!a || !b) return '';
+  const aSide = L.byId[e.from]?.lane === 'right';
+  const bSide = L.byId[e.to]?.lane === 'right';
+  const south = p => ({ x: p.x, y: p.yTop + p.h });
+  const north = p => ({ x: p.x, y: p.yTop });
+  const east  = p => ({ x: p.x + p.w / 2, y: p.cy });
+  let pts, label = e.label, lx, ly, lcol = '#56657A';
+  if (!aSide && bSide) {                       // decision → exception (horizontal)
+    pts = [east(a), { x: b.x - b.w / 2, y: a.cy }];
+    lx = (a.x + a.w / 2 + b.x - b.w / 2) / 2; ly = a.cy - 7;
+    if (label === legendFor(lang).fc_no || /no|아니|いいえ/i.test(label || '')) lcol = '#B0402F';
+  } else if (aSide && !bSide) {                // side → spine (loop-back up / exit down)
+    const start = b.cy < a.cy ? north(a) : south(a);
+    pts = [start, { x: a.x, y: b.cy }, east(b)];
+    lx = a.x; ly = (start.y + b.cy) / 2; lcol = '#7A4B9C';
+  } else {                                      // spine vertical
+    pts = [south(a), north(b)];
+    lx = a.x + 12; ly = south(a).y + 17;
+    if (label === legendFor(lang).fc_yes || /yes|예|はい/i.test(label || '')) lcol = '#1E7A46';
+  }
+  const poly = `<polyline points="${pts.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="${FC_EDGE}" stroke-width="1.7" marker-end="url(#fcarrow)"/>`;
+  return poly + (label ? fcChip(lx, ly, label, lcol) : '');
+}
+
+function fcLegendSvg(lang, y, width) {
+  const L = legendFor(lang);
+  const items = [
+    ['terminal', L.fc_terminal], ['process', L.fc_process],
+    ['decision', L.fc_decision], ['message', L.fc_message],
+  ];
+  const swatch = (kind, x) => {
+    if (kind === 'terminal') return `<rect x="${x}" y="${y - 9}" width="22" height="13" rx="6.5" fill="#2E6FB0" stroke="#24598F"/>`;
+    if (kind === 'decision') return `<polygon points="${x + 11},${y - 10} ${x + 22},${y - 2} ${x + 11},${y + 6} ${x},${y - 2}" fill="#FFF6D8" stroke="#D9A400"/>`;
+    if (kind === 'message')  return `<polygon points="${x + 4},${y - 9} ${x + 22},${y - 9} ${x + 18},${y + 4} ${x},${y + 4}" fill="#FCE7E4" stroke="#C0563E"/>`;
+    return `<rect x="${x}" y="${y - 9}" width="22" height="13" rx="3" fill="#F4F8FC" stroke="#5A85AE"/>`;
+  };
+  // Lay the four legend entries out centred under the chart.
+  const cellW = 165;
+  const startX = Math.max(20, (width - cellW * items.length) / 2);
+  return items.map((it, i) => {
+    const x = startX + i * cellW;
+    return swatch(it[0], x) + `<text x="${x + 30}" y="${y + 1}" font-size="11.5" fill="#56657A">${xml(it[1])}</text>`;
+  }).join('');
+}
+
+export function renderFlowchartSVG(graph = {}, { lang = 'ko', heading = null } = {}) {
+  heading = heading || legendFor(lang).flow_heading;
+  const L = layoutFlowchart(graph);
+  const defs = `<defs>`
+    + `<marker id="fcarrow" markerWidth="11" markerHeight="11" refX="8.5" refY="3.2" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L9.5,3.2 L0,6.4 Z" fill="${FC_EDGE}"/></marker>`
+    + `<filter id="fcsh" x="-12%" y="-25%" width="124%" height="150%"><feDropShadow dx="0" dy="1.4" stdDeviation="1.5" flood-color="#8C9BAA" flood-opacity="0.45"/></filter>`
+    + `</defs>`;
+  const edgeSvg = (L.edges || []).map(e => fcEdgeSvg(e, L, lang)).join('\n');
+  const nodeSvg = (L.nodes || []).map(n => fcNodeSvg(L.pos[n.id], n)).join('\n');
+  const legendSvg = fcLegendSvg(lang, L.height - 22, L.width);
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(L.width * RENDER_SCALE)}" height="${Math.round(L.height * RENDER_SCALE)}" viewBox="0 0 ${L.width} ${L.height}" font-family="Arial,sans-serif" font-size="12">
+${defs}
+<rect width="${L.width}" height="${L.height}" fill="#FFF"/>
+<text x="${L.width / 2}" y="34" text-anchor="middle" font-size="16" font-weight="700" fill="#0A4F8C">${xml(heading)}</text>
+${edgeSvg}
+${nodeSvg}
+${legendSvg}
+</svg>`;
+}
+
+export function flowchartMetrics(graph = {}) {
+  const L = layoutFlowchart(graph);
+  return { width: Math.round(L.width * RENDER_SCALE), height: Math.round(L.height * RENDER_SCALE) };
 }
 
 // ──────────────────────────────────────────────────────────────
@@ -844,7 +1058,7 @@ function renderSideBySideAlvSVG({ panes = [], splitRatio = [40, 60], interaction
   }
 
   // Interaction caption
-  const caption = interaction ? `← ${xml(interaction)} →` : '← 트리 노드 클릭 시 우측 갱신 →';
+  const caption = interaction ? `← ${xml(interaction)} →` : `← ${xml(legendFor(lang).pane_caption)} →`;
   parts.push(`<text x="${totalW / 2}" y="${bodyY + bodyH + 22}" text-anchor="middle" font-size="12" fill="#1F5AA0" font-weight="600">${caption}</text>`);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -1161,15 +1375,23 @@ export async function renderScreenImages({ selection, alv, processFlow, lang = '
       } catch { /* keep alv null → wireframe fallback */ }
     })());
   }
-  if (Array.isArray(processFlow) && processFlow.length > 0) {
+  // processFlow accepts TWO shapes:
+  //   · string[]          → legacy linear horizontal flow (back-compat)
+  //   · { nodes, edges }  → v12 branching flowchart (Mermaid-style TD), the
+  //                         richer form that mirrors the Markdown spec's flow
+  //                         with decisions / exception side-paths / loop-backs.
+  const isGraph = processFlow && !Array.isArray(processFlow) && Array.isArray(processFlow.nodes);
+  if (isGraph || (Array.isArray(processFlow) && processFlow.length > 0)) {
     tasks.push((async () => {
       try {
-        // xlsx embed path → horizontal orientation (user mandate 2026-05-24:
-        // 가로 레이아웃 강제, 가시성 우선). Markdown callers that want a
-        // vertical chart should call renderProcessFlowSVG() directly with the
-        // default orientation instead of going through renderScreenImages.
-        const svg = renderProcessFlowSVG(processFlow, { lang, orientation: 'horizontal' });
-        const { width, height } = processFlowMetrics(processFlow, { orientation: 'horizontal' });
+        const svg = isGraph
+          ? renderFlowchartSVG(processFlow, { lang })
+          // xlsx embed path → horizontal orientation (user mandate 2026-05-24:
+          // 가로 레이아웃 강제, 가시성 우선) for the legacy linear form.
+          : renderProcessFlowSVG(processFlow, { lang, orientation: 'horizontal' });
+        const { width, height } = isGraph
+          ? flowchartMetrics(processFlow)
+          : processFlowMetrics(processFlow, { orientation: 'horizontal' });
         const png = await rasterizeSvgToPng(svg, { width, height });
         if (png) out.processFlow = { pngBuffer: png, width, height };
       } catch { /* keep processFlow null → text fallback */ }
