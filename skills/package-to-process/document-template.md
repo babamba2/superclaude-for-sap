@@ -44,10 +44,18 @@ language: <ko|en|ja>
 
 ### Macro Flow
 
+![<PACKAGE> 매크로 프로세스 흐름](_assets/process-<YYYYMMDD>-<lang>/macro.png)
+
+<details><summary>Mermaid 원본 보기</summary>
+
 ```mermaid
 flowchart LR
   <NodeA["PR"]> --> <NodeB["PO"]> --> <NodeC["GR"]> --> <NodeD["IR"]>
 ```
+
+</details>
+
+> Rendered by `render-process-images.mjs` from the macro graph (`{nodes,edges}`). The collapsible Mermaid is the portable fallback when the PNG can't be rendered (no headless browser).
 
 ### Entry Points
 
@@ -66,6 +74,10 @@ flowchart LR
 
 ### <N>.2 Representative Scenario (sequenceDiagram)
 
+![프로세스 <N> 대표 시나리오](_assets/process-<YYYYMMDD>-<lang>/seq-<N>.png)
+
+<details><summary>Mermaid 원본 보기</summary>
+
 ```mermaid
 sequenceDiagram
     actor User as <persona, e.g., Buyer>
@@ -79,6 +91,8 @@ sequenceDiagram
     <FM_CORE>-->>-<PROG_ENTRY>: success
     <PROG_ENTRY>-->>-User: ALV / message
 ```
+
+</details>
 
 ### <N>.3 Step Table
 
@@ -142,7 +156,7 @@ sequenceDiagram
 
 1. **Frontmatter is mandatory** — keys listed above are required; any missing → fail with a clear message.
 2. **TOC anchors** use kebab-case slugs of the section titles (writer generates these — do not hand-edit IDs after render).
-3. **No nested Mermaid blocks** — flowchart at Overview, sequenceDiagram per process. Adding stateDiagram is OUT of current scope (decided in Round 2).
+3. **Diagrams render as PNG, Mermaid is the fallback** — one macro **process-map** PNG at Overview (`macro.png`) + one **sequence-diagram** PNG per process (`seq-<N>.png`), each followed by a collapsible `<details>` holding the Mermaid source. The PNGs are produced by `node scripts/spec/render-process-images.mjs <spec.json> <out-dir>` (v13 `renderProcessMapSVG` + `renderSequenceDiagramSVG`) from a diagram-spec JSON the writer assembles: `{ lang, macro:{nodes,edges}, processes:[{slug,title,seq:{actors,items}}] }` — `seq.items` use `{m:[from,to],t}` (sync), `{…,r:true}` (return), `{note,over}`, `{alt|opt|loop}`…`{end}`. Assets live in `_assets/process-<YYYYMMDD>-<lang>/`, referenced relatively. Graceful degrade: no headless browser → manifest slot null → keep only the Mermaid block. stateDiagram stays OUT of scope.
 4. **Process count = `process_count`** in frontmatter. Mismatch → fail.
 5. **Step Table column order is fixed** — `# · Step · Actor · CBO Object · Tables · Trigger · Output`. Reorder = fail.
 6. **No row-level data anywhere** — if the analyst returned sample row data by mistake, replace it with `<sample omitted — see data-extraction-policy>`.

@@ -34,7 +34,20 @@ Agent({
     Use skills/package-to-process/document-template.md verbatim. Substitute
     <…> placeholders from the state above. Honor every constraint in the
     template's § Renderer Constraints (frontmatter mandatory, TOC anchors,
-    no nested Mermaid, fixed column order, no row data, …).
+    PNG diagrams + Mermaid fallback, fixed column order, no row data, …).
+
+    ## Diagram images (render BEFORE embedding)
+    1. Assemble a diagram-spec JSON from <STEP5_JSON>:
+       { lang: <LANG>, macroTitle, macro:{nodes,edges},
+         processes:[{slug:"<N>", title, seq:{actors:[{id,label,kind}], items:[…]}}] }
+       seq.items: {m:[from,to],t} sync · {…,r:true} return · {note,over} ·
+       {alt|opt|loop} … {end}. Save to
+       .sc4sap/processes/<MODULE>/<PACKAGE>/_img/process-images.json
+    2. Run: node scripts/spec/render-process-images.mjs <that json>
+       .sc4sap/processes/<MODULE>/<PACKAGE>/_assets/process-<YYYYMMDD>-<LANG>/
+    3. Embed macro.png at §0 Macro Flow and seq-<N>.png at §<N>.2, each with a
+       collapsible <details> Mermaid fallback. Manifest slot null → keep only
+       the Mermaid block for that diagram.
 
     ## File output
     Write to <OUT_PATH>. Create parent directories if missing.

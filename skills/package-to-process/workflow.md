@@ -131,8 +131,12 @@ Main thread (Sonnet 4.6).
 3. Dispatch per [`dispatch-writer.md`](dispatch-writer.md). Writer reads:
    - State from Steps 1–5 (passed in prompt)
    - [`document-template.md`](document-template.md) skeleton
-4. Writer produces the final `.md` and saves to `.sc4sap/processes/<MODULE>/<PACKAGE>/process-<YYYYMMDD>-<lang>.md`.
-5. Returns the file path + line count + per-section count summary.
+4. Writer renders the diagrams as high-quality PNGs BEFORE embedding:
+   - Assemble a diagram-spec JSON from Step 5 data: `{ lang, macro:{nodes,edges}, processes:[{slug,title,seq:{actors,items}}] }` (schema in `document-template.md` § Renderer Constraints #3). Save to `.sc4sap/processes/<MODULE>/<PACKAGE>/_img/process-images.json`.
+   - Run `node scripts/spec/render-process-images.mjs <spec.json> .sc4sap/processes/<MODULE>/<PACKAGE>/_assets/process-<YYYYMMDD>-<lang>/` → writes `macro.png` + `seq-<N>.png` and prints a manifest.
+   - Embed each PNG with `![…](_assets/process-<YYYYMMDD>-<lang>/<file>.png)` + a collapsible `<details>` Mermaid fallback. Any manifest slot that is `null` (no headless browser) → keep only the Mermaid block for that diagram.
+5. Writer produces the final `.md` and saves to `.sc4sap/processes/<MODULE>/<PACKAGE>/process-<YYYYMMDD>-<lang>.md`.
+6. Returns the file path + line count + per-section count summary + image manifest.
 
 ---
 
@@ -144,7 +148,7 @@ Main thread (Sonnet 4.6).
 2. Validate file:
    - File exists at the expected path
    - YAML frontmatter parses (required keys: `package`, `module`, `industry`, `country`, `generated_at`, `entry_points`, `process_count`)
-   - Each `## N. Process:` has a Mermaid block + a Step Table
+   - Each `## N. Process:` has a representative-scenario diagram (rendered `seq-<N>.png` image OR a Mermaid fallback block) + a Step Table; §0 has the macro `macro.png` (or Mermaid fallback)
    - No `GetTableContents` traces (sanity: no row data accidentally included)
 3. Print final summary:
    ```
