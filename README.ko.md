@@ -29,6 +29,7 @@ SuperClaude for SAP은 Claude Code를 풀스택 SAP 개발 어시스턴트로 �
 | 🔍 **프로그램 분석** | MCP로 ABAP 객체 읽기 → Clean ABAP / 성능 / 보안 리뷰, 또는 Functional/Technical Spec 역공학 (Markdown/Excel). |
 | 🧪 **코드 분석** | `/sc4sap:analyze-code` — `sap-code-reviewer` 전용 정적 리뷰: Clean ABAP / 성능 / 보안 / SAP 표준 준수. 심각도별 이슈와 구체적 수정 제안. |
 | 🔀 **프로그램 비교** | `/sc4sap:compare-programs` — 같은 비즈니스 시나리오를 공유하지만 모듈(MM/CO)·국가(KR/EU)·Persona(컨트롤러/창고)로 분화된 2~5개 ABAP 프로그램을 컨설턴트 관점에서 10개 차원으로 비교 → Markdown 리포트. |
+| 🗺️ **패키지 → 프로세스** | `/sc4sap:package-to-process` — CBO 패키지를 **엔드-투-엔드 비즈니스 프로세스** 문서로 역공학: TCode 진입점 자동 감지 → AI 프로세스 그루핑(PR→PO→GR→IR) → 프로세스별 내러티브 + Mermaid 플로우차트 / 시퀀스 다이어그램 + 단계 테이블. CBO 인벤토리 없으면 `sap-stocker` 자동 연계 → `.sc4sap/processes/<MODULE>/<PACKAGE>/`. |
 | 🩺 **운영 진단** | 운영 트리아지 루프: ST22 덤프, SM02, /IWFND/ERROR_LOG, 프로파일러 트레이스, 로그, where-used — 모두 Claude에서. |
 | ♻️ **CBO 재사용** | Z-패키지 1회 인벤토리 → `create-program` / `program-to-spec`이 기존 CBO 자산 우선 재사용. 브라운필드에 필수. |
 | 🧷 **CBO Extension 인식 (CMOD / GGB1·2 / BAdI / APPEND)** | 사용자 익스짓(CMOD), 치환·검증(GGB1/GGB2), BAdI 구현, APPEND Structure 인벤토리. `create-program` / BAPI 호출 시 기존 Extension 필드(예: BAPI `EXTENSIONIN` / 테이블 append) 우선 재사용; 덤프·장애 대응 시 Extension 포인트를 1순위 용의자로 검토. |
