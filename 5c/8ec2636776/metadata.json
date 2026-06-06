@@ -1,0 +1,29 @@
+{
+  "cli_version": "0.5.6",
+  "checkpoint_id": "5c8ec2636776",
+  "strategy": "manual-commit",
+  "branch": "package",
+  "checkpoints_count": 8,
+  "files_touched": [
+    "scripts/spec/render-process-images.mjs",
+    "scripts/spec/screen-image-renderer.mjs",
+    "skills/package-to-process/dispatch-writer.md",
+    "skills/package-to-process/document-template.md",
+    "skills/package-to-process/workflow.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/5c/8ec2636776/0/metadata.json",
+      "transcript": "/5c/8ec2636776/0/full.jsonl",
+      "content_hash": "/5c/8ec2636776/0/content_hash.txt",
+      "prompt": "/5c/8ec2636776/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 32233,
+    "cache_creation_tokens": 677614,
+    "cache_read_tokens": 40762162,
+    "output_tokens": 259149,
+    "api_call_count": 180
+  }
+}
