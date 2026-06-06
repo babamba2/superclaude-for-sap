@@ -1,0 +1,105 @@
+{
+  "cli_version": "0.5.6",
+  "checkpoint_id": "324d0f83083a",
+  "session_id": "acab79dc-c1d8-4fc5-81be-025c967f12b3",
+  "strategy": "manual-commit",
+  "created_at": "2026-06-06T11:16:15.4199367Z",
+  "branch": "specfix",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "scripts/spec/build-spec.mjs",
+    "scripts/spec/render-md-images.mjs",
+    "scripts/spec/screen-image-renderer.mjs",
+    "skills/program-to-spec/SKILL.md",
+    "skills/program-to-spec/spec-templates.md",
+    "skills/program-to-spec/workflow-steps.md"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-opus-4-8[1m]",
+  "turn_id": "4111df94f7db",
+  "token_usage": {
+    "input_tokens": 30825,
+    "cache_creation_tokens": 529200,
+    "cache_read_tokens": 19227931,
+    "output_tokens": 160998,
+    "api_call_count": 121
+  },
+  "session_metrics": {
+    "turn_count": 11
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-06-06T11:16:15.2997073Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 1682,
+    "human_removed": 1463,
+    "total_committed": 277,
+    "total_lines_changed": 3145,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 2568,
+      "user_lines_removed": 1634,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        ".claude-plugin/marketplace.json": 64,
+        ".claude-plugin/plugin.json": 26,
+        "CLAUDE.md": 82,
+        "scripts/spec/build-spec.mjs": 68,
+        "scripts/spec/screen-image-renderer.mjs": 1199,
+        "skills/package-to-process/SKILL.md": 140,
+        "skills/package-to-process/dispatch-analyst.md": 140,
+        "skills/package-to-process/dispatch-stocker.md": 39,
+        "skills/package-to-process/dispatch-writer.md": 68,
+        "skills/package-to-process/document-template.md": 152,
+        "skills/package-to-process/grouping-heuristics.md": 119,
+        "skills/package-to-process/workflow.md": 162,
+        "skills/program-to-spec/SKILL.md": 181,
+        "skills/program-to-spec/spec-templates.md": 25,
+        "skills/program-to-spec/workflow-steps.md": 103
+      },
+      "user_removed_per_file": {
+        ".claude-plugin/marketplace.json": 64,
+        ".claude-plugin/plugin.json": 26,
+        "CLAUDE.md": 81,
+        "scripts/spec/screen-image-renderer.mjs": 1180,
+        "skills/program-to-spec/SKILL.md": 180,
+        "skills/program-to-spec/spec-templates.md": 1,
+        "skills/program-to-spec/workflow-steps.md": 102
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2568,
+      "agent_lines_removed": 1634
+    },
+    {
+      "checkpoint_number": 3,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2568,
+      "agent_lines_removed": 1634
+    },
+    {
+      "checkpoint_number": 4,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2781,
+      "agent_lines_removed": 1635
+    },
+    {
+      "checkpoint_number": 5,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2845,
+      "agent_lines_removed": 1635
+    }
+  ]
+}

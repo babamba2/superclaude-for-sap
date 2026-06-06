@@ -1,0 +1,30 @@
+{
+  "cli_version": "0.5.6",
+  "checkpoint_id": "324d0f83083a",
+  "strategy": "manual-commit",
+  "branch": "specfix",
+  "checkpoints_count": 4,
+  "files_touched": [
+    "scripts/spec/build-spec.mjs",
+    "scripts/spec/render-md-images.mjs",
+    "scripts/spec/screen-image-renderer.mjs",
+    "skills/program-to-spec/SKILL.md",
+    "skills/program-to-spec/spec-templates.md",
+    "skills/program-to-spec/workflow-steps.md"
+  ],
+  "sessions": [
+    {
+      "metadata": "/32/4d0f83083a/0/metadata.json",
+      "transcript": "/32/4d0f83083a/0/full.jsonl",
+      "content_hash": "/32/4d0f83083a/0/content_hash.txt",
+      "prompt": "/32/4d0f83083a/0/prompt.txt"
+    }
+  ],
+  "token_usage": {
+    "input_tokens": 30825,
+    "cache_creation_tokens": 529200,
+    "cache_read_tokens": 19227931,
+    "output_tokens": 160998,
+    "api_call_count": 121
+  }
+}
