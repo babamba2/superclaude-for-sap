@@ -2,7 +2,6 @@
   "cli_version": "0.5.6",
   "checkpoint_id": "67971f899e53",
   "strategy": "manual-commit",
-  "branch": "specfix",
   "checkpoints_count": 17,
   "files_touched": [
     "asset/template_base.xlsx",
@@ -28,14 +27,20 @@
       "transcript": "/67/971f899e53/1/full.jsonl",
       "content_hash": "/67/971f899e53/1/content_hash.txt",
       "prompt": "/67/971f899e53/1/prompt.txt"
+    },
+    {
+      "metadata": "/67/971f899e53/2/metadata.json",
+      "transcript": "/67/971f899e53/2/full.jsonl",
+      "content_hash": "/67/971f899e53/2/content_hash.txt",
+      "prompt": "/67/971f899e53/2/prompt.txt"
     }
   ],
   "token_usage": {
-    "input_tokens": 21537,
-    "cache_creation_tokens": 2010843,
-    "cache_read_tokens": 74867752,
-    "output_tokens": 472512,
-    "api_call_count": 353
+    "input_tokens": 26647,
+    "cache_creation_tokens": 2303791,
+    "cache_read_tokens": 80499902,
+    "output_tokens": 509386,
+    "api_call_count": 409
   },
   "combined_attribution": {
     "calculated_at": "2026-05-24T05:54:45.5025509Z",
