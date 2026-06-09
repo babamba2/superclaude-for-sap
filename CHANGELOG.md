@@ -3,6 +3,19 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.15] — 2026-06-09
+
+### Added — `package-to-process` skill (End-to-End business-process documentation)
+
+New workflow skill `skills/package-to-process` reverse-engineers a CBO package into an E2E business-process Markdown: auto-detected TCode entry points → AI process grouping (PR→PO→GR→IR style) → per-process narrative + Mermaid flowchart + sequenceDiagram + step tables. Auto-chains `sap-stocker` when CBO inventory is missing. Registered across `CLAUDE.md`, `.claude-plugin/marketplace.json` + `plugin.json` (16 → 17 workflow skills), and both READMEs.
+
+- `skills/package-to-process/` — `SKILL.md`, `workflow.md`, `dispatch-analyst.md`, `dispatch-stocker.md`, `dispatch-writer.md`, `document-template.md`, `grouping-heuristics.md`.
+
+### Added — diagram image pipeline (program-to-spec v12 / diagrams v13)
+
+- `program-to-spec` v12 — branching flowchart + Markdown image embedding; `scripts/spec/render-md-images.mjs` (new).
+- diagrams v13 — `screen-image-renderer.mjs` gains `renderSequenceDiagramSVG` / `renderProcessMapSVG` (high-quality PNG sequence diagrams with lifelines, sync/return arrows, alt/opt/loop frames; macro process DAG with longest-path layering). Selection / ALV mockups restyled to the v13 look (rounded drop-shadow frames, solid header bar). `scripts/spec/render-process-images.mjs` (new) drives the package-to-process diagram image pipeline.
+
 ## [0.6.14] — 2026-04-29
 
 ### Added — ECC DDIC read + classic BAdI lookup (server-side bridge FMs)
