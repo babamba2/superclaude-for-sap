@@ -1,0 +1,68 @@
+{
+  "cli_version": "0.5.6",
+  "checkpoint_id": "7d804afb7e88",
+  "session_id": "d3573dbe-255f-40d6-94f3-f988a2aff7d0",
+  "strategy": "manual-commit",
+  "created_at": "2026-07-19T11:48:03.4817262Z",
+  "branch": "package",
+  "checkpoints_count": 1,
+  "files_touched": [
+    "CHANGE_ME.xlsx",
+    "scripts/spec/screen-image-renderer.mjs",
+    "skills/package-to-process/SKILL.md",
+    "skills/package-to-process/workflow.md"
+  ],
+  "agent": "Claude Code",
+  "model": "claude-fable-5",
+  "turn_id": "467989275ace",
+  "token_usage": {
+    "input_tokens": 82,
+    "cache_creation_tokens": 132294,
+    "cache_read_tokens": 4965377,
+    "output_tokens": 52040,
+    "api_call_count": 41
+  },
+  "session_metrics": {
+    "turn_count": 1
+  },
+  "initial_attribution": {
+    "calculated_at": "2026-07-19T11:48:03.4204551Z",
+    "agent_lines": 0,
+    "agent_removed": 0,
+    "human_added": 0,
+    "human_modified": 2002,
+    "human_removed": 1407,
+    "total_committed": 0,
+    "total_lines_changed": 3409,
+    "agent_percentage": 0,
+    "metric_version": 2
+  },
+  "prompt_attributions": [
+    {
+      "checkpoint_number": 1,
+      "user_lines_added": 2480,
+      "user_lines_removed": 1676,
+      "agent_lines_added": 0,
+      "agent_lines_removed": 0,
+      "user_added_per_file": {
+        "scripts/spec/build-bpml.mjs": 605,
+        "scripts/spec/screen-image-renderer.mjs": 1732,
+        "skills/package-to-process/SKILL.md": 8,
+        "skills/package-to-process/bpml-render.md": 122,
+        "skills/package-to-process/workflow.md": 13
+      },
+      "user_removed_per_file": {
+        "scripts/spec/screen-image-renderer.mjs": 1667,
+        "skills/package-to-process/SKILL.md": 8,
+        "skills/package-to-process/workflow.md": 1
+      }
+    },
+    {
+      "checkpoint_number": 2,
+      "user_lines_added": 0,
+      "user_lines_removed": 0,
+      "agent_lines_added": 2480,
+      "agent_lines_removed": 1676
+    }
+  ]
+}
