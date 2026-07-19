@@ -146,7 +146,7 @@ Main thread (Sonnet 4.6).
 
 1. Assemble the BPML spec JSON from Steps 3–5 state per [`bpml-render.md`](bpml-render.md) (`meta.language` = Step 1 selection; row content in that language; NEVER include `proc_id` — builder auto-numbers L5 as `[MODULE]-NNN`). Save to `_img/bpml-<YYYYMMDD>-<lang>.json`.
 2. Run `node scripts/spec/build-bpml.mjs <spec.json> <out>` per `bpml_format`: `xlsx`, `md`, or both (two runs). Output: `.sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.{xlsx,md}`.
-   - xlsx mode auto-adds one process-flow sheet per L1 group (seq-diagram PNGs embedded; L1 label cells hyperlink to their sheet). First build rasterizes every diagram via headless Edge (~1s each, 4 in parallel); PNGs cache in `_img/bpml-png-<lang>/` so rebuilds are instant. If the builder reports `failed > 0`, rerun the same command — cached images are skipped and only failures retry.
+   - xlsx mode auto-adds one process-flow sheet per L1 group (seq-diagram PNGs embedded; no hyperlinks — navigation by sheet tab). First build rasterizes every diagram via headless Edge (~1s each, 4 in parallel); PNGs cache in `_img/bpml-png-<lang>/` so rebuilds are instant. If the builder reports `failed > 0`, rerun the same command — cached images are skipped and only failures retry.
 3. Surface the builder's one-line result (`rows`, per-level counts; xlsx: flow-sheet/image counts) to the user.
 
 ---

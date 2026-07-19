@@ -108,13 +108,14 @@ xlsx mode extras (builder-automatic — nothing to assemble):
   label>`): every L2–L5 row of the group gets a heading band (`[L<n>] <code>
   <label>`, L5 adds proc_id · program · tcode) with its diagram **PNG**
   embedded below (same seq→flow→auto pick order as md mode).
-- The BPML sheet's **L1 label cell hyperlinks to its group sheet's A1** (blue
-  underline, group fill kept); each flow sheet has an `↑ BPML` back-link.
+- **NO hyperlinks in the workbook** (user decision 2026-07-19: link behavior
+  varies per viewer/Excel license — navigation is by sheet tab). Do not
+  re-add intra-book links.
 - PNGs rasterize via headless Edge/Chrome, cached in `_img/bpml-png-<lang>/`
   keyed by SVG content — rebuilds reuse unchanged diagrams; if the builder
   reports `failed > 0`, rerun the same command (only failures retry). With no
-  headless browser the workbook falls back to the legacy 2-sheet layout (no
-  dead links). `--no-images` forces that fallback.
+  headless browser the workbook falls back to the legacy 2-sheet layout.
+  `--no-images` forces that fallback.
 
 Hard rules:
 

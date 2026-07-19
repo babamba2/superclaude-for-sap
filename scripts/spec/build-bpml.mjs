@@ -23,14 +23,14 @@
 //   Sheets 3+ (one per L1 group, named "<seg>. <L1 label>") — PROCESS FLOW
 //                       sheets: every L2–L5 row of that group gets a heading
 //                       band + its v13 sequence-diagram PNG embedded below
-//                       (oneCellAnchor at col A). The BPML sheet's L1 label
-//                       cell hyperlinks to its group sheet's A1 (blue
-//                       underline); each flow sheet links back to BPML!A1.
-//                       PNGs are rasterized via headless Edge/Chrome and
-//                       cached in _img/bpml-png-<lang>/ keyed by SVG content
-//                       (unchanged diagrams are never re-rendered). If no
-//                       headless browser is available the workbook silently
-//                       falls back to the 2-sheet layout (no dead links).
+//                       (oneCellAnchor at col A). NO hyperlinks anywhere —
+//                       intra-book links were removed on user decision
+//                       (viewer/license-dependent behavior; navigation is by
+//                       sheet tab). PNGs are rasterized via headless
+//                       Edge/Chrome and cached in _img/bpml-png-<lang>/
+//                       keyed by SVG content (unchanged diagrams are never
+//                       re-rendered). If no headless browser is available
+//                       the workbook falls back to the 2-sheet layout.
 //
 // Column widths are AUTO-COMPUTED from content (Korean glyphs ≈ 2 units);
 // long-text columns get a generous cap (업무 내용 = 100). Row height is a
@@ -194,21 +194,15 @@ function cell(colIdx, rowNum, value, style, type) {
 }
 
 // ── styles.xml (generated) — whole workbook font = 굴림 ─────────────────
-// fonts: 0 굴림10 · 1 굴림10 bold white · 2 굴림10 bold · 3 굴림14 bold white ·
-//        4 굴림10 bold underline blue (hyperlink)
+// fonts: 0 굴림10 · 1 굴림10 bold white · 2 굴림10 bold · 3 굴림14 bold white
 // fills: 0 none · 1 gray125 · 2 header FF595959 · 3 warn FFFFF2CC ·
 //        4 ov-label FFE7E7E7 · 5.. group fills (g*2 + lv-1)
 // cellXfs:
 //   0 default · 1 header · 2 title(dark banner) · 3 ov-label · 4 ov-value
 //   5 L5 base(white) · 6 L5 center · 7 warn
 //   8.. group/level (L1·L2 only): base = 8 + (g*2 + lv-1)*2, center = base+1
-//   then NGROUP L1-hyperlink variants (group fill + blue underline font),
-//   then 1 back-link style (no fill/border) for the flow sheets.
 const XF_L5 = 5, XF_WARN = 7, XF_GROUP0 = 8;
 const groupXf = (g, lv, center) => XF_GROUP0 + (g * 2 + (lv - 1)) * 2 + (center ? 1 : 0);
-const XF_L1LINK0 = XF_GROUP0 + NGROUP * 4;
-const l1LinkXf = (g) => XF_L1LINK0 + g;
-const XF_BACKLINK = XF_L1LINK0 + NGROUP;
 
 function stylesXml() {
   const fillDefs = ['<fill><patternFill patternType="none"/></fill>',
@@ -237,21 +231,13 @@ function stylesXml() {
       xfs.push(`<xf numFmtId="0" fontId="${fontId}" fillId="${fillId}" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="center" vertical="center"/></xf>`);
     });
   });
-  // L1 hyperlink cells — group L1 fill + blue underline bold (font 4).
-  GROUP_PALETTES.forEach((_, g) => {
-    xfs.push(`<xf numFmtId="0" fontId="4" fillId="${5 + g * 2}" borderId="1" xfId="0" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment vertical="center" wrapText="1"/></xf>`);
-  });
-  // flow-sheet back-link (↑ BPML) — no fill, no border.
-  xfs.push('<xf numFmtId="0" fontId="4" fillId="0" borderId="0" xfId="0" applyFont="1" applyAlignment="1"><alignment vertical="center"/></xf>');
-
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
-<fonts count="5">
+<fonts count="4">
 <font><sz val="10"/><name val="굴림"/></font>
 <font><sz val="10"/><b/><color rgb="FFFFFFFF"/><name val="굴림"/></font>
 <font><sz val="10"/><b/><name val="굴림"/></font>
 <font><sz val="14"/><b/><color rgb="FFFFFFFF"/><name val="굴림"/></font>
-<font><sz val="10"/><b/><u/><color rgb="FF0B5394"/><name val="굴림"/></font>
 </fonts>
 <fills count="${fillDefs.length}">${fillDefs.join('')}</fills>
 <borders count="2">
@@ -279,43 +265,30 @@ function computeWidths(rows, headers) {
 }
 
 // ── BPML sheet ──────────────────────────────────────────────────────────
-// `l1SheetOf` (optional Map<row, sheetName>) turns each L1 row's L1-label
-// cell into an internal hyperlink to its process-flow sheet's A1 (blue
-// underline, group fill preserved).
-const L1_COL_IDX = COLUMNS.findIndex((c) => c.key === 'l1');
-const quoteSheet = (n) => `'${String(n).replace(/'/g, "''")}'`;
-
-function bpmlSheetXml(rows, headers, l1SheetOf) {
+function bpmlSheetXml(rows, headers) {
   const widths = computeWidths(rows, headers);
   const colsXml = widths.map((w, i) =>
     `<col min="${i + 1}" max="${i + 1}" width="${w.toFixed(1)}" customWidth="1"/>`).join('');
 
   const headerCells = COLUMNS.map((c, i) => cell(i, 1, headers[i], 1)).join('');
   const body = [`<row r="1" ht="16" customHeight="1">${headerCells}</row>`];
-  const hyperlinks = [];
 
   rows.forEach((r, ri) => {
     const rowNum = ri + 2;
     const seg1 = parseInt(String(r.code).split('.')[0], 10);
     const g = (Number.isFinite(seg1) && seg1 > 0 ? seg1 - 1 : 0) % NGROUP;
-    const linkSheet = r.lv === 1 && l1SheetOf ? l1SheetOf.get(r) : undefined;
     const cells = COLUMNS.map((c, i) => {
       const raw = r[c.key];
       let style;
       if (isWarn(raw)) style = XF_WARN;
       else if (r.lv >= 3 || !r.lv) style = c.center ? XF_L5 + 1 : XF_L5;   // 음영은 L2까지만
-      else if (linkSheet && i === L1_COL_IDX) style = l1LinkXf(g);
       else style = groupXf(g, r.lv, c.center);
       return cell(i, rowNum, raw, style, c.num ? 'n' : undefined);
     }).join('');
-    if (linkSheet) {
-      hyperlinks.push(`<hyperlink ref="${colLetter(L1_COL_IDX)}${rowNum}" location="${esc(quoteSheet(linkSheet))}!A1" display="${esc(r.l1 || '')}"/>`);
-    }
     body.push(`<row r="${rowNum}" ht="16" customHeight="1">${cells}</row>`);
   });
 
   const lastRef = `${colLetter(NCOL - 1)}${rows.length + 1}`;
-  const linksXml = hyperlinks.length ? `<hyperlinks>${hyperlinks.join('')}</hyperlinks>` : '';
   return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">
 <sheetViews><sheetView tabSelected="1" workbookViewId="0">
@@ -325,7 +298,6 @@ function bpmlSheetXml(rows, headers, l1SheetOf) {
 <cols>${colsXml}</cols>
 <sheetData>${body.join('')}</sheetData>
 <autoFilter ref="A1:${lastRef}"/>
-${linksXml}
 <pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>
 </worksheet>`;
 }
@@ -491,9 +463,9 @@ async function renderGroupPngs(groups, pngDir) {
   return { rendered, cached, failed };
 }
 
-// One flow sheet: dark title banner + ↑BPML back-link + per-row heading band
-// with the PNG anchored one row below (col A). Returns worksheet XML plus the
-// drawing anchor list (0-based row/col) for items that actually got a PNG.
+// One flow sheet: dark title banner + per-row heading band with the PNG
+// anchored one row below (col A). Returns worksheet XML plus the drawing
+// anchor list (0-based row/col) for items that actually got a PNG.
 function flowSheetXml(g, t) {
   const out = [], merges = [], anchors = [];
   const band = (r, text, s, ht) => {
@@ -503,10 +475,8 @@ function flowSheetXml(g, t) {
     out.push(`<row r="${r}" ht="${ht}" customHeight="1">${cells}</row>`);
   };
   band(1, `${g.seg}. ${g.label} — ${t.flow.detailBand}`, 2, 30);
-  out.push(`<row r="3" ht="16" customHeight="1">${cell(0, 3, t.flow.backToTable, XF_BACKLINK)}</row>`);
-  const links = [`<hyperlink ref="A3" location="BPML!A1" display="${esc(t.flow.backToTable)}"/>`];
 
-  let r = 5;
+  let r = 3;
   for (const it of g.items) {
     const row = it.row;
     let head = `[L${row.lv}] ${row.code} ${it.label}`.trim();
@@ -536,7 +506,6 @@ function flowSheetXml(g, t) {
 <cols>${cols}</cols>
 <sheetData>${out.join('')}</sheetData>
 ${mergesXml}
-<hyperlinks>${links.join('')}</hyperlinks>
 <pageMargins left="0.3" right="0.3" top="0.5" bottom="0.5" header="0.3" footer="0.3"/>
 ${hasDrawing ? '<drawing r:id="rId1"/>' : ''}
 </worksheet>`;
@@ -623,7 +592,6 @@ export async function buildBpml({ meta = {}, rows = [], outPath, flowSheets = tr
       groups = [];
     }
   }
-  const l1SheetOf = new Map(groups.map((g) => [g.l1Row, g.sheetName]));
 
   const sheetNames = [t.overviewSheet, 'BPML', ...groups.map((g) => g.sheetName)];
   const nSheets = sheetNames.length;
@@ -633,7 +601,7 @@ export async function buildBpml({ meta = {}, rows = [], outPath, flowSheets = tr
     { name: 'xl/_rels/workbook.xml.rels', data: Buffer.from(workbookRels(nSheets), 'utf8') },
     { name: 'xl/styles.xml', data: Buffer.from(stylesXml(), 'utf8') },
     { name: 'xl/worksheets/sheet1.xml', data: Buffer.from(overviewSheetXml(meta, counts, t), 'utf8') },
-    { name: 'xl/worksheets/sheet2.xml', data: Buffer.from(bpmlSheetXml(rows, headers, l1SheetOf), 'utf8') },
+    { name: 'xl/worksheets/sheet2.xml', data: Buffer.from(bpmlSheetXml(rows, headers), 'utf8') },
   ];
 
   let mediaSeq = 0, drawingSeq = 0;
