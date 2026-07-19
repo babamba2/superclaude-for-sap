@@ -23,7 +23,7 @@
 //   Sheets 3+ (one per L1 group, named "<seg>. <L1 label>") — PROCESS FLOW
 //                       sheets: every L2–L5 row of that group gets a heading
 //                       band + its v13 sequence-diagram PNG embedded below
-//                       (oneCellAnchor at col B). The BPML sheet's L1 label
+//                       (oneCellAnchor at col A). The BPML sheet's L1 label
 //                       cell hyperlinks to its group sheet's A1 (blue
 //                       underline); each flow sheet links back to BPML!A1.
 //                       PNGs are rasterized via headless Edge/Chrome and
@@ -97,7 +97,7 @@ const COLUMNS = [
   { key: 'l5',        cap: 28 },
   { key: 'program',   cap: 15,  center: true },
   { key: 'tcode',     cap: 13,  center: true },
-  { key: 'std_cbo',   cap: 10,  center: true },
+  { key: 'std_cbo',   cap: 14,  min: 12, center: true },   // 헤더 '표준/CBO'가 랩되어 묻히지 않게 최소폭 강제
   { key: 'task_desc', cap: 100 },
   { key: 'io',        cap: 80 },
   { key: 'wricef',    cap: 11,  center: true },
@@ -274,7 +274,7 @@ function computeWidths(rows, headers) {
   return COLUMNS.map((c, i) => {
     let w = dispW(headers[i]);
     for (const r of rows) w = Math.max(w, dispW(r[c.key]));
-    return Math.min(Math.max(w + 2.5, 6), c.cap);
+    return Math.min(Math.max(w + 2.5, c.min ?? 6), c.cap);
   });
 }
 
@@ -492,7 +492,7 @@ async function renderGroupPngs(groups, pngDir) {
 }
 
 // One flow sheet: dark title banner + ↑BPML back-link + per-row heading band
-// with the PNG anchored one row below (col B). Returns worksheet XML plus the
+// with the PNG anchored one row below (col A). Returns worksheet XML plus the
 // drawing anchor list (0-based row/col) for items that actually got a PNG.
 function flowSheetXml(g, t) {
   const out = [], merges = [], anchors = [];
@@ -516,10 +516,10 @@ function flowSheetXml(g, t) {
     }
     band(r, head, 3, 16);
     if (it.png) {
-      anchors.push({ row0: r, col0: 1, cx: it.pngW * EMU_PER_PX, cy: it.pngH * EMU_PER_PX });
+      anchors.push({ row0: r, col0: 0, cx: it.pngW * EMU_PER_PX, cy: it.pngH * EMU_PER_PX });
       r += 1 + Math.ceil(it.pngH / PX_PER_ROW) + 2;
     } else if (it.svg) {
-      out.push(`<row r="${r + 1}" ht="16" customHeight="1">${cell(1, r + 1, t.flow.noImg, 4)}</row>`);
+      out.push(`<row r="${r + 1}" ht="16" customHeight="1">${cell(0, r + 1, t.flow.noImg, 4)}</row>`);
       r += 4;
     } else {
       r += 2;
