@@ -53,12 +53,16 @@ Main thread (Sonnet 4.6).
 5. Ask the module (constrained list, exactly one question):
    > "Which SAP module? SD / MM / PP / PM / QM / WM / TM / TR / FI / CO / HCM / BW / PS / Ariba"
 6. Validate against `configs/<MODULE>/` existence.
+6b. **Output language + BPML format** — ONE bundled `AskUserQuestion` (two questions, single call):
+   - **언어**: `한국어(ko)` / `English(en)` / `日本語(ja)` / Other (free text → ISO 639-1). First option = conversation language, labeled `(Recommended)`. Applies to BOTH the process `.md` and the BPML.
+   - **BPML 형식**: `xlsx (Recommended)` / `md` / `both`.
+   Store as state `{language, bpml_format}`.
 7. Load context (no agent dispatch — main thread reads):
    - `.sc4sap/config.json` → `sapVersion`, `abapRelease`, `industry`, `country`
    - `.sc4sap/sap.env` → `SAP_ACTIVE_MODULES`
    - If unset → ask once; do NOT proceed silently with defaults for industry/country.
 
-Output state held in main thread: `{package, module, sapVersion, abapRelease, industry, country, activeModules}`.
+Output state held in main thread: `{package, module, sapVersion, abapRelease, industry, country, activeModules, language, bpml_format}`.
 
 ---
 
@@ -138,6 +142,13 @@ Main thread (Sonnet 4.6).
 5. Writer produces the final `.md` and saves to `.sc4sap/processes/<MODULE>/<PACKAGE>/process-<YYYYMMDD>-<lang>.md`.
 6. Returns the file path + line count + per-section count summary + image manifest.
 
+### Step 6b — BPML render (main thread, after writer returns)
+
+1. Assemble the BPML spec JSON from Steps 3–5 state per [`bpml-render.md`](bpml-render.md) (`meta.language` = Step 1 selection; row content in that language; NEVER include `proc_id` — builder auto-numbers L5 as `[MODULE]-NNN`). Save to `_img/bpml-<YYYYMMDD>-<lang>.json`.
+2. Run `node scripts/spec/build-bpml.mjs <spec.json> <out>` per `bpml_format`: `xlsx`, `md`, or both (two runs). Output: `.sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.{xlsx,md}`.
+   - xlsx mode auto-adds one process-flow sheet per L1 group (seq-diagram PNGs embedded; L1 label cells hyperlink to their sheet). First build rasterizes every diagram via headless Edge (~1s each, 4 in parallel); PNGs cache in `_img/bpml-png-<lang>/` so rebuilds are instant. If the builder reports `failed > 0`, rerun the same command — cached images are skipped and only failures retry.
+3. Surface the builder's one-line result (`rows`, per-level counts; xlsx: flow-sheet/image counts) to the user.
+
 ---
 
 ## Step 7 — Validation + Handoff
@@ -149,6 +160,7 @@ Main thread (Sonnet 4.6).
    - File exists at the expected path
    - YAML frontmatter parses (required keys: `package`, `module`, `industry`, `country`, `generated_at`, `entry_points`, `process_count`)
    - Each `## N. Process:` has a representative-scenario diagram (rendered `seq-<N>.png` image OR a Mermaid fallback block) + a Step Table; §0 has the macro `macro.png` (or Mermaid fallback)
+   - BPML file(s) exist per `bpml_format`; builder reported L5 count > 0 (proc_id `[MODULE]-001…` present)
    - No `GetTableContents` traces (sanity: no row data accidentally included)
 3. Print final summary:
    ```
@@ -156,6 +168,7 @@ Main thread (Sonnet 4.6).
 
    ✅ End-to-end process document generated:
       .sc4sap/processes/<MODULE>/<PACKAGE>/process-<DATE>-<lang>.md
+      .sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<DATE>-<lang>.<xlsx|md>
       <N> processes · <M> Mermaid diagrams · <K> external-boundary calls
 
    Next options:

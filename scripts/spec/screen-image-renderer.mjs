@@ -753,7 +753,13 @@ function fcMeasure(n) {
   const type = n.type || 'process';
   if (type === 'decision') {
     const lines = fcWrap(n.label, FC_DEC_W - 86);
-    return { type, w: FC_DEC_W, h: Math.max(92, lines.length * FC_LINE_H + 34), lines };
+    // Diamond taper: lines off-centre sit where the polygon is narrower.
+    // Size the half-height so the widest outer line still fits INSIDE the
+    // diamond edge (avail half-width at offset o = (w/2)·(1 − o/dy)).
+    const maxW = Math.max(...lines.map(l => approxTextWidthPx(l)));
+    const maxOff = ((lines.length - 1) / 2) * FC_LINE_H + 12;
+    const dy = maxOff / Math.max(0.3, 1 - maxW / FC_DEC_W);
+    return { type, w: FC_DEC_W, h: Math.max(92, Math.round(dy * 2), lines.length * FC_LINE_H + 34), lines };
   }
   if (type === 'start' || type === 'end') {
     const lines = fcWrap(n.label, 240);
@@ -908,9 +914,18 @@ export function flowchartMetrics(graph = {}) {
 //   ]
 // }
 // ──────────────────────────────────────────────────────────────
-const SQ_COL_W = 198, SQ_LEFT = 30, SQ_TOP = 56, SQ_HEAD_H = 50;
+// SQ_COL_W compressed 198→156 so wide multi-actor diagrams (up to ~14
+// lifelines) render at a smaller absolute px width — markdown viewers
+// downscale to body width, so a narrower source image = larger apparent
+// text. Paired with the +1 font bumps below (header 12→13, label 11.5→12.5)
+// the font/column ratio rises ~40%, the lever that actually drives on-screen
+// legibility (apparent_font ≈ font_px · containerWidth / imageWidth).
+const SQ_COL_W = 156, SQ_LEFT = 30, SQ_TOP = 56, SQ_HEAD_H = 50;
 const SQ_HEAD_GAP = 22, SQ_ROW = 48, SQ_NOTE = 42, SQ_BOT = 30;
-const SQ_FRAG_OPEN = 32, SQ_FRAG_ELSE = 26, SQ_FRAG_CLOSE = 14, SQ_SELF = 40;
+// SQ_FRAG_CLOSE 14→22: a label right after a frame close stacks upward from
+// its arrow (rect top ≈ close+14−18) — at 14 the white label box always
+// clipped ~4px of the frame's bottom border.
+const SQ_FRAG_OPEN = 32, SQ_FRAG_ELSE = 26, SQ_FRAG_CLOSE = 22, SQ_SELF = 40;
 const SQ_HEAD_W = SQ_COL_W - 34;
 const SQ_INK = '#2B3A4A', SQ_LIFE = '#A7B3C0', SQ_MLINE = '#3C5063', SQ_RET = '#6B7C8D';
 function seqActorX(i) { return SQ_LEFT + SQ_HEAD_W / 2 + i * SQ_COL_W; }
@@ -934,12 +949,24 @@ function layoutSequence(spec = {}) {
     } else if (it.note != null) {
       const ids = (it.over && it.over.length) ? it.over : [actors[0]?.id];
       const is = ids.map(id => idx[id]).filter(v => v != null);
-      placed.push({ type: 'note', y, lo: Math.min(...is), hi: Math.max(...is), text: it.note });
-      y += SQ_NOTE;
+      const lo = Math.min(...is), hi = Math.max(...is);
+      // Same wrap width the renderer uses ((x1-x0)-18) so layout and paint
+      // agree; advance y by the REAL box height, not the fixed slot, so a
+      // tall note never bleeds into the next row.
+      const nLines = wrapTextPx(String(it.note), (hi - lo) * SQ_COL_W + SQ_HEAD_W - 18);
+      const h = Math.max(SQ_NOTE - 10, nLines.length * 15 + 12);
+      placed.push({ type: 'note', y, lo, hi, text: it.note, h });
+      y += h + 10;
     } else if (it.m) {
       const fi = idx[it.m[0]], ti = idx[it.m[1]];
       if (fi == null || ti == null) continue;
       const self = fi === ti;
+      // Message labels stack UPWARD from the arrow (seqLabel), so a wrapped
+      // 2-3 line label pokes into whatever sits above — the actor headers
+      // (painted later → they cover the text), a frame tab, or the previous
+      // row. Reserve the extra lines' height BEFORE placing the arrow.
+      const nLines = it.t ? wrapTextPx(String(it.t), 138).length : 1;
+      y += (nLines - 1) * 15;
       placed.push({ type: 'msg', y, fi, ti, self, text: it.t || '', ret: !!it.r });
       y += self ? SQ_SELF : SQ_ROW;
     }
@@ -951,12 +978,12 @@ function layoutSequence(spec = {}) {
 
 function seqLabel(cx, y, text, anchor = 'middle', ret = false) {
   if (!text) return '';
-  const lines = wrapTextPx(String(text), 178);
-  const lh = 14, top = y - (lines.length - 1) * lh;
+  const lines = wrapTextPx(String(text), 138);
+  const lh = 14.5, top = y - (lines.length - 1) * lh;
   const cw = Math.max(...lines.map(l => approxTextWidthPx(l))) + 10;
   const x0 = anchor === 'start' ? cx : cx - cw / 2;
   const out = [`<rect x="${x0}" y="${top - 11}" width="${cw}" height="${lines.length * lh + 1}" rx="2.5" fill="#FFFFFF" fill-opacity="0.92"/>`];
-  lines.forEach((ln, li) => out.push(`<text x="${anchor === 'start' ? x0 + 5 : cx}" y="${top + li * lh}" text-anchor="${anchor === 'start' ? 'start' : 'middle'}" font-size="11.5" fill="${ret ? '#5B7088' : SQ_INK}">${xml(ln)}</text>`));
+  lines.forEach((ln, li) => out.push(`<text x="${anchor === 'start' ? x0 + 5 : cx}" y="${top + li * lh}" text-anchor="${anchor === 'start' ? 'start' : 'middle'}" font-size="12.5" fill="${ret ? '#5B7088' : SQ_INK}">${xml(ln)}</text>`));
   return out.join('');
 }
 
@@ -994,9 +1021,9 @@ export function renderSequenceDiagramSVG(spec = {}, { lang = 'ko', title = null 
     if (p.type === 'note') {
       const x0 = seqActorX(p.lo) - SQ_HEAD_W / 2, x1 = seqActorX(p.hi) + SQ_HEAD_W / 2;
       const lines = wrapTextPx(p.text, (x1 - x0) - 18);
-      const h = Math.max(SQ_NOTE - 10, lines.length * 15 + 12);
+      const h = p.h ?? Math.max(SQ_NOTE - 10, lines.length * 15 + 12);
       parts.push(`<rect x="${x0}" y="${p.y - 4}" width="${x1 - x0}" height="${h}" rx="3" fill="#FFF6D8" stroke="#D9A400" filter="url(#sqsh)"/>`);
-      lines.forEach((ln, li) => parts.push(`<text x="${(x0 + x1) / 2}" y="${p.y + 12 + li * 15}" text-anchor="middle" font-size="11.5" fill="${SQ_INK}">${xml(ln)}</text>`));
+      lines.forEach((ln, li) => parts.push(`<text x="${(x0 + x1) / 2}" y="${p.y + 12 + li * 15}" text-anchor="middle" font-size="12.5" fill="${SQ_INK}">${xml(ln)}</text>`));
       continue;
     }
     if (p.self) {
@@ -1018,9 +1045,9 @@ export function renderSequenceDiagramSVG(spec = {}, { lang = 'ko', title = null 
       const gx = x - SQ_HEAD_W / 2 + 12, gy = SQ_TOP + 13;
       parts.push(`<circle cx="${gx}" cy="${gy}" r="3.2" fill="none" stroke="#FFFFFF" stroke-width="1.3"/><line x1="${gx}" y1="${gy + 3}" x2="${gx}" y2="${gy + 9}" stroke="#FFFFFF" stroke-width="1.3"/><line x1="${gx - 3}" y1="${gy + 5}" x2="${gx + 3}" y2="${gy + 5}" stroke="#FFFFFF" stroke-width="1.3"/>`);
     }
-    const lines = wrapTextPx(a.label, SQ_HEAD_W - 20);
+    const lines = wrapTextPx(a.label, SQ_HEAD_W - 18);
     const sy = SQ_TOP + SQ_HEAD_H / 2 - (lines.length - 1) * 8 + 5;
-    lines.forEach((ln, li) => parts.push(`<text x="${x}" y="${sy + li * 15}" text-anchor="middle" font-size="12" font-weight="700" fill="#FFFFFF">${xml(ln)}</text>`));
+    lines.forEach((ln, li) => parts.push(`<text x="${x}" y="${sy + li * 15}" text-anchor="middle" font-size="13" font-weight="700" fill="#FFFFFF">${xml(ln)}</text>`));
   });
   const heading = title || spec.title;
   const headingSvg = heading ? `<text x="${width / 2}" y="32" text-anchor="middle" font-size="15" font-weight="700" fill="#0A4F8C">${xml(heading)}</text>` : '';
@@ -1048,6 +1075,15 @@ export function sequenceDiagramMetrics(spec = {}) {
 // ──────────────────────────────────────────────────────────────
 const PM_NW = 200, PM_PAD_X = 36, PM_PAD_TOP = 58, PM_PAD_BOT = 30;
 const PM_ARROW_GAP = 116, PM_ROW_GAP = 28, PM_LINE_H = 16;
+// Boustrophedon (snake) wrap: a left→right process chain longer than
+// PM_MAX_COLS columns wraps onto a second/third row instead of growing
+// unbounded to the right. A very wide single-row image is downscaled hard
+// by markdown viewers (→ tiny text); wrapping trades width for height so the
+// rendered text stays large. Rows alternate flow direction (row 0 L→R,
+// row 1 R→L, …) and connect with a vertical U-turn at the fold. Maps with
+// ≤ PM_MAX_COLS columns lay out exactly as before (single row, unchanged).
+const PM_MAX_COLS = 4;     // columns per row before wrapping
+const PM_BAND_GAP = 64;    // vertical gap between wrapped rows (room for the fold connector)
 
 function pmMeasure(n) {
   const lines = fcWrap(n.label, PM_NW - 56);
@@ -1071,23 +1107,47 @@ function layoutProcessMap(spec = {}) {
   const byLayer = {};
   for (const n of nodes) (byLayer[layer[n.id]] ||= []).push(n);
   const meas = Object.fromEntries(nodes.map(n => [n.id, pmMeasure(n)]));
-  const colHeights = Object.entries(byLayer).map(([, ns]) =>
-    ns.reduce((s, n) => s + meas[n.id].h, 0) + (ns.length - 1) * PM_ROW_GAP);
-  const bodyH = Math.max(...colHeights, 60);
-  const pos = {};
   const maxLayer = Math.max(...Object.values(layer));
+  const totalCols = maxLayer + 1;
+  // Per-layer (column) stack height.
+  const colH = {};
   for (const [lyr, ns] of Object.entries(byLayer)) {
-    const colH = ns.reduce((s, n) => s + meas[n.id].h, 0) + (ns.length - 1) * PM_ROW_GAP;
-    let y = PM_PAD_TOP + (bodyH - colH) / 2;
-    const x = PM_PAD_X + (+lyr) * (PM_NW + PM_ARROW_GAP);
+    colH[lyr] = ns.reduce((s, n) => s + meas[n.id].h, 0) + (ns.length - 1) * PM_ROW_GAP;
+  }
+  // Wrap the column sequence into balanced rows (snake direction).
+  const rows = Math.max(1, Math.ceil(totalCols / PM_MAX_COLS));
+  const perRow = Math.ceil(totalCols / rows);
+  const layerRow = {}, layerVisCol = {};
+  for (let l = 0; l < totalCols; l++) {
+    const r = Math.floor(l / perRow), p = l % perRow;
+    const colsInRow = Math.min(perRow, totalCols - r * perRow);
+    layerRow[l] = r;
+    layerVisCol[l] = (r % 2 === 0) ? p : (colsInRow - 1 - p);   // odd rows flow right→left
+  }
+  // Row band heights + tops.
+  const rowH = [], rowTop = [];
+  for (let r = 0; r < rows; r++) {
+    let h = 60;
+    for (let l = r * perRow; l < Math.min(totalCols, (r + 1) * perRow); l++) h = Math.max(h, colH[l] || 60);
+    rowH[r] = h;
+  }
+  let yBand = PM_PAD_TOP;
+  for (let r = 0; r < rows; r++) { rowTop[r] = yBand; yBand += rowH[r] + PM_BAND_GAP; }
+  // Place nodes — each column vertically centred within its row band.
+  const pos = {};
+  for (const [lyr, ns] of Object.entries(byLayer)) {
+    const l = +lyr, r = layerRow[l];
+    const x = PM_PAD_X + layerVisCol[l] * (PM_NW + PM_ARROW_GAP);
+    let y = rowTop[r] + (rowH[r] - colH[l]) / 2;
     for (const n of ns) {
       const m = meas[n.id];
-      pos[n.id] = { x, y, w: PM_NW, h: m.h, cy: y + m.h / 2, lines: m.lines, num: n.num };
+      pos[n.id] = { x, y, w: PM_NW, h: m.h, cy: y + m.h / 2, lines: m.lines, num: n.num, layer: l, row: r };
       y += m.h + PM_ROW_GAP;
     }
   }
-  const width = PM_PAD_X * 2 + (maxLayer + 1) * PM_NW + maxLayer * PM_ARROW_GAP;
-  return { nodes, edges, pos, width, height: PM_PAD_TOP + bodyH + PM_PAD_BOT };
+  const width = PM_PAD_X * 2 + perRow * PM_NW + (perRow - 1) * PM_ARROW_GAP;
+  const height = rowTop[rows - 1] + rowH[rows - 1] + PM_PAD_BOT;
+  return { nodes, edges, pos, width, height };
 }
 
 export function renderProcessMapSVG(spec = {}, { lang = 'ko', title = null } = {}) {
@@ -1102,7 +1162,12 @@ export function renderProcessMapSVG(spec = {}, { lang = 'ko', title = null } = {
   for (const e of edges) {
     const a = pos[e.from], b = pos[e.to]; if (!a || !b) continue;
     let d;
-    if (b.x > a.x) {
+    if (b.row === a.row + 1 && b.layer === a.layer + 1) {
+      // snake fold — consecutive columns that wrapped onto the next row share
+      // the turn column; drop a vertical U-turn from a's bottom into b's top.
+      const cxA = a.x + a.w / 2, cxB = b.x + b.w / 2, h = PM_BAND_GAP * 0.55;
+      d = `M${cxA},${a.y + a.h} C${cxA},${a.y + a.h + h} ${cxB},${b.y - h} ${cxB},${b.y - 2}`;
+    } else if (b.x > a.x) {
       const x1 = a.x + a.w, x2 = b.x, mx = (x1 + x2) / 2;
       d = `M${x1},${a.cy} C${mx},${a.cy} ${mx},${b.cy} ${x2 - 2},${b.cy}`;
     } else if (a.x === b.x) {              // same column → side loop
@@ -1126,7 +1191,7 @@ export function renderProcessMapSVG(spec = {}, { lang = 'ko', title = null } = {
     const tx = p.x + (p.num != null ? 40 : 14), tw = p.w - (p.num != null ? 50 : 24);
     const lines = fcWrap(n.label, tw);
     const sy = p.cy - (lines.length - 1) * 8 + 4;
-    lines.forEach((ln, li) => parts.push(`<text x="${tx + tw / 2}" y="${sy + li * PM_LINE_H}" text-anchor="middle" font-size="12.5" font-weight="600" fill="#234">${xml(ln)}</text>`));
+    lines.forEach((ln, li) => parts.push(`<text x="${tx + tw / 2}" y="${sy + li * PM_LINE_H}" text-anchor="middle" font-size="13" font-weight="600" fill="#234">${xml(ln)}</text>`));
   }
   const heading = title || spec.title;
   const headingSvg = heading ? `<text x="${width / 2}" y="34" text-anchor="middle" font-size="16" font-weight="700" fill="#0A4F8C">${xml(heading)}</text>` : '';

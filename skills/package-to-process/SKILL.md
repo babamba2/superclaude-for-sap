@@ -73,6 +73,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 | [`dispatch-stocker.md`](dispatch-stocker.md) | Step 2 — `sap-stocker` auto-chain (conditional, inventory missing) |
 | [`dispatch-analyst.md`](dispatch-analyst.md) | Steps 4 & 5 — `sap-analyst` grouping + per-process narrative |
 | [`dispatch-writer.md`](dispatch-writer.md) | Step 6 — `sap-writer` master `.md` render |
+| [`bpml-render.md`](bpml-render.md) | Step 6b — BPML deliverable: spec-JSON contract + `build-bpml.mjs` CLI (xlsx/md/both) + language rules |
 </Companion_Files>
 
 <Agent_Composition>
@@ -88,22 +89,21 @@ All Agent dispatches pass `mode: "dontAsk"` (trust-session granted in Step 0).
 </Agent_Composition>
 
 <Language_Policy>
-**Output language mirrors the user's current conversation language.**
-- User writes in Korean → document in Korean (section headers + body).
-- User writes in English → document in English.
-- User writes in Japanese → document in Japanese.
-- If mixed or unclear, default to the user's last full sentence language.
-- Do not ask — detect and proceed. Only ask if the user explicitly requests a specific language.
+**Output language is user-selected at Step 1** (bundled `AskUserQuestion`, see `workflow.md` Step 1-6b): 한국어(ko) / English(en) / 日本語(ja) / Other. The first option = detected conversation language, labeled `(Recommended)` — so one Enter keeps today's behavior.
+- The selection applies to the process `.md` AND the BPML (labels + row content).
+- BPML sheet naming: sheet 1 (overview) is localized (개요/Overview/概要); **sheet 2 is always English `BPML`** — never localized.
+- Languages outside ko/en/ja: builder falls back to en labels unless `meta.labels` overrides are supplied (see `bpml-render.md`).
 </Language_Policy>
 
 <Output_Location>
 `.sc4sap/processes/<MODULE>/<PACKAGE>/process-<YYYYMMDD>-<lang>.md`
+`.sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.xlsx` and/or `.md` (per Step 1 `bpml_format`)
 
 - `<MODULE>` = uppercase module key (SD, MM, FI, CO, PP, PM, QM, WM, TM, TR, HCM, BW, PS, Ariba)
 - `<PACKAGE>` = uppercase package name
 - `<YYYYMMDD>` = generation date
-- `<lang>` = ISO 639-1 (`ko` / `en` / `ja`)
-- Existing file at the same path → overwrite WITH a one-line `> Regenerated from <old-date>` note at the top.
+- `<lang>` = ISO 639-1 selected at Step 1 (`ko` / `en` / `ja` / other)
+- Existing file at the same path → overwrite WITH a one-line `> Regenerated from <old-date>` note at the top (md only; xlsx overwrites silently).
 </Output_Location>
 
 <MCP_Tools_Used>
