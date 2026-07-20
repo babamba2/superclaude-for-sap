@@ -3,6 +3,26 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.16] — 2026-07-20
+
+### Added — BPML deliverable for `package-to-process`
+
+`package-to-process` gains a second deliverable alongside the process `.md`: a **BPML (Business Process Master List)** in Excel and/or Markdown.
+
+- `scripts/spec/build-bpml.mjs` (new) — zero-dependency OOXML/Markdown builder. CLI: `node scripts/spec/build-bpml.mjs <bpml.json> <out.xlsx|out.md>`; output format follows the extension. Emits a localized overview sheet plus an always-English `BPML` sheet, and per-L1 flow sheets with embedded sequence images anchored at column A.
+- `skills/package-to-process/bpml-render.md` (new) — Step 6b render contract: BPML spec-JSON schema, builder CLI, output paths, and language rules. Intermediate spec JSON is kept under `_img/` for regeneration.
+- `skills/package-to-process/SKILL.md` / `workflow.md` — new Step 1-6b bundled `AskUserQuestion` collects **output language** (ko / en / ja / other, defaulting to the detected conversation language) and **BPML format** (`xlsx` / `md` / `both`). Language now applies to both the process `.md` and the BPML; sheet 2 stays `BPML` in English as lingua franca.
+- `scripts/spec/screen-image-renderer.mjs` — extended to supply the flow images the BPML sheets embed.
+
+### Changed
+
+- BPML workbooks no longer contain intra-workbook hyperlinks (user decision); `std_cbo` column widened to a minimum of 12.
+- Removed a stray `CHANGE_ME.xlsx` build artifact from the repo root.
+
+### Version
+
+All four version fields (`package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` root & `plugins[0]`) bumped 0.6.15 → 0.6.16.
+
 ## [0.6.15] — 2026-06-09
 
 ### Added — `package-to-process` skill (End-to-End business-process documentation)
