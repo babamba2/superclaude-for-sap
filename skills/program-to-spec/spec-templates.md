@@ -72,10 +72,34 @@ When the target program has fewer items than the template's fixed slot count, **
 |---|---|---|
 | Sheet 3 Parameters | 5 (S_VKORG..S_VBELN) | `— (해당 없음)` for the field name, `—` for type/required/default, short note in the description |
 | Sheet 3 Warnings | 5 ⚠ rows | Use real findings; if fewer than 5, repeat the most important caveat or summarise into 5 buckets |
-| Sheet 4 Steps | 12 numbered rows | `— (해당 없음)` for the FORM name, brief explainer for the step text |
+| Sheet 4 Steps | 12 numbered rows | **business-first** Step text (see § Business-process narrative); `Event / FORM` column carries the technical anchor |
 | Sheet 5 Output columns | 10 ALV column rows | `— (해당 없음)` for unused field, `—` for length |
 | Sheet 6 Auth | 5 rows | Use real auth objects + GAP rows; rewire the 양식 row labels semantically when needed (e.g. `Sales Org row-level` → `플랜트 단위`) |
 | Sheet 7 Exceptions | 3 rows | Combine if target has only 2; split if it has 4+ — keep the 3-row template count |
+
+### Business-process narrative (Sheet 4 처리 로직 + Process Flow PNG)
+
+The reader of the spec is a **functional consultant**, not the original developer. The "처리 로직" sheet and the Process Flow chart must read like the md / `package-to-process` output: *what business step happens and why*, with the technical mechanism kept as a secondary annotation — **business-first + technical-annotated**.
+
+- **`Event / FORM` column** = the technical anchor only (`INITIALIZATION`, `START-OF-SELECTION`, `FORM get_data`, `lcl_handler~on_link_click`). Keep it short.
+- **`Step` column** = the business-process sentence FIRST, then the technical mechanism in a trailing clause / parentheses. Lead with the business intent, not the ABAP verb.
+  - ❌ dev-only: `Single SELECT with 4-way JOIN: VBAK INNER VBAP · LEFT KNA1 · LEFT MAKT, INTO @gt_result.`
+  - ✅ business-first: `판매오더 헤더·품목과 고객·자재 정보를 한 번에 조회한다 (VBAK×VBAP INNER + KNA1·MAKT LEFT JOIN → gt_result).`
+- **`processFlow[]`** (the PNG boxes) = **business steps only**, short phrases that fit a 150–220 px box. Use the end-to-end business arc, NOT the ABAP event list.
+  - ❌ `["INITIALIZATION", "START-OF-SELECTION", "FORM get_data", "FORM display_alv", "on_link_click"]`
+  - ✅ `["!시작", "조회 조건 입력", "판매오더 데이터 조회", "고객·자재 정보 결합", "ALV 결과 표시", "? 오더 클릭?", "VA03 상세 이동", "!종료"]`
+  - The box label is business; the technical detail for that step lives in the matching Sheet 4 Step row, not in the box.
+
+This split keeps the document useful to both audiences without burying the business flow under ABAP minutiae.
+
+### Language consistency (single-language output — no 한/영 혼용)
+
+Every writer-produced string MUST be in the target `lang`. Mixing is the #1 reported defect.
+
+- **Translate ALL prose** — sheet titles, field labels, value text, warnings, step text, ALV headers, pane titles/captions, processFlow boxes. The template ships in **English**, so a `ko`/`ja` spec needs a TR entry for *every* English prose string (the `template-clone` "NO TRANSLATION" list is your checklist — only bare SAP identifiers may remain).
+- **Keep as-is (do NOT translate)** — SAP identifiers (`VBAK`, `S_VKORG`, `ZMMR00140`, `VA03`), ABAP keywords/snippets, and ABAP message literals already written in the program (e.g. `"조회된 데이터가 없습니다."`).
+- **image-spec content** follows the same rule: `selection.fields[].label/note`, `alv.columns[].header`, `processFlow[]`, pane `title`/`interaction` must all be in `lang`; only `name` (identifiers) and `sampleRows` data codes stay literal. Set `image-spec.json.lang` correctly — the renderer localizes its built-in legend / block labels / flow heading from it.
+- **Gate**: `build-spec.mjs` prints `⚠ LANGUAGE MIX detected` listing every leaked English string (TR + image-spec) when `lang` is `ko`/`ja`. A clean run prints `language check OK`. **Do not finalize until the report is clean** (or every remaining item is a genuine SAP identifier). Also add `"__lang": "<lang>"` to the TR map so text-only builds can run the check too.
 
 ### SAP identifier remapping
 
@@ -167,6 +191,8 @@ PNG signature is verified before any write; non-PNG input is rejected without to
 - `alv.columns[].hotspot` — `true` renders the cell value as blue underlined text
 - `alv.columns[].editable` — `true` renders a yellow input cell
 - `alv.sampleRows[]` — **OBJECTS** keyed by `name` (NOT positional arrays). Special keys: `_status` (`'●'`/`'○'`/`'◉'`) for tri-state indicators, `_locked: true` to grey the row
-- `processFlow[]` — string array. Prefix `?` = decision (diamond), `!` = terminal (pill), no prefix = process box. Always rendered **horizontal** in the xlsx embed path (Markdown callers wanting vertical should call `renderProcessFlowSVG()` directly with `orientation: 'vertical'`)
+- `processFlow` — TWO accepted shapes. **Prefer the graph form** so the xlsx 처리 흐름도 reads like the Markdown `flowchart TD` (decisions + 예/아니오 branches + exception side-paths + loop-backs):
+  - **Branching graph (v12, recommended)**: `{ "nodes":[{ "id","type","label","lane?" }], "edges":[{ "from","to","label?" }] }`. `type` ∈ `start`·`end` (blue pill) / `process` (rounded box) / `decision` (amber diamond) / `io` (red message parallelogram — use for 오류/정보 메시지). `lane:"right"` puts a node in the exception column aligned to the decision that branches into it; its edge to a spine node above auto-routes as a loop-back, below as an exit. `\n` in a label forces a line break. Edge `label` 예/아니오 are colour-chipped. Rendered as a **vertical TD flowchart** with a shape legend.
+  - **Linear array (legacy)**: `string[]` — prefix `?`=decision, `!`=terminal, none=process; rendered horizontal. Back-compat only.
 
 **Graceful degrade** — if no headless browser is on PATH, `renderScreenImages` returns `null` per slot and `build-spec.mjs` keeps the template mockups for that slot. The xlsx still builds successfully.
