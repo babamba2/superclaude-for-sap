@@ -91,3 +91,7 @@ Create / Update / Delete handlers for ABAP object lifecycle. Part of [sc4sap-mcp
 ## Patch*
 
 - mcp__plugin_sc4sap_sap__PatchGuiStatus
+
+## Write*
+
+- mcp__plugin_sc4sap_sap__WriteTextElementsBulk
