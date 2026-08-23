@@ -6,9 +6,9 @@ const SKILLS_DIR = join(__dirname, '..', '..', 'skills');
 
 const EXPECTED_SKILLS = [
   'analyze-cbo-obj', 'analyze-code', 'analyze-symptom', 'ask-consultant',
-  'compare-programs', 'create-object', 'create-program', 'deep-interview',
-  'mcp-setup', 'program-to-spec', 'release', 'sap-doctor',
-  'sap-option', 'setup', 'team', 'trust-session',
+  'compare-programs', 'create-object', 'create-program',
+  'mcp-setup', 'program-to-spec', 'sap-doctor',
+  'sap-option', 'setup', 'trust-session',
 ];
 
 describe('Skills Validation', () => {

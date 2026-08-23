@@ -67,6 +67,16 @@
     ],
     "PreToolUse": [
       {
+        "matcher": "mcp__plugin_sc4sap_sap__.*|mcp__mcp-abap-adt__.*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/run.cjs \"$CLAUDE_PLUGIN_ROOT\"/scripts/permission-approver.mjs",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "*",
         "hooks": [
           {

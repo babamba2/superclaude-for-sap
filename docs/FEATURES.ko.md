@@ -53,9 +53,6 @@
 | `sc4sap:analyze-symptom` | SAP 운영 에러/증상 단계별 분석 (덤프, 로그, SAP Note 후보) |
 | `sc4sap:ask-consultant` | 모듈 컨설턴트 에이전트(SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC)에 직접 질의. 읽기 전용 — 설정된 SAP 환경에 맞추어 답변. |
 | `sc4sap:trust-session` | INTERNAL-ONLY — 세션 전체 MCP 권한 부트스트랩 |
-| `sc4sap:deep-interview` | 구현 전 Socratic 요구사항 수집 |
-| `sc4sap:team` | 조정된 병렬 에이전트 실행 (네이티브 Claude Code teams) |
-| `sc4sap:release` | CTS 전송 릴리즈 워크플로우 |
 
 ## 스킬 — 예시 & 워크플로우
 
@@ -109,12 +106,6 @@ Z 패키지 탐색, 재사용 자산 카탈로그, 교차 모듈 갭 분석.
 
 ### `/sc4sap:program-to-spec`
 Socratic scope narrowing으로 ABAP 프로그램을 스펙으로 역공학 (Markdown/Excel).
-
-### `/sc4sap:team`
-네이티브 Claude Code teams로 조정된 병렬 에이전트 실행.
-
-### `/sc4sap:release`
-CTS 전송 릴리즈 워크플로우 — 리스트, 검증, 릴리즈, 임포트 확인.
 
 ### `/sc4sap:sap-doctor`
 플러그인 + MCP + SAP 연결 진단. 뭔가 이상할 때 가장 먼저 실행.

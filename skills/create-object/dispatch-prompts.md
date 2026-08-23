@@ -117,7 +117,7 @@ User conversation language: <LANG>
 Render rules:
 - flow = "standard" AND activation_status = "ACTIVE":
     5–7 line block — object name · type · package · transport · ACTIVE status + 1-line next-step hint
-    (e.g., "Add methods with direct UpdateClass MCP calls" or "Release with /sc4sap:release").
+    (e.g., "Add methods with direct UpdateClass MCP calls" or "Release the transport via CTS").
 
 - flow = "standard" AND activation_status = "FAILED":
     error message + suggested fix + retry hint.

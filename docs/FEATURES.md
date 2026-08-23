@@ -54,9 +54,6 @@
 | `sc4sap:analyze-symptom` | Step-by-step SAP operational error/symptom analysis (dumps, logs, SAP Note candidates) |
 | `sc4sap:ask-consultant` | Direct user-facing Q&A with a module consultant agent (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC). Read-only — honors the configured SAP environment. |
 | `sc4sap:trust-session` | INTERNAL-ONLY — session-wide MCP permission bootstrap |
-| `sc4sap:deep-interview` | Socratic requirements gathering before implementation |
-| `sc4sap:team` | Coordinated parallel agent execution (native Claude Code teams) |
-| `sc4sap:release` | CTS transport release workflow |
 
 ## Skills — Examples & Workflow
 
@@ -110,12 +107,6 @@ Flow: `RuntimeListDumps` → `RuntimeAnalyzeDump` → stack trace → SAP Note c
 
 ### `/sc4sap:program-to-spec`
 Reverse-engineer an ABAP program into a spec (Markdown/Excel) with Socratic scope narrowing.
-
-### `/sc4sap:team`
-Coordinated parallel agent execution via native Claude Code teams.
-
-### `/sc4sap:release`
-CTS transport release workflow — list, validate, release, confirm import.
 
 ### `/sc4sap:sap-doctor`
 Plugin + MCP + SAP connectivity diagnostics. First thing to run when something's off.

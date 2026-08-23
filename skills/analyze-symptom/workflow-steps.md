@@ -76,8 +76,7 @@ Agent({
       via the local customization cache per SKILL.md § Evidence_Collection_Matrix.
     - If narrowing is impossible because 4+ categories fit equally, return BLOCKED with the reason
       so the skill can surface more targeted user questions.
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 

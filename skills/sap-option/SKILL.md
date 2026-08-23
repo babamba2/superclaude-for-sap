@@ -63,7 +63,7 @@ Connection (required):
 - `SAP_USERNAME`           — SAP user ID
 - `SAP_PASSWORD`           — **secret — always mask when displaying**
 - `SAP_LANGUAGE`           — `EN`, `DE`, `KO`, ...
-- `SAP_SYSTEM_TYPE`        — `onprem` | `cloud` | `legacy`
+- `SAP_SYSTEM_TYPE`        — `s4hana` | `cloud` | `ecc`
 - `SAP_VERSION`            — `S4` | `ECC`
 - `ABAP_RELEASE`           — e.g. `756`, `758`
 - `SAP_INDUSTRY`           — one of the 15 keys in `industry/README.md` (`retail` | `fashion` | `cosmetics` | `tire` | `automotive` | `pharmaceutical` | `food-beverage` | `chemical` | `electronics` | `construction` | `steel` | `utilities` | `banking` | `public-sector` | `other`). **Mirrored** to `.sc4sap/config.json` → `industry` whenever changed — both writes must succeed or neither.
@@ -106,7 +106,7 @@ See [hud-limits.md](hud-limits.md).
 - `SAP_CLIENT`: exactly 3 digits.
 - `SAP_AUTH_TYPE`: one of `basic` | `xsuaa`.
 - `SAP_LANGUAGE`: 2-letter uppercase.
-- `SAP_SYSTEM_TYPE`: one of `onprem` | `cloud` | `legacy`.
+- `SAP_SYSTEM_TYPE`: one of `s4hana` | `cloud` | `ecc`.
 - `SAP_VERSION`: one of `S4` | `ECC`.
 - `ABAP_RELEASE`: 3-digit numeric (e.g. `750`, `756`).
 - `SAP_INDUSTRY`: must be one of the 15 canonical keys listed in `<Managed_Keys>`. Reject unknown values; offer the selection menu from `<Industry_Selection>`. Lowercase, hyphen-separated (e.g., `food-beverage`, not `Food_Beverage`).

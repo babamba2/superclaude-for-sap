@@ -129,7 +129,7 @@ Every sc4sap skill (`/sc4sap:*`) MUST cause the main-thread response to begin wi
 
 ## Phase Banner Convention — multi-phase skills
 
-Skills that internally orchestrate **two or more phases** (e.g., `/sc4sap:create-program`, `/sc4sap:program-to-spec`, `/sc4sap:team`, `/sc4sap:compare-programs`, `/sc4sap:analyze-symptom`, `/sc4sap:analyze-cbo-obj`, `/sc4sap:create-object`) MUST emit a **single-line phase banner** immediately before each phase dispatch, so the user can see which model is doing each step without reading skill internals.
+Skills that internally orchestrate **two or more phases** (e.g., `/sc4sap:create-program`, `/sc4sap:program-to-spec`, `/sc4sap:compare-programs`, `/sc4sap:analyze-symptom`, `/sc4sap:analyze-cbo-obj`, `/sc4sap:create-object`) MUST emit a **single-line phase banner** immediately before each phase dispatch, so the user can see which model is doing each step without reading skill internals.
 
 **Format:**
 

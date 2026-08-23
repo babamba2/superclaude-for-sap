@@ -57,7 +57,6 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:package-to-process` to 
 
 - If `.sc4sap/session-trust.log` already has a line within the last 24h, skip silently.
 - Otherwise run it and surface the one-line confirmation.
-- All `Agent` dispatches within this skill MUST pass `mode: "dontAsk"`.
 
 Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Session_Trust_Bootstrap>
@@ -85,7 +84,7 @@ Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; eac
 - **`sap-writer` (Sonnet 4.6 via `model: "sonnet"` override)** — Step 6 render. Master Markdown is L3-grade depth (TOC + multiple Mermaid blocks + per-process tables + cross-module gap section); Haiku is insufficient.
 - **Module consultant (optional, conditional)** — if Step 5 narrative discovers a strong cross-module integration (e.g., MM ↔ FI through `BAPI_ACC_DOC_POST`), the analyst MAY annotate via `sap-{module}-consultant` (Opus 4.7) for the boundary section only. NOT a default dispatch — costs additional context only when warranted.
 
-All Agent dispatches pass `mode: "dontAsk"` (trust-session granted in Step 0).
+SAP MCP permission prompts are auto-approved by the sc4sap permission-approver PreToolUse hook.
 </Agent_Composition>
 
 <Language_Policy>

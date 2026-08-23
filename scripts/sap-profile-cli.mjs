@@ -320,7 +320,7 @@ async function cmdAdd() {
     SAP_USERNAME: username,
     SAP_PASSWORD: passwordRef,
     SAP_LANGUAGE: payload.language || base.SAP_LANGUAGE || 'EN',
-    SAP_SYSTEM_TYPE: payload.systemType || base.SAP_SYSTEM_TYPE || 'onprem',
+    SAP_SYSTEM_TYPE: payload.systemType || base.SAP_SYSTEM_TYPE || 's4hana',
     SAP_VERSION: payload.version || base.SAP_VERSION || '',
     ABAP_RELEASE: payload.abapRelease || base.ABAP_RELEASE || '',
     SAP_INDUSTRY: payload.industry || base.SAP_INDUSTRY || '',

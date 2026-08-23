@@ -42,7 +42,7 @@ Step 4b is the integration point for Type A teamMode (Cross-Module Consultant Pa
 - Only **one** program → use `/sc4sap:program-to-spec` instead
 - User wants **code quality** review (not business intent) → `/sc4sap:analyze-code`
 - User wants to **build a new** program → `/sc4sap:create-program`
-- More than 5 programs — break into multiple comparison sessions or escalate to `/sc4sap:team`
+- More than 5 programs — break into multiple comparison sessions
 </Do_Not_Use_When>
 
 <Session_Trust_Bootstrap>
@@ -52,7 +52,6 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:compare-programs` to pr
 
 - If `.sc4sap/session-trust.log` already has a line within the last 24h, skip silently.
 - Otherwise run it and surface the one-line confirmation.
-- All `Agent` dispatches within this skill MUST pass `mode: "dontAsk"`.
 
 Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Session_Trust_Bootstrap>
@@ -77,7 +76,7 @@ Per-step model allocation. Skill frontmatter pins the main thread to Haiku; each
 - **Module specialists (conditional, `sap-{module}-consultant` × K, Opus 4.7)** — Step 4b: when programs span 2+ modules (MM+CO, SD+FI, etc.), each distinct module gets a consultant dispatch to explain "what would a {module} user use this for". The analyst's scoring consumes these in its narrative.
 - **Rendering (`sap-writer` × 1, Haiku 4.5)** — Step 5: renders the final Markdown using `report-template.md`. Pure formatting from structured state.
 
-All Agent dispatches pass `mode: "dontAsk"` (trust-session already granted in Step 0).
+SAP MCP permission prompts are auto-approved by the sc4sap permission-approver PreToolUse hook.
 </Agent_Composition>
 
 <Language_Policy>
@@ -112,7 +111,6 @@ This skill reads **source code + DDIC metadata + where-used + screen/GUI-status/
 - `/sc4sap:program-to-spec` — single-program reverse-engineering (vertical depth)
 - `/sc4sap:analyze-code` — quality review (what's wrong, not what's different)
 - `/sc4sap:analyze-cbo-obj` — CBO package inventory (complementary context for dimension 8)
-- `/sc4sap:deep-interview` — use before comparison if user is unsure which programs to include
 </Related_Skills>
 
 Task: {{ARGUMENTS}}

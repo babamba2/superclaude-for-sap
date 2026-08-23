@@ -56,9 +56,6 @@ Enforcement: L1 agent instructions → L2 this file → L3 `PreToolUse` hook (`s
 - `/sc4sap:analyze-cbo-obj` — Inventory a CBO package → save frequently-used Z objects to `.sc4sap/cbo/<MODULE>/<PACKAGE>/` for reuse by `create-program` / `program-to-spec` (auto-invokes `trust-session`)
 - `/sc4sap:package-to-process` — Reverse-engineer a CBO package into an End-to-End Business Process document (Markdown): auto-detected TCode entry points → AI process grouping (PR→PO→GR→IR style) → per-process narrative + Mermaid flowchart + sequenceDiagram + step tables. Auto-chains `sap-stocker` if CBO inventory missing. Progress bar at each step. Output: `.sc4sap/processes/<MODULE>/<PACKAGE>/process-<YYYYMMDD>-<lang>.md` (auto-invokes `trust-session`)
 - `/sc4sap:ask-consultant` — Direct user-facing Q&A with a module consultant agent (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC). Auto-routes by keywords, answers against the configured SAP environment. Read-only (no writes, no row extraction).
-- `/sc4sap:team` — Parallel multi-agent orchestration
-- `/sc4sap:deep-interview` — Socratic interview to crystallize a spec before code generation
-- `/sc4sap:release` — CTS transport release workflow
 - `/sc4sap:mcp-setup` — MCP ABAP ADT server configuration guide
 - `/sc4sap:sap-option` — View and edit `.sc4sap/sap.env` (credentials, industry, blocklist profile, HUD limits)
 - `/sc4sap:sap-doctor` — Diagnose plugin / MCP / SAP connection health

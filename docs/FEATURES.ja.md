@@ -53,9 +53,6 @@
 | `sc4sap:analyze-symptom` | SAP 運用エラー/症状のステップバイステップ解析 (ダンプ、ログ、SAP Note 候補) |
 | `sc4sap:ask-consultant` | モジュールコンサルタントエージェント (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC) に直接質問。読み取り専用 — 設定された SAP 環境に沿って回答。 |
 | `sc4sap:trust-session` | INTERNAL-ONLY — セッション全体 MCP パーミッションブートストラップ |
-| `sc4sap:deep-interview` | 実装前の Socratic 要件収集 |
-| `sc4sap:team` | 調整された並列エージェント実行 (ネイティブ Claude Code teams) |
-| `sc4sap:release` | CTS トランスポートリリースワークフロー |
 
 ## スキル — 例 & ワークフロー
 
@@ -109,12 +106,6 @@ Z パッケージを走査、再利用可能資産をカタログ化、クロス
 
 ### `/sc4sap:program-to-spec`
 Socratic scope narrowing で ABAP プログラムを仕様書にリバースエンジニアリング (Markdown/Excel)。
-
-### `/sc4sap:team`
-ネイティブ Claude Code teams で調整された並列エージェント実行。
-
-### `/sc4sap:release`
-CTS トランスポートリリースワークフロー — リスト、検証、リリース、インポート確認。
 
 ### `/sc4sap:sap-doctor`
 プラグイン + MCP + SAP 接続診断。問題発生時に最初に実行。

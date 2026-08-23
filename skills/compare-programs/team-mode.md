@@ -67,8 +67,7 @@ Replaces the legacy Step 4b consultant dispatch. The lead:
          rule-cites: configs/<MODULE>/*.md paths or TCodes
 
        Reasoning HARD max 5 lines. Return after writing.
-     """,
-     mode: "dontAsk"
+     """
    })
    ```
 5. Wait for idle notifications from all N members. Read all `10-*.md` files.

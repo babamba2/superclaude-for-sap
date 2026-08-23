@@ -1,15 +1,15 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
   "name": "sc4sap",
-  "description": "SuperClaude for SAP (sc4sap) transforms Claude Code into a full-stack SAP development assistant. It connects to your SAP system via the MCP ABAP ADT server (150+ tools) to create, read, update, and delete ABAP objects directly — classes, function modules, reports, CDS views, and more. The plugin includes 25 SAP-specialized agents (core dev agents + BC consultant + 14 module consultants for SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, Ariba, BW), workflow skills (create-program with execution-mode gate and parallel Phase 4/6, create-object, analyze-code, analyze-symptom, analyze-cbo-obj, deep-interview, team orchestration, release, setup, and an internal-only session trust bootstrap), and built-in SPRO configuration reference with BAPI lists, transaction codes, and representative workflows for every module. Designed for SAP consultants, ABAP developers, and Basis administrators working with On-Premise S/4HANA systems.",
+  "description": "SuperClaude for SAP (sc4sap) transforms Claude Code into a full-stack SAP development assistant. It connects to your SAP system via the MCP ABAP ADT server (150+ tools) to create, read, update, and delete ABAP objects directly — classes, function modules, reports, CDS views, and more. The plugin includes 25 SAP-specialized agents (core dev agents + BC consultant + 14 module consultants for SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, Ariba, BW), workflow skills (create-program with execution-mode gate and parallel Phase 4/6, create-object, analyze-code, analyze-symptom, analyze-cbo-obj, setup, and an internal-only session trust bootstrap), and built-in SPRO configuration reference with BAPI lists, transaction codes, and representative workflows for every module. Designed for SAP consultants, ABAP developers, and Basis administrators working with On-Premise S/4HANA systems.",
   "owner": {
     "name": "paek seunghyun"
   },
   "plugins": [
     {
       "name": "sc4sap",
-      "description": "Claude Code plugin for SAP ABAP development on On-Premise S/4HANA — 25 specialized agents, 17 workflow skills (create-program with Phase 4/6 hardening + multi-executor split, create-object, program-to-spec, compare-programs, analyze-code/symptom/cbo-obj, package-to-process for end-to-end business-process documentation, ask-consultant, deep-interview, team, release, setup, internal trust-session), 4-Tier context loading, Sonnet/Opus model routing, OK_CODE binding pattern, paradigm-split Clean ABAP, and SPRO config reference for 14 modules.",
-      "version": "0.6.16",
+      "description": "Claude Code plugin for SAP ABAP development on On-Premise S/4HANA — 25 specialized agents, 14 workflow skills (create-program with Phase 4/6 hardening + multi-executor split, create-object, program-to-spec, compare-programs, analyze-code/symptom/cbo-obj, package-to-process for end-to-end business-process documentation, ask-consultant, setup, internal trust-session), 4-Tier context loading, Sonnet/Opus model routing, OK_CODE binding pattern, paradigm-split Clean ABAP, and SPRO config reference for 14 modules.",
+      "version": "0.6.17",
       "author": {
         "name": "paek seunghyun"
       },
@@ -60,5 +60,5 @@
       ]
     }
   ],
-  "version": "0.6.16"
+  "version": "0.6.17"
 }

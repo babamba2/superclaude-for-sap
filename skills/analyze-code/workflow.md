@@ -39,8 +39,7 @@ Agent({
        - "briefing" → ≥ 1 CRITICAL OR ≥ 10 findings (rich reader-facing report needed)
 
     Do NOT mutate or suggest write operations — analysis-only.
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 
@@ -93,8 +92,7 @@ Agent({
 
     Reviewer findings follow:
     <FULL_FINDINGS_JSON>
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 

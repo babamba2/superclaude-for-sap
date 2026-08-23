@@ -122,4 +122,4 @@ function crossModuleAdvisory(primary, context):
 ```
 
 Skills consuming this: `create-program`, `create-object`, `program-to-spec`,
-`analyze-cbo-obj`, `analyze-code`, `deep-interview`, all consultant agents.
+`analyze-cbo-obj`, `analyze-code`, all consultant agents.

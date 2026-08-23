@@ -18,8 +18,7 @@ Steps:
        Agent({
          subagent_type: "sc4sap:sap-stocker",
          description: "CBO inventory — <PACKAGE>",
-         prompt: "Stock the CBO package <PACKAGE> (module <MODULE>). Flagship programs: none (invoked from create-program). Follow your Investigation_Protocol and return success block.",
-         mode: "dontAsk"
+         prompt: "Stock the CBO package <PACKAGE> (module <MODULE>). Flagship programs: none (invoked from create-program). Follow your Investigation_Protocol and return success block."
        })
        ```
        On stocker success, re-read the freshly written `inventory.json` and continue to step 3. On `BLOCKED`, surface the reason, fall back to option (B), and log `cbo_inventory: "stock_failed: <reason>"`.

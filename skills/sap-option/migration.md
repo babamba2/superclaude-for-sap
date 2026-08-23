@@ -34,7 +34,7 @@ Then ask the user two questions via `AskUserQuestion`:
 
 - `question`: "What alias should this connection use? (example: KR-DEV, KR-PRD)"
 - Offer 2–4 suggestions derived from what the legacy env reveals. Rules:
-  - If `SAP_SYSTEM_TYPE=onprem` and `SAP_INDUSTRY` set, suggest `{COUNTRY?}-DEV` — ask country if not inferable.
+  - If `SAP_SYSTEM_TYPE=s4hana` and `SAP_INDUSTRY` set, suggest `{COUNTRY?}-DEV` — ask country if not inferable.
   - Always include an "Other" slot for free-form input.
 - Reject invalid characters (`^[A-Z0-9_-]+$`). If the user supplies lowercase, upcase silently.
 - **Never auto-name `default`.** The user must pick something meaningful because multinational customers may have several.

@@ -47,8 +47,7 @@ Agent({
   subagent_type: "sc4sap:sap-executor",
   model: "opus",                    // override base Sonnet
   description: "Create + implement <TYPE> <NAME>",
-  prompt: "<standard-flow prompt per dispatch-prompts.md § Step 4+5+6>",
-  mode: "dontAsk"
+  prompt: "<standard-flow prompt per dispatch-prompts.md § Step 4+5+6>"
 })
 ```
 
@@ -69,8 +68,7 @@ Agent({
   subagent_type: "sc4sap:sap-executor",
   model: "opus",
   description: "ECC DDIC helper — <TYPE> <NAME>",
-  prompt: "<ecc-helper prompt per dispatch-prompts.md § Step 4-ECC>",
-  mode: "dontAsk"
+  prompt: "<ecc-helper prompt per dispatch-prompts.md § Step 4-ECC>"
 })
 ```
 
@@ -88,8 +86,7 @@ Dispatch shape:
 Agent({
   subagent_type: "sc4sap:sap-writer",
   description: "Create-object completion report",
-  prompt: "<report prompt per dispatch-prompts.md § Step 7>",
-  mode: "dontAsk"
+  prompt: "<report prompt per dispatch-prompts.md § Step 7>"
 })
 ```
 
