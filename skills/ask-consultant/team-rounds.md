@@ -45,8 +45,7 @@ Replaces `SKILL.md` Step 4. The lead:
        Produce a POSITION and write it to
        ~/.claude/tasks/<team_name>/10-<your-name>-position.md
        then return.
-     """,
-     mode: "dontAsk"
+     """
    })
    ```
 5. Wait for all N members to complete. Read all `10-*-position.md` files.

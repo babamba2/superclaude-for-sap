@@ -19,7 +19,6 @@ Phase 1 splits into **Phase 1A (Module Interview)** and **Phase 1B (Program Inte
   Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:create-program` to pre-grant all MCP tool + file-op permissions for the session. This ensures interview-time MCP calls (`SearchObject`, `GetWhereUsed`, SPRO consultant queries, `program-to-spec` L1 lookups) do NOT trigger permission prompts.
   - If `.sc4sap/session-trust.log` has a line within the last 24h, skip silently.
   - Otherwise run it and surface the one-line confirmation.
-  - All subsequent `Agent` dispatches (consultants, analyst, architect, planner, writer, executor, qa, reviewer, debugger) MUST pass `mode: "dontAsk"`.
   - Phase 3.5 no longer invokes trust-session; it assumes the bootstrap has already happened here.
 
 - **Lead agent**: `sap-{module}-consultant` (`sap-sd-consultant`, `sap-mm-consultant`, `sap-fi-consultant`, `sap-co-consultant`, `sap-pp-consultant`, `sap-ps-consultant`, `sap-qm-consultant`, `sap-pm-consultant`, `sap-wm-consultant`, `sap-hcm-consultant`, `sap-tm-consultant`, `sap-tr-consultant`, `sap-ariba-consultant`, `sap-bw-consultant`, `sap-bc-consultant`)

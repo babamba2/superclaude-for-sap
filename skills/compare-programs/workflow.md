@@ -41,8 +41,7 @@ Agent({
   subagent_type: "sc4sap:sap-code-reviewer",
   model: "sonnet",   // override base Opus — facts-only extraction doesn't need Opus judgment
   description: "Facts — <PROG>",
-  prompt: "<facts-extraction prompt per dispatch-prompts.md § Step 3>, target=<PROG>, type=<TYPE>",
-  mode: "dontAsk"
+  prompt: "<facts-extraction prompt per dispatch-prompts.md § Step 3>, target=<PROG>, type=<TYPE>"
 })
 ```
 
@@ -87,8 +86,7 @@ Agent({
        out to module-specialist consultants in Step 4b. Output: module_set: [MM, CO, ...].
 
     All narrative text in the user's current conversation language.
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 
@@ -114,8 +112,7 @@ Agent({
     <subset of program_facts relevant to this module>
 
     Answer in the user's current conversation language.
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 
@@ -148,8 +145,7 @@ Agent({
     Write the Markdown file to .sc4sap/comparisons/<filename>.md (path rule in SKILL.md
     <Output_Location>). Return a short confirmation block with file path + dimension counts
     + headline divergence.
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 

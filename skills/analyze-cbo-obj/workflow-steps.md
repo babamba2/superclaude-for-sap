@@ -43,8 +43,7 @@ Agent({
     Flagship programs (may be empty): <KEY_PROGRAMS>.
     Follow your Investigation_Protocol steps 2–8 (walk → graph → classify → interpret → cross-module gap → safety → persist).
     Return the standard success block or BLOCKED with reason.
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 
@@ -143,8 +142,7 @@ Agent({
     - Do NOT re-read SAP via MCP. Work only from inventory.json.
     - Do NOT restate the full file counts (main thread already printed that).
     - Be concrete: prefer "ZFM_CALC_SD_MARGIN — calculates gross margin per sales order line; call from any billing-related new program" over generic "utility FM".
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 

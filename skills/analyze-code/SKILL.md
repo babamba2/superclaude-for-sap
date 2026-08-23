@@ -47,7 +47,6 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:analyze-code` to pre-gr
 
 - If `.sc4sap/session-trust.log` already has a line within the last 24h, skip silently.
 - Otherwise run it and surface the one-line confirmation.
-- All subsequent `Agent` dispatches within this skill MUST pass `mode: "dontAsk"`.
 
 Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Session_Trust_Bootstrap>

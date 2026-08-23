@@ -1,6 +1,6 @@
 # Dispatch — Step 6 (sap-writer)
 
-Referenced by `workflow.md` § Step 6. Dispatch uses `mode: "dontAsk"` and a depth-driven model override (`model: "sonnet"`) — see `SKILL.md` § Agent_Composition.
+Referenced by `workflow.md` § Step 6. Dispatch uses a depth-driven model override (`model: "sonnet"`) — see `SKILL.md` § Agent_Composition.
 
 ## State variables
 - `<PACKAGE>`, `<MODULE>`, `<SAPV>`, `<ABAP_RELEASE>`
@@ -66,8 +66,7 @@ Agent({
     Constraints:
     - Do NOT read SAP via MCP. Render from state only.
     - Do NOT add sections not present in document-template.md.
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 

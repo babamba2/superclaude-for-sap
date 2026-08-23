@@ -33,7 +33,7 @@ const MANAGED = [
   { key: 'SAP_USERNAME',            group: 'Connection',  secret: false },
   { key: 'SAP_PASSWORD',            group: 'Connection',  secret: true,  validate: (v) => v.length > 0 || 'cannot be empty' },
   { key: 'SAP_LANGUAGE',            group: 'Connection',  secret: false, validate: (v) => /^[A-Z]{2}$/.test(v) || '2-letter uppercase (EN/DE/KO/...)' },
-  { key: 'SAP_SYSTEM_TYPE',         group: 'Connection',  secret: false, validate: (v) => ['onprem', 'cloud', 'legacy'].includes(v) || 'onprem | cloud | legacy' },
+  { key: 'SAP_SYSTEM_TYPE',         group: 'Connection',  secret: false, validate: (v) => ['s4hana', 'cloud', 'ecc'].includes(v) || 's4hana | cloud | ecc' },
   { key: 'SAP_VERSION',             group: 'Connection',  secret: false, validate: (v) => ['S4', 'ECC'].includes(v) || 'S4 | ECC' },
   { key: 'ABAP_RELEASE',            group: 'Connection',  secret: false, validate: (v) => /^\d{3}$/.test(v) || '3-digit numeric (750/756/758/...)' },
   { key: 'TLS_REJECT_UNAUTHORIZED', group: 'Connection',  secret: false, validate: (v) => v === '0' || 'set to 0 (dev only) or unset' },

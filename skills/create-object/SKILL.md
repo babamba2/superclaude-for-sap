@@ -30,7 +30,7 @@ Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<lab
 
 <Do_Not_Use_When>
 - Modifying an existing object -- use direct MCP `Update*` tools (`UpdateClass`, `UpdateProgram`, `UpdateInclude`, etc.)
-- Creating multiple interdependent objects -- use `/sc4sap:team` for parallel orchestration or `/sc4sap:create-program` for a full program with includes
+- Creating multiple interdependent objects -- use `/sc4sap:create-program` for a full program with includes
 - User just wants to understand what type to use -- ask a module consultant agent directly
 </Do_Not_Use_When>
 
@@ -41,7 +41,6 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:create-object` to pre-g
 
 - If `.sc4sap/session-trust.log` already has a line within the last 24h, skip silently.
 - Otherwise run it and surface the one-line confirmation.
-- All subsequent `Agent` dispatches within this skill MUST pass `mode: "dontAsk"`.
 
 Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Session_Trust_Bootstrap>

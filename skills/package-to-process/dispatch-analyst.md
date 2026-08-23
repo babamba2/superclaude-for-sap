@@ -1,6 +1,6 @@
 # Dispatch — Steps 4 & 5 (sap-analyst)
 
-Referenced by `workflow.md` §§ Step 4, Step 5. Both dispatches use `mode: "dontAsk"` and the agent's frontmatter model (Opus 4.7).
+Referenced by `workflow.md` §§ Step 4, Step 5. Both dispatches use the agent's frontmatter model (Opus 4.7).
 
 ## State variables
 - `<PACKAGE>`, `<MODULE>`, `<SAPV>` (`S4`/`ECC`)
@@ -57,8 +57,7 @@ Agent({
     - DO NOT engage the user (caller handles approval).
     - DO NOT call GetTableContents or GetSqlQuery.
     - Confidence ∈ [0.0, 1.0] derived per grouping-heuristics.md § step 6.
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 
@@ -126,8 +125,7 @@ Agent({
     - DO NOT call GetTableContents or GetSqlQuery.
     - Boundary depth = 1 hop. Do NOT walk further.
     - Mermaid source must be valid sequenceDiagram syntax.
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 

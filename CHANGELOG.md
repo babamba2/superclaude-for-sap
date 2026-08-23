@@ -3,6 +3,45 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.17] — 2026-08-23
+
+### Fixed — hook payload never reached hook scripts (all sc4sap hooks silently broken)
+
+`scripts/run.cjs` launched each hook script with `execFile` but never forwarded the parent's stdin — the hook payload JSON — to the child process. Every stdin-reading hook (`skill-injector`, `keyword-detector`, `spro-injector`, `pre-tool-enforcer`, `transport-validator`, `post-tool-verifier`, `session-*`, …) therefore blocked until its internal `readStdin()` 5s timeout fired and then ran with an empty payload. Under Claude Code's stricter per-hook timeout enforcement this surfaced as `UserPromptSubmit hook timed out after 3s`, leaving keyword / skill / SPRO injection non-functional.
+
+- `scripts/run.cjs` rewritten from `execFile` to `spawn(..., { stdio: 'inherit' })`, wiring stdin/stdout/stderr straight through so hooks receive their payload and Claude Code receives their output. Per-invocation latency dropped from ~5.3s to ~0.3s; the 30s safety kill and clean exit-0-on-error behavior are retained. Affects every hook event (UserPromptSubmit, PreToolUse, PostToolUse, SessionStart/End, …).
+
+### Changed — trust-session permission model migrated to a PreToolUse hook
+
+A Claude Code permission update deprecated the Agent tool's `mode` parameter: `mode: "dontAsk"` is now ignored, and sub-agents inherit the parent session's permission mode (agent frontmatter `permissionMode` may override it, but there `dontAsk` means auto-DENY, not auto-approve). `trust-session`'s Layer 2 — passing `mode: "dontAsk"` on every `Agent` dispatch — was therefore fully non-functional, and pipeline sub-agents began prompting mid-run.
+
+- New PreToolUse hook `scripts/permission-approver.mjs` (wired in `hooks/hooks.json`, matcher `mcp__plugin_sc4sap_sap__.*|mcp__mcp-abap-adt__.*`) returns `permissionDecision: "allow"` for all SAP MCP handlers **except** `GetTableContents` / `GetSqlQuery`, which fall through to normal prompting plus the `block-forbidden-tables` safeguard. The hook runs in both the main thread and sub-agents, independent of session permission mode, so SAP MCP calls are auto-approved without the deprecated parameter.
+- `skills/trust-session/SKILL.md` rewritten: no longer enumerates SAP MCP tools in `settings.local.json` and no longer references `mode: "dontAsk"`; it now only pre-approves `Agent(*)` dispatch and `.sc4sap/**` state-file I/O, and documents the hook as the SAP MCP approval mechanism.
+- Removed the now-ignored `mode: "dontAsk"` directive from 22 skill files across `create-program`, `create-object`, `analyze-cbo-obj`, `analyze-code`, `analyze-symptom`, `compare-programs`, `package-to-process`, `ask-consultant`, and `setup`. (`program-to-spec` is owned by another contributor and was left untouched.)
+
+Reference: hooks `permissionDecision` output (code.claude.com/docs/en/hooks); sub-agent permission modes (code.claude.com/docs/en/sub-agents).
+
+### Changed — setup wizard `SAP_SYSTEM_TYPE` values renamed
+
+The setup wizard's system-type question (Step 4 profile creation) now offers `s4hana | cloud | ecc` instead of `onprem | cloud | legacy`, giving a clearer SAP product/deployment taxonomy (`s4hana` = S/4HANA on-prem, `cloud` = S/4HANA Cloud, `ecc` = ECC). The field is a descriptive label with no behavioral branching, so the rename is low-risk.
+
+- `scripts/sap-profile-cli.mjs` — new-profile default `'onprem'` → `'s4hana'`.
+- `scripts/sap-option-tui.mjs` — validator `['onprem','cloud','legacy']` → `['s4hana','cloud','ecc']`.
+- `skills/setup/wizard-step-04-profile-creation.md`, `skills/sap-option/SKILL.md`, `skills/sap-option/migration.md` — documented values + example updated.
+- Note: existing profiles carrying the old value keep working; re-save via `/sap-option` expects the new values.
+
+### Removed — `deep-interview`, `team`, `release` skills (OMC leftovers)
+
+Three skills carried over from the original oh-my-claudecode base were retired. `deep-interview` and `team` were generic OMC orchestration leftovers; `release` (CTS transport release workflow) is no longer needed. The `teamMode` feature woven into `create-program` / `compare-programs` / `ask-consultant` / `analyze-symptom` / `analyze-code` (and `common/team-consultation-protocol.md`) is a separate, sc4sap-native capability and is **retained** — only the standalone `/sc4sap:team` skill was removed.
+
+- Deleted `skills/{deep-interview,team,release}/`.
+- Registration updated: `.claude-plugin/plugin.json` + `marketplace.json` descriptions and skill count (17 → 14 workflow skills); `CLAUDE.md` skill list; `docs/FEATURES.md` (+ ko/ja/de) table rows and sections; `tests/validation/skills.test.ts` expected-skills list.
+- Cross-references to the removed skills cleaned from `common/model-routing-rule.md`, `common/active-modules.md`, `skills/trust-session/SKILL.md`, `skills/compare-programs/SKILL.md`, `skills/ask-consultant/SKILL.md`, `skills/create-object/SKILL.md` (+ `dispatch-prompts.md`), and `skills/create-program/SKILL.md`. (`program-to-spec` is owned by another contributor; its stale `deep-interview` cross-reference was left untouched.)
+
+### Version
+
+All four version fields (`package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` root & `plugins[0]`) bumped 0.6.16 → 0.6.17.
+
 ## [0.6.16] — 2026-07-20
 
 ### Added — BPML deliverable for `package-to-process`

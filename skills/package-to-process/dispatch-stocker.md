@@ -1,6 +1,6 @@
 # Dispatch — Step 2 (sap-stocker)
 
-Referenced by `workflow.md` § Step 2. Fires **conditionally** only when `<INVENTORY_PATH>` does not exist. Dispatch uses `mode: "dontAsk"` and the agent's frontmatter model (Sonnet 4.6).
+Referenced by `workflow.md` § Step 2. Fires **conditionally** only when `<INVENTORY_PATH>` does not exist. Dispatch uses the agent's frontmatter model (Sonnet 4.6).
 
 ## State variables
 - `<PACKAGE>` — uppercase Z-package name (e.g., `ZMM_MAIN`)
@@ -28,8 +28,7 @@ Agent({
     Constraints (caller-enforced):
     - DO NOT call GetTableContents or GetSqlQuery (read-only).
     - DO NOT engage the user (caller owns the conversation).
-  """,
-  mode: "dontAsk"
+  """
 })
 ```
 
