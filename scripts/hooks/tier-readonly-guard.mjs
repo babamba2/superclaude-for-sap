@@ -14,9 +14,17 @@
  *      (legacy single-profile mode) and extract `SAP_TIER` (default DEV).
  *
  * Block matrix (Strict) — same as MCP server readonlyGuard:
- *   PRD: Create_, Update_, Delete_, RunUnitTest, RuntimeRun{Program,Class}WithProfiling
- *   QA:  Create_, Update_, Delete_, RuntimeRun{Program,Class}WithProfiling  (RunUnitTest allowed)
+ *   PRD: Create_, Update_, Delete_, Patch_, Write_, Activate_,
+ *        RunUnitTest, RuntimeRun{Program,Class}WithProfiling,
+ *        RuntimeCreateProfilerTraceParameters
+ *   QA:  same as PRD except RunUnitTest is allowed
  *   DEV: nothing blocked.
+ *
+ * Known unguarded vector (tracked separately, deliberately NOT blocked here):
+ *   RuntimeCallDispatch invokes an arbitrary ZMCP_ADT_DISPATCH action, and the
+ *   action name is a runtime argument — so write actions (SSF_UPLOAD, …) cannot
+ *   be told apart from read actions (SSF_EXISTS, CUA_FETCH, …) by tool name
+ *   alone. Blocking it outright would also remove its read uses on QA/PRD.
  *
  * Failure mode: fails OPEN on any parse/IO error. MCP server L2 guard still
  * enforces, so missing hook = slower UX but not unsafe.
@@ -26,11 +34,21 @@ import { existsSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 
-const MUTATION_PREFIXES = ['Create', 'Update', 'Delete'];
+// Every registered tool matching these prefixes mutates SAP. `Patch`, `Write`
+// and `Activate` match exactly one tool each today (PatchGuiStatus,
+// WriteTextElementsBulk, ActivateObjects) and are prefixes rather than literals
+// so a future sibling is covered on the day it ships, not the day someone
+// notices. Note `Create` does NOT match `RuntimeCreate…` — startsWith, not
+// substring — so runtime tools stay in RUNTIME_EXEC below.
+const MUTATION_PREFIXES = ['Create', 'Update', 'Delete', 'Patch', 'Write', 'Activate'];
 const RUNTIME_EXEC = new Set([
   'RunUnitTest',
   'RuntimeRunProgramWithProfiling',
   'RuntimeRunClassWithProfiling',
+  // Sets up a server-side profiler trace. Grouped with the runs it configures:
+  // those are already blocked on QA/PRD, so nothing usable is lost by blocking
+  // the setup call too.
+  'RuntimeCreateProfilerTraceParameters',
 ]);
 const QA_ALLOW = new Set(['RunUnitTest']);
 
