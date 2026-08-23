@@ -3,6 +3,42 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.18] — 2026-08-23
+
+### Fixed — tier readonly guard let four mutating tools through on QA and PRD
+
+`scripts/hooks/tier-readonly-guard.mjs` matched mutations by the prefixes `Create` / `Update` / `Delete` plus a three-entry runtime-execution set. Four registered tools that mutate SAP matched neither and were reachable on QA and PRD profiles:
+
+| Tool | What it does |
+|---|---|
+| `ActivateObjects` | activates ABAP objects |
+| `PatchGuiStatus` | modifies a GUI status |
+| `WriteTextElementsBulk` | bulk-writes the text pool |
+| `RuntimeCreateProfilerTraceParameters` | configures a server-side profiler trace |
+
+Verified by running the hook as a real child process against an isolated project with `SAP_TIER=PRD`: all four returned no decision (allow) before the change and `deny` after it, while six controls (`Create*` / `Update*` / `Delete*` / `RunUnitTest` / `RuntimeRun*` / `GetProgram`) were unchanged in both directions.
+
+- `Patch`, `Write` and `Activate` join `MUTATION_PREFIXES` as prefixes rather than literals — each matches exactly one registered tool today, so a future sibling is covered on the day it ships. `Create` still matches by `startsWith`, so `RuntimeCreate*` is not swept in and stays in the explicit runtime set.
+- `RuntimeCreateProfilerTraceParameters` joins `RUNTIME_EXEC` alongside the `RuntimeRun*` executions it configures.
+- `data/sc4sap-mcp-tools-write.md` gains the missing `Write*` section. It already listed `ActivateObjects` and `PatchGuiStatus` as write tools, so the classification and the guard now agree.
+
+**No behaviour change on DEV** — the guard returns `null` on its first line for that tier, confirmed for all ten probed tools. On QA/PRD nothing usable is lost: activation and text-pool writes are unreachable once `Create*` / `Update*` are denied, and profiler-trace setup pairs with runs that were blocked already.
+
+Known gap, deliberately left open and documented in code: `RuntimeCallDispatch` invokes an arbitrary `ZMCP_ADT_DISPATCH` action, and the action name is a runtime argument — so neither layer can separate a write action from a read one by tool name alone. Tracked separately.
+
+Gap originally spotted by the SC4SAP-PoC read-only tool policy; the profiler-trace tool and the `RuntimeCallDispatch` note were found while verifying that report.
+
+### Changed — vendor pin bumped to abap-mcp-adt-powerup 4.8.5
+
+The MCP server's `readonlyGuard.ts` carried the identical two lists, so for these four tools **neither** layer of the two-layer defence blocked — while the hook still told the user the server guard was backing it up. Fixed upstream in the same shape and released as 4.8.5.
+
+- `scripts/build-mcp-server.mjs` — `DEFAULT_PINNED_SHA` bumped from `9fc6da6bf1b056edd29179edbc812e69f80c5363` (4.8.4) to `dfc96de9201d8450cbc59062a8ab67de88788ddc` (4.8.5).
+- Refresh path for existing installs: `node scripts/build-mcp-server.mjs --update`.
+
+### Version
+
+All four version fields (`package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` root & `plugins[0]`) bumped 0.6.17 → 0.6.18.
+
 ## [0.6.17] — 2026-08-23
 
 ### Fixed — hook payload never reached hook scripts (all sc4sap hooks silently broken)
