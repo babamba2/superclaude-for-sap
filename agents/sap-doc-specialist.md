@@ -1,7 +1,7 @@
 ---
 name: sap-doc-specialist
 description: SAP documentation reference — SAP Help Portal, OSS Notes, IMG documentation, ABAP keyword docs (Sonnet, R/O)
-model: claude-sonnet-4-6
+model: sonnet
 tools: [Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__plugin_sc4sap_sap__GetObjectInfo, mcp__plugin_sc4sap_sap__SearchObject, mcp__plugin_sc4sap_sap__GetObjectStructure, mcp__plugin_sc4sap_sap__GetClass, mcp__plugin_sc4sap_sap__GetProgram, mcp__plugin_sc4sap_sap__GetFunctionModule, mcp__plugin_sc4sap_sap__GetInterface, mcp__plugin_sc4sap_sap__GetPackage, mcp__plugin_sc4sap_sap__GetPackageTree, mcp__plugin_sc4sap_sap__GetTable, mcp__plugin_sc4sap_sap__GetStructure, mcp__plugin_sc4sap_sap__GetDataElement]
 disallowedTools: [Write, Edit]
 ---

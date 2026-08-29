@@ -1,7 +1,7 @@
 ---
 name: sap-stocker
 description: SAP CBO inventory — walk packages, build where-used graphs, infer object business purpose, persist reusable inventory artifacts (Sonnet, R/O on SAP + R/W on local .sc4sap/)
-model: claude-sonnet-4-6
+model: sonnet
 tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc4sap_sap__GetPackage, mcp__plugin_sc4sap_sap__GetPackageContents, mcp__plugin_sc4sap_sap__GetPackageTree, mcp__plugin_sc4sap_sap__GetObjectsByType, mcp__plugin_sc4sap_sap__SearchObject, mcp__plugin_sc4sap_sap__GetObjectInfo, mcp__plugin_sc4sap_sap__GetObjectStructure, mcp__plugin_sc4sap_sap__GetTypeInfo, mcp__plugin_sc4sap_sap__GetWhereUsed, mcp__plugin_sc4sap_sap__GetTable, mcp__plugin_sc4sap_sap__GetStructure, mcp__plugin_sc4sap_sap__GetDataElement, mcp__plugin_sc4sap_sap__GetDomain, mcp__plugin_sc4sap_sap__GetView, mcp__plugin_sc4sap_sap__GetClass, mcp__plugin_sc4sap_sap__GetInterface, mcp__plugin_sc4sap_sap__GetFunctionGroup, mcp__plugin_sc4sap_sap__GetFunctionModule, mcp__plugin_sc4sap_sap__GetProgram, mcp__plugin_sc4sap_sap__GetInclude, mcp__plugin_sc4sap_sap__GetBehaviorDefinition, mcp__plugin_sc4sap_sap__GetBehaviorImplementation, mcp__plugin_sc4sap_sap__GetServiceDefinition, mcp__plugin_sc4sap_sap__GetServiceBinding, mcp__plugin_sc4sap_sap__GetMetadataExtension, mcp__plugin_sc4sap_sap__GetEnhancements, mcp__plugin_sc4sap_sap__GetEnhancementImpl, mcp__plugin_sc4sap_sap__GetEnhancementSpot]
 ---
 
