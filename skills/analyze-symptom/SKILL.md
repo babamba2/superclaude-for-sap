@@ -42,8 +42,8 @@ Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<lab
 
 Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:analyze-symptom` to pre-grant all MCP tool + file-op permissions for this session (eliminates per-tool "Allow this tool?" prompts during auto-investigation — `RuntimeAnalyzeDump`, `ListTransports`, `GetWhereUsed`, etc.).
 
-- If `.sc4sap/session-trust.log` already has a line within the last 24h, skip silently.
-- Otherwise run it and surface the one-line confirmation.
+- Headless host (system prompt declares `Host: sc4sap-web`) → skip entirely; the host governs permissions.
+- If `.sc4sap/session-trust.log` already has a line within the last 24h, skip silently. Otherwise run it.
 
 Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Session_Trust_Bootstrap>
@@ -107,14 +107,11 @@ Per-step model allocation (skill main thread runs on Haiku 4.5 per frontmatter; 
 
 | Step | Owner | Model | Role |
 |------|-------|-------|------|
-| 0 Trust | skill-to-skill | Haiku | permission bootstrap |
-| 1 Initial Triage | main | **Haiku** | clue parsing + `GetSession` |
-| **2 Investigate + Gap + Narrow** | **`sap-debugger`** with `model: "opus"` override | **Opus 4.7** | auto-investigation (dump/transport/code/enhancement/customization) + gap identification + 2–3 hypotheses with confidence/evidence/confirmation-path + priority questions. One dispatch per round. |
-| 3 User Questions | main | **Haiku** | render debugger's priority questions + collect answers (max 3/round) |
-| (multi-round) repeat Step 2 | `sap-debugger` (Opus override) | Opus 4.7 | re-run with new user-supplied evidence |
-| 4 SAP Note Keywords | main | **Haiku** | assemble copy-paste search strings from debugger's sap_note_hints |
-| 5 Recommended Actions | main | **Haiku** | static classification by actor (immediate / access-required / escalation) |
-| 6 Escalation Routing | main | **Haiku** | point to next skill or agent (sap-debugger write mode, /sc4sap:analyze-code, module consultant, etc.) |
+| 0 Trust | skill-to-skill | Haiku | permission bootstrap — skipped on a headless host |
+| 1 Initial Triage | main | **Haiku** | clue parsing + `GetSession` + MODE (`quick-dump` \| `full`) + customization path |
+| **2 Investigate + Narrow + Report** | **`sap-debugger`** with `model: "opus"` override | **Opus 4.7** | `quick-dump`: dump → analysis → failing source (~6 calls, widens to `full` only if not High confidence). `full`: dump/transport/code/enhancement/customization. Writes the user-facing report per `output-format.md` (hypotheses, questions, Note keywords, next steps). One dispatch per round. |
+| 3 Relay | main | **Haiku** | output the report verbatim; wait for answers → repeat Step 2 |
+| 4 Follow-up Routing | main | **Haiku** | only when the user asks for the fix (sap-debugger write mode, /sc4sap:analyze-code, module consultant) |
 
 sap-debugger's tool set already covers `RuntimeAnalyzeDump`, profiler, transport queries, code reads, enhancement lookup, and customization cache reads — see the agent's Investigation_Protocol for the full inventory. The `model: "opus"` override is appropriate here because symptom triage is cross-file reasoning (dump × transport × source × customization × profiler) with ambiguity resolution (8-category framework), which `common/model-routing-rule.md` § Tier 2 classifies as Opus territory.
 </Workflow_Steps>
@@ -190,6 +187,8 @@ Only `GetSession` is called by the main thread (Step 1 intake). Every other tool
 - ❌ Firing 4+ questions at once
 - ❌ Diagnosing a root cause without an error message in hand
 - ❌ Skipping `RuntimeListDumps` when a dump is suspected and speculating instead
+- ❌ Running the full investigation (transports, where-used) on a plain dump with no change-history signal
+- ❌ Searching the filesystem for config/caches, or rewriting the debugger's report in the main thread
 - ❌ Deflecting with "contact Basis / dev team" without a concrete checklist and evidence
 - ❌ Claiming a standard SAP bug before attempting a SAP Note search
 - ❌ Blaming recent changes without inspecting transport history via `ListTransports`
