@@ -69,7 +69,7 @@ Orchestration is **1 main-thread Socratic intake + one delegated dispatch to `sa
 - **Step 3 (branching)**:
   - **Branch A — canned** (default: no Critical findings AND < 10 findings total) → main formats the standard report template from [`output-and-tools.md`](output-and-tools.md).
   - **Branch B — briefing** (Critical present OR ≥ 10 findings) → main renders a richer reader-facing briefing (Critical/High with root cause + fix code, where-used impact, top-3 fixes) per [`workflow.md`](workflow.md) § Branch B. No extra agent dispatch.
-- **Step 4 (main)** — Follow-up action menu: show where-used · explain finding #N · save report · delegate fix to `sap-executor` (user's choice).
+- **Step 4 (main)** — Follow-up action menu: show where-used · explain finding #N · save report (Markdown · HTML · both) · delegate fix to `sap-executor` (user's choice).
 
 Full spec in [`workflow.md`](workflow.md). Main thread NEVER calls `ReadClass` / `GetAbapAST` / `GetWhereUsed` directly — that context stays inside the reviewer agent so the orchestrator window remains small even for large objects.
 </Execution_Summary>

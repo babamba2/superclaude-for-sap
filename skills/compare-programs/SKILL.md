@@ -89,7 +89,7 @@ SAP MCP permission prompts are auto-approved by the sc4sap permission-approver P
 </Language_Policy>
 
 <Output_Location>
-`.sc4sap/comparisons/{prog1}__vs__{prog2}[__vs__{prog3}…]-{YYYYMMDD}.md`
+`.sc4sap/comparisons/{prog1}__vs__{prog2}[__vs__{prog3}…]-{YYYYMMDD}.md` and/or `.html` — format chosen at Step 2 (Markdown default; `html` adds a single-file HTML converted from the `.md`, `html only` keeps just the HTML).
 
 - Program names are uppercase, underscore-safe (slashes → `_`).
 - If the filename exceeds 120 chars (5-program case), use `.sc4sap/comparisons/compare-{YYYYMMDD}-{hash6}.md` and list the programs inside the front-matter.

@@ -38,6 +38,8 @@ Confirm comparison dimensions (7 defaults pre-selected, [x]=include / [ ]=exclud
 [ ] 9. Country / Legal specifics
 [x] 10. Usage timing / Persona
 
+Output: Markdown (default). Add "html" for a single-file HTML copy too, or "html only".
+
 Reply with: numbers to toggle (e.g. "+4 +8", "-7"), "all" to enable every dimension,
 "only N,M" to keep a specific subset, or "ok" to proceed with defaults.
 ```
@@ -47,6 +49,7 @@ Accept short replies (language-agnostic):
 - `+N` / `-N` → toggle dimension N.
 - `all` → enable 1–10.
 - `only N,M` → keep only the listed numbers.
+- `html` → formats = Markdown + HTML; `html only` → HTML only. May be combined with the dimension replies (e.g. `ok html`, `+4 html only`).
 
 ## Per-Dimension Data Sources (what Claude reads per dimension)
 

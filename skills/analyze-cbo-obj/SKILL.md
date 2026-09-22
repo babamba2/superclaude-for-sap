@@ -65,6 +65,7 @@ Main thread NEVER calls `GetPackageContents` / `GetWhereUsed` itself for the inv
 └── <MODULE>/               # SD, MM, PP, PM, QM, WM, TM, TR, FI, CO, HCM, BW, PS, Ariba
     └── <PACKAGE>/          # e.g., ZSD_MAIN
         ├── index.md        # human-readable summary, grouped by object type
+        ├── index.html      # optional single-file HTML view of index.md (offered at Step 8)
         ├── inventory.json  # machine-readable, consumed by sibling skills
         └── raw-walk.md     # optional full walk (only if asked or small package)
 ```
