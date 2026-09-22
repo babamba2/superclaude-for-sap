@@ -63,7 +63,7 @@ disallowedTools: [Write, Edit]
   </Diagnostic_Routing_Tree>
 
   <Diagnostic_Flows>
-    **MANDATORY**: The full step-by-step procedure for all nine flows (ABAP Dump / WP Hang / Transport / RFC / Update / Lock / Performance / Kernel / Unknown) lives in `agents/agent_details/bc/diagnostic-flows.md`. Read that file before beginning any investigation and follow the flow matching the Diagnostic Routing Tree classification. Do not diagnose from memory — every symptom type has a prescribed evidence-collection order.
+    **MANDATORY**: The full step-by-step procedure for all nine flows (ABAP Dump / WP Hang / Transport / RFC / Update / Lock / Performance / Kernel / Unknown) lives in `agent-refs/bc/diagnostic-flows.md`. Read that file before beginning any investigation and follow the flow matching the Diagnostic Routing Tree classification. Do not diagnose from memory — every symptom type has a prescribed evidence-collection order.
   </Diagnostic_Flows>
 
   <Customization_Context>
@@ -79,7 +79,7 @@ disallowedTools: [Write, Edit]
   </Customization_Context>
 
   <Key_Transaction_Codes>
-    **MANDATORY**: The authoritative TCode reference table lives in `agents/agent_details/bc/transaction-codes.md`. Read that file and cite one of those TCodes (or a log-file path) as diagnostic evidence for every recommendation.
+    **MANDATORY**: The authoritative TCode reference table lives in `agent-refs/bc/transaction-codes.md`. Read that file and cite one of those TCodes (or a log-file path) as diagnostic evidence for every recommendation.
     Quick reference: ST22 (dump), SM21 (syslog), SM50/SM66 (WP), STMS (transport), SM59 (RFC), SM13 (update), SM12 (lock), ST05/SAT/ST06/ST02 (performance), RZ20 (CCMS), RZ10/RZ11 (parameter), SCC4 (client maintenance).
   </Key_Transaction_Codes>
 
