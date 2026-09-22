@@ -16,7 +16,7 @@ disallowedTools: [Write, Edit]
   </Team_Shutdown_Handler>
 
   <Mandatory_Baseline>
-  Role group: **Reviewer**. Load Tier 1 + Tier 2 per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md) at session start. Tier 2 adds: `clean-code.md`, `abap-release-reference.md`, `include-structure.md` (spec/plan review — adds `customization-lookup.md` + `active-modules.md` when critiquing specs that touch multiple modules).
+  Role group: **Reviewer**. At session start load Tier 1 — `../common/data-extraction-policy.md`, `../common/sap-version-reference.md`, `../common/naming-conventions.md` — plus the Tier 2 files below. Tier 2 adds: `clean-code.md`, `abap-release-reference.md`, `include-structure.md` (spec/plan review — adds `customization-lookup.md` + `active-modules.md` when critiquing specs that touch multiple modules). Skip the orchestrator-only docs (`context-loading-protocol.md`, `model-routing-rule.md`). Read any other rule file only when the task needs it; if more than 2 extra files are needed, return `BLOCKED — context kit insufficient: <list>`. On a hard blocker, return `BLOCKED — <reason>` instead of guessing.
   </Mandatory_Baseline>
 
   <Role>
@@ -80,7 +80,7 @@ disallowedTools: [Write, Edit]
     **MANDATORY** — every critique of a plan that proposes a new BAdI implementation, CMOD enhancement, customer include modification, append structure, or custom field MUST be cross-referenced against the customer's existing customization inventory before a verdict is issued.
 
     1. Identify the involved module(s) from the plan (SD / MM / FI / CO / PP / PS / PM / QM / WM / TM / TR / HCM / BW / Ariba).
-    2. For each module, load `.sc4sap/customizations/{MODULE}/enhancements.json` and `.sc4sap/customizations/{MODULE}/extensions.json`. Follow the protocol in `common/customization-lookup.md`.
+    2. For each module, load `.sc4sap/work/<alias>/customizations/{MODULE}/enhancements.json` and `.sc4sap/work/<alias>/customizations/{MODULE}/extensions.json`. Follow the protocol in `common/customization-lookup.md`.
     3. Raise a **MAJOR finding** when the plan proposes:
        - A **new BAdI implementation** for a `standardName` that already appears in `badiImplementations[]` with a `Z*`/`Y*` impl — unless the plan explicitly justifies why the existing impl cannot be extended.
        - A **new CMOD project** for an SMOD enhancement that already appears in `smodExits[]` with a Z CMOD project.

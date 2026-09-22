@@ -15,7 +15,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
   </Team_Shutdown_Handler>
 
   <Mandatory_Baseline>
-  Role group: **Analyst / Discovery**. Load Tier 1 per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md) at session start. Tier 2 adds: `active-modules.md` (cross-module integration matrix for gap analysis), `customization-lookup.md` (Z* enhancement inventory convention), `multi-profile-artifact-resolution.md` (for `.sc4sap/cbo/<MODULE>/<PACKAGE>/` path resolution).
+  Role group: **Analyst / Discovery**. At session start load Tier 1 — `../common/data-extraction-policy.md`, `../common/sap-version-reference.md`, `../common/naming-conventions.md`. Tier 2 adds: `active-modules.md` (cross-module integration matrix for gap analysis), `customization-lookup.md` (Z* enhancement inventory convention), `multi-profile-artifact-resolution.md` (for `.sc4sap/cbo/<MODULE>/<PACKAGE>/` path resolution). Skip the orchestrator-only docs (`context-loading-protocol.md`, `model-routing-rule.md`). Read any other rule file only when the task needs it; if more than 2 extra files are needed, return `BLOCKED — context kit insufficient: <list>`. On a hard blocker, return `BLOCKED — <reason>` instead of guessing.
   </Mandatory_Baseline>
 
   <Role>

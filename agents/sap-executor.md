@@ -15,7 +15,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
   </Team_Shutdown_Handler>
 
   <Mandatory_Baseline>
-  Role group: **Code Writer**. Load Tier 1 + Tier 2 per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md) at session start. Tier 2 adds: `clean-code.md`, `abap-release-reference.md`, `transport-client-rule.md`, `include-structure.md` (+ paradigm file after reading interview.md Paradigm).
+  Role group: **Code Writer**. At session start load Tier 1 — `../common/data-extraction-policy.md`, `../common/sap-version-reference.md`, `../common/naming-conventions.md` — plus the Tier 2 files below. Tier 2 adds: `clean-code.md`, `abap-release-reference.md`, `transport-client-rule.md`, `include-structure.md` (+ paradigm file after reading interview.md Paradigm). Skip the orchestrator-only docs (`context-loading-protocol.md`, `model-routing-rule.md`). Read any other rule file only when the task needs it; if more than 2 extra files are needed, return `BLOCKED — context kit insufficient: <list>`. On a hard blocker, return `BLOCKED — <reason>` instead of guessing.
   </Mandatory_Baseline>
 
   <Role>
@@ -37,7 +37,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
   </Success_Criteria>
 
   <Context_Kit_Protocol>
-    Per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md): the dispatching skill declares a **Context kit** — the minimal set of `../common/*.md` files relevant to THIS dispatch. You MUST:
+    Per `common/context-loading-protocol.md` (summarized here — no need to open it): the dispatching skill declares a **Context kit** — the minimal set of `../common/*.md` files relevant to THIS dispatch. You MUST:
 
     - Read ONLY the files listed in the dispatched Context kit (plus any triggered reads the skill named — e.g., `ok-code-pattern.md` if the task touches `CALL SCREEN`).
     - NOT preemptively read the full `<Shared_Conventions>` index below. That table exists as a lookup so the dispatching skill can cite it; it is NOT your default read-set.
@@ -46,7 +46,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
   </Context_Kit_Protocol>
 
   <Model_Selection>
-    The agent front-matter defaults to Sonnet. The dispatching skill MAY override via the `model:` parameter on `Agent(...)` per [`../common/model-routing-rule.md`](../common/model-routing-rule.md):
+    The agent front-matter defaults to Sonnet. The dispatching skill MAY override via the `model:` parameter on `Agent(...)` per `common/model-routing-rule.md` (summarized here — no need to open it):
 
     - **Sonnet** — read-only inventory, repetitive bulk writes (same tool × same payload shape ≥ 5 iterations), template-based Create/Update/Verify.
     - **Opus** — novel code generation, cross-file reasoning, ambiguity resolution, architectural choices.

@@ -16,7 +16,7 @@ disallowedTools: [Write, Edit]
   </Team_Shutdown_Handler>
 
   <Mandatory_Baseline>
-  Role group: **Basis Consultant**. Load Tier 1 + Tier 2 per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md) at session start. Tier 2 adds: `transport-client-rule.md`, `configs/common/*.md` (system admin references).
+  Role group: **Basis Consultant**. At session start load Tier 1 — `../common/data-extraction-policy.md`, `../common/sap-version-reference.md`, `../common/naming-conventions.md` — plus the Tier 2 files below. Tier 2 adds: `transport-client-rule.md`, `configs/common/*.md` (system admin references). Skip the orchestrator-only docs (`context-loading-protocol.md`, `model-routing-rule.md`). Read any other rule file only when the task needs it; if more than 2 extra files are needed, return `BLOCKED — context kit insufficient: <list>`. On a hard blocker, return `BLOCKED — <reason>` instead of guessing.
   </Mandatory_Baseline>
 
   <Role>
@@ -70,7 +70,7 @@ disallowedTools: [Write, Edit]
     **MANDATORY when a dump / symptom originates in a `Z*` / `Y*` object, a customized SAP include, or touches a modified SAP table.** Before finalising a root-cause hypothesis:
 
     1. Identify which functional module(s) the faulting program / include / FM belongs to (use the include/program prefix — `MV45AF*` = SD, `LMIGO*` = MM, `RFFO*` = FI, etc.).
-    2. Load the per-module customization cache for each involved module: `.sc4sap/customizations/{MODULE}/enhancements.json` + `.sc4sap/customizations/{MODULE}/extensions.json`.
+    2. Load the per-module customization cache for each involved module: `.sc4sap/work/<alias>/customizations/{MODULE}/enhancements.json` + `.sc4sap/work/<alias>/customizations/{MODULE}/extensions.json`.
     3. Reverse-lookup the failing object:
        - If it is a `Z*` BAdI impl class → find its `standardName` in `badiImplementations[]` so the root cause can be explained against the standard BAdI contract.
        - If it is a customer include like `ZXV45U01` or a customized SAP include like `MV45AFZZ` → find it in `formBasedExits[]` and note the line count (heavy customization = higher likelihood of the dump being customer-side).

@@ -43,40 +43,14 @@ Installed at: `${CLAUDE_PLUGIN_ROOT}/vendor/abap-mcp-adt/` (internal directory n
    ```
    This clones the repo, runs `npm install`, and builds it. The plugin's `.mcp.json` is pre-configured to launch `bridge/mcp-server.cjs`, which delegates to the vendor-installed server.
 
-2. **Configure SAP connection**
-   Create `.sc4sap/sap.env` in the plugin directory with your SAP credentials:
-   ```env
-   SAP_URL=https://your-sap-host:44300
-   SAP_CLIENT=100
-   SAP_AUTH_TYPE=basic
-   SAP_USERNAME=your-user
-   SAP_PASSWORD=your-password
-   SAP_LANGUAGE=EN
-   SAP_SYSTEM_TYPE=onprem
-   TLS_REJECT_UNAUTHORIZED=0
+2. **Configure SAP connection (multi-profile)**
+   Connection settings live in a per-system profile, not in a hand-written file:
+   - `~/.sc4sap/profiles/<alias>/sap.env` — MCP-server env (`SAP_URL`, `SAP_CLIENT`, `SAP_AUTH_TYPE`, `SAP_USERNAME`, `SAP_LANGUAGE`, `SAP_SYSTEM_TYPE` = `s4hana` | `cloud` | `ecc`, `SAP_TIER`, blocklist keys). The password is stored in the OS keychain and referenced as `SAP_PASSWORD=keychain:sc4sap/<alias>/<user>`.
+   - `<project>/.sc4sap/active-profile.txt` — alias of the active profile.
 
-   # --- Blocklist policy (optional) ---
-   # Controls the row-extraction guard in mcp-abap-adt. Defaults to `standard`.
-   #   minimal  — block only PII/credentials/banking
-   #   standard — minimal + Protected Business Data (ACDOCA, BKPF, VBAK, EKKO, ...)  [default]
-   #   strict   — standard + Audit/Security + Communication/Workflow
-   #   off      — disable the guard entirely (NOT recommended)
-   # MCP_BLOCKLIST_PROFILE=standard
-   # MCP_BLOCKLIST_EXTEND=ZHR_SALARY,ZCUSTOMER_PII
-   # MCP_ALLOW_TABLE=ACDOCA
-   ```
-   - `SAP_URL`: SAP system URL with HTTPS and ICM port (typically 44300 for HTTPS)
-   - `SAP_CLIENT`: SAP client number (3 digits, e.g., "100")
-   - `SAP_AUTH_TYPE`: `basic` for username/password, `xsuaa` for JWT (OAuth2)
-   - `SAP_USERNAME` / `SAP_PASSWORD`: SAP credentials with developer access
-   - `SAP_LANGUAGE`: Logon language (EN, DE, etc.)
-   - `SAP_SYSTEM_TYPE`: `onprem` for on-premise S/4HANA, `cloud` for BTP
-   - `TLS_REJECT_UNAUTHORIZED`: Set to `0` for self-signed certificates (dev only)
-   - `MCP_BLOCKLIST_PROFILE` *(optional)*: `minimal` | `standard` | `strict` | `off` — risk tier for row-extraction guard. Leave unset for the safe default (`standard`).
-   - `MCP_BLOCKLIST_EXTEND` *(optional)*: comma-separated extra names/patterns (always denied). Use for site-specific Z-tables containing sensitive data.
-   - `MCP_ALLOW_TABLE` *(optional)*: comma-separated whitelist for an audited one-off bypass. Logged to stderr. Remove when not actively needed.
+   Create a profile with `/sc4sap:setup` (wizard Step 4) or `/sc4sap:sap-option add`; edit it with `/sc4sap:sap-option`. Do not hand-write `sap.env`. Key reference and validation rules: `../sap-option/SKILL.md` → `<Managed_Keys>` / `<Validation>`. Blocklist keys (`MCP_BLOCKLIST_PROFILE` = `minimal` | `standard` (default) | `strict` | `off`, `MCP_BLOCKLIST_EXTEND`, `MCP_ALLOW_TABLE`) are documented in `../sap-option/SKILL.md` → `<Managed_Keys>` (policy: `../../common/data-extraction-policy.md`).
 
-   The bridge reads this file automatically on startup. Environment variables take precedence over file values.
+   The bridge resolves the active profile on startup. Process environment variables take precedence over file values.
 
 3. **Verify the connection**
    After restarting Claude Code (or reconnecting MCP via `/mcp`), run:
@@ -93,17 +67,17 @@ Installed at: `${CLAUDE_PLUGIN_ROOT}/vendor/abap-mcp-adt/` (internal directory n
 </Installation_Steps>
 
 <Troubleshooting>
-- **401 Unauthorized**: Check `SAP_USERNAME` / `SAP_PASSWORD` in `.sc4sap/sap.env`; confirm the user is not locked (SU01).
+- **401 Unauthorized**: Check `SAP_USERNAME` / the keychain password of the active profile (`/sc4sap:sap-option`); confirm the user is not locked (SU01).
 - **Connection refused**: Verify `SAP_URL` host and ICM HTTPS port; check VPN if required.
 - **ADT service not found**: Activate `/sap/bc/adt` in transaction SICF and ensure ICF is running.
-- **SSL certificate errors**: Add the SAP system certificate to Node.js trust store (recommended), or temporarily set `TLS_REJECT_UNAUTHORIZED=0` in `sap.env` (dev only — never in prod).
+- **SSL certificate errors**: Add the SAP system certificate to Node.js trust store (recommended), or temporarily set `TLS_REJECT_UNAUTHORIZED=0` in the profile `sap.env` (dev only — never in prod).
 - **No tools visible in Claude Code**: Reconnect the MCP server via `/mcp` after editing `sap.env`. `sap.env` changes are NOT hot-reloaded. Check MCP server stderr logs under `%LOCALAPPDATA%\claude-cli-nodejs\Cache\<cwd-slug>\mcp-logs-plugin-sc4sap-sap\`.
 - **Blocklist refusal on a legitimate table**: Run `/sc4sap:sap-option` to adjust `MCP_BLOCKLIST_PROFILE` or add the table to `MCP_ALLOW_TABLE` (audited bypass).
 - **`vendor/abap-mcp-adt` not built**: Re-run `node scripts/build-mcp-server.mjs` (or `--update` to refresh).
 </Troubleshooting>
 
 <Security_Notes>
-- Never commit `.sc4sap/sap.env` (the dotenv file with SAP credentials) to version control. It is git-ignored by default.
+- Never commit a `sap.env` (profile or legacy `.sc4sap/sap.env`) to version control. Profiles live under `~/.sc4sap/profiles/`, outside the repository.
 - Use process-level environment variables to override `sap.env` values in CI/CD, so secrets never touch disk.
 - Prefer a read-only SAP user for analysis-only workflows.
 - `TLS_REJECT_UNAUTHORIZED=0` is **dev-only** — never set in production. Install the SAP system certificate into Node.js trust store instead.

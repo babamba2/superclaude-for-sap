@@ -68,9 +68,9 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Companion_Files>
 
 <Agent_Composition>
-Per-step model allocation. Skill frontmatter pins the main thread to Haiku; each `Agent(...)` carries its own model (frontmatter or explicit override).
+Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; each `Agent(...)` carries its own model (frontmatter or explicit override).
 
-- **Main orchestrator (Haiku 4.5)** — Steps 1, 2, 6: intake, scope confirmation, follow-up menu. Holds NO source code / AST / screens in its own context; all MCP-heavy work runs inside agents.
+- **Main orchestrator (Sonnet 4.6)** — Steps 1, 2, 6: intake, scope confirmation, follow-up menu. Holds NO source code / AST / screens in its own context; all MCP-heavy work runs inside agents.
 - **Facts extraction (`sap-code-reviewer` × N, Sonnet 4.6 via `model: "sonnet"` override)** — Step 3 (absorbs the old "Read Phase"). Each reviewer reads ONE program itself (`GetProgFullCode` / `GetAbapAST` / screens / GUI status / text elements / where-used) and returns structural facts only — no quality scoring. Sonnet is sufficient because this pass is rule-based extraction, not novel code generation; matches the base tier of `common/model-routing-rule.md` § Tier 1.
 - **Analysis + narrative (`sap-analyst` × 1, Opus 4.7)** — Step 4: a SINGLE dispatch covering module classification + dimension scoring + executive summary + recommendation. Keeps the analyst's context continuous across reasoning layers instead of fragmenting into 4 chained calls.
 - **Module specialists (conditional, `sap-{module}-consultant` × K, Opus 4.7)** — Step 4b: when programs span 2+ modules (MM+CO, SD+FI, etc.), each distinct module gets a consultant dispatch to explain "what would a {module} user use this for". The analyst's scoring consumes these in its narrative.

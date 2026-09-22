@@ -10,6 +10,7 @@ import { readConfig, sapEnvPresent, mcpInstalled, systemInfo, activeTransport, a
 import { color, paint, humanTokens, humanUsd, humanDuration, pctColor } from './lib/format.mjs';
 import { readCache, writeCache, hudCacheDir } from './lib/cache.mjs';
 import { getUsage } from './lib/usage-api.mjs';
+import { resolveContextWindow } from './lib/context-window.mjs';
 import { probeMcpState } from './lib/mcp-probe.mjs';
 
 // Fallback USD limits when the OAuth usage API is unreachable (no token, offline,
@@ -119,7 +120,8 @@ async function main() {
     // Context %
     const last = transcript ? latestUsage(transcript) : null;
     const ctxUsed = contextSize(last?.usage);
-    const ctxWindow = price.ctx;
+    // Window depends on the plan (Max/Team/Enterprise → 1M), not the model alone.
+    const ctxWindow = resolveContextWindow({ payload: input, modelId, displayName: modelName }).size;
     const ctxPct = ctxWindow ? Math.min(100, (ctxUsed / ctxWindow) * 100) : 0;
     const ctxStr = `${humanTokens(ctxUsed)}/${humanTokens(ctxWindow)} ${paint(ctxPct.toFixed(0) + '%', pctColor(ctxPct))}`;
 

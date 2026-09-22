@@ -1,12 +1,12 @@
 # Workflow Steps
 
-Main thread runs on Haiku 4.5 (skill frontmatter). Every MCP read is pushed into an agent so the orchestrator context stays small even for 5 programs × full source + AST + screens.
+Main thread runs on Sonnet 4.6 (skill frontmatter). Every MCP read is pushed into an agent so the orchestrator context stays small even for 5 programs × full source + AST + screens.
 
 ## Step 0 — Trust Session (mandatory, see SKILL.md)
 
 Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:compare-programs`. Skip silently if already trusted within 24h.
 
-## Step 1 — Program Input (main thread, Haiku)
+## Step 1 — Program Input (main thread)
 
 **Accepts**:
 - User passes 2–5 program names in the initial argument: `"compare ZMMR_GR_LIST and ZCOR_GR_LIST"` / `"ZMMR_GR_LIST, ZCOR_GR_LIST, ZFIR_GR_LIST"`.
@@ -20,7 +20,7 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:compare-programs`. Skip
 
 Store the confirmed list as `compared_objects` (array of `{name, type, package}`).
 
-## Step 2 — Scope Confirmation (main thread, Haiku)
+## Step 2 — Scope Confirmation (main thread)
 
 Show the **Scope Prompt** from `comparison-scope.md` with defaults pre-ticked. Render the prompt in the user's current conversation language. Wait for user response. Accept `ok` / `proceed` / `+N` / `-N` / `only N,M` / `all` (and equivalent phrasings in other languages).
 
@@ -158,7 +158,7 @@ Dimensions: 7 · Divergent: 3 · Variant: 2 · Same: 2
 Key divergence: ZMMR = quantity-centric (MSEG, M_MSEG_WWA) / ZCOR = cost-value-centric (ACDOCA, F_BKPF_*)
 ```
 
-## Step 6 — Follow-up Options (main thread, Haiku — offer, don't execute)
+## Step 6 — Follow-up Options (main thread — offer, don't execute)
 
 Present as a short menu (localized to the user's language at render time):
 

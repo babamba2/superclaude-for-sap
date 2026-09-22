@@ -41,7 +41,6 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:program-to-spec` to pre
 
 - If `.sc4sap/session-trust.log` already has a line within the last 24h, skip silently.
 - Otherwise run it and surface the one-line confirmation.
-- All `Agent` dispatches within this skill MUST pass `mode: "dontAsk"`.
 
 Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Session_Trust_Bootstrap>
@@ -121,7 +120,6 @@ Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; eac
     **Two hard requirements on both JSON files** (full rules in `spec-templates.md`): (1) **business-first content** — Sheet 4 Step text + `processFlow[]` describe the business process for a functional reader, with the ABAP event/FORM kept as a secondary annotation (never an event-only list); (2) **single-language output** — every prose string is in the target `lang`; only SAP identifiers / ABAP literals stay as-is. `build-spec.mjs` prints a `⚠ LANGUAGE MIX` gate for ko/ja — finalize only when it reports `language check OK`.
 - **Audit verification (`sap-critic` × 1, Opus 4.7, frontmatter, conditional L4 only)** — Step 3 gate: verifies every claim in the rendered spec cross-references a concrete line range in source. Skip for L1 / L2 / L3.
 
-All Agent dispatches pass `mode: "dontAsk"` (trust-session granted in Step 0a).
 </Agent_Composition>
 
 <Output_Format>

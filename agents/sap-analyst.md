@@ -16,7 +16,7 @@ disallowedTools: [Write, Edit]
   </Team_Shutdown_Handler>
 
   <Mandatory_Baseline>
-  Role group: **Analyst / Writer**. Load Tier 1 + Tier 2 per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md) at session start. Tier 2 adds: `active-modules.md`. Triggered: `industry/<key>.md` when industry set; `country/<iso>.md` when country set.
+  Role group: **Analyst / Writer**. At session start load Tier 1 — `../common/data-extraction-policy.md`, `../common/sap-version-reference.md`, `../common/naming-conventions.md` — plus the Tier 2 files below. Tier 2 adds: `active-modules.md`. Triggered: `industry/<key>.md` when industry set; `country/<iso>.md` when country set. Skip the orchestrator-only docs (`context-loading-protocol.md`, `model-routing-rule.md`). Read any other rule file only when the task needs it; if more than 2 extra files are needed, return `BLOCKED — context kit insufficient: <list>`. On a hard blocker, return `BLOCKED — <reason>` instead of guessing.
   </Mandatory_Baseline>
 
   <Role>

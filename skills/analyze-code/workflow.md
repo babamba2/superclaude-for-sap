@@ -2,7 +2,7 @@
 
 Referenced by `SKILL.md`. Orchestration is **Socratic intake on main + one delegated review dispatch + branching report + follow-up menu**.
 
-## Step 1 — Identify Object (main thread · Haiku)
+## Step 1 — Identify Object (main thread)
 
 - If `ARGUMENTS` supplies the object: use directly (e.g., `ZCL_MY_CLASS CLAS`).
 - Otherwise ask: *"Which ABAP object do you want to analyze? (name and type — class/program/FM/interface/CDS view)"*
@@ -53,58 +53,31 @@ On `BLOCKED` from the reviewer, surface the reason verbatim and stop.
 
 Read the reviewer's `complexity_hint` (or compute it from severity counts if the field is missing: canned if `critical_count == 0 && total_findings < 10`, else briefing).
 
-### Branch A — canned report (main thread · Haiku)
+### Branch A — canned report (main thread)
 
 Default path. Main formats the reviewer's findings into the template defined in [`output-and-tools.md`](output-and-tools.md) § Output Format. No further dispatch.
 
-### Branch B — rich briefing (dispatch `sap-writer` · Haiku 4.5)
+### Branch B — rich briefing (main thread, no dispatch)
 
-Triggered when `complexity_hint = "briefing"`. Emit banner:
-```
-▶ phase=3.brief · agent=sap-writer · model=Haiku 4.5
-```
+Triggered when `complexity_hint = "briefing"`. The main thread renders the briefing directly from the reviewer's findings (user's conversation language) — no extra agent, no MCP re-reads.
 
-Dispatch:
-```
-Agent({
-  subagent_type: "sc4sap:sap-writer",
-  description: "ABAP review briefing — <OBJECT_NAME>",
-  prompt: """
-    Render a reader-facing briefing for the code review of <OBJECT_NAME> (language =
-    user's current conversation language; default Korean). Consume the reviewer's
-    findings (attached below) — do NOT re-run MCP reads.
+Required sections (Markdown, 25–40 lines):
+1. **🧭 Summary** — object name · lines · methods · callers · overall score.
+2. **🚨 Critical & High** — for each: location · root cause · why it matters · concrete fix (code example).
+3. **🟡 Medium** — concise one-liner each.
+4. **🔗 Where-Used impact** — callers count + high-blast-radius call-outs.
+5. **✅ Top 3 impactful fixes** — ordered by estimated impact, not severity.
+6. **▶ Next step hint** — one line pointing to `UpdateClass`/`UpdateProgram` or `/sc4sap:create-program` for a full rewrite.
 
-    Required sections (Markdown, 25–40 lines):
-    1. **🧭 Summary** — object name · lines · methods · callers · overall score.
-    2. **🚨 Critical & High** — for each: location · root cause · why it matters ·
-       concrete fix (code example).
-    3. **🟡 Medium** — concise one-liner each.
-    4. **🔗 Where-Used impact** — callers count + high-blast-radius call-outs.
-    5. **✅ Top 3 impactful fixes** — ordered by estimated impact, not severity.
-    6. **▶ Next step hint** — one line pointing to `UpdateClass`/`UpdateProgram` or
-       `/sc4sap:create-program` for full rewrite.
+Rules: do NOT restate the full findings list (Branch A covers raw enumeration); be concrete — prefer "SELECT * on VBAP inside LOOP — move to FOR ALL ENTRIES above the LOOP" over "performance could be improved".
 
-    Rules:
-    - Do NOT re-fetch the object via MCP.
-    - Do NOT restate the full findings list (Branch A covers raw enumeration).
-    - Be concrete: prefer "SELECT * on VBAP inside LOOP — move to FOR ALL ENTRIES above the LOOP"
-      over "performance could be improved".
-
-    Reviewer findings follow:
-    <FULL_FINDINGS_JSON>
-  """
-})
-```
-
-On writer BLOCKED → fallback to Branch A (canned) and log `briefing: "fallback_to_canned: <reason>"` in the skill's response metadata.
-
-## Step 4 — Action Menu (main thread · Haiku)
+## Step 4 — Action Menu (main thread)
 
 After the report (canned or briefing), offer:
 
 1. **"Fix findings"** — explain options: manual `UpdateClass` / `UpdateProgram` / `UpdateInclude`, full rewrite via `/sc4sap:create-program`, or dispatch `sap-executor` here. If user picks executor delegation, emit banner `▶ phase=4.fix · agent=sap-executor · model=Sonnet 4.6` and dispatch.
 2. **"Show where-used callers"** — display from the reviewer's where-used data (already in the response).
-3. **"Explain finding #N in more detail"** — Haiku main re-reads the specific finding entry and expands it.
-4. **"Save report to `.sc4sap/analysis/<object>-<timestamp>.md`"** — Haiku main writes to file.
+3. **"Explain finding #N in more detail"** — main re-reads the specific finding entry and expands it.
+4. **"Save report to `.sc4sap/analysis/<object>-<timestamp>.md`"** — main writes to file.
 
 Stop on user selection or silence.

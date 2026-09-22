@@ -58,7 +58,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 
 Pass these to the consultant via the dispatch prompt so its answer reflects the actual landscape. If any key is missing, ask the user before dispatching — do NOT let the consultant invent assumptions.
 
-The consultant agent's Mandatory_Baseline (Tier 1 + Tier 2 per [`../../common/context-loading-protocol.md`](../../common/context-loading-protocol.md)) ensures it loads `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, and `configs/{MODULE}/*.md` at session start.
+The consultant agent's Mandatory_Baseline (Tier 1 + Tier 2 per [`../../common/context-loading-protocol.md`](../../common/context-loading-protocol.md)) ensures it loads `spro-lookup.md`, `customization-lookup.md`, `active-modules.md` at session start and reads only the `configs/{MODULE}/*.md` file(s) the question needs.
 </Environment_Context>
 
 <Module_Routing>

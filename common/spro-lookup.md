@@ -8,7 +8,7 @@ When you need SAP Customizing information for a module, resolve the lookup in th
 
 ### 1. Local SPRO Cache (preferred — short-circuits everything below)
 
-Check for `.sc4sap/spro-config.json` at the project root.
+Check for `.sc4sap/work/<activeAlias>/spro-config.json` (alias from `.sc4sap/active-profile.txt`; legacy projects without that pointer use `.sc4sap/spro-config.json`). Resolve per [`multi-profile-artifact-resolution.md`](multi-profile-artifact-resolution.md) — every `.sc4sap/spro-config*.json` path below follows the same rule.
 
 - If present:
   - Load the file and use `modules.{MODULE}` for the target module

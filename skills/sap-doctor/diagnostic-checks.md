@@ -9,7 +9,7 @@ Run all checks in order. Report PASS / FAIL / WARN for each.
 - [ ] Read **plugin version** from `<plugin>/.claude-plugin/plugin.json` → `version`; display as `SC4SAP plugin vX.Y.Z`
 - [ ] Compare cache vs marketplace `plugin.json` versions. If mismatch, surface the drift and advise `/reload-plugins` + Claude Code restart (same signal Layer 2 emits — keep both so Layer 1 catches it even when MCP is offline)
 - [ ] Skill files present in `skills/` directory (expected skill list from marketplace `plugin.json` manifest)
-- [ ] Config file exists at `.sc4sap/config.json` with `sapVersion`, `abapRelease`, `industry` keys
+- [ ] Active profile resolves: `.sc4sap/active-profile.txt` → `~/.sc4sap/profiles/<alias>/config.json` exists with `sapVersion`, `abapRelease`, `industry` keys (legacy projects without the pointer: `.sc4sap/config.json`)
 
 **Layer 2 - MCP Server**
 - [ ] `plugin:sc4sap:sap` appears in Claude Code MCP server list
@@ -68,7 +68,7 @@ Report counts at the layer level: `9a: 3/3 installed`, `9b: 7/7 installed, 7/7 a
 
 **Layer 6 - RFC Backend (conditional — branches on `SAP_RFC_BACKEND`)**
 
-Per-backend check lists for `soap` / `native` / `gateway` / `odata` live in **[`diagnostic-checks-rfc.md`](diagnostic-checks-rfc.md)**. Resolve `SAP_RFC_BACKEND` from `sap.env` first (default `soap`), then execute the matching sub-section from that file. Output a one-line banner stating which sub-section was executed.
+Per-backend check lists for `soap` / `native` / `gateway` / `odata` live in **[`diagnostic-checks-rfc.md`](diagnostic-checks-rfc.md)**. Resolve `SAP_RFC_BACKEND` from the active profile `sap.env` first (default `odata` when unset), then execute the matching sub-section from that file. Output a one-line banner stating which sub-section was executed.
 
 **Layer 7 - Cache Hygiene**
 

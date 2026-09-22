@@ -1,13 +1,13 @@
 ---
 name: sc4sap:analyze-code
-description: ABAP code analysis — delegate source reads + AST/semantic/where-used analysis + rule-based review to sap-code-reviewer, then optionally render a rich briefing via sap-writer
+description: ABAP code analysis — delegate source reads + AST/semantic/where-used analysis + rule-based review to sap-code-reviewer, then render a canned report or a richer briefing on the main thread
 level: 2
 model: sonnet
 ---
 
 # SC4SAP Analyze Code
 
-Reviews an ABAP object by delegating the heavy work (source read, structural/semantic/where-used analysis, 14-dimension rule matching) to `sap-code-reviewer` (Opus 4.7). The main thread only handles Socratic intake, report formatting, and the follow-up action menu — all on Haiku for cost efficiency.
+Reviews an ABAP object by delegating the heavy work (source read, structural/semantic/where-used analysis, 14-dimension rule matching) to `sap-code-reviewer` (Opus 4.7). The main thread (Sonnet, per frontmatter) only handles Socratic intake, report formatting, and the follow-up action menu.
 
 
 <Purpose>
@@ -64,12 +64,12 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 <Execution_Summary>
 Orchestration is **1 main-thread Socratic intake + one delegated dispatch to `sap-code-reviewer` + a branching report + main-thread action menu**.
 
-- **Step 1 (main · Haiku)** — Identify: ask for (or confirm) the ABAP object name + type; verify via `SearchObject`.
+- **Step 1 (main)** — Identify: ask for (or confirm) the ABAP object name + type; verify via `SearchObject`.
 - **Step 2 (delegated · Opus 4.7)** — Dispatch to `sap-code-reviewer` with only the object reference. The reviewer agent **itself** reads source (via `GetClass`/`GetProgram`/`GetProgFullCode`/...), runs structural analysis (`GetAbapAST` + `GetAbapSemanticAnalysis` + `GetWhereUsed`), loads the 9 `common/` rule files, and evaluates all 14 dimensions. Returns: findings list (severity · location · rule ref · fix suggestion) + summary metrics.
 - **Step 3 (branching)**:
-  - **Branch A — canned** (default: no Critical findings AND < 10 findings total) → main (Haiku) formats the standard report template from [`output-and-tools.md`](output-and-tools.md).
-  - **Branch B — briefing** (Critical present OR ≥ 10 findings) → dispatch `sap-writer` (Haiku) for a rich reader-facing report with code examples and impact explanations. Fallback to Branch A on writer failure.
-- **Step 4 (main · Haiku)** — Follow-up action menu: show where-used · explain finding #N · save report · delegate fix to `sap-executor` (user's choice).
+  - **Branch A — canned** (default: no Critical findings AND < 10 findings total) → main formats the standard report template from [`output-and-tools.md`](output-and-tools.md).
+  - **Branch B — briefing** (Critical present OR ≥ 10 findings) → main renders a richer reader-facing briefing (Critical/High with root cause + fix code, where-used impact, top-3 fixes) per [`workflow.md`](workflow.md) § Branch B. No extra agent dispatch.
+- **Step 4 (main)** — Follow-up action menu: show where-used · explain finding #N · save report · delegate fix to `sap-executor` (user's choice).
 
 Full spec in [`workflow.md`](workflow.md). Main thread NEVER calls `ReadClass` / `GetAbapAST` / `GetWhereUsed` directly — that context stays inside the reviewer agent so the orchestrator window remains small even for large objects.
 </Execution_Summary>

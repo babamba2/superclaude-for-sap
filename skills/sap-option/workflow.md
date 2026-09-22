@@ -1,6 +1,6 @@
 # Workflow
 
-1. **Locate** `.sc4sap/sap.env`. If missing, stop and direct the user to `/sc4sap:setup`.
+1. **Locate** the active profile's `sap.env` per `<File_Path>` in SKILL.md (`~/.sc4sap/profiles/<alias>/sap.env`, legacy `.sc4sap/sap.env`). If missing, stop and direct the user to `/sc4sap:setup`.
 
 2. **Parse** existing values with a simple `KEY=VALUE` reader. Preserve:
    - comment lines (`#`)
@@ -38,6 +38,6 @@
 
 9. **Backup + write** — copy existing `sap.env` to `sap.env.bak` (overwrite previous backup), then write the new content atomically (write to `sap.env.tmp` then rename).
 
-10. **Advise reconnection** — remind the user to run `/mcp` → reconnect `plugin:sc4sap:sap` for changes to take effect. Changes to `sap.env` are not hot-reloaded.
+10. **Advise reconnection** — remind the user to run `/mcp` → reconnect `plugin:sc4sap:sap` for changes to take effect. Changes to `sap.env` are not hot-reloaded. If `SAP_PASSWORD` or the keychain entry changed and calls still return 401 after reconnecting, a full Claude Code restart is required (the launcher resolves the password once at boot).
 
 11. **Report** — list the keys changed, indicate backup path, and state "Please reconnect MCP (`/mcp`) to apply."

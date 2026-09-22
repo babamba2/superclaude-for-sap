@@ -168,7 +168,7 @@ sc4sap의 규칙 코퍼스는 방대함 — 25+ `common/*.md` + 14 `configs/{MOD
 
 | Tier | 로드 시점 | 파일 |
 |------|-----------|------|
-| **Tier 1 — 글로벌 필수** | 모든 agent, 모든 skill, 세션 시작 | `data-extraction-policy.md`, `sap-version-reference.md`, `naming-conventions.md`, `context-loading-protocol.md`, `model-routing-rule.md` |
+| **Tier 1 — 글로벌 필수** | 모든 agent, 모든 skill, 세션 시작 | `data-extraction-policy.md`, `sap-version-reference.md`, `naming-conventions.md` |
 | **Tier 2 — 역할별 필수** | agent의 역할 그룹 고정 세트, 세션 시작 | 역할 그룹에 따라 상이 (아래 참조) |
 | **Tier 3 — 트리거 로드** | 현재 task가 조건 매칭 시 | ALV → `alv-rules.md` · Procedural → `clean-code-procedural.md` + `ok-code-pattern.md` · `CALL SCREEN` → `ok-code-pattern.md` · ECC → `ecc-ddic-fallback.md` · industry/country 설정 시 → 해당 파일 · 등 |
 | **Tier 4 — Per-Task 킷** | dispatch하는 skill/phase/bucket이 선언 | `phase4-parallel.md`의 wave별, `phase6-review.md`의 §1-§12별 |
@@ -182,7 +182,7 @@ sc4sap의 규칙 코퍼스는 방대함 — 25+ `common/*.md` + 14 `configs/{MOD
 | **Planner / Architect** | `sap-planner`, `sap-architect` | `include-structure.md`, `active-modules.md`, `customization-lookup.md`, `field-typing-rule.md` |
 | **Analyst / Writer** | `sap-analyst`, `sap-writer` | `active-modules.md` |
 | **Doc Specialist** | `sap-doc-specialist` | *(없음 — task 구동)* |
-| **Module Consultant** | 14개 모듈 컨설턴트 (SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, BW, Ariba) | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, `configs/{MODULE}/{spro,tcodes,bapi,tables,enhancements,workflows}.md` |
+| **Module Consultant** | 14개 모듈 컨설턴트 (SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, BW, Ariba) | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, `configs/{MODULE}/*.md` (on demand — only the file the question needs) |
 | **Basis Consultant** | `sap-bc-consultant` | `transport-client-rule.md`, `configs/common/*.md` |
 
 ### 강제 적용

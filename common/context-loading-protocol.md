@@ -17,8 +17,8 @@ These files are safety rails and platform baselines. Every agent loads them at s
 | [`data-extraction-policy.md`](data-extraction-policy.md) | `GetTableContents` / `GetSqlQuery` gating — `acknowledge_risk` HARD RULE. Non-negotiable safety. |
 | [`sap-version-reference.md`](sap-version-reference.md) | ECC vs S/4HANA platform differences drive every table / BAPI / syntax choice. |
 | [`naming-conventions.md`](naming-conventions.md) | Z/Y namespace + module prefix — applies to any mention, creation, or review of a custom object. |
-| [`context-loading-protocol.md`](context-loading-protocol.md) | This file — agents must understand kit discipline before applying it. |
-| [`model-routing-rule.md`](model-routing-rule.md) | Sonnet↔Opus escalation rule. Agents hitting a blocker must know how to return `BLOCKED` correctly. |
+
+**Orchestrator-only docs** — `context-loading-protocol.md` (this file) and `model-routing-rule.md` are read by **skills** when they plan dispatches, not by agents. Each agent carries the two rules it needs inline in its `<Mandatory_Baseline>`: the expansion limit (below) and "return `BLOCKED — <reason>` on a hard blocker".
 
 ### Tier 2 — Role-Mandatory (agent role group → fixed additional set)
 
@@ -31,7 +31,7 @@ Each agent declares its role group. The group determines additional files always
 | **Planner / Architect** | `sap-planner`, `sap-architect` | `include-structure.md`, `active-modules.md`, `customization-lookup.md`, `field-typing-rule.md` |
 | **Analyst / Writer** | `sap-analyst`, `sap-writer` | `active-modules.md` |
 | **Doc Specialist** | `sap-doc-specialist` | *(none — task-driven only)* |
-| **Module Consultant** | `sap-sd-`, `sap-mm-`, `sap-pp-`, `sap-pm-`, `sap-qm-`, `sap-wm-`, `sap-tm-`, `sap-tr-`, `sap-fi-`, `sap-co-`, `sap-hcm-`, `sap-bw-`, `sap-ps-`, `sap-ariba-consultant` | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, `configs/{MODULE}/spro.md`, `configs/{MODULE}/tcodes.md`, `configs/{MODULE}/bapi.md`, `configs/{MODULE}/tables.md`, `configs/{MODULE}/enhancements.md`, `configs/{MODULE}/workflows.md` |
+| **Module Consultant** | `sap-sd-`, `sap-mm-`, `sap-pp-`, `sap-pm-`, `sap-qm-`, `sap-wm-`, `sap-tm-`, `sap-tr-`, `sap-fi-`, `sap-co-`, `sap-hcm-`, `sap-bw-`, `sap-ps-`, `sap-ariba-consultant` | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`. `configs/{MODULE}/{spro,tcodes,bapi,tables,enhancements,workflows}.md` are **on demand** — only the file(s) the question needs, never all six up front |
 | **Basis Consultant** | `sap-bc-consultant` | `transport-client-rule.md`, `configs/common/*.md` (system admin) |
 
 **Loading timing — session start**. When an agent is dispatched, the FIRST action is to load Tier 1 + Tier 2 before doing any MCP call, reading spec.md, or writing code. This ensures consistent behavior across a session even if the dispatching skill's kit declaration is minimal.
@@ -77,7 +77,7 @@ Declared in:
 
 Every sc4sap agent prompt begins with a `<Mandatory_Baseline>` block declaring its role group. The agent, at session start, MUST:
 
-1. Load Tier 1 (5 files) — unconditional.
+1. Load Tier 1 (3 files) — unconditional.
 2. Load Tier 2 for its declared role group.
 3. When the task begins, evaluate Tier 3 triggers and load matching files.
 4. Read the dispatched Tier 4 context kit.

@@ -2,6 +2,8 @@
 
 Report template for each analysis round of `/sc4sap:analyze-symptom`. Referenced from `SKILL.md`.
 
+Written once, by the `sap-debugger` dispatch, in the user's language — the main thread relays it verbatim (see `workflow-steps.md` § Step 3). Omit sections that would be empty. A `quick-dump` round whose cause is confirmed goes straight to the Final Round structure; keep it proportionate to the problem.
+
 ## Per-Round Structure
 
 Each analysis round follows this structure:
