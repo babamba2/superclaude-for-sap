@@ -10,7 +10,7 @@ Dispatched N times in parallel (one per program). Each reviewer reads ONE progra
 Extract structural facts ONLY from ABAP object <PROG> (type: <TYPE>) — no quality scoring.
 
 Read and return:
-- Source: GetProgFullCode (REPS) / ReadClass (CLAS) / ReadFunctionGroup + ReadFunctionModule (FUGR) / ReadView + GetMetadataExtension (CDS)
+- Source: GetProgFullCode (REPS, FUGR) / GetClass (CLAS) / GetView + GetMetadataExtension (CDS). Pass output: "file" to GetProgFullCode and GetClass: you get file paths plus an outline (FORM/METHOD/MODULE with line ranges) — Grep the files for SELECT, AUTHORITY-CHECK, PARAMETERS and CALL instead of reading every line.
 - Structure: GetAbapAST (selection-screen fields, SELECT targets, AUTHORITY-CHECK calls)
 - Object info: GetObjectInfo (package, author, transport history)
 - UI surface (if applicable): GetScreensList + per-screen GetScreen, GetGuiStatusList, GetTextElement
