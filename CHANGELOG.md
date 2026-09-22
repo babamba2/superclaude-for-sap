@@ -3,6 +3,14 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.23] — 2026-09-22
+
+### Changed — `sap-executor` carries 92 SAP tools instead of 142
+
+- Sub-agents load the full schema of every tool in their `tools:` list on each dispatch (no deferred loading there). Dropped from `sap-executor`: the 25 `Delete*` tools (deletion needs a per-call user approval, so it belongs on the main thread), 16 `Read*` duplicates of `Get*` tools (`ReadClass` / `ReadProgram` stay), and unit-test / CDS unit-test authoring, metadata extension and package tools. A minimal dispatch went from 71.4K to 59.7K tokens.
+- Added `ActivateObjects`, `WriteTextElementsBulk` and `ReadTextElementsBulk`, which `create-program` and `create-object` already told the executor to call but it did not have. Checked with a `create-object` run on DEV (data element in `$TMP`: create → activate via `ActivateObjects` → verify).
+- Vendor pin: `ea0de8c` (4.8.7) → `9a948be` (4.8.8, shorter tool parameter descriptions).
+
 ## [0.6.22] — 2026-09-22
 
 ### Fixed — table reads returned values in the wrong rows (vendor 4.8.7)
