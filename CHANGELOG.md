@@ -3,6 +3,31 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.21] — 2026-09-22
+
+### Changed — `analyze-symptom` spends less context per round
+
+- **Dump reads sized to need** (measured on an S/4HANA dump): dumps feed `RuntimeListFeeds` (~1 KB per dump) replaces `RuntimeListDumps`, which returned an empty list on that system; `RuntimeGetDumpById` metadata (~7 KB: error, exception, termination link) comes first; the ~50 KB formatted dump is read at most once and only its developer chapters (~10 KB) are used. `RuntimeAnalyzeDump` and the `summary` key facts are no longer used — they pick the wrong chapter ("System environment", unrelated line). `sap-debugger` gains `RuntimeListFeeds`.
+- **Sonnet for `quick-dump`**, Opus for `full`. A quick-dump round that cannot settle the cause returns `BLOCKED — needs full` and is re-dispatched on Opus with its findings, so nothing is fetched twice.
+- **Type C team mode removed** (debugger + BC + module consultants on Opus for up to three rounds; never runtime-validated). Open business questions become a one-line `/sc4sap:ask-consultant` suggestion in the report.
+- **Narrower reads**: web lookup only when the failure point is standard SAP code; one failing include read with tools the debugger actually has (`GetInclude` / `GetProgram` / `GetClass` / `GetFunctionModule`, never `GetProgFullCode`); `GetTransport` only for transports holding call-stack objects (max 3); customization cache grepped by name instead of read whole; list calls `top ≤ 5`; later rounds reuse prior evidence.
+- `SKILL.md` 199 → 161 lines (duplicated tool inventory replaced by a pointer to the dispatch prompt).
+
+### Changed — vendor pin bumped to abap-mcp-adt-powerup 4.8.6
+
+`scripts/build-mcp-server.mjs` — `DEFAULT_PINNED_SHA` moves from `dfc96de` (4.8.5) to `9e6e21635e032dbfb38aec474c3125d2a8516dbe` (4.8.6):
+
+- `RuntimeGetDumpById` / `RuntimeAnalyzeDump`: key facts from the dump root and termination link (they pointed at the "System environment" chapter before); new `chapters` filter for the ST22 long text (51.5 KB → 3.4 KB on a real dump), used by `analyze-symptom`.
+- `RuntimeListDumps`: per-entry HTML summaries dropped by default (−88%).
+- RFC backend resolved per call; `SAP_RFC_BACKEND=zrfc` now works (it was offered by setup / sap-option but rejected by the server).
+- `pino` / `pino-pretty` no longer skipped by `npm install --omit=dev` — fresh installs and the bridge self-heal failed with "Vendor dependency missing: pino" on 4.8.5.
+
+Refresh path for existing installs: `node scripts/build-mcp-server.mjs --update`.
+
+### Version
+
+All four version fields bumped 0.6.20 → 0.6.21.
+
 ## [0.6.20] — 2026-09-22
 
 ### Changed — `analyze-symptom` is read-only and checks known issues first
