@@ -106,6 +106,8 @@ Agent teams (Claude Code experimental feature, `CLAUDE_CODE_EXPERIMENTAL_AGENT_T
 
 ### Type C — Incident Triage Team
 
+> **Removed (2026-09-22).** `analyze-symptom` no longer runs Type C: it re-spawned the debugger plus BC and module consultants on Opus for up to three rounds (the costliest path in the skill) and had never been runtime-validated. Open business-process questions are now handed to `/sc4sap:ask-consultant` as a one-line suggestion in the report. The design below is kept for reference.
+
 **Composition**: `sap-debugger` (lead-of-team) + `sap-bc-consultant` + 1-2 `sap-{module}-consultant`.
 
 **Purpose**: root-cause analysis mixing technical (BC: kernel/update-task/RFC/transport) + business (module: business flow, TCode purpose, customizing) lenses.
