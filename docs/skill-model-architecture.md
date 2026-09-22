@@ -71,11 +71,11 @@ Steps 11/11b (SPRO / customization extraction) are intentionally LLM-free: `scri
 
 #### `analyze-cbo-obj` — Sonnet main, 1–2 dispatches
 - Steps 3–7 — `sap-stocker` (Sonnet 4.6) walks package + where-used graph + business purpose inference + cross-module gap
-- Step 8 (conditional, `Logic-heavy: true`) — `sap-writer` (Haiku 4.5) for rich briefing
+- Step 8 (conditional, `Logic-heavy: true`) — main thread renders the briefing from `inventory.json` (no agent dispatch)
 
 #### `analyze-code` — Sonnet main, 1–3 dispatches
 - Step 2 — `sap-code-reviewer` (Opus 4.7) reads source + AST + semantic + where-used, evaluates 14 dimensions
-- Step 3 Branch B (conditional, Critical or ≥ 10 findings) — `sap-writer` (Haiku 4.5) for briefing
+- Step 3 Branch B (conditional, Critical or ≥ 10 findings) — main thread renders the briefing (no agent dispatch)
 - Step 4 user-selected fix — `sap-executor` (Sonnet 4.6)
 
 #### `analyze-symptom` — Sonnet main, 1–N dispatches per round
@@ -91,7 +91,7 @@ Steps 11/11b (SPRO / customization extraction) are intentionally LLM-free: `scri
 
 #### `create-object` — Sonnet main, 2 dispatches
 - Step 4+5+6 (or 4-ECC) — `sap-executor` with `model: "opus"` override — create + novel implementation + activate
-- Step 7 — `sap-writer` (Haiku 4.5) — completion report (ECC uses mandatory verbatim format)
+- Step 7 — main thread renders the completion report from the executor return (ECC uses mandatory verbatim format; no agent dispatch)
 
 #### `create-program` — Sonnet main, 9-phase pipeline
 Flagship skill. Full phase-by-phase in [`../skills/create-program/agent-pipeline.md`](../skills/create-program/agent-pipeline.md).

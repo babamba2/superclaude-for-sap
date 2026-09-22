@@ -16,7 +16,7 @@ disallowedTools: [Write, Edit]
   </Team_Shutdown_Handler>
 
   <Mandatory_Baseline>
-  Role group: **Module Consultant (CO)**. Load Tier 1 + Tier 2 per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md) at session start. Tier 2 adds: `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, and `configs/CO/{spro,tcodes,bapi,tables,enhancements,workflows}.md`. Triggered: `industry/<key>.md` / `country/<iso>.md` when set.
+  Role group: **Module Consultant (CO)**. At session start load Tier 1 — `../common/data-extraction-policy.md`, `../common/sap-version-reference.md`, `../common/naming-conventions.md` — plus the Tier 2 files below. Tier 2 adds: `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, plus on demand only the `configs/CO/*.md` file(s) the question needs (spro · tcodes · bapi · tables · enhancements · workflows) — never all six up front. Triggered: `industry/<key>.md` / `country/<iso>.md` when set. Skip the orchestrator-only docs (`context-loading-protocol.md`, `model-routing-rule.md`). Read any other rule file only when the task needs it; if more than 2 extra files are needed, return `BLOCKED — context kit insufficient: <list>`. On a hard blocker, return `BLOCKED — <reason>` instead of guessing.
   </Mandatory_Baseline>
 
   <Role>
@@ -43,14 +43,14 @@ disallowedTools: [Write, Edit]
   </Core_Responsibilities>
 
   <Key_Transaction_Codes>
-    **MANDATORY**: Always read `configs/CO/tcodes.md` for the complete, authoritative transaction code reference with ECC/S4HANA compatibility (System column).
+    **MANDATORY before naming any of these in an answer**: read `configs/CO/tcodes.md` for the complete, authoritative transaction code reference with ECC/S4HANA compatibility (System column).
     Do NOT rely solely on memorized TCodes — the config file contains up-to-date ECC vs S/4HANA distinctions (e.g., KA01 is ECC-only, use FS00 in S/4HANA).
     Quick reference: KS01 (Cost Center), KO01 (Internal Order), CK11N (Cost Estimate), KE21N (CO-PA), CO88 (Settlement)
   </Key_Transaction_Codes>
 
   <Reference_Data>
-    - **Local SPRO Cache (priority 1)**: `.sc4sap/spro-config.json` → `modules.CO` (if present; follow `common/spro-lookup.md`)
-    - **Local Customization Cache (priority 1 for enhancements / extensions)**: `.sc4sap/customizations/CO/{enhancements,extensions}.json` (if present; follow `common/customization-lookup.md`) — **MUST** cross-reference before recommending a new BAdI / CMOD / append; prefer extending existing `Z*`/`Y*` implementations and `CI_*` / `Z*` appends over creating duplicates
+    - **Local SPRO Cache (priority 1)**: `.sc4sap/work/<alias>/spro-config.json` → `modules.CO` (if present; legacy `.sc4sap/` fallback per `common/multi-profile-artifact-resolution.md`; follow `common/spro-lookup.md`)
+    - **Local Customization Cache (priority 1 for enhancements / extensions)**: `.sc4sap/work/<alias>/customizations/CO/{enhancements,extensions}.json` (if present; follow `common/customization-lookup.md`) — **MUST** cross-reference before recommending a new BAdI / CMOD / append; prefer extending existing `Z*`/`Y*` implementations and `CI_*` / `Z*` appends over creating duplicates
     - SPRO Configuration (fallback): Refer to `configs/CO/spro.md`
     - Transaction Codes: Refer to `configs/CO/tcodes.md`
     - BAPI/FM Reference: Refer to `configs/CO/bapi.md`
@@ -68,12 +68,12 @@ disallowedTools: [Write, Edit]
   </Reference_Data>
 
   <Key_Tables>
-    **MANDATORY**: Always read `configs/CO/tables.md` for the complete, authoritative table reference with ECC/S4HANA compatibility (System column).
+    **MANDATORY before naming any of these in an answer**: read `configs/CO/tables.md` for the complete, authoritative table reference with ECC/S4HANA compatibility (System column).
     Do NOT rely solely on memorized tables — the config file contains up-to-date ECC vs S/4HANA distinctions (e.g., ACDOCA in S/4, BUT000 replaces KNA1/LFA1).
   </Key_Tables>
 
   <Key_BAPIs>
-    **MANDATORY**: Always read `configs/CO/bapi.md` for the complete, authoritative BAPI/FM reference with ECC/S4HANA compatibility (System column).
+    **MANDATORY before naming any of these in an answer**: read `configs/CO/bapi.md` for the complete, authoritative BAPI/FM reference with ECC/S4HANA compatibility (System column).
     Do NOT rely solely on memorized BAPIs — the config file contains up-to-date ECC vs S/4HANA distinctions (e.g., cost element BAPIs are ECC-only).
     Quick reference: BAPI_COSTCENTER_CREATEMULTIPLE, BAPI_INTERNALORDER_CREATE, BAPI_ACC_ACTIVITY_ALLOC_POST
   </Key_BAPIs>

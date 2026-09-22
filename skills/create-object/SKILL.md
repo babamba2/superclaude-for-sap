@@ -99,18 +99,18 @@ Remote-Enabled (RFC) flag is a separate concern — stored in TFDIR.FMODE, not i
 <Workflow_Steps>
 **MANDATORY**: Follow the step sequence defined in [`workflow-steps.md`](workflow-steps.md).
 
-Per-step model allocation (skill main thread runs on Haiku 4.5 per frontmatter; creation + report delegate to agents):
+Per-step model allocation (skill main thread runs on Sonnet 4.6 per frontmatter; creation delegates to `sap-executor`; the report is rendered on main):
 
 | Step | Owner | Model | Role |
 |------|-------|-------|------|
-| 0 Trust | skill-to-skill | Haiku | permission bootstrap |
-| 1 Classify | main | **Haiku** | keyword → object type |
-| 2 Metadata | main | **Haiku** | name / package / transport / description (Q&A + `SearchObject` + `ListTransports` + naming validation) |
-| 3 Pre-Creation Check | main | **Haiku** | `SearchObject` (name-exists guard) |
-| 3.5 Version Branch | main | **Haiku** | `SAP_VERSION` ECC vs S/4 routing |
+| 0 Trust | skill-to-skill | Sonnet | permission bootstrap |
+| 1 Classify | main | **Sonnet** | keyword → object type |
+| 2 Metadata | main | **Sonnet** | name / package / transport / description (Q&A + `SearchObject` + `ListTransports` + naming validation) |
+| 3 Pre-Creation Check | main | **Sonnet** | `SearchObject` (name-exists guard) |
+| 3.5 Version Branch | main | **Sonnet** | `SAP_VERSION` ECC vs S/4 routing |
 | **4 + 5 + 6 Create + Implement + Activate (standard flow)** | **`sap-executor`** with `model: "opus"` override | **Opus 4.7** | One dispatch covers: `CreateClass`/`CreateProgram`/... → `UpdateClass`/`UpdateProgram`/... with initial implementation code → `ActivateObjects` → `GetInactiveObjects` verify. The Opus override is justified because Step 5 is novel code generation (`common/model-routing-rule.md` § Tier 2) — field typing priority 1–4, class constructor + method signatures, FM inline parameter declarations, etc. |
 | **4-ECC DDIC Helper Program (ECC fallback)** | **`sap-executor`** with `model: "opus"` override | **Opus 4.7** | ECC-only branch for Table/DTEL/DOMA. Executor picks the matching template from `skills/create-object/ecc/`, substitutes names, fills the field list per `common/field-typing-rule.md`, and `CreateProgram` + `UpdateProgram` + `ActivateObjects` the helper into `$TMP`. |
-| **7 Completion Report** | **`sap-writer`** (Haiku base — no override) | **Haiku 4.5** | Pure formatting from the executor's structured return. Localizes to the user's current conversation language. For ECC fallback, uses the mandatory report format in `workflow-steps.md` § Step 7 verbatim (do NOT rephrase the ⚠ header + 3-step SE38/SE11 checklist). |
+| **7 Completion Report** | main | **Sonnet** | Pure formatting from the executor's structured return — no agent dispatch. Localizes to the user's current conversation language. Render rules: `dispatch-prompts.md` § Step 7. For ECC fallback, use the mandatory report format there verbatim (do NOT rephrase the ⚠ header + 3-step SE38/SE11 checklist). |
 
 At Step 2 (metadata collection) — when the object belongs to a specific SAP module (MM table, SD structure, PS data element, …) — the main thread reads `SAP_ACTIVE_MODULES` from `sap.env` / `config.json` and consults [`../../common/active-modules.md`](../../common/active-modules.md). If companion modules are active, proactively suggest integration fields (e.g., creating an MM CBO table in a landscape with PS active → suggest adding `PS_POSID` / `AUFNR`). Do NOT add silently — propose to user and let them accept/decline, then pass the confirmed field list through to the executor dispatch.
 </Workflow_Steps>

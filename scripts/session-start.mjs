@@ -2,23 +2,13 @@
 
 /**
  * sc4sap Session Start Hook
- * Restores persistent mode states and injects SAP context on session start.
+ * Injects the SAP development reminder and notepad Priority Context on session start.
  * Adapted from OMC session-start.mjs.
  */
 
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { readStdin } from './lib/stdin.mjs';
-
-// Read JSON file safely
-function readJsonFile(path) {
-  try {
-    if (!existsSync(path)) return null;
-    return JSON.parse(readFileSync(path, 'utf-8'));
-  } catch {
-    return null;
-  }
-}
 
 async function main() {
   try {
@@ -42,44 +32,6 @@ async function main() {
 
 ---
 `);
-
-    // Check for active autopilot state
-    const stateDir = join(directory, '.sc4sap', 'state');
-    const autopilotState = readJsonFile(join(stateDir, 'autopilot-state.json'));
-    if (autopilotState?.active) {
-      messages.push(`<session-restore>
-
-[SAP AUTOPILOT MODE RESTORED]
-
-You have an active SAP autopilot session from ${autopilotState.started_at}.
-Original task: ${autopilotState.original_prompt}
-
-Treat this as prior-session context only. Prioritize the user's newest request.
-
-</session-restore>
-
----
-`);
-    }
-
-    // Check for active ralph state
-    const ralphState = readJsonFile(join(stateDir, 'ralph-state.json'));
-    if (ralphState?.active) {
-      messages.push(`<session-restore>
-
-[SAP RALPH LOOP RESTORED]
-
-You have an active ralph-loop session.
-Original task: ${ralphState.prompt || 'SAP task in progress'}
-Iteration: ${ralphState.iteration || 1}/${ralphState.max_iterations || 100}
-
-Treat this as prior-session context only. Prioritize the user's newest request.
-
-</session-restore>
-
----
-`);
-    }
 
     // Check for notepad Priority Context
     const notepadPath = join(directory, '.sc4sap', 'notepad.md');

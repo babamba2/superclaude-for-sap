@@ -50,9 +50,9 @@ If the user's intent is **status-only** (they just said "hud" / "show status"), 
 </Status_Snapshot>
 
 <File_Path>
-- **Plugin install path**: `${CLAUDE_PLUGIN_ROOT}/.sc4sap/sap.env`
-- Typical absolute path on Windows: `C:\Users\<user>\.claude\plugins\cache\sc4sap\sc4sap\<version>\.sc4sap\sap.env`
-- If the file does not exist, tell the user to run `/sc4sap:setup` first. Do NOT create it from scratch here — setup handles the initial interactive credential flow.
+- **Active profile (multi-profile, default)**: read the alias from `<project>/.sc4sap/active-profile.txt`, then edit `~/.sc4sap/profiles/<alias>/sap.env`. Plugin-side mirrors (`industry`, `activeModules`, `blocklistProfile`, …) live in `~/.sc4sap/profiles/<alias>/config.json`. Every `sap.env` / `config.json` mention in this skill means these two files.
+- **Legacy (no `active-profile.txt`)**: `<project>/.sc4sap/sap.env` + `<project>/.sc4sap/config.json`. Offer the migration flow in [`migration.md`](migration.md).
+- If neither exists, tell the user to run `/sc4sap:setup` first. Do NOT create it from scratch here — setup handles the initial interactive credential flow.
 </File_Path>
 
 <Managed_Keys>
@@ -130,7 +130,7 @@ See [hud-limits.md](hud-limits.md).
 - **File has syntax errors** (lines that are not `KEY=VALUE` or comments) → show the offending lines, ask user to clean manually, abort.
 - **User wants to add a key not in `<Managed_Keys>`** → warn, ask to confirm adding as a custom key (append at end with a `# custom` comment). Do not validate content.
 - **User wants to remove a required connection key** (e.g. `SAP_URL`) → refuse; required keys can only be changed, not removed.
-- **Plugin is launched from `marketplaces/` source tree** (dev mode) rather than `cache/` → still look up `.sc4sap/sap.env` relative to the plugin root; if both exist, prefer the one under the currently-running plugin directory and tell the user which path was edited.
+- **Always tell the user the absolute path that was edited** (profile env vs legacy project env) so there is no ambiguity about which system changed.
 </Edge_Cases>
 
 <Standalone_TUI>

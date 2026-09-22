@@ -3,6 +3,41 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Removed — hooks that never fired or only added noise
+
+`hooks/hooks.json` drops from 22 hook commands to 14; for SAP MCP tool calls, only `permission-approver` still runs on each call.
+
+| Script | Why it went |
+|---|---|
+| `transport-validator`, `activation-trigger`, `project-memory-posttool`, `syntax-checker` | Matched only `mcp__mcp-abap-adt__*`; the plugin's tools are `mcp__plugin_sc4sap_sap__*`, so they never fired |
+| `keyword-detector` | Routed to skills that do not exist (`cancel`, `autopilot`, `ralph`, `release`) |
+| `skill-injector` | Scanned only top-level `skills/*.md` (skills live in sub-folders) for a `triggers:` key no skill has |
+| `persistent-mode` (+ ralph/autopilot branches in `session-start` / `session-end`) | Modes that no skill creates |
+| `permission-handler`, `code-simplifier` | Never approved anything / off by default with a one-line message |
+| `spro-injector` | Injected 15–20 KB of module config on every keyword-matched prompt, no de-duplication; consultants load what they need themselves |
+| `pre-tool-enforcer`, `post-tool-verifier` | Generic tips on every tool call; false "Command failed" on normal output containing "failed" / "error" |
+| `run.cjs` | Wrapper that spawned a second node process per hook — hooks now run `node <script>` directly |
+
+`tests/validation/plugin-structure.test.ts` now asserts that every hook command points at an existing script instead of a minimum event count.
+
+### Changed — lighter agent context
+
+- **Tier 1 is three files** (`data-extraction-policy`, `sap-version-reference`, `naming-conventions`). `context-loading-protocol` and `model-routing-rule` are orchestrator-only; every agent's `<Mandatory_Baseline>` now lists its files explicitly and carries the two rules it needs inline (expansion limit, `BLOCKED` on a hard blocker). Saves about 18 KB per dispatch.
+- **Module consultants read `configs/{MODULE}/*.md` on demand** — only the file the question needs instead of all six up front (about 20–30 KB per consultant dispatch).
+- **Report-only writer dispatches moved to the main thread** — `create-object` Step 7, `analyze-code` Branch B briefing, `analyze-cbo-obj` Branch B briefing. Same section templates, no extra agent.
+
+### Fixed — stale docs
+
+- Multi-profile paths: `common/spro-lookup.md`, `common/customization-lookup.md` and 17 agents now point at `.sc4sap/work/<alias>/…` (legacy `.sc4sap/…` fallback). `sap-option`, `sap-doctor` (Layer 1 active-profile check, Layer 6 default `odata`) and `mcp-setup` no longer describe the single-file `.sc4sap/sap.env` flow.
+- `create-object`, `analyze-code`, `analyze-symptom`, `compare-programs`, `analyze-cbo-obj` said the main thread runs on Haiku; their frontmatter has been `sonnet` since 0.6.6 — wording corrected.
+- `program-to-spec`: removed the deprecated `mode: "dontAsk"` Agent parameter.
+
+### Upstream dependency
+
+- `abap-mcp-adt-powerup`: `SAP_RFC_BACKEND=zrfc` was offered by setup and `sap-option` but rejected by the runtime selector (`src/lib/rfcBackend.ts`) even though `zrfcProxy.ts` implements the backend. The selector now routes `zrfc` to it. Needs a vendor release + pin bump before it reaches plugin users.
+
 ## [0.6.18] — 2026-08-23
 
 ### Fixed — tier readonly guard let four mutating tools through on QA and PRD

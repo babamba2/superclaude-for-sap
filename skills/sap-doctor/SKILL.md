@@ -65,7 +65,7 @@ Plugin Health       [PASS]  v0.2.2
 MCP Server          [FAIL]  plugin:sc4sap:sap not responding
 SAP Connection      [SKIP]  Cannot test without MCP server
 Required Objects    [SKIP]  SAP connection not ready
-Configuration       [WARN]  No .sc4sap/config.json found
+Configuration       [WARN]  No active profile (.sc4sap/active-profile.txt missing)
 Cache Hygiene       [PASS]  0 stale versions
 
 Issues Found: 1 error, 1 warning

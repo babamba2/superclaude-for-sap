@@ -99,7 +99,7 @@ Read the `Logic-heavy: <true|false>` line from the stocker's return block (class
 
 ### Branch A — `Logic-heavy: false` (DDIC-dominant package) · **canned summary, main thread**
 
-No agent dispatch. Main thread (Haiku — skill frontmatter `model: haiku`) prints:
+No agent dispatch. Main thread prints:
 ```
 CBO inventory written:
   .sc4sap/cbo/<MODULE>/<PACKAGE>/index.md
@@ -114,45 +114,19 @@ Downstream skills (/sc4sap:create-program, /sc4sap:program-to-spec, /sc4sap:crea
 read inventory.json and prefer pinned objects > frequently-used objects > new creation.
 ```
 
-### Branch B — `Logic-heavy: true` (FM / class / interface / large PROG in the inventory) · **dispatch `sap-writer`**
+### Branch B — `Logic-heavy: true` (FM / class / interface / large PROG in the inventory) · **briefing, main thread**
 
-Structured counts alone do not convey what the business-logic assets DO. Delegate to `sap-writer` for a reader-facing briefing.
+Structured counts alone do not convey what the business-logic assets DO. The main thread reads `inventory.json` and renders a reader-facing briefing directly (user's conversation language) — no extra agent, no MCP re-reads. Start with the same "CBO inventory written:" header block as Branch A.
 
-Emit phase banner:
-```
-▶ phase=8.brief · agent=sap-writer · model=Haiku 4.5
-```
+Required sections (15–25 lines, markdown):
+1. **📌 Pinned highlights** — for each pinned object, one line: name · type · 1-sentence purpose · reuse_hint.
+2. **🔧 Business-logic assets** — top 3 most-referenced FUGR/CLAS/INTF (outside pinned). For each: name · what it does in business terms · when to call it vs write new.
+3. **🔗 Cross-module gaps** — if `crossModuleGaps[]` non-empty, explain each gap in one sentence with a concrete remediation hint. If empty, one line "No integration gaps detected for active modules: <list>".
+4. **⚠️ Sensitive objects** — if any, list with short reason and blocklist-extension suggestion. Skip section if none.
+5. **▶ Next step hint** — one line pointing to which downstream skill to run next (create-program / create-object / program-to-spec).
 
-Dispatch:
-```
-Agent({
-  subagent_type: "sc4sap:sap-writer",
-  description: "CBO briefing — <MODULE>/<PACKAGE>",
-  prompt: """
-    Read .sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json and produce a reader-facing briefing for the user (language = user's current conversation language; default Korean).
-
-    Required sections (15–25 lines, markdown):
-    1. **📌 Pinned highlights** — for each pinned object, one line: name · type · 1-sentence purpose · reuse_hint.
-    2. **🔧 Business-logic assets** — top 3 most-referenced FUGR/CLAS/INTF (outside pinned). For each: name · what it does in business terms · when to call it vs write new.
-    3. **🔗 Cross-module gaps** — if `crossModuleGaps[]` non-empty, explain each gap in one sentence with a concrete remediation hint. If empty, one line "No integration gaps detected for active modules: <list>".
-    4. **⚠️ Sensitive objects** — if any, list with short reason and blocklist-extension suggestion. Skip section if none.
-    5. **▶ Next step hint** — one line pointing to which downstream skill to run next (create-program / create-object / program-to-spec).
-
-    Rules:
-    - Do NOT re-read SAP via MCP. Work only from inventory.json.
-    - Do NOT restate the full file counts (main thread already printed that).
-    - Be concrete: prefer "ZFM_CALC_SD_MARGIN — calculates gross margin per sales order line; call from any billing-related new program" over generic "utility FM".
-  """
-})
-```
-
-After the writer returns, print its output verbatim to the user. Prepend one header line identifying the artifacts:
-```
-CBO inventory written:
-  .sc4sap/cbo/<MODULE>/<PACKAGE>/index.md
-  .sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json
-```
+Be concrete: prefer "ZFM_CALC_SD_MARGIN — calculates gross margin per sales order line; call from any billing-related new program" over generic "utility FM".
 
 ### Failure handling (both branches)
 
-On `BLOCKED: <reason>` from the stocker, surface the reason verbatim and stop — do not retry on main thread. On writer BLOCKED in Branch B, fall back to Branch A (canned summary) and log `briefing: "fallback_to_canned: <reason>"` in `inventory.json → meta`.
+On `BLOCKED: <reason>` from the stocker, surface the reason verbatim and stop — do not retry on main thread.

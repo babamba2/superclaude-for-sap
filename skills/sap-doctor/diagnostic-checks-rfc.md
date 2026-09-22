@@ -1,8 +1,8 @@
 # Layer 6 — RFC Backend diagnostics (per-backend breakdown)
 
-Referenced by `diagnostic-checks.md`. Resolve `SAP_RFC_BACKEND` from `sap.env` first (default `soap`), then run **only** the matching sub-section below. Output a one-line banner stating which sub-section was executed.
+Referenced by `diagnostic-checks.md`. Resolve `SAP_RFC_BACKEND` from the active profile `sap.env` first (default `odata` when unset), then run **only** the matching sub-section below. Output a one-line banner stating which sub-section was executed.
 
-## 6.soap — SOAP mode (active when `SAP_RFC_BACKEND=soap` or unset)
+## 6.soap — SOAP mode (active when `SAP_RFC_BACKEND=soap`)
 
 *6.soap.1 — ICF node hint (print once, always):*
 - [ ] Remind user that `/default_host/sap/bc/soap/rfc` ICF node must be active in SICF. No automated probe — SAP does not expose an anonymous GET on this endpoint; a 405 on GET is the positive signal. Users can run:
@@ -50,7 +50,7 @@ Report: `Layer 6 (native): 6/6 PASS` or `Layer 6 (native): 3/6 FAIL — native S
 
 Report: `Layer 6 (gateway): 5/5 PASS` or `Layer 6 (gateway): 2/5 FAIL — gateway unreachable`. If 6.gateway.1 fails, direct user to `/sc4sap:sap-option` to fill the gateway block. If 6.gateway.2 fails, direct them to verify VPN / firewall / DNS / gateway process. If only 6.gateway.3 fails, credentials are being forwarded but SAP-side authorization is wrong.
 
-## 6.odata — OData mode (active when `SAP_RFC_BACKEND=odata`)
+## 6.odata — OData mode (active when `SAP_RFC_BACKEND=odata` or unset)
 
 *6.odata.1 — Env completeness:*
 - [ ] `SAP_RFC_ODATA_SERVICE_URL` present; format `https://<host>:<port>/sap/opu/odata/sap/ZMCP_ADT_SRV` (or equivalent service path)

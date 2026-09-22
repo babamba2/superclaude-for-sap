@@ -168,7 +168,7 @@ Die Regel-Korpus von sc4sap ist umfangreich — 25+ `common/*.md` + 14 `configs/
 
 | Tier | Geladen wann | Dateien |
 |------|--------------|---------|
-| **Tier 1 — Global Mandatory** | Jeder Agent, jeder Skill, jeder Session-Start | `data-extraction-policy.md`, `sap-version-reference.md`, `naming-conventions.md`, `context-loading-protocol.md`, `model-routing-rule.md` |
+| **Tier 1 — Global Mandatory** | Jeder Agent, jeder Skill, jeder Session-Start | `data-extraction-policy.md`, `sap-version-reference.md`, `naming-conventions.md` |
 | **Tier 2 — Role-Mandatory** | Rollen-Gruppe festes Set, Session-Start | variiert nach Rollen-Gruppe (siehe unten) |
 | **Tier 3 — Triggered Reads** | Wenn eine Bedingung im aktuellen Task übereinstimmt | ALV → `alv-rules.md` · Procedural → `clean-code-procedural.md` + `ok-code-pattern.md` · `CALL SCREEN` → `ok-code-pattern.md` · ECC → `ecc-ddic-fallback.md` · industry/country gesetzt → entsprechende Datei · etc. |
 | **Tier 4 — Per-Task Kit** | Vom dispatcher-Skill/Phase/Bucket deklariert | pro Wave in `phase4-parallel.md`, pro §1-§12 in `phase6-review.md` |
@@ -182,7 +182,7 @@ Die Regel-Korpus von sc4sap ist umfangreich — 25+ `common/*.md` + 14 `configs/
 | **Planner / Architect** | `sap-planner`, `sap-architect` | `include-structure.md`, `active-modules.md`, `customization-lookup.md`, `field-typing-rule.md` |
 | **Analyst / Writer** | `sap-analyst`, `sap-writer` | `active-modules.md` |
 | **Doc Specialist** | `sap-doc-specialist` | *(keine — task-getrieben)* |
-| **Module Consultant** | 14 Modul-Consultants (SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, BW, Ariba) | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, `configs/{MODULE}/{spro,tcodes,bapi,tables,enhancements,workflows}.md` |
+| **Module Consultant** | 14 Modul-Consultants (SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, BW, Ariba) | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, `configs/{MODULE}/*.md` (on demand — only the file the question needs) |
 | **Basis Consultant** | `sap-bc-consultant` | `transport-client-rule.md`, `configs/common/*.md` |
 
 ### Durchsetzung

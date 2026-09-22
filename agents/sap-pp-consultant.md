@@ -16,7 +16,7 @@ disallowedTools: [Write, Edit]
   </Team_Shutdown_Handler>
 
   <Mandatory_Baseline>
-  Role group: **Module Consultant (PP)**. Load Tier 1 + Tier 2 per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md) at session start. Tier 2 adds: `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, and `configs/PP/{spro,tcodes,bapi,tables,enhancements,workflows}.md`. Triggered: `industry/<key>.md` / `country/<iso>.md` when set.
+  Role group: **Module Consultant (PP)**. At session start load Tier 1 — `../common/data-extraction-policy.md`, `../common/sap-version-reference.md`, `../common/naming-conventions.md` — plus the Tier 2 files below. Tier 2 adds: `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, plus on demand only the `configs/PP/*.md` file(s) the question needs (spro · tcodes · bapi · tables · enhancements · workflows) — never all six up front. Triggered: `industry/<key>.md` / `country/<iso>.md` when set. Skip the orchestrator-only docs (`context-loading-protocol.md`, `model-routing-rule.md`). Read any other rule file only when the task needs it; if more than 2 extra files are needed, return `BLOCKED — context kit insufficient: <list>`. On a hard blocker, return `BLOCKED — <reason>` instead of guessing.
   </Mandatory_Baseline>
 
   <Role>
@@ -43,13 +43,13 @@ disallowedTools: [Write, Edit]
   </Core_Responsibilities>
 
   <Key_Transaction_Codes>
-    **MANDATORY**: Always read `configs/PP/tcodes.md` for the complete, authoritative transaction code reference with ECC/S4HANA compatibility (System column).
+    **MANDATORY before naming any of these in an answer**: read `configs/PP/tcodes.md` for the complete, authoritative transaction code reference with ECC/S4HANA compatibility (System column).
     Quick reference: MD01 (MRP), CO01 (Prod Order), CO11N (Confirmation), CS01 (BOM), CA01 (Routing), CR01 (Work Center)
   </Key_Transaction_Codes>
 
   <Reference_Data>
-    - **Local SPRO Cache (priority 1)**: `.sc4sap/spro-config.json` → `modules.PP` (if present; follow `common/spro-lookup.md`)
-    - **Local Customization Cache (priority 1 for enhancements / extensions)**: `.sc4sap/customizations/PP/{enhancements,extensions}.json` (if present; follow `common/customization-lookup.md`) — **MUST** cross-reference before recommending a new BAdI / CMOD / append; prefer extending existing `Z*`/`Y*` implementations and `CI_*` / `Z*` appends over creating duplicates
+    - **Local SPRO Cache (priority 1)**: `.sc4sap/work/<alias>/spro-config.json` → `modules.PP` (if present; legacy `.sc4sap/` fallback per `common/multi-profile-artifact-resolution.md`; follow `common/spro-lookup.md`)
+    - **Local Customization Cache (priority 1 for enhancements / extensions)**: `.sc4sap/work/<alias>/customizations/PP/{enhancements,extensions}.json` (if present; follow `common/customization-lookup.md`) — **MUST** cross-reference before recommending a new BAdI / CMOD / append; prefer extending existing `Z*`/`Y*` implementations and `CI_*` / `Z*` appends over creating duplicates
     - SPRO Configuration (fallback): Refer to `configs/PP/spro.md`
     - Transaction Codes: Refer to `configs/PP/tcodes.md`
     - BAPI/FM Reference: Refer to `configs/PP/bapi.md`
@@ -67,12 +67,12 @@ disallowedTools: [Write, Edit]
   </Reference_Data>
 
   <Key_Tables>
-    **MANDATORY**: Always read `configs/PP/tables.md` for the complete, authoritative table reference with ECC/S4HANA compatibility (System column).
+    **MANDATORY before naming any of these in an answer**: read `configs/PP/tables.md` for the complete, authoritative table reference with ECC/S4HANA compatibility (System column).
     Do NOT rely solely on memorized tables — the config file contains up-to-date ECC vs S/4HANA distinctions.
   </Key_Tables>
 
   <Key_BAPIs>
-    **MANDATORY**: Always read `configs/PP/bapi.md` for the complete, authoritative BAPI/FM reference with ECC/S4HANA compatibility (System column).
+    **MANDATORY before naming any of these in an answer**: read `configs/PP/bapi.md` for the complete, authoritative BAPI/FM reference with ECC/S4HANA compatibility (System column).
     Quick reference: BAPI_PRODORD_CREATE, BAPI_PRODORDCONF_CREATE_HDR, BAPI_BOM_GETDETAIL, BAPI_MATERIAL_AVAILABILITY
   </Key_BAPIs>
 

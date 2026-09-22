@@ -1,19 +1,19 @@
 # create-object Workflow Steps
 
-Referenced from `SKILL.md` → `<Workflow_Steps>`. Main thread runs Haiku 4.5; object creation / implementation / activation and the final report are delegated to agents so the orchestrator stays light.
+Referenced from `SKILL.md` → `<Workflow_Steps>`. Main thread runs Sonnet 4.6 (frontmatter); object creation / implementation / activation are delegated to `sap-executor`, and the main thread renders the final report from the executor's structured return.
 
 Full Agent prompt bodies live in [`dispatch-prompts.md`](dispatch-prompts.md) (kept separate to honor the 200-line cap).
 
-## Step 0 — Trust Session (skill-to-skill, Haiku)
+## Step 0 — Trust Session (skill-to-skill)
 
 Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:create-object`. Skip silently if already trusted within 24h.
 
-## Step 1 — Classify Object Type (main thread, Haiku)
+## Step 1 — Classify Object Type (main thread)
 
 - Parse user request to determine object type (class / interface / program / function module / table / structure / data element / domain / CDS view / service definition / service binding / behavior definition / screen / GUI status).
 - If ambiguous: ask a single clarifying question and stop.
 
-## Step 2 — Collect Metadata (main thread, Haiku)
+## Step 2 — Collect Metadata (main thread)
 
 - **Object name**: suggest based on description; enforce `Z`/`Y` prefix, ≤ 30 chars, uppercase, no special chars except underscore. Reject generic names (`ZTEST` / `ZTEMP` / `ZDUMMY`).
 - **Short description**: 1 line, ≤ 60 chars.
@@ -21,12 +21,12 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:create-object`. Skip si
 - **Transport**: list open transports owned by current user via `ListTransports`; offer create-new if no suitable TR exists.
 - **Module-active context** (conditional): when the object targets a specific module (MM table, SD structure, PS data element, …), read `SAP_ACTIVE_MODULES` from `sap.env` / `config.json` and consult `common/active-modules.md`. If companion modules are active, propose integration fields (e.g., MM table in a landscape with PS active → suggest `PS_POSID` / `AUFNR`). User accepts/declines; pass the confirmed field list to the executor dispatch.
 
-## Step 3 — Pre-Creation Check (main thread, Haiku)
+## Step 3 — Pre-Creation Check (main thread)
 
 - Call `SearchObject(<name>, <type>)` to verify the name does NOT already exist.
 - If it exists: *"Object {name} already exists. Modify via direct MCP `Update*` calls (`UpdateClass`, `UpdateProgram`, `UpdateInclude`, etc.)."* Stop.
 
-## Step 3.5 — Version Branch Decision (main thread, Haiku)
+## Step 3.5 — Version Branch Decision (main thread)
 
 - Read `SAP_VERSION` from `.sc4sap/config.json` (or `sap.env`).
 - If `SAP_VERSION = ECC` **and** object type ∈ {Table, Data Element, Domain} → go to Step 4-ECC.
@@ -51,7 +51,7 @@ Agent({
 })
 ```
 
-On `BLOCKED` or `FAILED` activation: main surfaces the error verbatim via Step 7 writer (flow = `failed`); do NOT retry from main.
+On `BLOCKED` or `FAILED` activation: main surfaces the error verbatim in the Step 7 report (flow = `failed`); do NOT retry from main.
 
 ## Step 4-ECC — DDIC Helper Program (one `sap-executor` dispatch, Opus override)
 
@@ -72,23 +72,9 @@ Agent({
 })
 ```
 
-## Step 7 — Completion Report (one `sap-writer` dispatch, Haiku)
+## Step 7 — Completion Report (main thread, no dispatch)
 
-Pure formatting from the executor's structured return. Writer localizes to the user's current conversation language. For ECC fallback, uses the MANDATORY verbatim format (do NOT rephrase the ⚠ header + 3-step SE38/SE11 checklist).
-
-Emit phase banner:
-```
-▶ phase=7 (report) · agent=sap-writer · model=Haiku 4.5
-```
-
-Dispatch shape:
-```
-Agent({
-  subagent_type: "sc4sap:sap-writer",
-  description: "Create-object completion report",
-  prompt: "<report prompt per dispatch-prompts.md § Step 7>"
-})
-```
+Render the report directly from the executor's structured return, following the render rules in [`dispatch-prompts.md`](dispatch-prompts.md) § Step 7. Localize to the user's current conversation language. For ECC fallback, use the MANDATORY verbatim format (do NOT rephrase the ⚠ header + 3-step SE38/SE11 checklist). Do not re-read SAP via MCP.
 
 ## Safety Rails
 

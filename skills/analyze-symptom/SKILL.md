@@ -103,15 +103,15 @@ Evidence collection strategy — prefer MCP auto-query, fall back to manual TCod
 <Workflow_Steps>
 **MANDATORY**: Follow the step sequence defined in [`workflow-steps.md`](workflow-steps.md).
 
-Per-step model allocation (skill main thread runs on Haiku 4.5 per frontmatter; heavy analysis is delegated):
+Per-step model allocation (skill main thread runs on Sonnet 4.6 per frontmatter; heavy analysis is delegated):
 
 | Step | Owner | Model | Role |
 |------|-------|-------|------|
-| 0 Trust | skill-to-skill | Haiku | permission bootstrap — skipped on a headless host |
-| 1 Initial Triage | main | **Haiku** | clue parsing + `GetSession` + MODE (`quick-dump` \| `full`) + customization path |
+| 0 Trust | skill-to-skill | Sonnet | permission bootstrap — skipped on a headless host |
+| 1 Initial Triage | main | **Sonnet** | clue parsing + `GetSession` + MODE (`quick-dump` \| `full`) + customization path |
 | **2 Investigate + Narrow + Report** | **`sap-debugger`** with `model: "opus"` override | **Opus 4.7** | `quick-dump`: dump → analysis → failing source (~6 calls, widens to `full` only if not High confidence). `full`: dump/transport/code/enhancement/customization. Writes the user-facing report per `output-format.md` (hypotheses, questions, Note keywords, next steps). One dispatch per round. |
-| 3 Relay | main | **Haiku** | output the report verbatim; wait for answers → repeat Step 2 |
-| 4 Follow-up Routing | main | **Haiku** | only when the user asks for the fix (sap-debugger write mode, /sc4sap:analyze-code, module consultant) |
+| 3 Relay | main | **Sonnet** | output the report verbatim; wait for answers → repeat Step 2 |
+| 4 Follow-up Routing | main | **Sonnet** | only when the user asks for the fix (sap-debugger write mode, /sc4sap:analyze-code, module consultant) |
 
 sap-debugger's tool set already covers `RuntimeAnalyzeDump`, profiler, transport queries, code reads, enhancement lookup, and customization cache reads — see the agent's Investigation_Protocol for the full inventory. The `model: "opus"` override is appropriate here because symptom triage is cross-file reasoning (dump × transport × source × customization × profiler) with ambiguity resolution (8-category framework), which `common/model-routing-rule.md` § Tier 2 classifies as Opus territory.
 </Workflow_Steps>
@@ -141,7 +141,7 @@ Per-round report template and the final-round consolidated report structure live
 
 Only `GetSession` is called by the main thread (Step 1 intake). Every other tool below is called **by the `sap-debugger` agent** inside its Step 2 dispatch — the orchestrator never holds dump payloads, full source, or transport object lists.
 
-**Main thread (Haiku · Step 1 only)**
+**Main thread (Step 1 only)**
 - `GetSession` — system ID, client, release, SP level, current user
 
 **Reviewer agent (`sap-debugger` with Opus override · Step 2 dispatch)**

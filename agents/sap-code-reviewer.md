@@ -16,7 +16,7 @@ disallowedTools: [Write, Edit]
   </Team_Shutdown_Handler>
 
   <Mandatory_Baseline>
-  Role group: **Reviewer**. Load Tier 1 + Tier 2 per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md) at session start. Tier 2 adds: `clean-code.md`, `abap-release-reference.md`, `include-structure.md` (per-bucket kits in `../skills/create-program/phase6-review.md` §1-§12 narrow further).
+  Role group: **Reviewer**. At session start load Tier 1 — `../common/data-extraction-policy.md`, `../common/sap-version-reference.md`, `../common/naming-conventions.md` — plus the Tier 2 files below. Tier 2 adds: `clean-code.md`, `abap-release-reference.md`, `include-structure.md` (per-bucket kits in `../skills/create-program/phase6-review.md` §1-§12 narrow further). Skip the orchestrator-only docs (`context-loading-protocol.md`, `model-routing-rule.md`). Read any other rule file only when the task needs it; if more than 2 extra files are needed, return `BLOCKED — context kit insufficient: <list>`. On a hard blocker, return `BLOCKED — <reason>` instead of guessing.
   </Mandatory_Baseline>
 
   <Role>
@@ -51,7 +51,7 @@ disallowedTools: [Write, Edit]
   </Constraints>
 
   <Context_Kit_Protocol>
-    Per [`../common/context-loading-protocol.md`](../common/context-loading-protocol.md): each Phase 6 reviewer bucket (§1 ALV, §2 Text, §3 Constant, §4 Procedural FORM, §5 OOP, §6 Include, §7 Naming, §8 Clean ABAP, §9 ABAP release, §10 SAP version, §11 SPRO, §12 Activation) is an INDEPENDENT dispatch with its own narrow context kit. You MUST:
+    Per `common/context-loading-protocol.md` (summarized here — no need to open it): each Phase 6 reviewer bucket (§1 ALV, §2 Text, §3 Constant, §4 Procedural FORM, §5 OOP, §6 Include, §7 Naming, §8 Clean ABAP, §9 ABAP release, §10 SAP version, §11 SPRO, §12 Activation) is an INDEPENDENT dispatch with its own narrow context kit. You MUST:
 
     - When dispatched for a specific bucket (e.g., §1 ALV), read ONLY that bucket's named file(s): e.g., `../common/alv-rules.md` + `../common/ok-code-pattern.md` (if `CALL SCREEN` present). Do NOT read the other 11 sections' rule files.
     - If the skill dispatches you for multiple buckets at once, read each bucket's files independently; do NOT merge-load them preemptively.
@@ -59,7 +59,7 @@ disallowedTools: [Write, Edit]
   </Context_Kit_Protocol>
 
   <Model_Selection>
-    Per [`../common/model-routing-rule.md`](../common/model-routing-rule.md): base reviewer model is **Sonnet** for routine rule-matching across buckets. The skill escalates to **Opus** when:
+    Per `common/model-routing-rule.md` (summarized here — no need to open it): base reviewer model is **Sonnet** for routine rule-matching across buckets. The skill escalates to **Opus** when:
 
     - A bucket returns a MAJOR finding requiring multi-file root-cause.
     - The finding is ambiguous (rule admits "MINOR unless ..." and the "unless" condition needs cross-checking).

@@ -241,7 +241,7 @@ sc4sap's rule corpus is large — 25+ `common/*.md` + 14 `configs/{MODULE}/*.md`
 
 | Tier | When loaded | Files |
 |------|-------------|-------|
-| **Tier 1 — Global Mandatory** | Every agent, every skill, every session start | `data-extraction-policy.md`, `sap-version-reference.md`, `naming-conventions.md`, `context-loading-protocol.md`, `model-routing-rule.md` |
+| **Tier 1 — Global Mandatory** | Every agent, every skill, every session start | `data-extraction-policy.md`, `sap-version-reference.md`, `naming-conventions.md` |
 | **Tier 2 — Role-Mandatory** | Agent's role group fixed set, session start | varies by role group (see below) |
 | **Tier 3 — Triggered Reads** | When a condition matches the current task | ALV → `alv-rules.md` · Procedural → `clean-code-procedural.md` + `ok-code-pattern.md` · `CALL SCREEN` → `ok-code-pattern.md` · ECC → `ecc-ddic-fallback.md` · industry/country set → corresponding file · etc. |
 | **Tier 4 — Per-Task Kit** | Declared by the dispatching skill/phase/bucket | per wave in `phase4-parallel.md`, per §1-§12 in `phase6-review.md` |
@@ -255,7 +255,7 @@ sc4sap's rule corpus is large — 25+ `common/*.md` + 14 `configs/{MODULE}/*.md`
 | **Planner / Architect** | `sap-planner`, `sap-architect` | `include-structure.md`, `active-modules.md`, `customization-lookup.md`, `field-typing-rule.md` |
 | **Analyst / Writer** | `sap-analyst`, `sap-writer` | `active-modules.md` |
 | **Doc Specialist** | `sap-doc-specialist` | *(none — task-driven only)* |
-| **Module Consultant** | 14 module consultants (SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, BW, Ariba) | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, `configs/{MODULE}/{spro,tcodes,bapi,tables,enhancements,workflows}.md` |
+| **Module Consultant** | 14 module consultants (SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, BW, Ariba) | `spro-lookup.md`, `customization-lookup.md`, `active-modules.md`, `configs/{MODULE}/*.md` (on demand — only the file the question needs) |
 | **Basis Consultant** | `sap-bc-consultant` | `transport-client-rule.md`, `configs/common/*.md` |
 
 ### Enforcement

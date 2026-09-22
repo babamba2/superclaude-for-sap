@@ -6,6 +6,8 @@ The customer's live Z*/Y* customizations — BAdI implementations, CMOD projects
 
 ## Files You MUST Check
 
+Paths below are shown in legacy form. With an active profile (`.sc4sap/active-profile.txt` exists) they live under `.sc4sap/work/<activeAlias>/customizations/{MODULE}/` — resolve per [`multi-profile-artifact-resolution.md`](multi-profile-artifact-resolution.md).
+
 | File | Holds |
 |---|---|
 | `.sc4sap/customizations/{MODULE}/enhancements.json` | `smodExits[]` (standard SMOD → Z-namespace CMOD projects), `badiImplementations[]` (standard BAdI → Z*/Y* impl classes), `formBasedExits[]` (customized include programs with line counts), `ggbRules[]` (customer GGB0 substitutions / GGB1 validations / rules from table `GB03`, filtered by `APPLAREA`), `bteImplementations[]` (customer BTE Publish/Subscribe and Process FMs from `TBE24` / `TPS34`, filtered by `APPL`) |

@@ -48,12 +48,24 @@ describe('Plugin Structure Validation', () => {
     const data = JSON.parse(readFileSync(path, 'utf-8'));
     expect(data.hooks).toBeDefined();
     const events = Object.keys(data.hooks);
-    expect(events.length).toBeGreaterThanOrEqual(11);
-    expect(events).toContain('UserPromptSubmit');
     expect(events).toContain('SessionStart');
     expect(events).toContain('PreToolUse');
-    expect(events).toContain('PostToolUse');
-    expect(events).toContain('Stop');
+    const approver = JSON.stringify(data.hooks.PreToolUse);
+    expect(approver).toContain('permission-approver.mjs');
+  });
+
+  it('every hook command points at an existing script', () => {
+    const data = JSON.parse(readFileSync(join(ROOT, 'hooks', 'hooks.json'), 'utf-8'));
+    for (const groups of Object.values(data.hooks) as { hooks: { command: string }[] }[][]) {
+      for (const group of groups) {
+        for (const hook of group.hooks) {
+          const scripts = hook.command.match(/scripts\/[\w\-/.]+\.(?:mjs|cjs)/g) ?? [];
+          expect(scripts.length, hook.command).toBeGreaterThan(0);
+          const target = scripts[scripts.length - 1];
+          expect(existsSync(join(ROOT, target)), target).toBe(true);
+        }
+      }
+    }
   });
 
   it('CLAUDE.md exists', () => {
