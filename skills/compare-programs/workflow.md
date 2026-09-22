@@ -24,7 +24,7 @@ Store the confirmed list as `compared_objects` (array of `{name, type, package}`
 
 Show the **Scope Prompt** from `comparison-scope.md` with defaults pre-ticked. Render the prompt in the user's current conversation language. Wait for user response. Accept `ok` / `proceed` / `+N` / `-N` / `only N,M` / `all` (and equivalent phrasings in other languages).
 
-Store the confirmed dimension set as `active_dimensions` (subset of 1–10). Echo back one line confirming the selection, e.g.: *"Dimensions confirmed: 1·2·3·5·6·7·10 (7 of 10). Starting analysis."*
+Store the confirmed dimension set as `active_dimensions` (subset of 1–10) and the output choice as `formats` (`[md]` default, `[md, html]` on `html`, `[html]` on `html only`). Echo back one line confirming the selection, e.g.: *"Dimensions confirmed: 1·2·3·5·6·7·10 (7 of 10) · output: Markdown + HTML. Starting analysis."*
 
 ## Step 3 — Facts Extraction (per-program `sap-code-reviewer` dispatch, Sonnet 4.6 override)
 
@@ -149,11 +149,13 @@ Agent({
 })
 ```
 
+**HTML** (main thread, when `formats` has `html`): `node "<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs" <report.md> <same path .html>` — `<PLUGIN_ROOT>` = two levels above this skill folder. One self-contained file (images inlined, Mermaid via CDN). If `md` is not in `formats`, delete the `.md` after the HTML is written.
+
 Emit a concise completion block to the user (in the user's current conversation language — English skeleton below):
 
 ```
 Comparison report generated.
-File: .sc4sap/comparisons/ZMMR_GR_LIST__vs__ZCOR_GR_LIST-20260423.md
+File: .sc4sap/comparisons/ZMMR_GR_LIST__vs__ZCOR_GR_LIST-20260423.md   (one line per written format: .md / .html)
 Dimensions: 7 · Divergent: 3 · Variant: 2 · Same: 2
 Key divergence: ZMMR = quantity-centric (MSEG, M_MSEG_WWA) / ZCOR = cost-value-centric (ACDOCA, F_BKPF_*)
 ```
@@ -164,6 +166,7 @@ Present as a short menu (localized to the user's language at render time):
 
 - Deeper analysis of a specific dimension — user specifies the number
 - Add more programs to the comparison (current N → up to 5)
+- HTML copy of the report (when it was generated as Markdown only) — same `md-to-html.mjs` conversion as Step 5
 - Convert to Excel (.xlsx) *(deferred — stub for future parity with program-to-spec)*
 - Generate the report in another language
 - Add Where-used analysis to compare actual call-site frequency

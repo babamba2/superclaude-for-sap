@@ -3,6 +3,40 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.20] — 2026-09-22
+
+### Changed — `analyze-symptom` is read-only and checks known issues first
+
+- Never calls SAP write tools (Create/Update/Delete/Patch/Write/Activate, RunUnitTest, RuntimeRun*/RuntimeCreate*, CreateTransport) and never edits files outside teamMode protocol files — even when asked for the fix. Fixes appear only as a "Proposed fix — not applied" block; Step 4 gives pointers instead of applying them.
+- Round 1 starts with a short web lookup for dumps / error messages (≤ 2 searches, ≤ 1 fetch) built from standard identifiers only — never Z*/Y* names, SID, user IDs or data. Hits are reported as leads under "🌐 Known Issues".
+- Profiler: existing traces are analyzed; no run is started and no trace parameters are created.
+- `sap-debugger`: when the dispatching skill names a report format, that format wins over the agent's default template.
+
+### Added — HTML output (new `scripts/spec/md-to-html.mjs`)
+
+Zero-dependency converter: one self-contained `.html` from a skill's `.md` (local images inlined as data URIs, ```` ```mermaid ```` drawn by the Mermaid CDN script, YAML frontmatter as a table, GitHub-style heading ids).
+
+- `program-to-spec` — output formats are a multi-select (Markdown / HTML / Excel); HTML is converted from the `.md`, and the intermediate `.md` is removed when Markdown was not selected.
+- `package-to-process` — `formats[]` multi-select for the process document and the BPML (default Markdown + Excel); `build-bpml.mjs` gains an `.html` mode. The process document has no Excel form, so an Excel-only choice keeps its `.md`.
+
+### Added — HTML option for the remaining Markdown-producing skills
+
+Every skill that writes a Markdown document for people can now also give a single self-contained HTML file, converted from the same `.md` by `scripts/spec/md-to-html.mjs` (images inlined, Mermaid via CDN):
+
+- `compare-programs` — Step 2 reply takes `html` (Markdown + HTML) or `html only`; follow-up menu offers an HTML copy later.
+- `analyze-code` — the Step 4 "save report" action writes Markdown, HTML or both.
+- `analyze-cbo-obj` — Step 8 offers `index.html` beside `index.md` (`index.md` / `inventory.json` always stay for sibling skills).
+- `create-program` — after Phase 8, offers HTML copies of `spec.md` and `report.md` (the `.md` files stay as pipeline state).
+
+### Fixed — SubagentStop loop and agent reference files
+
+- `scripts/verify-deliverables.mjs` read `output` / `result`, which SubagentStop never sends, so every agent looked empty ("produced minimal output (0 chars, expected 50+)") and was woken again. It now reads `last_assistant_message`, skips when the field is absent or `stop_hook_active` is set, and matches plugin-namespaced agent types (`sc4sap:sap-…`).
+- `agents/agent_details/bc/*` moved to `agent-refs/bc/*` — files under `agents/` were being registered as agents (with all tools). References in `sap-bc-consultant` and `analyze-symptom/team-mode.md` updated.
+
+### Version
+
+All four version fields (`package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` root & `plugins[0]`) bumped 0.6.19 → 0.6.20. Vendor pin unchanged (`dfc96de`, 4.8.5).
+
 ## [0.6.19] — 2026-09-22
 
 ### Removed — hooks that never fired or only added noise

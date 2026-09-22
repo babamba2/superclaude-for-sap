@@ -84,7 +84,7 @@ Replaces the Step 3 legacy "present hypotheses" flow.
 ## Prototype notes (Phase 6 scaffolding)
 
 - **Runtime validation pending**: docs scaffolded; first live test should exercise a real dump that spans BC + module (e.g., MB_MIGO_BADI customer code dump in MM context).
-- **Interaction with bc-diagnostic-flows**: `agents/agent_details/bc/diagnostic-flows.md` Flow 1 (ABAP Dump) is debugger's baseline. teamMode layers on top — doesn't replace the flow, just adds BC + module cross-check.
+- **Interaction with bc-diagnostic-flows**: `agent-refs/bc/diagnostic-flows.md` Flow 1 (ABAP Dump) is debugger's baseline. teamMode layers on top — doesn't replace the flow, just adds BC + module cross-check.
 - **When NOT to use**: pure kernel issues (Flow 8) and pure transport/STMS issues (Flow 3) are BC-solo domain. Don't trigger teamMode for them.
 
 ## Related
@@ -92,5 +92,5 @@ Replaces the Step 3 legacy "present hypotheses" flow.
 - [`SKILL.md`](SKILL.md), [`workflow-steps.md`](workflow-steps.md) — main skill spec
 - [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) — shared protocol (reuse Type A message types)
 - [`../../docs/team-consultation-architecture.md`](../../docs/team-consultation-architecture.md) — architecture doc (Type C definition)
-- [`../../agents/agent_details/bc/diagnostic-flows.md`](../../agents/agent_details/bc/diagnostic-flows.md) — BC diagnostic flows (baseline for debugger)
+- [`../../agent-refs/bc/diagnostic-flows.md`](../../agent-refs/bc/diagnostic-flows.md) — BC diagnostic flows (baseline for debugger)
 - [`../ask-consultant/team-rounds.md`](../ask-consultant/team-rounds.md) — round mechanics template

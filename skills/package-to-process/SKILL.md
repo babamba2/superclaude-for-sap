@@ -1,6 +1,6 @@
 ---
 name: sc4sap:package-to-process
-description: Reverse-engineer a CBO package into an End-to-End Business Process document (Markdown). Walks the package programs/FMs, infers business-document flow (PR→PO→GR→IR style), and emits a consultant-facing narrative with Mermaid flowchart + sequenceDiagram + per-step tables. CBO inventory auto-chain via sap-stocker if missing.
+description: Reverse-engineer a CBO package into an End-to-End Business Process document plus BPML (Markdown, HTML, and/or Excel — user picks any combination). Walks the package programs/FMs, infers business-document flow (PR→PO→GR→IR style), and emits a consultant-facing narrative with Mermaid flowchart + sequenceDiagram + per-step tables. CBO inventory auto-chain via sap-stocker if missing.
 level: 2
 model: sonnet
 ---
@@ -72,7 +72,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 | [`dispatch-stocker.md`](dispatch-stocker.md) | Step 2 — `sap-stocker` auto-chain (conditional, inventory missing) |
 | [`dispatch-analyst.md`](dispatch-analyst.md) | Steps 4 & 5 — `sap-analyst` grouping + per-process narrative |
 | [`dispatch-writer.md`](dispatch-writer.md) | Step 6 — `sap-writer` master `.md` render |
-| [`bpml-render.md`](bpml-render.md) | Step 6b — BPML deliverable: spec-JSON contract + `build-bpml.mjs` CLI (xlsx/md/both) + language rules |
+| [`bpml-render.md`](bpml-render.md) | Step 6b — BPML deliverable: spec-JSON contract + `build-bpml.mjs` CLI (xlsx / md / html, one run per format) + language rules |
 </Companion_Files>
 
 <Agent_Composition>
@@ -89,20 +89,24 @@ SAP MCP permission prompts are auto-approved by the sc4sap permission-approver P
 
 <Language_Policy>
 **Output language is user-selected at Step 1** (bundled `AskUserQuestion`, see `workflow.md` Step 1-6b): 한국어(ko) / English(en) / 日本語(ja) / Other. The first option = detected conversation language, labeled `(Recommended)` — so one Enter keeps today's behavior.
-- The selection applies to the process `.md` AND the BPML (labels + row content).
+- The selection applies to the process document AND the BPML (labels + row content), in every output format.
 - BPML sheet naming: sheet 1 (overview) is localized (개요/Overview/概要); **sheet 2 is always English `BPML`** — never localized.
 - Languages outside ko/en/ja: builder falls back to en labels unless `meta.labels` overrides are supplied (see `bpml-render.md`).
 </Language_Policy>
 
 <Output_Location>
-`.sc4sap/processes/<MODULE>/<PACKAGE>/process-<YYYYMMDD>-<lang>.md`
-`.sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.xlsx` and/or `.md` (per Step 1 `bpml_format`)
+Output formats are a Step 1 multi-select (`formats` ⊆ Markdown / HTML / Excel):
+
+`.sc4sap/processes/<MODULE>/<PACKAGE>/process-<YYYYMMDD>-<lang>.md` and/or `.html` (the process document has no Excel form — an Excel-only selection keeps its `.md`)
+`.sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.xlsx` / `.md` / `.html` (one per selected format)
+
+HTML = the matching `.md` converted by `scripts/spec/md-to-html.mjs` (images inlined; Mermaid via CDN when opened online).
 
 - `<MODULE>` = uppercase module key (SD, MM, FI, CO, PP, PM, QM, WM, TM, TR, HCM, BW, PS, Ariba)
 - `<PACKAGE>` = uppercase package name
 - `<YYYYMMDD>` = generation date
 - `<lang>` = ISO 639-1 selected at Step 1 (`ko` / `en` / `ja` / other)
-- Existing file at the same path → overwrite WITH a one-line `> Regenerated from <old-date>` note at the top (md only; xlsx overwrites silently).
+- Existing file at the same path → overwrite WITH a one-line `> Regenerated from <old-date>` note at the top (md, carried into html; xlsx overwrites silently).
 </Output_Location>
 
 <MCP_Tools_Used>

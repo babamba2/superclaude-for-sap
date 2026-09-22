@@ -175,6 +175,7 @@ Dispatch input (writer receives, does NOT re-fetch via MCP):
 Output:
 - File: `.sc4sap/program/{PROG}/report.md` (written by the writer agent)
 - In `manual`/`hybrid` mode: main prompts the user before dispatching Phase 8
+- **HTML copies (optional, after the report is shown)**: close with one line — *"Also want HTML copies of spec.md and report.md? (y/N)"* (a closing question, not a phase-transition prompt, so it applies in `auto` mode too). On yes, run `node "<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs" <file>.md` for each (`<PLUGIN_ROOT>` = two levels above this skill folder) → single-file `.html` beside it. The `.md` files stay — they are pipeline state (resume, review).
 
 ## State.json — Resume Support (C-2)
 

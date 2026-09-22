@@ -1,6 +1,7 @@
 // sc4sap:package-to-process — BPML (Business Process Master List) builder.
-// Emits .xlsx (styled two-sheet workbook) OR .md (same data as Markdown) —
-// CLI picks the mode from the output file extension.
+// Emits .xlsx (styled two-sheet workbook), .md (same data as Markdown) or
+// .html (the Markdown as one self-contained page) — CLI picks the mode from
+// the output file extension.
 //
 // LANGUAGE: overview sheet name + every label follows meta.language
 // (built-in dictionaries ko/en/ja, unknown → en; meta.labels overrides any
@@ -65,7 +66,10 @@
 //   node build-bpml.mjs <bpml.json> <out.xlsx>   → styled workbook (+ per-L1
 //                                                  flow sheets w/ seq images)
 //   node build-bpml.mjs <bpml.json> <out.md>     → same data as Markdown
-//   (run twice for both formats; --no-images = legacy 2-sheet xlsx)
+//   node build-bpml.mjs <bpml.json> <out.html>   → the md content as one
+//                                                  self-contained page
+//                                                  (images inlined)
+//   (run once per format; --no-images = legacy 2-sheet xlsx)
 //
 // md mode extras: after the BPML table, every L2–L5 row gets a detail
 // section (title + description + diagram SVG in _img/bpml-flows-<lang>/);
@@ -84,6 +88,7 @@ import {
   renderSequenceDiagramSVG, sequenceDiagramMetrics,
   rasterizeSvgToPng,
 } from './screen-image-renderer.mjs';
+import { mdToHtml } from './md-to-html.mjs';
 
 // ── Column model — key · max width cap · centered (headers → L10N) ──────
 const COLUMNS = [
@@ -686,7 +691,7 @@ const anchorOf = (code) => `bpml-${String(code).replace(/[^0-9A-Za-z]+/g, '-')}`
 //    cells hyperlink to their section). Warn cells get a "⚠ " prefix
 //    (md has no yellow fill); L1 rows render bold. Sheet-name rule carries
 //    over: BPML heading is always English "BPML", overview heading localized.
-export function buildBpmlMd({ meta = {}, rows = [], outPath }) {
+export function buildBpmlMd({ meta = {}, rows = [], outPath, write = true }) {
   if (!outPath) throw new Error('build-bpml: outPath is required');
   if (!Array.isArray(rows) || rows.length === 0) throw new Error('build-bpml: rows[] is empty');
   const t = pickLang(meta);
@@ -795,10 +800,26 @@ export function buildBpmlMd({ meta = {}, rows = [], outPath }) {
   L.push(`## ${t.ov.guideBand}`, '');
   L.push(`> ⚠ ${t.ov.guide}`, '');
 
-  const buf = Buffer.from(L.join('\n'), 'utf8');
+  const markdown = L.join('\n');
+  const buf = Buffer.from(markdown, 'utf8');
+  if (write) {
+    mkdirSync(dirname(outPath), { recursive: true });
+    writeFileSync(outPath, buf);
+  }
+  return { outPath, bytes: buf.length, rows: rows.length, counts, seqs: seqCount, flows: flowCount, markdown };
+}
+
+// ── HTML mode — the Markdown mode's content as ONE self-contained page.
+//    The md text is built in memory (no .md left behind unless md was also
+//    requested); flow SVGs still land in `_img/bpml-flows-<lang>/` beside
+//    the output and are inlined into the page by md-to-html.
+export function buildBpmlHtml({ meta = {}, rows = [], outPath }) {
+  if (!outPath) throw new Error('build-bpml: outPath is required');
+  const res = buildBpmlMd({ meta, rows, outPath, write: false });
+  const html = mdToHtml(res.markdown, { baseDir: dirname(outPath), lang: meta.language });
   mkdirSync(dirname(outPath), { recursive: true });
-  writeFileSync(outPath, buf);
-  return { outPath, bytes: buf.length, rows: rows.length, counts, seqs: seqCount, flows: flowCount };
+  writeFileSync(outPath, html, 'utf8');
+  return { ...res, bytes: Buffer.byteLength(html), markdown: undefined };
 }
 
 const thisFile = fileURLToPath(import.meta.url);
@@ -807,15 +828,18 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
   const noImages = process.argv.includes('--no-images');
   const [jsonPath, outPath] = args;
   if (!jsonPath || !outPath) {
-    console.error('Usage: node build-bpml.mjs <bpml.json> <out.xlsx|out.md> [--no-images]');
+    console.error('Usage: node build-bpml.mjs <bpml.json> <out.xlsx|out.md|out.html> [--no-images]');
     process.exit(2);
   }
   try {
     const spec = JSON.parse(readFileSync(resolve(jsonPath), 'utf8'));
-    const isMd = outPath.toLowerCase().endsWith('.md');
-    const res = isMd
-      ? buildBpmlMd({ meta: spec.meta, rows: spec.rows, outPath: resolve(outPath) })
-      : await buildBpml({ meta: spec.meta, rows: spec.rows, outPath: resolve(outPath), flowSheets: !noImages });
+    const ext = outPath.toLowerCase().split('.').pop();
+    const args2 = { meta: spec.meta, rows: spec.rows, outPath: resolve(outPath) };
+    const res = ext === 'md'
+      ? buildBpmlMd(args2)
+      : ext === 'html' || ext === 'htm'
+        ? buildBpmlHtml(args2)
+        : await buildBpml({ ...args2, flowSheets: !noImages });
     const lv = Object.entries(res.counts).map(([k, v]) => `L${k}:${v}`).join(' ');
     const fl = res.flows != null ? `, ${res.seqs || 0} seq + ${res.flows} flow SVGs` : '';
     const fs2 = res.flowSheets != null ? `, ${res.flowSheets} flow sheets · ${res.images} images (${res.imgCached} cached / ${res.imgRendered} rendered / ${res.imgFailed} failed)` : '';

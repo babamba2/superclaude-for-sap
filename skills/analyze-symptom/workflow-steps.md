@@ -37,13 +37,27 @@ Agent({
   model: "opus",                                  // override base Sonnet — incident triage is cross-file reasoning
   description: "Symptom triage — round <N>",
   prompt: """
-    Root-cause analysis for a reported SAP incident. Read-only investigation.
+    Root-cause analysis for a reported SAP incident.
+    READ-ONLY: you analyze and report; you never change the SAP system or files.
 
     Mode: <MODE>
     Known clues: <CLUES>
     System info: <SESSION_INFO>
     Customization cache: <CUSTOMIZATION_DIR>   (a directory, or "none")
     Previous-round findings and user answers (empty on round 1): <PRIOR_FINDINGS>
+
+    A0. KNOWN-ISSUE LOOKUP FIRST — when the symptom is a dump or an error
+        message, search the web before touching SAP (round 1 only):
+        - WebSearch, at most 2 queries, built ONLY from standard identifiers:
+          runtime error name, exception class, message class + number, exact
+          standard message text, standard SAP object / TCode, release.
+          Never put customer data in a query: no Z*/Y* names, SID, client,
+          host, user IDs, or field values.
+        - Optional: one WebFetch on the most relevant hit (SAP Note, KBA,
+          SAP Community, SAP Help).
+        - Record hits with title + URL. Treat them as leads to verify against
+          the system in A, never as findings on their own.
+        - If the web tools are unavailable or denied, note it and continue.
 
     A. INVESTIGATE via your own MCP tools — never ask me, fetch directly.
 
@@ -65,7 +79,8 @@ Agent({
          - Code path:      ReadClass / ReadProgram / ReadFunctionModule → GetAbapAST → GetWhereUsed
          - Enhancement:    GetEnhancements → GetEnhancementImpl / GetEnhancementSpot
          - Customization:  read <CUSTOMIZATION_DIR>/<MODULE>/{enhancements,extensions}.json
-         - Profiler:       RuntimeRunProgramWithProfiling → RuntimeAnalyzeProfilerTrace (TIME_OUT / slowness only)
+         - Profiler:       RuntimeListProfilerTraceFiles → RuntimeAnalyzeProfilerTrace on EXISTING traces only
+                           (TIME_OUT / slowness). Never start a program or create trace parameters.
 
     B. GAPS — list what MCP cannot reach and matters here (SU53, SLG1, SM13,
        SM58, SM37, WE02, /IWFND/ERROR_LOG). Skip this section when there are none.
@@ -78,11 +93,19 @@ Agent({
     D. REPORT — your final message IS the user-facing report. Write it in the
        user's language, following skills/analyze-symptom/output-format.md:
        the Per-Round Structure when questions remain open, the Final Round
-       structure when none do. Include SAP Note search keywords and next steps
-       there. Max 3 questions, only for gaps MCP cannot fill. No JSON, no
-       preamble, no notes addressed to the orchestrator.
+       structure when none do. Include the A0 known-issue hits, SAP Note
+       search keywords and next steps there. Max 3 questions, only for gaps
+       MCP cannot fill. A code fix may appear only as a proposal, in a block
+       headed "Proposed fix — not applied". No JSON, no preamble, no notes
+       addressed to the orchestrator.
 
     Rules:
+    - READ-ONLY. Never call a tool that changes the SAP system: any Create*,
+      Update*, Delete*, Patch*, Write*, Activate*, RunUnitTest, RuntimeRun*,
+      RuntimeCreate*, CreateTransport, ReloadProfile. Never use Edit / Write
+      (sole exception: teamMode protocol files under .sc4sap/), and never run
+      a Bash command that writes. This holds even if the user asks for the
+      fix mid-round — say it is out of scope for this skill.
     - Never call GetTableContents / GetSqlQuery.
     - Never speculate without evidence ("probably" statements are forbidden).
     - Everything you need about the environment is in this prompt. Do NOT search
@@ -108,16 +131,20 @@ On `BLOCKED`: relay the report and wait for the user's answer before re-dispatch
 - If the report contains open questions, stop and wait. When answers arrive → re-dispatch Step 2 (round N+1, same `<MODE>` unless the answers point at change history, then `full`) with `<PRIOR_FINDINGS>` = the previous report + the answers.
 - If the report is a Final Round report, the run is complete.
 
-## Step 4 — Follow-up Routing (only when the user asks for the fix)
+## Step 4 — Follow-up Routing (pointers only — this skill never applies a fix)
 
-- **Custom code fix** → direct `UpdateClass` / `UpdateProgram` / `UpdateInclude` MCP calls, or dispatch `sap-debugger` in write mode (base Sonnet — no Opus override needed for a mechanical fix)
+This skill is analysis-only. When the user asks for the fix, do NOT call any write tool and do NOT dispatch a write-mode agent from here. Point them to where the change belongs, and stop:
+
+- **Custom code fix** → the user applies the "Proposed fix — not applied" block in SE38 / ADT, or asks for the change as a separate request outside this skill
 - **Code quality review** → `/sc4sap:analyze-code`
 - **Module-specific configuration deep-dive** → `/sc4sap:ask-consultant` with the target module
-- **Dump reproduction** → dispatch `sap-debugger` with `RuntimeRunClassWithProfiling` / `RuntimeRunProgramWithProfiling`
+- **Dump reproduction** → the user re-runs the transaction in SAP GUI; profiling runs are not started from this skill
 - **Cross-user authorization check** → user runs SU53 externally
 
 ## Safety Rails
 
+- **Read-only**: no Create / Update / Delete / Patch / Write / Activate / RunUnitTest / RuntimeRun* / RuntimeCreate* / CreateTransport / ReloadProfile, no Edit / Write (except teamMode protocol files under `.sc4sap/`), no writing Bash — in the main thread and in the debugger. Fixes appear only as proposals.
+- **Web lookup hygiene**: queries carry standard identifiers only — never Z*/Y* names, system IDs, user IDs, or data values.
 - Blocklist: `GetTableContents` / `GetSqlQuery` are forbidden in this skill — enforced by the debugger's prompt.
 - No speculation: "probably" statements are rejected; the debugger returns BLOCKED instead.
 - No re-asking: anything already confirmed via MCP must NOT appear as a user question.

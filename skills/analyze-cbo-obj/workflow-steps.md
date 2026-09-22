@@ -127,6 +127,10 @@ Required sections (15–25 lines, markdown):
 
 Be concrete: prefer "ZFM_CALC_SD_MARGIN — calculates gross margin per sales order line; call from any billing-related new program" over generic "utility FM".
 
+### HTML view (both branches, optional)
+
+End the hand-off with one line: *"Also want an HTML view of index.md? (y/N)"* — skip the question if the user already asked for HTML at intake. On yes, run `node "<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs" .sc4sap/cbo/<MODULE>/<PACKAGE>/index.md` (`<PLUGIN_ROOT>` = two levels above this skill folder) → `index.html` next to it. `index.md` and `inventory.json` always stay — sibling skills read them.
+
 ### Failure handling (both branches)
 
 On `BLOCKED: <reason>` from the stocker, surface the reason verbatim and stop — do not retry on main thread.

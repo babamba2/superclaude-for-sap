@@ -11,6 +11,9 @@ Each analysis round follows this structure:
 ```
 ## 📊 Symptom Analysis — Round N
 
+### 🌐 Known Issues (web lookup — leads, not findings)
+- [{title}]({url}) — {why it may apply / whether the system evidence below matches}
+
 ### ✅ Evidence Collected via MCP
 - **System**: {SID} / {client} / {release} / {SP} / {user}
 - **Findings**:
@@ -54,8 +57,12 @@ In the final round (no open questions), produce a consolidated report with final
 - **Confidence**: High / Medium / Low
 
 ### SAP Note Search Strategy
+- Known issues found: {web hits that the system evidence confirmed, with URL — or "none matched"}
 - Primary keywords: {ordered list}
 - Recommended Notes portal queries: {2–3 concrete search strings}
+
+### Proposed fix — not applied
+{Only when the cause is in custom code: a minimal code block and where it goes. This skill never applies it.}
 
 ### Recommended Actions
 1. {action 1 — owner, urgency}

@@ -168,6 +168,7 @@ Do not inline or paraphrase phase logic here — update `agent-pipeline.md` inst
 - `.sc4sap/program/{PROG}/review-bucket-{B1|B2|B3|B4}.md` — Phase 6 per-bucket reviews (merged into review.md, see `phase6-buckets.md`)
 - `.sc4sap/program/{PROG}/review.md` — Phase 6 consolidated review
 - `.sc4sap/program/{PROG}/report.md` — final completion report
+- `.sc4sap/program/{PROG}/{spec,report}.html` — optional single-file HTML copies, offered after Phase 8
 - `.claude/settings.local.json` — permissions allowlist (written by `/sc4sap:trust-session` during Phase 3.5)
 - `.sc4sap/session-trust.log` — audit trail of `trust-session` invocations
 </State_Files>
