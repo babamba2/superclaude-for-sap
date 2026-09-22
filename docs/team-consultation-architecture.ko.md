@@ -106,6 +106,8 @@ Agent teams (Claude Code 실험적 기능, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
 
 ### Type C — Incident Triage Team (인시던트 트리아지 팀)
 
+> **제거됨 (2026-09-22).** `analyze-symptom`은 더 이상 Type C를 실행하지 않습니다. 디버거와 BC·모듈 컨설턴트를 Opus로 최대 3라운드 재실행하는 가장 비싼 경로였고, 실제 검증도 된 적이 없었습니다. 업무 프로세스 질문이 남으면 보고서에 `/sc4sap:ask-consultant` 제안 한 줄을 남깁니다. 아래 설계는 참고용으로 남깁니다.
+
 **구성**: `sap-debugger` (팀 내 리드) + `sap-bc-consultant` + 1-2명의 `sap-{module}-consultant`.
 
 **목적**: 기술 렌즈(BC: 커널 / update-task / RFC / transport) + 업무 렌즈(모듈: 업무 흐름, TCode 목적, 커스터마이징)를 섞어서 근본 원인 분석.
