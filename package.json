@@ -1,7 +1,7 @@
 {
   "name": "@babamba2/superclaude-for-sap",
   "version": "0.6.20",
-  "description": "SuperClaude for SAP — Claude Code plugin for SAP On-Premise S/4HANA development",
+  "description": "SuperClaude for SAP \u2014 Claude Code plugin for SAP On-Premise S/4HANA development",
   "type": "module",
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
@@ -65,5 +65,10 @@
   },
   "publishConfig": {
     "access": "public"
+  },
+  "overrides": {
+    "ajv": {
+      "fast-uri": "4.1.3"
+    }
   }
 }
