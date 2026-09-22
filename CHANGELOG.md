@@ -3,7 +3,7 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.19] — 2026-09-22
 
 ### Removed — hooks that never fired or only added noise
 
@@ -34,9 +34,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - `create-object`, `analyze-code`, `analyze-symptom`, `compare-programs`, `analyze-cbo-obj` said the main thread runs on Haiku; their frontmatter has been `sonnet` since 0.6.6 — wording corrected.
 - `program-to-spec`: removed the deprecated `mode: "dontAsk"` Agent parameter.
 
+### Fixed — HUD context window ignored the subscription plan
+
+The `ctx` segment read its window from the pricing table, so models missing from it (e.g. `claude-opus-5[1m]`) fell back to 200K — a Max session at 633K rendered `633K/200K` (capped at 100%). New `scripts/hud/lib/context-window.mjs` resolves it on its own: `SC4SAP_CONTEXT_WINDOW` env > statusLine payload size > `[1m]` model id > model limit (Haiku, Claude 3, Opus/Sonnet 4.0–4.1 stay 200K) > `claudeAiOauth.subscriptionType` in `~/.claude/.credentials.json` (`max` / `team` / `enterprise` → 1M, `pro` / other → 200K) > 200K. `pricing.mjs` no longer carries a `ctx` column.
+
 ### Upstream dependency
 
 - `abap-mcp-adt-powerup`: `SAP_RFC_BACKEND=zrfc` was offered by setup and `sap-option` but rejected by the runtime selector (`src/lib/rfcBackend.ts`) even though `zrfcProxy.ts` implements the backend. The selector now routes `zrfc` to it. Needs a vendor release + pin bump before it reaches plugin users.
+
+### Version
+
+All four version fields (`package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` root & `plugins[0]`) bumped 0.6.18 → 0.6.19. Vendor pin unchanged (`dfc96de`, 4.8.5).
 
 ## [0.6.18] — 2026-08-23
 
