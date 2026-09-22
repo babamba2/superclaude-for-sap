@@ -10,16 +10,21 @@ Referenced by `SKILL.md` / `workflow.md` (Step 6b). Defines how the BPML
 ```
 node scripts/spec/build-bpml.mjs <bpml.json> <out.xlsx>   # styled workbook
 node scripts/spec/build-bpml.mjs <bpml.json> <out.md>     # same data as Markdown
+node scripts/spec/build-bpml.mjs <bpml.json> <out.html>   # md content as one self-contained page
 ```
 
-Output format is chosen by the user in Step 1 (`xlsx` / `md` / `both`).
-`both` = run the CLI twice, once per extension.
+Output formats are chosen by the user in Step 1 (multi-select: `md` /
+`html` / `xlsx`). Run the CLI once per selected format — the extension picks
+the mode. HTML mode builds the md content in memory (no `.md` is left behind
+unless `md` was also selected), inlines the flow SVGs, and uses
+`scripts/spec/md-to-html.mjs` for the page.
 
 ## Output paths
 
 ```
 .sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.xlsx
 .sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.md
+.sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.html
 ```
 
 Spec JSON (intermediate, kept for regeneration):
@@ -94,7 +99,7 @@ Per-row fields for md mode (`desc` optional, `seq` REQUIRED for L2–L5):
   LAST-RESORT fallback for rows the analyst genuinely cannot flesh out; a
   document full of skeletal diagrams is a defect, not an output.
 
-md mode extras (builder-automatic — nothing to assemble):
+md / html mode extras (builder-automatic — nothing to assemble; html carries the same sections with the SVGs inlined):
 
 - After the BPML table, EVERY L2–L5 row gets a detail section: `[L<n>] <code>
   <label>` heading + description + business-process-flow **SVG** saved under

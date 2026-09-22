@@ -3,9 +3,9 @@
 Referenced by `SKILL.md`. Follow these 6 steps (Step 0 through Step 5) whenever the skill runs.
 
 **Step 0 — Socratic interview** (see `Socratic_Scope_Narrowing` section in `SKILL.md`)
-Default opener: issue ONE bundled `AskUserQuestion` call with the four standard questions — **Audience / Format / Depth / Language** — in that exact order, each single-select with the "(Recommended)" option first. This is MANDATORY whenever the target object is already present in `ARGUMENTS`; it replaces Rounds 2+3+5 in a single UI turn.
+Default opener: issue ONE bundled `AskUserQuestion` call with the four standard questions — **Audience / Format / Depth / Language** — in that exact order, with the "(Recommended)" option first. **Format is multi-select** (Markdown / HTML / Excel — any combination); the other three are single-select. Hold the answer as `formats[]`. This is MANDATORY whenever the target object is already present in `ARGUMENTS`; it replaces Rounds 2+3+5 in a single UI turn.
 Fall back to per-round questioning only when (a) the object is missing/ambiguous (run Round 1 first) or (b) the user picks L3/L4 in the bundle (run Round 4 scope-trimming after).
-Never skip entirely unless the user supplies `object=... depth=L2 format=md lang=ko` style fully-qualified arguments.
+Never skip entirely unless the user supplies `object=... depth=L2 format=md,html lang=ko` style fully-qualified arguments (`format` = comma-separated subset of `md`, `html`, `xlsx`).
 
 **Step 1 — Inventory** (auto, parallel MCP calls)
 - `SearchObject` — confirm object + sub-type
@@ -44,7 +44,7 @@ Emit Phase Banner before each dispatch (see `SKILL.md` § Phase_Banner):
 ```
 
 - **sap-analyst** (Opus 4.7, frontmatter) extracts: business purpose, inputs (selection screen / importing params), outputs (ALV cols / exporting params / OData entity), data sources (tables + CDS + BAPIs), main logic narrative, error cases, authorization checks (`AUTHORITY-CHECK` statements). When `cbo-context.md` exists, the analyst cross-references every Z-object mentioned against the inventory and replaces opaque "Z-table" / "Z-class" labels with the inventory's documented role + business purpose. **The main-logic narrative MUST be business-first**: for each step state the business intent (what/why for a functional reader) and attach the ABAP mechanism (event / FORM / SELECT) as a secondary annotation — never an event-only list. Also emit a **business-step process flow** (the end-to-end business arc: 시작 → 조회조건 입력 → 데이터 조회 → 가공/결합 → 출력 → 상호작용 → 종료), distinct from the raw ABAP event order.
-- **sap-writer** (Haiku 4.5 base; **`model: "sonnet"` override for L3/L4 depth** — longer narrative + deeper cross-reference + stronger consistency requirement) renders into the chosen format (MD or Excel) at the chosen depth + language. For Excel, map the analyst's business-first narrative into Sheet 4 per [`spec-templates.md`](spec-templates.md) § Business-process narrative (Step text = business-first, `Event / FORM` = technical anchor, `processFlow[]` = business steps) and obey § Language consistency for every string.
+- **sap-writer** (Haiku 4.5 base; **`model: "sonnet"` override for L3/L4 depth** — longer narrative + deeper cross-reference + stronger consistency requirement) renders every selected format at the chosen depth + language: the `.md` when `formats[]` has `md` or `html` (HTML is converted from it in Step 4, never written separately), the two Excel JSON files when it has `xlsx`. For Excel, map the analyst's business-first narrative into Sheet 4 per [`spec-templates.md`](spec-templates.md) § Business-process narrative (Step text = business-first, `Event / FORM` = technical anchor, `processFlow[]` = business steps) and obey § Language consistency for every string.
 - **sap-critic** (Opus 4.7, frontmatter) gate (only if L4): verifies every claim cross-references a line range.
 
 **Step 3.5 — Draw screens**
@@ -52,13 +52,19 @@ Emit Phase Banner before each dispatch (see `SKILL.md` § Phase_Banner):
 Both formats now render the SAME program-specific PNGs (Selection / ALV / Process Flow) from one `image-spec.json` — see [`spec-templates.md`](spec-templates.md) § Image Replacement for the schema (the `processFlow` graph form gives the branching `flowchart TD`).
 
 - **Excel**: `build-spec.mjs` swaps the PNGs into the cloned template (Step 4 below).
-- **Markdown**: run `node scripts/spec/render-md-images.mjs <image-spec.json> .sc4sap/specs/_assets/{OBJECT}-{YYYYMMDD}-{lang}/` to write `selection.png` / `alv.png` / `flow.png`, then embed each with `![label](_assets/{OBJECT}-{YYYYMMDD}-{lang}/<file>.png)` in §3.2 (Selection), §3.3 (ALV), §4.1 (Process Flow). This gives MD the identical high-quality v12 imagery the xlsx ships.
+- **Markdown / HTML**: run `node scripts/spec/render-md-images.mjs <image-spec.json> .sc4sap/specs/_assets/{OBJECT}-{YYYYMMDD}-{lang}/` to write `selection.png` / `alv.png` / `flow.png`, then embed each with `![label](_assets/{OBJECT}-{YYYYMMDD}-{lang}/<file>.png)` in §3.2 (Selection), §3.3 (ALV), §4.1 (Process Flow). This gives MD the identical high-quality v12 imagery the xlsx ships.
   - **Graceful degrade** (no headless browser → manifest slot `null`): fall back to an ASCII wireframe in a fenced code block for that slot (Selection from `PARAMETERS`/`SELECT-OPTIONS`, ALV from the field catalog, `?`/`!`-prefixed Mermaid `flowchart TD` for the flow). The Parameters / ALV tables are always emitted regardless.
 
 For objects without UI (pure class, FM, CDS, RAP without screens), skip the imagery — the Parameters table inside the Inputs section is enough.
 
 **Step 4 — Render**
 - **Markdown**: single `.md` with H2 sections per spec dimension, tables for selection-screen / tables / methods / exits, plus the three embedded PNGs from Step 3.5 (Selection §3.2 · ALV §3.3 · Process Flow §4.1). See [`spec-templates.md`](spec-templates.md) for the section skeleton. Assets live in `.sc4sap/specs/_assets/{OBJECT}-{YYYYMMDD}-{lang}/` and are referenced relatively so the `.md` + its `_assets/` subfolder stay portable together.
+
+- **HTML** (when `formats[]` has `html`): after the `.md` is final, run
+  ```bash
+  node scripts/spec/md-to-html.mjs .sc4sap/specs/{OBJECT}-{YYYYMMDD}-{lang}.md .sc4sap/specs/{OBJECT}-{YYYYMMDD}-{lang}.html
+  ```
+  One self-contained file: the three PNGs are inlined, any Mermaid fallback is drawn by the Mermaid CDN script when opened online. If `md` was NOT selected, delete the intermediate `.md` after the HTML is written (keep `_assets/` for regeneration). Re-run the converter whenever the `.md` changes in Step 5 so both stay identical.
 
 - **Excel (MANDATORY workflow — 양식 보존 + program-specific imagery, single entry point)**:
 
@@ -96,4 +102,4 @@ For objects without UI (pure class, FM, CDS, RAP without screens), skip the imag
 **Step 5 — Review loop**
 - Show a table of contents + first section inline.
 - Ask: "OK to finalize, or trim/expand a section?"
-- On confirm → write file → print absolute path.
+- On confirm → write one file per selected format (`.md` / `.html` / `.xlsx`) → print every absolute path.

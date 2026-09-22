@@ -1,13 +1,13 @@
 ---
 name: sc4sap:program-to-spec
-description: Reverse-engineer an ABAP program into a Functional/Technical Specification artifact (Markdown or Excel). Socratic scope narrowing from "everything" to "only what the user needs".
+description: Reverse-engineer an ABAP program into a Functional/Technical Specification artifact (Markdown, HTML, and/or Excel — any combination). Socratic scope narrowing from "everything" to "only what the user needs".
 level: 2
 model: sonnet
 ---
 
 # SC4SAP Program → Specification
 
-Reads an existing ABAP program (Report / Module Pool / FM Group / Class / CDS / RAP) via MCP, runs structural + semantic + where-used analysis, then produces a Specification artifact in **Markdown** (`.md`) or **Excel** (`.xlsx`) format. Scope is **negotiated Socratically** — start wide, narrow on each turn, stop when the user's target granularity is confirmed.
+Reads an existing ABAP program (Report / Module Pool / FM Group / Class / CDS / RAP) via MCP, runs structural + semantic + where-used analysis, then produces a Specification artifact in any combination of **Markdown** (`.md`), **HTML** (`.html`, one self-contained file) and **Excel** (`.xlsx`). Scope is **negotiated Socratically** — start wide, narrow on each turn, stop when the user's target granularity is confirmed.
 
 <Purpose>
 Turn legacy or unfamiliar ABAP objects into a reviewable Functional/Technical Spec for handover, documentation audit, AMS transition, refactoring preparation, or compliance artifacts. Unlike `analyze-code` (quality-focused), this skill is **documentation-focused**: it describes what the program DOES, not what's wrong with it.
@@ -49,12 +49,12 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 The interview is a **funnel**: every turn reduces the remaining decision space. Score remaining ambiguity 0–10 after each answer; stop when **≤3**.
 
 **Default opener — bundled 4-question `AskUserQuestion`** (MANDATORY when the target object is already supplied in `ARGUMENTS`):
-Issue ONE `AskUserQuestion` call with these four questions in this exact order — Audience / Format / Depth / Language — each a single-select with "(Recommended)" as the first option. This replaces Rounds 2+3+5 in one UI turn. Only fall back to per-round questioning when the object itself is missing or ambiguous (Round 1) or when the user picks L3/L4 (Round 4 scope trimming).
+Issue ONE `AskUserQuestion` call with these four questions in this exact order — Audience / Format / Depth / Language — each with "(Recommended)" as the first option. Format is **multi-select** (`multiSelect: true`); the other three are single-select. This replaces Rounds 2+3+5 in one UI turn. Only fall back to per-round questioning when the object itself is missing or ambiguous (Round 1) or when the user picks L3/L4 (Round 4 scope trimming).
 
 | # | Header | Question | Options (Recommended first) |
 |---|--------|----------|-----------------------------|
 | 1 | Audience | Who is the primary audience for the spec? | Both (Recommended) · Functional · Technical |
-| 2 | Format | Which output format? | Markdown (Recommended) · Excel · Both |
+| 2 | Format | Which output formats? (select one or more) | Markdown (Recommended) · HTML · Excel |
 | 3 | Depth | What depth of detail? | L2 Standard (Recommended) · L1 Quick Spec · L3 Deep Technical · L4 Audit-grade |
 | 4 | Language | Output language? | Korean · English · Japanese (order follows user's current language — promote the matching one to first with "(Recommended)") |
 
@@ -64,8 +64,8 @@ Issue ONE `AskUserQuestion` call with these four questions in this exact order �
 
 **Round 2 — Audience + format** *(covered by the default opener — do not ask separately)*
 - Audience: **Functional** (business readers — SD/FI/MM users) vs **Technical** (developers) vs **Both**
-- Format: **Markdown** (review-friendly, git-friendly) vs **Excel** (project-PMO-friendly, reviewable cell-by-cell)
-- Default if user says "up to you" / "you choose" → Both + Markdown.
+- Format (any combination): **Markdown** (review-friendly, git-friendly) · **HTML** (one self-contained file with images inlined — share, mail, print) · **Excel** (project-PMO-friendly, reviewable cell-by-cell)
+- Default if user says "up to you" / "you choose" → Audience Both + Format Markdown.
 
 **Round 3 — Depth (pick one)** *(covered by the default opener)*
 | Depth | Contains |
@@ -87,7 +87,7 @@ Ask ONE narrowing question per turn until ambiguity ≤3:
 - The rendered `Where-Used` section MUST repeat this scope in its header so reviewers know what was (and wasn't) searched.
 
 **Round 5 — Output location**
-- Default: `.sc4sap/specs/{object_name}-{YYYYMMDD}-{lang}.{md|xlsx}`
+- Default: `.sc4sap/specs/{object_name}-{YYYYMMDD}-{lang}.{md|html|xlsx}` — one file per selected format
 - Language: ko / en / ja (infer from user's current language; confirm once).
 
 **Stop condition**: every dimension above has a concrete answer OR user explicitly says "skip remaining, use defaults".
@@ -113,6 +113,7 @@ Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; eac
 - **Rendering (`sap-writer` × 1)** — Step 3 second dispatch (or Step 4 render invocation):
   - **L1 / L2 depth** → **Haiku 4.5** base (frontmatter). Pure templating from structured analyst output.
   - **L3 / L4 depth** → **Sonnet 4.6** override (`model: "sonnet"`) — longer narrative + deeper cross-reference + stronger consistency requirement.
+  - **Markdown / HTML output** — writer renders the `.md`; HTML is produced from that same `.md` by `scripts/spec/md-to-html.mjs` (no second writer pass).
   - **Excel output** — writer's deliverable is TWO JSON files consumed by `scripts/spec/build-spec.mjs`:
     1. **TR (translation) map** — `English source string → target-language replacement` mapping; schema + slot semantics in `spec-templates.md` § Excel — Template-clone.
     2. **image-spec.json** — `{selection, alv, processFlow, lang}` per-program image data; exact key names + sample values in `spec-templates.md` § Image Replacement. Drives the Sheet 3 Selection/ALV mockups + Sheet 4 horizontal Process Flow PNG.
@@ -125,9 +126,10 @@ Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; eac
 <Output_Format>
 ```
 Spec generated: ZSDR_OPEN_ORDER_ALV
-Depth: L2 Standard · Format: markdown · Lang: ko
+Depth: L2 Standard · Format: markdown, html · Lang: ko
 Sections: 9 · Tables referenced: 6 · Screens: 1 · GUI status: 1
-File: .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-ko.md
+Files: .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-ko.md
+       .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-ko.html
 
 Top-level summary:
   Report that lists open sales orders by Sales Organization and date range and displays them via ALV.
@@ -135,7 +137,7 @@ Top-level summary:
   Authorizations: S_TCODE=ZSDR01, S_TABU_DIS=VBAK.
 
 Next options:
-  • "Regenerate as Excel"
+  • "Regenerate as Excel" / "Also give me HTML"
   • "Extend to L4 with Where-used"
   • "Add an English version"
 ```
@@ -174,6 +176,8 @@ Spec generation only reads **source code + DDIC metadata + where-used** — neve
 **No trigger keywords required.** Image rendering is part of the default Excel pipeline because each program has unique selection screens, ALV layouts, and flow charts. Drift risk applies only to geometry regression (the old throwaway-driver problem) and image swap only touches drawing extents + PNG bytes, not geometry.
 
 **Markdown output — unchanged:** continue emitting ASCII wireframes inside fenced code blocks (Step 3.5 in `workflow-steps.md`). ASCII wireframes never go in xlsx cells.
+
+**HTML output:** converted from the finished `.md` by `node scripts/spec/md-to-html.mjs <spec.md> <spec.html>` — PNGs inlined as data URIs, Mermaid fallbacks drawn by the Mermaid CDN script when opened online (plain source text offline). Same content as the `.md`, by construction.
 </Inputs_And_Screens_Rendering>
 
 Task: {{ARGUMENTS}}
