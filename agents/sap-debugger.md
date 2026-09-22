@@ -101,6 +101,8 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
   </Execution_Policy>
 
   <Output_Format>
+    Default template below. When the dispatching skill's prompt names a report format (e.g. analyze-symptom → `skills/analyze-symptom/output-format.md`), follow that format instead — the skill relays your report as-is.
+
     ## SAP Diagnostic Report
 
     **Symptom**: [What the user sees — dump, slow transaction, failed transport]
