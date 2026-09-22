@@ -358,4 +358,17 @@ if (missingDep) {
 
 // --- 5. Launch vendor MCP server ------------------------------------------
 
+// Source tools called with output="file" write under MCP_OUTPUT_DIR, and the
+// vendor refuses to write anywhere else. Keep it per profile, next to the
+// other artifacts in .sc4sap/work/<alias>/.
+if (!process.env.MCP_OUTPUT_DIR) {
+  let alias = '';
+  try {
+    alias = fs.readFileSync(path.join(CWD, '.sc4sap', 'active-profile.txt'), 'utf8').trim();
+  } catch { /* legacy single-profile layout */ }
+  process.env.MCP_OUTPUT_DIR = /^[A-Za-z0-9._-]+$/.test(alias) && alias !== '.' && alias !== '..'
+    ? path.join(CWD, '.sc4sap', 'work', alias, 'mcp-output')
+    : path.join(CWD, '.sc4sap', 'work', 'mcp-output');
+}
+
 require(LAUNCHER);

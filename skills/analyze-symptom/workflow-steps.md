@@ -64,6 +64,9 @@ Agent({
             line) — use the payload there, and do not use RuntimeAnalyzeDump.
          3. Source: read the ONE failing include or method at the termination link
             (GetInclude / GetProgram / GetClass / GetFunctionModule). Never GetProgFullCode.
+            For a class or program over a few hundred lines pass output: "file"
+            (abap-mcp-adt-powerup >= 4.8.7) and Read only the block around the
+            termination line — the returned outline gives each METHOD/FORM range.
          4. Only when steps 2–3 cannot explain the error (e.g. the exception text
             or variable values are needed): RuntimeGetDumpById(view: "formatted",
             chapters: ["developer"]) once — about 3–10 KB with the chapter filter
