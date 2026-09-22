@@ -3,6 +3,20 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.22] — 2026-09-22
+
+### Fixed — table reads returned values in the wrong rows (vendor 4.8.7)
+
+- `GetTableContents` / `GetSqlQuery` merged an empty cell with the next one, so every later value in that column moved up one row. Customizing and SPRO data pulled by `extract-customizations.mjs` / `extract-spro.mjs` from tables with empty cells may hold shifted values — re-run the extraction after updating.
+- `GetProgFullCode` now reads function groups (it returned metadata XML) and resolves nested includes.
+
+### Changed — smaller MCP responses
+
+- `SearchObject` drops the duplicated raw XML (over half of each response) and defaults to 50 results; `GetTableContents` returns column names only, leaves empty cells out of rows and defaults to 20 rows (`fields` / `include_metadata` when more is needed).
+- Source tools (`GetProgram`, `GetClass`, `GetInterface`, `GetFunctionModule`, `GetInclude`, `GetProgFullCode`) accept `output: "file"`: the source goes to `.sc4sap/work/<alias>/mcp-output/src/` and the response is the path plus an outline of METHOD / FORM / MODULE blocks with line ranges (a 66 KB class → ~3 KB). The bridge sets `MCP_OUTPUT_DIR` to that folder per profile; the server refuses file writes outside it.
+- `analyze-symptom` reads large classes / programs through the file outline and only the block around the termination line; `compare-programs` greps the files instead of reading every line, and no longer asks `sap-code-reviewer` for `ReadClass` / `ReadFunctionGroup` / `ReadView`, which it does not have.
+- Vendor pin: `9e6e216` (4.8.6) → `ea0de8c` (4.8.7).
+
 ## [0.6.21] — 2026-09-22
 
 ### Changed — `analyze-symptom` spends less context per round
