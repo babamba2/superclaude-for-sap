@@ -3,7 +3,7 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.20] — 2026-09-22
 
 ### Changed — `analyze-symptom` is read-only and checks known issues first
 
@@ -32,6 +32,10 @@ Every skill that writes a Markdown document for people can now also give a singl
 
 - `scripts/verify-deliverables.mjs` read `output` / `result`, which SubagentStop never sends, so every agent looked empty ("produced minimal output (0 chars, expected 50+)") and was woken again. It now reads `last_assistant_message`, skips when the field is absent or `stop_hook_active` is set, and matches plugin-namespaced agent types (`sc4sap:sap-…`).
 - `agents/agent_details/bc/*` moved to `agent-refs/bc/*` — files under `agents/` were being registered as agents (with all tools). References in `sap-bc-consultant` and `analyze-symptom/team-mode.md` updated.
+
+### Version
+
+All four version fields (`package.json`, `.claude-plugin/plugin.json`, `.claude-plugin/marketplace.json` root & `plugins[0]`) bumped 0.6.19 → 0.6.20. Vendor pin unchanged (`dfc96de`, 4.8.5).
 
 ## [0.6.19] — 2026-09-22
 
