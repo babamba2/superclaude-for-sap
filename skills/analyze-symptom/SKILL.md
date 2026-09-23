@@ -110,12 +110,12 @@ Per-step model allocation (skill main thread runs on Sonnet 4.6 per frontmatter;
 | Step | Owner | Model | Role |
 |------|-------|-------|------|
 | 0 Trust | skill-to-skill | Sonnet | permission bootstrap — skipped on a headless host |
-| 1 Initial Triage | main | **Sonnet** | clue parsing + `GetSession` + MODE (`quick-dump` \| `full`) + customization path |
+| 1 Initial Triage | main | **Sonnet** | clue parsing (a screenshot counts) + `GetSession` + MODE (`quick-dump` \| `full`, and `quick-dump` is the default — see `workflow-steps.md` § Step 1) + customization path |
 | **2 Investigate + Narrow + Report** | **`sap-debugger`** — `model: "sonnet"` for `quick-dump`, `model: "opus"` for `full` | **Sonnet / Opus** | Read-only. `quick-dump`: dump summary → failing source; returns `BLOCKED — needs full` when the dump alone is not enough, and main re-dispatches the round as `full` on Opus. `full`: dump / scoped transports / code / enhancement / customization; web lookup only for standard-code failures. Writes the user-facing report per `output-format.md` (hypotheses, questions, Note keywords, next steps). One dispatch per round. |
 | 3 Relay | main | **Sonnet** | output the report verbatim; wait for answers → repeat Step 2 |
 | 4 Follow-up Routing | main | **Sonnet** | pointers only when the user asks for the fix (apply the proposal in SE38/ADT outside this skill, /sc4sap:analyze-code, module consultant) — never a write call |
 
-sap-debugger's tool set already covers the dumps feed (`RuntimeListFeeds`), `RuntimeGetDumpById`, profiler, transport queries, code reads, enhancement lookup, and customization cache reads — see the agent's Investigation_Protocol for the full inventory. A `quick-dump` round is read-mostly work (dump → source → explanation), which `common/model-routing-rule.md` § Tier 1 routes to Sonnet; `full` rounds need cross-file reasoning (dump × transport × source × customization) and stay on Opus.
+sap-debugger's tool set already covers the dumps feed (`RuntimeListFeeds`), `RuntimeGetDumpById`, profiler, transport queries, code reads, enhancement lookup, and customization cache reads — see the agent's Investigation_Protocol for the full inventory. A `quick-dump` round is read-mostly work (dump → source → explanation), which `common/model-routing-rule.md` § Tier 1 routes to Sonnet; `full` rounds need cross-file reasoning (dump × transport × source × customization) and stay on Opus. Ambiguity resolves to `quick-dump`, never to `full`: the cheap path escalates itself when it cannot finish, and the expensive one has no way back.
 </Workflow_Steps>
 
 <Question_Strategy>
