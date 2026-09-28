@@ -14,7 +14,7 @@ Exit condition: `<OBJECT_NAME>` + `<OBJECT_TYPE>` resolved and confirmed.
 
 Emit phase banner per `common/model-routing-rule.md` § Phase Banner Convention:
 ```
-▶ phase=2 (reviewer) · agent=sap-code-reviewer · model=Opus 4.7
+▶ phase=2 (reviewer) · agent=sap-code-reviewer · model=Opus
 ```
 
 Dispatch the reviewer with a **minimal prompt** — the agent reads everything itself:
@@ -75,7 +75,7 @@ Rules: do NOT restate the full findings list (Branch A covers raw enumeration); 
 
 After the report (canned or briefing), offer:
 
-1. **"Fix findings"** — explain options: manual `UpdateClass` / `UpdateProgram` / `UpdateInclude`, full rewrite via `/sc4sap:create-program`, or dispatch `sap-executor` here. If user picks executor delegation, emit banner `▶ phase=4.fix · agent=sap-executor · model=Sonnet 4.6` and dispatch.
+1. **"Fix findings"** — explain options: manual `UpdateClass` / `UpdateProgram` / `UpdateInclude`, full rewrite via `/sc4sap:create-program`, or dispatch `sap-executor` here. If user picks executor delegation, emit banner `▶ phase=4.fix · agent=sap-executor · model=Sonnet` and dispatch.
 2. **"Show where-used callers"** — display from the reviewer's where-used data (already in the response).
 3. **"Explain finding #N in more detail"** — main re-reads the specific finding entry and expands it.
 4. **"Save report — Markdown / HTML / both"** — main writes `.sc4sap/analysis/<object>-<timestamp>.md` (the report as rendered in Step 3). For HTML, convert it with `node "<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs" <that .md> <same path .html>` (`<PLUGIN_ROOT>` = two levels above this skill folder; one self-contained file); for HTML only, delete the `.md` afterwards.

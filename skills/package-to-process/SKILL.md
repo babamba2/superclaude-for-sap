@@ -18,7 +18,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 </Response_Prefix>
 
 <Phase_Banner>
-Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus|Sonnet|Haiku>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention. Resolve the dispatch mode first per [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md): `auto` (default) uses the model below/in the rule; `user-defined` asks the user Opus / Sonnet / Haiku (recommended one first) before each dispatch group.
 </Phase_Banner>
 
 <Progress_Bar>
@@ -78,11 +78,11 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 <Agent_Composition>
 Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; each `Agent(...)` carries its own model (frontmatter or explicit override).
 
-- **Main orchestrator (Sonnet 4.6)** — Steps 0, 1, 2 (gate), 3, 7: trust-session, intake, inventory gate, entry-point detection, validation/handoff. Sonnet provides enough headroom for the intake state machine and entry-point matching across PROG × TCode.
-- **`sap-stocker` (Sonnet 4.6, conditional)** — Step 2 dispatch only when `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json` is missing. Runs the full Investigation_Protocol per [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md).
-- **`sap-analyst` (Opus 4.7, frontmatter)** — Step 4 (auto process grouping w/ rationale) + Step 5 (per-process narrative + 1-hop boundary + sequenceDiagram). Opus is required: novel cross-program reasoning + business-flow inference, not template-fill.
-- **`sap-writer` (Sonnet 4.6 via `model: "sonnet"` override)** — Step 6 render. Master Markdown is L3-grade depth (TOC + multiple Mermaid blocks + per-process tables + cross-module gap section); Haiku is insufficient.
-- **Module consultant (optional, conditional)** — if Step 5 narrative discovers a strong cross-module integration (e.g., MM ↔ FI through `BAPI_ACC_DOC_POST`), the analyst MAY annotate via `sap-{module}-consultant` (Opus 4.7) for the boundary section only. NOT a default dispatch — costs additional context only when warranted.
+- **Main orchestrator (Sonnet)** — Steps 0, 1, 2 (gate), 3, 7: trust-session, intake, inventory gate, entry-point detection, validation/handoff. Sonnet provides enough headroom for the intake state machine and entry-point matching across PROG × TCode.
+- **`sap-stocker` (Sonnet, conditional)** — Step 2 dispatch only when `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json` is missing. Runs the full Investigation_Protocol per [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md).
+- **`sap-analyst` (Opus, frontmatter)** — Step 4 (auto process grouping w/ rationale) + Step 5 (per-process narrative + 1-hop boundary + sequenceDiagram). Opus is required: novel cross-program reasoning + business-flow inference, not template-fill.
+- **`sap-writer` (Sonnet via `model: "sonnet"` override)** — Step 6 render. Master Markdown is L3-grade depth (TOC + multiple Mermaid blocks + per-process tables + cross-module gap section); Haiku is insufficient.
+- **Module consultant (optional, conditional)** — if Step 5 narrative discovers a strong cross-module integration (e.g., MM ↔ FI through `BAPI_ACC_DOC_POST`), the analyst MAY annotate via `sap-{module}-consultant` (Opus) for the boundary section only. NOT a default dispatch — costs additional context only when warranted.
 
 SAP MCP permission prompts are auto-approved by the sc4sap permission-approver PreToolUse hook.
 </Agent_Composition>

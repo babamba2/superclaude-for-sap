@@ -30,7 +30,7 @@ Referenced by `SKILL.md`. The orchestration is **3 main-thread Socratic steps** 
 
 Emit phase banner per `common/model-routing-rule.md` § Phase Banner Convention:
 ```
-▶ phase=walk (stocker) · agent=sap-stocker · model=Sonnet 4.6
+▶ phase=walk (stocker) · agent=sap-stocker · model=Sonnet
 ```
 
 Dispatch with the collected intake as context:

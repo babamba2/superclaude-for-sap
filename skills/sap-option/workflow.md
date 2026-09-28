@@ -24,6 +24,7 @@
    - "rfc" — step through `SAP_RFC_BACKEND` + the backend-specific block (`SAP_RFC_ODATA_*` when backend = `odata` (default), `SAP_RFC_*` when `native`, `SAP_RFC_GATEWAY_*` when `gateway`, `SAP_RFC_ZRFC_*` when `zrfc`; only `SAP_RFC_BACKEND` offered when `soap`)
    - "industry" — shortcut into industry-selection.md flow
    - "modules" — edit `SAP_ACTIVE_MODULES` (comma-separated from `FI,CO,MM,SD,PP,PM,QM,WM,HCM,PS,TR,TM,BW,Ariba`). Show checkbox-style list with current active set highlighted; accept multi-select add/remove. Cross-module implications listed in `common/active-modules.md` are hinted per change (e.g., "activating PS will add WBS integration hints to MM/SD CBOs").
+   - "dispatch" / "model" — shortcut into the model-dispatch.md flow (edits `~/.sc4sap/preferences.json`, not `sap.env`)
    - "status" / "hud" — return to the status snapshot only (re-render step 3)
 
 6. **For each key to change:**

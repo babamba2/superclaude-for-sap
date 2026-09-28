@@ -33,14 +33,16 @@ If solo-module plan OR no conflict → skip teamMode, planner proceeds to `plan.
 
 Lead:
 
-1. Generate `team_name`:
+Transport is return-based ([`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Transport): consultants return blocks, the lead writes every task file.
+
+1. Generate a run ID `team_name` (directory name only — never passed to `Agent(...)`):
    - Phase 1A: `create-program-p1a-<PROG>-<YYYYMMDD-HHMMSS>`
    - Phase 2: `create-program-p2-<PROG>-<YYYYMMDD-HHMMSS>`
-2. `TeamCreate`; shared task dir auto-created.
+2. Create the task dir `~/.claude/tasks/<team_name>/`.
 3. Write `00-charter.md` (omit null env fields):
    ```
    TEAM CHARTER
-   team_name: <team_name>
+   run_id: <team_name>
    invoked_by: /sc4sap:create-program · Phase <1A|2>
    members: <sap-<module>-consultant × N for each module in module_set>
    round_cap: 3
@@ -65,12 +67,12 @@ Lead:
    ```
 4. Spawn all consultants **in parallel**:
    ```
-   ▶ phase=1A.R1.reconcile (position-<MODULE>) · agent=sap-<module>-consultant · model=Opus 4.7
+   ▶ phase=1A.R1.reconcile (position-<MODULE>) · agent=sap-<module>-consultant · model=Opus
      # OR
-   ▶ phase=2.R1.resolve (position-<MODULE>) · agent=sap-<module>-consultant · model=Opus 4.7
+   ▶ phase=2.R1.resolve (position-<MODULE>) · agent=sap-<module>-consultant · model=Opus
    ```
-   Spawn shape (same skeleton as `ask-consultant/team-mode.md` § Round 1, with `team_name`, `name`, `teamMode=true`, `round=1`, pointer to charter). Consultants write `10-<name>-position.md`.
-5. Read all POSITION files.
+   Spawn shape (same skeleton as `ask-consultant/team-rounds.md` § Round 1: `teamMode=true`, `round=1`, `member=<name>`, charter inlined, "do NOT write any file"). Each consultant returns a POSITION block.
+5. After all completion notifications, write each block to `10-<member>-position.md` (malformed → re-dispatch once).
 
 ### POSITION field expectations
 
@@ -86,9 +88,9 @@ Lead:
 
 ## Rounds 2 & 3 — CHALLENGE / REFINEMENT / CONCUR / ESCALATE
 
-Same pattern as ask-consultant/team-mode.md. Lead re-spawns members in parallel each round with accumulated context. Round 3 produces `40-consensus.md`. On ESCALATE, lead writes `99-lead-arbitration.md` picking a side with rationale cited from rules or escalating to the user when the choice is business-preference (e.g., "KR industry convention vs corporate global standard").
+Same pattern as ask-consultant/team-rounds.md. Lead re-dispatches members in parallel each round with accumulated context inline; members return blocks and the lead persists them. Round 3 blocks are appended by the lead to `40-consensus.md`. On ESCALATE, lead writes `99-lead-arbitration.md` picking a side with rationale cited from rules or escalating to the user when the choice is business-preference (e.g., "KR industry convention vs corporate global standard").
 
-> R2 operational details (inline peer POSITIONs, `-r2` name suffix for re-spawn, withdrawal-as-CONCUR) — see [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § R2 spawn mechanics + § Message types.
+> R2 operational details (inline peer POSITIONs, return-based blocks, withdrawal-as-CONCUR) — see [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Round 2 + § Message types.
 
 ## Synthesis — phase-specific feed
 
@@ -96,9 +98,9 @@ Same pattern as ask-consultant/team-mode.md. Lead re-spawns members in parallel 
 
 **Target**: finalize `.sc4sap/program/<PROG>/module-interview.md` with a reconciled cross-module section.
 
-Spawn `sap-writer` (Sonnet override, **NOT team member**):
+Spawn `sap-writer` (Sonnet override, single-shot — not a deliberation member):
 ```
-▶ phase=1A.R3.synthesis · agent=sap-writer · model=Sonnet 4.6
+▶ phase=1A.R3.synthesis · agent=sap-writer · model=Sonnet
 ```
 Prompt: read task files + per-consultant interview answers → compose final `module-interview.md` including a new `## Cross-Module Consistency` section with reconciled rules (or flagged residuals from ESCALATE).
 
@@ -108,9 +110,9 @@ Return to Phase 1B gating as usual. Phase 1B does not re-run — it starts fresh
 
 **Target**: feed resolution into `plan.md` as a section. Planner resumes normally.
 
-Spawn `sap-writer` (Sonnet override, NOT team member):
+Spawn `sap-writer` (Sonnet override, single-shot):
 ```
-▶ phase=2.R3.synthesis · agent=sap-writer · model=Sonnet 4.6
+▶ phase=2.R3.synthesis · agent=sap-writer · model=Sonnet
 ```
 Prompt: compose a resolution paragraph from `40-consensus.md` / `99-lead-arbitration.md`. Planner inserts the output into `plan.md` § *Conflict Resolutions* before the standard plan body.
 
@@ -124,10 +126,7 @@ Overrides standard prefix for the relevant phase turn:
 
 ## Cleanup
 
-1. **Shutdown teammates** — parallel `SendMessage(to=<name>, {type:"shutdown_request", reason:"teamMode complete"})` per member.
-2. **Keep directories** — NOT `TeamDelete`; Phase 6 review may cite team records; prototype audit trail retained.
-
-Writer is regular Agent (no team_name) — no shutdown_request.
+No shutdown step — members are one-shot dispatches that terminate on return. **Keep directories** — never delete `~/.claude/tasks/<team_name>/`; Phase 6 review may cite team records; prototype audit trail retained.
 
 ## Prototype notes
 

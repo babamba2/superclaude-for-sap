@@ -1,6 +1,6 @@
 # Dispatch — Steps 4 & 5 (sap-analyst)
 
-Referenced by `workflow.md` §§ Step 4, Step 5. Both dispatches use the agent's frontmatter model (Opus 4.7).
+Referenced by `workflow.md` §§ Step 4, Step 5. Both dispatches use the agent's frontmatter model (Opus).
 
 ## State variables
 - `<PACKAGE>`, `<MODULE>`, `<SAPV>` (`S4`/`ECC`)

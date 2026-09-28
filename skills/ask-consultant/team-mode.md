@@ -15,22 +15,24 @@ When teamMode does NOT activate (single consultant, or Round 1 POSITIONs align) 
 
 Full per-round spawn shapes, divergence rules, and arbitration logic are in [`team-rounds.md`](team-rounds.md). Short summary:
 
-- **Round 1** (always runs) — N consultants spawn in parallel, each writes a POSITION file.
+Transport is return-based ([`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Transport): consultants return blocks, the lead (this skill, main thread) writes every task file.
+
+- **Round 1** (always runs) — N consultants dispatched in parallel, each returns a POSITION block (+ full answer); lead writes `10-*-position.md`.
 - **Divergence check** — lead parses POSITIONs. Aligned → exit to § Synthesis. Divergent → Round 2.
-- **Round 2** — re-spawn with peer POSITIONs inline (`-r2` name suffix); each writes CHALLENGEs + REFINEMENT.
+- **Round 2** — re-dispatch with peer POSITIONs inline; each returns CHALLENGEs + REFINEMENT; lead writes `20-*` / `30-*`.
 - **Divergence check 2** — refined POSITIONs aligned (incl. via explicit withdrawal) → § Synthesis. Else Round 3.
-- **Round 3** — members append CONCUR or ESCALATE to `40-consensus.md`.
+- **Round 3** — each member returns CONCUR or ESCALATE; lead appends them to `40-consensus.md`.
 - **Lead arbitration** — on any ESCALATE, lead writes `99-lead-arbitration.md` with a decision + rationale.
 
 ## Synthesis (Step 5, teamMode variant)
 
-Replaces the Haiku main / Sonnet writer path of `SKILL.md` Step 5.
+Replaces the legacy writer path of `SKILL.md` Step 5.
 
 1. Emit phase banner:
    ```
-   ▶ phase=5 (team-synthesis) · agent=sap-writer · model=Sonnet 4.6
+   ▶ phase=5 (team-synthesis) · agent=sap-writer · model=Sonnet
    ```
-2. Spawn `sap-writer` with `model: "sonnet"` override and **NO `team_name` parameter** (single-shot Agent, NOT a team member — avoids idle-notification overhead and keeps the team scope to deliberation only). Prompt:
+2. Spawn `sap-writer` with `model: "sonnet"` override (single-shot Agent, not a deliberation member). Prompt:
    ```
    Team deliberation complete. Files:
      ~/.claude/tasks/<team_name>/00-charter.md
@@ -48,7 +50,8 @@ Replaces the Haiku main / Sonnet writer path of `SKILL.md` Step 5.
 
    Do NOT re-answer the question — compose from the task files only.
    ```
-3. Writer's return is the body of the user-facing response.
+3. **Lead review** (protocol § Transport → Synthesis review) — check every identifier and decision in the writer's output against the task files, correct mismatches, and note the corrections under the body.
+4. The reviewed writer return is the body of the user-facing response.
 
 ## Response prefix — teamMode variant
 
@@ -62,12 +65,9 @@ Where `<rounds>` is the actual rounds executed (1 if aligned in Round 1 and team
 
 ## Cleanup
 
-After Step 6 completes and the user sees the answer:
+No shutdown step — every member is a one-shot dispatch that terminates on return.
 
-1. **Shutdown teammates** — send `SendMessage(to=<name>, message={type:"shutdown_request", reason:"teamMode complete"})` to each team member in parallel (one tool call each, same message). **Pass `message` as a structured JSON object, NOT a JSON string** — the `message` parameter value must be the object `{type: "shutdown_request", reason: "..."}`, NOT a stringified form like `'{"type":"shutdown_request",...}'`. The latter is parsed as plain text and the teammate goes idle without approving. Teammates auto-approve and terminate; no `TeamDelete` needed.
-2. **Keep directories** — do NOT call `TeamDelete` (it would wipe `~/.claude/tasks/<team_name>/` which is the audit trail needed for Phase 2 evaluation). Retention policy: last 30 teams kept, older auto-pruned by a separate script (deferred).
-
-Note: Writer is NOT a team member (§ Synthesis) — it terminates on return like any regular Agent, so no shutdown_request.
+**Keep directories** — never delete `~/.claude/tasks/<team_name>/`; it is the audit trail needed for Phase 2 evaluation. Retention policy: last 30 runs kept, older auto-pruned by a separate script (deferred).
 
 ## Prototype exit criteria (per architecture doc Phase 2)
 

@@ -94,10 +94,10 @@ Persist to `.sc4sap/program/{PROG}/state.json` → `phase1b.execution_style`. Ph
 
 ## Phase 3 — Spec Writing: `sap-writer` (Opus override — MANDATORY)
 
-> **Model**: dispatch `sap-writer` with **`model: "opus"` override** — the writer's base model is Haiku 4.5 (report formatting), but spec writing is design + narrative work that `common/model-routing-rule.md` § Tier 2 / Per-wave table classifies as Opus territory. The spec is the single most critical artifact between interview and Phase 4 implementation; Haiku-level output is unacceptable here.
+> **Model**: dispatch `sap-writer` with **`model: "opus"` override** — the writer's base model is Haiku (report formatting), but spec writing is design + narrative work that `common/model-routing-rule.md` § Tier 2 / Per-wave table classifies as Opus territory. The spec is the single most critical artifact between interview and Phase 4 implementation; Haiku-level output is unacceptable here.
 >
 > ```
-> ▶ phase=3 (writer-spec) · agent=sap-writer · model=Opus 4.7
+> ▶ phase=3 (writer-spec) · agent=sap-writer · model=Opus
 > ```
 
 - Produce functional + technical spec from plan
@@ -159,7 +159,7 @@ Full procedure — `trust-session` invocation, auto/manual/hybrid mode prompt, s
 > **Model**: dispatch `sap-writer` with **`model: "sonnet"` override** — base Haiku is sufficient for pure templating, but the Phase 8 report aggregates review verdicts + timing metrics + transport metadata + convention-compliance narrative, which `common/model-routing-rule.md` Per-wave table classifies as Sonnet tier. The report is the skill's final deliverable to the user; light reasoning over structured state keeps wording precise without paying Opus cost.
 >
 > ```
-> ▶ phase=8 (writer-report) · agent=sap-writer · model=Sonnet 4.6
+> ▶ phase=8 (writer-report) · agent=sap-writer · model=Sonnet
 > ```
 
 Dispatch input (writer receives, does NOT re-fetch via MCP):

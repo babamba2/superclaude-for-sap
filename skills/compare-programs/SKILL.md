@@ -24,7 +24,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 </Response_Prefix>
 
 <Phase_Banner>
-Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus|Sonnet|Haiku>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention. Resolve the dispatch mode first per [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md): `auto` (default) uses the model below/in the rule; `user-defined` asks the user Opus / Sonnet / Haiku (recommended one first) before each dispatch group.
 </Phase_Banner>
 
 <Team_Mode>
@@ -70,11 +70,11 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 <Agent_Composition>
 Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; each `Agent(...)` carries its own model (frontmatter or explicit override).
 
-- **Main orchestrator (Sonnet 4.6)** — Steps 1, 2, 6: intake, scope confirmation, follow-up menu. Holds NO source code / AST / screens in its own context; all MCP-heavy work runs inside agents.
-- **Facts extraction (`sap-code-reviewer` × N, Sonnet 4.6 via `model: "sonnet"` override)** — Step 3 (absorbs the old "Read Phase"). Each reviewer reads ONE program itself (`GetProgFullCode` / `GetAbapAST` / screens / GUI status / text elements / where-used) and returns structural facts only — no quality scoring. Sonnet is sufficient because this pass is rule-based extraction, not novel code generation; matches the base tier of `common/model-routing-rule.md` § Tier 1.
-- **Analysis + narrative (`sap-analyst` × 1, Opus 4.7)** — Step 4: a SINGLE dispatch covering module classification + dimension scoring + executive summary + recommendation. Keeps the analyst's context continuous across reasoning layers instead of fragmenting into 4 chained calls.
-- **Module specialists (conditional, `sap-{module}-consultant` × K, Opus 4.7)** — Step 4b: when programs span 2+ modules (MM+CO, SD+FI, etc.), each distinct module gets a consultant dispatch to explain "what would a {module} user use this for". The analyst's scoring consumes these in its narrative.
-- **Rendering (`sap-writer` × 1, Haiku 4.5)** — Step 5: renders the final Markdown using `report-template.md`. Pure formatting from structured state.
+- **Main orchestrator (Sonnet)** — Steps 1, 2, 6: intake, scope confirmation, follow-up menu. Holds NO source code / AST / screens in its own context; all MCP-heavy work runs inside agents.
+- **Facts extraction (`sap-code-reviewer` × N, Sonnet via `model: "sonnet"` override)** — Step 3 (absorbs the old "Read Phase"). Each reviewer reads ONE program itself (`GetProgFullCode` / `GetAbapAST` / screens / GUI status / text elements / where-used) and returns structural facts only — no quality scoring. Sonnet is sufficient because this pass is rule-based extraction, not novel code generation; matches the base tier of `common/model-routing-rule.md` § Tier 1.
+- **Analysis + narrative (`sap-analyst` × 1, Opus)** — Step 4: a SINGLE dispatch covering module classification + dimension scoring + executive summary + recommendation. Keeps the analyst's context continuous across reasoning layers instead of fragmenting into 4 chained calls.
+- **Module specialists (conditional, `sap-{module}-consultant` × K, Opus)** — Step 4b: when programs span 2+ modules (MM+CO, SD+FI, etc.), each distinct module gets a consultant dispatch to explain "what would a {module} user use this for". The analyst's scoring consumes these in its narrative.
+- **Rendering (`sap-writer` × 1, Haiku)** — Step 5: renders the final Markdown using `report-template.md`. Pure formatting from structured state.
 
 SAP MCP permission prompts are auto-approved by the sc4sap permission-approver PreToolUse hook.
 </Agent_Composition>

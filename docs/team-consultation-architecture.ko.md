@@ -20,9 +20,9 @@ main thread ─┬─> consultant_A (고립)
 - 컨설턴트끼리 의견이 충돌해도 writer는 **불일치를 보고**할 뿐, **해소**할 수 없음.
 - Claude Code 플랫폼 제약: sub-agent는 `Agent()`를 호출할 수 없음 — 컨설턴트가 다른 컨설턴트를 직접 부를 수 없음 (0.6.8에서 revert됨, `CHANGELOG.md` 참조).
 
-Agent teams (Claude Code 실험적 기능, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`)가 빠진 채널을 제공함: **팀원끼리 `SendMessage`로 lead를 거치지 않고 직접 통신 가능**.
+원래 설계는 Claude Code agent teams(`TeamCreate` + `Agent(team_name=...)` + 피어 `SendMessage`)에 의존했음. 이 채널은 사라짐 — `team_name`은 deprecated되어 무시되고 `TeamCreate`는 더 이상 없음. 그래서 협의는 **lead 중계 + 반환 기반**으로 동작함: lead가 라운드마다 피어 메시지를 프롬프트에 넣어 멤버를 다시 dispatch하고, 멤버는 메시지 블록을 반환하며, lead가 이를 파일로 저장함. 피어 ↔ 피어 메시지는 구현된 적이 없어 잃는 동작은 없음.
 
-## 2. 공통 흐름 — Lead ↔ Team
+## 2. 공통 흐름 — Lead ↔ Members (반환 기반)
 
 ```
                          사용자
@@ -32,32 +32,26 @@ Agent teams (Claude Code 실험적 기능, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS
               │  Lead (Claude Code      │  ← 메인 세션, 호출한 스킬
               │  메인 세션)              │
               └──────────┬──────────────┘
-                         │ TeamCreate + Agent(team_name=...) × N
+                         │ 라운드마다 Agent(...) × N (병렬, one-shot)
+                         │ 프롬프트 = charter + 피어 블록 inline
                          v
-         ┌───────────────────────────────────────┐
-         │     Team / 공유 task list             │
-         │                                       │
-         │   ┌─────────┐   ┌─────────┐   ┌─────┐ │
-         │   │Member_A │◄─►│Member_B │◄─►│ ... │ │  ← SendMessage 피어 ↔ 피어
-         │   └─────────┘   └─────────┘   └─────┘ │     (main 릴레이 없음)
-         │        │             │          │     │
-         │        └─────────────┼──────────┘     │
-         │                      v                │
-         │             consensus.md (40-)        │  ← 팀원이 여기에 작성
-         └──────────────────────┬────────────────┘
-                                │ lead가 최종 상태 읽음
-                                v
-                      ┌─────────────────┐
-                      │ Lead: 중재       │  ← lead가 합의 추출,
-                      │   + 포매팅        │     잔여 불일치 표기,
-                      └─────────────────┘     사용자에게 반환
+         ┌─────────┐   ┌─────────┐   ┌─────┐
+         │Member_A │   │Member_B │   │ ... │   ← R/O; 파일 쓰기 안 함
+         └────┬────┘   └────┬────┘   └──┬──┘
+              └── POSITION / CHALLENGE / CONCUR 블록 반환 ──┐
+                                                           v
+              ┌───────────────────────────────────────────────────┐
+              │ Lead: ~/.claude/tasks/<run-id>/ 에 저장 (10- …    │
+              │ 40-), 불일치 판정, 다음 라운드 또는 중재,          │
+              │ 이후 synthesis writer → 사용자                     │
+              └───────────────────────────────────────────────────┘
 ```
 
 - Lead = 호출한 스킬을 실행하는 Claude Code 세션 (frontmatter `model:`은 선언적; `skill-model-architecture.md` 참조).
-- Members = `Agent(..., team_name="...")`로 스폰되는 sc4sap 에이전트.
-- `~/.claude/tasks/<team-name>/` 아래 task list가 공유 스크래치패드.
+- Members = 일반 one-shot `Agent(...)` dispatch; 반환하면 종료됨 (shutdown 단계 없음).
+- `~/.claude/tasks/<run-id>/`는 lead가 쓰는 감사 기록이며, 쓰는 주체는 lead 하나뿐.
 - **팀원은 추가 에이전트를 스폰할 수 없음** — single-dispatch와 동일한 `Agent()` 제약. 협의 범위는 유한해야 함.
-- **이름 주소지정은 ephemeral** — `name=`으로는 활성 중일 때만 도달 가능; 턴을 넘겨 재지정하려면 spawn 반환의 UUID 필요.
+- 프로토콜 상세: [`../common/team-consultation-protocol.md`](../common/team-consultation-protocol.md) § Transport.
 
 ## 3. 팀 타입 — 4종
 
@@ -237,9 +231,8 @@ form_team = (member_count ≥ 2)
 
 - **팀원은 sub-agent 스폰 불가**: nested team 없음; 팀원이 `Agent()` 호출 못함. 더 깊은 추론 필요 시 lead로 ESCALATE.
 - **팀원은 독립 컨텍스트 윈도우**: 대화 히스토리 공유 안 됨. 각 spawn 프롬프트에 charter 전체(질문 + 환경 + 규칙)를 포함해야 함.
-- **이름 주소지정은 ephemeral**: `name=`으로는 활성 중일 때만 도달. 턴을 넘겨 재지정하려면 `Agent()` spawn 반환의 UUID 필요.
+- **named team 채널 없음**: `team_name`은 deprecated/무시되고 `TeamCreate`는 없음. 멤버는 one-shot dispatch이며, 매 라운드 피어 내용을 inline으로 넣어 새로 dispatch하고, 멤버는 파일을 쓰지 않고 블록을 반환함.
 - **자동 합의 메커니즘 없음**: lead가 `40-consensus.md`를 읽고 최종 출력을 포매팅해야 함. 팀은 협의 메커니즘이지 의사결정 메커니즘이 아님.
-- **한 lead당 팀 1개** (Claude Code 문서상 실험적 제약).
 
 ## 8. 단계별 롤아웃
 

@@ -13,7 +13,7 @@ Steps:
    - **Exists** → Read it. Extract the `objects[]` array. Treat every entry as a **reuse candidate** and surface it in Phase 2 / Phase 3 so the planner and writer prefer the existing asset over creating a new one.
    - **Does not exist** → Offer the user three options in one question:
      > "No CBO inventory at `.sc4sap/cbo/<MODULE>/<PACKAGE>/`. Pick one: **(A) stock now** — dispatch `sap-stocker` inline (Sonnet, ~2-5 min, recommended) · **(B) skip** — continue without reuse analysis · **(C) cancel** — I'll run `/sc4sap:analyze-cbo-obj` separately first."
-     - **(A) stock now** → Emit phase banner `▶ phase=1.CBO-stock · agent=sap-stocker · model=Sonnet 4.6` and dispatch:
+     - **(A) stock now** → Emit phase banner `▶ phase=1.CBO-stock · agent=sap-stocker · model=Sonnet` and dispatch:
        ```
        Agent({
          subagent_type: "sc4sap:sap-stocker",

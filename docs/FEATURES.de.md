@@ -206,16 +206,16 @@ Jede `/sc4sap:*`-Skill-getriggerte Antwort beginnt mit einer einzeiligen Prefix-
 Beispiele:
 
 ```
-[Model: Opus 4.7]
+[Model: Opus]
 — reine Main-Thread-Antwort, keine Sub-Agent-Dispatches
 
-[Model: Opus 4.7 · Dispatched: Sonnet×2]
+[Model: Opus · Dispatched: Sonnet×2]
 — Main + zwei parallele Sonnet-Executor (Wave 2 G4-prep Text-Bulk)
 
-[Model: Opus 4.7 · Dispatched: Opus×1 (planner)]
+[Model: Opus · Dispatched: Opus×1 (planner)]
 — Phase-2-Planner-Dispatch
 
-[Model: Opus 4.7 · Dispatched: Sonnet×3 (B3a executor range α/β/γ)]
+[Model: Opus · Dispatched: Sonnet×3 (B3a executor range α/β/γ)]
 — Multi-Executor-Split nach multi-executor-split.md Strategie A
 ```
 

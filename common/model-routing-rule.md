@@ -38,6 +38,7 @@ Most sc4sap workflows do NOT reach Haiku — use only when you're confident the 
 
 Before every `Agent(...)` call, classify the planned MCP tool mix:
 
+0. **Resolve the dispatch mode** once per skill run per [`model-dispatch-mode.md`](model-dispatch-mode.md) (`~/.sc4sap/preferences.json` → `modelDispatch`). `auto` (default) → steps 1–5 decide the model silently. `user-defined` → steps 1–5 produce the *recommendation*, then ask the user (Opus / Sonnet / Haiku) once per dispatch group and dispatch with the chosen model.
 1. Enumerate the MCP tools the agent will call (from the skill's Wave description or the agent's known behavior).
 2. Count **reads** (Tier-1 tools) vs **writes** (Create / Update / Delete / Activate / Patch / Write).
 3. If `writes == 0` OR the writes are repetitive-bulk per Tier 1 criteria → **Sonnet**.
@@ -80,12 +81,22 @@ This gives Opus the cheap agent's inventory + the specific failure point, rather
 - **"Sonnet for everything to save cost"** — Phase 2 planner / Phase 3 writer / Wave 1 DDIC on Sonnet produces thin specs and miss-typed data elements.
 - **Skipping escalation** — if Sonnet returns `BLOCKED`, the skill MUST re-dispatch to Opus with the blocker context. Abandoning the task or re-trying on Sonnet wastes the tier-1 learnings.
 
+## Reasoning effort (agent frontmatter `effort:`)
+
+`effort:` is set once per agent — the `Agent(...)` call has no effort parameter — so it applies to every dispatch of that agent, including ones with a `model:` override. Omitted → Claude Code applies its own per-model default, not the session's effort — observed 2026-09-28 in subagent transcripts (`"effort"` field) with the session at `medium`: Opus 4.7 ran `xhigh`, Sonnet 4.6 / Sonnet 5 ran `high`, Haiku 4.5 records none. Check the transcript field after a CLI update instead of assuming.
+
+- `effort: medium` only on `sap-stocker` and `sap-doc-specialist` (Sonnet, lookup / inventory, no code generation).
+- No `effort:` on everything else (they keep the model default, `high` or above): executor / qa-tester / debugger generate or fix code; consultants, planner, architect, analyst, critic, code-reviewer judge.
+- Never on `sap-writer`: its Haiku base does not accept effort, and Phase 3 reuses it with `model: "opus"` for spec writing.
+- Lowering an agent further needs a measured comparison on real tasks first — effort trades thoroughness for tokens, and the saving is not worth a wrong spec or review.
+
 ## Integration
 
 - `agents/sap-executor.md` — "Model Selection" section references this rule.
 - `skills/create-program/phase4-parallel.md` — per-Wave model column above is authoritative.
 - `skills/create-program/agent-pipeline.md` — each Phase bullet states its expected model.
 - `skills/create-program/phase6-buckets.md` — reviewer bucket dispatch + Opus escalation ladder uses this rule.
+- `common/model-dispatch-mode.md` — when `modelDispatch=user-defined`, every model named in this file (tables and skill-level `model:` overrides included) becomes the *recommended* option the user confirms or overrides.
 
 ## Response Prefix Convention — `/sc4sap:*` skills
 
@@ -97,7 +108,7 @@ Every sc4sap skill (`/sc4sap:*`) MUST cause the main-thread response to begin wi
 [Model: <main-model> · Dispatched: <sub-summary>]
 ```
 
-- `<main-model>` — the model the main conversation thread runs on (e.g., `Opus 4.7`, `Sonnet 4.6`, `Haiku 4.5`). Read from the session's model identity; does NOT change mid-session.
+- `<main-model>` — the model actually answering this turn, read from its own model identity at runtime (a version is fine here because it is read, not hardcoded — e.g. `Opus 5.5`). A skill's frontmatter `model:` can switch the model for the turn, so report the model that is answering, not the session default.
 - `<sub-summary>` — a compact list of `Agent(...)` dispatches issued during the response, with model + count. Examples:
   - `Sonnet×2` — two Sonnet sub-agent dispatches.
   - `Opus×1 (planner), Sonnet×3 (executor)` — role-annotated when helpful.
@@ -106,16 +117,16 @@ Every sc4sap skill (`/sc4sap:*`) MUST cause the main-thread response to begin wi
 **Examples:**
 
 ```
-[Model: Opus 4.7]
+[Model: Opus]
 — pure main-thread response, no sub-agent dispatches
 
-[Model: Opus 4.7 · Dispatched: Sonnet×2]
+[Model: Opus · Dispatched: Sonnet×2]
 — main thread + two parallel Sonnet executors (e.g., Phase 4 Wave 2 G4-prep split)
 
-[Model: Opus 4.7 · Dispatched: Opus×1 (planner)]
+[Model: Opus · Dispatched: Opus×1 (planner)]
 — Phase 2 planner dispatch
 
-[Model: Opus 4.7 · Dispatched: Sonnet×3 (B3a executor range α/β/γ)]
+[Model: Opus · Dispatched: Sonnet×3 (B3a executor range α/β/γ)]
 — Multi-Executor Split per multi-executor-split.md Strategy A
 ```
 
@@ -134,31 +145,30 @@ Skills that internally orchestrate **two or more phases** (e.g., `/sc4sap:create
 **Format:**
 
 ```
-▶ phase=<id> (<short-label>) · agent=<agent-name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>
+▶ phase=<id> (<short-label>) · agent=<agent-name> · model=<Opus|Sonnet|Haiku>
 ```
 
 - `<id>` — stable phase identifier from the skill's own phase map (e.g., `2`, `4.W2.G3`, `6`, `1A`).
 - `<short-label>` — 1-3 word role label (`planner`, `executor`, `reviewer`, `debugger`, `writer`, `consultant-MM`, …).
 - `<agent-name>` — exact agent frontmatter `name:` (e.g., `sap-planner`, `sap-executor`).
-- `<model>` — human-readable model tier, matching the agent's frontmatter `model:` field mapped via:
-  - `claude-opus-4-7` → `Opus 4.7`
-  - `claude-sonnet-4-6` → `Sonnet 4.6`
-  - `claude-haiku-4-5` → `Haiku 4.5`
+- `<model>` — the model tier: the explicit `model:` passed to `Agent(...)` if any, else the agent's frontmatter alias (`opus` → `Opus`, `sonnet` → `Sonnet`, `haiku` → `Haiku`, `fable` → `Fable`).
+  - Never write a version number here. Aliases track the newest model of each tier (per Claude Code model config), so a hardcoded version goes stale; the tier name stays correct.
+  - In `user-defined` dispatch mode, show the model the user chose and append ` (user)` (see `model-dispatch-mode.md`).
 
 **When to emit:**
 
 - Once per `Agent(...)` dispatch that begins a new phase.
 - For **parallel fan-out** (e.g., Phase 4 Wave 2 G4-prep on 3 executors), emit one banner per spawn:
   ```
-  ▶ phase=4.W2.G4-prep · agent=sap-executor[α] · model=Sonnet 4.6
-  ▶ phase=4.W2.G4-prep · agent=sap-executor[β] · model=Sonnet 4.6
-  ▶ phase=4.W2.G4-prep · agent=sap-executor[γ] · model=Sonnet 4.6
+  ▶ phase=4.W2.G4-prep · agent=sap-executor[α] · model=Sonnet
+  ▶ phase=4.W2.G4-prep · agent=sap-executor[β] · model=Sonnet
+  ▶ phase=4.W2.G4-prep · agent=sap-executor[γ] · model=Sonnet
   ```
 - For **Sonnet→Opus escalation** on BLOCKED (per § Escalation pattern), emit a second banner when re-dispatching:
   ```
-  ▶ phase=4.W2.G2 · agent=sap-executor · model=Sonnet 4.6
+  ▶ phase=4.W2.G2 · agent=sap-executor · model=Sonnet
   ... (BLOCKED: cross-file naming conflict)
-  ▶ phase=4.W2.G2 (escalated) · agent=sap-executor · model=Opus 4.7
+  ▶ phase=4.W2.G2 (escalated) · agent=sap-executor · model=Opus
   ```
 
 **When NOT to emit:**

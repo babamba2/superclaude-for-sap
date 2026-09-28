@@ -19,7 +19,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 </Response_Prefix>
 
 <Phase_Banner>
-Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus|Sonnet|Haiku>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention. Resolve the dispatch mode first per [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md): `auto` (default) uses the model below/in the rule; `user-defined` asks the user Opus / Sonnet / Haiku (recommended one first) before each dispatch group.
 </Phase_Banner>
 
 <Use_When>
@@ -50,8 +50,8 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 <Workflow_Steps>
 Orchestration is **3 main-thread Socratic steps + one delegated dispatch to `sap-stocker` (Sonnet) + a branching hand-off**. Detailed spec lives in [`workflow-steps.md`](./workflow-steps.md).
 
-- **Step 1 / 1.5 / 2 (main thread)** — Socratic intake: package name → flagship programs (optional `<KEY_PROGRAMS>`) → module. Frontmatter pins the main thread to Sonnet 4.6.
-- **Step 3–7 (delegated · Sonnet 4.6)** — One `Agent(...)` dispatch to `sap-stocker`. The stocker runs its own Investigation_Protocol: walk → `GetWhereUsed` graph → pin/frequency tiering → business-purpose inference → cross-module gap analysis (per [`../../common/active-modules.md`](../../common/active-modules.md)) → sensitive-name flagging → persist `index.md` + `inventory.json` → return a `Logic-heavy: <bool>` flag. Authoritative spec: [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md) § Investigation_Protocol + § Output_Format.
+- **Step 1 / 1.5 / 2 (main thread)** — Socratic intake: package name → flagship programs (optional `<KEY_PROGRAMS>`) → module. Frontmatter pins the main thread to Sonnet.
+- **Step 3–7 (delegated · Sonnet)** — One `Agent(...)` dispatch to `sap-stocker`. The stocker runs its own Investigation_Protocol: walk → `GetWhereUsed` graph → pin/frequency tiering → business-purpose inference → cross-module gap analysis (per [`../../common/active-modules.md`](../../common/active-modules.md)) → sensitive-name flagging → persist `index.md` + `inventory.json` → return a `Logic-heavy: <bool>` flag. Authoritative spec: [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md) § Investigation_Protocol + § Output_Format.
 - **Step 8 (branching)**:
   - **Branch A** (`Logic-heavy: false`, DDIC-dominant) — canned summary printed by main thread. No agent dispatch.
   - **Branch B** (`Logic-heavy: true`, FM/CLAS/INTF/large-PROG in inventory) — main thread renders a reader-facing briefing from `inventory.json`: pinned highlights · business-logic assets · cross-module gaps · sensitive objects · next-step hint. No extra agent dispatch.

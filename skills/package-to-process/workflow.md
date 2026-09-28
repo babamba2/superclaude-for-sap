@@ -43,7 +43,7 @@ Main thread (no agent dispatch).
 
 ## Step 1 — Intake (Socratic)
 
-Main thread (Sonnet 4.6).
+Main thread (Sonnet).
 
 1. Print: `Step 1/7 · Intake (package + module + context)   [██░░░░░░░░░░░░░░░░░░]  14%`
 2. **If `ARGUMENTS` did not supply a package** → ask exactly one question:
@@ -73,14 +73,14 @@ Output state held in main thread: `{package, module, sapVersion, abapRelease, in
 1. Print: `Step 2/7 · CBO inventory ensure   [█████░░░░░░░░░░░░░░░]  28%`
 2. Check `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`.
 3. **Branch A — file exists**: print `(skipped — inventory found at <path>)` after the bar. Load JSON into state.
-4. **Branch B — file missing**: dispatch `sap-stocker` per [`dispatch-stocker.md`](dispatch-stocker.md). Phase Banner: `▶ phase=2.stocker · agent=sap-stocker · model=Sonnet 4.6`. After return, load `inventory.json`.
+4. **Branch B — file missing**: dispatch `sap-stocker` per [`dispatch-stocker.md`](dispatch-stocker.md). Phase Banner: `▶ phase=2.stocker · agent=sap-stocker · model=Sonnet`. After return, load `inventory.json`.
 5. On stocker `BLOCKED: <reason>` → STOP and surface to user (cannot continue without inventory).
 
 ---
 
 ## Step 3 — Entry-Point Detection
 
-Main thread (Sonnet 4.6).
+Main thread (Sonnet).
 
 1. Print: `Step 3/7 · Entry-point detection   [████████░░░░░░░░░░░░]  42%`
 2. From `inventory.json` → collect all PROG objects.
@@ -100,7 +100,7 @@ Main thread (Sonnet 4.6).
 ## Step 4 — Process Grouping (sap-analyst, Opus)
 
 1. Print: `Step 4/7 · Process grouping   [███████████░░░░░░░░░]  57%`
-2. Phase Banner: `▶ phase=4.group · agent=sap-analyst · model=Opus 4.7`
+2. Phase Banner: `▶ phase=4.group · agent=sap-analyst · model=Opus`
 3. Dispatch per [`dispatch-analyst.md`](dispatch-analyst.md) § Step 4 — Auto Process Grouping. The analyst:
    - Reads `inventory.json` + `grouping-heuristics.md` module dictionary
    - Calls `GetWhereUsed` for entry-point programs (1-hop in-package + 1-hop out-of-package)
@@ -119,7 +119,7 @@ Main thread (Sonnet 4.6).
 ## Step 5 — Per-Process Narrative (sap-analyst, Opus)
 
 1. Print: `Step 5/7 · Per-process narrative   [██████████████░░░░░░]  71%`
-2. Phase Banner: `▶ phase=5.narrate · agent=sap-analyst · model=Opus 4.7`
+2. Phase Banner: `▶ phase=5.narrate · agent=sap-analyst · model=Opus`
 3. Dispatch per [`dispatch-analyst.md`](dispatch-analyst.md) § Step 5 — Per-Process Narrative. ONE dispatch covers all processes (continuous context). For each process the analyst produces:
    - Overview paragraph (3–6 sentences, business voice)
    - Mermaid `sequenceDiagram` for the representative scenario (user → entry-PROG → FM/CLAS → DB tables → output)
@@ -133,7 +133,7 @@ Main thread (Sonnet 4.6).
 ## Step 6 — Master .md Render (sap-writer, Sonnet)
 
 1. Print: `Step 6/7 · Master .md render   [█████████████████░░░]  85%`
-2. Phase Banner: `▶ phase=6.render · agent=sap-writer · model=Sonnet 4.6`
+2. Phase Banner: `▶ phase=6.render · agent=sap-writer · model=Sonnet`
 3. Dispatch per [`dispatch-writer.md`](dispatch-writer.md). Writer reads:
    - State from Steps 1–5 (passed in prompt)
    - [`document-template.md`](document-template.md) skeleton
@@ -156,7 +156,7 @@ Main thread (Sonnet 4.6).
 
 ## Step 7 — Validation + Handoff
 
-Main thread (Sonnet 4.6).
+Main thread (Sonnet).
 
 1. Print: `Step 7/7 · Validation + handoff   [████████████████████] 100%`
 2. Validate file:

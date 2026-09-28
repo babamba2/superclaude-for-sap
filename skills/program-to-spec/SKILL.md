@@ -15,7 +15,7 @@ Turn legacy or unfamiliar ABAP objects into a reviewable Functional/Technical Sp
 
 <Response_Prefix>Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.</Response_Prefix>
 
-<Phase_Banner>Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.</Phase_Banner>
+<Phase_Banner>Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention. Resolve the dispatch mode first per [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md): `auto` (default) uses the model below/in the rule; `user-defined` asks the user Opus / Sonnet / Haiku (recommended one first) before each dispatch group.</Phase_Banner>
 
 <Team_Mode>**No teamMode integration.** program-to-spec targets a single object (one program / class / FM group / CDS / RAP BO) and performs read-only structural extraction — no cross-module synthesis, no authoring conflict, no incident triage. See [`../../docs/team-consultation-architecture.md`](../../docs/team-consultation-architecture.md) § 6 gating logic. Future extension: if a target's `GetWhereUsed` graph spans ≥ 2 modules AND user picks L4 depth, Type A (module consultants annotating cross-module concerns in Step 3) could be added — not in current scope.</Team_Mode>
 
