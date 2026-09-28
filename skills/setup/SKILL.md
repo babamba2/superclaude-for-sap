@@ -2,7 +2,7 @@
 name: sc4sap:setup
 description: Plugin setup — detect legacy single-profile state (migrate → multi-profile), create or register a SAP connection profile under ~/.sc4sap/profiles/<alias>/, install abap-mcp-adt-powerup MCP server, optionally install DEV-only ZMCP_ADT_UTILS + ZCL_S4SAP_CM_* ALV OOP handlers (tier-gated), register both PreToolUse hooks (blocklist + tier-readonly-guard), optional SPRO / customizations extraction
 level: 2
-model: haiku
+model: inherit
 ---
 
 # SC4SAP Setup
@@ -15,24 +15,24 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 </Response_Prefix>
 
 <Phase_Banner>
-Multi-phase skill. Before each `Agent(...)` dispatch (including the two conditional error-escalation paths below), emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+Multi-phase skill. Before each `Agent(...)` dispatch (including the two conditional error-escalation paths below), emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus|Sonnet|Haiku>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention. Resolve the dispatch mode first per [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md): `auto` (default) uses the model below/in the rule; `user-defined` asks the user Opus / Sonnet / Haiku (recommended one first) before each dispatch group.
 </Phase_Banner>
 
 <Error_Escalation_Paths>
-Setup's happy path runs entirely on the main thread (Haiku 4.5 per frontmatter) — it's configuration work, not code generation. Two step-ranges escalate on failure:
+Setup's happy path runs entirely on the main thread (session model — frontmatter `model: inherit`) — it's configuration work, not code generation. Two step-ranges escalate on failure:
 
 | Source step(s) | Agent | Model | Why |
 |----------------|-------|-------|-----|
-| **4bis RFC backend** — preflight failure, handler install error, SICF service misconfigured, SM59 test fails, ZRFC ICF handler returns 5xx | **`sap-bc-consultant`** | **Opus 4.7** (frontmatter) | Pure Basis domain — RFC destinations, SICF, SM59, transport of handler class. Basis consultant owns this ground. |
-| **5 Reconnect / 6 GetSession / 7 systemInfo persist / 8 GetInactiveObjects** — any failure (HTTP error, auth reject, parse failure, timeout, authorization object missing) | **`general-purpose`** (with `model: "opus"` override) | **Opus 4.7** | 3-layer stack (SAP ADT + MCP server + Claude Code plugin). Most errors are cross-layer (MCP framework bugs, Node runtime issues, profile resolution) — pure SAP consultant has a blind spot. general-purpose + Opus spans `Read`/`Grep`/`Bash`/`WebFetch`/`WebSearch` across all three layers. |
+| **4bis RFC backend** — preflight failure, handler install error, SICF service misconfigured, SM59 test fails, ZRFC ICF handler returns 5xx | **`sap-bc-consultant`** | **Opus** (frontmatter) | Pure Basis domain — RFC destinations, SICF, SM59, transport of handler class. Basis consultant owns this ground. |
+| **5 Reconnect / 6 GetSession / 7 systemInfo persist / 8 GetInactiveObjects** — any failure (HTTP error, auth reject, parse failure, timeout, authorization object missing) | **`general-purpose`** (with `model: "opus"` override) | **Opus** | 3-layer stack (SAP ADT + MCP server + Claude Code plugin). Most errors are cross-layer (MCP framework bugs, Node runtime issues, profile resolution) — pure SAP consultant has a blind spot. general-purpose + Opus spans `Read`/`Grep`/`Bash`/`WebFetch`/`WebSearch` across all three layers. |
 
 Each escalation emits its own phase banner:
 ```
-▶ phase=4bis.escalate (basis) · agent=sap-bc-consultant · model=Opus 4.7
-▶ phase=5-8.escalate (triage) · agent=general-purpose · model=Opus 4.7
+▶ phase=4bis.escalate (basis) · agent=sap-bc-consultant · model=Opus
+▶ phase=5-8.escalate (triage) · agent=general-purpose · model=Opus
 ```
 
-After the escalation agent returns a diagnosis + remediation checklist, the main thread (Haiku) surfaces it to the user and asks whether to retry the failed step or abort setup.
+After the escalation agent returns a diagnosis + remediation checklist, the main thread surfaces it to the user and asks whether to retry the failed step or abort setup.
 </Error_Escalation_Paths>
 
 ## Usage

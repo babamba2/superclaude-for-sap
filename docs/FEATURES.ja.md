@@ -206,16 +206,16 @@ sc4sap のルールコーパスは膨大 — 25+ `common/*.md` + 14 `configs/{MO
 例:
 
 ```
-[Model: Opus 4.7]
+[Model: Opus]
 — 純粋なメインスレッド応答、sub-agent ディスパッチなし
 
-[Model: Opus 4.7 · Dispatched: Sonnet×2]
+[Model: Opus · Dispatched: Sonnet×2]
 — メイン + 並列 Sonnet executor 2 個 (Wave 2 G4-prep テキストバルク)
 
-[Model: Opus 4.7 · Dispatched: Opus×1 (planner)]
+[Model: Opus · Dispatched: Opus×1 (planner)]
 — Phase 2 planner ディスパッチ
 
-[Model: Opus 4.7 · Dispatched: Sonnet×3 (B3a executor 範囲 α/β/γ)]
+[Model: Opus · Dispatched: Sonnet×3 (B3a executor 範囲 α/β/γ)]
 — multi-executor-split.md Strategy A による Multi-Executor Split
 ```
 

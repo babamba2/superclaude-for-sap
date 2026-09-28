@@ -19,7 +19,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 </Response_Prefix>
 
 <Phase_Banner>
-Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus|Sonnet|Haiku>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention. Resolve the dispatch mode first per [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md): `auto` (default) uses the model below/in the rule; `user-defined` asks the user Opus / Sonnet / Haiku (recommended one first) before each dispatch group.
 </Phase_Banner>
 
 <Use_When>
@@ -99,7 +99,7 @@ Remote-Enabled (RFC) flag is a separate concern — stored in TFDIR.FMODE, not i
 <Workflow_Steps>
 **MANDATORY**: Follow the step sequence defined in [`workflow-steps.md`](workflow-steps.md).
 
-Per-step model allocation (skill main thread runs on Sonnet 4.6 per frontmatter; creation delegates to `sap-executor`; the report is rendered on main):
+Per-step model allocation (skill main thread runs on Sonnet per frontmatter; creation delegates to `sap-executor`; the report is rendered on main):
 
 | Step | Owner | Model | Role |
 |------|-------|-------|------|
@@ -108,8 +108,8 @@ Per-step model allocation (skill main thread runs on Sonnet 4.6 per frontmatter;
 | 2 Metadata | main | **Sonnet** | name / package / transport / description (Q&A + `SearchObject` + `ListTransports` + naming validation) |
 | 3 Pre-Creation Check | main | **Sonnet** | `SearchObject` (name-exists guard) |
 | 3.5 Version Branch | main | **Sonnet** | `SAP_VERSION` ECC vs S/4 routing |
-| **4 + 5 + 6 Create + Implement + Activate (standard flow)** | **`sap-executor`** with `model: "opus"` override | **Opus 4.7** | One dispatch covers: `CreateClass`/`CreateProgram`/... → `UpdateClass`/`UpdateProgram`/... with initial implementation code → `ActivateObjects` → `GetInactiveObjects` verify. The Opus override is justified because Step 5 is novel code generation (`common/model-routing-rule.md` § Tier 2) — field typing priority 1–4, class constructor + method signatures, FM inline parameter declarations, etc. |
-| **4-ECC DDIC Helper Program (ECC fallback)** | **`sap-executor`** with `model: "opus"` override | **Opus 4.7** | ECC-only branch for Table/DTEL/DOMA. Executor picks the matching template from `skills/create-object/ecc/`, substitutes names, fills the field list per `common/field-typing-rule.md`, and `CreateProgram` + `UpdateProgram` + `ActivateObjects` the helper into `$TMP`. |
+| **4 + 5 + 6 Create + Implement + Activate (standard flow)** | **`sap-executor`** with `model: "opus"` override | **Opus** | One dispatch covers: `CreateClass`/`CreateProgram`/... → `UpdateClass`/`UpdateProgram`/... with initial implementation code → `ActivateObjects` → `GetInactiveObjects` verify. The Opus override is justified because Step 5 is novel code generation (`common/model-routing-rule.md` § Tier 2) — field typing priority 1–4, class constructor + method signatures, FM inline parameter declarations, etc. |
+| **4-ECC DDIC Helper Program (ECC fallback)** | **`sap-executor`** with `model: "opus"` override | **Opus** | ECC-only branch for Table/DTEL/DOMA. Executor picks the matching template from `skills/create-object/ecc/`, substitutes names, fills the field list per `common/field-typing-rule.md`, and `CreateProgram` + `UpdateProgram` + `ActivateObjects` the helper into `$TMP`. |
 | **7 Completion Report** | main | **Sonnet** | Pure formatting from the executor's structured return — no agent dispatch. Localizes to the user's current conversation language. Render rules: `dispatch-prompts.md` § Step 7. For ECC fallback, use the mandatory report format there verbatim (do NOT rephrase the ⚠ header + 3-step SE38/SE11 checklist). |
 
 At Step 2 (metadata collection) — when the object belongs to a specific SAP module (MM table, SD structure, PS data element, …) — the main thread reads `SAP_ACTIVE_MODULES` from `sap.env` / `config.json` and consults [`../../common/active-modules.md`](../../common/active-modules.md). If companion modules are active, proactively suggest integration fields (e.g., creating an MM CBO table in a landscape with PS active → suggest adding `PS_POSID` / `AUFNR`). Do NOT add silently — propose to user and let them accept/decline, then pass the confirmed field list through to the executor dispatch.

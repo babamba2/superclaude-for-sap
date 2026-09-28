@@ -22,8 +22,10 @@ When not satisfied → skip teamMode, proceed to Step 3 legacy report.
 
 ### R0 — DRAFT (worker)
 
-1. Generate `team_name` = `analyze-code-<OBJECT>-<YYYYMMDD-HHMMSS>`.
-2. `TeamCreate`; write `00-charter.md` with:
+Transport is return-based ([`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Transport): reviewer and consultants are R/O, return blocks, and never write files — the lead writes every task file.
+
+1. Generate a run ID `team_name` = `analyze-code-<OBJECT>-<YYYYMMDD-HHMMSS>` (directory name only — never passed to `Agent(...)`).
+2. Create `~/.claude/tasks/<team_name>/`; write `00-charter.md` with:
    - invoked_by: `/sc4sap:analyze-code`
    - members: `sap-code-reviewer`, `sap-<module>-consultant` × N
    - environment (omit null fields)
@@ -31,9 +33,9 @@ When not satisfied → skip teamMode, proceed to Step 3 legacy report.
    - reviewer's Step 2 findings (inline summary of § 1/2/13 findings, NOT full report)
 3. Emit phase banner:
    ```
-   ▶ phase=2.R0 (draft) · agent=sap-code-reviewer · model=Opus 4.7
+   ▶ phase=2.R0 (draft) · agent=sap-code-reviewer · model=Opus
    ```
-4. Spawn reviewer with `team_name`, `name=sap-code-reviewer-tm`. Prompt asks for `10-sap-code-reviewer-tm-draft.md` with:
+4. Spawn reviewer (`teamMode=true`, `member=sap-code-reviewer-tm`, charter inline, "return the DRAFT block; do NOT write any file"). The lead writes it to `10-sap-code-reviewer-tm-draft.md`. DRAFT fields:
    - `intent`: what the business-alignment findings claim
    - `content`: finding text + relevant code excerpt (≤ 30 lines)
    - `concern-axes`: specific business rules or side-effects peers should verify
@@ -41,11 +43,11 @@ When not satisfied → skip teamMode, proceed to Step 3 legacy report.
 
 ### R1 — Peer review (parallel)
 
-1. Spawn all N consultants with `team_name`, `name=sap-<module>-consultant`, peer context inline (R0 DRAFT inline in prompt).
-2. Each consultant writes `20-<peer>-challenge-sap-code-reviewer-tm.md` (if disagreement) OR `20-<peer>-concur-sap-code-reviewer-tm.md` (if accept).
+1. Spawn all N consultants (`teamMode=true`, `member=sap-<module>-consultant`) with peer context inline (R0 DRAFT inline in prompt).
+2. Each consultant returns a CHALLENGE (disagreement) or CONCUR (accept) block; the lead writes `20-<peer>-challenge-sap-code-reviewer-tm.md` or `20-<peer>-concur-sap-code-reviewer-tm.md`.
 3. Phase banner:
    ```
-   ▶ phase=2.R1 (review-<MODULE>) · agent=sap-<module>-consultant · model=Opus 4.7
+   ▶ phase=2.R1 (review-<MODULE>) · agent=sap-<module>-consultant · model=Opus
    ```
 
 ### Convergence check
@@ -55,11 +57,11 @@ When not satisfied → skip teamMode, proceed to Step 3 legacy report.
 
 ### R2 — WORKER_REFINEMENT (conditional)
 
-Re-spawn reviewer with `name=sap-code-reviewer-tm-r2`, peer CHALLENGEs inline. Reviewer writes `30-sap-code-reviewer-tm-refinement.md` with updated finding interpretation and `addresses` list.
+Re-dispatch reviewer (`member=sap-code-reviewer-tm`, `round=2`) with peer CHALLENGEs inline. Reviewer returns a WORKER_REFINEMENT block (updated finding interpretation + `addresses` list); the lead writes `30-sap-code-reviewer-tm-refinement.md`.
 
 ### R3 — Peer final
 
-Re-spawn consultants with `-r2` suffix names. Each writes `40-<peer>-final-sap-code-reviewer-tm.md` with CONCUR or ESCALATE.
+Re-dispatch consultants (`round=3`) with DRAFT + refinement inline. Each returns CONCUR or ESCALATE; the lead writes `40-<peer>-final-sap-code-reviewer-tm.md`.
 
 ### Lead arbitration (ESCALATE only)
 
@@ -71,9 +73,9 @@ Replaces `workflow.md` Step 3 when teamMode ran:
 
 1. Emit banner:
    ```
-   ▶ phase=3 (team-report) · agent=sap-writer · model=Haiku 4.5
+   ▶ phase=3 (team-report) · agent=sap-writer · model=Haiku
    ```
-2. Spawn `sap-writer` **WITHOUT `team_name`** (single-shot Agent, not a team member) with task file paths.
+2. Spawn `sap-writer` (single-shot Agent, not a deliberation member) with task file paths.
 3. Writer composes the findings report. Team-derived findings are marked:
    - "peer-validated" — consultants concurred at R1 or R3
    - "peer-refined" — reviewer's R2 refinement adopted after R1 challenges
@@ -87,8 +89,7 @@ Replaces `workflow.md` Step 3 when teamMode ran:
 
 ## Cleanup
 
-1. `SendMessage(to=<name>, message={type:"shutdown_request", reason:"analyze-code teamMode complete"})` to reviewer-tm + all consultants (as **structured JSON object**, not string — see protocol.md § Cleanup guidance in ask-consultant/team-mode.md for the subtle bug).
-2. Keep task directory (audit trail).
+No shutdown step — members are one-shot dispatches that terminate on return. Keep the task directory (audit trail).
 
 ## Prototype notes
 

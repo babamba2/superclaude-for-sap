@@ -52,7 +52,7 @@ Continue with the rounds below.
 
 ### R1 — POSITION (parallel spawn per dimension or bundled)
 
-For each contested dimension (Paradigm, Display mode, Data source, etc.), each member writes `10-<name>-<dimension>-position.md`:
+Transport is return-based ([`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Transport) — members return blocks and never write files (analyst / architect / consultants are all R/O). For each contested dimension (Paradigm, Display mode, Data source, etc.), each member returns a POSITION block that the lead writes to `10-<name>-<dimension>-position.md`:
 
 - **Analyst POSITION** — `recommendation` = business-driven functional requirement for this dimension (e.g., "user needs real-time ALV with drill-down to document").
 - **Architect POSITION** — `recommendation` = technical implementation path (e.g., "full CL_GUI_ALV_GRID with Docking + Splitter; consider SALV factory fieldcat").
@@ -62,7 +62,7 @@ Spawn prompt embeds `module-interview.md` excerpt + Phase 1B's current dimension
 
 Phase banner:
 ```
-▶ phase=1.bridge.R1 (synthesis-<ROLE>) · agent=<name> · model=Opus 4.7
+▶ phase=1.bridge.R1 (synthesis-<ROLE>) · agent=<name> · model=Opus
 ```
 
 ### Divergence check (per dimension)
@@ -85,7 +85,7 @@ Unlike Type A (Phase 1A/2) which feeds synthesis to sap-writer, Type D's output 
 1. `module-interview.md` gets a new `## Cross-Phase Reconciliation` section with settled dimensions + any lead-arbitrated choices.
 2. `interview.md` (Phase 1B output) is **composed by the team directly** — the bridge team writes it, not a separate sap-writer dispatch. This saves a round-trip.
 
-Spawn pattern: after R3 (or R1 if all aligned), the analyst posts the final `interview.md` content to `50-interview-md.md` in the task dir. Lead copies it to `.sc4sap/program/<PROG>/interview.md`.
+Spawn pattern: after R3 (or R1 if all aligned), re-dispatch the analyst with all settled dimensions inline; it returns the final `interview.md` content as its reply. Lead writes it to `50-interview-md.md` in the task dir and to `.sc4sap/program/<PROG>/interview.md`.
 
 ## Response prefix
 
@@ -95,8 +95,7 @@ Spawn pattern: after R3 (or R1 if all aligned), the analyst posts the final `int
 
 ## Cleanup
 
-1. Shutdown all team members (structured `shutdown_request` — all agents now have `<Team_Shutdown_Handler>` per 2026-04-24 platform fix).
-2. Keep `~/.claude/tasks/<team>/` audit trail — Phase 2 planner and Phase 6 reviewer may cross-reference reconciled dimensions.
+No shutdown step — members are one-shot dispatches that terminate on return. Keep `~/.claude/tasks/<team>/` audit trail — Phase 2 planner and Phase 6 reviewer may cross-reference reconciled dimensions.
 
 ## Prototype notes (Phase 7 scaffolding)
 

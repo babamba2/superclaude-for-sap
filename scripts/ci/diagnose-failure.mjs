@@ -7,7 +7,7 @@
  *
  * Environment inputs:
  *   ANTHROPIC_API_KEY   required      API key (repo secret)
- *   ANTHROPIC_MODEL     optional      model id, default claude-sonnet-4-6
+ *   ANTHROPIC_MODEL     optional      model id, default claude-sonnet-5
  *   CI_LOG_PATH         required      path to failed-step log file
  *   OUTPUT_PATH         required      where to write the markdown diagnosis
  *   RUN_URL             optional      link to the failed CI run
@@ -28,7 +28,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 
 const API_KEY = process.env.ANTHROPIC_API_KEY;
-const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-5';
 const LOG_PATH = process.env.CI_LOG_PATH;
 const OUTPUT_PATH = process.env.OUTPUT_PATH;
 const RUN_URL = process.env.RUN_URL || '';

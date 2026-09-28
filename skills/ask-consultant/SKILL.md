@@ -2,7 +2,7 @@
 name: sc4sap:ask-consultant
 description: Direct operational Q&A with a SAP module consultant agent. Auto-routes the question to the matching sap-{module}-consultant and answers against the configured SAP environment (version, industry, country, active modules).
 level: 2
-model: haiku
+model: inherit
 ---
 
 # SC4SAP Ask Consultant
@@ -19,7 +19,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 </Response_Prefix>
 
 <Phase_Banner>
-Multi-phase skill. Before each `Agent(...)` dispatch (including every parallel consultant spawn and the optional synthesis pass), emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+Multi-phase skill. Before each `Agent(...)` dispatch (including every parallel consultant spawn and the optional synthesis pass), emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus|Sonnet|Haiku>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention. Resolve the dispatch mode first per [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md): `auto` (default) uses the model below/in the rule; `user-defined` asks the user Opus / Sonnet / Haiku (recommended one first) before each dispatch group.
 </Phase_Banner>
 
 <Team_Mode>
@@ -76,29 +76,29 @@ Supported consultants (15 total):
 </Module_Routing>
 
 <Workflow_Steps>
-Per-step model allocation (skill frontmatter pins the main thread to Haiku; Agent dispatches carry their own model):
+Per-step model allocation (the main thread follows the session model — frontmatter `model: inherit`, because it judges divergence and reviews the synthesis; Agent dispatches carry their own model):
 
-1. **Trust bootstrap** — § `<Session_Trust_Bootstrap>`. (Haiku · skill-to-skill)
-2. **Environment load** — read `config.json` + `sap.env`; surface resolved values on the FIRST turn only (one line: `SAP: <version> · <industry> · <country> · active: <modules>`). (Haiku · main thread)
-3. **Module routing** — apply § `<Module_Routing>`. If ambiguous, ask one question and stop. (Haiku · main thread)
+1. **Trust bootstrap** — § `<Session_Trust_Bootstrap>`. (main · skill-to-skill)
+2. **Environment load** — read `config.json` + `sap.env`; surface resolved values on the FIRST turn only (one line: `SAP: <version> · <industry> · <country> · active: <modules>`). (main thread)
+3. **Module routing** — apply § `<Module_Routing>`. If ambiguous, ask one question and stop. (main thread)
 4. **Consultant dispatch** — one `Agent(...)` per resolved module (parallel in a single message when 2–3 modules match).
    Emit phase banner per dispatch:
    ```
-   ▶ phase=4 (consultant-<MODULE>) · agent=sap-<module>-consultant · model=Opus 4.7
+   ▶ phase=4 (consultant-<MODULE>) · agent=sap-<module>-consultant · model=Opus
    ```
    Dispatch shape:
    ```
    Agent({
-     subagent_type: "sc4sap:sap-<module>-consultant",   // frontmatter already pins claude-opus-4-7
+     subagent_type: "sc4sap:sap-<module>-consultant",   // frontmatter alias `opus` (tracks the newest Opus)
      description: "<MODULE> consultation — <topic>",
      prompt: <user question + environment context + expected format>
    })
    ```
-   **teamMode variant**: when N ≥ 2, Step 4 doubles as Round 1 of teamMode — use the Round 1 spawn shape in [`team-rounds.md`](team-rounds.md) § Round 1 (adds `team_name`, `name`, charter-file reference; consultants write POSITION files instead of returning directly).
+   **teamMode variant**: when N ≥ 2, Step 4 doubles as Round 1 of teamMode — use the Round 1 spawn shape in [`team-rounds.md`](team-rounds.md) § Round 1 (inlined charter + `teamMode=true`; each consultant returns a POSITION block ahead of its answer and the lead persists it to the run directory — no `team_name`).
 5. **Synthesis (conditional — only when ≥ 2 consultants replied)** — dispatch `sap-writer` with `model: "sonnet"` override. Writer's base model is Haiku (pure formatting); Sonnet override gives the light cross-domain reasoning needed to detect agreement / disagreement between consultant answers without jumping to Opus.
    Emit banner:
    ```
-   ▶ phase=5 (synthesis) · agent=sap-writer · model=Sonnet 4.6
+   ▶ phase=5 (synthesis) · agent=sap-writer · model=Sonnet
    ```
    Dispatch shape:
    ```
@@ -123,8 +123,8 @@ Per-step model allocation (skill frontmatter pins the main thread to Haiku; Agen
    })
    ```
    **teamMode variant**: if Round 1 POSITIONs diverged (per [`team-rounds.md`](team-rounds.md) § Divergence check), do NOT run the legacy synthesis above — follow [`team-rounds.md`](team-rounds.md) Rounds 2-3 then [`team-mode.md`](team-mode.md) § Synthesis (task-list–driven writer dispatch).
-   On single-consultant case: SKIP Step 5 entirely — main thread (Haiku) just forwards the consultant's answer to Step 6.
-6. **Return & follow-up** — present the final answer (single-consultant: verbatim; multi-consultant: synthesis output as the body + per-module subsections). Offer follow-up paths: `/sc4sap:create-program` (if the answer leads to a new build), `/sc4sap:program-to-spec` (if user wants the existing asset documented), `/sc4sap:analyze-code` (if quality review needed). (Haiku · main thread)
+   On single-consultant case: SKIP Step 5 entirely — main thread just forwards the consultant's answer to Step 6.
+6. **Return & follow-up** — review the synthesis against the consultant answers first (identifiers, what each consultant actually claimed; correct and note mismatches — writers do misstate), then present the final answer (single-consultant: verbatim; multi-consultant: synthesis output as the body + per-module subsections). Offer follow-up paths: `/sc4sap:create-program` (if the answer leads to a new build), `/sc4sap:program-to-spec` (if user wants the existing asset documented), `/sc4sap:analyze-code` (if quality review needed). (main thread)
 
 **No writes**: this skill never calls `Create*` / `Update*` / `Delete*` / `Activate*` / `CreateTransport`. If the consultant's answer suggests a change, the user must run a separate creation / modification skill.
 
@@ -152,9 +152,9 @@ Return the consultant's answer verbatim, prefixed with the consultant identity a
 For multi-module dispatches, the `🧭 Consultant` line lists all names, the body leads with the sap-writer synthesis (Sonnet) — shared points, disagreements, cross-module summary — followed by one verbatim subsection per consultant.
 
 Dispatch-summary examples in the prefix:
-- Single consultant: `[Model: Haiku 4.5 · Dispatched: Opus×1 (sap-mm-consultant)]`
-- Multi-consultant: `[Model: Haiku 4.5 · Dispatched: Opus×2 (sap-mm-consultant, sap-fi-consultant), Sonnet×1 (sap-writer synthesis)]`
-- Multi-consultant teamMode: `[Model: Haiku 4.5 · Dispatched: Opus×2 (sap-mm-consultant, sap-fi-consultant), Sonnet×1 (sap-writer team-synthesis) · Team: 2 members × 2 rounds]`
+- Single consultant: `[Model: <main> · Dispatched: Opus×1 (sap-mm-consultant)]`
+- Multi-consultant: `[Model: <main> · Dispatched: Opus×2 (sap-mm-consultant, sap-fi-consultant), Sonnet×1 (sap-writer synthesis)]`
+- Multi-consultant teamMode: `[Model: <main> · Dispatched: Opus×2 (sap-mm-consultant, sap-fi-consultant), Sonnet×1 (sap-writer team-synthesis) · Team: 2 members × 2 rounds]`
 </Output_Format>
 
 <Related_Skills>

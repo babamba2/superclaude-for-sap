@@ -9,15 +9,17 @@ Referenced from `SKILL.md` → `<Workflow_Steps>`. The main thread stays thin; t
 
 ## Step 1 — Initial Triage (main thread)
 
-- Extract user-supplied clues: error text, message class/number, runtime error name, dump ID, TCode, program/class name, affected user, timing, frequency.
+- Extract user-supplied clues: error text, message class/number, runtime error name, dump ID, TCode, program/class name, affected user, timing, frequency. **An attached screenshot is a clue like any other** — read the runtime error name, terminated program and timestamp off it before deciding anything.
 - Call `GetSession` to capture system info (SID, client, release, SP, current user). This is the ONLY MCP call the main thread makes directly.
 - Resolve `<CUSTOMIZATION_DIR>` = absolute path of `<cwd>/.sc4sap/customizations`. Do not search for it — if it does not exist, pass `none`.
-- Choose `<MODE>` and the model for the dispatch:
+- Choose `<MODE>` and the model for the dispatch. **`quick-dump` is the default.** Start there unless one of the `full` signals below is actually present; do not reach for `full` because the input is thin or you are unsure.
 
 | MODE | When | Scope | Model |
 |---|---|---|---|
-| `quick-dump` | Symptom is a single short dump (runtime error name such as `CONVT_NO_NUMBER`, a dump ID, or "Short dump" chosen) AND nothing points at change history — frequency is not "since a recent change" / "intermittent" / "only some users or data", and no transport or upgrade is mentioned | Dump metadata → failing include at the termination link → answer | **Sonnet** |
-| `full` | Everything else (error messages, wrong results, performance, transport failures, unknown shape, or a dump tied to a recent change) | All investigation paths below | **Opus** |
+| `quick-dump` — **the default** | A single short dump and nothing more: a runtime error name (`CONVT_NO_NUMBER`, `CALL_FUNCTION_PARM_UNKNOWN`, …), a dump ID, "Short dump" chosen, **or a screenshot of one dump** — including a screenshot with no accompanying text. Also where you land when the input is too thin to classify. | Dump metadata → failing include at the termination link → answer | **Sonnet** |
+| `full` | Only when a listed signal is present: the symptom is not a dump (wrong results, performance, a transport failure, an error message with no dump), **or** the user ties it to change history — "since a recent change", "intermittent", "only some users or data", a named transport, an upgrade or SP. | All investigation paths below | **Opus** |
+
+**Why the default leans cheap.** `quick-dump` has an escape hatch and `full` does not: a Sonnet round that cannot establish the cause returns `BLOCKED — needs full` and Step 2 re-dispatches it on Opus with the findings already in hand, so nothing is fetched twice. Guessing low costs one extra round in the cases it gets wrong; guessing high costs 2.5× the model price on every run it gets wrong, and it gets it wrong silently. Measured on a headless web host, 2026-09-23: the same ST22 screenshot, submitted twice with no other input, was routed to Opus once and Sonnet once — the rule as written left it to chance, and chance is the one thing a cost decision should not be.
 
 Exit condition: `<CLUES>` + `<SESSION_INFO>` + `<MODE>` + `<CUSTOMIZATION_DIR>` resolved.
 

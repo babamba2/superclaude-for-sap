@@ -7,7 +7,7 @@ model: sonnet
 
 # SC4SAP Analyze Code
 
-Reviews an ABAP object by delegating the heavy work (source read, structural/semantic/where-used analysis, 14-dimension rule matching) to `sap-code-reviewer` (Opus 4.7). The main thread (Sonnet, per frontmatter) only handles Socratic intake, report formatting, and the follow-up action menu.
+Reviews an ABAP object by delegating the heavy work (source read, structural/semantic/where-used analysis, 14-dimension rule matching) to `sap-code-reviewer` (Opus). The main thread (Sonnet, per frontmatter) only handles Socratic intake, report formatting, and the follow-up action menu.
 
 
 <Purpose>
@@ -19,7 +19,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 </Response_Prefix>
 
 <Phase_Banner>
-Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus 4.7|Sonnet 4.6|Haiku 4.5>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention.
+Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus|Sonnet|Haiku>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention. Resolve the dispatch mode first per [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md): `auto` (default) uses the model below/in the rule; `user-defined` asks the user Opus / Sonnet / Haiku (recommended one first) before each dispatch group.
 </Phase_Banner>
 
 <Team_Mode>
@@ -65,7 +65,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 Orchestration is **1 main-thread Socratic intake + one delegated dispatch to `sap-code-reviewer` + a branching report + main-thread action menu**.
 
 - **Step 1 (main)** — Identify: ask for (or confirm) the ABAP object name + type; verify via `SearchObject`.
-- **Step 2 (delegated · Opus 4.7)** — Dispatch to `sap-code-reviewer` with only the object reference. The reviewer agent **itself** reads source (via `GetClass`/`GetProgram`/`GetProgFullCode`/...), runs structural analysis (`GetAbapAST` + `GetAbapSemanticAnalysis` + `GetWhereUsed`), loads the 9 `common/` rule files, and evaluates all 14 dimensions. Returns: findings list (severity · location · rule ref · fix suggestion) + summary metrics.
+- **Step 2 (delegated · Opus)** — Dispatch to `sap-code-reviewer` with only the object reference. The reviewer agent **itself** reads source (via `GetClass`/`GetProgram`/`GetProgFullCode`/...), runs structural analysis (`GetAbapAST` + `GetAbapSemanticAnalysis` + `GetWhereUsed`), loads the 9 `common/` rule files, and evaluates all 14 dimensions. Returns: findings list (severity · location · rule ref · fix suggestion) + summary metrics.
 - **Step 3 (branching)**:
   - **Branch A — canned** (default: no Critical findings AND < 10 findings total) → main formats the standard report template from [`output-and-tools.md`](output-and-tools.md).
   - **Branch B — briefing** (Critical present OR ≥ 10 findings) → main renders a richer reader-facing briefing (Critical/High with root cause + fix code, where-used impact, top-3 fixes) per [`workflow.md`](workflow.md) § Branch B. No extra agent dispatch.

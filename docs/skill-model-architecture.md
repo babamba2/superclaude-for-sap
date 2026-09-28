@@ -6,19 +6,19 @@ Per-skill / per-phase model allocation across the sc4sap plugin. This document i
 
 ## 1. Three-Tier Model Strategy
 
-sc4sap runs on Claude's 4.x family:
+sc4sap names tiers, not versions. Agent frontmatter uses the Claude Code aliases `haiku` / `sonnet` / `opus`, which track the newest model of each tier, so no file needs editing when a new model ships:
 
-| Tier | Model | Use cases |
+| Tier | Alias | Use cases |
 |---|---|---|
-| **Haiku 4.5** | `claude-haiku-4-5` | Pure formatting, permission bootstrap, status diagnostics, trivial lookups, reference docs |
-| **Sonnet 4.6** | `claude-sonnet-4-6` | Skill orchestration (main thread for analysis/creation/compare work), structured fact extraction, bulk template operations |
-| **Opus 4.7** | `claude-opus-4-7` | Novel code generation, cross-file reasoning, domain synthesis (module consultants), hypothesis narrowing, architecture design |
+| **Haiku** | `haiku` | Pure formatting, permission bootstrap, status diagnostics, trivial lookups, reference docs |
+| **Sonnet** | `sonnet` | Skill orchestration (main thread for analysis/creation/compare work), structured fact extraction, bulk template operations |
+| **Opus** | `opus` | Novel code generation, cross-file reasoning, domain synthesis (module consultants), hypothesis narrowing, architecture design |
 
 Model choice follows [`common/model-routing-rule.md`](../common/model-routing-rule.md) § Tier decisions. The rule's core heuristic: **start at the lowest tier that can do the work correctly; escalate to Opus only for novel reasoning or ambiguity**.
 
 ## 2. Main-Thread Model by Skill
 
-Every skill targets a specific main-thread tier via its `model:` frontmatter — this is **declarative only**; the runtime main thread follows whatever model the user's Claude Code session is configured to (per CHANGELOG 0.6.8). Per-step work delegated to `Agent(...)` carries its own model (frontmatter or explicit override), which IS runtime-effective.
+Every skill states a main-thread tier via its `model:` frontmatter. Claude Code documents this as a per-turn model switch, and it does register the switch (a `command_permissions` entry carrying the model), but on CLI 2.1.283 the turn's replies still came from the session model — 8 of 8 `model: haiku` invocations were answered by the session's Opus (checked in the session transcript, 2026-09-28). Treat the value as intent that may start taking effect in a later CLI, and only declare a tier the skill can safely run on: skills whose main thread judges (routing, divergence checks, synthesis review, failure triage) use `inherit`. Per-step work delegated to `Agent(...)` carries its own model (frontmatter alias or explicit override), which IS runtime-effective.
 
 | Skill | Main | Rationale |
 |---|---|---|
@@ -26,8 +26,8 @@ Every skill targets a specific main-thread tier via its `model:` frontmatter —
 | `sap-option` | Haiku | Interactive config editor, regex validation, secret masking |
 | `sap-doctor` | Haiku | 5-layer static checklist + structured PASS/FAIL report |
 | `mcp-setup` | Haiku | Reference documentation, optional `check` subcommand |
-| `ask-consultant` | Haiku | Intake + keyword routing + output formatting |
-| `setup` | Haiku | Configuration workflow (Q&A + Bash CLI + template MCP) |
+| `ask-consultant` | inherit | Routing, teamMode divergence checks and synthesis review need the session model |
+| `setup` | inherit | Configuration workflow with failure triage; a Haiku main would misjudge escalation |
 | `analyze-cbo-obj` | **Sonnet** | Orchestrates inventory analysis; synthesizes stocker output |
 | `analyze-code` | **Sonnet** | Orchestrates review; report composition needs judgment |
 | `analyze-symptom` | **Sonnet** | Routes questions, composes narratives from debugger output |
@@ -54,38 +54,38 @@ Pure local file operations. No Agent calls.
 #### `mcp-setup` — Haiku main, 0 dispatches
 Reference-doc renderer + optional `check` subcommand that shells out to `build-mcp-server.mjs --check`.
 
-#### `setup` — Haiku main, escalation-only dispatches
+#### `setup` — session-model main, escalation-only dispatches
 Happy path on Haiku. Two conditional escalation paths:
-- **Step 4bis (RFC backend install) on error** → `sap-bc-consultant` (Opus 4.7) — pure Basis domain
+- **Step 4bis (RFC backend install) on error** → `sap-bc-consultant` (Opus) — pure Basis domain
 - **Steps 5–8 (connect/test) on error** → `general-purpose` with `model: "opus"` override — 3-layer diagnosis (SAP + MCP framework + Claude Code)
 
 Steps 11/11b (SPRO / customization extraction) are intentionally LLM-free: `scripts/extract-spro.mjs` and `scripts/extract-customizations.mjs` run as background Node processes.
 
 ### Consultation skill
 
-#### `ask-consultant` — Haiku main, 1–N+1 dispatches
-- Step 4 — `sap-{module}-consultant` × 1–3 (Opus 4.7, frontmatter)
+#### `ask-consultant` — session-model main, 1–N+1 dispatches
+- Step 4 — `sap-{module}-consultant` × 1–3 (Opus, frontmatter)
 - Step 5 (conditional, ≥ 2 consultants) — `sap-writer` with `model: "sonnet"` override for cross-module synthesis
 
 ### Analysis cluster (Sonnet main)
 
 #### `analyze-cbo-obj` — Sonnet main, 1–2 dispatches
-- Steps 3–7 — `sap-stocker` (Sonnet 4.6) walks package + where-used graph + business purpose inference + cross-module gap
+- Steps 3–7 — `sap-stocker` (Sonnet) walks package + where-used graph + business purpose inference + cross-module gap
 - Step 8 (conditional, `Logic-heavy: true`) — main thread renders the briefing from `inventory.json` (no agent dispatch)
 
 #### `analyze-code` — Sonnet main, 1–3 dispatches
-- Step 2 — `sap-code-reviewer` (Opus 4.7) reads source + AST + semantic + where-used, evaluates 14 dimensions
+- Step 2 — `sap-code-reviewer` (Opus) reads source + AST + semantic + where-used, evaluates 14 dimensions
 - Step 3 Branch B (conditional, Critical or ≥ 10 findings) — main thread renders the briefing (no agent dispatch)
-- Step 4 user-selected fix — `sap-executor` (Sonnet 4.6)
+- Step 4 user-selected fix — `sap-executor` (Sonnet)
 
 #### `analyze-symptom` — Sonnet main, 1–N dispatches per round
 - Step 2 per round — `sap-debugger` with `model: "opus"` override for full investigation + hypothesis narrowing (dump + transport + code + enhancement + customization + profiler)
 
 #### `compare-programs` — Sonnet main, N+1+K+1 dispatches
 - Step 3 — `sap-code-reviewer` × N with `model: "sonnet"` override — facts extraction per program
-- Step 4 — `sap-analyst` × 1 (Opus 4.7) — consolidated module classify + dimension scoring + exec summary + recommendation
-- Step 4b (conditional, 2+ modules) — `sap-{module}-consultant` × K (Opus 4.7)
-- Step 5 — `sap-writer` × 1 (Haiku 4.5) — final Markdown render
+- Step 4 — `sap-analyst` × 1 (Opus) — consolidated module classify + dimension scoring + exec summary + recommendation
+- Step 4b (conditional, 2+ modules) — `sap-{module}-consultant` × K (Opus)
+- Step 5 — `sap-writer` × 1 (Haiku) — final Markdown render
 
 ### Creation cluster (Sonnet main)
 
@@ -99,23 +99,23 @@ Flagship skill. Full phase-by-phase in [`../skills/create-program/agent-pipeline
 | Phase | Agent | Model | Notes |
 |---|---|---|---|
 | 0 Preflight | main thread | Sonnet | platform.md + active-modules |
-| 1A Module Interview | `sap-{module}-consultant` | Opus 4.7 | frontmatter |
-| 1B Program Interview | `sap-analyst` + `sap-architect` | Opus 4.7 | frontmatter |
-| 2 Planning | `sap-planner` + consultants | Opus 4.7 | frontmatter |
-| **3 Spec Writing** | `sap-writer` | **Opus 4.7** (override) | Spec is the most critical artifact |
+| 1A Module Interview | `sap-{module}-consultant` | Opus | frontmatter |
+| 1B Program Interview | `sap-analyst` + `sap-architect` | Opus | frontmatter |
+| 2 Planning | `sap-planner` + consultants | Opus | frontmatter |
+| **3 Spec Writing** | `sap-writer` | **Opus** (override) | Spec is the most critical artifact |
 | 3.5 Execution Mode | main thread | Sonnet | user prompt + state.json |
 | 4 Implementation | `sap-executor` × 1–3 | Wave-dependent | DDIC/Classes/Main → Opus · Text/Screen → Sonnet per [`model-routing-rule.md`](../common/model-routing-rule.md) |
-| 5 QA | `sap-qa-tester` | Opus 4.7 | OOP mode only |
+| 5 QA | `sap-qa-tester` | Opus | OOP mode only |
 | 6 Review | `sap-code-reviewer` × 4 buckets | Sonnet + Opus escalate | parallel buckets, MAJOR → Opus merge |
 | 7 Debug | `sap-debugger` | Opus (escalation) | failure-only |
-| **8 Completion Report** | `sap-writer` | **Sonnet 4.6** (override) | Report composition from structured state |
+| **8 Completion Report** | `sap-writer` | **Sonnet** (override) | Report composition from structured state |
 
 #### `program-to-spec` — Sonnet main, 2-3 dispatches
-- Step 3 — `sap-analyst` (Opus 4.7, frontmatter) — business purpose + inputs/outputs + data sources + main logic narrative + auth checks + error cases (single dispatch covers all narrative dimensions; CBO-annotated when `cbo-context.md` preloaded)
+- Step 3 — `sap-analyst` (Opus, frontmatter) — business purpose + inputs/outputs + data sources + main logic narrative + auth checks + error cases (single dispatch covers all narrative dimensions; CBO-annotated when `cbo-context.md` preloaded)
 - Step 3 — `sap-writer`:
-  - **L1 / L2 depth** → Haiku 4.5 base (pure templating from analyst output)
-  - **L3 / L4 depth** → **Sonnet 4.6** override (`model: "sonnet"`) — longer narrative + deeper cross-reference + stronger consistency requirement
-- Step 3 (conditional, L4 only) — `sap-critic` (Opus 4.7, frontmatter) — verify every claim cross-references a concrete line range in source
+  - **L1 / L2 depth** → Haiku base (pure templating from analyst output)
+  - **L3 / L4 depth** → **Sonnet** override (`model: "sonnet"`) — longer narrative + deeper cross-reference + stronger consistency requirement
+- Step 3 (conditional, L4 only) — `sap-critic` (Opus, frontmatter) — verify every claim cross-references a concrete line range in source
 
 Excel output uses the same writer tier (depth-driven) — xlsx driver fill-in is mechanical; rendering depth determines tier, not format.
 
@@ -150,15 +150,15 @@ When the work is pure data extraction with no judgment (hundreds of MCP calls pr
 Every `/sc4sap:*` skill response starts with a **model prefix** indicating what ran where:
 
 ```
-[Model: Sonnet 4.6 · Dispatched: Opus×1 (sap-code-reviewer), Haiku×1 (sap-writer)]
+[Model: Sonnet · Dispatched: Opus×1 (sap-code-reviewer), Haiku×1 (sap-writer)]
 ```
 
 Multi-phase skills additionally emit a **phase banner** before each dispatch:
 
 ```
-▶ phase=3 (facts-ZMMR_GR_LIST) · agent=sap-code-reviewer · model=Sonnet 4.6
-▶ phase=4 (analyst) · agent=sap-analyst · model=Opus 4.7
-▶ phase=5 (render) · agent=sap-writer · model=Haiku 4.5
+▶ phase=3 (facts-ZMMR_GR_LIST) · agent=sap-code-reviewer · model=Sonnet
+▶ phase=4 (analyst) · agent=sap-analyst · model=Opus
+▶ phase=5 (render) · agent=sap-writer · model=Haiku
 ```
 
 Rationale: users see cost and expertise levels in real time. Per-phase banners make model-routing decisions auditable. Spec lives in [`../common/model-routing-rule.md`](../common/model-routing-rule.md) § Response Prefix Convention and § Phase Banner Convention.

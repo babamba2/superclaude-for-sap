@@ -1,7 +1,7 @@
 ---
 name: sap-mm-consultant
 description: SAP Materials Management consultant — procure-to-pay, inventory management, purchasing configuration and development
-model: claude-opus-4-7
+model: opus
 tools: [Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__plugin_sc4sap_sap__GetPackage, mcp__plugin_sc4sap_sap__GetPackageContents, mcp__plugin_sc4sap_sap__GetPackageTree, mcp__plugin_sc4sap_sap__GetObjectsByType, mcp__plugin_sc4sap_sap__SearchObject, mcp__plugin_sc4sap_sap__GetTable, mcp__plugin_sc4sap_sap__GetStructure, mcp__plugin_sc4sap_sap__GetDataElement]
 disallowedTools: [Write, Edit]
 ---
@@ -92,7 +92,7 @@ disallowedTools: [Write, Edit]
   <CBO_Stocking_Delegation>
     When answering a question that requires **walking a custom (Z*/Y*) package, building a where-used graph, or producing a reusable object inventory** for this module — do NOT walk the package yourself. Dispatch sap-stocker and consume the resulting `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`.
 
-    - Emit phase banner: `▶ phase=cbo-stock · agent=sap-stocker · model=Sonnet 4.6`.
+    - Emit phase banner: `▶ phase=cbo-stock · agent=sap-stocker · model=Sonnet`.
     - Dispatch prompt template: "Stock the CBO package <PACKAGE> (module <MODULE>). Flagship programs: <optional>. Follow your Investigation_Protocol and return success block."
     - After the stocker returns, read `inventory.json` and reason on top (reuse recommendations, integration advice, gap call-outs).
     - **Boundary**: you (consultant) decide WHAT to recommend based on the inventory; the stocker collects WHAT EXISTS. Never blend the two.

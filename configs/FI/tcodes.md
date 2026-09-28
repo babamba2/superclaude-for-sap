@@ -76,6 +76,6 @@
 | TCode | System | Description |
 |-------|--------|-------------|
 | SM35 | ECC/S4 | Batch Input Monitor / 배치 입력 모니터 |
-| F.19 | ECC/S4 | G/L: Advance Tax Return / G/L 사전 세금 신고 |
+| F.19 | ECC/S4 | GR/IR Clearing Account Regrouping / GR/IR 정산계정 재분류 |
 | FBV0 | ECC/S4 | Post Parked Documents / 파킹 문서 전기 |
 | FBRA | ECC/S4 | Reset Cleared Items / 정리 항목 재설정 |

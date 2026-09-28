@@ -25,8 +25,10 @@ When not satisfied → skip teamMode, proceed to activation as per standard Phas
 
 Executor writes code via `CreateClass` / `UpdateClass` / `CreateFunctionModule` etc. as usual, but BEFORE calling `ActivateObjects`:
 
-1. Generate `team_name` = `create-program-p4-<PROG>-<YYYYMMDD-HHMMSS>`.
-2. `TeamCreate`; write `00-charter.md` with:
+Transport is return-based ([`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Transport): executor and consultants return blocks, the lead writes every task file. The executor has `Write`, but still returns its DRAFT so one writer owns the run directory.
+
+1. Generate a run ID `team_name` = `create-program-p4-<PROG>-<YYYYMMDD-HHMMSS>` (directory name only — never passed to `Agent(...)`).
+2. Create `~/.claude/tasks/<team_name>/`; write `00-charter.md` with:
    - invoked_by: `/sc4sap:create-program Phase 4 Wave <N>`
    - members: `sap-executor-tm`, `sap-<module>-consultant` × N
    - environment (omit null fields)
@@ -34,9 +36,9 @@ Executor writes code via `CreateClass` / `UpdateClass` / `CreateFunctionModule` 
    - spec.md + plan.md excerpts (relevant sections only, not full files)
 3. Emit phase banner:
    ```
-   ▶ phase=4.W<N>.R0 (draft) · agent=sap-executor · model=Opus 4.7
+   ▶ phase=4.W<N>.R0 (draft) · agent=sap-executor · model=Opus
    ```
-4. Spawn executor with `team_name`, `name=sap-executor-tm`. Prompt asks for `10-sap-executor-tm-draft.md` with:
+4. Spawn executor (`teamMode=true`, `member=sap-executor-tm`, charter inline, "return the DRAFT block; do NOT write task files"). The lead writes the returned block to `10-sap-executor-tm-draft.md`. DRAFT fields:
    - `intent`: what the code does in business terms
    - `content`: code snippet (≤ 80 lines — just the novel business logic, NOT boilerplate)
    - `concern-axes`: module-level concerns (e.g., "does this FM use correct SD output determination?")
@@ -44,13 +46,13 @@ Executor writes code via `CreateClass` / `UpdateClass` / `CreateFunctionModule` 
 
 ### R1 — Peer review (parallel)
 
-Spawn all N consultants with inline DRAFT. Each consultant writes:
+Spawn all N consultants with inline DRAFT. Each consultant returns one block, which the lead writes to:
 - `20-<peer>-challenge-sap-executor-tm.md` (CHALLENGE) if pattern violates module best-practice or misses standard FM/BAdI
 - `20-<peer>-concur-sap-executor-tm.md` (CONCUR) if the code is acceptable from the module's view
 
 Phase banner per consultant:
 ```
-▶ phase=4.W<N>.R1 (review-<MODULE>) · agent=sap-<module>-consultant · model=Opus 4.7
+▶ phase=4.W<N>.R1 (review-<MODULE>) · agent=sap-<module>-consultant · model=Opus
 ```
 
 ### Convergence check
@@ -60,11 +62,11 @@ Phase banner per consultant:
 
 ### R2 — WORKER_REFINEMENT
 
-Re-spawn executor with `name=sap-executor-tm-r2`, peer CHALLENGEs inline. Executor writes `30-sap-executor-tm-refinement.md` + actually performs the `UpdateClass` / `UpdateFunctionModule` / `UpdateInclude` MCP calls to revise the code. The refinement file documents WHICH peer challenges drove WHICH code changes.
+Re-dispatch executor (`member=sap-executor-tm`, `round=2`) with peer CHALLENGEs inline. Executor performs the `UpdateClass` / `UpdateFunctionModule` / `UpdateInclude` MCP calls to revise the code, then returns a WORKER_REFINEMENT block documenting WHICH peer challenges drove WHICH code changes; the lead writes it to `30-sap-executor-tm-refinement.md`.
 
 ### R3 — Peer final
 
-Re-spawn consultants with `-r2` suffix. Each writes `40-<peer>-final-sap-executor-tm.md` with CONCUR or ESCALATE.
+Re-dispatch consultants (`round=3`) with DRAFT + refinement inline. Each returns CONCUR or ESCALATE; the lead writes `40-<peer>-final-sap-executor-tm.md`.
 
 ### Lead arbitration (ESCALATE only)
 
@@ -74,7 +76,7 @@ Lead writes `99-lead-arbitration.md`. For Phase 4, ESCALATE typically means "mod
 
 - teamMode B runs **inside** a Wave, **before** activation.
 - Does NOT replace Phase 6 review — Phase 6 still runs, but with `peer-validated` annotations on the relevant dimensions.
-- If teamMode B activates in Wave 2 AND Wave 3, they run as **separate team cycles** (different `team_name`) — avoids mixing G2 class draft with G5 include draft.
+- If teamMode B activates in Wave 2 AND Wave 3, they run as **separate team cycles** (different run-ID directory) — avoids mixing G2 class draft with G5 include draft.
 - Transport shared across waves as usual.
 
 ## Response prefix — teamMode-B variant
@@ -87,8 +89,7 @@ Overrides standard Phase 4 prefix:
 
 ## Cleanup
 
-1. Shutdown all team members via `SendMessage({type:"shutdown_request", reason:"Wave <N> teamMode complete"})` (structured JSON object, per protocol).
-2. Keep task directories (audit trail cross-referenced from `.sc4sap/program/<PROG>/phase4-team-audit/`).
+No shutdown step — members are one-shot dispatches that terminate on return. Keep task directories (audit trail cross-referenced from `.sc4sap/program/<PROG>/phase4-team-audit/`).
 
 ## Prototype notes
 

@@ -206,16 +206,16 @@ sc4sap의 규칙 코퍼스는 방대함 — 25+ `common/*.md` + 14 `configs/{MOD
 예시:
 
 ```
-[Model: Opus 4.7]
+[Model: Opus]
 — 순수 메인 스레드 응답, sub-agent 디스패치 없음
 
-[Model: Opus 4.7 · Dispatched: Sonnet×2]
+[Model: Opus · Dispatched: Sonnet×2]
 — 메인 + 병렬 Sonnet executor 2개 (Wave 2 G4-prep 텍스트 벌크)
 
-[Model: Opus 4.7 · Dispatched: Opus×1 (planner)]
+[Model: Opus · Dispatched: Opus×1 (planner)]
 — Phase 2 planner 디스패치
 
-[Model: Opus 4.7 · Dispatched: Sonnet×3 (B3a executor 범위 α/β/γ)]
+[Model: Opus · Dispatched: Sonnet×3 (B3a executor 범위 α/β/γ)]
 — multi-executor-split.md Strategy A 기반 Multi-Executor Split
 ```
 

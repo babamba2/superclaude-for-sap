@@ -20,9 +20,9 @@ main thread ─┬─> consultant_A (isolated)
 - If consultants disagree, the writer can only **report the disagreement**, not resolve it.
 - Claude Code platform constraint: sub-agents cannot call `Agent()`, so a consultant cannot ask a peer directly (reverted in 0.6.8, see `CHANGELOG.md`).
 
-Agent teams (Claude Code experimental feature, `CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1`) provide the missing channel: **teammates can `SendMessage` each other directly without routing through the lead**.
+The original design relied on Claude Code agent teams (`TeamCreate` + `Agent(team_name=...)` + peer `SendMessage`). That channel is gone — `team_name` is deprecated and ignored, `TeamCreate` no longer exists — so deliberation is **lead-relayed and return-based**: the lead re-dispatches members each round with peer messages inline, members return message blocks, and the lead persists them. Peer↔peer messaging was never implemented, so no behavior was lost.
 
-## 2. Universal flow — Lead ↔ Team
+## 2. Universal flow — Lead ↔ Members (return-based)
 
 ```
                          USER
@@ -32,32 +32,26 @@ Agent teams (Claude Code experimental feature, `CLAUDE_CODE_EXPERIMENTAL_AGENT_T
               │  Lead (Claude Code      │  ← main session, invoking skill
               │  main session)          │
               └──────────┬──────────────┘
-                         │ TeamCreate + Agent(team_name=...) × N
+                         │ Agent(...) × N per round (parallel, one-shot)
+                         │ prompt = charter + peer blocks inline
                          v
-         ┌───────────────────────────────────────┐
-         │     Team /  shared task list          │
-         │                                       │
-         │   ┌─────────┐   ┌─────────┐   ┌─────┐ │
-         │   │Member_A │◄─►│Member_B │◄─►│ ... │ │  ← SendMessage peer↔peer
-         │   └─────────┘   └─────────┘   └─────┘ │     (no main relay)
-         │        │             │          │     │
-         │        └─────────────┼──────────┘     │
-         │                      v                │
-         │             consensus.md (40-)        │  ← members write here
-         └──────────────────────┬────────────────┘
-                                │ lead reads final state
-                                v
-                      ┌─────────────────┐
-                      │ Lead: arbitrate │  ← lead extracts consensus,
-                      │   + format      │     flags residual disagreement,
-                      └─────────────────┘     returns to user
+         ┌─────────┐   ┌─────────┐   ┌─────┐
+         │Member_A │   │Member_B │   │ ... │   ← R/O; never write files
+         └────┬────┘   └────┬────┘   └──┬──┘
+              └── return POSITION / CHALLENGE / CONCUR blocks ──┐
+                                                               v
+              ┌───────────────────────────────────────────────────┐
+              │ Lead: persist to ~/.claude/tasks/<run-id>/ (10- … │
+              │ 40-), divergence check, next round or arbitrate,  │
+              │ then synthesis writer → user                      │
+              └───────────────────────────────────────────────────┘
 ```
 
 - Lead = whatever Claude Code session runs the invoking skill (frontmatter `model:` is declarative; see `skill-model-architecture.md`).
-- Members = sc4sap agents spawned via `Agent(..., team_name="...")`.
-- Task list under `~/.claude/tasks/<team-name>/` is the shared scratchpad.
+- Members = plain one-shot `Agent(...)` dispatches; they terminate on return (no shutdown step).
+- `~/.claude/tasks/<run-id>/` is the lead-written audit trail; the lead is its only writer.
 - **Members cannot spawn further agents** — same `Agent()` constraint as single-dispatch. Deliberation scope must be bounded.
-- **Name addressability is ephemeral** — a teammate is reachable by `name=` only while it's actively running; cross-turn re-address requires UUID from the spawn return.
+- Protocol detail: [`../common/team-consultation-protocol.md`](../common/team-consultation-protocol.md) § Transport.
 
 ## 3. Team taxonomy — 4 types
 
@@ -237,9 +231,8 @@ Same-as-before hard limits that bound the design:
 
 - **Members cannot spawn sub-agents**: no nested teams; no member-issued `Agent()` call. If deeper reasoning is needed, ESCALATE to lead.
 - **Members have independent context windows**: no shared conversation history. Each spawn prompt must include the full charter (question + environment + rules).
-- **Name addressability is ephemeral**: a teammate is reachable by `name=` only while running. Cross-turn re-address requires the UUID from the `Agent()` spawn return.
+- **No named-team channel**: `team_name` is deprecated/ignored and `TeamCreate` is unavailable. Members are one-shot dispatches; every round is a fresh dispatch with peer content inline, and members return blocks instead of writing files.
 - **No automatic consensus**: lead must read `40-consensus.md` and format the final output. Teams are a deliberation mechanism, not a decision mechanism.
-- **One team per lead at a time** (experimental constraint per Claude Code docs).
 
 ## 8. Phased rollout
 

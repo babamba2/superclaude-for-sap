@@ -3,6 +3,37 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.24] — 2026-09-28
+
+### Added — user-selectable model dispatch mode
+
+- New option `modelDispatch` in `~/.sc4sap/preferences.json`, edited via `/sc4sap:sap-option` → "dispatch". `auto` (default) keeps the current behavior: sub-agent models follow `common/model-routing-rule.md` and the skill MDs. `user-defined` makes every multi-agent skill ask Opus / Sonnet / Haiku before each dispatch group, with the rule-based choice marked `(Recommended)`.
+- A parallel fan-out counts as one group (one question); an escalation after `BLOCKED` asks again. Phase banners mark user-chosen models with `(user)`.
+- Rules: `common/model-dispatch-mode.md`. The setting is user-level, so it applies to every profile and project, and needs no MCP reconnect.
+
+### Fixed — HUD cost used stale prices
+
+- The HUD price table billed Opus 4.6 / 4.7 at $15 / $75 per MTok (actual $5 / $25) and had no entry for Opus 5 / 5.5, Sonnet 5 or Fable 5 / 5.1, which fell back to Sonnet 4 rates. Added the current models, per-model cache-read prices (Opus 5.5 $0.20, Fable 5.1 $0.25) and family fallbacks so a newly released version gets its family's price instead of Sonnet's.
+- Cache writes were always priced at the 5-minute rate (1.25× input). Claude Code writes 1-hour cache entries (2× input); `costOf()` now prices them from `usage.cache_creation.ephemeral_1h_input_tokens`.
+- `scripts/ci/diagnose-failure.mjs` defaults to `claude-sonnet-5` (was `claude-sonnet-4-6`).
+
+### Changed — agents follow the newest model of each tier
+
+- Agent frontmatter pinned `claude-opus-4-7` / `claude-sonnet-4-6` / `claude-haiku-4-5`, so dispatches kept running on those versions after newer models shipped. All 26 agents now use the Claude Code aliases `opus` / `sonnet` / `haiku`, which track the newest model of each tier.
+- `ask-consultant` and `setup` now declare `model: inherit` instead of `haiku`. Their main thread routes, checks consultant divergence, reviews the synthesis or triages setup failures, which Haiku handles poorly. Claude Code documents a skill's `model:` as a per-turn switch; the current CLI registers the switch but still answers on the session model, so this guards against the switch starting to apply.
+- Phase banners, response-prefix examples and docs name the tier (`Opus` / `Sonnet` / `Haiku`) instead of a version. The response prefix still reports the answering model's full name, read at runtime.
+
+### Changed — reasoning effort per agent
+
+- `sap-stocker` and `sap-doc-specialist` set `effort: medium` (lookup / inventory work). Every other agent keeps Claude Code's per-model default (observed `high` for Sonnet, `xhigh` for Opus 4.7); `sap-writer` gets none because its Haiku base does not accept effort and `create-program` Phase 3 reuses it on Opus. Policy: `common/model-routing-rule.md` § Reasoning effort.
+
+### Changed — teamMode deliberation no longer uses Claude Code agent teams
+
+- teamMode in `ask-consultant`, `compare-programs`, `create-program` (Type A / B / D) and `analyze-code` (Type B) called `TeamCreate`, passed `team_name` and sent `shutdown_request` messages. Claude Code no longer has `TeamCreate` and ignores `team_name`, and the consultant / reviewer agents cannot write the position files the protocol asked for (`Write` / `Edit` are disallowed).
+- Members now return their POSITION / CHALLENGE / REFINEMENT / CONCUR / ESCALATE block as their reply, and the orchestrating skill writes it to the same `~/.claude/tasks/<run-id>/` files as before, so the synthesis steps are unchanged. Each round is a fresh parallel dispatch with peer blocks inline; there is no shutdown step. A malformed block is re-requested once.
+- Block format is fixed (bare TYPE line, plain `field: value` lines, `target` = member name). Cosmetic drift is normalized by the lead instead of re-requested. When two members each adopt the other's stance on the same point, the lead records a `LEAD RESOLUTION`. The lead checks the synthesis writer's output against the task files before showing it.
+- Rules: `common/team-consultation-protocol.md` § Transport. Design: `docs/team-consultation-architecture.md`.
+
 ## [0.6.23] — 2026-09-22
 
 ### Changed — `sap-executor` carries 92 SAP tools instead of 142

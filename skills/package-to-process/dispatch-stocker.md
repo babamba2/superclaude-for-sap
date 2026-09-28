@@ -1,6 +1,6 @@
 # Dispatch — Step 2 (sap-stocker)
 
-Referenced by `workflow.md` § Step 2. Fires **conditionally** only when `<INVENTORY_PATH>` does not exist. Dispatch uses the agent's frontmatter model (Sonnet 4.6).
+Referenced by `workflow.md` § Step 2. Fires **conditionally** only when `<INVENTORY_PATH>` does not exist. Dispatch uses the agent's frontmatter model (Sonnet).
 
 ## State variables
 - `<PACKAGE>` — uppercase Z-package name (e.g., `ZMM_MAIN`)

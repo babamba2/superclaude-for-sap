@@ -2,7 +2,7 @@
 
 Full `Agent(...)` prompt bodies for the compare-programs skill. Referenced from `workflow.md` to keep that file under the 200-line cap.
 
-## Step 3 — sap-code-reviewer (facts extraction, Sonnet 4.6 override)
+## Step 3 — sap-code-reviewer (facts extraction, Sonnet override)
 
 Dispatched N times in parallel (one per program). Each reviewer reads ONE program and returns structured facts only — no quality scoring.
 
@@ -78,7 +78,7 @@ programs a <MODULE> user would reach for — and why. Facts:
 Answer in the user's current conversation language.
 ```
 
-## Step 5 — sap-writer (render, Haiku 4.5)
+## Step 5 — sap-writer (render, Haiku)
 
 One dispatch. Pure formatting from structured state — no MCP reads.
 

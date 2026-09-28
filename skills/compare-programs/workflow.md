@@ -1,6 +1,6 @@
 # Workflow Steps
 
-Main thread runs on Sonnet 4.6 (skill frontmatter). Every MCP read is pushed into an agent so the orchestrator context stays small even for 5 programs × full source + AST + screens.
+Main thread runs on Sonnet (skill frontmatter). Every MCP read is pushed into an agent so the orchestrator context stays small even for 5 programs × full source + AST + screens.
 
 ## Step 0 — Trust Session (mandatory, see SKILL.md)
 
@@ -26,13 +26,13 @@ Show the **Scope Prompt** from `comparison-scope.md` with defaults pre-ticked. R
 
 Store the confirmed dimension set as `active_dimensions` (subset of 1–10) and the output choice as `formats` (`[md]` default, `[md, html]` on `html`, `[html]` on `html only`). Echo back one line confirming the selection, e.g.: *"Dimensions confirmed: 1·2·3·5·6·7·10 (7 of 10) · output: Markdown + HTML. Starting analysis."*
 
-## Step 3 — Facts Extraction (per-program `sap-code-reviewer` dispatch, Sonnet 4.6 override)
+## Step 3 — Facts Extraction (per-program `sap-code-reviewer` dispatch, Sonnet override)
 
 **Fires N parallel `Agent(...)` dispatches — one per program.** Each reviewer reads its own program's source + structural metadata ITSELF. The main thread never holds full source code.
 
 For each program in `compared_objects`, emit phase banner:
 ```
-▶ phase=3 (facts-<PROG>) · agent=sap-code-reviewer · model=Sonnet 4.6
+▶ phase=3 (facts-<PROG>) · agent=sap-code-reviewer · model=Sonnet
 ```
 
 Dispatch shape (repeat per program, parallel in one message):
@@ -49,13 +49,13 @@ The full facts-extraction prompt (MCP tool list + output schema + safety rules) 
 
 On any reviewer `BLOCKED`, surface the reason and ask the user whether to proceed with the remaining programs or abort. Store the N facts blobs in `program_facts[<PROG>]`.
 
-## Step 4 — Analysis & Narrative (single `sap-analyst` dispatch, Opus 4.7)
+## Step 4 — Analysis & Narrative (single `sap-analyst` dispatch, Opus)
 
 **One consolidated dispatch.** The analyst receives all N facts blobs + the active dimension set + user's conversation language, and returns module classification + dimension scoring + executive summary + recommendation in one continuous reasoning pass.
 
 Emit phase banner:
 ```
-▶ phase=4 (analyst) · agent=sap-analyst · model=Opus 4.7
+▶ phase=4 (analyst) · agent=sap-analyst · model=Opus
 ```
 
 Dispatch:
@@ -94,17 +94,17 @@ Agent({
 
 Triggered when the analyst returns `module_set` with ≥ 2 modules. For each distinct module, dispatch the matching consultant in parallel. Each returns 2–3 sentences from the module's operational perspective.
 
-**teamMode variant** — Step 4b always runs as Round 1 of Type A teamMode (Cross-Module Consultant Panel). If POSITIONs reveal an **ownership conflict** (same program claimed PRIMARY by 2+ modules), escalate to Rounds 2-3 per [`team-mode.md`](team-mode.md) § Rounds. No conflict → positions feed directly into Step 5 via `module_consultant_outputs`. Spawn shape below is the legacy single-shot; use the Round 1 spawn shape in `team-mode.md` § Round 1 (adds `team_name`, `name`, charter-file reference) when adopting teamMode.
+**teamMode variant** — Step 4b always runs as Round 1 of Type A teamMode (Cross-Module Consultant Panel). If POSITIONs reveal an **ownership conflict** (same program claimed PRIMARY by 2+ modules), escalate to Rounds 2-3 per [`team-mode.md`](team-mode.md) § Rounds. No conflict → positions feed directly into Step 5 via `module_consultant_outputs`. Spawn shape below is the legacy single-shot; use the Round 1 spawn shape in `team-mode.md` § Round 1 (inlined charter + `teamMode=true`; consultants return POSITION blocks that the lead persists — no `team_name`) when adopting teamMode.
 
 For each module in `module_set`:
 ```
-▶ phase=4b (consultant-<MODULE>) · agent=sap-<module>-consultant · model=Opus 4.7
+▶ phase=4b (consultant-<MODULE>) · agent=sap-<module>-consultant · model=Opus
 ```
 
 Dispatch shape:
 ```
 Agent({
-  subagent_type: "sc4sap:sap-<module>-consultant",   // frontmatter pins Opus 4.7
+  subagent_type: "sc4sap:sap-<module>-consultant",   // frontmatter pins Opus
   description: "<MODULE> angle on compared programs",
   prompt: """
     From a <MODULE> consultant's view, briefly explain (2–3 sentences each) which of these
@@ -118,11 +118,11 @@ Agent({
 
 If `module_set` has 1 module, SKIP Step 4b.
 
-## Step 5 — Render (`sap-writer` dispatch, Haiku 4.5)
+## Step 5 — Render (`sap-writer` dispatch, Haiku)
 
 Emit banner:
 ```
-▶ phase=5 (render) · agent=sap-writer · model=Haiku 4.5
+▶ phase=5 (render) · agent=sap-writer · model=Haiku
 ```
 
 Dispatch:

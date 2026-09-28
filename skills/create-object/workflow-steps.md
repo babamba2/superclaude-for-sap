@@ -1,6 +1,6 @@
 # create-object Workflow Steps
 
-Referenced from `SKILL.md` → `<Workflow_Steps>`. Main thread runs Sonnet 4.6 (frontmatter); object creation / implementation / activation are delegated to `sap-executor`, and the main thread renders the final report from the executor's structured return.
+Referenced from `SKILL.md` → `<Workflow_Steps>`. Main thread runs Sonnet (frontmatter); object creation / implementation / activation are delegated to `sap-executor`, and the main thread renders the final report from the executor's structured return.
 
 Full Agent prompt bodies live in [`dispatch-prompts.md`](dispatch-prompts.md) (kept separate to honor the 200-line cap).
 
@@ -38,7 +38,7 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:create-object`. Skip si
 
 Emit phase banner:
 ```
-▶ phase=4 (executor-create) · agent=sap-executor · model=Opus 4.7
+▶ phase=4 (executor-create) · agent=sap-executor · model=Opus
 ```
 
 Dispatch shape:
@@ -59,7 +59,7 @@ On `BLOCKED` or `FAILED` activation: main surfaces the error verbatim in the Ste
 
 Emit phase banner:
 ```
-▶ phase=4-ECC (executor-helper) · agent=sap-executor · model=Opus 4.7
+▶ phase=4-ECC (executor-helper) · agent=sap-executor · model=Opus
 ```
 
 Dispatch shape:

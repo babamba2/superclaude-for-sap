@@ -34,7 +34,7 @@ Top fix: Eliminate SELECT inside LOOP (line 67) — highest performance impact
 ### Main thread
 - `SearchObject` — verify object exists during Step 1 intake
 
-### Reviewer agent (Opus 4.7, inside Step 2 dispatch)
+### Reviewer agent (Opus, inside Step 2 dispatch)
 - `GetClass` / `GetProgram` / `GetFunctionModule` / `GetInterface` / `GetView` — read source
 - `GetProgFullCode` — full program source including includes
 - `GetAbapAST` — parse tree and structural analysis

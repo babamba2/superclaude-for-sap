@@ -133,8 +133,8 @@ Callup Points: 0001 (Document header), 0002 (Line item), 0003 (Complete document
 | FINS_ACDOCA_CUSTOM_BADI | S4 | Universal Journal custom BAdI / Universal Journal BAdI |
 | Key User Extensibility (Fiori) | S4 | Custom Fields and Logic app / Custom Fields and Logic 앱 |
 
-In S/4HANA, BSEG remains as a compatibility view but **ACDOCA is the leading table**.
-S/4HANA에서 BSEG는 호환성 뷰로 남아있지만 **ACDOCA가 주도 테이블**입니다.
+In S/4HANA, BSEG remains a physical table (entry view) but **ACDOCA is the leading table**; the index tables (BSIS/BSAS, BSID/BSAD, BSIK/BSAK) are compatibility views.
+S/4HANA에서 BSEG는 물리 테이블(엔트리 뷰)로 남아있지만 **ACDOCA가 주도 테이블**이며, 인덱스 테이블(BSIS/BSAS, BSID/BSAD, BSIK/BSAK)이 호환성 뷰입니다.
 
 ---
 

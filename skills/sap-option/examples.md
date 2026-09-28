@@ -23,3 +23,9 @@ User: "Change the HUD weekly limit to $200"
 
 User: "5h limit 35, weekly 200, extra 100"
 → HUD flow, set all three at once, single diff, single confirmation, single write.
+
+User: "Let me choose the model for each agent"
+→ route to model-dispatch.md, show current `modelDispatch` (auto), set `user-defined`, diff, confirm, write `~/.sc4sap/preferences.json`. No reconnect needed; the next skill run asks Opus / Sonnet / Haiku before each dispatch group.
+
+User: "Go back to auto dispatch"
+→ model-dispatch.md flow, set `modelDispatch: auto`, confirm, write.

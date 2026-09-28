@@ -8,12 +8,12 @@ Companion to [`team-mode.md`](team-mode.md). Contains detailed spawn shapes, div
 
 Replaces `SKILL.md` Step 4. The lead:
 
-1. Generate a deterministic `team_name` = `ask-consultant-<YYYYMMDD-HHMMSS>`.
+1. Generate a run ID `team_name` = `ask-consultant-<YYYYMMDD-HHMMSS>` — a directory name only, never passed to `Agent(...)` (transport is return-based per the protocol § Transport).
 2. Create the shared task directory: `~/.claude/tasks/<team_name>/`.
 3. Write `00-charter.md` (OMIT any environment field whose value is null / unset — never write `field: (not set)`; just drop the line):
    ```
    TEAM CHARTER
-   team_name: <team_name>
+   run_id: <team_name>
    invoked_by: /sc4sap:ask-consultant
    members: <comma-separated consultant names>
    round_cap: 3
@@ -27,28 +27,25 @@ Replaces `SKILL.md` Step 4. The lead:
    ```
 4. Emit phase banner per member, then spawn all N consultants **in parallel (single message, N tool calls)**:
    ```
-   ▶ phase=4.R1 (position-<MODULE>) · agent=sap-<module>-consultant · model=Opus 4.7
+   ▶ phase=4.R1 (position-<MODULE>) · agent=sap-<module>-consultant · model=Opus
    ```
    Spawn shape:
    ```
    Agent({
      subagent_type: "sc4sap:sap-<module>-consultant",
-     team_name: "<team_name>",
-     name: "sap-<module>-consultant",
      description: "Round 1 POSITION — <MODULE>",
      prompt: """
-       teamMode=true, round=1.
-       Charter: ~/.claude/tasks/<team_name>/00-charter.md
+       teamMode=true, round=1, member=sap-<module>-consultant.
+       Charter (inline; file ~/.claude/tasks/<team_name>/00-charter.md):
+       <charter content>
 
-       Follow common/team-consultation-protocol.md.
-
-       Produce a POSITION and write it to
-       ~/.claude/tasks/<team_name>/10-<your-name>-position.md
-       then return.
+       Follow common/team-consultation-protocol.md. Do NOT write any file.
+       Final reply = a POSITION block first, then your full answer to the
+       question (Korean/user language, markdown) for the per-module subsection.
      """
    })
    ```
-5. Wait for all N members to complete. Read all `10-*-position.md` files.
+5. Wait for all N completion notifications. Extract each POSITION block and write it to `10-<member>-position.md`; keep each full answer for Step 6's per-module subsections. Malformed block → re-dispatch that member once (protocol § Transport → Parsing).
 
 ### Divergence check (between rounds, lead-side, no agent call)
 
@@ -62,32 +59,30 @@ Lead parses each `POSITION`'s `recommendation` + `assumption` fields. Divergence
 
 ### Round 2 — CHALLENGE + REFINEMENT
 
-> R2 operational details (inline peer POSITIONs, `-r2` name suffix for re-spawn, withdrawal-as-CONCUR) — see [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § R2 spawn mechanics + § Message types.
+> R2 operational details (inline peer POSITIONs, return-based blocks, withdrawal-as-CONCUR) — see [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Round 2 + § Message types.
 
 1. Emit phase banner per member:
    ```
-   ▶ phase=4.R2 (challenge-<MODULE>) · agent=sap-<module>-consultant · model=Opus 4.7
+   ▶ phase=4.R2 (challenge-<MODULE>) · agent=sap-<module>-consultant · model=Opus
    ```
 2. Spawn all N consultants in parallel. Spawn prompt:
    ```
-   teamMode=true, round=2.
-   Charter: ~/.claude/tasks/<team_name>/00-charter.md
-   Round 1 positions:
-     <member-1>: <content of 10-<member-1>-position.md>
-     <member-2>: <content of 10-<member-2>-position.md>
-     ...
+   teamMode=true, round=2, member=sap-<module>-consultant.
+   Charter (inline): <charter content>
+   === <member-1> POSITION ===
+   <content of 10-<member-1>-position.md>
+   === <member-2> POSITION ===
+   <content of 10-<member-2>-position.md>
+   ...
 
-   For each peer POSITION you disagree with, write
-   20-<your-name>-challenge-<target>.md following common/team-consultation-protocol.md.
-
-   Then write 30-<your-name>-refinement.md with your updated POSITION,
-   citing which peer CHALLENGEs it addresses (if any are directed at you —
-   peers will not have written theirs yet; address by inference / your own
-   reading of round-1 positions).
-
-   Return when both files are written.
+   Follow common/team-consultation-protocol.md. Do NOT write any file.
+   Final reply: one CHALLENGE block per peer POSITION you disagree with
+   (target = the peer's member name exactly, e.g. sap-co-consultant; canonical
+   `field: value` lines, no numbering/bullets), then one REFINEMENT block with your updated
+   POSITION (address likely peer challenges by inference from their
+   round-1 positions — peers are replying in parallel).
    ```
-3. Read all `20-*.md` and `30-*.md` after completion.
+3. After all completion notifications: write each CHALLENGE to `20-<member>-challenge-<target>.md` and each REFINEMENT to `30-<member>-refinement.md`.
 
 ### Divergence check 2
 
@@ -97,20 +92,20 @@ Same comparator as Divergence check above, applied to `30-*-refinement.md`'s rec
 
 1. Emit phase banner per member:
    ```
-   ▶ phase=4.R3 (consensus-<MODULE>) · agent=sap-<module>-consultant · model=Opus 4.7
+   ▶ phase=4.R3 (consensus-<MODULE>) · agent=sap-<module>-consultant · model=Opus
    ```
 2. Spawn all N consultants in parallel. Spawn prompt includes all round-1+2 content:
    ```
-   teamMode=true, round=3.
+   teamMode=true, round=3, member=sap-<module>-consultant.
    Charter + all round-1+2 content attached inline.
 
-   Append ONE entry to 40-consensus.md — either CONCUR (accept a peer's refined POSITION,
-   cite which one + optional conditions) or ESCALATE (state residual issue + own stance
-   + peer stances).
-
-   Return when appended.
+   Follow common/team-consultation-protocol.md. Do NOT write any file.
+   Final reply = exactly ONE block — either CONCUR (accept a peer's refined
+   POSITION, cite which one + optional conditions) or ESCALATE (state residual
+   issue + own stance + peer stances).
    ```
-3. Lead reads `40-consensus.md` after all members complete.
+3. After all completion notifications, the lead appends each block to `40-consensus.md` (sequentially, under a `## <member>` heading) and reads it.
+4. **Crossed concurrence** (each member adopted the other's stance on the same point) → the lead appends a `LEAD RESOLUTION` line per protocol § Round 3 step 4; not an ESCALATE.
 
 ### Lead arbitration (only when ESCALATE entries exist)
 

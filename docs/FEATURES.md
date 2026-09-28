@@ -279,16 +279,16 @@ Every `/sc4sap:*` skill-triggered response begins with a one-line prefix so the 
 Examples:
 
 ```
-[Model: Opus 4.7]
+[Model: Opus]
 — pure main-thread response, no sub-agent dispatches
 
-[Model: Opus 4.7 · Dispatched: Sonnet×2]
+[Model: Opus · Dispatched: Sonnet×2]
 — main thread + two parallel Sonnet executors (Wave 2 G4-prep text bulk)
 
-[Model: Opus 4.7 · Dispatched: Opus×1 (planner)]
+[Model: Opus · Dispatched: Opus×1 (planner)]
 — Phase 2 planner dispatch
 
-[Model: Opus 4.7 · Dispatched: Sonnet×3 (B3a executor range α/β/γ)]
+[Model: Opus · Dispatched: Sonnet×3 (B3a executor range α/β/γ)]
 — Multi-Executor Split per multi-executor-split.md Strategy A
 ```
 
