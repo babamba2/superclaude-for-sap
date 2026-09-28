@@ -1,0 +1,11 @@
+<pasted_content id="927f">
+재시작 후 확인 방법 (새 세션에서 "effort probe 해줘"라고 하시면 제가 진행합니다)
+1. sap-doc-specialist와 sap-qa-tester를 가벼운 질문으로 동시에 호출합니다.
+2. <session>/subagents/agent-*.jsonl에서 "model"과 "effort"를 읽습니다.
+3. 기대값은 다음과 같습니다.
+   - doc-specialist: claude-sonnet-5, effort: medium
+   - qa-tester: claude-sonnet-5, effort: high
+
+   두 가지가 함께 확인됩니다. 모델이 sonnet-5로 나오면 별칭 전환이 적용된 것이고, doc-specialist만 medium으로 나오면 effort 설정이 적용된 것입니다.
+4. 재시작하면 SKILL.md 수정분(ask-consultant, setup의 inherit 등)도 반영됩니다.
+</pasted_content id="927f">
