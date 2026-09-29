@@ -21,7 +21,9 @@
             "timeout": 3
           }
         ]
-      },
+      }
+    ],
+    "Setup": [
       {
         "matcher": "init",
         "hooks": [
@@ -91,23 +93,6 @@
           {
             "type": "command",
             "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/verify-deliverables.mjs",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "matcher": "*",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/pre-compact.mjs",
-            "timeout": 10
-          },
-          {
-            "type": "command",
-            "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/project-memory-precompact.mjs",
             "timeout": 5
           }
         ]

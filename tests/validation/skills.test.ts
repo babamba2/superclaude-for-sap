@@ -37,11 +37,13 @@ describe('Skills Validation', () => {
         expect(fm).toContain('description:');
       });
 
-      it('has sc4sap: prefix in name', () => {
+      // Claude Code adds the plugin prefix itself (`/sc4sap:<name>`), so the
+      // frontmatter name is the bare directory name.
+      it('name matches the directory, without the plugin prefix', () => {
         if (!existsSync(skillFile)) return;
         const content = readFileSync(skillFile, 'utf-8');
-        const nameMatch = content.match(/name:\s*sc4sap:/);
-        expect(nameMatch, 'Skill name must have sc4sap: prefix').toBeTruthy();
+        const nameMatch = content.match(/^name:\s*(\S+)\s*$/m);
+        expect(nameMatch?.[1], 'Skill name must equal its directory name').toBe(skill);
       });
     });
   }

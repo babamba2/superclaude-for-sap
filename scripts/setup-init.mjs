@@ -1,9 +1,13 @@
 #!/usr/bin/env node
 
 /**
- * sc4sap Setup Init Hook (SessionStart, matcher: "init")
+ * sc4sap Setup Init Hook (Setup, matcher: "init")
  * Runs initial setup when a new sc4sap project is initialized.
  * Creates .sc4sap directory structure and default configuration.
+ *
+ * Fires only on `claude --init-only` / `claude -p --init`, never on a normal
+ * session start. Setup discards JSON output and none of its stdout reaches
+ * Claude, so the result is printed as plain text for the stream-json log.
  */
 
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
@@ -68,15 +72,9 @@ async function main() {
       } catch {}
     }
 
-    console.log(JSON.stringify({
-      continue: true,
-      hookSpecificOutput: {
-        hookEventName: 'SessionStart',
-        additionalContext: '[SC4SAP] Project initialized. .sc4sap directory structure created.'
-      }
-    }));
+    console.log('[SC4SAP] Project initialized. .sc4sap directory structure created.');
   } catch (error) {
-    console.log(JSON.stringify({ continue: true, suppressOutput: true }));
+    console.log(`[SC4SAP] Project init failed: ${error?.message ?? error}`);
   }
 }
 

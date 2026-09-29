@@ -42,7 +42,7 @@ SuperClaude for SAP transforms Claude Code into a full-stack SAP development ass
 ## Documentation
 
 - 📦 **[Installation & Setup →](docs/INSTALLATION.md)** — requirements, install options, wizard steps, blocklist configuration
-- 🎯 **[Features Deep-Dive →](docs/FEATURES.md)** — 25 agents, 19 skills, MCP tools, RFC backends, hooks, data-extraction policy
+- 🎯 **[Features Deep-Dive →](docs/FEATURES.md)** — 26 agents, 14 skills, MCP tools, RFC backends, hooks, data-extraction policy
 - 🧠 **[Skill Model Architecture →](docs/skill-model-architecture.md)** — per-skill / per-phase model allocation (Haiku / Sonnet / Opus), model override patterns, escalation ladders, design rationale
 - 📜 **[Changelog →](docs/CHANGELOG.md)** — version history and breaking changes
 

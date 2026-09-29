@@ -1,7 +1,6 @@
 ---
-name: sc4sap:sap-option
+name: sap-option
 description: View SAP system status snapshot and edit values in `.sc4sap/sap.env` (connection, blocklist), HUD usage limits in `~/.claude/settings.json` → `env`, and the agent model-dispatch mode in `~/.sc4sap/preferences.json` — single entrypoint for all sc4sap runtime options
-level: 2
 model: inherit
 ---
 

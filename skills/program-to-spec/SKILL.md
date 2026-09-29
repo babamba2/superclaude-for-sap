@@ -1,7 +1,6 @@
 ---
-name: sc4sap:program-to-spec
+name: program-to-spec
 description: Reverse-engineer an ABAP program into a Functional/Technical Specification artifact (Markdown, HTML, and/or Excel — any combination). Socratic scope narrowing from "everything" to "only what the user needs".
-level: 2
 model: inherit
 ---
 
@@ -180,4 +179,4 @@ Spec generation only reads **source code + DDIC metadata + where-used** — neve
 **HTML output:** converted from the finished `.md` by `node scripts/spec/md-to-html.mjs <spec.md> <spec.html>` — PNGs inlined as data URIs, Mermaid fallbacks drawn by the Mermaid CDN script when opened online (plain source text offline). Same content as the `.md`, by construction.
 </Inputs_And_Screens_Rendering>
 
-Task: {{ARGUMENTS}}
+Task: $ARGUMENTS

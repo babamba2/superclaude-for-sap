@@ -4,8 +4,8 @@
 
 ## 目次
 
-- [25 の SAP 専門エージェント](#25-の-sap-専門エージェント)
-- [18 スキル](#18-スキル)
+- [26 の SAP 専門エージェント](#26-の-sap-専門エージェント)
+- [14 スキル](#14-スキル)
 - [スキル — 例 & ワークフロー](#スキル--例--ワークフロー)
 - [MCP ABAP ADT サーバー機能](#mcp-abap-adt-サーバー--固有機能)
 - [共有規約](#共有規約-common)
@@ -22,12 +22,13 @@
 - [RFC バックエンド選択](#-rfc-バックエンド選択)
 - [RFC ゲートウェイ (Enterprise)](#-rfc-ゲートウェイ-enterprise-デプロイ)
 
-## 25 の SAP 専門エージェント
+## 26 の SAP 専門エージェント
 
 | カテゴリ | エージェント |
 |---------|-------------|
 | **Core (10)** | Analyst, Architect, Code Reviewer, Critic, Debugger, Doc Specialist, Executor, Planner, QA Tester, Writer |
 | **Basis (1)** | BC Consultant — システム管理、トランスポート管理、診断 |
+| **Discovery (1)** | CBO Stocker — CBO パッケージインベントリ、where-used グラフ、再利用オブジェクトカタログ |
 | **Modules (14)** | SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, Ariba, BW |
 
 **委譲マップ (Module Consultation Protocol)**:
@@ -36,7 +37,7 @@
 - `sap-analyst` / `sap-critic` / `sap-planner` は必須の **Country Context** ブロック (`country/<iso>.md` をロード) を持つ
 - **Core エージェントの直接 MCP 読み取りアクセス** — パッケージ / DDIC / クラス / プログラム / where-used / ランタイムダンプツールを読み取り専用で保有。書き込み CRUD は `sap-executor` / `sap-planner` / `sap-writer` / `sap-qa-tester` / `sap-debugger` に集中
 
-## 16 スキル
+## 14 スキル
 
 | スキル | 説明 |
 |--------|------|
@@ -52,6 +53,7 @@
 | `sc4sap:analyze-cbo-obj` | CBO インベントリスキャナー + クロスモジュールギャップ解析 |
 | `sc4sap:analyze-symptom` | SAP 運用エラー/症状のステップバイステップ解析 (ダンプ、ログ、SAP Note 候補) |
 | `sc4sap:ask-consultant` | モジュールコンサルタントエージェント (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC) に直接質問。読み取り専用 — 設定された SAP 環境に沿って回答。 |
+| `sc4sap:package-to-process` | CBO パッケージを End-to-End ビジネスプロセス文書 + BPML (Markdown / HTML / Excel、Mermaid フローチャート付き) にリバースエンジニアリング |
 | `sc4sap:trust-session` | INTERNAL-ONLY — セッション全体 MCP パーミッションブートストラップ |
 
 ## スキル — 例 & ワークフロー

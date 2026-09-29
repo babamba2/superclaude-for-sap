@@ -1,7 +1,6 @@
 ---
-name: sc4sap:create-object
+name: create-object
 description: ABAP object creation workflow — confirm transport+package, auto-create and activate
-level: 3
 model: inherit
 ---
 
@@ -146,4 +145,4 @@ If the user-provided name violates any rule, suggest a compliant alternative bas
 - **ECC DDIC fallback:** only `CreateProgram` + `UpdateProgram` (target `$TMP`). `CreateTable` / `CreateDataElement` / `CreateDomain` must NOT be attempted when `SAP_VERSION = ECC`.
 </MCP_Tools_Used>
 
-Task: {{ARGUMENTS}}
+Task: $ARGUMENTS

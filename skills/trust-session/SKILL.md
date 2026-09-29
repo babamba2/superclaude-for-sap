@@ -1,8 +1,7 @@
 ---
-name: sc4sap:trust-session
+name: trust-session
 description: INTERNAL-ONLY permission bootstrap. Pre-approves Agent dispatch + `.sc4sap/` state-file I/O for the session so parent-skill pipelines run without prompts. SAP MCP handlers are auto-approved by the `permission-approver` PreToolUse hook (except GetTableContents / GetSqlQuery, which stay prompt-gated). MUST be invoked by a parent skill (create-program, setup, team, analyze-*, create-object) — direct user invocation is rejected with a redirect message.
-level: 2
-internal: true
+user-invocable: false
 model: inherit
 ---
 
@@ -10,7 +9,7 @@ model: inherit
 
 Session-scoped permission bootstrap for automated pipelines. When a long-running parent skill enters its automated phases, sub-agent dispatch (`Agent`/`Task`) and `.sc4sap/` state-file writes would otherwise trigger permission prompts. This skill pre-grants those so the parent pipeline proceeds uninterrupted.
 
-**⚠️ This skill is NOT user-facing.** It exists only as a sub-routine of other skills. Direct `/sc4sap:trust-session` invocation by the user is rejected — see `<Standalone_Invocation_Refusal>` below.
+**⚠️ This skill is NOT user-facing.** It exists only as a sub-routine of other skills. `user-invocable: false` hides it from the `/` menu and Claude Code refuses a typed `/sc4sap:trust-session`; the gate in `<Standalone_Invocation_Refusal>` below covers the remaining case — the model invoking it through the Skill tool without a parent skill.
 
 <Permission_Model_Note>
 **SAP MCP handler permissions are NOT managed by this skill anymore.** They are auto-approved at call time by the `permission-approver` PreToolUse hook (`scripts/permission-approver.mjs`, wired in `hooks/hooks.json`), which returns `permissionDecision: "allow"` for every `mcp__plugin_sc4sap_sap__*` / `mcp__mcp-abap-adt__*` tool except the two row-data extraction tools (`GetTableContents`, `GetSqlQuery`), which fall through to normal prompting plus the `block-forbidden-tables` safeguard. The hook runs in BOTH the main thread and sub-agents, regardless of session permission mode — this replaces the former `settings.local.json` MCP enumeration and the deprecated `mode: "dontAsk"` Agent-dispatch parameter (ignored by current Claude Code; sub-agents now inherit the parent session's permission mode). trust-session therefore only handles the NON-MCP grants below.
@@ -29,7 +28,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 
 Detect whether this skill is being invoked standalone or by a parent skill:
 - **Parent skill present**: the invocation is chained from `/sc4sap:create-program`, `/sc4sap:setup`, `/sc4sap:analyze-cbo-obj`, `/sc4sap:analyze-code`, `/sc4sap:analyze-symptom`, or `/sc4sap:create-object`. The caller passes `parent_skill={name}` as the first argument OR the invocation appears inside another skill's execution trace in the current turn.
-- **Standalone (no parent)**: user typed `/sc4sap:trust-session` directly, or the arguments do not identify a known parent.
+- **Standalone (no parent)**: invoked through the Skill tool outside any parent skill's execution, or the arguments do not identify a known parent. (A user-typed `/sc4sap:trust-session` never reaches this skill — `user-invocable: false` blocks it.)
 
 **On standalone invocation, refuse and redirect**:
 
@@ -57,7 +56,7 @@ After printing the message, STOP. Do NOT modify `.claude/settings.local.json`. D
 </Use_When>
 
 <Do_Not_Use_When>
-- User types `/sc4sap:trust-session` directly → refuse per `<Standalone_Invocation_Refusal>`
+- No parent skill is running → refuse per `<Standalone_Invocation_Refusal>`
 - Running on a production SAP system without change authorization
 </Do_Not_Use_When>
 
@@ -122,4 +121,4 @@ To revoke: user runs `/sc4sap:sap-option` → permissions tab → "revoke sessio
 - `.sc4sap/session-trust.log` — audit trail
 </State_Files>
 
-Task: {{ARGUMENTS}}
+Task: $ARGUMENTS

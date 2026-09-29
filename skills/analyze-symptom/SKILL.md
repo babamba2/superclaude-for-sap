@@ -1,7 +1,6 @@
 ---
-name: sc4sap:analyze-symptom
+name: analyze-symptom
 description: Read-only, step-by-step root cause analysis for SAP operational errors. Reads the dump summary and failing source via MCP (known-issue web lookup only when the failure is in standard SAP code), widens to transports and where-used only when the clues call for it, narrows hypotheses with minimal user questions, and provides SAP Note search keywords. Never changes code or data.
-level: 2
 model: inherit
 ---
 
@@ -158,4 +157,4 @@ Main thread: `GetSession` only (Step 1). Everything else runs inside the `sap-de
 - ❌ Listing 4+ hypotheses (narrow to 2–3)
 </Common_Pitfalls_To_Avoid>
 
-Task: {{ARGUMENTS}}
+Task: $ARGUMENTS

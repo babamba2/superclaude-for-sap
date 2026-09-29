@@ -41,7 +41,7 @@ SuperClaude for SAP은 Claude Code를 풀스택 SAP 개발 어시스턴트로 �
 ## 문서
 
 - 📦 **[설치 및 설정 →](docs/INSTALLATION.ko.md)** — 요구사항, 설치 옵션, 위저드 단계, 블록리스트 설정
-- 🎯 **[기능 상세 →](docs/FEATURES.ko.md)** — 25개 에이전트, 19개 스킬, MCP 툴, RFC 백엔드, 훅, 데이터 추출 정책
+- 🎯 **[기능 상세 →](docs/FEATURES.ko.md)** — 26개 에이전트, 14개 스킬, MCP 툴, RFC 백엔드, 훅, 데이터 추출 정책
 - 📜 **[변경 이력 →](docs/CHANGELOG.ko.md)** — 버전 히스토리와 breaking changes
 
 ## Unleashed

@@ -1,8 +1,12 @@
 #!/usr/bin/env node
 
 /**
- * sc4sap Setup Maintenance Hook (SessionStart, matcher: "maintenance")
+ * sc4sap Setup Maintenance Hook (Setup, matcher: "maintenance")
  * Performs maintenance tasks: cleanup stale state, verify configs.
+ *
+ * Fires only on `claude -p --maintenance`. Setup discards JSON output and
+ * none of its stdout reaches Claude, so the summary is printed as plain text
+ * for the stream-json log.
  */
 
 import { existsSync, readFileSync, readdirSync, unlinkSync, statSync } from 'fs';
@@ -71,15 +75,9 @@ async function main() {
       ? `[SC4SAP Maintenance]\n${messages.join('\n')}`
       : '[SC4SAP] Maintenance check complete. No issues found.';
 
-    console.log(JSON.stringify({
-      continue: true,
-      hookSpecificOutput: {
-        hookEventName: 'SessionStart',
-        additionalContext: summary
-      }
-    }));
+    console.log(summary);
   } catch (error) {
-    console.log(JSON.stringify({ continue: true, suppressOutput: true }));
+    console.log(`[SC4SAP] Maintenance failed: ${error?.message ?? error}`);
   }
 }
 

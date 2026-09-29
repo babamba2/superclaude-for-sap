@@ -1,7 +1,6 @@
 ---
-name: sc4sap:compare-programs
+name: compare-programs
 description: Business-angle comparison of 2–5 ABAP programs that share the same business scenario but diverge by module (MM vs CO), country (KR vs EU), persona (controller vs warehouse), or time horizon. Reader = functional consultant.
-level: 2
 model: inherit
 ---
 
@@ -113,4 +112,4 @@ This skill reads **source code + DDIC metadata + where-used + screen/GUI-status/
 - `/sc4sap:analyze-cbo-obj` — CBO package inventory (complementary context for dimension 8)
 </Related_Skills>
 
-Task: {{ARGUMENTS}}
+Task: $ARGUMENTS
