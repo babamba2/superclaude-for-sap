@@ -6,7 +6,7 @@
 //   cell-border wireframe approach (v5..v7) with embedded images.
 //
 // PUBLIC API
-//   renderSelectionScreenSVG({ fields, blockLabels? })       → svg string
+//   renderSelectionScreenSVG({ toolbar?, blocks | fields… })  → svg string
 //   renderAlvLayoutSVG({ columns, sampleRows, maxRows=3 })   → svg string
 //   rasterizeSvgToPng(svg, { width, height })                → Promise<Buffer|null>
 //   renderScreenImages(spec)                                 → Promise<{selection,alv}|null>
@@ -150,24 +150,6 @@ function approxTextWidthPx(s) {
   return w;
 }
 
-/**
- * fields: [{
- *   required?: boolean,
- *   label: string,             e.g. '구매조직'
- *   name: string,              e.g. 'S_EKORG'
- *   range?: boolean,           true → LOW ~ HIGH two inputs
- *   note?: string,
- * }, ...]
- *
- * NOTE: `defaultLow` / `defaultHigh` are ACCEPTED in the field schema for
- *  spec documentation (they show up in the Parameters table), but they are
- *  NOT rendered inside the input-box graphic any more. The field name is
- *  already labeled next to the box; stuffing "BOM" / "1000" / "오늘" inside
- *  the input box just adds visual noise. Callers can still pass these
- *  values — the renderer silently ignores them.
- *
- * `lang` controls the bottom legend text ('ko' | 'en' | 'ja').
- */
 // Shared image-mockup polish (v13): soft drop-shadow + rounded-top header path,
 // so Selection/ALV mockups match the v12 flowchart + v13 process/sequence look.
 const IMG_SHADOW = '<filter id="imgsh" x="-8%" y="-20%" width="116%" height="142%"><feDropShadow dx="0" dy="1.4" stdDeviation="1.6" flood-color="#8C9BAA" flood-opacity="0.4"/></filter>';
@@ -175,94 +157,289 @@ function roundedTopRectPath(x, y, w, h, r) {
   return `M${x},${y + h} V${y + r} a${r},${r} 0 0 1 ${r},-${r} H${x + w - r} a${r},${r} 0 0 1 ${r},${r} V${y + h} Z`;
 }
 
-export function renderSelectionScreenSVG({
-  fields = [],
-  blockLabel = null,
-  optionFields = [],
-  optionBlockLabel = null,
-  lang = 'ko',
-} = {}) {
+/**
+ * Selection-screen mockup (v14 — block / control model).
+ *
+ * Preferred input — one block per SELECTION-SCREEN BEGIN OF BLOCK:
+ *   { toolbar?: [label | { label }],          // SSCRFIELDS-FUNCTXT_01..05 buttons
+ *     blocks:   [{ label, items: [item, ...] }] }
+ *
+ * item.type (omitted → 'param', or 'range' when the legacy `range: true` is set):
+ *   'param'       { name, label, required?, default?, note? }          PARAMETERS
+ *   'range'       { name, label, required?, default?, defaultHigh?,    SELECT-OPTIONS
+ *                   noIntervals?, noExtension?, note? }
+ *   'checkbox'    { name, label, checked?, labelLeft?, note? }         PARAMETERS … AS CHECKBOX
+ *                                                                       (labelLeft = COMMENT before it on one line)
+ *   'radioGroup'  { group, label?, layout?: 'vertical'|'horizontal',   PARAMETERS … RADIOBUTTON GROUP
+ *                   options: [{ name, label, selected? }], note? }     (horizontal = BEGIN OF LINE;
+ *                                                                       label = leading COMMENT on that line)
+ *   'checkboxGroup' { label?, layout?, options: [{ name, label,        several AS CHECKBOX on one line
+ *                   checked? }], note? }
+ *   'pushbutton'  { label, name?, note? }                              SELECTION-SCREEN PUSHBUTTON
+ *   'comment'     { text }                                             SELECTION-SCREEN COMMENT
+ *
+ * Legacy input `{ blockLabel, fields, optionBlockLabel, optionFields }` is
+ * converted to two blocks (optionFields → checkboxes) so older image-spec
+ * files keep rendering.
+ *
+ * `default` / `defaultHigh` are drawn in grey inside the input box so the
+ * mockup matches the real screen. The older `defaultLow` key stays
+ * documentation-only (ignored here).
+ *
+ * `lang` controls the default block labels + bottom legend ('ko' | 'en' | 'ja').
+ */
+const SEL = {
+  rowH: 24, LABEL_X: 38, LABEL_GAP: 16, BOX_W: 150, SEP_GAP: 8,
+  BLOCK_PAD_TOP: 20, BLOCK_PAD_BOTTOM: 16, BLOCK_GAP: 26,
+  BTN_ROW_H: 30, RADIO_GAP: 36, TOOLBAR_H: 30, MAX_W: 1400,
+};
+
+const isChoiceGroup = (t) => t === 'radioGroup' || t === 'checkboxGroup';
+
+function selItemType(it) {
+  return it?.type || (it?.range ? 'range' : 'param');
+}
+
+// Coerce malformed JSON (null / object / string where an array belongs) and drop null entries.
+const selArr = (x) => (Array.isArray(x) ? x.filter(v => v != null) : []);
+
+function normalizeSelection(sel, L) {
+  const { blockLabel, optionBlockLabel } = sel || {};
+  const toolbar = selArr(sel?.toolbar), blocks = selArr(sel?.blocks);
+  const fields = selArr(sel?.fields), optionFields = selArr(sel?.optionFields);
+  if (blocks.length) {
+    return {
+      toolbar,
+      blocks: blocks.map(b => ({
+        label: b.label || '',
+        items: selArr(b.items).map(it => (isChoiceGroup(it.type) ? { ...it, options: selArr(it.options) } : it)),
+      })),
+    };
+  }
+  const out = [];
+  if (fields.length || !optionFields.length) out.push({ label: blockLabel || L.block_label, items: fields });
+  if (optionFields.length) {
+    out.push({ label: optionBlockLabel || L.option_label, items: optionFields.map(f => ({ ...f, type: f.type || 'checkbox' })) });
+  }
+  return { toolbar, blocks: out };
+}
+
+const selLabelText = (it) => (it?.name ? `${it.label ?? ''} (${it.name})` : String(it?.label ?? ''));
+const toolbarText = (t) => String(typeof t === 'string' ? t : t?.label ?? '');
+
+// Single source of truth for geometry — used by both the SVG renderer and
+// selectionScreenMetrics() so the headless viewport never drifts from the SVG.
+function layoutSelectionScreen(selection, lang) {
   const L = legendFor(lang);
-  // Lang-aware defaults: when the caller omits the block labels, fall back to
-  // the localized strings so an EN/JA spec never inherits the Korean default
-  // (and vice-versa). Explicit caller values always win.
-  blockLabel = blockLabel || L.block_label;
-  optionBlockLabel = optionBlockLabel || L.option_label;
-  const rowH = 24;
-  const padTop = 40, padBottom = 60, optionBlockH = optionFields.length ? 24 + optionFields.length * rowH : 0;
+  const { toolbar, blocks } = normalizeSelection(selection, L);
+  const S = SEL;
 
-  // ── Dynamic label-column layout ───────────────────────────────
-  // Compute the label column's pixel width from the actual longest
-  // label across BOTH the main block and the option block, then push
-  // every input-box x-coord right of that so labels never overlap the
-  // inputs. Minimum inputX stays at 200 to preserve the legacy look
-  // for short CJK labels (typical 구매조직 (S_EKORG) ≈ 135 px).
-  const LABEL_X = 38;
-  const LABEL_GAP = 16;            // gap between label end and input start
-  const BOX_W = 150;
-  const SEP_GAP = 8;
-  const allLabels = [
-    ...fields.map(f => `${f.label} (${f.name})`),
-    ...optionFields.map(f => `${f.label} (${f.name})`),
-  ];
-  const maxLabelPx = allLabels.length ? Math.max(...allLabels.map(approxTextWidthPx)) : 150;
-  const inputX = Math.max(200, LABEL_X + maxLabelPx + LABEL_GAP);
-  const sepX   = inputX + BOX_W + SEP_GAP;              // '~' center
-  const highX  = sepX + 10;                              // HIGH box left
-  const rangeDropX = highX + BOX_W + 2;                  // range dropdown
-  const singleDropX = inputX + BOX_W + 2;                // single dropdown
+  // Label column is sized only from controls that actually sit in it.
+  const colLabels = [];
+  for (const b of blocks) for (const it of b.items) {
+    const t = selItemType(it);
+    if (t === 'param' || t === 'range' || (t === 'checkbox' && it.labelLeft)) colLabels.push(selLabelText(it));
+  }
+  const maxLabelPx = colLabels.length ? Math.max(...colLabels.map(approxTextWidthPx)) : 150;
+  const inputX = Math.max(200, S.LABEL_X + maxLabelPx + S.LABEL_GAP);
+  const sepX = inputX + S.BOX_W + S.SEP_GAP;
+  const highX = sepX + 10;
+  const rangeDropX = highX + S.BOX_W + 2;
   const rangeNoteX = rangeDropX + 28;
-  const singleNoteX = singleDropX + 28;
-  // Trailing note text can be up to ~200 px wide; block frame + 10 margin.
-  const noteReserve = 200;
-  const w = Math.max(900, rangeNoteX + noteReserve);
-  const h = padTop + fields.length * rowH + padBottom + optionBlockH + 60;
 
-  const rows = fields.map((f, i) => {
-    const y = padTop + (i + 1) * rowH - 6;
-    const star = f.required ? `<text x="25" y="${y}" fill="#B00020" font-weight="700">*</text>` : '';
-    const label = `<text x="${LABEL_X}" y="${y}">${xml(f.label)} (${xml(f.name)})</text>`;
-    if (f.range) {
-      return [
-        star, label,
-        `<rect x="${inputX}" y="${y - 12}" width="${BOX_W}" height="16" fill="#FFFFFF" stroke="#9AA7B4" rx="2"/>`,
-        `<text x="${sepX}" y="${y}" text-anchor="middle">~</text>`,
-        `<rect x="${highX}" y="${y - 12}" width="${BOX_W}" height="16" fill="#FFFFFF" stroke="#9AA7B4" rx="2"/>`,
-        `<rect x="${rangeDropX}" y="${y - 12}" width="16" height="16" fill="#E7EEF5" stroke="#9AA7B4" rx="2"/><text x="${rangeDropX + 8}" y="${y}" text-anchor="middle">▼</text>`,
-        f.note ? `<text x="${rangeNoteX}" y="${y}" fill="#666">${xml(f.note)}</text>` : '',
-      ].join('');
+  // A labelled choice group (leading COMMENT on a BEGIN OF LINE) starts its options right after
+  // the widest group label — like SAP's short COMMENT column — aligned across all labelled groups.
+  const groupLabels = [];
+  for (const b of blocks) for (const it of b.items) {
+    if (isChoiceGroup(selItemType(it)) && it.label) groupLabels.push(approxTextWidthPx(it.label));
+  }
+  const groupOptX = S.LABEL_X + (groupLabels.length ? Math.max(...groupLabels) : 0) + 40;
+  const groupX = (it) => (it.label ? groupOptX : S.LABEL_X);
+  // Width: base grid + note reserve, widened for toolbar / horizontal choice groups, capped.
+  const radioW = (o) => 20 + approxTextWidthPx(selLabelText(o));
+  let need = rangeNoteX + 200;
+  if (toolbar.length) need = Math.max(need, 20 + toolbar.reduce((s, t) => s + approxTextWidthPx(toolbarText(t)) + 34, 0));
+  for (const b of blocks) for (const it of b.items) {
+    const t = selItemType(it);
+    const noteW = it.note ? approxTextWidthPx(it.note) + 20 : 0;
+    if (isChoiceGroup(t)) {
+      const opts = it.options || [];
+      const optsW = it.layout === 'horizontal'
+        ? opts.reduce((s, o) => s + radioW(o) + S.RADIO_GAP, 0)
+        : Math.max(0, ...opts.map(radioW)) + S.RADIO_GAP;
+      need = Math.max(need, groupX(it) + optsW + noteW);
+    } else if (noteW) {
+      // Mirror the note x-positions used by the renderer so long notes are never clipped.
+      const noteX = t === 'range' ? (it.noIntervals ? inputX + S.BOX_W + 30 : rangeNoteX)
+        : t === 'param' ? inputX + S.BOX_W + 14
+        : t === 'checkbox' ? (it.labelLeft ? inputX + 30 : S.LABEL_X + 40 + approxTextWidthPx(selLabelText(it)))
+        : t === 'pushbutton' ? S.LABEL_X + Math.max(120, approxTextWidthPx(it.label) + 40) + 14
+        : 0;
+      need = Math.max(need, noteX + noteW);
     }
-    return [
-      star, label,
-      `<rect x="${inputX}" y="${y - 12}" width="${BOX_W}" height="16" fill="#FFFFFF" stroke="#9AA7B4" rx="2"/>`,
-      `<rect x="${singleDropX}" y="${y - 12}" width="16" height="16" fill="#E7EEF5" stroke="#9AA7B4" rx="2"/><text x="${singleDropX + 8}" y="${y}" text-anchor="middle">▼</text>`,
-      f.note ? `<text x="${singleNoteX}" y="${y}" fill="#666">${xml(f.note)}</text>` : '',
-    ].join('');
-  }).join('');
+  }
+  const w = Math.min(S.MAX_W, Math.max(900, need));
 
-  const blockTop = 20;
-  const blockH = padTop + fields.length * rowH + 20;
-  const optBlockY = blockTop + blockH + 20;
+  let y = toolbar.length ? S.TOOLBAR_H + 12 : 0;
+  const placed = [];
+  for (const b of blocks) {
+    const top = y + 20;
+    let cy = top + S.BLOCK_PAD_TOP;
+    const rows = [];
+    for (const it of b.items) {
+      const t = selItemType(it);
+      if (isChoiceGroup(t)) {
+        const opts = it.options || [];
+        const lines = [];
+        const x0 = groupX(it);
+        if (it.layout === 'horizontal') {
+          let line = [], x = x0;
+          for (const o of opts) {
+            const ow = radioW(o);
+            if (line.length && x + ow > w - 30) { lines.push(line); line = []; x = x0; }
+            line.push({ o, x });
+            x += ow + S.RADIO_GAP;
+          }
+          if (line.length) lines.push(line);
+        } else {
+          for (const o of opts) lines.push([{ o, x: x0 }]);
+        }
+        rows.push({ it, t, y: cy, lines });
+        cy += Math.max(1, lines.length) * S.rowH;
+      } else if (t === 'pushbutton') {
+        rows.push({ it, t, y: cy });
+        cy += S.BTN_ROW_H;
+      } else {
+        rows.push({ it, t, y: cy });
+        cy += S.rowH;
+      }
+    }
+    const h = cy - top + S.BLOCK_PAD_BOTTOM;
+    placed.push({ label: b.label, top, h, rows });
+    y = top + h + (S.BLOCK_GAP - 20);
+  }
+  const legendY = y + 24;
+  const h = legendY + 16;
+  return { L, toolbar, blocks: placed, w, h, inputX, sepX, highX, rangeDropX, rangeNoteX, legendY };
+}
 
-  const optionRows = optionFields.map((f, i) => {
-    const y = optBlockY + 34 + i * rowH;
-    return [
-      `<rect x="${inputX}" y="${y - 10}" width="12" height="12" fill="#FFF" stroke="#555"/>`,
-      `<text x="${inputX + 20}" y="${y}">${xml(f.label)} (${xml(f.name)})</text>`,
-      f.note ? `<text x="${inputX + 220}" y="${y}" fill="#666">${xml(f.note)}</text>` : '',
-    ].join('');
-  }).join('');
+export function renderSelectionScreenSVG({ lang = 'ko', ...selection } = {}) {
+  const lay = layoutSelectionScreen(selection, lang);
+  const { L, w, h, inputX, sepX, highX, rangeDropX, rangeNoteX, legendY } = lay;
+  const S = SEL;
+  // User text inside at() templates escapes '{' so it can never collide with the {Y}/{B} placeholders.
+  const xmlT = (s) => xml(s).replace(/\{/g, '&#123;');
+  // Long defaults are truncated with '…' so they never spill out of the box into the note.
+  const fit = (v) => {
+    let out = '';
+    for (const ch of String(v)) {
+      if (approxTextWidthPx(out + ch + '…') > S.BOX_W - 8) return out + '…';
+      out += ch;
+    }
+    return out;
+  };
+  const box = (x, val) => `<rect x="${x}" y="{Y}" width="${S.BOX_W}" height="16" fill="#FFFFFF" stroke="#9AA7B4" rx="2"/>`
+    + (val != null && val !== '' ? `<text x="${x + 4}" y="{B}" fill="#555">${xmlT(fit(val))}</text>` : '');
+  const drop = (x) => `<rect x="${x}" y="{Y}" width="16" height="16" fill="#E7EEF5" stroke="#9AA7B4" rx="2"/><text x="${x + 8}" y="{B}" text-anchor="middle">▼</text>`;
+  const note = (x, n) => (n ? `<text x="${x}" y="{B}" fill="#666">${xmlT(n)}</text>` : '');
+  const at = (s, base) => s.replace(/\{Y\}/g, String(base - 12)).replace(/\{B\}/g, String(base));
 
-  const legendY = optBlockY + optionBlockH + 30;
+  // Toolbar (application toolbar buttons on the selection screen).
+  let tbSvg = '';
+  if (lay.toolbar.length) {
+    let x = 14;
+    const parts = [`<rect x="0" y="0" width="${w}" height="${S.TOOLBAR_H}" fill="#EEF3F8" stroke="#C9D6E3"/>`];
+    for (const t of lay.toolbar) {
+      const label = toolbarText(t);
+      const bw = approxTextWidthPx(label) + 24;
+      parts.push(`<rect x="${x}" y="5" width="${bw}" height="20" rx="3" fill="#FFFFFF" stroke="#9AA7B4"/><text x="${x + bw / 2}" y="19" text-anchor="middle">${xml(label)}</text>`);
+      x += bw + 10;
+    }
+    tbSvg = parts.join('');
+  }
 
-  // Dynamic legend — only emit items that actually apply to this spec.
-  // (No required fields → omit *; no ranges → omit ~; empty field set →
-  // omit legend entirely.)
-  const allFields = [...fields, ...optionFields];
+  const blockSvg = lay.blocks.map(b => {
+    const frame = `<rect x="10" y="${b.top}" width="${w - 20}" height="${b.h}" rx="8" fill="#FFFFFF" stroke="#3E7DB3" stroke-width="1.3" filter="url(#imgsh)"/>`
+      + (b.label
+        ? `<rect x="28" y="${b.top - 9}" width="${Math.max(70, approxTextWidthPx(b.label) + 46)}" height="18" rx="4" fill="#DCE7F1" stroke="#9DBBD6"/>`
+          + `<text x="38" y="${b.top + 4}" font-weight="700" fill="#24598F">◆ ${xml(b.label)}</text>`
+        : '');
+    const rows = b.rows.map(({ it, t, y, lines }) => {
+      const base = y + S.rowH - 6;
+      const star = it.required ? `<text x="25" y="${base}" fill="#B00020" font-weight="700">*</text>` : '';
+      if (t === 'range') {
+        const label = `<text x="${S.LABEL_X}" y="${base}">${xml(selLabelText(it))}</text>`;
+        // NO-EXTENSION removes the multiple-selection button.
+        if (it.noIntervals) {
+          const dx = inputX + S.BOX_W + 2;
+          return star + label + at(box(inputX, it.default)
+            + (it.noExtension ? note(dx + 12, it.note) : drop(dx) + note(dx + 28, it.note)), base);
+        }
+        return star + label + at(
+          box(inputX, it.default) + `<text x="${sepX}" y="{B}" text-anchor="middle">~</text>`
+          + box(highX, it.defaultHigh) + (it.noExtension ? '' : drop(rangeDropX)) + note(rangeNoteX, it.note), base);
+      }
+      if (t === 'checkbox') {
+        const text = selLabelText(it);
+        // labelLeft: COMMENT … FOR FIELD before the checkbox → text in the label column, box at the input column.
+        const bx = it.labelLeft ? inputX : S.LABEL_X;
+        const mark = it.checked
+          ? `<path d="M${bx + 2},${base - 4} l3,3 l6,-7" fill="none" stroke="#1F4E79" stroke-width="1.6"/>` : '';
+        const box12 = `<rect x="${bx}" y="${base - 10}" width="12" height="12" fill="#FFF" stroke="#555"/>${mark}`;
+        if (it.labelLeft) {
+          return `<text x="${S.LABEL_X}" y="${base}">${xml(text)}</text>` + box12
+            + at(note(inputX + 30, it.note), base);
+        }
+        return box12
+          + `<text x="${S.LABEL_X + 20}" y="${base}">${xml(text)}</text>`
+          + at(note(S.LABEL_X + 40 + approxTextWidthPx(text), it.note), base);
+      }
+      if (isChoiceGroup(t)) {
+        const opts = it.options || [];
+        const radio = t === 'radioGroup';
+        const selIdx = Math.max(0, opts.findIndex(o => o?.selected));
+        let lastBase = base, lastEnd = S.LABEL_X;
+        const head = it.label ? `<text x="${S.LABEL_X}" y="${base}">${xml(it.label)}</text>` : '';
+        const svg = (lines || []).map((line, li) => {
+          const lb = y + li * S.rowH + S.rowH - 6;
+          return line.map(({ o, x }) => {
+            const text = selLabelText(o);
+            lastBase = lb; lastEnd = x + 20 + approxTextWidthPx(text);
+            const mark = radio
+              ? `<circle cx="${x + 6}" cy="${lb - 4}" r="6" fill="#FFF" stroke="#555"/>`
+                + (opts.indexOf(o) === selIdx ? `<circle cx="${x + 6}" cy="${lb - 4}" r="3" fill="#333"/>` : '')
+              : `<rect x="${x}" y="${lb - 10}" width="12" height="12" fill="#FFF" stroke="#555"/>`
+                + (o.checked ? `<path d="M${x + 2},${lb - 4} l3,3 l6,-7" fill="none" stroke="#1F4E79" stroke-width="1.6"/>` : '');
+            return mark + `<text x="${x + 18}" y="${lb}">${xml(text)}</text>`;
+          }).join('');
+        }).join('');
+        return head + svg + at(note(lastEnd + 20, it.note), lastBase);
+      }
+      if (t === 'pushbutton') {
+        const text = String(it.label ?? '');
+        const bw = Math.max(120, approxTextWidthPx(text) + 40);
+        const by = y + 4;
+        return `<rect x="${S.LABEL_X}" y="${by}" width="${bw}" height="20" rx="3" fill="#FCE9A0" stroke="#C9A646"/>`
+          + `<text x="${S.LABEL_X + bw / 2}" y="${by + 14}" text-anchor="middle">${xml(text)}</text>`
+          + (it.note ? `<text x="${S.LABEL_X + bw + 14}" y="${by + 14}" fill="#666">${xml(it.note)}</text>` : '');
+      }
+      if (t === 'comment') {
+        return `<text x="${S.LABEL_X}" y="${base}" fill="#444">${xml(it.text ?? it.label ?? '')}</text>`;
+      }
+      // 'param' (PARAMETERS) — no multiple-selection button on a real screen.
+      const label = `<text x="${S.LABEL_X}" y="${base}">${xml(selLabelText(it))}</text>`;
+      return star + label + at(box(inputX, it.default) + note(inputX + S.BOX_W + 14, it.note), base);
+    }).join('');
+    return frame + rows;
+  }).join('\n');
+
+  // Dynamic legend — only items that apply to this spec.
+  const all = lay.blocks.flatMap(b => b.rows.map(r => r));
+  const ranges = all.filter(r => r.t === 'range');
   const legendParts = [];
-  if (allFields.some(f => f.required)) legendParts.push(`<tspan fill="#B00020" font-weight="700">*</tspan> ${xml(L.required)}`);
-  if (fields.length) legendParts.push(xml(L.dropdown));
-  if (fields.some(f => f.range)) legendParts.push(xml(L.range));
+  if (all.some(r => r.it.required)) legendParts.push(`<tspan fill="#B00020" font-weight="700">*</tspan> ${xml(L.required)}`);
+  if (ranges.some(r => !r.it.noExtension)) legendParts.push(xml(L.dropdown));
+  if (ranges.some(r => !r.it.noIntervals)) legendParts.push(xml(L.range));
   const legendSvg = legendParts.length
     ? `<text x="25" y="${legendY}" fill="#555" font-size="11">${legendParts.join(' · ')}</text>`
     : '';
@@ -271,39 +448,41 @@ export function renderSelectionScreenSVG({
 <svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(w * RENDER_SCALE)}" height="${Math.round(h * RENDER_SCALE)}" viewBox="0 0 ${w} ${h}" font-family="Arial,sans-serif" font-size="12">
 <defs>${IMG_SHADOW}</defs>
 <rect width="${w}" height="${h}" fill="#FFF"/>
-<rect x="10" y="${blockTop}" width="${w - 20}" height="${blockH}" rx="8" fill="#FFFFFF" stroke="#3E7DB3" stroke-width="1.3" filter="url(#imgsh)"/>
-<rect x="28" y="${blockTop - 9}" width="${Math.max(120, approxTextWidthPx(blockLabel) + 46)}" height="18" rx="4" fill="#DCE7F1" stroke="#9DBBD6"/>
-<text x="38" y="${blockTop + 4}" font-weight="700" fill="#24598F">◆ ${xml(blockLabel)}</text>
-${rows}
-${optionFields.length ? `
-<rect x="10" y="${optBlockY}" width="${w - 20}" height="${optionBlockH}" rx="8" fill="#FFFFFF" stroke="#3E7DB3" stroke-width="1.3" filter="url(#imgsh)"/>
-<rect x="28" y="${optBlockY - 9}" width="${Math.max(70, approxTextWidthPx(optionBlockLabel) + 46)}" height="18" rx="4" fill="#DCE7F1" stroke="#9DBBD6"/>
-<text x="38" y="${optBlockY + 4}" font-weight="700" fill="#24598F">◆ ${xml(optionBlockLabel)}</text>
-${optionRows}
-` : ''}
+${tbSvg}
+${blockSvg}
 ${legendSvg}
 </svg>`;
 }
 
 /**
- * Compute final SVG dimensions for a selection-screen spec — matches the
- * internal math of renderSelectionScreenSVG so renderScreenImages() can
- * allocate the headless browser viewport without duplicating formulas.
+ * Schema lint for image-spec.selection — returns human-readable warnings.
+ * The legacy shape cannot express pushbuttons, radio groups or more than two
+ * blocks, so writers silently flattened them (radios drawn as checkboxes).
  */
-export function selectionScreenMetrics({ fields = [], optionFields = [] } = {}) {
-  const rowH = 24;
-  const padTop = 40, padBottom = 60;
-  const optionBlockH = optionFields.length ? 24 + optionFields.length * rowH : 0;
-  const h = padTop + fields.length * rowH + padBottom + optionBlockH + 60;
-  const LABEL_X = 38, LABEL_GAP = 16, BOX_W = 150, SEP_GAP = 8;
-  const allLabels = [
-    ...fields.map(f => `${f.label} (${f.name})`),
-    ...optionFields.map(f => `${f.label} (${f.name})`),
-  ];
-  const maxLabelPx = allLabels.length ? Math.max(...allLabels.map(approxTextWidthPx)) : 150;
-  const inputX = Math.max(200, LABEL_X + maxLabelPx + LABEL_GAP);
-  const rangeNoteX = inputX + BOX_W + SEP_GAP + 10 + BOX_W + 2 + 28;
-  const w = Math.max(900, rangeNoteX + 200);
+export function selectionSchemaWarnings(selection) {
+  if (!selection) return [];
+  const warns = [];
+  const hasBlocks = Array.isArray(selection.blocks) && selection.blocks.length > 0;
+  if (!hasBlocks && (selection.fields?.length || selection.optionFields?.length)) {
+    warns.push('selection uses the legacy fields/optionFields shape — pushbuttons, radio groups and multiple blocks cannot be drawn. Use selection.blocks[] (skills/program-to-spec/selection-schema.md).');
+    const radios = (selection.optionFields || []).filter(f => !f.type && /^R_/i.test(f.name || '')).map(f => f.name);
+    if (radios.length) warns.push(`optionFields ${radios.join(', ')} look like RADIOBUTTONs but render as checkboxes — use a { type: "radioGroup" } item.`);
+  }
+  const known = new Set(['param', 'range', 'checkbox', 'checkboxGroup', 'radioGroup', 'pushbutton', 'comment']);
+  for (const b of (selection.blocks || [])) for (const it of (b?.items || [])) {
+    if (it?.type && !known.has(it.type)) warns.push(`unknown selection item type "${it.type}" (${it.name || it.label || '?'}) — rendered as a plain parameter.`);
+    if (isChoiceGroup(it?.type) && !(it.options || []).length) warns.push(`${it.type} ${it.group || it.label || '?'} has no options.`);
+  }
+  return warns;
+}
+
+/**
+ * Final SVG dimensions for a selection-screen spec — shares
+ * layoutSelectionScreen() with the renderer so renderScreenImages() can size
+ * the headless browser viewport without duplicating formulas.
+ */
+export function selectionScreenMetrics(selection = {}) {
+  const { w, h } = layoutSelectionScreen(selection, selection.lang || 'ko');
   return { width: Math.round(w * RENDER_SCALE), height: Math.round(h * RENDER_SCALE) };
 }
 
