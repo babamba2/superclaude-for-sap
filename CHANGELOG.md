@@ -3,6 +3,18 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.27] — 2026-09-30
+
+### Fixed — hooks, skill frontmatter and manifests checked against Claude Code 2.1.285
+
+- `setup-init` / `setup-maintenance` were registered under `SessionStart` with the matchers `init` / `maintenance`, which belong to the `Setup` event, so they never fired. They are now `Setup` hooks and run on `claude --init-only`, `claude -p --init` and `claude -p --maintenance`. Setup output does not reach Claude, so both print a plain-text summary instead of `additionalContext`.
+- `PreCompact` accepts only a top-level `decision`, so the context `pre-compact.mjs` and `project-memory-precompact.mjs` injected was dropped. Both are removed. `SessionStart` already runs again after a compact; `project-memory-session.mjs` now also carries recent transports and recent objects.
+- Skills ended with `Task: {{ARGUMENTS}}`, which is not a substitution. They now use `$ARGUMENTS`.
+- Skill frontmatter: removed the unrecognised `level:` key; `name:` no longer repeats the `sc4sap:` prefix (Claude Code adds it, commands are unchanged); `trust-session` declares `user-invocable: false` instead of the unrecognised `internal: true`, so a typed `/sc4sap:trust-session` is refused by Claude Code itself.
+- Manifests: removed `statusLine` from `plugin.json` and `examples` from the marketplace entry (both stripped at load; the HUD status line is still installed into `settings.json` by `install-statusline.mjs`). `claude plugin validate` now passes without warnings.
+- Docs: agent count 25 → 26 (CBO Stocker), skill count 14, missing `package-to-process` row and broken table-of-contents anchors in README / FEATURES (en, ko, ja, de).
+- Removed the empty `rules.md`.
+
 ## [0.6.26] — 2026-09-29
 
 ### Fixed — `program-to-spec` selection-screen mockup dropped buttons and radio buttons
