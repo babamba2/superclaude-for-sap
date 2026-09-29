@@ -3,6 +3,17 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.26] — 2026-09-29
+
+### Fixed — `program-to-spec` selection-screen mockup dropped buttons and radio buttons
+
+- The Selection PNG (xlsx Sheet 3 and MD/HTML §3.1) could only draw input fields and checkboxes in two fixed blocks. Push buttons, toolbar buttons and extra blocks were dropped, and radio groups were drawn as checkboxes, although the analyst had already extracted them into the Parameters table.
+- `image-spec.json.selection` now takes `blocks[]` (one per `SELECTION-SCREEN BEGIN OF BLOCK`) with typed items: `param`, `range` (`noIntervals`, `noExtension`), `checkbox` (`labelLeft`), `radioGroup` and `checkboxGroup` (`label` for a leading `COMMENT`, vertical or horizontal layout), `pushbutton`, `comment`, plus `toolbar` for `FUNCTXT_nn` buttons. `default` / `defaultHigh` are drawn inside the input box.
+- New `skills/program-to-spec/selection-schema.md` gives the ABAP → JSON transcription rules: one item per field (no merging), defaults followed into methods called from `INITIALIZATION`, dynamic fields kept with a note, `NO-DISPLAY` fields and their `COMMENT … FOR FIELD` omitted.
+- The legacy `fields` / `optionFields` shape still renders. `build-spec.mjs` and `render-md-images.mjs` print a `⚠` warning when they see it or when an `R_*` field sits in `optionFields`.
+- Rendering changes: plain `PARAMETERS` no longer show a multiple-selection ▼ button (only `SELECT-OPTIONS` do). Checkboxes sit in the label column as on a real screen. Long notes widen the image instead of being clipped, and long defaults are cut with `…`.
+- Checked against three real selection screens (push button + three radio groups; titled radio and checkbox lines; seven blocks with dynamic fields).
+
 ## [0.6.25] — 2026-09-29
 
 ### Changed — main-thread model now follows the session (`model: inherit`)
