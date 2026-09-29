@@ -6,6 +6,10 @@
  * Adapted from OMC project-memory-session.mjs.
  *
  * Reads project memory from .sc4sap/project-memory.json if available.
+ *
+ * Registered with matcher "*", so it also runs after compaction (source
+ * "compact") — that is how project memory survives a compact. PreCompact
+ * cannot inject context (it accepts only a top-level `decision`).
  */
 
 import { existsSync, readFileSync } from 'fs';
@@ -35,6 +39,12 @@ function formatProjectMemory(memory) {
   }
   if (memory.sapModules?.length) {
     parts.push(`SAP Modules: ${memory.sapModules.join(', ')}`);
+  }
+  if (memory.recentTransports?.length) {
+    parts.push(`Recent Transports: ${memory.recentTransports.slice(0, 5).join(', ')}`);
+  }
+  if (memory.recentObjects?.length) {
+    parts.push(`Recent Objects: ${memory.recentObjects.slice(0, 10).map(o => o.name).join(', ')}`);
   }
   if (memory.userDirectives?.length) {
     parts.push(`User Directives:\n${memory.userDirectives.map(d => `  - ${d}`).join('\n')}`);

@@ -4,8 +4,8 @@
 
 ## 목차
 
-- [25개 SAP 전문 에이전트](#25개-sap-전문-에이전트)
-- [18개 스킬](#18개-스킬)
+- [26개 SAP 전문 에이전트](#26개-sap-전문-에이전트)
+- [14개 스킬](#14개-스킬)
 - [스킬 — 예시 & 워크플로우](#스킬--예시--워크플로우)
 - [MCP ABAP ADT 서버 기능](#mcp-abap-adt-서버-고유-기능)
 - [공유 컨벤션](#공유-컨벤션-common)
@@ -22,12 +22,13 @@
 - [RFC 백엔드 선택](#-rfc-백엔드-선택)
 - [RFC 게이트웨이 (Enterprise)](#-rfc-게이트웨이-enterprise-배포)
 
-## 25개 SAP 전문 에이전트
+## 26개 SAP 전문 에이전트
 
 | 카테고리 | 에이전트 |
 |---------|---------|
 | **Core (10)** | Analyst, Architect, Code Reviewer, Critic, Debugger, Doc Specialist, Executor, Planner, QA Tester, Writer |
 | **Basis (1)** | BC Consultant — 시스템 관리, 전송 관리, 진단 |
+| **Discovery (1)** | CBO Stocker — CBO 패키지 인벤토리, where-used 그래프, 재사용 오브젝트 카탈로그 |
 | **Modules (14)** | SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, Ariba, BW |
 
 **위임 맵 (Module Consultation Protocol)**:
@@ -36,7 +37,7 @@
 - `sap-analyst` / `sap-critic` / `sap-planner`는 필수 **Country Context** 블록 보유(`country/<iso>.md` 로드)
 - **Core 에이전트의 직접 MCP 읽기 권한** — 패키지/DDIC/클래스/프로그램/where-used/런타임 덤프 툴을 읽기 전용으로 보유. 쓰기 CRUD는 `sap-executor` / `sap-planner` / `sap-writer` / `sap-qa-tester` / `sap-debugger`에 집중
 
-## 16개 스킬
+## 14개 스킬
 
 | 스킬 | 설명 |
 |------|------|
@@ -52,6 +53,7 @@
 | `sc4sap:analyze-cbo-obj` | CBO 인벤토리 스캐너 + 교차 모듈 갭 분석 |
 | `sc4sap:analyze-symptom` | SAP 운영 에러/증상 단계별 분석 (덤프, 로그, SAP Note 후보) |
 | `sc4sap:ask-consultant` | 모듈 컨설턴트 에이전트(SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC)에 직접 질의. 읽기 전용 — 설정된 SAP 환경에 맞추어 답변. |
+| `sc4sap:package-to-process` | CBO 패키지를 End-to-End 비즈니스 프로세스 문서 + BPML(Markdown / HTML / Excel, Mermaid 플로우차트 포함)로 역설계 |
 | `sc4sap:trust-session` | INTERNAL-ONLY — 세션 전체 MCP 권한 부트스트랩 |
 
 ## 스킬 — 예시 & 워크플로우

@@ -1,7 +1,6 @@
 ---
-name: sc4sap:analyze-cbo-obj
+name: analyze-cbo-obj
 description: Analyze a CBO (Customer Business Object) package — discover frequently-used Z tables / function modules / data elements / classes / structures / table types — and save a per-module / per-package reference file so later `program` / `program-to-spec` runs prefer existing CBO elements over new ones.
-level: 2
 model: inherit
 ---
 
@@ -89,4 +88,4 @@ Main thread NEVER calls `GetPackageContents` / `GetWhereUsed` itself for the inv
 This skill only reads DDIC metadata and where-used relations. It MUST NOT call `GetTableContents` or `GetSqlQuery`. Row-level access stays behind the standard blocklist + `acknowledge_risk` gate. See `common/data-extraction-policy.md`.
 </Data_Extraction_Safety>
 
-Task: {{ARGUMENTS}}
+Task: $ARGUMENTS

@@ -1,7 +1,6 @@
 ---
-name: sc4sap:sap-doctor
+name: sap-doctor
 description: Diagnose SC4SAP plugin health, MCP server connectivity, and SAP system connection (renamed from `doctor` to avoid conflict with Claude Code's built-in `/doctor`)
-level: 2
 model: inherit
 ---
 
@@ -31,7 +30,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 </Diagnostic_Checks>
 
 <Cache_Management>
-`/sc4sap:sap-doctor` accepts two cache flags passed via `{{ARGUMENTS}}`:
+`/sc4sap:sap-doctor` accepts two cache flags, passed as skill arguments:
 
 - `--prune` — after running the normal diagnostic report, invoke `node "<plugin>/scripts/prune-cache.mjs"` (dry-run) and render its output directly. No files are deleted.
 - `--prune --yes` — after the normal report, invoke the script with `--yes` to actually delete every stale version directory.
@@ -87,4 +86,4 @@ Fix: Run /sc4sap:mcp-setup to install and register plugin:sc4sap:sap
 - All pass -> "SC4SAP is healthy. System: {SID} Client: {client} User: {user}"
 </Remediation_Routing>
 
-Task: {{ARGUMENTS}}
+Task: $ARGUMENTS

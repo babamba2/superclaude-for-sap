@@ -1,7 +1,6 @@
 ---
-name: sc4sap:ask-consultant
+name: ask-consultant
 description: Direct operational Q&A with a SAP module consultant agent. Auto-routes the question to the matching sap-{module}-consultant and answers against the configured SAP environment (version, industry, country, active modules).
-level: 2
 model: inherit
 ---
 
@@ -170,4 +169,4 @@ Dispatch-summary examples in the prefix:
 - NEVER: `GetTableContents`, `GetSqlQuery`, any `Create*` / `Update*` / `Delete*` / `Activate*`
 </MCP_Tools_Used>
 
-Task: {{ARGUMENTS}}
+Task: $ARGUMENTS

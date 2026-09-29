@@ -40,7 +40,7 @@ SuperClaude for SAP verwandelt Claude Code in einen Full-Stack-SAP-Entwicklungsa
 ## Dokumentation
 
 - 📦 **[Installation & Setup →](docs/INSTALLATION.de.md)** — Anforderungen, Installationsoptionen, Wizard-Schritte, Blocklist-Konfiguration
-- 🎯 **[Funktionen im Detail →](docs/FEATURES.de.md)** — 25 Agenten, 19 Skills, MCP-Tools, RFC-Backends, Hooks, Datenextraktionsrichtlinie
+- 🎯 **[Funktionen im Detail →](docs/FEATURES.de.md)** — 26 Agenten, 14 Skills, MCP-Tools, RFC-Backends, Hooks, Datenextraktionsrichtlinie
 - 📜 **[Changelog →](docs/CHANGELOG.de.md)** — Versionshistorie und Breaking Changes
 
 ## Unleashed

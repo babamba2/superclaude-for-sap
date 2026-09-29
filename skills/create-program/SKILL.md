@@ -1,7 +1,6 @@
 ---
-name: sc4sap:create-program
+name: create-program
 description: Create ABAP programs (Report/CRUD/ALV/Batch) with Main+Include structure, OOP or Procedural, and full agent-driven coding/QA pipeline
-level: 4
 model: inherit
 ---
 
@@ -173,4 +172,4 @@ Do not inline or paraphrase phase logic here — update `agent-pipeline.md` inst
 - `.sc4sap/session-trust.log` — audit trail of `trust-session` invocations
 </State_Files>
 
-Task: {{ARGUMENTS}}
+Task: $ARGUMENTS

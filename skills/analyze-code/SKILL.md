@@ -1,7 +1,6 @@
 ---
-name: sc4sap:analyze-code
+name: analyze-code
 description: ABAP code analysis — delegate source reads + AST/semantic/where-used analysis + rule-based review to sap-code-reviewer, then render a canned report or a richer briefing on the main thread
-level: 2
 model: inherit
 ---
 
@@ -74,4 +73,4 @@ Orchestration is **1 main-thread Socratic intake + one delegated dispatch to `sa
 Full spec in [`workflow.md`](workflow.md). Main thread NEVER calls `ReadClass` / `GetAbapAST` / `GetWhereUsed` directly — that context stays inside the reviewer agent so the orchestrator window remains small even for large objects.
 </Execution_Summary>
 
-Task: {{ARGUMENTS}}
+Task: $ARGUMENTS

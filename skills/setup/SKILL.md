@@ -1,7 +1,6 @@
 ---
-name: sc4sap:setup
+name: setup
 description: Plugin setup — detect legacy single-profile state (migrate → multi-profile), create or register a SAP connection profile under ~/.sc4sap/profiles/<alias>/, install abap-mcp-adt-powerup MCP server, optionally install DEV-only ZMCP_ADT_UTILS + ZCL_S4SAP_CM_* ALV OOP handlers (tier-gated), register both PreToolUse hooks (blocklist + tier-readonly-guard), optional SPRO / customizations extraction
-level: 2
 model: inherit
 ---
 

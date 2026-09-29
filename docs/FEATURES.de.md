@@ -4,8 +4,8 @@
 
 ## Inhaltsverzeichnis
 
-- [25 SAP-spezialisierte Agenten](#25-sap-spezialisierte-agenten)
-- [18 Skills](#18-skills)
+- [26 SAP-spezialisierte Agenten](#26-sap-spezialisierte-agenten)
+- [14 Skills](#14-skills)
 - [Skills — Beispiele & Workflow](#skills--beispiele--workflow)
 - [MCP ABAP ADT Server — Alleinstellungsmerkmale](#mcp-abap-adt-server--alleinstellungsmerkmale)
 - [Gemeinsame Konventionen](#gemeinsame-konventionen-common)
@@ -22,12 +22,13 @@
 - [RFC-Backend-Auswahl](#-rfc-backend-auswahl)
 - [RFC-Gateway (Enterprise)](#-rfc-gateway-enterprise-deployment)
 
-## 25 SAP-spezialisierte Agenten
+## 26 SAP-spezialisierte Agenten
 
 | Kategorie | Agenten |
 |-----------|---------|
 | **Core (10)** | Analyst, Architect, Code Reviewer, Critic, Debugger, Doc Specialist, Executor, Planner, QA Tester, Writer |
 | **Basis (1)** | BC Consultant — Systemadministration, Transportmanagement, Diagnose |
+| **Discovery (1)** | CBO Stocker — CBO-Paketinventar, Where-Used-Graph, Katalog wiederverwendbarer Objekte |
 | **Modules (14)** | SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, Ariba, BW |
 
 **Delegations-Map (Module Consultation Protocol)**:
@@ -36,7 +37,7 @@
 - `sap-analyst` / `sap-critic` / `sap-planner` haben zusätzlich einen obligatorischen **Country Context**-Block (lädt `country/<iso>.md`)
 - **Direkter MCP-Lesezugriff** für Core-Agenten — Package / DDIC / Class / Program / Where-Used / Runtime-Dump Tools als Read-Only; Write-CRUD bleibt bei `sap-executor` / `sap-planner` / `sap-writer` / `sap-qa-tester` / `sap-debugger`
 
-## 16 Skills
+## 14 Skills
 
 | Skill | Beschreibung |
 |-------|--------------|
@@ -52,6 +53,7 @@
 | `sc4sap:analyze-cbo-obj` | CBO-Inventarscanner + Cross-Module-Gap-Analyse |
 | `sc4sap:analyze-symptom` | Schritt-für-Schritt-Analyse von SAP-Betriebsfehlern/-symptomen (Dumps, Logs, SAP-Note-Kandidaten) |
 | `sc4sap:ask-consultant` | Direkte Q&A mit einem Modulberater-Agent (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC). Nur-Lese — Antwortet gegen die konfigurierte SAP-Umgebung. |
+| `sc4sap:package-to-process` | Reverse-Engineering eines CBO-Pakets in ein End-to-End-Geschäftsprozessdokument + BPML (Markdown / HTML / Excel, mit Mermaid-Flowcharts) |
 | `sc4sap:trust-session` | INTERNAL-ONLY — sessionweiter MCP-Berechtigungs-Bootstrap |
 
 ## Skills — Beispiele & Workflow

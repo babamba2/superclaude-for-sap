@@ -1,7 +1,6 @@
 ---
-name: sc4sap:package-to-process
+name: package-to-process
 description: Reverse-engineer a CBO package into an End-to-End Business Process document plus BPML (Markdown, HTML, and/or Excel — user picks any combination). Walks the package programs/FMs, infers business-document flow (PR→PO→GR→IR style), and emits a consultant-facing narrative with Mermaid flowchart + sequenceDiagram + per-step tables. CBO inventory auto-chain via sap-stocker if missing.
-level: 2
 model: inherit
 ---
 
@@ -140,4 +139,4 @@ This skill reads **source code + DDIC metadata + where-used + transaction metada
 Do not skip the companion-file reads — the step order, grouping dictionary, output skeleton, and dispatch prompts all live there.
 </Execution_Summary>
 
-Task: {{ARGUMENTS}}
+Task: $ARGUMENTS
