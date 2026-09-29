@@ -3,7 +3,7 @@ name: sc4sap:trust-session
 description: INTERNAL-ONLY permission bootstrap. Pre-approves Agent dispatch + `.sc4sap/` state-file I/O for the session so parent-skill pipelines run without prompts. SAP MCP handlers are auto-approved by the `permission-approver` PreToolUse hook (except GetTableContents / GetSqlQuery, which stay prompt-gated). MUST be invoked by a parent skill (create-program, setup, team, analyze-*, create-object) — direct user invocation is rejected with a redirect message.
 level: 2
 internal: true
-model: haiku
+model: inherit
 ---
 
 # SC4SAP Trust Session (Internal-Only)

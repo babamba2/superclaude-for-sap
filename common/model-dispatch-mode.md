@@ -29,7 +29,7 @@ Behave exactly as before: pick the model per `model-routing-rule.md` (Tier heuri
 
 Before each **dispatch group**, ask the user which model to use, then dispatch with that model as an explicit `model:` parameter.
 
-1. Compute the recommended model exactly as `auto` would (skill MD override → per-wave table → Tier heuristic → agent frontmatter `model:`).
+1. Compute the recommended model exactly as `auto` would (skill MD dispatch override → per-wave table → Tier heuristic → agent frontmatter `model:`).
 2. Call `AskUserQuestion` with one question:
    - `header`: `Model`
    - `question`: `Which model for phase=<id> (<label>) · agent=<name>?` — add ` ×<N>` when the group fans out to N agents.

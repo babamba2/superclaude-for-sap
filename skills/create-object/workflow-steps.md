@@ -1,6 +1,6 @@
 # create-object Workflow Steps
 
-Referenced from `SKILL.md` → `<Workflow_Steps>`. Main thread runs Sonnet (frontmatter); object creation / implementation / activation are delegated to `sap-executor`, and the main thread renders the final report from the executor's structured return.
+Referenced from `SKILL.md` → `<Workflow_Steps>`. The main thread follows the session model (`model: inherit`); object creation / implementation / activation are delegated to `sap-executor`, and the main thread renders the final report from the executor's structured return.
 
 Full Agent prompt bodies live in [`dispatch-prompts.md`](dispatch-prompts.md) (kept separate to honor the 200-line cap).
 

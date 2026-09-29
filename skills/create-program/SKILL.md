@@ -2,7 +2,7 @@
 name: sc4sap:create-program
 description: Create ABAP programs (Report/CRUD/ALV/Batch) with Main+Include structure, OOP or Procedural, and full agent-driven coding/QA pipeline
 level: 4
-model: sonnet
+model: inherit
 ---
 
 # SC4SAP Create Program

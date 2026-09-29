@@ -2,7 +2,7 @@
 name: sc4sap:program-to-spec
 description: Reverse-engineer an ABAP program into a Functional/Technical Specification artifact (Markdown, HTML, and/or Excel — any combination). Socratic scope narrowing from "everything" to "only what the user needs".
 level: 2
-model: sonnet
+model: inherit
 ---
 
 # SC4SAP Program → Specification
@@ -106,7 +106,7 @@ The Markdown L2 skeleton and the Excel sheet-naming convention live in a compani
 </Spec_Templates>
 
 <Agent_Composition>
-Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; each `Agent(...)` carries its own model (frontmatter or explicit override).
+Per-step model allocation. The main thread follows the session model (`model: inherit`); each `Agent(...)` carries its own model (frontmatter or explicit override).
 
 - **Main orchestrator (Sonnet 4.6)** — Steps 0, 1, 1.5, 2, 5: Socratic interview orchestration, object classification routing, CBO context preload, Step 5 review loop. State tracking across depth / format / language dimensions needs Sonnet headroom.
 - **Analysis (`sap-analyst` × 1, Opus 4.7, frontmatter)** — Step 3 primary dispatch: extracts business purpose, inputs, outputs, data sources (including CBO-annotated Z-references when `cbo-context.md` exists), main-logic narrative, authorization checks, error cases. One dispatch covers all narrative dimensions to keep context continuous.

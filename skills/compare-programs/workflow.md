@@ -1,6 +1,6 @@
 # Workflow Steps
 
-Main thread runs on Sonnet (skill frontmatter). Every MCP read is pushed into an agent so the orchestrator context stays small even for 5 programs × full source + AST + screens.
+The main thread follows the session model (`model: inherit`). Every MCP read is pushed into an agent so the orchestrator context stays small even for 5 programs × full source + AST + screens.
 
 ## Step 0 — Trust Session (mandatory, see SKILL.md)
 

@@ -2,7 +2,7 @@
 name: sc4sap:compare-programs
 description: Business-angle comparison of 2–5 ABAP programs that share the same business scenario but diverge by module (MM vs CO), country (KR vs EU), persona (controller vs warehouse), or time horizon. Reader = functional consultant.
 level: 2
-model: sonnet
+model: inherit
 ---
 
 # SC4SAP Compare Programs
@@ -68,7 +68,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Companion_Files>
 
 <Agent_Composition>
-Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; each `Agent(...)` carries its own model (frontmatter or explicit override).
+Per-step model allocation. The main thread follows the session model (`model: inherit`); each `Agent(...)` carries its own model (frontmatter or explicit override).
 
 - **Main orchestrator (Sonnet)** — Steps 1, 2, 6: intake, scope confirmation, follow-up menu. Holds NO source code / AST / screens in its own context; all MCP-heavy work runs inside agents.
 - **Facts extraction (`sap-code-reviewer` × N, Sonnet via `model: "sonnet"` override)** — Step 3 (absorbs the old "Read Phase"). Each reviewer reads ONE program itself (`GetProgFullCode` / `GetAbapAST` / screens / GUI status / text elements / where-used) and returns structural facts only — no quality scoring. Sonnet is sufficient because this pass is rule-based extraction, not novel code generation; matches the base tier of `common/model-routing-rule.md` § Tier 1.

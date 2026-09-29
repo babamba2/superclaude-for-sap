@@ -2,7 +2,7 @@
 name: sc4sap:mcp-setup
 description: Guide to install and configure the abap-mcp-adt-powerup MCP server for SAP ADT connectivity
 level: 2
-model: haiku
+model: inherit
 ---
 
 # SC4SAP MCP Setup
