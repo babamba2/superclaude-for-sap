@@ -35,7 +35,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cloneTemplate } from './template-clone.mjs';
 import { swapImages } from './image-swap.mjs';
-import { renderScreenImages } from './screen-image-renderer.mjs';
+import { renderScreenImages, selectionSchemaWarnings } from './screen-image-renderer.mjs';
 
 // ──────────────────────────────────────────────────────────────
 // Language-mixing guard
@@ -72,6 +72,14 @@ function scanImageSpecLang(spec, lang) {
   flag('selection.optionBlockLabel', sel.optionBlockLabel);
   for (const f of [...(sel.fields || []), ...(sel.optionFields || [])]) {
     flag('selection.field.label', f?.label); flag('selection.field.note', f?.note);
+  }
+  for (const t of (sel.toolbar || [])) flag('selection.toolbar', typeof t === 'string' ? t : t?.label);
+  for (const b of (sel.blocks || [])) {
+    flag('selection.block.label', b?.label);
+    for (const it of (b?.items || [])) {
+      flag('selection.item.label', it?.label); flag('selection.item.note', it?.note); flag('selection.item.text', it?.text);
+      for (const o of (it?.options || [])) flag('selection.radio.label', o?.label);
+    }
   }
   const cols = (alv) => (alv?.columns || []).forEach(c => flag('alv.column.header', c?.header));
   cols(spec.alv);
@@ -126,6 +134,7 @@ export async function buildSpec({ trPath, imageSpecPath = null, outPath, verbose
 
   const imageSpec = JSON.parse(readFileSync(imageSpecPath, 'utf8'));
   reportLanguageMix({ missing: cloneResult.missing, imageSpec, lang: imageSpec.lang || tr.__lang || 'en', verbose });
+  if (verbose) for (const w of selectionSchemaWarnings(imageSpec.selection)) console.log(`⚠ build-spec: ${w}`);
   const rendered = await renderScreenImages(imageSpec);
   if (verbose) {
     const ok = (s) => s ? `OK ${s.width}x${s.height}` : 'NULL';

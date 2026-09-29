@@ -43,7 +43,7 @@ Main thread (no agent dispatch).
 
 ## Step 1 — Intake (Socratic)
 
-Main thread (Sonnet).
+Main thread (session model).
 
 1. Print: `Step 1/7 · Intake (package + module + context)   [██░░░░░░░░░░░░░░░░░░]  14%`
 2. **If `ARGUMENTS` did not supply a package** → ask exactly one question:
@@ -80,7 +80,7 @@ Output state held in main thread: `{package, module, sapVersion, abapRelease, in
 
 ## Step 3 — Entry-Point Detection
 
-Main thread (Sonnet).
+Main thread (session model).
 
 1. Print: `Step 3/7 · Entry-point detection   [████████░░░░░░░░░░░░]  42%`
 2. From `inventory.json` → collect all PROG objects.
@@ -156,7 +156,7 @@ Main thread (Sonnet).
 
 ## Step 7 — Validation + Handoff
 
-Main thread (Sonnet).
+Main thread (session model).
 
 1. Print: `Step 7/7 · Validation + handoff   [████████████████████] 100%`
 2. Validate file:

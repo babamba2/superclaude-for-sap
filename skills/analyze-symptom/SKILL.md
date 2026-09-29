@@ -2,7 +2,7 @@
 name: sc4sap:analyze-symptom
 description: Read-only, step-by-step root cause analysis for SAP operational errors. Reads the dump summary and failing source via MCP (known-issue web lookup only when the failure is in standard SAP code), widens to transports and where-used only when the clues call for it, narrows hypotheses with minimal user questions, and provides SAP Note search keywords. Never changes code or data.
 level: 2
-model: sonnet
+model: inherit
 ---
 
 # SC4SAP Analyze Symptom
@@ -105,7 +105,7 @@ Evidence collection strategy — prefer MCP auto-query, fall back to manual TCod
 <Workflow_Steps>
 **MANDATORY**: Follow the step sequence defined in [`workflow-steps.md`](workflow-steps.md).
 
-Per-step model allocation (skill main thread runs on Sonnet per frontmatter; heavy analysis is delegated):
+Per-step model allocation (the main thread follows the session model — `model: inherit`; heavy analysis is delegated):
 
 | Step | Owner | Model | Role |
 |------|-------|-------|------|

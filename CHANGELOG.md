@@ -3,6 +3,26 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.26] — 2026-09-29
+
+### Fixed — `program-to-spec` selection-screen mockup dropped buttons and radio buttons
+
+- The Selection PNG (xlsx Sheet 3 and MD/HTML §3.1) could only draw input fields and checkboxes in two fixed blocks. Push buttons, toolbar buttons and extra blocks were dropped, and radio groups were drawn as checkboxes, although the analyst had already extracted them into the Parameters table.
+- `image-spec.json.selection` now takes `blocks[]` (one per `SELECTION-SCREEN BEGIN OF BLOCK`) with typed items: `param`, `range` (`noIntervals`, `noExtension`), `checkbox` (`labelLeft`), `radioGroup` and `checkboxGroup` (`label` for a leading `COMMENT`, vertical or horizontal layout), `pushbutton`, `comment`, plus `toolbar` for `FUNCTXT_nn` buttons. `default` / `defaultHigh` are drawn inside the input box.
+- New `skills/program-to-spec/selection-schema.md` gives the ABAP → JSON transcription rules: one item per field (no merging), defaults followed into methods called from `INITIALIZATION`, dynamic fields kept with a note, `NO-DISPLAY` fields and their `COMMENT … FOR FIELD` omitted.
+- The legacy `fields` / `optionFields` shape still renders. `build-spec.mjs` and `render-md-images.mjs` print a `⚠` warning when they see it or when an `R_*` field sits in `optionFields`.
+- Rendering changes: plain `PARAMETERS` no longer show a multiple-selection ▼ button (only `SELECT-OPTIONS` do). Checkboxes sit in the label column as on a real screen. Long notes widen the image instead of being clipped, and long defaults are cut with `…`.
+- Checked against three real selection screens (push button + three radio groups; titled radio and checkbox lines; seven blocks with dynamic fields).
+
+## [0.6.25] — 2026-09-29
+
+### Changed — main-thread model now follows the session (`model: inherit`)
+
+- The remaining 12 skills declared `model: sonnet` (analyze-code, analyze-symptom, analyze-cbo-obj, compare-programs, create-object, create-program, package-to-process, program-to-spec) or `model: haiku` (mcp-setup, sap-doctor, sap-option, trust-session). All 14 skills now declare `model: inherit`.
+- Why: a host that opens a session on a chosen model (e.g. an Agent SDK app) applies a skill's `model:` as a switch, so the pin replaced the user's choice. The prompt cache is per model, so each switch also re-wrote ~26–46k tokens of cached context. Measured through an Agent SDK host: `ask-consultant` pinned to Haiku cost $0.43 for a one-sentence answer ($0.28 of it the re-write), and $0.09 with `inherit` on a Haiku session; `analyze-code` pinned to Sonnet cost more on a Haiku session than on a Sonnet one.
+- `trust-session` runs inside twelve other skills, so a pin there switched the model twice per pipeline.
+- Work that needs a specific tier already runs in `Agent(...)` dispatches with their own model; those are unchanged. The per-skill session-model suggestion moved to `docs/skill-model-architecture.md` § 2 as guidance. A preference-driven main-thread pin is not offered: frontmatter is applied before the skill body runs, so a runtime setting cannot change it.
+
 ## [0.6.24] — 2026-09-28
 
 ### Added — user-selectable model dispatch mode

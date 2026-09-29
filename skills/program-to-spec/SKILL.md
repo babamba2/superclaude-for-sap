@@ -2,7 +2,7 @@
 name: sc4sap:program-to-spec
 description: Reverse-engineer an ABAP program into a Functional/Technical Specification artifact (Markdown, HTML, and/or Excel — any combination). Socratic scope narrowing from "everything" to "only what the user needs".
 level: 2
-model: sonnet
+model: inherit
 ---
 
 # SC4SAP Program → Specification
@@ -106,7 +106,7 @@ The Markdown L2 skeleton and the Excel sheet-naming convention live in a compani
 </Spec_Templates>
 
 <Agent_Composition>
-Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; each `Agent(...)` carries its own model (frontmatter or explicit override).
+Per-step model allocation. The main thread follows the session model (`model: inherit`); each `Agent(...)` carries its own model (frontmatter or explicit override).
 
 - **Main orchestrator (Sonnet 4.6)** — Steps 0, 1, 1.5, 2, 5: Socratic interview orchestration, object classification routing, CBO context preload, Step 5 review loop. State tracking across depth / format / language dimensions needs Sonnet headroom.
 - **Analysis (`sap-analyst` × 1, Opus 4.7, frontmatter)** — Step 3 primary dispatch: extracts business purpose, inputs, outputs, data sources (including CBO-annotated Z-references when `cbo-context.md` exists), main-logic narrative, authorization checks, error cases. One dispatch covers all narrative dimensions to keep context continuous.
@@ -116,7 +116,7 @@ Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; eac
   - **Markdown / HTML output** — writer renders the `.md`; HTML is produced from that same `.md` by `scripts/spec/md-to-html.mjs` (no second writer pass).
   - **Excel output** — writer's deliverable is TWO JSON files consumed by `scripts/spec/build-spec.mjs`:
     1. **TR (translation) map** — `English source string → target-language replacement` mapping; schema + slot semantics in `spec-templates.md` § Excel — Template-clone.
-    2. **image-spec.json** — `{selection, alv, processFlow, lang}` per-program image data; exact key names + sample values in `spec-templates.md` § Image Replacement. Drives the Sheet 3 Selection/ALV mockups + Sheet 4 horizontal Process Flow PNG.
+    2. **image-spec.json** — `{selection, alv, processFlow, lang}` per-program image data; exact key names + sample values in `spec-templates.md` § Image Replacement, and `selection` MUST follow `selection-schema.md` (blocks / pushbuttons / radio groups transcribed 1:1 from source). Drives the Sheet 3 Selection/ALV mockups + Sheet 4 horizontal Process Flow PNG.
     Writer does NOT generate workbook styles, drivers, geometry, or PNGs directly — `asset/template_base.xlsx` supplies geometry, `build-spec.mjs` does clone + render + swap in one shot. Depth-driven model override still applies (Sonnet for L3/L4 because the warning-row and processing-step narrative is longer).
     **Two hard requirements on both JSON files** (full rules in `spec-templates.md`): (1) **business-first content** — Sheet 4 Step text + `processFlow[]` describe the business process for a functional reader, with the ABAP event/FORM kept as a secondary annotation (never an event-only list); (2) **single-language output** — every prose string is in the target `lang`; only SAP identifiers / ABAP literals stay as-is. `build-spec.mjs` prints a `⚠ LANGUAGE MIX` gate for ko/ja — finalize only when it reports `language check OK`.
 - **Audit verification (`sap-critic` × 1, Opus 4.7, frontmatter, conditional L4 only)** — Step 3 gate: verifies every claim in the rendered spec cross-references a concrete line range in source. Skip for L1 / L2 / L3.

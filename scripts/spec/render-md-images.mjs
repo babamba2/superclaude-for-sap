@@ -20,7 +20,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderScreenImages } from './screen-image-renderer.mjs';
+import { renderScreenImages, selectionSchemaWarnings } from './screen-image-renderer.mjs';
 
 export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) {
   if (!imageSpecPath || !existsSync(imageSpecPath)) {
@@ -30,6 +30,7 @@ export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) 
   mkdirSync(outDir, { recursive: true });
 
   const spec = JSON.parse(readFileSync(imageSpecPath, 'utf8'));
+  if (verbose) for (const w of selectionSchemaWarnings(spec.selection)) console.log(`⚠ render-md-images: ${w}`);
   const rendered = await renderScreenImages(spec);
 
   const manifest = { selection: null, alv: null, flow: null };

@@ -49,7 +49,7 @@ Emit Phase Banner before each dispatch (see `SKILL.md` § Phase_Banner):
 
 **Step 3.5 — Draw screens**
 
-Both formats now render the SAME program-specific PNGs (Selection / ALV / Process Flow) from one `image-spec.json` — see [`spec-templates.md`](spec-templates.md) § Image Replacement for the schema (the `processFlow` graph form gives the branching `flowchart TD`).
+Both formats now render the SAME program-specific PNGs (Selection / ALV / Process Flow) from one `image-spec.json` — see [`spec-templates.md`](spec-templates.md) § Image Replacement for the schema (the `processFlow` graph form gives the branching `flowchart TD`). **Before writing `selection`, read [`selection-schema.md`](selection-schema.md)** and transcribe the selection screen 1:1 from source: every `BEGIN OF BLOCK` → a block, `PUSHBUTTON` → pushbutton item, each `RADIOBUTTON GROUP` → one radioGroup item, `FUNCTXT_nn` → toolbar. A `⚠ … legacy fields/optionFields` line from the render script means the image is missing controls — rewrite `selection` and re-render.
 
 - **Excel**: `build-spec.mjs` swaps the PNGs into the cloned template (Step 4 below).
 - **Markdown / HTML**: run `node scripts/spec/render-md-images.mjs <image-spec.json> .sc4sap/specs/_assets/{OBJECT}-{YYYYMMDD}-{lang}/` to write `selection.png` / `alv.png` / `flow.png`, then embed each with `![label](_assets/{OBJECT}-{YYYYMMDD}-{lang}/<file>.png)` in §3.2 (Selection), §3.3 (ALV), §4.1 (Process Flow). This gives MD the identical high-quality v12 imagery the xlsx ships.

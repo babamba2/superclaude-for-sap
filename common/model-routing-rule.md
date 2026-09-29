@@ -96,7 +96,7 @@ This gives Opus the cheap agent's inventory + the specific failure point, rather
 - `skills/create-program/phase4-parallel.md` — per-Wave model column above is authoritative.
 - `skills/create-program/agent-pipeline.md` — each Phase bullet states its expected model.
 - `skills/create-program/phase6-buckets.md` — reviewer bucket dispatch + Opus escalation ladder uses this rule.
-- `common/model-dispatch-mode.md` — when `modelDispatch=user-defined`, every model named in this file (tables and skill-level `model:` overrides included) becomes the *recommended* option the user confirms or overrides.
+- `common/model-dispatch-mode.md` — when `modelDispatch=user-defined`, every model named in this file (tables and skill-level dispatch overrides included) becomes the *recommended* option the user confirms or overrides.
 
 ## Response Prefix Convention — `/sc4sap:*` skills
 
@@ -108,7 +108,7 @@ Every sc4sap skill (`/sc4sap:*`) MUST cause the main-thread response to begin wi
 [Model: <main-model> · Dispatched: <sub-summary>]
 ```
 
-- `<main-model>` — the model actually answering this turn, read from its own model identity at runtime (a version is fine here because it is read, not hardcoded — e.g. `Opus 5.5`). A skill's frontmatter `model:` can switch the model for the turn, so report the model that is answering, not the session default.
+- `<main-model>` — the model actually answering this turn, read from its own model identity at runtime (a version is fine here because it is read, not hardcoded — e.g. `Opus 5.5`). Every sc4sap skill declares `model: inherit`, so this is normally the session model — still report the model that is answering, not an assumed one.
 - `<sub-summary>` — a compact list of `Agent(...)` dispatches issued during the response, with model + count. Examples:
   - `Sonnet×2` — two Sonnet sub-agent dispatches.
   - `Opus×1 (planner), Sonnet×3 (executor)` — role-annotated when helpful.

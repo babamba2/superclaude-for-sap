@@ -2,7 +2,7 @@
 name: sc4sap:package-to-process
 description: Reverse-engineer a CBO package into an End-to-End Business Process document plus BPML (Markdown, HTML, and/or Excel — user picks any combination). Walks the package programs/FMs, infers business-document flow (PR→PO→GR→IR style), and emits a consultant-facing narrative with Mermaid flowchart + sequenceDiagram + per-step tables. CBO inventory auto-chain via sap-stocker if missing.
 level: 2
-model: sonnet
+model: inherit
 ---
 
 # SC4SAP Package → End-to-End Business Process
@@ -76,7 +76,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Companion_Files>
 
 <Agent_Composition>
-Per-step model allocation. Skill frontmatter pins the main thread to Sonnet; each `Agent(...)` carries its own model (frontmatter or explicit override).
+Per-step model allocation. The main thread follows the session model (`model: inherit`); each `Agent(...)` carries its own model (frontmatter or explicit override).
 
 - **Main orchestrator (Sonnet)** — Steps 0, 1, 2 (gate), 3, 7: trust-session, intake, inventory gate, entry-point detection, validation/handoff. Sonnet provides enough headroom for the intake state machine and entry-point matching across PROG × TCode.
 - **`sap-stocker` (Sonnet, conditional)** — Step 2 dispatch only when `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json` is missing. Runs the full Investigation_Protocol per [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md).
