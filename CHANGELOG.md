@@ -3,6 +3,15 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.25] — 2026-09-29
+
+### Changed — main-thread model now follows the session (`model: inherit`)
+
+- The remaining 12 skills declared `model: sonnet` (analyze-code, analyze-symptom, analyze-cbo-obj, compare-programs, create-object, create-program, package-to-process, program-to-spec) or `model: haiku` (mcp-setup, sap-doctor, sap-option, trust-session). All 14 skills now declare `model: inherit`.
+- Why: a host that opens a session on a chosen model (e.g. an Agent SDK app) applies a skill's `model:` as a switch, so the pin replaced the user's choice. The prompt cache is per model, so each switch also re-wrote ~26–46k tokens of cached context. Measured through an Agent SDK host: `ask-consultant` pinned to Haiku cost $0.43 for a one-sentence answer ($0.28 of it the re-write), and $0.09 with `inherit` on a Haiku session; `analyze-code` pinned to Sonnet cost more on a Haiku session than on a Sonnet one.
+- `trust-session` runs inside twelve other skills, so a pin there switched the model twice per pipeline.
+- Work that needs a specific tier already runs in `Agent(...)` dispatches with their own model; those are unchanged. The per-skill session-model suggestion moved to `docs/skill-model-architecture.md` § 2 as guidance. A preference-driven main-thread pin is not offered: frontmatter is applied before the skill body runs, so a runtime setting cannot change it.
+
 ## [0.6.24] — 2026-09-28
 
 ### Added — user-selectable model dispatch mode
