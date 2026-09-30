@@ -1,0 +1,1 @@
+안녕. sc4sap 의 스킬을 하나 더 만들 예정이야. 특정 프로그램에 대해 현업 기준에서 mannual 을 만들거야. 메뉴얼 예제는 아래와 같은데 양식은 html 으로 할거야.  'c:\Users\pssps\Downloads\HKT_TC01_Manual(GR Process(Sales Sites))_v1.0_160221_암호화 해제.pptx' 스킬을 만들려고 하는데,  어떠한 것이 더 추가되거나 개선되어야 할지 나에게 물어봐.
