@@ -3,7 +3,7 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.30] — 2026-09-30
 
 ### Added — `program-to-manual`: an end-user manual for one program
 
