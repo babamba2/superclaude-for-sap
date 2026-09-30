@@ -36,6 +36,7 @@ import { fileURLToPath } from 'node:url';
 import { cloneTemplate } from './template-clone.mjs';
 import { swapImages } from './image-swap.mjs';
 import { renderScreenImages, selectionSchemaWarnings, buttonSchemaWarnings } from './screen-image-renderer.mjs';
+import { readScreenTheme } from '../lib/profile-resolve.mjs';
 
 // ──────────────────────────────────────────────────────────────
 // Language-mixing guard
@@ -52,7 +53,7 @@ function hasHangulOrKana(s) { return /[가-힯぀-ヿ]/.test(String(s)); }
 
 // Prose = human-readable phrase that MUST be translated. Excludes bare SAP
 // identifiers (VBAK, S_VKORG, ZMMR00140) which legitimately stay as-is.
-function looksLikeEnglishProse(s) {
+export function looksLikeEnglishProse(s) {
   const v = String(s);
   if (hasHangulOrKana(v)) return false;            // already localized
   if (!/[A-Za-z]/.test(v)) return false;            // pure symbols/numbers
@@ -74,17 +75,23 @@ function scanImageSpecLang(spec, lang) {
     flag('selection.field.label', f?.label); flag('selection.field.note', f?.note);
   }
   for (const t of (sel.toolbar || [])) flag('selection.toolbar', typeof t === 'string' ? t : t?.label);
+  const items = (list) => {
+    for (const it of (list || [])) {
+      flag(it?.type === 'frame' ? 'selection.frame.label' : 'selection.item.label', it?.label);
+      flag('selection.item.note', it?.note); flag('selection.item.text', it?.text);
+      for (const o of (it?.options || [])) flag('selection.radio.label', o?.label);
+      if (it?.type === 'frame') items(it.items);
+    }
+  };
   for (const b of (sel.blocks || [])) {
     flag('selection.block.label', b?.label);
-    for (const it of (b?.items || [])) {
-      flag('selection.item.label', it?.label); flag('selection.item.note', it?.note); flag('selection.item.text', it?.text);
-      for (const o of (it?.options || [])) flag('selection.radio.label', o?.label);
-    }
+    items(b?.items);
   }
   const cols = (alv) => (alv?.columns || []).forEach(c => flag('alv.column.header', c?.header));
   cols(spec.alv);
   for (const p of (spec.alv?.panes || [])) { flag('alv.pane.title', p?.title); flag('alv.pane.interaction', p?.interaction); cols(p); }
   flag('alv.interaction', spec.alv?.interaction);
+  flag('alv.gridTitle', spec.alv?.gridTitle);
   // processFlow: string[] (linear) OR { nodes, edges } (branching flowchart v12)
   const pf = spec.processFlow;
   if (Array.isArray(pf)) {
@@ -139,7 +146,8 @@ export async function buildSpec({ trPath, imageSpecPath = null, outPath, verbose
   }
   // The template has no slot for per-button flows or further screens: keep
   // the badges on the ALV image, skip rendering the rest (a browser launch each).
-  const rendered = await renderScreenImages(imageSpec, { renderButtonFlows: false, renderScreens: false });
+  const theme = imageSpec.theme ?? readScreenTheme(process.cwd()) ?? undefined;
+  const rendered = await renderScreenImages({ ...imageSpec, theme }, { renderButtonFlows: false, renderScreens: false });
   if (verbose) {
     const ok = (s) => s ? `OK ${s.width}x${s.height}` : 'NULL';
     console.log(`build-spec: rendered selection=${ok(rendered.selection)} alv=${ok(rendered.alv)} processFlow=${ok(rendered.processFlow)}`);

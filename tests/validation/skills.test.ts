@@ -7,7 +7,7 @@ const SKILLS_DIR = join(__dirname, '..', '..', 'skills');
 const EXPECTED_SKILLS = [
   'analyze-cbo-obj', 'analyze-code', 'analyze-symptom', 'ask-consultant',
   'compare-programs', 'create-object', 'create-program',
-  'mcp-setup', 'program-to-spec', 'sap-doctor',
+  'mcp-setup', 'program-to-manual', 'program-to-spec', 'sap-doctor',
   'sap-option', 'setup', 'trust-session',
 ];
 

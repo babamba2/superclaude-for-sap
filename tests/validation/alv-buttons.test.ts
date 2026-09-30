@@ -199,7 +199,7 @@ describe('ALV screen buttons', () => {
       const svg: string = renderMultipaneAlvSVG(spec);
       const leftW = Math.round(1400 * 0.2);
       // Buttons that start in the left pane must also end inside it.
-      const leftButtons = [...svg.matchAll(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="22" rx="4"/g)]
+      const leftButtons = [...svg.matchAll(/<rect x="([\d.]+)" y="[\d.]+" width="([\d.]+)" height="22" rx="\d+"/g)]
         .map((m) => ({ x: Number(m[1]), right: Number(m[1]) + Number(m[2]) }))
         .filter((b) => b.x < leftW);
       expect(leftButtons.length).toBe(1);

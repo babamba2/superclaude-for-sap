@@ -3,6 +3,37 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.30] — 2026-09-30
+
+### Added — `program-to-manual`: an end-user manual for one program
+
+- New skill `/sc4sap:program-to-manual` writes the manual a business user follows, as one self-contained HTML file. On screen it is a web document with a contents sidebar; printed or saved as PDF, every scenario step starts a new A4 landscape page, and the confidentiality notice repeats at the foot of each page.
+- The body is organised by usage scenario. Each step shows the screen it happens on (selection screen, output ALV, popups and follow-up screens), drawn from the source with the `program-to-spec` renderer, with numbered callouts on the fields, radio options, buttons and columns the user touches. The same numbers head the step's instruction list.
+- Each scenario ends with check points taken from the source (mandatory inputs, selection-screen checks, confirmation popups, processing that cannot be undone). The manual also has a field reference, a table of messages with their cause and the action to take, a glossary, and a revision history that numbers versions automatically.
+- A module consultant drafts the business context. The skill asks the user about at most three statements it could not confirm from the source, and marks any that stay unconfirmed with a "to be confirmed" badge.
+- Author, team, company and the confidentiality notice are asked once and stored in the active profile's `config.json` under `manual` (`scripts/manual/manual-config.mjs`).
+- A small screen (a confirmation popup) keeps its natural size instead of stretching to the page width.
+- A screen image drawn smaller than its natural size (a wide grid) opens at full size on click and scrolls sideways; a second click closes it. Print keeps the fitted size.
+- `scripts/manual/build-manual.mjs` builds the page. It warns about callouts that point at something not drawn on their screen (and lists what is drawn), scenarios without check points, and English prose in a Korean or Japanese manual.
+
+### Changed — screen mockups are drawn in SAP Signature
+
+- Selection screens, output screens and popups in `program-to-spec` and `program-to-manual` images now look like SAP GUI's Signature theme. They have the Signature title area with a bold italic title, a flat application toolbar, group boxes with a header strip, and a square ALV grid with a grey header, ruled cells and tinted key columns (`"key": true`). The screen background is the blue-grey of the default colour scheme. The colours were sampled from real SAP GUI screenshots.
+- `"theme"` in `image-spec.json` or `manual.json`, or `"screenTheme"` in the profile `config.json`, picks the look: `signature` (default), `signature-pink` (the pink system colour scheme), `modern` (the earlier look, unchanged) or a palette of your own (`{ "base": "signature", … }`).
+- `selection.title` draws the program title above the selection screen.
+- A dialog box (`"modal": true` on a screen: `CALL SCREEN … STARTING AT`, status type P, `POPUP_TO_CONFIRM`) is drawn as SAP draws it. Its application toolbar sits at the bottom edge with the buttons flush right, and the popup has a window frame.
+- `/sc4sap:sap-option` sets the theme per SAP system ("screen theme", new `skills/sap-option/screen-theme.md`) and shows it in the status snapshot. `scripts/spec/screen-theme.mjs get | set | reset` validates names and custom `#RRGGBB` palettes and writes the profile `config.json` atomically.
+
+### Changed — screen mockups carry callout anchors
+
+- `screen-image-renderer.mjs` wraps selection rows, radio options, toolbar buttons, GUI status and ALV buttons, dynpro elements, column headers, and screen and pane titles in `<g data-anchor="…">`. The wrapper draws nothing, so `program-to-spec` images are unchanged.
+- Selection screens can show a block nested inside another block (`BEGIN OF BLOCK … WITH FRAME` inside a block). Write it as a `{ "type": "frame", "label", "items" }` item at its place in the outer block. It is drawn as an inner border with its title on the top edge, and its fields line up with the fields of the outer block. Before, a nested block had to be flattened into a separate top-level block. Applies to `program-to-spec` and `program-to-manual`.
+- Button `icon` also takes the SAP icon name from the GUI status or ALV toolbar (`ICON_TRANSPORT`, `ICON_OPERATOR`, …). It is drawn with the matching glyph, and an SAP icon with no glyph draws none instead of its name.
+- A wide ALV grid is no longer cut off. The canvas stopped at 1600px, and columns past it were dropped without a warning. It now grows with the grid, and toolbars and screen fields still wrap within 1600px.
+- ALV column headers no longer run into the next column: a narrow column is widened for its header (up to 120px) and a header that still does not fit ends with "…". A cell whose value is `red`, `yellow` or `green` is drawn as a status lamp, as SAP shows traffic-light and LED icon columns.
+- Output screens can show the ALV grid title (`SET_GRID_TITLE` / layout `grid_title`) as a bar above the grid, set with `alv.gridTitle` (and on `screens[]`).
+- A screen with a `screen` block but no `columns` or `panes` (a confirmation or input popup) is drawn with its title, buttons and fields only. Before, an empty grid was drawn under it.
+
 ## [0.6.29] — 2026-09-30
 
 ### Added — `program-to-spec` documents every screen, not only the main ALV

@@ -1,0 +1,98 @@
+{
+  "program": "ZMMR_GR_3PL",
+  "tcode": "ZMM_GR3PL",
+  "title": "3PL 입고 결과 조회 및 재처리",
+  "module": "MM",
+  "lang": "ko",
+  "menuPath": "SAP 메뉴 > 물류 > 자재관리 > 입고 > 3PL 입고 결과",
+  "changeNote": "최초 작성",
+  "intro": {
+    "purpose": "3PL 창고가 보낸 입고 결과를 PO 기준으로 조회하고, 오류난 건을 확인하여 재처리합니다.",
+    "businessRules": [
+      "입고는 이동유형 **101**로 전기됩니다.",
+      "3PL 입고 수량과 PO 수량이 다르면 Over/Short 로 표시됩니다.",
+      "입고 결과는 매일 야간 배치로 자동 반영됩니다."
+    ],
+    "users": "창고 관리 담당자",
+    "unverified": ["입고 결과는 매일 야간 배치로 자동 반영됩니다."]
+  },
+  "processFlow": ["조회 조건 입력", "?실행 옵션", "로그 조회", "오류 확인", "!재처리"],
+  "screens": {
+    "selection": {
+      "blocks": [
+        { "label": "조회 조건", "items": [
+          { "type": "param", "name": "P_WERKS", "label": "플랜트", "required": true },
+          { "type": "range", "name": "S_EBELN", "label": "구매오더" }
+        ] },
+        { "label": "실행 옵션", "items": [
+          { "type": "radioGroup", "group": "RG1", "options": [
+            { "name": "R_BATCH", "label": "백그라운드 처리", "selected": true },
+            { "name": "R_LOG", "label": "로그 조회" },
+            { "name": "R_MISS", "label": "미입고 조회" }
+          ] }
+        ] }
+      ]
+    },
+    "alv": {
+      "screen": { "title": "3PL 입고 결과", "buttons": [ { "code": "REPROC", "label": "재처리", "icon": "refresh" } ] },
+      "standardToolbar": true,
+      "columns": [
+        { "name": "EBELN", "header": "구매오더", "width": 110, "hotspot": true },
+        { "name": "MATNR", "header": "자재", "width": 100 },
+        { "name": "MENGE", "header": "PO 수량", "width": 80, "align": "end" },
+        { "name": "WEMNG", "header": "입고 수량", "width": 80, "align": "end" },
+        { "name": "STATUS", "header": "상태", "width": 60 },
+        { "name": "MSG", "header": "오류 메시지", "width": 320, "align": "left" }
+      ],
+      "sampleRows": [
+        { "EBELN": "4500000015", "MATNR": "100234", "MENGE": "14", "WEMNG": "14", "STATUS": "E", "MSG": "전기일이 유효하지 않습니다" },
+        { "EBELN": "4500000016", "MATNR": "100236", "MENGE": "126", "WEMNG": "126", "STATUS": "S", "MSG": "" }
+      ]
+    }
+  },
+  "scenarios": [
+    {
+      "title": "입고 로그 조회",
+      "goal": "3PL 입고가 정상 반영되었는지 확인할 때",
+      "steps": [
+        {
+          "title": "조회 조건 입력 후 실행",
+          "screen": "selection",
+          "values": { "P_WERKS": "KR01", "R_LOG": true },
+          "callouts": [
+            { "anchor": "sel:P_WERKS", "text": "조회할 **플랜트**를 입력합니다." },
+            { "anchor": "sel:R_LOG", "text": "**로그 조회**를 선택합니다.", "details": ["백그라운드 처리: 배치가 자동 실행하므로 직접 선택하지 않습니다.", "미입고 조회: 입고가 없는 PO를 봅니다."] }
+          ],
+          "note": "실행(F8)을 누릅니다."
+        },
+        {
+          "title": "결과 확인",
+          "screen": "alv",
+          "callouts": [
+            { "anchor": "col:MENGE", "text": "PO 수량과 입고 수량을 비교합니다." },
+            { "anchor": "col:STATUS", "text": "상태가 **E** 이면 오류입니다." },
+            { "anchor": "pai:REPROC", "text": "오류를 조치한 뒤 **재처리**를 누릅니다." }
+          ]
+        }
+      ],
+      "checkpoints": [
+        { "text": "플랜트는 필수 입력입니다.", "source": "AT SELECTION-SCREEN" },
+        { "text": "재처리는 입고 전표를 새로 전기하므로 되돌릴 수 없습니다.", "source": "FORM reprocess" }
+      ]
+    }
+  ],
+  "fields": {
+    "selection": [
+      { "name": "P_WERKS", "label": "플랜트", "required": true, "f4": true, "example": "KR01", "description": "입고 플랜트" }
+    ],
+    "output": [
+      { "name": "STATUS", "header": "상태", "description": "S = 성공, E = 오류" }
+    ]
+  },
+  "messages": [
+    { "code": "E015", "type": "E", "text": "Posting date & is not valid", "cause": "전기일이 비어 있거나 마감된 기간입니다.", "action": "전기일을 확인한 뒤 재처리합니다." }
+  ],
+  "glossary": [
+    { "term": "3PL", "description": "물류를 대행하는 외부 창고 업체" }
+  ]
+}

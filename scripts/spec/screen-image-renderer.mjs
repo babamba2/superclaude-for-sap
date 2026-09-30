@@ -38,6 +38,22 @@ function xml(s) {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+// Callout anchors (program-to-manual). A screen element is wrapped in
+// <g data-anchor="prefix:id"> so a manual can find it and draw a numbered
+// callout on it; the wrapper draws nothing, so images are unchanged.
+//   tb:<code|label>   selection-screen toolbar button
+//   block:<label>     selection-screen block frame title
+//   frame:<label>     block nested inside a block (selection item type 'frame')
+//   sel:<name|group>  selection-screen row (radio option: sel:<option name>)
+//   col:<name>        ALV column header
+//   pai:<code> / alv:<code>   GUI status / ALV toolbar button
+//   fld:<name|code|label>     dynpro element above the grid
+//   title / pane:<title>      screen title bar / multi-pane title
+//   gridtitle                 ALV grid title bar (alv.gridTitle)
+const anchorKey = (prefix, id) => (id == null || id === '' ? '' : `${prefix}:${id}`);
+const anchored = (key, inner) => (key && inner ? `<g data-anchor="${xml(key)}">${inner}</g>` : inner);
+const selAnchor = (it) => anchorKey('sel', it?.name || it?.group || it?.label || it?.text);
+
 function wrapTextSvg(text, charsPerLine = 60) {
   const words = text.split(' ');
   const lines = [];
@@ -69,6 +85,7 @@ const LEGEND = {
     hotspot_text:   '밑줄 파랑',
     hotspot_label:  'Hotspot (더블클릭 이동)',
     editable_cell:  '노랑 셀',
+    editable_cell_white: '흰 셀',
     editable_label: '편집 가능',
     block_label:    '조회 조건',
     option_label:   '옵션',
@@ -91,6 +108,7 @@ const LEGEND = {
     hotspot_text:   'Blue underline',
     hotspot_label:  '= Hotspot (click to navigate)',
     editable_cell:  'Yellow cell',
+    editable_cell_white: 'White cell',
     editable_label: '= Editable',
     block_label:    'Selection Criteria',
     option_label:   'Options',
@@ -113,6 +131,7 @@ const LEGEND = {
     hotspot_text:   '青下線',
     hotspot_label:  '= Hotspot (ダブルクリックで遷移)',
     editable_cell:  '黄色セル',
+    editable_cell_white: '白セル',
     editable_label: '= 編集可能',
     block_label:    '照会条件',
     option_label:   'オプション',
@@ -153,6 +172,69 @@ function approxTextWidthPx(s) {
 // Shared image-mockup polish (v13): soft drop-shadow + rounded-top header path,
 // so Selection/ALV mockups match the v12 flowchart + v13 process/sequence look.
 const IMG_SHADOW = '<filter id="imgsh" x="-8%" y="-20%" width="116%" height="142%"><feDropShadow dx="0" dy="1.4" stdDeviation="1.6" flood-color="#8C9BAA" flood-opacity="0.4"/></filter>';
+// ──────────────────────────────────────────────────────────────
+// Screen themes — the look of SAP screens in the mockups
+// ──────────────────────────────────────────────────────────────
+// 'signature' (default) draws screens as SAP GUI's Signature theme with its
+// default blue-grey colour scheme: title area, flat application toolbar,
+// group boxes with a header strip, square ALV grid with a grey header.
+// 'signature-pink' is the same theme with the pink system colour scheme; its
+// values were sampled from real SAP GUI screenshots, and the default scheme
+// is those values with the hue moved to Signature blue (lightness and
+// saturation kept). 'modern' is the earlier sc4sap look, unchanged.
+// A theme may also be an object: { base: 'signature', page: '#…', … }.
+const SIGNATURE = {
+  flat: true,
+  page: '#DEE8F4', titleTop: '#BCCDE0', titleBot: '#ADC2DB', titleInk: '#1B2A3A',
+  toolbar: '#CEDAE8', toolbarLine: '#B3C4D8', frameHead: '#C4D7EC', frameLine: '#92AFD0',
+  ink: '#000000', muted: '#4A5664', inputFill: '#FFFFFF', inputLine: '#8E9BA8', dropFill: '#E7EEF5',
+  gridHeadTop: '#D8DDE2', gridHeadBot: '#D0D6DC', gridLine: '#9FAAB7', cellLine: '#C3CEDA',
+  cell: '#DFE9F5', keyCell: '#BFCAD6', editFill: '#FFFFFF', editLine: '#7F8C99',
+  pushTop: '#FBFCFD', pushBot: '#E3E9EF', pushLine: '#8C9AAA', link: '#1A4FA0',
+};
+export const SCREEN_THEMES = {
+  signature: SIGNATURE,
+  'signature-pink': {
+    ...SIGNATURE,
+    page: '#F4DEE2', titleTop: '#E0BCC4', titleBot: '#DBADB5', titleInk: '#2A1A1E',
+    toolbar: '#E8CED4', toolbarLine: '#D6B0B8', frameHead: '#ECC4CC', frameLine: '#D0929D',
+    dropFill: '#F4E6E9', gridHeadTop: '#E2D8D9', gridHeadBot: '#DCD0D1', gridLine: '#B79FA2',
+    cellLine: '#DCC3C8', cell: '#F5DFE4', keyCell: '#D5BFC2', pushBot: '#EFE2E5', pushLine: '#A88E94',
+  },
+  modern: { flat: false },
+};
+/** Theme name or { base, …overrides } → palette. Unknown names fall back to 'signature'. */
+export function resolveScreenTheme(theme) {
+  if (theme && typeof theme === 'object') {
+    return { ...(SCREEN_THEMES[theme.base] || SIGNATURE), ...theme };
+  }
+  return SCREEN_THEMES[String(theme || '').toLowerCase()] || SIGNATURE;
+}
+// The palette of the render in progress. Public renderers set it with
+// useTheme() and restore it when they return; a nested render that is not
+// given a theme keeps its caller's, so a whole screen draws in one theme.
+let TH = null;
+function useTheme(theme) {
+  const prev = TH;
+  TH = theme != null ? resolveScreenTheme(theme) : (TH || SIGNATURE);
+  return () => { TH = prev; };
+}
+const flat = () => (TH || SIGNATURE).flat;
+/** Signature title area: two-stop gradient, bold italic title. */
+function sigTitleBar(id, x, y, w, h, title) {
+  const t = TH || SIGNATURE;
+  return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${t.titleTop}"/><stop offset="1" stop-color="${t.titleBot}"/></linearGradient></defs>`
+    + `<rect x="${x}" y="${y}" width="${w}" height="${h}" fill="url(#${id})"/>`
+    + `<text x="${x + 12}" y="${y + h / 2 + 5}" font-size="14" font-weight="700" font-style="italic" fill="${t.titleInk}">${xml(title)}</text>`;
+}
+// Gradient ids come from the palette, not a counter: the same input renders
+// byte-identical SVG, and screens inlined into one HTML page that share an id
+// also share the identical gradient it names.
+const gradId = (p) => {
+  const t = TH || SIGNATURE;
+  return `${p}-${[t.page, t.titleTop, t.titleBot, t.gridHeadTop, t.gridHeadBot, t.pushTop, t.pushBot].join('').replace(/[^0-9A-Za-z]/g, '')}`;
+};
+
 function roundedTopRectPath(x, y, w, h, r) {
   return `M${x},${y + h} V${y + r} a${r},${r} 0 0 1 ${r},-${r} H${x + w - r} a${r},${r} 0 0 1 ${r},${r} V${y + h} Z`;
 }
@@ -191,7 +273,8 @@ function roundedTopRectPath(x, y, w, h, r) {
 const SEL = {
   rowH: 24, LABEL_X: 38, LABEL_GAP: 16, BOX_W: 150, SEP_GAP: 8,
   BLOCK_PAD_TOP: 20, BLOCK_PAD_BOTTOM: 16, BLOCK_GAP: 26,
-  BTN_ROW_H: 30, RADIO_GAP: 36, TOOLBAR_H: 30, MAX_W: 1400,
+  BTN_ROW_H: 30, RADIO_GAP: 36, TOOLBAR_H: 30, MAX_W: 1400, TITLE_H: 30,
+  FRAME_X: 22, FRAME_PAD_TOP: 18, FRAME_PAD_BOTTOM: 8, FRAME_GAP: 6,
 };
 
 const isChoiceGroup = (t) => t === 'radioGroup' || t === 'checkboxGroup';
@@ -203,6 +286,13 @@ function selItemType(it) {
 // Coerce malformed JSON (null / object / string where an array belongs) and drop null entries.
 const selArr = (x) => (Array.isArray(x) ? x.filter(v => v != null) : []);
 
+// A 'frame' item is a BEGIN OF BLOCK nested inside another block: its own
+// border and title, with its items laid out in the parent's columns.
+const normSelItem = (it) => (isChoiceGroup(it.type) ? { ...it, options: selArr(it.options) }
+  : it.type === 'frame' ? { ...it, items: selArr(it.items).map(normSelItem) } : it);
+/** Every control of a block, with nested frames opened up. */
+const leafItems = (items) => items.flatMap(it => (it.type === 'frame' ? leafItems(it.items) : [it]));
+
 function normalizeSelection(sel, L) {
   const { blockLabel, optionBlockLabel } = sel || {};
   const toolbar = selArr(sel?.toolbar), blocks = selArr(sel?.blocks);
@@ -212,7 +302,7 @@ function normalizeSelection(sel, L) {
       toolbar,
       blocks: blocks.map(b => ({
         label: b.label || '',
-        items: selArr(b.items).map(it => (isChoiceGroup(it.type) ? { ...it, options: selArr(it.options) } : it)),
+        items: selArr(b.items).map(normSelItem),
       })),
     };
   }
@@ -236,7 +326,7 @@ function layoutSelectionScreen(selection, lang) {
 
   // Label column is sized only from controls that actually sit in it.
   const colLabels = [];
-  for (const b of blocks) for (const it of b.items) {
+  for (const b of blocks) for (const it of leafItems(b.items)) {
     const t = selItemType(it);
     if (t === 'param' || t === 'range' || (t === 'checkbox' && it.labelLeft)) colLabels.push(selLabelText(it));
   }
@@ -250,7 +340,7 @@ function layoutSelectionScreen(selection, lang) {
   // A labelled choice group (leading COMMENT on a BEGIN OF LINE) starts its options right after
   // the widest group label — like SAP's short COMMENT column — aligned across all labelled groups.
   const groupLabels = [];
-  for (const b of blocks) for (const it of b.items) {
+  for (const b of blocks) for (const it of leafItems(b.items)) {
     if (isChoiceGroup(selItemType(it)) && it.label) groupLabels.push(approxTextWidthPx(it.label));
   }
   const groupOptX = S.LABEL_X + (groupLabels.length ? Math.max(...groupLabels) : 0) + 40;
@@ -259,7 +349,7 @@ function layoutSelectionScreen(selection, lang) {
   const radioW = (o) => 20 + approxTextWidthPx(selLabelText(o));
   let need = rangeNoteX + 200;
   if (toolbar.length) need = Math.max(need, 20 + toolbar.reduce((s, t) => s + approxTextWidthPx(toolbarText(t)) + 34, 0));
-  for (const b of blocks) for (const it of b.items) {
+  for (const b of blocks) for (const it of leafItems(b.items)) {
     const t = selItemType(it);
     const noteW = it.note ? approxTextWidthPx(it.note) + 20 : 0;
     if (isChoiceGroup(t)) {
@@ -280,15 +370,26 @@ function layoutSelectionScreen(selection, lang) {
   }
   const w = Math.min(S.MAX_W, Math.max(900, need));
 
-  let y = toolbar.length ? S.TOOLBAR_H + 12 : 0;
+  // Optional title area (the program title SAP shows above the selection screen).
+  const titleH = selection?.title ? S.TITLE_H : 0;
+  let y = titleH + (toolbar.length ? S.TOOLBAR_H + 12 : 0);
   const placed = [];
   for (const b of blocks) {
     const top = y + 20;
     let cy = top + S.BLOCK_PAD_TOP;
     const rows = [];
-    for (const it of b.items) {
+    const place = (items) => { for (const it of items) {
       const t = selItemType(it);
-      if (isChoiceGroup(t)) {
+      if (t === 'frame') {
+        // The frame row comes first so its border is drawn under its items.
+        const frame = { it, t, y: cy, h: 0 };
+        rows.push(frame);
+        cy += S.FRAME_PAD_TOP;
+        place(it.items || []);
+        cy += S.FRAME_PAD_BOTTOM;
+        frame.h = cy - frame.y;
+        cy += S.FRAME_GAP;
+      } else if (isChoiceGroup(t)) {
         const opts = it.options || [];
         const lines = [];
         const x0 = groupX(it);
@@ -313,18 +414,26 @@ function layoutSelectionScreen(selection, lang) {
         rows.push({ it, t, y: cy });
         cy += S.rowH;
       }
-    }
+    } };
+    place(b.items);
     const h = cy - top + S.BLOCK_PAD_BOTTOM;
     placed.push({ label: b.label, top, h, rows });
     y = top + h + (S.BLOCK_GAP - 20);
   }
   const legendY = y + 24;
   const h = legendY + 16;
-  return { L, toolbar, blocks: placed, w, h, inputX, sepX, highX, rangeDropX, rangeNoteX, legendY };
+  return { L, toolbar, blocks: placed, w, h, inputX, sepX, highX, rangeDropX, rangeNoteX, legendY, titleH };
 }
 
-export function renderSelectionScreenSVG({ lang = 'ko', ...selection } = {}) {
+export function renderSelectionScreenSVG({ theme, ...rest } = {}) {
+  const restore = useTheme(theme);
+  try { return selectionScreenSvg(rest); } finally { restore(); }
+}
+
+function selectionScreenSvg({ lang = 'ko', ...selection } = {}) {
   const lay = layoutSelectionScreen(selection, lang);
+  const T = TH || SIGNATURE;
+  const sig = T.flat;
   const { L, w, h, inputX, sepX, highX, rangeDropX, rangeNoteX, legendY } = lay;
   const S = SEL;
   // User text inside at() templates escapes '{' so it can never collide with the {Y}/{B} placeholders.
@@ -338,98 +447,139 @@ export function renderSelectionScreenSVG({ lang = 'ko', ...selection } = {}) {
     }
     return out;
   };
-  const box = (x, val) => `<rect x="${x}" y="{Y}" width="${S.BOX_W}" height="16" fill="#FFFFFF" stroke="#9AA7B4" rx="2"/>`
-    + (val != null && val !== '' ? `<text x="${x + 4}" y="{B}" fill="#555">${xmlT(fit(val))}</text>` : '');
-  const drop = (x) => `<rect x="${x}" y="{Y}" width="16" height="16" fill="#E7EEF5" stroke="#9AA7B4" rx="2"/><text x="${x + 8}" y="{B}" text-anchor="middle">▼</text>`;
-  const note = (x, n) => (n ? `<text x="${x}" y="{B}" fill="#666">${xmlT(n)}</text>` : '');
+  const box = (x, val) => (sig
+    ? `<rect x="${x}" y="{Y}" width="${S.BOX_W}" height="16" fill="${T.inputFill}" stroke="${T.inputLine}"/>`
+    : `<rect x="${x}" y="{Y}" width="${S.BOX_W}" height="16" fill="#FFFFFF" stroke="#9AA7B4" rx="2"/>`)
+    + (val != null && val !== '' ? `<text x="${x + 4}" y="{B}" fill="${sig ? T.ink : '#555'}">${xmlT(fit(val))}</text>` : '');
+  const drop = (x) => `<rect x="${x}" y="{Y}" width="16" height="16" fill="${sig ? T.dropFill : '#E7EEF5'}" stroke="${sig ? T.inputLine : '#9AA7B4'}" rx="${sig ? 0 : 2}"/><text x="${x + 8}" y="{B}" text-anchor="middle">▼</text>`;
+  const note = (x, n) => (n ? `<text x="${x}" y="{B}" fill="${sig ? T.muted : '#666'}">${xmlT(n)}</text>` : '');
   const at = (s, base) => s.replace(/\{Y\}/g, String(base - 12)).replace(/\{B\}/g, String(base));
 
   // Toolbar (application toolbar buttons on the selection screen).
   let tbSvg = '';
   if (lay.toolbar.length) {
     let x = 14;
-    const parts = [`<rect x="0" y="0" width="${w}" height="${S.TOOLBAR_H}" fill="#EEF3F8" stroke="#C9D6E3"/>`];
+    const ty = lay.titleH;
+    const parts = [sig
+      ? `<rect x="0" y="${ty}" width="${w}" height="${S.TOOLBAR_H}" fill="${T.toolbar}"/><line x1="0" y1="${ty + S.TOOLBAR_H}" x2="${w}" y2="${ty + S.TOOLBAR_H}" stroke="${T.toolbarLine}"/>`
+      : `<rect x="0" y="${ty}" width="${w}" height="${S.TOOLBAR_H}" fill="#EEF3F8" stroke="#C9D6E3"/>`];
     for (const t of lay.toolbar) {
       const label = toolbarText(t);
       const bw = approxTextWidthPx(label) + 24;
-      parts.push(`<rect x="${x}" y="5" width="${bw}" height="20" rx="3" fill="#FFFFFF" stroke="#9AA7B4"/><text x="${x + bw / 2}" y="19" text-anchor="middle">${xml(label)}</text>`);
+      // Signature application-toolbar buttons are flat: text (and icon) without a frame.
+      parts.push(anchored(anchorKey('tb', t?.code || label), sig
+        ? `<rect x="${x}" y="${ty + 5}" width="${bw}" height="20" fill="none"/><text x="${x + bw / 2}" y="${ty + 19}" text-anchor="middle" fill="${T.ink}">${xml(label)}</text>`
+        : `<rect x="${x}" y="${ty + 5}" width="${bw}" height="20" rx="3" fill="#FFFFFF" stroke="#9AA7B4"/><text x="${x + bw / 2}" y="${ty + 19}" text-anchor="middle">${xml(label)}</text>`));
       x += bw + 10;
     }
     tbSvg = parts.join('');
   }
 
+  const rowSvg = ({ it, t, y, lines, h: frameH }) => {
+    if (t === 'frame') {
+      const fw = w - 2 * S.FRAME_X;
+      if (sig) {
+        // A nested group box: the same header strip as a block, inset.
+        const head = it.label
+          ? `<rect x="${S.FRAME_X}" y="${y + 4}" width="${fw}" height="16" fill="${T.frameHead}"/>`
+            + `<text x="${S.FRAME_X + 8}" y="${y + 16}" font-size="11.5" fill="${T.ink}">${xml(it.label)}</text>`
+          : '';
+        return head + `<rect x="${S.FRAME_X}" y="${y + 4}" width="${fw}" height="${frameH - 4}" fill="none" stroke="${T.frameLine}"/>`;
+      }
+      const label = it.label
+        ? `<rect x="${S.FRAME_X + 10}" y="${y - 3}" width="${approxTextWidthPx(it.label) + 14}" height="14" fill="#FFFFFF"/>`
+          + `<text x="${S.FRAME_X + 17}" y="${y + 8}" font-size="11.5" font-weight="700" fill="#24598F">${xml(it.label)}</text>`
+        : '';
+      return `<rect x="${S.FRAME_X}" y="${y + 4}" width="${fw}" height="${frameH - 4}" rx="5" fill="none" stroke="#9DBBD6"/>${label}`;
+    }
+    const base = y + S.rowH - 6;
+    const star = it.required ? `<text x="25" y="${base}" fill="#B00020" font-weight="700">*</text>` : '';
+    if (t === 'range') {
+      const label = `<text x="${S.LABEL_X}" y="${base}">${xml(selLabelText(it))}</text>`;
+      // NO-EXTENSION removes the multiple-selection button.
+      if (it.noIntervals) {
+        const dx = inputX + S.BOX_W + 2;
+        return star + label + at(box(inputX, it.default)
+          + (it.noExtension ? note(dx + 12, it.note) : drop(dx) + note(dx + 28, it.note)), base);
+      }
+      return star + label + at(
+        box(inputX, it.default) + `<text x="${sepX}" y="{B}" text-anchor="middle">~</text>`
+        + box(highX, it.defaultHigh) + (it.noExtension ? '' : drop(rangeDropX)) + note(rangeNoteX, it.note), base);
+    }
+    if (t === 'checkbox') {
+      const text = selLabelText(it);
+      // labelLeft: COMMENT … FOR FIELD before the checkbox → text in the label column, box at the input column.
+      const bx = it.labelLeft ? inputX : S.LABEL_X;
+      const mark = it.checked
+        ? `<path d="M${bx + 2},${base - 4} l3,3 l6,-7" fill="none" stroke="#1F4E79" stroke-width="1.6"/>` : '';
+      const box12 = `<rect x="${bx}" y="${base - 10}" width="12" height="12" fill="#FFF" stroke="#555"/>${mark}`;
+      if (it.labelLeft) {
+        return `<text x="${S.LABEL_X}" y="${base}">${xml(text)}</text>` + box12
+          + at(note(inputX + 30, it.note), base);
+      }
+      return box12
+        + `<text x="${S.LABEL_X + 20}" y="${base}">${xml(text)}</text>`
+        + at(note(S.LABEL_X + 40 + approxTextWidthPx(text), it.note), base);
+    }
+    if (isChoiceGroup(t)) {
+      const opts = it.options || [];
+      const radio = t === 'radioGroup';
+      const selIdx = Math.max(0, opts.findIndex(o => o?.selected));
+      let lastBase = base, lastEnd = S.LABEL_X;
+      const head = it.label ? `<text x="${S.LABEL_X}" y="${base}">${xml(it.label)}</text>` : '';
+      const svg = (lines || []).map((line, li) => {
+        const lb = y + li * S.rowH + S.rowH - 6;
+        return line.map(({ o, x }) => {
+          const text = selLabelText(o);
+          lastBase = lb; lastEnd = x + 20 + approxTextWidthPx(text);
+          const mark = radio
+            ? `<circle cx="${x + 6}" cy="${lb - 4}" r="6" fill="#FFF" stroke="#555"/>`
+              + (opts.indexOf(o) === selIdx ? `<circle cx="${x + 6}" cy="${lb - 4}" r="3" fill="#333"/>` : '')
+            : `<rect x="${x}" y="${lb - 10}" width="12" height="12" fill="#FFF" stroke="#555"/>`
+              + (o.checked ? `<path d="M${x + 2},${lb - 4} l3,3 l6,-7" fill="none" stroke="#1F4E79" stroke-width="1.6"/>` : '');
+          return anchored(anchorKey('sel', o.name), mark + `<text x="${x + 18}" y="${lb}">${xml(text)}</text>`);
+        }).join('');
+      }).join('');
+      return head + svg + at(note(lastEnd + 20, it.note), lastBase);
+    }
+    if (t === 'pushbutton') {
+      const text = String(it.label ?? '');
+      const bw = Math.max(120, approxTextWidthPx(text) + 40);
+      const by = y + 4;
+      const face = sig
+        ? (() => { const id = gradId('selpb'); return `<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${T.pushTop}"/><stop offset="1" stop-color="${T.pushBot}"/></linearGradient></defs>`
+          + `<rect x="${S.LABEL_X}" y="${by}" width="${bw}" height="20" rx="2" fill="url(#${id})" stroke="${T.pushLine}"/>`; })()
+        : `<rect x="${S.LABEL_X}" y="${by}" width="${bw}" height="20" rx="3" fill="#FCE9A0" stroke="#C9A646"/>`;
+      return face
+        + `<text x="${S.LABEL_X + bw / 2}" y="${by + 14}" text-anchor="middle">${xml(text)}</text>`
+        + (it.note ? `<text x="${S.LABEL_X + bw + 14}" y="${by + 14}" fill="#666">${xml(it.note)}</text>` : '');
+    }
+    if (t === 'comment') {
+      return `<text x="${S.LABEL_X}" y="${base}" fill="${sig ? T.ink : '#444'}">${xml(it.text ?? it.label ?? '')}</text>`;
+    }
+    // 'param' (PARAMETERS) — no multiple-selection button on a real screen.
+    const label = `<text x="${S.LABEL_X}" y="${base}">${xml(selLabelText(it))}</text>`;
+    return star + label + at(box(inputX, it.default) + note(inputX + S.BOX_W + 14, it.note), base);
+  };
+
   const blockSvg = lay.blocks.map(b => {
+    if (sig) {
+      // Signature group box: square frame with a header strip carrying the title.
+      const head = b.label
+        ? anchored(anchorKey('block', b.label), `<rect x="10" y="${b.top}" width="${w - 20}" height="18" fill="${T.frameHead}"/>`
+          + `<text x="18" y="${b.top + 13}" fill="${T.ink}">${xml(b.label)}</text>`)
+        : '';
+      const box = `<rect x="10" y="${b.top}" width="${w - 20}" height="${b.h}" fill="none" stroke="${T.frameLine}"/>`;
+      const rows = b.rows.map(r => anchored(r.t === 'frame' ? anchorKey('frame', r.it.label) : selAnchor(r.it), rowSvg(r))).join('');
+      return head + box + rows;
+    }
     const frame = `<rect x="10" y="${b.top}" width="${w - 20}" height="${b.h}" rx="8" fill="#FFFFFF" stroke="#3E7DB3" stroke-width="1.3" filter="url(#imgsh)"/>`
       + (b.label
-        ? `<rect x="28" y="${b.top - 9}" width="${Math.max(70, approxTextWidthPx(b.label) + 46)}" height="18" rx="4" fill="#DCE7F1" stroke="#9DBBD6"/>`
-          + `<text x="38" y="${b.top + 4}" font-weight="700" fill="#24598F">◆ ${xml(b.label)}</text>`
+        ? anchored(anchorKey('block', b.label),
+          `<rect x="28" y="${b.top - 9}" width="${Math.max(70, approxTextWidthPx(b.label) + 46)}" height="18" rx="4" fill="#DCE7F1" stroke="#9DBBD6"/>`
+          + `<text x="38" y="${b.top + 4}" font-weight="700" fill="#24598F">◆ ${xml(b.label)}</text>`)
         : '');
-    const rows = b.rows.map(({ it, t, y, lines }) => {
-      const base = y + S.rowH - 6;
-      const star = it.required ? `<text x="25" y="${base}" fill="#B00020" font-weight="700">*</text>` : '';
-      if (t === 'range') {
-        const label = `<text x="${S.LABEL_X}" y="${base}">${xml(selLabelText(it))}</text>`;
-        // NO-EXTENSION removes the multiple-selection button.
-        if (it.noIntervals) {
-          const dx = inputX + S.BOX_W + 2;
-          return star + label + at(box(inputX, it.default)
-            + (it.noExtension ? note(dx + 12, it.note) : drop(dx) + note(dx + 28, it.note)), base);
-        }
-        return star + label + at(
-          box(inputX, it.default) + `<text x="${sepX}" y="{B}" text-anchor="middle">~</text>`
-          + box(highX, it.defaultHigh) + (it.noExtension ? '' : drop(rangeDropX)) + note(rangeNoteX, it.note), base);
-      }
-      if (t === 'checkbox') {
-        const text = selLabelText(it);
-        // labelLeft: COMMENT … FOR FIELD before the checkbox → text in the label column, box at the input column.
-        const bx = it.labelLeft ? inputX : S.LABEL_X;
-        const mark = it.checked
-          ? `<path d="M${bx + 2},${base - 4} l3,3 l6,-7" fill="none" stroke="#1F4E79" stroke-width="1.6"/>` : '';
-        const box12 = `<rect x="${bx}" y="${base - 10}" width="12" height="12" fill="#FFF" stroke="#555"/>${mark}`;
-        if (it.labelLeft) {
-          return `<text x="${S.LABEL_X}" y="${base}">${xml(text)}</text>` + box12
-            + at(note(inputX + 30, it.note), base);
-        }
-        return box12
-          + `<text x="${S.LABEL_X + 20}" y="${base}">${xml(text)}</text>`
-          + at(note(S.LABEL_X + 40 + approxTextWidthPx(text), it.note), base);
-      }
-      if (isChoiceGroup(t)) {
-        const opts = it.options || [];
-        const radio = t === 'radioGroup';
-        const selIdx = Math.max(0, opts.findIndex(o => o?.selected));
-        let lastBase = base, lastEnd = S.LABEL_X;
-        const head = it.label ? `<text x="${S.LABEL_X}" y="${base}">${xml(it.label)}</text>` : '';
-        const svg = (lines || []).map((line, li) => {
-          const lb = y + li * S.rowH + S.rowH - 6;
-          return line.map(({ o, x }) => {
-            const text = selLabelText(o);
-            lastBase = lb; lastEnd = x + 20 + approxTextWidthPx(text);
-            const mark = radio
-              ? `<circle cx="${x + 6}" cy="${lb - 4}" r="6" fill="#FFF" stroke="#555"/>`
-                + (opts.indexOf(o) === selIdx ? `<circle cx="${x + 6}" cy="${lb - 4}" r="3" fill="#333"/>` : '')
-              : `<rect x="${x}" y="${lb - 10}" width="12" height="12" fill="#FFF" stroke="#555"/>`
-                + (o.checked ? `<path d="M${x + 2},${lb - 4} l3,3 l6,-7" fill="none" stroke="#1F4E79" stroke-width="1.6"/>` : '');
-            return mark + `<text x="${x + 18}" y="${lb}">${xml(text)}</text>`;
-          }).join('');
-        }).join('');
-        return head + svg + at(note(lastEnd + 20, it.note), lastBase);
-      }
-      if (t === 'pushbutton') {
-        const text = String(it.label ?? '');
-        const bw = Math.max(120, approxTextWidthPx(text) + 40);
-        const by = y + 4;
-        return `<rect x="${S.LABEL_X}" y="${by}" width="${bw}" height="20" rx="3" fill="#FCE9A0" stroke="#C9A646"/>`
-          + `<text x="${S.LABEL_X + bw / 2}" y="${by + 14}" text-anchor="middle">${xml(text)}</text>`
-          + (it.note ? `<text x="${S.LABEL_X + bw + 14}" y="${by + 14}" fill="#666">${xml(it.note)}</text>` : '');
-      }
-      if (t === 'comment') {
-        return `<text x="${S.LABEL_X}" y="${base}" fill="#444">${xml(it.text ?? it.label ?? '')}</text>`;
-      }
-      // 'param' (PARAMETERS) — no multiple-selection button on a real screen.
-      const label = `<text x="${S.LABEL_X}" y="${base}">${xml(selLabelText(it))}</text>`;
-      return star + label + at(box(inputX, it.default) + note(inputX + S.BOX_W + 14, it.note), base);
-    }).join('');
+    const rows = b.rows.map(r => anchored(r.t === 'frame' ? anchorKey('frame', r.it.label) : selAnchor(r.it), rowSvg(r))).join('');
     return frame + rows;
   }).join('\n');
 
@@ -447,7 +597,9 @@ export function renderSelectionScreenSVG({ lang = 'ko', ...selection } = {}) {
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(w * RENDER_SCALE)}" height="${Math.round(h * RENDER_SCALE)}" viewBox="0 0 ${w} ${h}" font-family="Arial,sans-serif" font-size="12">
 <defs>${IMG_SHADOW}</defs>
-<rect width="${w}" height="${h}" fill="#FFF"/>
+<rect width="${w}" height="${h}" fill="${sig ? T.page : '#FFF'}"/>
+${lay.titleH ? anchored('title', sig ? sigTitleBar(gradId('seltitle'), 0, 0, w, lay.titleH, selection.title)
+    : `<rect x="0" y="0" width="${w}" height="${lay.titleH}" fill="#1F4E79"/><text x="12" y="${lay.titleH / 2 + 5}" font-size="13" font-weight="700" fill="#FFF">${xml(selection.title)}</text>`) : ''}
 ${tbSvg}
 ${blockSvg}
 ${legendSvg}
@@ -468,11 +620,16 @@ export function selectionSchemaWarnings(selection) {
     const radios = (selection.optionFields || []).filter(f => !f.type && /^R_/i.test(f.name || '')).map(f => f.name);
     if (radios.length) warns.push(`optionFields ${radios.join(', ')} look like RADIOBUTTONs but render as checkboxes — use a { type: "radioGroup" } item.`);
   }
-  const known = new Set(['param', 'range', 'checkbox', 'checkboxGroup', 'radioGroup', 'pushbutton', 'comment']);
-  for (const b of (selection.blocks || [])) for (const it of (b?.items || [])) {
+  const known = new Set(['param', 'range', 'checkbox', 'checkboxGroup', 'radioGroup', 'pushbutton', 'comment', 'frame']);
+  const check = (items) => { for (const it of (Array.isArray(items) ? items : [])) {
     if (it?.type && !known.has(it.type)) warns.push(`unknown selection item type "${it.type}" (${it.name || it.label || '?'}) — rendered as a plain parameter.`);
     if (isChoiceGroup(it?.type) && !(it.options || []).length) warns.push(`${it.type} ${it.group || it.label || '?'} has no options.`);
-  }
+    if (it?.type === 'frame') {
+      if (!(it.items || []).length) warns.push(`frame "${it.label || '?'}" has no items.`);
+      check(it.items);
+    }
+  } };
+  for (const b of (selection.blocks || [])) check(b?.items);
   return warns;
 }
 
@@ -501,12 +658,36 @@ export function selectionScreenMetrics(selection = {}) {
  */
 const ALV_LEGEND_PAD = 44;
 const ALV_PLAIN_PAD = 16;
+const ALV_HEADER_PAD = 12, ALV_AUTO_COL_MAX = 120;
+const LAMP_FILL = { red: '#D64545', yellow: '#E0A800', green: '#2E9E4F' };
 
-export function renderAlvLayoutSVG({ columns = [], sampleRows = [], maxRows = 3, lang = 'ko' } = {}) {
+// Bold 12px header text is ~10% wider than the regular-weight estimate.
+const alvHeaderPx = (c) => Math.ceil(approxTextWidthPx(c.header || c.name) * 1.1);
+/**
+ * A column's drawn width: its `width` (default 100), widened up to what its
+ * header needs — but never past ALV_AUTO_COL_MAX, so a long header cannot push
+ * the grid past its cap; alvHeaderText() shortens such a header instead.
+ * A narrow `width` used to let the header run into its neighbours.
+ */
+function alvColW(c) {
+  const w = Number(c.width) || 100;
+  return Math.max(w, Math.min(alvHeaderPx(c) + ALV_HEADER_PAD, ALV_AUTO_COL_MAX));
+}
+const alvHeaderText = (c) => fitLabel(c.header || c.name, Math.max(12, alvColW(c) - ALV_HEADER_PAD) / 1.1);
+
+export function renderAlvLayoutSVG({ theme, ...rest } = {}) {
+  const restore = useTheme(theme);
+  try { return alvLayoutSvg(rest); } finally { restore(); }
+}
+
+function alvLayoutSvg({ columns = [], sampleRows = [], maxRows = 3, lang = 'ko' } = {}) {
   const L = legendFor(lang);
+  const T = TH || SIGNATURE;
+  const sig = T.flat;
   const rows = sampleRows.slice(0, Math.max(1, Math.min(maxRows, 5)));
-  const totalW = columns.reduce((s, c) => s + (c.width || 100), 0) + 20;
-  const w = Math.max(900, Math.min(totalW, 1600));
+  const totalW = columns.reduce((s, c) => s + alvColW(c), 0) + 20;
+  // No upper cap: a capped canvas cut off the columns past it without a word.
+  const w = Math.max(900, totalW);
   const rowH = 24;
   const headerH = 22;
   // Spec-driven legend feature detection — only include items that apply.
@@ -520,33 +701,45 @@ export function renderAlvLayoutSVG({ columns = [], sampleRows = [], maxRows = 3,
   const h = 10 + headerH + rows.length * rowH + legendPad;
 
   let x = 10;
-  const colX = columns.map(c => { const left = x; x += (c.width || 100); return left; });
+  const colX = columns.map(c => { const left = x; x += alvColW(c); return left; });
   const gridRight = x;
 
   const headerCells = columns.map((c, i) => {
-    const cx = colX[i] + (c.width || 100) / 2;
-    return `<text x="${cx}" y="${10 + headerH - 7}" text-anchor="middle" font-weight="700" fill="#FFFFFF">${xml(c.header || c.name)}</text>`;
+    const cx = colX[i] + alvColW(c) / 2;
+    const text = sig
+      ? `<text x="${cx}" y="${10 + headerH - 7}" text-anchor="middle" fill="${T.ink}">${xml(alvHeaderText(c))}</text>`
+      : `<text x="${cx}" y="${10 + headerH - 7}" text-anchor="middle" font-weight="700" fill="#FFFFFF">${xml(alvHeaderText(c))}</text>`;
+    // The unfilled rect gives the anchor the whole header cell as its box.
+    return anchored(anchorKey('col', c.name), `<rect x="${colX[i]}" y="10" width="${alvColW(c)}" height="${headerH}" fill="none"/>${text}`);
   }).join('');
 
-  const sepLines = colX.slice(1).map(lx =>
+  const sepLines = sig
+    // Signature: every cell is ruled, and the header has its own darker separators.
+    ? colX.slice(1).map(lx => `<line x1="${lx}" y1="10" x2="${lx}" y2="${10 + headerH}" stroke="${T.gridLine}"/>`
+        + `<line x1="${lx}" y1="${10 + headerH}" x2="${lx}" y2="${10 + headerH + rows.length * rowH}" stroke="${T.cellLine}"/>`).join('')
+      + rows.slice(1).map((_, i) => `<line x1="10" y1="${10 + headerH + (i + 1) * rowH}" x2="${gridRight}" y2="${10 + headerH + (i + 1) * rowH}" stroke="${T.cellLine}"/>`).join('')
+    : colX.slice(1).map(lx =>
     `<line x1="${lx}" y1="${10 + headerH}" x2="${lx}" y2="${10 + headerH + rows.length * rowH}" stroke="#C8D4E2"/>`).join('');
 
   const dataRows = rows.map((r, rIdx) => {
     const y = 10 + headerH + rIdx * rowH;
     const bg = r._locked ? '#F0F5FA' : (rIdx % 2 === 1 ? '#F5F9FC' : '#FFF');
-    const bandBg = rIdx % 2 === 1 || r._locked
-      ? `<rect x="10" y="${y}" width="${gridRight - 10}" height="${rowH}" fill="${bg}"/>` : '';
+    // Signature: no zebra; key columns (`key: true`) are tinted like SAP's key fields.
+    const bandBg = sig
+      ? columns.map((c, ci) => (c.key ? `<rect x="${colX[ci]}" y="${y}" width="${alvColW(c)}" height="${rowH}" fill="${T.keyCell}"/>` : '')).join('')
+      : rIdx % 2 === 1 || r._locked
+        ? `<rect x="10" y="${y}" width="${gridRight - 10}" height="${rowH}" fill="${bg}"/>` : '';
     const cells = columns.map((c, ci) => {
-      const cx = colX[ci] + (c.width || 100) / 2;
-      const leftX = colX[ci] + 8, rightX = colX[ci] + (c.width || 100) - 8;
+      const cx = colX[ci] + alvColW(c) / 2;
+      const leftX = colX[ci] + 8, rightX = colX[ci] + alvColW(c) - 8;
       const cy = y + rowH - 8;
       const val = r[c.name];
       const statusFill = { '●': '#D4A017', '○': '#C0392B', '◉': '#1E8449' };
       if (c.name === '_status' || c.editable) {
         if (c.editable) {
-          const editBg = r._locked ? '#E5E5E5' : '#FFF6C8';
-          const editStroke = r._locked ? '#999' : '#A67F25';
-          return `<rect x="${colX[ci] + 2}" y="${y + 3}" width="${(c.width || 100) - 4}" height="${rowH - 6}" fill="${editBg}" stroke="${editStroke}"/>`
+          const editBg = r._locked ? '#E5E5E5' : sig ? T.editFill : '#FFF6C8';
+          const editStroke = r._locked ? '#999' : sig ? T.editLine : '#A67F25';
+          return `<rect x="${colX[ci] + 2}" y="${y + 3}" width="${alvColW(c) - 4}" height="${rowH - 6}" fill="${editBg}" stroke="${editStroke}"/>`
             + (val !== undefined ? `<text x="${rightX}" y="${cy}" text-anchor="end" font-family="monospace" fill="${r._locked ? '#888' : '#000'}">${xml(val)}</text>` : '');
         }
       }
@@ -555,8 +748,14 @@ export function renderAlvLayoutSVG({ columns = [], sampleRows = [], maxRows = 3,
       if (c.name === '_status') {
         return `<text x="${cx}" y="${cy}" text-anchor="middle" fill="${statusFill[strVal] || '#555'}" font-weight="700">${xml(strVal)}</text>`;
       }
+      // Traffic-light / LED icon columns (ICON_RED_LIGHT, ICON_LED_GREEN …): a
+      // cell whose value is just red / yellow / green is drawn as the lamp.
+      const lamp = LAMP_FILL[strVal.toLowerCase()];
+      if (lamp) {
+        return `<circle cx="${cx}" cy="${cy - 4}" r="6" fill="${lamp}" stroke="#FFFFFF" stroke-width="1"/>`;
+      }
       if (c.hotspot) {
-        return `<text x="${cx}" y="${cy}" text-anchor="middle" font-family="monospace" fill="#1F5AA0" text-decoration="underline">${xml(strVal)}</text>`;
+        return `<text x="${cx}" y="${cy}" text-anchor="middle" font-family="monospace" fill="${sig ? T.link : '#1F5AA0'}" text-decoration="underline">${xml(strVal)}</text>`;
       }
       const anchor = c.align === 'end' ? 'end' : (c.align === 'left' ? 'start' : 'middle');
       const tx = anchor === 'end' ? rightX : anchor === 'start' ? leftX : cx;
@@ -577,21 +776,33 @@ export function renderAlvLayoutSVG({ columns = [], sampleRows = [], maxRows = 3,
     );
   }
   if (hasHotspot)  legendParts.push(`<tspan fill="#1F5AA0" text-decoration="underline">${xml(L.hotspot_text)}</tspan> ${xml(L.hotspot_label)}`);
-  if (hasEditable) legendParts.push(`<tspan>${xml(L.editable_cell)}</tspan> ${xml(L.editable_label)}`);
+  if (hasEditable) legendParts.push(`<tspan>${xml(sig ? L.editable_cell_white : L.editable_cell)}</tspan> ${xml(L.editable_label)}`);
   const legendSvg = hasLegend
     ? `<text x="10" y="${legendY}" font-size="11" fill="#555">${legendParts.join(' · ')}</text>`
     : '';
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(w * RENDER_SCALE)}" height="${Math.round(h * RENDER_SCALE)}" viewBox="0 0 ${w} ${h}" font-family="Arial,sans-serif" font-size="12">
-<defs>${IMG_SHADOW}</defs>
+${sig ? (() => {
+  const gid = gradId('alvhead');
+  const gh = headerH + rows.length * rowH;
+  return `<defs><linearGradient id="${gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${T.gridHeadTop}"/><stop offset="1" stop-color="${T.gridHeadBot}"/></linearGradient></defs>
+<rect width="${w}" height="${h}" fill="${T.page}"/>
+<rect x="10" y="10" width="${gridRight - 10}" height="${gh}" fill="${T.cell}"/>
+<rect x="10" y="10" width="${gridRight - 10}" height="${headerH}" fill="url(#${gid})"/>
+${headerCells}
+${dataRows}
+${sepLines}
+<line x1="10" y1="${10 + headerH}" x2="${gridRight}" y2="${10 + headerH}" stroke="${T.gridLine}"/>
+<rect x="10" y="10" width="${gridRight - 10}" height="${gh}" fill="none" stroke="${T.gridLine}"/>`;
+})() : `<defs>${IMG_SHADOW}</defs>
 <rect width="${w}" height="${h}" fill="#FFF"/>
 <rect x="10" y="10" width="${gridRight - 10}" height="${headerH + rows.length * rowH}" rx="7" fill="#FFFFFF" stroke="#C8D4E2" filter="url(#imgsh)"/>
 <path d="${roundedTopRectPath(10, 10, gridRight - 10, headerH, 7)}" fill="#2E6FB0" stroke="#24598F" stroke-width="1.1"/>
 ${headerCells}
 ${dataRows}
 ${sepLines}
-<rect x="10" y="10" width="${gridRight - 10}" height="${headerH + rows.length * rowH}" rx="7" fill="none" stroke="#C8D4E2"/>
+<rect x="10" y="10" width="${gridRight - 10}" height="${headerH + rows.length * rowH}" rx="7" fill="none" stroke="#C8D4E2"/>`}
 ${legendSvg}
 </svg>`;
 }
@@ -603,8 +814,8 @@ ${legendSvg}
  */
 export function alvLayoutMetrics({ columns = [], sampleRows = [], maxRows = 3 } = {}) {
   const rows = sampleRows.slice(0, Math.max(1, Math.min(maxRows, 5)));
-  const totalW = columns.reduce((s, c) => s + (c.width || 100), 0) + 20;
-  const w = Math.max(900, Math.min(totalW, 1600));
+  const totalW = columns.reduce((s, c) => s + alvColW(c), 0) + 20;
+  const w = Math.max(900, totalW);
   const hasStatus   = columns.some(c => c.name === '_status') || rows.some(r => r && r._status);
   const hasHotspot  = columns.some(c => c.hotspot);
   const hasEditable = columns.some(c => c.editable);
@@ -1626,6 +1837,7 @@ function sideToolbarH(panes, leftW, rightW) {
 
 // ── Side-by-side renderer (split-vertical) ─────────────────────
 function renderSideBySideAlvSVG({ panes = [], splitRatio = [40, 60], interaction = '', lang = 'ko', flowIndex } = {}) {
+  const ps = paneStyle();
   const [leftPane, rightPane] = panes;
   const totalW = SIDE_CANVAS_W;
   const leftW  = Math.round(totalW * splitRatio[0] / 100);
@@ -1651,10 +1863,10 @@ function renderSideBySideAlvSVG({ panes = [], splitRatio = [40, 60], interaction
   }
 
   // Left title bar
-  parts.push(`<rect x="0" y="${titleY}" width="${leftW}" height="${PANE_TITLE_H - 2}" fill="#E7E6E6" stroke="#888"/>`);
-  parts.push(`<text x="10" y="${titleY + PANE_TITLE_H - 9}" font-weight="700" fill="#333">${xml(leftPane.title || 'Pane 1')}</text>`);
+  parts.push(anchored(anchorKey('pane', leftPane.title), `<rect x="0" y="${titleY}" width="${leftW}" height="${PANE_TITLE_H - 2}" fill="${ps.title}" stroke="${ps.titleLine}"/>`
+    + `<text x="10" y="${titleY + PANE_TITLE_H - 9}" font-weight="700" fill="${ps.ink}">${xml(leftPane.title || 'Pane 1')}</text>`));
   // Left body frame
-  parts.push(`<rect x="0" y="${bodyY}" width="${leftW}" height="${bodyH}" fill="#FFF" stroke="#C8D4E2"/>`);
+  parts.push(`<rect x="0" y="${bodyY}" width="${leftW}" height="${bodyH}" fill="${ps.body}" stroke="${ps.bodyLine}"/>`);
   if (leftPane.treeRows) {
     const treeSvg = renderAlvTreeInnerSVG({ treeRows: leftPane.treeRows, paneW: leftW });
     parts.push(`<g transform="translate(0, ${bodyY + 4})">${treeSvg}</g>`);
@@ -1666,13 +1878,13 @@ function renderSideBySideAlvSVG({ panes = [], splitRatio = [40, 60], interaction
   }
 
   // Vertical divider
-  parts.push(`<rect x="${leftW}" y="${titleY}" width="${SIDE_DIVIDER_W}" height="${PANE_TITLE_H - 2 + tbH + bodyH}" fill="#5A85AE"/>`);
+  parts.push(`<rect x="${leftW}" y="${titleY}" width="${SIDE_DIVIDER_W}" height="${PANE_TITLE_H - 2 + tbH + bodyH}" fill="${ps.divider}"/>`);
 
   // Right title bar
-  parts.push(`<rect x="${rightX}" y="${titleY}" width="${rightW}" height="${PANE_TITLE_H - 2}" fill="#E7E6E6" stroke="#888"/>`);
-  parts.push(`<text x="${rightX + 10}" y="${titleY + PANE_TITLE_H - 9}" font-weight="700" fill="#333">${xml(rightPane.title || 'Pane 2')}</text>`);
+  parts.push(anchored(anchorKey('pane', rightPane.title), `<rect x="${rightX}" y="${titleY}" width="${rightW}" height="${PANE_TITLE_H - 2}" fill="${ps.title}" stroke="${ps.titleLine}"/>`
+    + `<text x="${rightX + 10}" y="${titleY + PANE_TITLE_H - 9}" font-weight="700" fill="${ps.ink}">${xml(rightPane.title || 'Pane 2')}</text>`));
   // Right body frame
-  parts.push(`<rect x="${rightX}" y="${bodyY}" width="${rightW}" height="${bodyH}" fill="#FFF" stroke="#C8D4E2"/>`);
+  parts.push(`<rect x="${rightX}" y="${bodyY}" width="${rightW}" height="${bodyH}" fill="${ps.body}" stroke="${ps.bodyLine}"/>`);
   if (rightPane.treeRows) {
     parts.push(`<g transform="translate(${rightX}, ${bodyY + 4})">${renderAlvTreeInnerSVG({ treeRows: rightPane.treeRows, paneW: rightW })}</g>`);
   } else if (paneIsEmpty(rightPane) && rightPane.placeholder) {
@@ -1690,16 +1902,29 @@ function renderSideBySideAlvSVG({ panes = [], splitRatio = [40, 60], interaction
 
   // Interaction caption
   const caption = interaction ? `← ${xml(interaction)} →` : `← ${xml(legendFor(lang).pane_caption)} →`;
-  parts.push(`<text x="${totalW / 2}" y="${bodyY + bodyH + 22}" text-anchor="middle" font-size="12" fill="#1F5AA0" font-weight="600">${caption}</text>`);
+  parts.push(`<text x="${totalW / 2}" y="${bodyY + bodyH + 22}" text-anchor="middle" font-size="12" fill="${ps.link}" font-weight="600">${caption}</text>`);
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(totalW * RENDER_SCALE)}" height="${Math.round(totalH * RENDER_SCALE)}" viewBox="0 0 ${totalW} ${totalH}" font-family="Arial,sans-serif" font-size="12">
-<rect width="${totalW}" height="${totalH}" fill="#FFF"/>
+<rect width="${totalW}" height="${totalH}" fill="${ps.page}"/>
 ${parts.join('\n')}
 </svg>`;
 }
 
-export function renderMultipaneAlvSVG({ layout = 'split-horizontal', interaction = '', panes = [], splitRatio = [40, 60], lang = 'ko', flowIndex } = {}) {
+export function renderMultipaneAlvSVG({ theme, ...rest } = {}) {
+  const restore = useTheme(theme);
+  try { return multipaneAlvSvg(rest); } finally { restore(); }
+}
+/** Pane chrome colours: title bar, body frame and divider. */
+function paneStyle() {
+  const P = TH || SIGNATURE;
+  return P.flat
+    ? { title: P.gridHeadTop, titleLine: P.gridLine, ink: P.ink, body: P.page, bodyLine: P.gridLine, divider: P.frameLine, link: P.link, page: P.page }
+    : { title: '#E7E6E6', titleLine: '#888', ink: '#333', body: '#FFF', bodyLine: '#C8D4E2', divider: '#5A85AE', link: '#1F5AA0', page: '#FFF' };
+}
+
+function multipaneAlvSvg({ layout = 'split-horizontal', interaction = '', panes = [], splitRatio = [40, 60], lang = 'ko', flowIndex } = {}) {
+  const ps = paneStyle();
   if (!panes.length) {
     return renderAlvLayoutSVG({ columns: [], sampleRows: [], lang });
   }
@@ -1716,8 +1941,8 @@ export function renderMultipaneAlvSVG({ layout = 'split-horizontal', interaction
   const parts = [];
   panes.forEach((p, i) => {
     // Title bar (light grey + bold) — same palette as v8 grey headers.
-    parts.push(`<rect x="0" y="${cursorY}" width="${totalW}" height="${PANE_TITLE_H - 2}" fill="#E7E6E6" stroke="#888"/>`);
-    parts.push(`<text x="14" y="${cursorY + PANE_TITLE_H - 9}" font-weight="700" fill="#333">${xml(p.title || `Pane ${i + 1}`)}</text>`);
+    parts.push(anchored(anchorKey('pane', p.title), `<rect x="0" y="${cursorY}" width="${totalW}" height="${PANE_TITLE_H - 2}" fill="${ps.title}" stroke="${ps.titleLine}"/>`
+      + `<text x="14" y="${cursorY + PANE_TITLE_H - 9}" font-weight="700" fill="${ps.ink}">${xml(p.title || `Pane ${i + 1}`)}</text>`));
     cursorY += PANE_TITLE_H;
 
     // The pane's own ALV toolbar, between its title and its grid.
@@ -1730,7 +1955,7 @@ export function renderMultipaneAlvSVG({ layout = 'split-horizontal', interaction
     // Pane body — actual grid OR placeholder box.
     const m = paneInnerMetrics(p);
     if (p.treeRows) {
-      parts.push(`<rect x="10" y="${cursorY}" width="${totalW - 20}" height="${m.height}" fill="#FFF" stroke="#C8D4E2"/>`);
+      parts.push(`<rect x="10" y="${cursorY}" width="${totalW - 20}" height="${m.height}" fill="${ps.body}" stroke="${ps.bodyLine}"/>`);
       parts.push(`<g transform="translate(10, ${cursorY + 4})">${renderAlvTreeInnerSVG({ treeRows: p.treeRows, paneW: totalW - 20 })}</g>`);
     } else if (paneIsEmpty(p) && p.placeholder) {
       parts.push(`<rect x="10" y="${cursorY}" width="${totalW - 20}" height="${m.height}" fill="#FAFAFA" stroke="#C8D4E2" stroke-dasharray="4,3"/>`);
@@ -1747,14 +1972,14 @@ export function renderMultipaneAlvSVG({ layout = 'split-horizontal', interaction
       const caption = interaction
         ? `↓ ${xml(interaction)}`
         : `↓`;
-      parts.push(`<text x="${totalW / 2}" y="${cursorY + 18}" text-anchor="middle" font-size="12" fill="#1F5AA0" font-weight="600">${caption}</text>`);
+      parts.push(`<text x="${totalW / 2}" y="${cursorY + 18}" text-anchor="middle" font-size="12" fill="${ps.link}" font-weight="600">${caption}</text>`);
       cursorY += PANE_INTER_H;
     }
   });
 
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(totalW * RENDER_SCALE)}" height="${Math.round(totalH * RENDER_SCALE)}" viewBox="0 0 ${totalW} ${totalH}" font-family="Arial,sans-serif" font-size="12">
-<rect width="${totalW}" height="${totalH}" fill="#FFF"/>
+<rect width="${totalW}" height="${totalH}" fill="${ps.page}"/>
 ${parts.join('\n')}
 </svg>`;
 }
@@ -1798,14 +2023,29 @@ const BTN_ICONS = {
   run: '▶', undo: '↶', save: '✓', check: '✓', confirm: '✓', print: '⎙',
   export: '⇩', download: '⇩', upload: '⇧', filter: '▽', sort: '⇅', sum: 'Σ',
   detail: '☰', display: '☰', mail: '✉', edit: '✎', change: '✎', copy: '⧉',
+  okay: '✓', system_save: '✓', simulate: '◔', transport: '⇄', delivery: '⇨',
+  payment: '¤', disconnect: '⊗', operator: '±', delete_row: '✕', insert_row: '+',
+};
+// SAP icon names as the GUI status / ALV toolbar define them (ICON_REFRESH,
+// ICON_TRANSPORT, …) map onto the keywords above, so a writer can copy the
+// icon from GetGuiStatus (TEXT_NAME) instead of guessing a keyword.
+const SAP_ICON_ALIAS = {
+  red_light: 'reject', green_light: 'check', led_green: 'check', led_red: 'reject',
+  create: 'create', select_all: 'check', deselect_all: 'cancel', display_text: 'display',
 };
 const STD_ALV_BUTTONS = ['detail', 'sort', 'filter', 'sum', 'export'].map(icon => ({ icon, std: true }));
 
 const TB_ROW_H = 32, TB_BTN_H = 22, TB_PAD_X = 10, TB_GAP = 6, TB_CAPTION_W = 44, TB_SEP_W = 8;
-const SCREEN_TITLE_H = 28, SCREEN_NOTE_H = 26, SCREEN_MAX_W = 1600;
+const SCREEN_TITLE_H = 28, SCREEN_NOTE_H = 26, SCREEN_MAX_W = 1600, GRID_TITLE_H = 22;
 
 function btnIcon(b) {
-  const key = String(b.icon || '').toLowerCase();
+  let key = String(b.icon || '').toLowerCase();
+  if (key.startsWith('icon_')) {
+    key = key.slice(5);
+    key = SAP_ICON_ALIAS[key] || key;
+    // An SAP icon without a drawable glyph draws no icon rather than its name.
+    return BTN_ICONS[key] || '';
+  }
   if (BTN_ICONS[key]) return BTN_ICONS[key];
   return key && [...String(b.icon)].length <= 2 ? String(b.icon) : '';
 }
@@ -1894,14 +2134,29 @@ export function buildFlowIndex(buttonFlows) {
   return index;
 }
 
-function buttonBarSvg(x0, y0, width, items, { variant, lang, flowIndex }) {
+function buttonBarSvg(x0, y0, width, items, { variant, lang, flowIndex, dock = 'top' }) {
   if (!items.length) return '';
   const T = btnText(lang);
   const { rows, height } = layoutButtonBar(items, width);
+  // A modal dialog box carries its application toolbar at its bottom edge,
+  // buttons flush right: shift every row to end at the right padding.
+  if (dock === 'bottom') {
+    for (const row of rows) {
+      const last = row[row.length - 1];
+      const shift = last ? width - TB_PAD_X - (last.x + last.w) : 0;
+      if (shift > 0) for (const cell of row) cell.x += shift;
+    }
+  }
   const pai = variant === 'pai';
+  const P = TH || SIGNATURE;
+  const sig = P.flat;
+  const edgeY = dock === 'bottom' ? y0 : y0 + height;
   const parts = [
-    `<rect x="${x0}" y="${y0}" width="${width}" height="${height}" fill="${pai ? '#EEF2F6' : '#F7F9FB'}" stroke="#C8D4E2"/>`,
-    `<rect x="${x0 + 6}" y="${y0 + (TB_ROW_H - 16) / 2}" width="${TB_CAPTION_W - 12}" height="16" rx="3" fill="${pai ? '#56657A' : '#2E6FB0'}"/>`,
+    sig
+      // Signature: the GUI status is the flat application toolbar; the ALV toolbar sits on the screen background.
+      ? `<rect x="${x0}" y="${y0}" width="${width}" height="${height}" fill="${pai ? P.toolbar : P.page}"/><line x1="${x0}" y1="${edgeY}" x2="${x0 + width}" y2="${edgeY}" stroke="${pai ? P.toolbarLine : P.cellLine}"/>`
+      : `<rect x="${x0}" y="${y0}" width="${width}" height="${height}" fill="${pai ? '#EEF2F6' : '#F7F9FB'}" stroke="#C8D4E2"/>`,
+    `<rect x="${x0 + 6}" y="${y0 + (TB_ROW_H - 16) / 2}" width="${TB_CAPTION_W - 12}" height="16" rx="3" fill="${sig ? P.muted : pai ? '#56657A' : '#2E6FB0'}"${sig ? ' fill-opacity="0.55"' : ''}/>`,
     `<text x="${x0 + TB_CAPTION_W / 2}" y="${y0 + TB_ROW_H / 2 + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="#FFF">${xml(pai ? T.pai : T.alv)}</text>`,
   ];
   rows.forEach((row, r) => {
@@ -1909,13 +2164,17 @@ function buttonBarSvg(x0, y0, width, items, { variant, lang, flowIndex }) {
     for (const { b, x, w } of row) {
       const bx = x0 + x;
       if (b.sep) {
-        parts.push(`<line x1="${bx + w / 2}" y1="${by + 2}" x2="${bx + w / 2}" y2="${by + TB_BTN_H - 2}" stroke="#AAB6C3"/>`);
+        parts.push(`<line x1="${bx + w / 2}" y1="${by + 2}" x2="${bx + w / 2}" y2="${by + TB_BTN_H - 2}" stroke="${sig ? P.gridLine : '#AAB6C3'}"/>`);
         continue;
       }
-      const style = b.std ? { fill: '#FFFFFF', stroke: '#C8D4E2', ink: '#6B7C8D' }
+      const style = sig
+        // Signature: application-toolbar buttons are flat; ALV toolbar buttons are small framed buttons.
+        ? (pai ? { fill: 'none', stroke: 'none', ink: P.ink } : { fill: P.pushTop, stroke: P.gridLine, ink: b.std ? P.muted : P.ink })
+        : b.std ? { fill: '#FFFFFF', stroke: '#C8D4E2', ink: '#6B7C8D' }
         : pai ? { fill: '#FFFFFF', stroke: '#9AA7B5', ink: '#2B3A4A' }
         : { fill: '#EAF2FB', stroke: '#2E6FB0', ink: '#1F4E79' };
-      parts.push(`<rect x="${bx}" y="${by}" width="${w}" height="${TB_BTN_H}" rx="4" fill="${style.fill}" stroke="${style.stroke}"/>`);
+      const start = parts.length;
+      parts.push(`<rect x="${bx}" y="${by}" width="${w}" height="${TB_BTN_H}" rx="${sig ? 2 : 4}" fill="${style.fill}" stroke="${style.stroke}"/>`);
       const icon = btnIcon(b);
       const cy = by + TB_BTN_H / 2 + 4;
       if (!b.label) {
@@ -1930,6 +2189,8 @@ function buttonBarSvg(x0, y0, width, items, { variant, lang, flowIndex }) {
       }
       const n = b.code && !b.std ? flowIndex?.get(flowKey(variant, b.code)) : undefined;
       if (n) parts.push(badgeSvg(bx, by, w, n));
+      const key = anchorKey(pai ? 'pai' : 'alv', b.code || b.label || (b.std ? `std-${b.icon}` : ''));
+      parts.push(anchored(key, parts.splice(start).join('')));
     }
   });
   return parts.join('');
@@ -1983,38 +2244,52 @@ function badgeSvg(bx, by, w, n) {
 }
 function screenFieldsSvg(x0, y0, width, items, { flowIndex }) {
   if (!items.length) return '';
+  const P = TH || SIGNATURE;
+  const sig = P.flat;
+  const ink = sig ? P.ink : '#2B3A4A';
   const rows = layoutFields(items, width);
-  const parts = [`<rect x="${x0}" y="${y0}" width="${width}" height="${rows.length * FLD_ROW_H + 8}" fill="#FAFBFC" stroke="#DCE3EA"/>`];
+  const parts = [sig
+    ? `<rect x="${x0}" y="${y0}" width="${width}" height="${rows.length * FLD_ROW_H + 8}" fill="${P.page}"/>`
+    : `<rect x="${x0}" y="${y0}" width="${width}" height="${rows.length * FLD_ROW_H + 8}" fill="#FAFBFC" stroke="#DCE3EA"/>`];
   rows.forEach((row, r) => {
     const by = y0 + 4 + r * FLD_ROW_H + (FLD_ROW_H - FLD_BOX_H) / 2;
     const ty = by + FLD_BOX_H / 2 + 4;
     for (const { f, x, w } of row) {
       const bx = x0 + x;
       const type = f.type || 'input';
+      const start = parts.length;
       if (type === 'pushbutton') {
-        parts.push(`<rect x="${bx}" y="${by}" width="${w}" height="${FLD_BOX_H}" rx="4" fill="#FFF7D6" stroke="#B89B2E"/>`);
+        const pbInk = sig ? P.ink : '#5C4A0A';
+        if (sig) {
+          const id = gradId('fldpb');
+          parts.push(`<defs><linearGradient id="${id}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${P.pushTop}"/><stop offset="1" stop-color="${P.pushBot}"/></linearGradient></defs>`
+            + `<rect x="${bx}" y="${by}" width="${w}" height="${FLD_BOX_H}" rx="2" fill="url(#${id})" stroke="${P.pushLine}"/>`);
+        } else {
+          parts.push(`<rect x="${bx}" y="${by}" width="${w}" height="${FLD_BOX_H}" rx="4" fill="#FFF7D6" stroke="#B89B2E"/>`);
+        }
         const icon = btnIcon(f);
         let tx = bx + 10;
-        if (icon) { parts.push(`<text x="${tx + 5}" y="${ty}" text-anchor="middle" font-size="12" font-weight="700" fill="#5C4A0A">${xml(icon)}</text>`); tx += 16; }
-        parts.push(`<text x="${tx}" y="${ty}" font-size="11.5" fill="#5C4A0A">${xml(fitLabel(f.label || f.code || '', bx + w - 10 - tx))}</text>`);
+        if (icon) { parts.push(`<text x="${tx + 5}" y="${ty}" text-anchor="middle" font-size="12" font-weight="700" fill="${pbInk}">${xml(icon)}</text>`); tx += 16; }
+        parts.push(`<text x="${tx}" y="${ty}" font-size="11.5" fill="${pbInk}">${xml(fitLabel(f.label || f.code || '', bx + w - 10 - tx))}</text>`);
         const n = f.code ? flowIndex?.get(flowKey('pai', f.code)) : undefined;
         if (n) parts.push(badgeSvg(bx, by, w, n));
       } else if (type === 'checkbox') {
-        parts.push(`<rect x="${bx}" y="${by + 3}" width="14" height="14" rx="2" fill="#FFF" stroke="#7A8896"/>`);
-        if (f.checked) parts.push(`<text x="${bx + 7}" y="${by + 15}" text-anchor="middle" font-size="12" font-weight="700" fill="#1F4E79">✓</text>`);
-        parts.push(`<text x="${bx + 20}" y="${ty}" font-size="11.5" fill="#2B3A4A">${xml(f.label || '')}</text>`);
+        parts.push(`<rect x="${bx}" y="${by + 3}" width="14" height="14" rx="${sig ? 0 : 2}" fill="#FFF" stroke="${sig ? P.inputLine : '#7A8896'}"/>`);
+        if (f.checked) parts.push(`<text x="${bx + 7}" y="${by + 15}" text-anchor="middle" font-size="12" font-weight="700" fill="${sig ? P.ink : '#1F4E79'}">✓</text>`);
+        parts.push(`<text x="${bx + 20}" y="${ty}" font-size="11.5" fill="${ink}">${xml(f.label || '')}</text>`);
       } else if (type === 'output') {
-        parts.push(`<text x="${bx}" y="${ty}" font-size="11.5" font-weight="700" fill="#1F4E79">${xml(String(f.value ?? ''))}</text>`);
+        parts.push(`<text x="${bx}" y="${ty}" font-size="11.5" font-weight="700" fill="${sig ? P.ink : '#1F4E79'}">${xml(String(f.value ?? ''))}</text>`);
       } else {
         let bxBox = bx;
         if (f.label) {
-          parts.push(`<text x="${bx}" y="${ty}" font-size="11.5" fill="#2B3A4A">${xml(f.label)}</text>`);
+          parts.push(`<text x="${bx}" y="${ty}" font-size="11.5" fill="${ink}">${xml(f.label)}</text>`);
           bxBox += Math.ceil(approxTextWidthPx(f.label)) + 8;
         }
         const bw = bx + w - bxBox;
-        parts.push(`<rect x="${bxBox}" y="${by}" width="${bw}" height="${FLD_BOX_H}" fill="#FFFFFF" stroke="#9AA7B5"/>`);
-        parts.push(`<text x="${bxBox + 6}" y="${ty}" font-size="11.5" font-family="Consolas,monospace" fill="#2B3A4A">${xml(fitLabel(String(f.value ?? ''), bw - 10))}</text>`);
+        parts.push(`<rect x="${bxBox}" y="${by}" width="${bw}" height="${FLD_BOX_H}" fill="#FFFFFF" stroke="${sig ? P.inputLine : '#9AA7B5'}"/>`);
+        parts.push(`<text x="${bxBox + 6}" y="${ty}" font-size="11.5" font-family="Consolas,monospace" fill="${ink}">${xml(fitLabel(String(f.value ?? ''), bw - 10))}</text>`);
       }
+      parts.push(anchored(anchorKey('fld', f.name || f.code || f.label), parts.splice(start).join('')));
     }
   });
   return parts.join('');
@@ -2041,52 +2316,83 @@ function hasFlowBadge(alv, flowIndex) {
  * grid itself. With no buttons and no screen it returns the grid unchanged,
  * so older image-specs render exactly as before.
  */
-export function renderAlvScreenSVG(alv = {}, { lang = 'ko', flowIndex = new Map() } = {}) {
+export function renderAlvScreenSVG(alv = {}, { lang = 'ko', flowIndex = new Map(), theme } = {}) {
+  const restore = useTheme(theme ?? alv.theme);
+  try { return alvScreenSvg(alv, { lang, flowIndex }); } finally { restore(); }
+}
+
+function alvScreenSvg(alv, { lang, flowIndex }) {
+  const P = TH || SIGNATURE;
+  const sig = P.flat;
   const isMultipane = Array.isArray(alv.panes) && alv.panes.length > 0;
+  const screen = alv.screen && typeof alv.screen === 'object' ? alv.screen : null;
+  // A popup with only fields and buttons (a confirmation, an input dialog)
+  // has no grid: draw its title, bar and fields without an empty table.
+  const noGrid = !isMultipane && screen && !(Array.isArray(alv.columns) && alv.columns.length);
+  // Modal dialog box (CALL SCREEN … STARTING AT, status type P): its application
+  // toolbar sits at the bottom edge, buttons flush right, inside a window frame.
+  const modal = Boolean(screen && (screen.modal === true || screen.type === 'dialog'));
   const inner = isMultipane
     ? renderMultipaneAlvSVG({ ...alv, lang, flowIndex })
+    : noGrid ? '<svg xmlns="http://www.w3.org/2000/svg" width="480" height="8" viewBox="0 0 480 8"></svg>'
     : renderAlvLayoutSVG({ ...alv, lang });
-  const screen = alv.screen && typeof alv.screen === 'object' ? alv.screen : null;
   const pai = normalizeButtons(screen?.buttons);
   const fields = normalizeFields(screen?.fields);
   const grid = isMultipane ? [] : barButtons(alv);
   const note = hasFlowBadge(alv, flowIndex);
-  if (!screen && !grid.length && !note) return inner;
+  // SET_GRID_TITLE / layout grid_title: a bar on top of a single grid.
+  const gridTitle = !isMultipane && !noGrid && alv.gridTitle ? String(alv.gridTitle) : "";
+  if (!screen && !grid.length && !note && !gridTitle) return inner;
 
   const vb = inner.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
   const innerW = Number(vb[1]), innerH = Number(vb[2]);
-  const W = Math.min(SCREEN_MAX_W, Math.max(innerW, pai.length ? barNeedW(pai) : 0,
-    fields.length ? fieldsNeedW(fields) : 0, grid.length ? barNeedW(grid) + 20 : 0));
+  // Bars and fields wrap within SCREEN_MAX_W; the grid itself is never cut.
+  const W = Math.max(innerW, Math.min(SCREEN_MAX_W, Math.max(pai.length ? barNeedW(pai) : 0,
+    fields.length ? fieldsNeedW(fields) : 0, grid.length ? barNeedW(grid) + 20 : 0,
+    gridTitle ? Math.ceil(approxTextWidthPx(gridTitle)) + 40 : 0)));
   const titleH = screen ? SCREEN_TITLE_H : 0;
   const paiH = barHeight(pai, W);
   const fieldsH = fieldsHeight(fields, W);
   const gridH = barHeight(grid, W - 20);
   const noteH = note ? SCREEN_NOTE_H : 0;
-  const H = titleH + paiH + fieldsH + (gridH ? gridH + 10 : 0) + innerH + noteH;
+  const gtH = gridTitle ? GRID_TITLE_H + 10 : 0;
+  const H = titleH + paiH + fieldsH + (gridH ? gridH + 10 : 0) + gtH + innerH + noteH;
   const parts = [];
   let y = 0;
   if (screen) {
-    parts.push(`<rect x="0" y="0" width="${W}" height="${titleH}" fill="#1F4E79"/>`);
-    parts.push(`<text x="12" y="${titleH / 2 + 5}" font-size="13" font-weight="700" fill="#FFF">${xml(screen.title || '')}</text>`);
+    parts.push(anchored('title', sig ? sigTitleBar(gradId('scrtitle'), 0, 0, W, titleH, screen.title || '')
+      : `<rect x="0" y="0" width="${W}" height="${titleH}" fill="#1F4E79"/>`
+      + `<text x="12" y="${titleH / 2 + 5}" font-size="13" font-weight="700" fill="#FFF">${xml(screen.title || '')}</text>`));
     if (screen.status) {
       const sw = approxTextWidthPx(screen.status) + 16;
-      parts.push(`<rect x="${W - sw - 10}" y="6" width="${sw}" height="16" rx="3" fill="#FFFFFF" fill-opacity="0.18" stroke="#9FC3E7"/>`);
-      parts.push(`<text x="${W - sw / 2 - 10}" y="18" text-anchor="middle" font-size="10.5" fill="#FFF">${xml(screen.status)}</text>`);
+      parts.push(sig
+        ? `<rect x="${W - sw - 10}" y="6" width="${sw}" height="16" rx="3" fill="#FFFFFF" fill-opacity="0.45" stroke="${P.frameLine}"/>`
+          + `<text x="${W - sw / 2 - 10}" y="18" text-anchor="middle" font-size="10.5" fill="${P.titleInk}">${xml(screen.status)}</text>`
+        : `<rect x="${W - sw - 10}" y="6" width="${sw}" height="16" rx="3" fill="#FFFFFF" fill-opacity="0.18" stroke="#9FC3E7"/>`
+          + `<text x="${W - sw / 2 - 10}" y="18" text-anchor="middle" font-size="10.5" fill="#FFF">${xml(screen.status)}</text>`);
     }
     y += titleH;
   }
-  if (paiH) { parts.push(buttonBarSvg(0, y, W, pai, { variant: 'pai', lang, flowIndex })); y += paiH; }
+  if (paiH && !modal) { parts.push(buttonBarSvg(0, y, W, pai, { variant: 'pai', lang, flowIndex })); y += paiH; }
   if (fieldsH) { parts.push(screenFieldsSvg(0, y, W, fields, { flowIndex })); y += fieldsH; }
   if (gridH) { parts.push(buttonBarSvg(10, y + 10, W - 20, grid, { variant: 'alv', lang, flowIndex })); y += gridH + 10; }
+  if (gtH) {
+    const gw = W - 20;
+    parts.push(anchored("gridtitle", `<rect x="10" y="${y + 10}" width="${gw}" height="${GRID_TITLE_H}" rx="${sig ? 0 : 3}" fill="${sig ? P.gridHeadTop : '#EAF0F6'}" stroke="${sig ? P.gridLine : '#C8D4E2'}"/>`
+      + `<text x="20" y="${y + 10 + GRID_TITLE_H / 2 + 4}" font-size="12" font-weight="700" fill="${sig ? P.ink : '#1F4E79'}">${xml(fitLabel(gridTitle, gw - 20))}</text>`));
+    y += gtH;
+  }
   parts.push(`<svg x="0" y="${y}" width="${innerW}" height="${innerH}" viewBox="0 0 ${innerW} ${innerH}">${extractInnerSvg(inner)}</svg>`);
   y += innerH;
+  if (paiH && modal) { parts.push(buttonBarSvg(0, y, W, pai, { variant: 'pai', lang, flowIndex, dock: 'bottom' })); y += paiH; }
+  if (modal) parts.push(`<rect x="0.5" y="0.5" width="${W - 1}" height="${H - 1}" fill="none" stroke="${sig ? P.frameLine : '#9AA7B5'}"/>`);
   if (noteH) {
     parts.push(`<circle cx="18" cy="${y + noteH / 2}" r="7" fill="#D9730D"/><text x="18" y="${y + noteH / 2 + 3.5}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#FFF">n</text>`);
     parts.push(`<text x="32" y="${y + noteH / 2 + 4}" font-size="11" fill="#555">${xml(btnText(lang).note)}</text>`);
   }
   return `<?xml version="1.0" encoding="UTF-8"?>
 <svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(W * RENDER_SCALE)}" height="${Math.round(H * RENDER_SCALE)}" viewBox="0 0 ${W} ${H}" font-family="Arial,sans-serif" font-size="12">
-<rect width="${W}" height="${H}" fill="#FFF"/>
+<rect width="${W}" height="${H}" fill="${sig ? P.page : '#FFF'}"/>
 ${parts.join('\n')}
 </svg>`;
 }
@@ -2376,7 +2682,7 @@ export async function rasterizeSvgToPng(svg, { width, height } = {}) {
  * come out in the spec's language. When absent it defaults to 'ko' inside
  * the renderers, preserving backward-compatible behaviour.
  */
-export async function renderScreenImages({ selection, alv, screens, processFlow, buttonFlows, lang = 'ko' } = {}, { renderButtonFlows = true, renderScreens = true } = {}) {
+export async function renderScreenImages({ selection, alv, screens, processFlow, buttonFlows, lang = 'ko', theme } = {}, { renderButtonFlows = true, renderScreens = true } = {}) {
   const out = { selection: null, alv: null, processFlow: null, screens: [], buttonFlows: [] };
   // Buttons with their own flow keep their array position as their number;
   // the ALV image badges each button with it. The xlsx path passes
@@ -2398,7 +2704,7 @@ export async function renderScreenImages({ selection, alv, screens, processFlow,
   if (selection) {
     tasks.push((async () => {
       try {
-        const svg = renderSelectionScreenSVG({ ...selection, lang });
+        const svg = renderSelectionScreenSVG({ ...selection, lang, theme });
         // Use the shared metrics helper so we stay in lockstep with the
         // renderer's actual layout — avoids the bug where a longer label
         // widened the SVG but the viewport stayed at 900 and cropped it.
@@ -2424,7 +2730,7 @@ export async function renderScreenImages({ selection, alv, screens, processFlow,
     if (isMultipane && spec.standardToolbar) {
       spec = { ...spec, panes: spec.panes.map(p => (p?.toolbar?.length && p.standardToolbar === undefined ? { ...p, standardToolbar: true } : p)) };
     }
-    const svg = renderAlvScreenSVG(spec, { lang, flowIndex });
+    const svg = renderAlvScreenSVG(spec, { lang, flowIndex, theme });
     const { width, height } = svg.includes('<svg x="0"')
       ? svgPixelSize(svg)
       : isMultipane ? multipaneAlvMetrics({ ...spec }) : alvLayoutMetrics(spec);

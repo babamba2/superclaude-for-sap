@@ -35,11 +35,12 @@ All fields are optional. A spec without them renders exactly as before.
     "|"                                         // separator (butn_type 3)
   ],
   "standardToolbar": true,                      // prepend generic ALV icons (details/sort/filter/sum/export)
+  "gridTitle": "▶ S.Org : KR01 …",           // single grid: SET_GRID_TITLE / layout-grid_title, drawn above the grid (also on screens[])
   "panes": [ { "title": "…", "toolbar": [ … ], "standardToolbar": true, "columns": […] } ]  // multi-grid: toolbar per pane
 }
 ```
 
-- `icon` takes a keyword such as `create`, `delete`, `cancel`, `refresh`, `exit`, `back`, `execute`, `undo`, `save`, `check`, `print`, `export`, `upload`, `filter`, `sort`, `sum`, `detail`, `mail`, `edit`, or `copy`. A single glyph also works. Map SAP icons by meaning: `ICON_CREATE` → `create`, `ICON_CANCEL` → `cancel`.
+- `icon` takes a keyword such as `create`, `delete`, `cancel`, `refresh`, `exit`, `back`, `execute`, `undo`, `save`, `check`, `print`, `export`, `upload`, `filter`, `sort`, `sum`, `detail`, `mail`, `edit`, or `copy`. A single glyph also works. Better: copy the SAP icon name itself from `GetGuiStatus` (`FUN[].TEXT_NAME`) or the ALV toolbar handler (`ICON = ICON_OPERATOR`) — `"icon": "ICON_TRANSPORT"` is drawn with the matching glyph, and an icon with no glyph draws none. Never guess an icon the source does not name.
 - `label` follows the spec `lang` rule. Keep the SAP text when it is a product term (`HQ Inquiry Create`).
 - `"flow": false` marks a navigation-only button, and so does the string shorthand (`"BACK"`). Every other button must have a usable `buttonFlows` entry — its own, or a shared one that lists it in `codes` (§3) — or `render-md-images.mjs` (and `build-spec.mjs`) prints a `⚠` warning. A code must be unique within one toolbar. The same code on two grids (each with its own REFRESH) shares one flow. A PAI and an ALV button may share a code, and the flow's `source` then says which one it belongs to.
 - Order `toolbar` as the handler appends it, so the image matches the real screen.
@@ -55,6 +56,8 @@ All fields are optional. A spec without them renders exactly as before.
     { "type": "pushbutton", "code": "APPLY", "label": "<text>", "icon": "check" }   // a PAI code: badge + flow
   ] } },
 "screens": [                                    // every other dynpro a button opens → screen-<dynnr>.png
+  // "screen": { …, "modal": true } for a dialog box (CALL SCREEN … STARTING AT, status type P,
+  // POPUP_TO_CONFIRM): its application toolbar is drawn at the bottom edge, buttons flush right
   { "dynnr": "0200", "screen": { "title": "<popup title>", "status": "S0200", "buttons": [ … ], "fields": [ … ] },
     "toolbar": [ … ], "columns": [ … ], "sampleRows": [ … ] }   // same shape as `alv`
 ]

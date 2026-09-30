@@ -1,6 +1,6 @@
 ---
 name: sap-option
-description: View SAP system status snapshot and edit values in `.sc4sap/sap.env` (connection, blocklist), HUD usage limits in `~/.claude/settings.json` → `env`, and the agent model-dispatch mode in `~/.sc4sap/preferences.json` — single entrypoint for all sc4sap runtime options
+description: View SAP system status snapshot and edit values in `.sc4sap/sap.env` (connection, blocklist), HUD usage limits in `~/.claude/settings.json` → `env`, the agent model-dispatch mode in `~/.sc4sap/preferences.json`, and the SAP screen-mockup theme in the profile `config.json` — single entrypoint for all sc4sap runtime options
 model: inherit
 ---
 
@@ -28,6 +28,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 - User is rotating credentials, moving to a new SAP system, or flipping language/client.
 - After `/sc4sap:setup` if the user wants to adjust without re-running full setup.
 - User says "model dispatch", "dispatch mode", "let me choose the model", "ask me which model", "user-defined model", "auto dispatch" — route to the **Model dispatch** flow (see `<Model_Dispatch>`), which edits `~/.sc4sap/preferences.json` → `modelDispatch`, not `sap.env`.
+- User says "screen theme", "mockup theme", "signature theme", "pink theme", "화면 테마", "시그니처 테마" — route to the **Screen theme** flow (see `<Screen_Theme>`), which edits the profile `config.json` → `screenTheme`, not `sap.env`.
 - User says "hud limit", "5h limit", "weekly limit", "extra limit", "usage budget", "configure limit" — route to the **HUD limits** flow (see `<HUD_Limits>`), which edits `~/.claude/settings.json` → `env`, not `sap.env`.
 </Use_When>
 
@@ -45,6 +46,7 @@ Contents (only show rows you could resolve):
 - **Blocklist (L4, MCP env)**: profile `<MCP_BLOCKLIST_PROFILE or "standard (default)">` · extend `<n>` entries · allow `<n>` entries
 - **Blocklist (L3, PreToolUse hook)**: profile `<config.json blocklistProfile>` · extend/custom file presence
 - **Model dispatch**: `<auto (default) | user-defined>` — from `~/.sc4sap/preferences.json` → `modelDispatch`
+- **Screen theme**: `<screenTheme | signature (default)>` — from `config.json` → `screenTheme`
 - **sap.env path**: absolute path being edited
 
 If the user's intent is **status-only** (they just said "hud" / "show status"), render the panel and stop. Do not ask follow-up "what to change" questions unless the user continues.
@@ -105,6 +107,10 @@ See [hud-limits.md](hud-limits.md).
 <Model_Dispatch>
 See [model-dispatch.md](model-dispatch.md). `auto` (default) routes sub-agent models per `common/model-routing-rule.md`; `user-defined` makes every multi-agent skill ask Opus / Sonnet / Haiku before each dispatch group. Runtime rules: [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md).
 </Model_Dispatch>
+
+<Screen_Theme>
+See [screen-theme.md](screen-theme.md). Theme of the SAP screen mockups in `program-to-spec` / `program-to-manual`: `signature` (default), `signature-pink`, `modern`, or custom colours. Written with `scripts/spec/screen-theme.mjs`.
+</Screen_Theme>
 
 <Validation>
 - `SAP_URL`: must match `^https?://[^ ]+` and not end with `/`.
