@@ -3,6 +3,31 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.31] — 2026-09-30
+
+### Added — `program-to-manual`: edit the finished manual in the page
+
+- The manual page has an **Edit** button. Key users change the finished manual like a slide deck, with nothing installed and nothing loaded from the network:
+  - Click any text to change it. Selecting text shows a small toolbar with bold, highlight (red) and bullet list. The toolbar is Quill 2.0.3 (BSD-3-Clause), inlined from `scripts/manual/third_party/quill-2.0.3/` and mounted only on the field being edited.
+  - Move, duplicate and delete steps. Add and delete callouts, and drag a callout number to a better place; a leader line keeps it tied to its frame.
+  - Replace a drawn screen with a real screenshot: click the step and press Ctrl+V, or use the button. "Original screen" brings the drawing back.
+  - Add and delete rows of the field, message and glossary tables, edit every cell, and switch the ● cells (required, F4) with a click.
+  - Undo every change with Ctrl+Z or the Undo button.
+  - Edits are kept in the browser (IndexedDB) until saved. Reopening the page offers "Continue editing" or "Discard".
+  - A short guide opens the first time and stays available under Help.
+- **Save** writes a copy of the page (`…-edited.html`) with the edited `manual.json` embedded. `build-manual.mjs --import <edited.html> <manual.json>` reads it back (the old draft is kept as `.bak`), and workflow Step 0 imports a user-edited copy before anything else, so the next version keeps the users' edits.
+- New `manual.json` keys written by the edit mode: step `image` (a pasted screenshot, drawn instead of `screen`), callout `offset` / `pos`, top-level `edited`. Prose markup gains `==highlight==` and `- ` bullet lines.
+- The page is about 480 KB instead of about 220 KB, because the editor is inlined.
+
+### Added — `program-to-manual`: Excel worksheet screens
+
+- A screen with `"kind": "excel"` is drawn as an Excel worksheet: title bar with the file name, formula bar, column letters, row numbers, the note row, header cells in the template's own fill colours, data rows and the sheet tab. Use it for steps the user performs inside an upload template, instead of an SAP grid. Anchors: `col:<name>`, `row:<n>`, `note`, `sheet`, `title`.
+- Workflow Step 2 reads a user-supplied upload template (header row, fill colours, note cells); mockup rows stay invented.
+
+### Changed — `program-to-manual` builds an English companion by default
+
+- After the main-language manual is confirmed, Step 8 translates it into `<PROGRAM>-en.manual.json` and builds `…-en.html` with its own revision history. Screens, anchors, sample values, SAP identifiers and message texts stay unchanged. It is skipped when the manual is already in English or the user opts out.
+
 ## [0.6.30] — 2026-09-30
 
 ### Added — `program-to-manual`: an end-user manual for one program

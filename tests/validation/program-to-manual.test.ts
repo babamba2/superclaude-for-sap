@@ -13,7 +13,9 @@ import {
 import {
   applySelectionValues,
   buildManual,
+  importEditedHtml,
   manualWarnings,
+  renderStepScreen,
   nextVersion,
   svgAnchors,
   // @ts-expect-error — plain .mjs script, no type declarations
@@ -21,6 +23,8 @@ import {
 
 // @ts-expect-error — plain .mjs script, no type declarations
 import { SCRIPT } from '../../scripts/manual/manual-page.mjs';
+// @ts-expect-error — plain .mjs script, no type declarations
+import { renderExcelSheetSVG } from '../../scripts/manual/excel-sheet-svg.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { validateScreenTheme, getScreenTheme, setScreenTheme } from '../../scripts/spec/screen-theme.mjs';
 
@@ -301,11 +305,84 @@ describe('manual builder', () => {
     expect(history.versions.map((v: { version: string }) => v.version)).toEqual(['1.0', '1.1']);
 
     const html = readFileSync(second.html, 'utf-8');
-    expect(html).toContain('data-callouts="[[1,&quot;sel:P_WERKS&quot;],[2,&quot;sel:R_LOG&quot;]]"');
+    expect(html).toContain('data-callouts="[[1,&quot;sel:P_WERKS&quot;,null,null],[2,&quot;sel:R_LOG&quot;,null,null]]"');
     expect(html).toContain('@page{size:A4 landscape');
-    for (const text of ['2-1 입고 로그 조회', '※ Check Points', '오류 메시지 및 조치', '용어집', '개정 이력', '확인 필요']) {
+    for (const text of ['2-1 <span data-p="scenarios.0.title">입고 로그 조회</span>', '※ Check Points', '오류 메시지 및 조치', '용어집', '개정 이력', '확인 필요']) {
       expect(html).toContain(text);
     }
     expect(html).not.toContain('<?xml');
+  });
+
+  it('renders the edit-mode markup: highlight and bullet lines', () => {
+    const m = sample();
+    m.intro.purpose = '- 첫째 **굵게**\n- 둘째 ==강조==';
+    const outDir = join(home, 'markup');
+    const html = readFileSync(buildManual({ manualPath: (() => { const p = join(home, 'markup.json'); writeFileSync(p, JSON.stringify(m)); return p; })(), outDir, cwd: home, verbose: false }).html, 'utf-8');
+    expect(html).toContain('<span data-p="intro.purpose"><span class="bl">첫째 <strong>굵게</strong></span><br><span class="bl">둘째 <mark class="em">강조</mark></span></span>');
+  });
+
+  it('draws a screenshot step without checking its anchors, with badge offsets and positions', () => {
+    const m = sample();
+    const st = m.scenarios[0].steps[0];
+    st.image = { src: 'data:image/png;base64,iVBORw0KGgo=', width: 600, height: 300 };
+    st.callouts[0].offset = [30, 10];
+    st.callouts[1].pos = [24, 50];
+    expect(manualWarnings(m)).toEqual([]);
+    const drawn = renderStepScreen(m, st);
+    expect(drawn.image).toBe(true);
+    expect(drawn.svg).toContain('<image href="data:image/png;base64,iVBORw0KGgo="');
+  });
+
+  it('embeds its manual.json and imports a copy saved from the edit mode', () => {
+    const outDir = join(home, 'edit');
+    const built = buildManual({ manualPath: SAMPLE, outDir, cwd: home, verbose: false });
+    const html = readFileSync(built.html, 'utf-8');
+    expect(html).toContain('id="manual-source"');
+    expect(html).toContain('id="edit-btn"');
+    expect(html).toContain('data-k="callouts.0.text"');
+    expect(html).toContain('Quill Editor v2.0.3'); // inlined, nothing loads from the network
+    // Reference tables: rows the edit mode can add and delete, cells keyed into their item.
+    expect(html).toMatch(/<table class="ed-table" data-array="messages" data-cols="[^"]+"><thead>/);
+    expect(html).toContain('<tr data-row="0"><td><code><span data-c="code">');
+    expect(html).toMatch(/data-array="fields\.selection"[\s\S]*?<td data-flag="required">●<\/td>/);
+    expect(html).not.toMatch(/<script[^>]+src=/);
+    // What the edit mode does on save: change the embedded manual, keep the rest of the page.
+    const edited = html.replace(/(<script type="application\/json" id="manual-source">)([\s\S]*?)(<\/script>)/, (_, a, json, b) => {
+      const src = JSON.parse(json);
+      src.manual.scenarios[0].title = '편집된 </script> 제목';
+      src.manual.edited = { at: '2026-09-30 10:00:00' };
+      return a + JSON.stringify(src).replace(/</g, '\\u003c') + b;
+    });
+    const editedPath = join(outDir, 'edited.html');
+    writeFileSync(editedPath, edited);
+    const target = join(outDir, 'draft.manual.json');
+    writeFileSync(target, '{}');
+    const res = importEditedHtml(editedPath, target);
+    const back = JSON.parse(readFileSync(target, 'utf-8'));
+    expect(back.scenarios[0].title).toBe('편집된 </script> 제목');
+    expect(res.edited).toEqual({ at: '2026-09-30 10:00:00' });
+    expect(existsSync(`${target}.bak`)).toBe(true);
+    expect(() => importEditedHtml(SAMPLE, target)).toThrow(/no embedded manual source/);
+  });
+});
+
+describe('Excel worksheet screen', () => {
+  const spec = {
+    kind: 'excel', file: 'UPLOAD_TEMPLATE.xlsx', note: '* Mandatory Field',
+    columns: [{ name: 'KUNNR', header: '*Customer', headerFill: '#ED7D31' }, { name: 'WERKS', header: 'Plant', headerFill: '#FFFF00' }],
+    sampleRows: [{ KUNNR: '100234', WERKS: 'KR01' }],
+  };
+  it('draws column letters, the note, the header row and data from the next row, with anchors', () => {
+    const svg: string = renderExcelSheetSVG(spec);
+    expect(svg).toContain('UPLOAD_TEMPLATE.xlsx - Excel');
+    expect(svg).toContain('#ED7D31');
+    expect(svgAnchors(svg)).toEqual(expect.arrayContaining(['title', 'note', 'col:KUNNR', 'col:WERKS', 'row:3', 'sheet']));
+    expect(svg).toContain('>100234<');
+  });
+  it('is drawn for a step instead of an SAP grid', () => {
+    const m = { ...sample(), screens: { excel: spec } };
+    const drawn = renderStepScreen(m, { screen: 'excel' });
+    expect(drawn.svg).toContain('UPLOAD_TEMPLATE.xlsx - Excel');
+    expect(drawn.svg).not.toContain('<?xml');
   });
 });

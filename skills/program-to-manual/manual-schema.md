@@ -32,6 +32,7 @@ The catalog holds every screen a step shows. Key `selection` is the selection sc
 
 - **Selection screen** — [`../program-to-spec/selection-schema.md`](../program-to-spec/selection-schema.md): `blocks[]` of `param` / `range` / `checkbox` / `radioGroup` / `checkboxGroup` / `pushbutton` / `comment`, optional `toolbar`. A second selection-like screen can use any key with `"kind": "selection"`.
 - **Output screen / popup / second ALV** — the `alv` shape of [`../program-to-spec/alv-buttons-schema.md`](../program-to-spec/alv-buttons-schema.md) §2: `screen { title, status, buttons[], fields[] }`, `toolbar[]`, `standardToolbar`, `columns[]`, `sampleRows[]`, or `panes[]`. A popup without a grid is `screen` + `fields` only. `gridTitle` draws the grid title bar; a popup with `screen` but no `columns` is drawn without a grid (confirmations). No `buttonFlows` here — the manual's callouts replace the flow badges.
+- **Excel worksheet** (`"kind": "excel"`) — for steps done inside an upload template, drawn as Excel, not as an SAP grid: `file` (title bar), `sheet?` (tab, default `Sheet1`), `note?` (text of A1; the header row then defaults to 2), `headerRow?`, `activeCell?` (default first data cell), `emptyRows?` (default 2), `columns[] { name, header, width?, align?, headerFill?, headerColor? }` in template column order (A, B, …), `sampleRows[]`. Copy the header texts and header fill colours from the real template file.
 - `sampleRows` are **invented** illustrative values — never business data, never real customer / vendor / company names.
 
 ## 3. Scenarios and steps
@@ -67,6 +68,9 @@ The catalog holds every screen a step shows. Key `selection` is the selection sc
 | `caption` | Small text under the screen image |
 | `note` / `result` | What to press next / what the user sees afterwards |
 | `tcode` | Overrides the scenario / manual T-Code in the step header |
+| `image` | `{ src, width, height }` — a real screenshot (data URI) the user pasted in the page's edit mode; drawn instead of `screen`, anchors are not checked. Keep it on rebuilds |
+
+Callouts may also carry `offset: [dx, dy]` (badge moved away from its anchor, drawn with a leader line) and `pos: [x, y]` (badge with no anchor, e.g. on a screenshot) — both in screen-image units and written by the edit mode; keep them when rewriting a callout. A manual saved from the edit mode has a top-level `edited: { at }`.
 
 ## 4. Anchor keys
 
@@ -85,6 +89,7 @@ The renderer wraps these screen elements in `<g data-anchor="…">`; a callout's
 | `fld:<name, code or label>` | Dynpro element above the grid (input, checkbox, push button) |
 | `col:<FIELDNAME>` | ALV column header |
 | `pane:<title>` | Title of one grid in a multi-pane screen |
+| `col:<name>` · `row:<n>` · `note` · `sheet` · `title` | Excel screen: header cell of a column, row number, the A1 note, the sheet tab, the title bar |
 
 The same key twice on one screen (two grids with a `MATNR` column) → append `#2` for the second one: `col:MATNR#2`.
 
@@ -97,3 +102,4 @@ The same key twice on one screen (two grids with a `MATNR` column) → append `#
 5. **Messages** — `cause` in business terms ("The posting date is in a closed period"), `action` as what the user does ("Ask FI to open the period, then reprocess"). Messages the user never sees (internal `MESSAGE … INTO`) are left out.
 6. **No invented facts.** A business rule the source does not show and the interview did not confirm goes into `intro.unverified`.
 7. **Numbers and dates** in the mockups use neutral invented values; plant / company codes use ISO-country style (`KR01`, `DE10`), never initials that read as real companies.
+8. **Inline markup** in every prose string: `**bold**`, `==highlight==` (red emphasis — for what must not be missed), `` `code` ``, `\n` line break, a line starting with `- ` is a bullet. The page's edit mode reads and writes the same markup, so keep it when rewriting a user-edited manual.

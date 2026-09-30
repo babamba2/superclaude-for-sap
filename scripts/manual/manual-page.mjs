@@ -106,6 +106,8 @@ th{background:var(--head);font-weight:600}
 .num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--call);color:#fff;font-size:12.5px;font-weight:700}
 .callouts ul{margin:4px 0 0;padding-left:18px;color:var(--muted);font-size:14px}
 .step-note{margin:12px 0 0;color:var(--muted)}
+mark.em{background:none;color:var(--call);font-weight:700}
+.bl::before{content:"• "}
 .checkpoints{margin:16px 0 8px;padding:12px 16px;background:var(--warn-bg);border-left:4px solid var(--warn-line);border-radius:6px}
 .checkpoints h4{margin:0 0 6px}.checkpoints ul{margin:0;padding-left:20px}
 .checkpoints .src{color:var(--muted);font-size:12.5px}
@@ -141,14 +143,29 @@ export const SCRIPT = `
     for(var i=0;i<all.length;i++)if(all[i].getAttribute('data-anchor')===key)hits.push(all[i]);
     return hits[nth-1]||null;
   }
+  // A mark is [number, anchor, offset, pos]: the frame goes round the anchor and the
+  // badge sits on its top-left corner, moved by offset [dx,dy] when the user dragged
+  // it (with a leader line back). pos [x,y] places a badge with no anchor, e.g. on a
+  // screenshot. All in the SVG's own coordinates, so marks scale and print with it.
+  function badge(layer,num,cx,cy){
+    var g=el('g',{'class':'callout-badge','data-num':num});
+    g.appendChild(el('circle',{cx:cx,cy:cy,r:10,fill:'#D6336C',stroke:'#FFFFFF','stroke-width':1.5}));
+    var t=el('text',{x:cx,y:cy+4,'text-anchor':'middle','font-size':12,'font-weight':700,fill:'#FFFFFF','font-family':'Arial,sans-serif'});
+    t.textContent=String(num);g.appendChild(t);layer.appendChild(g);return g;
+  }
   function place(fig){
     var svg=fig.querySelector('svg'),list;
     try{list=JSON.parse(fig.getAttribute('data-callouts')||'[]');}catch(e){return;}
-    if(!svg||!list.length||!svg.getScreenCTM)return;
+    if(!svg)return;
+    var old=svg.querySelector('g.callout-layer');if(old)old.remove();
+    if(!list.length||!svg.getScreenCTM)return;
     var root=svg.getScreenCTM();if(!root)return;
     var inv=root.inverse(),layer=el('g',{'class':'callout-layer'}),used={};
+    svg.appendChild(layer);
     list.forEach(function(c){
-      var target=find(svg,c[1]);if(!target)return;
+      var off=c[2]||[0,0],pos=c[3];
+      var target=c[1]&&find(svg,c[1]);
+      if(!target){if(pos)badge(layer,c[0],pos[0],pos[1]);return;}
       var b=target.getBBox(),m=target.getScreenCTM();if(!m)return;
       m=inv.multiply(m);
       var p=svg.createSVGPoint();p.x=b.x;p.y=b.y;var a=p.matrixTransform(m);
@@ -157,12 +174,11 @@ export const SCRIPT = `
       layer.appendChild(el('rect',{x:x,y:y,width:w,height:h,rx:3,fill:'none',stroke:'#D6336C','stroke-width':2}));
       var k=Math.round(x)+':'+Math.round(y),shift=(used[k]||0)*20;used[k]=(used[k]||0)+1;
       var cx=x+shift,cy=y;
-      layer.appendChild(el('circle',{cx:cx,cy:cy,r:10,fill:'#D6336C',stroke:'#FFFFFF','stroke-width':1.5}));
-      var t=el('text',{x:cx,y:cy+4,'text-anchor':'middle','font-size':12,'font-weight':700,fill:'#FFFFFF','font-family':'Arial,sans-serif'});
-      t.textContent=String(c[0]);layer.appendChild(t);
+      if(off[0]||off[1])layer.appendChild(el('line',{x1:cx,y1:cy,x2:cx+off[0],y2:cy+off[1],stroke:'#D6336C','stroke-width':1.5}));
+      badge(layer,c[0],cx+off[0],cy+off[1]).setAttribute('data-base',cx+','+cy);
     });
-    svg.appendChild(layer);
   }
+  window.sc4sapPlace=place;
   function init(){
     var figs=document.querySelectorAll('figure[data-callouts]');
     for(var i=0;i<figs.length;i++){try{place(figs[i]);}catch(e){}}
@@ -182,7 +198,7 @@ export const SCRIPT = `
       var natural=parseFloat(s.getAttribute('width'))||0;
       if(!natural||s.getBoundingClientRect().width>=natural-1)return;
       f.setAttribute('data-zoom','');
-      f.addEventListener('click',function(){f.classList.toggle('zoomed');});
+      f.addEventListener('click',function(){if(!document.body.classList.contains('editing'))f.classList.toggle('zoomed');});
     })(shots[j]);
     var pb=document.getElementById('print-btn');
     if(pb)pb.addEventListener('click',function(){window.print();});
