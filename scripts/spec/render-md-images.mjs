@@ -11,7 +11,9 @@
 // CLI
 //   node render-md-images.mjs <image-spec.json> <out-dir>
 //     Writes selection.png / alv.png / flow.png for whichever slots the
-//     image-spec populates. Prints a JSON manifest { slot: relPath|null }.
+//     image-spec populates, plus flow-<n>-<CODE>.png for each entry of
+//     `buttonFlows` (one business flow per ALV / PAI button). Prints a JSON
+//     manifest { slot: relPath|null, buttonFlows: [...] }.
 //
 // Graceful degrade: if no headless browser is on PATH, renderScreenImages
 // returns null per slot → that PNG is skipped and the manifest marks it null
@@ -20,7 +22,11 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderScreenImages, selectionSchemaWarnings } from './screen-image-renderer.mjs';
+import { renderScreenImages, selectionSchemaWarnings, buttonSchemaWarnings } from './screen-image-renderer.mjs';
+
+/** File name of button flow n: `flow-3-PCREATE.png`. */
+export const buttonFlowFile = (index, code) =>
+  `flow-${index}-${String(code).replace(/[^A-Za-z0-9_-]+/g, '_')}.png`;
 
 export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) {
   if (!imageSpecPath || !existsSync(imageSpecPath)) {
@@ -30,10 +36,14 @@ export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) 
   mkdirSync(outDir, { recursive: true });
 
   const spec = JSON.parse(readFileSync(imageSpecPath, 'utf8'));
-  if (verbose) for (const w of selectionSchemaWarnings(spec.selection)) console.log(`⚠ render-md-images: ${w}`);
+  if (verbose) {
+    for (const w of [...selectionSchemaWarnings(spec.selection), ...buttonSchemaWarnings(spec)]) {
+      console.log(`⚠ render-md-images: ${w}`);
+    }
+  }
   const rendered = await renderScreenImages(spec);
 
-  const manifest = { selection: null, alv: null, flow: null };
+  const manifest = { selection: null, alv: null, flow: null, buttonFlows: [] };
   const slots = [
     ['selection', rendered.selection, 'selection.png'],
     ['alv',       rendered.alv,       'alv.png'],
@@ -48,6 +58,14 @@ export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) 
     } else if (verbose) {
       console.log(`render-md-images: ${key} → null (no PNG; MD keeps text fallback)`);
     }
+  }
+  // One flow per business button (image-spec.buttonFlows), numbered to match
+  // the badges on alv.png.
+  for (const f of rendered.buttonFlows || []) {
+    const fname = buttonFlowFile(f.index, f.code);
+    writeFileSync(join(outDir, fname), f.pngBuffer);
+    manifest.buttonFlows.push({ index: f.index, code: f.code, codes: f.codes || [], source: f.source, label: f.label, file: fname, width: f.width, height: f.height, bytes: f.pngBuffer.length });
+    if (verbose) console.log(`render-md-images: ${fname} ${f.width}x${f.height} (${f.pngBuffer.length} B)`);
   }
   return manifest;
 }

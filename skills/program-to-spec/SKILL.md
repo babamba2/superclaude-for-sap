@@ -148,7 +148,8 @@ Next options:
 - `ReadClass`, `ReadFunctionModule`, `ReadInterface`, `ReadView`
 - `Read BehaviorDefinition`, `Read BehaviorImplementation`, `Read ServiceDefinition`, `Read ServiceBinding`
 - `GetLocalDefinitions`, `GetLocalMacros`, `GetLocalTestClass`, `GetLocalTypes`
-- `GetScreensList`, `GetGuiStatusList`, `GetTextElement`
+- `GetScreensList`, `GetGuiStatusList`, `GetGuiStatus`, `GetTextElement` (`language: "E"`)
+- `GetSqlQuery` — T100 message texts only, BASIS ≥ 7.50 (see Data_Extraction_Safety)
 - `GetMetadataExtension`
 - `GetAbapAST`, `GetAbapSemanticAnalysis`
 - `GetWhereUsed`, `GetEnhancements`, `GetEnhancementSpot`
@@ -161,7 +162,7 @@ Next options:
 </Related_Skills>
 
 <Data_Extraction_Safety>
-Spec generation only reads **source code + DDIC metadata + where-used** — never `GetTableContents` / `GetSqlQuery`. No row data is extracted. The blocklist hook is respected if the user asks for sample data (refuse and document the request in the `Risk` sheet instead).
+Spec generation only reads **source code + DDIC metadata + where-used** — never `GetTableContents` / `GetSqlQuery`. No row data is extracted. **One exception:** `GetSqlQuery` on **T100** (message texts — repository text, not business data) with the explicit fields `ARBGB, MSGNR, TEXT`, filtered to `SPRSL = 'E'` and the message classes / numbers the source actually uses, so the spec can print `CODE (English text)` (`workflow-steps.md` § Message references). The normal approval prompt still applies. On BASIS < 7.50 `GetSqlQuery` is unavailable; fall back to the source text as that section describes — never `GetTableContents` on T100. The blocklist hook is respected if the user asks for sample data (refuse and document the request in the `Risk` sheet instead).
 </Data_Extraction_Safety>
 
 <Inputs_And_Screens_Rendering>
@@ -176,7 +177,7 @@ Spec generation only reads **source code + DDIC metadata + where-used** — neve
 
 **Markdown output — unchanged:** continue emitting ASCII wireframes inside fenced code blocks (Step 3.5 in `workflow-steps.md`). ASCII wireframes never go in xlsx cells.
 
-**HTML output:** converted from the finished `.md` by `node scripts/spec/md-to-html.mjs <spec.md> <spec.html>` — PNGs inlined as data URIs, Mermaid fallbacks drawn by the Mermaid CDN script when opened online (plain source text offline). Same content as the `.md`, by construction.
+**HTML output:** converted from the finished `.md` by `node scripts/spec/md-to-html.mjs <spec.md> <spec.html>` — PNGs inlined as data URIs, Mermaid fallbacks drawn by the Mermaid CDN script when opened online (plain source text offline). Same content as the `.md`, by construction, laid out as a web page: contents sidebar, cover fact card, cross-linked SAP names, sortable / filterable tables, callouts, and a Functional view. The writer follows [`html-markup.md`](html-markup.md) so the page can find what it needs.
 </Inputs_And_Screens_Rendering>
 
 Task: $ARGUMENTS
