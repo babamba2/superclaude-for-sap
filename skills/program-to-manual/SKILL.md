@@ -42,6 +42,7 @@ These were settled when the skill was designed — do not ask the user about the
 |---|---|
 | Unit | One program = one manual (all its screens, options and follow-up screens) |
 | Format | One self-contained `.html`; web document on screen, print CSS = one step per A4 landscape page |
+| Editing | The page has a built-in edit mode (no install, no network): edit text, reorder / duplicate / delete steps, add / delete / drag callouts, add / delete rows of the field, message and glossary tables, paste real screenshots, undo, autosave, save a copy. The copy embeds its manual.json and is imported back (workflow Step 0) |
 | Screens | Drawn from source with the `program-to-spec` renderer (selection screen, output ALV, **every follow-up screen and popup the scenarios pass through**), inlined as SVG |
 | Callouts | Numbered marks on the drawn screen, tied to screen elements by anchor key; the same numbers head the step's instruction list |
 | Body structure | By usage scenario ("to do X") — radio options, execution modes and buttons that start a distinct task each become a scenario |
@@ -49,7 +50,7 @@ These were settled when the skill was designed — do not ask the user about the
 | Check points | Derived from source validations, mandatory fields, confirmation popups and irreversible processing (posting, sending); business rules added from the interview |
 | Extra sections | Field reference (selection + output) and Messages & actions |
 | Front / back matter | Cover, revision history (automatic), glossary |
-| Language | One language per run (ko / en / ja); mixed prose is rejected by the build check |
+| Language | One language per manual file (ko / en / ja); mixed prose is rejected by the build check. An English companion is always built as well (Step 8) unless the manual language is English or the user opts out |
 | Cover / footer | Author, team, company, confidentiality notice from the active profile's `config.json` → `manual`, asked once |
 | Location | `<artifact-base>/manuals/<PROGRAM>-v<version>-<lang>.html` (artifact base per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md)) |
 </Decisions_Fixed>
@@ -65,10 +66,10 @@ These were settled when the skill was designed — do not ask the user about the
 <Agent_Composition>
 The main thread follows the session model (`model: inherit`); each dispatch carries its own model. Every `subagent_type` uses the plugin prefix `sc4sap:`.
 
-- **Main thread** — Steps 0–2 and 6–7: interview, config, MCP inventory, build, review loop.
+- **Main thread** — Steps 0–2 and 6–8: interview, config, MCP inventory, build, review loop, English build.
 - **`sc4sap:sap-analyst` × 1 (Opus, frontmatter)** — Step 3: scenarios, steps, screens per step, check points with their source, fields, messages. Returns text; never writes files.
 - **`sc4sap:sap-<module>-consultant` × 1 (frontmatter model)** — Step 3, in parallel with the analyst: purpose, background, business rules, users, glossary, and the user action for each message. Marks each claim it inferred rather than read.
-- **`sc4sap:sap-writer` × 1 (`model: "sonnet"` override)** — Step 5: writes `manual.json` with the `Write` tool. User-facing instructional prose needs Sonnet; Haiku drifts into spec language.
+- **`sc4sap:sap-writer` × 2 (`model: "sonnet"` override)** — Step 5: writes `manual.json` with the `Write` tool; Step 8: translates the final one into the English companion. User-facing instructional prose needs Sonnet; Haiku drifts into spec language.
 </Agent_Composition>
 
 <Output_Format>
@@ -77,10 +78,11 @@ Manual generated: ZMMR_GR_3PL  v1.0 · ko
 Scenarios: 3 · Steps: 8 · Screens drawn: 4 (selection, 0100, 0200 popup, 0300)
 Callouts: 21 (all anchored) · Check points: 7 · Messages: 9 · Glossary: 6
 File: .sc4sap/work/DEV/manuals/ZMMR_GR_3PL-v1.0-ko.html
-History: .sc4sap/work/DEV/manuals/ZMMR_GR_3PL-ko.history.json
+English: .sc4sap/work/DEV/manuals/ZMMR_GR_3PL-v1.0-en.html
+History: .sc4sap/work/DEV/manuals/ZMMR_GR_3PL-ko.history.json · ZMMR_GR_3PL-en.history.json
 
 To be confirmed (shown with a badge in the manual): 1
-Next: "add a scenario", "English version", "new version after the change in TR <n>"
+Next: "add a scenario", "Japanese version", "new version after the change in TR <n>", "import the edited HTML"
 ```
 </Output_Format>
 

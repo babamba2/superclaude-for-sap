@@ -1,11 +1,12 @@
 # Program → Manual — Workflow Steps
 
-Referenced by `SKILL.md`. Run Step 0 through Step 7 in order. Paths below use `<base>` = the artifact base from [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) (`.sc4sap/work/<alias>/` with an active profile, `.sc4sap/` otherwise).
+Referenced by `SKILL.md`. Run Step 0 through Step 8 in order. Paths below use `<base>` = the artifact base from [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) (`.sc4sap/work/<alias>/` with an active profile, `.sc4sap/` otherwise).
 
 ## Step 0 — Trust + target
 
 - Run `Session_Trust_Bootstrap` (SKILL.md).
 - Target program from `ARGUMENTS`; if missing or ambiguous, ask once and confirm with `SearchObject`. A class / FM / CDS target → stop and point to `program-to-spec` (SKILL.md `Do_Not_Use_When`).
+- **User-edited manual.** Key users change the finished HTML in its edit mode ("Edit" button) and save a copy (`…-edited.html`). When the user hands one over, or `<base>/manuals/` holds an `*-edited.html` newer than the latest `_src/<PROGRAM>-v<x>-<lang>.manual.json`, import it before anything else: `node scripts/manual/build-manual.mjs --import <edited.html> <base>/manuals/_draft/<PROGRAM>-<lang>.manual.json` (the old draft is kept as `.bak`). The imported file is the base of this run: the writer and every later change keep its wording, step order, `image` and callout `offset` / `pos`; "only rebuild with the user's edits" → set `changeNote` to what they changed and go to Step 6.
 
 ## Step 1 — Opener (one `AskUserQuestion` call)
 
@@ -29,6 +30,7 @@ Keep the answers as `lang` and `versionMode` (`minor` / `major` / `same`).
 - Screens: `GetScreensList`, then `GetScreen` for **every** dynpro; `GetGuiStatusList` + `GetGuiStatus` for every status an output screen or popup sets. A manual walks through follow-up screens, so every screen a scenario can reach must be read — never guess its layout.
 - Messages: every `MESSAGE` in the source → T100 text via `GetSqlQuery` per `SKILL.md` § Data_Extraction_Safety. On BASIS < 7.50 (ECC) `GetSqlQuery` is not available: take the text from the `WITH` literal or the source comment, and write `E015 (T100 not readable on this release)` otherwise.
 - Write what the screens, statuses, texts and messages say into `<base>/manuals/_work/<PROGRAM>/screens.md` (dynpro flow logic and elements, function codes with texts and keys per status, text symbols, selection texts, message classes) so both Step 3 agents work from the same inventory.
+- Upload template: when the program uploads a file and the user supplies the template (.xlsx), read its sheet (header row, header fill colours, note cells) into `screens.md`. Steps the user does inside that file use a `"kind": "excel"` screen ([`manual-schema.md`](manual-schema.md) §2), never an SAP grid; mockup rows stay invented even when the template carries sample data.
 - Module: from the package's CBO folder (`<base>/cbo/<MODULE>/<PACKAGE>/`) or ask one question. When a CBO inventory exists, pass it to both Step 3 agents.
 
 ## Step 3 — Analysis (two dispatches in ONE message, parallel)
@@ -83,4 +85,19 @@ The first build uses the Step 1 `versionMode` (`major` → `--major`, `same` →
 
 - Show the Output_Format summary (SKILL.md) and the list of `intro.unverified` items.
 - Ask: "OK to finalize, or change a scenario / step / wording?" Apply changes to the draft `manual.json` and rebuild with `--same-version` (the revision history keeps one entry per version, the latest build wins).
-- On confirm, print the absolute path of the HTML file. The user opens it in a browser and prints / saves as PDF for the slide-style layout.
+- On confirm, go to Step 8 (or finish when `lang` is `en`).
+
+## Step 8 — English companion (default, when `lang` ≠ `en`)
+
+Every manual also ships in English, so global users, auditors and support teams read the same content. It runs after Step 7 so that review changes are in it.
+
+```
+▶ phase=8.translate (English manual.json) · agent=sc4sap:sap-writer · model=Sonnet (override)
+```
+
+- The writer reads the final `_draft/<PROGRAM>-<lang>.manual.json` and [`manual-schema.md`](manual-schema.md) and writes `_draft/<PROGRAM>-en.manual.json` (one `Write` call): `lang: "en"`, every prose string translated (title, intro, callouts, details, notes, results, captions, check points, field descriptions, message cause / action, glossary, `changeNote`).
+- Unchanged: `screens`, anchors, `values`, `patch`, sample rows, SAP identifiers, T-Codes, function codes and message `text` (T100 texts stay as SAP shows them). A Korean or Japanese sample name in a mockup becomes its English equivalent.
+- `intro.unverified` entries are translated with the exact strings they point at, so the badges still match.
+- Build it with the same version flag as Step 6 (an existing `<PROGRAM>-en.history.json` keeps its own history) and fix warnings the same way.
+- Skip it only when the user says so ("no English version").
+- Finally print both absolute HTML paths. The user opens them in a browser and prints / saves as PDF for the slide-style layout.
