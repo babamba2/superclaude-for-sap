@@ -499,6 +499,9 @@ export function selectionScreenMetrics(selection = {}) {
  * the SVG height shrinks by ~30 px. This stops the renderer from telling
  * readers that a program has features it does not actually have.
  */
+const ALV_LEGEND_PAD = 44;
+const ALV_PLAIN_PAD = 16;
+
 export function renderAlvLayoutSVG({ columns = [], sampleRows = [], maxRows = 3, lang = 'ko' } = {}) {
   const L = legendFor(lang);
   const rows = sampleRows.slice(0, Math.max(1, Math.min(maxRows, 5)));
@@ -511,7 +514,9 @@ export function renderAlvLayoutSVG({ columns = [], sampleRows = [], maxRows = 3,
   const hasHotspot  = columns.some(c => c.hotspot);
   const hasEditable = columns.some(c => c.editable);
   const hasLegend   = hasStatus || hasHotspot || hasEditable;
-  const legendPad   = hasLegend ? 80 : 30;
+  // The legend's baseline sits 30 px under the grid; 44 leaves room for its
+  // descenders. (It was 80, which left a band of empty space under every grid.)
+  const legendPad   = hasLegend ? ALV_LEGEND_PAD : ALV_PLAIN_PAD;
   const h = 10 + headerH + rows.length * rowH + legendPad;
 
   let x = 10;
@@ -603,7 +608,7 @@ export function alvLayoutMetrics({ columns = [], sampleRows = [], maxRows = 3 } 
   const hasStatus   = columns.some(c => c.name === '_status') || rows.some(r => r && r._status);
   const hasHotspot  = columns.some(c => c.hotspot);
   const hasEditable = columns.some(c => c.editable);
-  const legendPad   = (hasStatus || hasHotspot || hasEditable) ? 80 : 30;
+  const legendPad   = (hasStatus || hasHotspot || hasEditable) ? ALV_LEGEND_PAD : ALV_PLAIN_PAD;
   const h = 10 + 22 + rows.length * 24 + legendPad;
   return { width: Math.round(w * RENDER_SCALE), height: Math.round(h * RENDER_SCALE) };
 }
@@ -921,6 +926,9 @@ const FC_LINE_H   = 17;
 const FC_VGAP     = 48;
 const FC_PAD_TOP  = 66;
 const FC_PAD_BOT  = 56;
+const FC_SKIP_X   = 62;   // left lane for spine edges that skip nodes; the widest box starts at 100
+const FC_LANE_GAP = 12;   // spacing between parallel lane edges
+const FC_SIB_GAP  = 20;   // vertical offset between left-lane edges that leave the same node
 const FC_INK      = '#2B3A4A';
 const FC_EDGE     = '#5E7388';
 
@@ -955,12 +963,13 @@ function layoutFlowchart(graph = {}) {
   const edges = graph.edges || [];
   const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
   const pos = {};
-  // Stack spine nodes (centre column).
+  // Stack spine nodes (centre column); `spine` is the stacking order.
   let y = FC_PAD_TOP;
+  let order = 0;
   for (const n of nodes) {
     if (n.lane === 'right') continue;
     const m = fcMeasure(n);
-    pos[n.id] = { ...m, x: FC_CENTER_X, yTop: y, cy: y + m.h / 2 };
+    pos[n.id] = { ...m, x: FC_CENTER_X, yTop: y, cy: y + m.h / 2, spine: order++ };
     y += m.h + FC_VGAP;
   }
   let maxY = y - FC_VGAP;
@@ -973,7 +982,38 @@ function layoutFlowchart(graph = {}) {
     pos[n.id] = { ...m, x: FC_RIGHT_X, yTop: cy - m.h / 2, cy };
     if (cy + m.h / 2 > maxY) maxY = cy + m.h / 2;
   }
-  return { nodes, edges, byId, pos, width: FC_WIDTH, height: maxY + FC_PAD_BOT };
+  // Lanes for edges that cannot run straight. A spine edge that skips nodes
+  // (a "no → end" shortcut) or climbs back up gets its own left lane; a side
+  // node's exit gets an outer right lane when another side node sits in its
+  // way. Each such edge has its own offset so parallel ones stay apart.
+  // Several left-lane edges from one node (a three-way decision) each get a
+  // sibling number: the first leaves at the node's centre line, the others
+  // on their own row below (or above) it, so every edge keeps a visible label.
+  const lanes = new Map();
+  const leftFrom = new Map();
+  let left = 0;
+  let right = 0;
+  edges.forEach((e, i) => {
+    const a = pos[e.from], b = pos[e.to];
+    if (!a || !b) return;
+    const aSide = byId[e.from]?.lane === 'right', bSide = byId[e.to]?.lane === 'right';
+    if (!aSide && !bSide && b.spine !== a.spine + 1) {
+      const sib = leftFrom.get(e.from) || 0;
+      leftFrom.set(e.from, sib + 1);
+      lanes.set(i, { side: 'left', k: left++, sib });
+    }
+    if (aSide && !bSide) {
+      const lo = Math.min(a.cy, b.cy), hi = Math.max(a.cy, b.cy);
+      const blocked = nodes.some(n => n.id !== e.from && n.lane === 'right' && pos[n.id]
+        && pos[n.id].yTop < hi && pos[n.id].yTop + pos[n.id].h > lo);
+      if (blocked) lanes.set(i, { side: 'right', k: right++ });
+    }
+  });
+  edges.forEach((e, i) => {
+    const lane = lanes.get(i);
+    if (lane?.side === 'left') lane.sibN = leftFrom.get(e.from);
+  });
+  return { nodes, edges, byId, pos, lanes, width: FC_WIDTH, height: maxY + FC_PAD_BOT };
 }
 
 function fcNodeSvg(p, n) {
@@ -1001,7 +1041,7 @@ function fcChip(x, y, text, color) {
     + `<text x="${x}" y="${y + 1}" text-anchor="middle" font-size="11" font-weight="700" fill="${color}">${xml(text)}</text>`;
 }
 
-function fcEdgeSvg(e, L, lang) {
+function fcEdgeSvg(e, L, lang, i) {
   const a = L.pos[e.from], b = L.pos[e.to];
   if (!a || !b) return '';
   const aSide = L.byId[e.from]?.lane === 'right';
@@ -1009,8 +1049,33 @@ function fcEdgeSvg(e, L, lang) {
   const south = p => ({ x: p.x, y: p.yTop + p.h });
   const north = p => ({ x: p.x, y: p.yTop });
   const east  = p => ({ x: p.x + p.w / 2, y: p.cy });
+  const west  = p => ({ x: p.x - p.w / 2, y: p.cy });
+  const lane = L.lanes?.get(i);
   let pts, label = e.label, lx, ly, lcol = '#56657A';
-  if (!aSide && bSide) {                       // decision → exception (horizontal)
+  const yesNo = () => {
+    if (label === legendFor(lang).fc_no || /no|아니|いいえ/i.test(label || '')) lcol = '#B0402F';
+    else if (label === legendFor(lang).fc_yes || /yes|예|はい/i.test(label || '')) lcol = '#1E7A46';
+  };
+  if (lane?.side === 'left') {                 // spine shortcut / climb-back: left lane
+    const x = FC_SKIP_X - lane.k * FC_LANE_GAP;
+    const w0 = west(a);
+    if (!lane.sib) {
+      pts = [w0, { x, y: a.cy }, { x, y: b.cy }, west(b)];
+      lx = (x + w0.x) / 2; ly = a.cy - 7;
+    } else {
+      // Drop to its own row first; the sibling with the largest offset jogs
+      // closest to the node so the jogs never cross each other's rows.
+      const row = a.cy + (b.cy >= a.cy ? 1 : -1) * lane.sib * FC_SIB_GAP;
+      const jx = w0.x - 6 - 8 * (lane.sibN - 1 - lane.sib);
+      pts = [w0, { x: jx, y: a.cy }, { x: jx, y: row }, { x, y: row }, { x, y: b.cy }, west(b)];
+      lx = (x + jx) / 2; ly = row - 7;
+    }
+    yesNo();
+  } else if (lane?.side === 'right') {         // side exit around another side node
+    const x = FC_WIDTH - 12 - lane.k * FC_LANE_GAP;
+    pts = [east(a), { x, y: a.cy }, { x, y: b.cy }, east(b)];
+    lx = x; ly = (a.cy + b.cy) / 2; lcol = '#7A4B9C';
+  } else if (!aSide && bSide) {                // decision → exception (horizontal)
     pts = [east(a), { x: b.x - b.w / 2, y: a.cy }];
     lx = (a.x + a.w / 2 + b.x - b.w / 2) / 2; ly = a.cy - 7;
     if (label === legendFor(lang).fc_no || /no|아니|いいえ/i.test(label || '')) lcol = '#B0402F';
@@ -1055,7 +1120,7 @@ export function renderFlowchartSVG(graph = {}, { lang = 'ko', heading = null } =
     + `<marker id="fcarrow" markerWidth="11" markerHeight="11" refX="8.5" refY="3.2" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L9.5,3.2 L0,6.4 Z" fill="${FC_EDGE}"/></marker>`
     + `<filter id="fcsh" x="-12%" y="-25%" width="124%" height="150%"><feDropShadow dx="0" dy="1.4" stdDeviation="1.5" flood-color="#8C9BAA" flood-opacity="0.45"/></filter>`
     + `</defs>`;
-  const edgeSvg = (L.edges || []).map(e => fcEdgeSvg(e, L, lang)).join('\n');
+  const edgeSvg = (L.edges || []).map((e, i) => fcEdgeSvg(e, L, lang, i)).join('\n');
   const nodeSvg = (L.nodes || []).map(n => fcNodeSvg(L.pos[n.id], n)).join('\n');
   const legendSvg = fcLegendSvg(lang, L.height - 22, L.width);
   return `<?xml version="1.0" encoding="UTF-8"?>
@@ -1445,7 +1510,11 @@ function paneInnerMetrics(p, allocW) {
     return { width: allocW || 560, height: p.treeRows.length * rowH + 10 };
   }
   if (paneIsEmpty(p) && p?.placeholder) return { width: allocW || 900, height: PANE_PLACE_H };
-  return alvLayoutMetrics({ columns: p?.columns || [], sampleRows: p?.sampleRows || [], maxRows: p?.maxRows });
+  // alvLayoutMetrics() answers in rendered pixels (× RENDER_SCALE); a pane
+  // is laid out in the parent's viewBox units, so undo the scale here.
+  // Using the scaled size padded every multi-pane image with empty space.
+  const m = alvLayoutMetrics({ columns: p?.columns || [], sampleRows: p?.sampleRows || [], maxRows: p?.maxRows });
+  return { width: Math.round(m.width / RENDER_SCALE), height: Math.round(m.height / RENDER_SCALE) };
 }
 
 // ── ALV Tree inner SVG renderer ────────────────────────────────
@@ -1492,25 +1561,45 @@ export function multipaneAlvMetrics({ panes = [], layout = 'split-horizontal', s
     const rightRenderH = Math.ceil(rightM.height * rightScale);
     const bodyH  = Math.max(leftM.height, rightRenderH);
     const capH   = 36; // always reserve caption row
-    const rawH   = PANE_PAD_TOP + PANE_TITLE_H + bodyH + capH + PANE_PAD_BOT;
+    const tbH    = sideToolbarH(panes, leftW, rightW);
+    const rawH   = PANE_PAD_TOP + PANE_TITLE_H + tbH + bodyH + capH + PANE_PAD_BOT;
     return { width: Math.round(totalW * RENDER_SCALE), height: Math.round(rawH * RENDER_SCALE) };
   }
 
   // ── split-horizontal (default): vertical stacking ──────────────
-  let totalH = PANE_PAD_TOP;
-  let totalW = 900;
+  const { w, h } = stackedSize(panes);
+  return { width: Math.round(w * RENDER_SCALE), height: Math.round(h * RENDER_SCALE) };
+}
+
+// Stacked layout size in viewBox units (unscaled).
+function stackedSize(panes) {
+  const w = stackedWidth(panes);
+  let h = PANE_PAD_TOP;
   panes.forEach((p, i) => {
-    const m = paneInnerMetrics(p);
-    totalH += PANE_TITLE_H + m.height;
-    if (i < panes.length - 1) totalH += PANE_GAP + PANE_INTER_H;
-    if (m.width > totalW) totalW = m.width;
+    h += PANE_TITLE_H + barHeight(barButtons(p), w - 20) + paneInnerMetrics(p).height;
+    if (i < panes.length - 1) h += PANE_GAP + PANE_INTER_H;
   });
-  totalH += PANE_PAD_BOT;
-  return { width: Math.round(totalW * RENDER_SCALE), height: Math.round(totalH * RENDER_SCALE) };
+  return { w, h: h + PANE_PAD_BOT };
+}
+
+// Canvas width of a stacked multi-pane ALV: the widest grid, or the widest
+// toolbar when a pane's buttons need more room than its grid.
+function stackedWidth(panes) {
+  let w = 900;
+  for (const p of panes) {
+    w = Math.max(w, paneInnerMetrics(p).width);
+    const bar = barButtons(p);
+    if (bar.length) w = Math.max(w, Math.min(SCREEN_MAX_W, barNeedW(bar) + 20));
+  }
+  return w;
+}
+// Toolbar row of a side-by-side pair: one height for both, so the grids align.
+function sideToolbarH(panes, leftW, rightW) {
+  return Math.max(barHeight(barButtons(panes[0]), leftW), barHeight(barButtons(panes[1]), rightW));
 }
 
 // ── Side-by-side renderer (split-vertical) ─────────────────────
-function renderSideBySideAlvSVG({ panes = [], splitRatio = [40, 60], interaction = '', lang = 'ko' } = {}) {
+function renderSideBySideAlvSVG({ panes = [], splitRatio = [40, 60], interaction = '', lang = 'ko', flowIndex } = {}) {
   const [leftPane, rightPane] = panes;
   const totalW = SIDE_CANVAS_W;
   const leftW  = Math.round(totalW * splitRatio[0] / 100);
@@ -1524,11 +1613,16 @@ function renderSideBySideAlvSVG({ panes = [], splitRatio = [40, 60], interaction
   const rightRenderH = Math.ceil(rightBodyM.height * rightScale);
   const bodyH  = Math.max(leftBodyM.height, rightRenderH);
   const capH   = 36;
-  const totalH = PANE_PAD_TOP + PANE_TITLE_H + bodyH + capH + PANE_PAD_BOT;
+  const tbH    = sideToolbarH(panes, leftW, rightW);
+  const totalH = PANE_PAD_TOP + PANE_TITLE_H + tbH + bodyH + capH + PANE_PAD_BOT;
 
   const titleY = PANE_PAD_TOP;
-  const bodyY  = titleY + PANE_TITLE_H;
+  const bodyY  = titleY + PANE_TITLE_H + tbH;
   const parts  = [];
+  if (tbH) {
+    parts.push(buttonBarSvg(0, titleY + PANE_TITLE_H, leftW, barButtons(leftPane), { variant: 'alv', lang, flowIndex }));
+    parts.push(buttonBarSvg(rightX, titleY + PANE_TITLE_H, rightW, barButtons(rightPane), { variant: 'alv', lang, flowIndex }));
+  }
 
   // Left title bar
   parts.push(`<rect x="0" y="${titleY}" width="${leftW}" height="${PANE_TITLE_H - 2}" fill="#E7E6E6" stroke="#888"/>`);
@@ -1546,14 +1640,16 @@ function renderSideBySideAlvSVG({ panes = [], splitRatio = [40, 60], interaction
   }
 
   // Vertical divider
-  parts.push(`<rect x="${leftW}" y="${titleY}" width="${SIDE_DIVIDER_W}" height="${PANE_TITLE_H - 2 + bodyH}" fill="#5A85AE"/>`);
+  parts.push(`<rect x="${leftW}" y="${titleY}" width="${SIDE_DIVIDER_W}" height="${PANE_TITLE_H - 2 + tbH + bodyH}" fill="#5A85AE"/>`);
 
   // Right title bar
   parts.push(`<rect x="${rightX}" y="${titleY}" width="${rightW}" height="${PANE_TITLE_H - 2}" fill="#E7E6E6" stroke="#888"/>`);
   parts.push(`<text x="${rightX + 10}" y="${titleY + PANE_TITLE_H - 9}" font-weight="700" fill="#333">${xml(rightPane.title || 'Pane 2')}</text>`);
   // Right body frame
   parts.push(`<rect x="${rightX}" y="${bodyY}" width="${rightW}" height="${bodyH}" fill="#FFF" stroke="#C8D4E2"/>`);
-  if (paneIsEmpty(rightPane) && rightPane.placeholder) {
+  if (rightPane.treeRows) {
+    parts.push(`<g transform="translate(${rightX}, ${bodyY + 4})">${renderAlvTreeInnerSVG({ treeRows: rightPane.treeRows, paneW: rightW })}</g>`);
+  } else if (paneIsEmpty(rightPane) && rightPane.placeholder) {
     parts.push(`<text x="${rightX + rightW / 2}" y="${bodyY + bodyH / 2 + 4}" text-anchor="middle" fill="#888" font-style="italic">${xml(rightPane.placeholder)}</text>`);
   } else {
     const innerSvg = renderAlvLayoutSVG({ columns: rightPane.columns || [], sampleRows: rightPane.sampleRows || [], maxRows: rightPane.maxRows, lang });
@@ -1577,18 +1673,18 @@ ${parts.join('\n')}
 </svg>`;
 }
 
-export function renderMultipaneAlvSVG({ layout = 'split-horizontal', interaction = '', panes = [], splitRatio = [40, 60], lang = 'ko' } = {}) {
+export function renderMultipaneAlvSVG({ layout = 'split-horizontal', interaction = '', panes = [], splitRatio = [40, 60], lang = 'ko', flowIndex } = {}) {
   if (!panes.length) {
     return renderAlvLayoutSVG({ columns: [], sampleRows: [], lang });
   }
 
   // ── split-vertical: delegate to side-by-side renderer ──────────
   if (layout === 'split-vertical' && panes.length === 2) {
-    return renderSideBySideAlvSVG({ panes, splitRatio, interaction, lang });
+    return renderSideBySideAlvSVG({ panes, splitRatio, interaction, lang, flowIndex });
   }
 
   // ── split-horizontal (default): vertical stacking ──────────────
-  const { width: totalW, height: totalH } = multipaneAlvMetrics({ panes, layout: 'split-horizontal' });
+  const { w: totalW, h: totalH } = stackedSize(panes);
 
   let cursorY = PANE_PAD_TOP;
   const parts = [];
@@ -1598,9 +1694,19 @@ export function renderMultipaneAlvSVG({ layout = 'split-horizontal', interaction
     parts.push(`<text x="14" y="${cursorY + PANE_TITLE_H - 9}" font-weight="700" fill="#333">${xml(p.title || `Pane ${i + 1}`)}</text>`);
     cursorY += PANE_TITLE_H;
 
+    // The pane's own ALV toolbar, between its title and its grid.
+    const bar = barButtons(p);
+    if (bar.length) {
+      parts.push(buttonBarSvg(10, cursorY, totalW - 20, bar, { variant: 'alv', lang, flowIndex }));
+      cursorY += barHeight(bar, totalW - 20);
+    }
+
     // Pane body — actual grid OR placeholder box.
     const m = paneInnerMetrics(p);
-    if (paneIsEmpty(p) && p.placeholder) {
+    if (p.treeRows) {
+      parts.push(`<rect x="10" y="${cursorY}" width="${totalW - 20}" height="${m.height}" fill="#FFF" stroke="#C8D4E2"/>`);
+      parts.push(`<g transform="translate(10, ${cursorY + 4})">${renderAlvTreeInnerSVG({ treeRows: p.treeRows, paneW: totalW - 20 })}</g>`);
+    } else if (paneIsEmpty(p) && p.placeholder) {
       parts.push(`<rect x="10" y="${cursorY}" width="${totalW - 20}" height="${m.height}" fill="#FAFAFA" stroke="#C8D4E2" stroke-dasharray="4,3"/>`);
       parts.push(`<text x="${totalW / 2}" y="${cursorY + m.height / 2 + 4}" text-anchor="middle" fill="#888" font-style="italic">${xml(p.placeholder)}</text>`);
     } else {
@@ -1630,6 +1736,309 @@ ${parts.join('\n')}
 // ──────────────────────────────────────────────────────────────
 // Rasterizer — headless Edge/Chrome/Chromium
 // ──────────────────────────────────────────────────────────────
+
+// ──────────────────────────────────────────────────────────────
+// ALV screen buttons (v14) — GUI status (PAI) bar + ALV grid toolbar
+// ──────────────────────────────────────────────────────────────
+// A report's output screen is more than its grid: the GUI status puts
+// function codes on the application toolbar (handled in PAI), and the ALV
+// TOOLBAR event adds buttons to the grid itself (handled in USER_COMMAND).
+// Both are drawn here, above the grid, so the image shows what a user can
+// press. Schema (all optional; without them the grid renders as before):
+//
+//   alv.screen   = { title?, status?, buttons: [Button] }   // GUI status → PAI
+//   alv.toolbar  = [Button | '|']                           // ALV grid toolbar
+//   alv.panes[i].toolbar = [Button | '|']                   // per pane, multi-grid
+//   alv.standardToolbar / panes[i].standardToolbar = true   // generic ALV icons first
+//   Button = { code, label?, icon?, flow?: false }          // no label → icon-only
+//
+// A button whose `code` has an entry in image-spec.buttonFlows carries a
+// numbered badge; the same number heads that button's own flow image. A flow
+// may also claim other buttons through `codes[]` (batch / cancel variants of
+// the same business stage) — they carry the same badge.
+// ──────────────────────────────────────────────────────────────
+
+const BTN_TEXT = {
+  ko: { pai: 'PAI', alv: 'ALV', note: '번호가 붙은 버튼은 버튼별 처리 흐름이 따로 있습니다', flowAlv: 'ALV 버튼', flowPai: 'PAI 기능' },
+  en: { pai: 'PAI', alv: 'ALV', note: 'Numbered buttons have their own process flow', flowAlv: 'ALV button', flowPai: 'PAI function' },
+  ja: { pai: 'PAI', alv: 'ALV', note: '番号付きのボタンには個別の処理フローがあります', flowAlv: 'ALVボタン', flowPai: 'PAI機能' },
+};
+const btnText = (lang) => BTN_TEXT[lang] || BTN_TEXT.ko;
+
+// Glyphs that every Windows / macOS / Linux headless browser font carries.
+const BTN_ICONS = {
+  create: '+', add: '+', new: '+', insert: '+', delete: '✕', remove: '✕',
+  cancel: '⊘', reject: '⊘', refresh: '↻', exit: '⇤', back: '←', execute: '▶',
+  run: '▶', undo: '↶', save: '✓', check: '✓', confirm: '✓', print: '⎙',
+  export: '⇩', download: '⇩', upload: '⇧', filter: '▽', sort: '⇅', sum: 'Σ',
+  detail: '☰', display: '☰', mail: '✉', edit: '✎', change: '✎', copy: '⧉',
+};
+const STD_ALV_BUTTONS = ['detail', 'sort', 'filter', 'sum', 'export'].map(icon => ({ icon, std: true }));
+
+const TB_ROW_H = 32, TB_BTN_H = 22, TB_PAD_X = 10, TB_GAP = 6, TB_CAPTION_W = 44, TB_SEP_W = 8;
+const SCREEN_TITLE_H = 28, SCREEN_NOTE_H = 26, SCREEN_MAX_W = 1600;
+
+function btnIcon(b) {
+  const key = String(b.icon || '').toLowerCase();
+  if (BTN_ICONS[key]) return BTN_ICONS[key];
+  return key && [...String(b.icon)].length <= 2 ? String(b.icon) : '';
+}
+function btnWidth(b) {
+  if (b.sep) return TB_SEP_W;
+  const icon = btnIcon(b);
+  if (!b.label) return 26;
+  return Math.ceil(approxTextWidthPx(b.label)) + 20 + (icon ? 16 : 0);
+}
+function normalizeButtons(list) {
+  return (Array.isArray(list) ? list : [])
+    .map(b => (b === '|' || b?.type === 'separator' ? { sep: true }
+      : typeof b === 'string' ? { code: b, label: b }
+      : b && typeof b === 'object' ? b : null))
+    .filter(Boolean);
+}
+function barButtons(owner) {
+  const custom = normalizeButtons(owner?.toolbar);
+  if (!custom.length && !owner?.standardToolbar) return [];
+  return [...(owner?.standardToolbar ? [...STD_ALV_BUTTONS, { sep: true }] : []), ...custom];
+}
+/** One-row width a bar would need; used to widen the canvas before wrapping. */
+function barNeedW(items) {
+  return TB_PAD_X * 2 + TB_CAPTION_W + items.reduce((s, b) => s + btnWidth(b) + TB_GAP, 0);
+}
+/** `label` shortened with an ellipsis to fit `px`. */
+function fitLabel(label, px) {
+  const text = String(label);
+  if (approxTextWidthPx(text) <= px) return text;
+  const chars = [...text];
+  while (chars.length > 1 && approxTextWidthPx(`${chars.join('')}…`) > px) chars.pop();
+  return `${chars.join('')}…`;
+}
+function layoutButtonBar(items, width) {
+  const rows = [[]];
+  let x = TB_PAD_X + TB_CAPTION_W;
+  // A button never outgrows its bar — a narrow side-by-side pane otherwise
+  // pushed a long label into the neighbouring pane. Its label is ellipsized.
+  const maxW = Math.max(26, width - TB_PAD_X * 2 - TB_CAPTION_W);
+  for (const b of items) {
+    const w = Math.min(btnWidth(b), maxW);
+    if (x + w > width - TB_PAD_X && rows[rows.length - 1].length) {
+      rows.push([]);
+      x = TB_PAD_X + TB_CAPTION_W;
+    }
+    rows[rows.length - 1].push({ b, x, w });
+    x += w + TB_GAP;
+  }
+  return { rows, height: items.length ? rows.length * TB_ROW_H : 0 };
+}
+function barHeight(items, width) { return items.length ? layoutButtonBar(items, width).height : 0; }
+
+/** A button bar at (x0, y0), `width` wide. variant 'pai' = grey, 'alv' = blue. */
+/** Lookup key of a button's flow: a PAI and an ALV button may share a code. */
+const flowKey = (source, code) => `${source === 'pai' ? 'pai' : 'alv'}:${code}`;
+const isRenderableFlow = (f) => Boolean(f?.code && f.flow && Array.isArray(f.flow.nodes) && f.flow.nodes.length);
+
+/**
+ * Every button a flow belongs to: its own `code` first, then `codes[]`. A
+ * string in `codes` is a button on the flow's own bar; `{ code, source }`
+ * links a button on the other bar (a PAI flow that an ALV button also runs).
+ * One stage flow can so badge its batch and cancel variants too.
+ */
+export function flowButtonKeys(f) {
+  if (!f?.code) return [];
+  const extra = (Array.isArray(f.codes) ? f.codes : [])
+    .map(c => (typeof c === 'string' ? { code: c, source: f.source } : c && typeof c === 'object' ? c : null))
+    .filter(c => c?.code);
+  return [{ code: f.code, source: f.source }, ...extra]
+    .map(c => ({ code: c.code, source: c.source === 'pai' ? 'pai' : 'alv', key: flowKey(c.source, c.code) }));
+}
+
+/**
+ * `buttonFlows` → Map(flowKey → number). The number is the entry's position
+ * in the array (1-based), so badges, file names and the Markdown headings a
+ * writer numbers by position all agree even when an entry is unusable; an
+ * unusable entry simply has no badge (and buttonSchemaWarnings says why).
+ * Codes linked through `codes[]` carry the same number.
+ */
+export function buildFlowIndex(buttonFlows) {
+  const index = new Map();
+  (Array.isArray(buttonFlows) ? buttonFlows : []).forEach((f, i) => {
+    if (!isRenderableFlow(f)) return;
+    for (const { key } of flowButtonKeys(f)) if (!index.has(key)) index.set(key, i + 1);
+  });
+  return index;
+}
+
+function buttonBarSvg(x0, y0, width, items, { variant, lang, flowIndex }) {
+  if (!items.length) return '';
+  const T = btnText(lang);
+  const { rows, height } = layoutButtonBar(items, width);
+  const pai = variant === 'pai';
+  const parts = [
+    `<rect x="${x0}" y="${y0}" width="${width}" height="${height}" fill="${pai ? '#EEF2F6' : '#F7F9FB'}" stroke="#C8D4E2"/>`,
+    `<rect x="${x0 + 6}" y="${y0 + (TB_ROW_H - 16) / 2}" width="${TB_CAPTION_W - 12}" height="16" rx="3" fill="${pai ? '#56657A' : '#2E6FB0'}"/>`,
+    `<text x="${x0 + TB_CAPTION_W / 2}" y="${y0 + TB_ROW_H / 2 + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="#FFF">${xml(pai ? T.pai : T.alv)}</text>`,
+  ];
+  rows.forEach((row, r) => {
+    const by = y0 + r * TB_ROW_H + (TB_ROW_H - TB_BTN_H) / 2;
+    for (const { b, x, w } of row) {
+      const bx = x0 + x;
+      if (b.sep) {
+        parts.push(`<line x1="${bx + w / 2}" y1="${by + 2}" x2="${bx + w / 2}" y2="${by + TB_BTN_H - 2}" stroke="#AAB6C3"/>`);
+        continue;
+      }
+      const style = b.std ? { fill: '#FFFFFF', stroke: '#C8D4E2', ink: '#6B7C8D' }
+        : pai ? { fill: '#FFFFFF', stroke: '#9AA7B5', ink: '#2B3A4A' }
+        : { fill: '#EAF2FB', stroke: '#2E6FB0', ink: '#1F4E79' };
+      parts.push(`<rect x="${bx}" y="${by}" width="${w}" height="${TB_BTN_H}" rx="4" fill="${style.fill}" stroke="${style.stroke}"/>`);
+      const icon = btnIcon(b);
+      const cy = by + TB_BTN_H / 2 + 4;
+      if (!b.label) {
+        parts.push(`<text x="${bx + w / 2}" y="${cy}" text-anchor="middle" font-size="12" font-weight="700" fill="${style.ink}">${xml(icon || '•')}</text>`);
+      } else {
+        let tx = bx + 10;
+        if (icon) {
+          parts.push(`<text x="${tx + 5}" y="${cy}" text-anchor="middle" font-size="12" font-weight="700" fill="${style.ink}">${xml(icon)}</text>`);
+          tx += 16;
+        }
+        parts.push(`<text x="${tx}" y="${cy}" font-size="11.5" fill="${style.ink}">${xml(fitLabel(b.label, bx + w - 10 - tx))}</text>`);
+      }
+      const n = b.code && !b.std ? flowIndex?.get(flowKey(variant, b.code)) : undefined;
+      if (n) {
+        parts.push(`<circle cx="${bx + w - 1}" cy="${by + 1}" r="8" fill="#D9730D" stroke="#FFF" stroke-width="1.2"/>`
+          + `<text x="${bx + w - 1}" y="${by + 4.5}" text-anchor="middle" font-size="10" font-weight="700" fill="#FFF">${n}</text>`);
+      }
+    }
+  });
+  return parts.join('');
+}
+
+/** Whether any button drawn for this ALV carries a flow badge. */
+function hasFlowBadge(alv, flowIndex) {
+  if (!flowIndex?.size) return false;
+  const alvButtons = [
+    ...normalizeButtons(alv?.toolbar),
+    ...(Array.isArray(alv?.panes) ? alv.panes.flatMap(p => normalizeButtons(p?.toolbar)) : []),
+  ];
+  return normalizeButtons(alv?.screen?.buttons).some(b => b.code && flowIndex.has(flowKey('pai', b.code)))
+    || alvButtons.some(b => b.code && flowIndex.has(flowKey('alv', b.code)));
+}
+
+/**
+ * The output screen: optional GUI-status title + PAI bar, optional ALV
+ * toolbar (single grid; multi-pane grids draw their own per pane), then the
+ * grid itself. With no buttons and no screen it returns the grid unchanged,
+ * so older image-specs render exactly as before.
+ */
+export function renderAlvScreenSVG(alv = {}, { lang = 'ko', flowIndex = new Map() } = {}) {
+  const isMultipane = Array.isArray(alv.panes) && alv.panes.length > 0;
+  const inner = isMultipane
+    ? renderMultipaneAlvSVG({ ...alv, lang, flowIndex })
+    : renderAlvLayoutSVG({ ...alv, lang });
+  const screen = alv.screen && typeof alv.screen === 'object' ? alv.screen : null;
+  const pai = normalizeButtons(screen?.buttons);
+  const grid = isMultipane ? [] : barButtons(alv);
+  const note = hasFlowBadge(alv, flowIndex);
+  if (!screen && !grid.length && !note) return inner;
+
+  const vb = inner.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
+  const innerW = Number(vb[1]), innerH = Number(vb[2]);
+  const W = Math.min(SCREEN_MAX_W, Math.max(innerW, pai.length ? barNeedW(pai) : 0, grid.length ? barNeedW(grid) + 20 : 0));
+  const titleH = screen ? SCREEN_TITLE_H : 0;
+  const paiH = barHeight(pai, W);
+  const gridH = barHeight(grid, W - 20);
+  const noteH = note ? SCREEN_NOTE_H : 0;
+  const H = titleH + paiH + (gridH ? gridH + 10 : 0) + innerH + noteH;
+  const parts = [];
+  let y = 0;
+  if (screen) {
+    parts.push(`<rect x="0" y="0" width="${W}" height="${titleH}" fill="#1F4E79"/>`);
+    parts.push(`<text x="12" y="${titleH / 2 + 5}" font-size="13" font-weight="700" fill="#FFF">${xml(screen.title || '')}</text>`);
+    if (screen.status) {
+      const sw = approxTextWidthPx(screen.status) + 16;
+      parts.push(`<rect x="${W - sw - 10}" y="6" width="${sw}" height="16" rx="3" fill="#FFFFFF" fill-opacity="0.18" stroke="#9FC3E7"/>`);
+      parts.push(`<text x="${W - sw / 2 - 10}" y="18" text-anchor="middle" font-size="10.5" fill="#FFF">${xml(screen.status)}</text>`);
+    }
+    y += titleH;
+  }
+  if (paiH) { parts.push(buttonBarSvg(0, y, W, pai, { variant: 'pai', lang, flowIndex })); y += paiH; }
+  if (gridH) { parts.push(buttonBarSvg(10, y + 10, W - 20, grid, { variant: 'alv', lang, flowIndex })); y += gridH + 10; }
+  parts.push(`<svg x="0" y="${y}" width="${innerW}" height="${innerH}" viewBox="0 0 ${innerW} ${innerH}">${extractInnerSvg(inner)}</svg>`);
+  y += innerH;
+  if (noteH) {
+    parts.push(`<circle cx="18" cy="${y + noteH / 2}" r="7" fill="#D9730D"/><text x="18" y="${y + noteH / 2 + 3.5}" text-anchor="middle" font-size="9.5" font-weight="700" fill="#FFF">n</text>`);
+    parts.push(`<text x="32" y="${y + noteH / 2 + 4}" font-size="11" fill="#555">${xml(btnText(lang).note)}</text>`);
+  }
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(W * RENDER_SCALE)}" height="${Math.round(H * RENDER_SCALE)}" viewBox="0 0 ${W} ${H}" font-family="Arial,sans-serif" font-size="12">
+<rect width="${W}" height="${H}" fill="#FFF"/>
+${parts.join('\n')}
+</svg>`;
+}
+
+/** Pixel size an SVG string declares — keeps the rasterizer viewport exact. */
+function svgPixelSize(svg) {
+  const m = svg.match(/<svg[^>]*\swidth="(\d+)"[^>]*\sheight="(\d+)"/);
+  return m ? { width: Number(m[1]), height: Number(m[2]) } : { width: 900, height: 400 };
+}
+
+/**
+ * Consistency checks between the ALV buttons and image-spec.buttonFlows —
+ * printed by render-md-images so a writer sees a missing flow before the
+ * spec ships. Navigation-only buttons opt out with `flow: false`.
+ */
+export function buttonSchemaWarnings(spec = {}) {
+  const warns = [];
+  const alv = spec.alv || {};
+  // A string button ("BACK") is shorthand for a label-only, navigation-only
+  // button: it cannot carry `flow: false`, so it is never asked for a flow.
+  const tag = (list, source, bar) => (Array.isArray(list) ? list : [])
+    .map(raw => ({ raw, b: normalizeButtons([raw])[0] }))
+    .filter(({ b }) => b && !b.sep && !b.std)
+    .map(({ raw, b }) => ({ ...b, source, bar, shorthand: typeof raw === 'string' }));
+  const buttons = [
+    ...tag(alv.screen?.buttons, 'pai', 'pai'),
+    ...tag(alv.toolbar, 'alv', 'grid'),
+    ...(Array.isArray(alv.panes) ? alv.panes.flatMap((p, i) => tag(p?.toolbar, 'alv', `pane${i}`)) : []),
+  ];
+  const where = (source) => (source === 'pai' ? 'PAI' : 'ALV');
+
+  // A code repeated within one bar is a mistake; the same code on two grids
+  // (each with its own REFRESH) is normal and shares one flow.
+  const seenButtons = new Set();
+  const seenInBar = new Set();
+  for (const b of buttons) {
+    if (!b.code) continue;
+    const barKey = `${b.bar}:${b.code}`;
+    if (seenInBar.has(barKey)) warns.push(`${where(b.source)} button "${b.code}" appears twice in the same toolbar`);
+    seenInBar.add(barKey);
+    seenButtons.add(flowKey(b.source, b.code));
+  }
+
+  const flows = Array.isArray(spec.buttonFlows) ? spec.buttonFlows : [];
+  const seenFlows = new Set();
+  flows.forEach((f, i) => {
+    const n = i + 1;
+    if (!f?.code) { warns.push(`buttonFlows #${n} has no code — it cannot be matched to a button`); return; }
+    if (f.codes !== undefined && !Array.isArray(f.codes)) warns.push(`buttonFlows #${n} "${f.code}" has a "codes" that is not an array — it is ignored`);
+    else if (Array.isArray(f.codes) && flowButtonKeys(f).length !== f.codes.length + 1) warns.push(`buttonFlows #${n} "${f.code}" has a "codes" entry without a code — use "CODE" or { "code", "source" }`);
+    flowButtonKeys(f).forEach(({ code, source, key }, j) => {
+      const what = j === 0 ? `"${code}"` : `links "${code}", which`;
+      if (seenFlows.has(key)) warns.push(`buttonFlows #${n} ${what} repeats an earlier ${where(source)} flow — only the first is used`);
+      seenFlows.add(key);
+      if (!seenButtons.has(key)) warns.push(`buttonFlows #${n} ${what} (source "${source}") has no matching button in ${source === 'pai' ? 'alv.screen.buttons' : 'alv.toolbar / panes[].toolbar'}`);
+    });
+    if (!isRenderableFlow(f)) warns.push(`buttonFlows #${n} "${f.code}" has no drawable flow — "flow" must be { nodes: [..at least one..], edges }`);
+  });
+
+  const index = buildFlowIndex(flows);
+  for (const b of buttons) {
+    if (!b.code || b.flow === false || b.shorthand) continue;
+    if (!index.has(flowKey(b.source, b.code))) {
+      warns.push(`${where(b.source)} button "${b.code}" has no usable buttonFlows entry — add its business flow, list it in the "codes" of the flow it shares, or set "flow": false if it only navigates (BACK / EXIT / REFRESH)`);
+    }
+  }
+  return warns;
+}
 
 function findBrowser() {
   const candidates = platform() === 'win32'
@@ -1843,8 +2252,18 @@ export async function rasterizeSvgToPng(svg, { width, height } = {}) {
  * come out in the spec's language. When absent it defaults to 'ko' inside
  * the renderers, preserving backward-compatible behaviour.
  */
-export async function renderScreenImages({ selection, alv, processFlow, lang = 'ko' } = {}) {
-  const out = { selection: null, alv: null, processFlow: null };
+export async function renderScreenImages({ selection, alv, processFlow, buttonFlows, lang = 'ko' } = {}, { renderButtonFlows = true } = {}) {
+  const out = { selection: null, alv: null, processFlow: null, buttonFlows: [] };
+  // Buttons with their own flow keep their array position as their number;
+  // the ALV image badges each button with it. The xlsx path passes
+  // renderButtonFlows:false — it has no slot for them, so it keeps the badges
+  // but skips a browser launch per flow.
+  const flowIndex = buildFlowIndex(buttonFlows);
+  const flows = renderButtonFlows
+    ? (Array.isArray(buttonFlows) ? buttonFlows : [])
+      .map((f, i) => ({ ...f, number: i + 1 }))
+      .filter(f => isRenderableFlow(f) && flowIndex.get(flowKey(f.source, f.code)) === f.number)
+    : [];
   // PARALLEL RENDERING — selection + ALV + processFlow rasterize concurrently.
   // Each rasterizeSvgToPng() spawns its own headless browser process, so
   // Promise.all() cuts wall-clock time roughly in half. Each task is
@@ -1872,13 +2291,19 @@ export async function renderScreenImages({ selection, alv, processFlow, lang = '
         // (Split-ALV / Tabstrip / Sequence). Otherwise the legacy single-grid
         // path renders unchanged. The shape detection happens here, not at
         // the driver level, so existing per-spec drivers keep working as-is.
+        // v14: renderAlvScreenSVG adds the GUI-status (PAI) bar and ALV
+        // toolbars when the spec has them, and returns the plain grid
+        // otherwise — so the viewport comes from the SVG's own size.
         const isMultipane = Array.isArray(alv.panes) && alv.panes.length > 0;
-        const svg = isMultipane
-          ? renderMultipaneAlvSVG({ ...alv, lang })
-          : renderAlvLayoutSVG({ ...alv, lang });
-        const { width, height } = isMultipane
-          ? multipaneAlvMetrics({ ...alv })
-          : alvLayoutMetrics(alv);
+        // `standardToolbar` written at the top of a multi-pane ALV means the
+        // panes that have a toolbar — a writer's natural reading of the flag.
+        if (isMultipane && alv.standardToolbar) {
+          alv = { ...alv, panes: alv.panes.map(p => (p?.toolbar?.length && p.standardToolbar === undefined ? { ...p, standardToolbar: true } : p)) };
+        }
+        const svg = renderAlvScreenSVG(alv, { lang, flowIndex });
+        const { width, height } = svg.includes('<svg x="0"')
+          ? svgPixelSize(svg)
+          : isMultipane ? multipaneAlvMetrics({ ...alv }) : alvLayoutMetrics(alv);
         const png = await rasterizeSvgToPng(svg, { width, height });
         if (png) out.alv = { pngBuffer: png, width, height };
       } catch { /* keep alv null → wireframe fallback */ }
@@ -1907,5 +2332,27 @@ export async function renderScreenImages({ selection, alv, processFlow, lang = '
     })());
   }
   await Promise.all(tasks);
+
+  // One flow image per business button, three browsers at a time — every
+  // rasterize is a headless-browser launch, and a program can have a dozen.
+  const T = btnText(lang);
+  const results = new Array(flows.length).fill(null);
+  let next = 0;
+  const worker = async () => {
+    while (next < flows.length) {
+      const i = next++;
+      const f = flows[i];
+      try {
+        const tag = f.source === 'pai' ? T.flowPai : T.flowAlv;
+        const heading = `${f.number}. [${tag}] ${f.code}${f.label ? ` · ${f.label}` : ''}`;
+        const svg = renderFlowchartSVG(f.flow, { lang, heading });
+        const { width, height } = flowchartMetrics(f.flow);
+        const png = await rasterizeSvgToPng(svg, { width, height });
+        if (png) results[i] = { index: f.number, code: f.code, codes: flowButtonKeys(f).slice(1).map(c => c.code), source: f.source || 'alv', label: f.label || '', pngBuffer: png, width, height };
+      } catch { /* this button's flow stays null → its Markdown step list stands alone */ }
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(3, flows.length) }, worker));
+  out.buttonFlows = results.filter(Boolean);
   return out;
 }

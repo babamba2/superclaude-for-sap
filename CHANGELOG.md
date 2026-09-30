@@ -3,6 +3,28 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.28] — 2026-09-30
+
+### Added — `program-to-spec` draws output-screen buttons and one business flow per button
+
+- The ALV image (xlsx Sheet 3 and MD/HTML §3.2) now shows what a user can press: `image-spec.json.alv.screen` draws the GUI status title and its application toolbar (PAI function codes), `alv.toolbar` / `panes[].toolbar` draw the ALV grid toolbar, and `standardToolbar` adds the generic ALV icons.
+- `buttonFlows` draws one business flow per button that changes data or starts processing (`flow-<n>-<CODE>.png`, embedded in MD/HTML §4.2). The button in the ALV image carries the same number as an orange badge. The main process flow now stops at the ALV output and points to the button flows.
+- `codes[]` on a `buttonFlows` entry lets one flow cover a whole business stage — its online, batch and cancel buttons, and a button on the other toolbar (`{ "code", "source" }`). All of them carry the flow's badge, so a screen with ~30 function codes needs ~10 flows.
+- `render-md-images.mjs` and `build-spec.mjs` warn about business buttons without a flow, flows without a button, codes claimed twice and malformed `codes`. Navigation buttons opt out with `"flow": false`. The xlsx keeps the badges; the template has no slot for the flow images.
+- New `skills/program-to-spec/alv-buttons-schema.md`: how to inventory PAI and ALV buttons, the JSON shape, stage grouping and where the flows go in the spec.
+
+### Changed — `program-to-spec` HTML output and message references
+
+- `md-to-html.mjs` builds a web page instead of a plain document: contents sidebar with section folding, cover fact card, cross-linked SAP names with tooltips, sortable / filterable tables, callouts, and an All / Functional toggle that hides technical detail. New `skills/program-to-spec/html-markup.md` lists the Markdown conventions the page reads (`[!WARNING]` callouts, `<span class="tech">`, `<!-- audience: technical -->`).
+- Text elements are read in English (`language: "E"`) whatever the spec language; a program often has no text pool in it.
+- Every message is written as `CODE (English text)` — `M07 (Already FD Done)`, `E01 (IR amount is different from SO.)` — in prose, tables and flow images. Message class texts come from T100 through `GetSqlQuery` with explicit fields, the one table read the skill now allows. On BASIS < 7.50, where `GetSqlQuery` is unavailable, the `WITH` text in the source is used.
+
+### Fixed
+
+- Flowcharts: a decision with several branches that skip nodes (a three-way "which button?") drew all their labels on one spot, so only the last one was readable. Each extra branch now leaves on its own row with its own label.
+- `md-to-html.mjs` held literal NUL bytes, so git treated it as a binary file. It now uses `\u0000` escapes.
+- Checked end to end on two real ALV cockpit reports (8 and 29 function codes): no render warnings, a badge on every business button.
+
 ## [0.6.27] — 2026-09-30
 
 ### Fixed — hooks, skill frontmatter and manifests checked against Claude Code 2.1.285

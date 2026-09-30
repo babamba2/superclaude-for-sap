@@ -35,7 +35,7 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cloneTemplate } from './template-clone.mjs';
 import { swapImages } from './image-swap.mjs';
-import { renderScreenImages, selectionSchemaWarnings } from './screen-image-renderer.mjs';
+import { renderScreenImages, selectionSchemaWarnings, buttonSchemaWarnings } from './screen-image-renderer.mjs';
 
 // ──────────────────────────────────────────────────────────────
 // Language-mixing guard
@@ -134,8 +134,12 @@ export async function buildSpec({ trPath, imageSpecPath = null, outPath, verbose
 
   const imageSpec = JSON.parse(readFileSync(imageSpecPath, 'utf8'));
   reportLanguageMix({ missing: cloneResult.missing, imageSpec, lang: imageSpec.lang || tr.__lang || 'en', verbose });
-  if (verbose) for (const w of selectionSchemaWarnings(imageSpec.selection)) console.log(`⚠ build-spec: ${w}`);
-  const rendered = await renderScreenImages(imageSpec);
+  if (verbose) {
+    for (const w of [...selectionSchemaWarnings(imageSpec.selection), ...buttonSchemaWarnings(imageSpec)]) console.log(`⚠ build-spec: ${w}`);
+  }
+  // The template has no slot for per-button flows: keep their badges on the
+  // ALV image, skip rendering the flows themselves (a browser launch each).
+  const rendered = await renderScreenImages(imageSpec, { renderButtonFlows: false });
   if (verbose) {
     const ok = (s) => s ? `OK ${s.width}x${s.height}` : 'NULL';
     console.log(`build-spec: rendered selection=${ok(rendered.selection)} alv=${ok(rendered.alv)} processFlow=${ok(rendered.processFlow)}`);
