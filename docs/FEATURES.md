@@ -49,6 +49,7 @@
 | `sc4sap:create-object` | ABAP object creation (hybrid mode — transport + package confirm, create, activate) |
 | `sc4sap:create-program` | Full ABAP program pipeline — Main+Include, OOP/Procedural, ALV, Dynpro, Text Elements, ABAP Unit |
 | `sc4sap:program-to-spec` | Reverse-engineer an ABAP program into a Functional/Technical Spec (Markdown / Excel) |
+| `sc4sap:program-to-manual` | End-user manual for one program (single HTML) — scenario steps on drawn screens with numbered callouts, check points, messages & actions |
 | `sc4sap:compare-programs` | Side-by-side business comparison of 2–5 ABAP programs that split the same scenario by module / country / persona — consultant-facing Markdown report |
 | `sc4sap:analyze-code` | ABAP code analysis (Clean ABAP / performance / security) |
 | `sc4sap:analyze-cbo-obj` | Customer Business Object (CBO) inventory scanner with cross-module gap analysis |
@@ -109,6 +110,9 @@ Flow: `RuntimeListDumps` → `RuntimeAnalyzeDump` → stack trace → SAP Note c
 
 ### `/sc4sap:program-to-spec`
 Reverse-engineer an ABAP program into a spec (Markdown/Excel) with Socratic scope narrowing.
+
+### `/sc4sap:program-to-manual`
+Writes the manual a business user follows: one scenario per task ("send POs", "check missing receipts"), each step on a drawn picture of the screen — selection screen, output ALV, popups and follow-up screens — with numbered callouts, plus check points taken from the source validations, a field reference, messages with the action to take, a glossary and an automatic revision history. One self-contained HTML file: a web document on screen, one step per A4 landscape page when printed. Author, team, company and the confidentiality notice come from the profile `config.json` → `manual`.
 
 ### `/sc4sap:sap-doctor`
 Plugin + MCP + SAP connectivity diagnostics. First thing to run when something's off.

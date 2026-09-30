@@ -51,6 +51,7 @@ Enforcement: L1 agent instructions → L2 this file → L3 `PreToolUse` hook (`s
 - `/sc4sap:create-program` — Full ABAP program pipeline (Phase 0–8) with execution-mode gate (auto/manual/hybrid) and parallel Phase 4/6; auto-invokes `trust-session` at Phase 1
 - `/sc4sap:create-object` — Single ABAP object creation (auto-invokes `trust-session`)
 - `/sc4sap:program-to-spec` — Reverse-engineer a program into a spec artifact
+- `/sc4sap:program-to-manual` — End-user manual for one program: one HTML file, scenario steps on drawn screens with numbered callouts, check points, field reference, messages & actions, glossary, revision history; one step per A4 landscape page in print. Output `.sc4sap/manuals/<PROGRAM>-v<n>-<lang>.html` (auto-invokes `trust-session`)
 - `/sc4sap:analyze-code` — Static code review (auto-invokes `trust-session`)
 - `/sc4sap:compare-programs` — Business-angle side-by-side comparison of 2–5 ABAP programs sharing the same scenario but differing by module / country / persona (reader = consultant) → `.sc4sap/comparisons/*.md` (auto-invokes `trust-session`)
 - `/sc4sap:analyze-symptom` — Dump/error root-cause analysis (auto-invokes `trust-session`)

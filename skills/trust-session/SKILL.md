@@ -27,7 +27,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 **MANDATORY gate — runs as Step 0 before any file write.**
 
 Detect whether this skill is being invoked standalone or by a parent skill:
-- **Parent skill present**: the invocation is chained from `/sc4sap:create-program`, `/sc4sap:setup`, `/sc4sap:analyze-cbo-obj`, `/sc4sap:analyze-code`, `/sc4sap:analyze-symptom`, or `/sc4sap:create-object`. The caller passes `parent_skill={name}` as the first argument OR the invocation appears inside another skill's execution trace in the current turn.
+- **Parent skill present**: the invocation is chained from `/sc4sap:create-program`, `/sc4sap:setup`, `/sc4sap:analyze-cbo-obj`, `/sc4sap:analyze-code`, `/sc4sap:analyze-symptom`, `/sc4sap:create-object`, `/sc4sap:program-to-spec`, `/sc4sap:package-to-process`, `/sc4sap:compare-programs`, or `/sc4sap:program-to-manual`. The caller passes `parent_skill={name}` as the first argument OR the invocation appears inside another skill's execution trace in the current turn.
 - **Standalone (no parent)**: invoked through the Skill tool outside any parent skill's execution, or the arguments do not identify a known parent. (A user-typed `/sc4sap:trust-session` never reaches this skill — `user-invocable: false` blocks it.)
 
 **On standalone invocation, refuse and redirect**:

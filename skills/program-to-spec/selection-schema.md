@@ -22,6 +22,7 @@ Walk the program's selection-screen declarations (`SELECTION-SCREEN` / `PARAMETE
 | several `AS CHECKBOX` parameters on one `BEGIN OF LINE` | **one** `{ "type": "checkboxGroup", "layout": "horizontal", "options": [{ name, label, checked }] }` item |
 | `SELECTION-SCREEN PUSHBUTTON /1(30) b_x USER-COMMAND …` | `{ "type": "pushbutton", "label": <button text> }` |
 | `SELECTION-SCREEN COMMENT …` | `{ "type": "comment", "text": … }` |
+| `BEGIN OF BLOCK b2 WITH FRAME [TITLE t]` opened **inside** another block | **one** `{ "type": "frame", "label": <title or "">, "items": [ … ] }` item of the outer block, at its position in the source — never a separate top-level block |
 | `sscrfields-functxt_01 = …` (+ `SELECTION-SCREEN FUNCTION KEY n`) | `toolbar: [ <button text>, … ]` |
 | `OBLIGATORY` | `"required": true` |
 | `DEFAULT` / value set in `INITIALIZATION` | `"default"` (`"defaultHigh"` for a range HIGH) — dates as a sample value, e.g. today |
@@ -73,8 +74,24 @@ Rules:
 | `checkboxGroup` | `label?`, `options[{ name, label, checked? }]`, `layout?`, `note?` | checkboxes laid out like a radio group |
 | `pushbutton` | `label`, `name?`, `note?` | yellow push button |
 | `comment` | `text` | plain text line |
+| `frame` | `label?`, `items[]` (any item type, frames too) | inner border with a title on its top edge; its items keep the outer columns |
 
 Block: `{ "label": string, "items": item[] }`. An empty `label` draws a frame without a title chip (`BEGIN OF BLOCK … WITH FRAME` without `TITLE`). `NO-DISPLAY` fields are never drawn — list them only in the Parameters table.
+
+Screen title: `selection.title` = the program title from the text pool (`GetTextElement`, ID `R`), drawn as the title area above the screen.
+
+## Screen theme
+
+Every screen mockup (selection screen, output screen, popups) is drawn in **SAP Signature** by default: the blue-grey scheme, a title area, a flat application toolbar, group boxes with a header strip, and a square ALV grid with a grey header. Set `"theme"` at the top of `image-spec.json` (or `manual.json`), or set it once per SAP system as `"screenTheme"` in the profile `config.json`:
+
+| Value | Look |
+|---|---|
+| `"signature"` (default) | SAP Signature, default blue-grey scheme |
+| `"signature-pink"` | SAP Signature, pink system colour scheme |
+| `"modern"` | the earlier sc4sap look (rounded cards, blue header band) |
+| `{ "base": "signature", "page": "#…", … }` | a scheme of your own: any palette key of `SCREEN_THEMES` in `screen-image-renderer.mjs` |
+
+An ALV column with `"key": true` is tinted as a key column. Flowcharts are not themed.
 
 ## Legacy shape (read-only)
 

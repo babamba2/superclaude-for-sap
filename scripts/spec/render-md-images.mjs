@@ -24,6 +24,7 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderScreenImages, selectionSchemaWarnings, buttonSchemaWarnings } from './screen-image-renderer.mjs';
+import { readScreenTheme } from '../lib/profile-resolve.mjs';
 
 /** File name of button flow n: `flow-3-PCREATE.png`. */
 export const buttonFlowFile = (index, code) =>
@@ -45,7 +46,7 @@ export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) 
       console.log(`⚠ render-md-images: ${w}`);
     }
   }
-  const rendered = await renderScreenImages(spec);
+  const rendered = await renderScreenImages({ ...spec, theme: spec.theme ?? readScreenTheme(process.cwd()) ?? undefined });
 
   const manifest = { selection: null, alv: null, flow: null, buttonFlows: [] };
   const slots = [

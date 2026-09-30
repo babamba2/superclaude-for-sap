@@ -59,6 +59,7 @@ Skills that read or produce project-local artifacts must adopt this pattern:
 - `/sc4sap:analyze-code` — writes review report
 - `/sc4sap:analyze-cbo-obj` — writes `cbo/<MODULE>/<PACKAGE>/{index,inventory}.md`
 - `/sc4sap:compare-programs` — writes `comparisons/*.md`
+- `/sc4sap:program-to-manual` — writes `manuals/<PROGRAM>-v<n>-<lang>.html` + `<PROGRAM>-<lang>.history.json` + `_src/` / `_draft/` manual.json
 - `/sc4sap:analyze-symptom` — writes audit reports
 - `/sc4sap:create-object` — writes nothing long-term (transient state only)
 - Setup / sap-option — manage profile files themselves; outside this pattern

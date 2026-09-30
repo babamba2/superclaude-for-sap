@@ -175,3 +175,11 @@ export function normalizeTier(value) {
   if (v === 'DEV' || v === 'QA' || v === 'PRD') return v;
   return 'DEV';
 }
+
+// Theme for SAP screen mockups (program-to-spec / program-to-manual):
+// config.json "screenTheme" — 'signature' (default), 'signature-pink',
+// 'modern', or { base, ...colour overrides }. Null when unset.
+export function readScreenTheme(workspaceDir) {
+  const hit = readActiveConfigJson(workspaceDir);
+  return hit?.config?.screenTheme ?? null;
+}
