@@ -11,9 +11,10 @@
 // CLI
 //   node render-md-images.mjs <image-spec.json> <out-dir>
 //     Writes selection.png / alv.png / flow.png for whichever slots the
-//     image-spec populates, plus flow-<n>-<CODE>.png for each entry of
-//     `buttonFlows` (one business flow per ALV / PAI button). Prints a JSON
-//     manifest { slot: relPath|null, buttonFlows: [...] }.
+//     image-spec populates, plus screen-<dynnr>.png for each entry of
+//     `screens` (popups and other dynpros) and flow-<n>-<CODE>.png for each
+//     entry of `buttonFlows` (one business flow per ALV / PAI button). Prints
+//     a JSON manifest { slot: relPath|null, screens: [...], buttonFlows: [...] }.
 //
 // Graceful degrade: if no headless browser is on PATH, renderScreenImages
 // returns null per slot → that PNG is skipped and the manifest marks it null
@@ -27,6 +28,9 @@ import { renderScreenImages, selectionSchemaWarnings, buttonSchemaWarnings } fro
 /** File name of button flow n: `flow-3-PCREATE.png`. */
 export const buttonFlowFile = (index, code) =>
   `flow-${index}-${String(code).replace(/[^A-Za-z0-9_-]+/g, '_')}.png`;
+
+/** File name of a further screen: `screen-0200.png`. */
+export const screenFile = (dynnr) => `screen-${String(dynnr).replace(/[^A-Za-z0-9_-]+/g, '_')}.png`;
 
 export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) {
   if (!imageSpecPath || !existsSync(imageSpecPath)) {
@@ -58,6 +62,15 @@ export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) 
     } else if (verbose) {
       console.log(`render-md-images: ${key} → null (no PNG; MD keeps text fallback)`);
     }
+  }
+  // Further screens (image-spec.screens): popups and other dynpros a button
+  // opens, one screen-<dynnr>.png each.
+  manifest.screens = [];
+  for (const s of rendered.screens || []) {
+    const fname = screenFile(s.dynnr);
+    writeFileSync(join(outDir, fname), s.pngBuffer);
+    manifest.screens.push({ dynnr: s.dynnr, title: s.title, file: fname, width: s.width, height: s.height, bytes: s.pngBuffer.length });
+    if (verbose) console.log(`render-md-images: ${fname} ${s.width}x${s.height} (${s.pngBuffer.length} B)`);
   }
   // One flow per business button (image-spec.buttonFlows), numbered to match
   // the badges on alv.png.
