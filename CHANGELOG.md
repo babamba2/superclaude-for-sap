@@ -3,6 +3,21 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.29] — 2026-09-30
+
+### Added — `program-to-spec` documents every screen, not only the main ALV
+
+- `image-spec.json.screens[]` draws each further dynpro — popups, detail screens — as `screen-<dynnr>.png`, with the same shape as `alv` (GUI status title and buttons, grid toolbar, columns, sample rows). Buttons on those screens are checked like main-screen buttons, and a popup's confirm button can join the flow of the button that opened it through `codes`.
+- `alv.screen.fields` draws the dynpro elements between the GUI status and the grid: input fields, checkboxes, output-only text and push buttons. A push button sends a PAI function code, so it carries a flow badge like a status button.
+- The skill now reads `GetScreen` for every dynpro except the selection screen and writes one subsection per screen: its image, what calls it, and a PBO / PAI table built from the flow logic (every PBO module, every PAI function code, `AT EXIT-COMMAND`, value-request modules). A screen element is no longer described as "inferred" before its dynpro has been read.
+- The xlsx template has no slot for further screens; `build-spec.mjs` skips them.
+
+### Fixed — flowchart layout
+
+- A tall message node (a long list of messages) overlapped the message node above it or ran off the top of the image. Its decision now moves down until the message node clears, and several message nodes of one decision stack with bent connectors.
+- The label of a loop-back line along the right edge was cut off at the image border. It now stays inside the image.
+- Checked on a real report with a main ALV screen, three popups and a push button on the screen: no render warnings, every screen drawn.
+
 ## [0.6.28] — 2026-09-30
 
 ### Added — `program-to-spec` draws output-screen buttons and one business flow per button
