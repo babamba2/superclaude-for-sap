@@ -14,6 +14,7 @@ A single "toolbar button" arrow in the main flow is not enough.
 | **PAI** (GUI status) | `GetGuiStatus` for each status from `GetGuiStatusList` (application toolbar function codes, texts, icons) + the PAI `CASE ok_code` / `sy-ucomm` routing | `code`, text, icon, handler FORM/method |
 | **ALV toolbar** | The `TOOLBAR` event handler (`APPEND … TO e_object->mt_toolbar`: `function`, `text`, `icon`, `butn_type` 3 = separator), or `SET PF-STATUS` in a `REUSE_ALV_GRID_DISPLAY` callback | `code`, text, icon, which grid, handler |
 | **Handler logic** | The `USER_COMMAND` / PAI branch for each code | Checks (with message numbers), BAPIs/updates, commits, follow-up refresh |
+| **Every dynpro** | `GetScreen` for each screen from `GetScreensList` (except 1000): flow logic (PBO / PAI / POV modules, `AT EXIT-COMMAND`), screen fields (inputs, checkboxes, output fields, push buttons with `PUSH_FCODE`), screen type (`M` = modal popup) | Per screen: purpose, who calls it (`CALL SCREEN … STARTING AT`), fields, status, PBO and PAI steps |
 
 The analyst returns one row per button in the spec's screen section (Code · Text · Handler · Business action). It also returns one **business flow per button** that changes data or starts processing. Pure navigation buttons (`BACK`, `EXIT`, `CANC`, plain `REFRESH`) and standard ALV functions (sort, filter, export) get a table row only, with no flow.
 
@@ -43,6 +44,26 @@ All fields are optional. A spec without them renders exactly as before.
 - `"flow": false` marks a navigation-only button, and so does the string shorthand (`"BACK"`). Every other button must have a usable `buttonFlows` entry — its own, or a shared one that lists it in `codes` (§3) — or `render-md-images.mjs` (and `build-spec.mjs`) prints a `⚠` warning. A code must be unique within one toolbar. The same code on two grids (each with its own REFRESH) shares one flow. A PAI and an ALV button may share a code, and the flow's `source` then says which one it belongs to.
 - Order `toolbar` as the handler appends it, so the image matches the real screen.
 
+### 2.1 Screen fields and further screens
+
+```jsonc
+"alv": { "screen": { …,
+  "fields": [                                   // dynpro elements between status and grid, source order
+    { "type": "input", "label": "<text>", "value": "ZWH1" },
+    { "type": "checkbox", "label": "<text>", "checked": false },
+    { "type": "output", "value": "<output-only field text>" },
+    { "type": "pushbutton", "code": "APPLY", "label": "<text>", "icon": "check" }   // a PAI code: badge + flow
+  ] } },
+"screens": [                                    // every other dynpro a button opens → screen-<dynnr>.png
+  { "dynnr": "0200", "screen": { "title": "<popup title>", "status": "S0200", "buttons": [ … ], "fields": [ … ] },
+    "toolbar": [ … ], "columns": [ … ], "sampleRows": [ … ] }   // same shape as `alv`
+]
+```
+
+- Transcribe `fields` from `GetScreen` (`fields_to_containers`): TEXT + TEMPLATE pairs → one `input`, CHECK → `checkbox`, output-only TEMPLATE → `output`, PUSH → `pushbutton` with its `PUSH_FCODE`. Skip `OK_CODE` and the custom container.
+- Give each popup (screen type `M`) and each further full screen its own `screens` entry, with its GUI status buttons and grid. Buttons on those screens count like main-screen buttons: link them to the stage flow with `codes` (a popup's OKAY / CREATE belongs to the flow of the button that opened it) or mark them `"flow": false` (EXIT).
+- The spec gets one subsection per screen (see §4).
+
 ## 3. image-spec.json — `buttonFlows`
 
 ```jsonc
@@ -65,7 +86,22 @@ All fields are optional. A spec without them renders exactly as before.
 
 ## 4. Rendering and placement (Step 3.5)
 
-`render-md-images.mjs <image-spec.json> <out-dir>` writes `alv.png` with the buttons and badges, plus `flow-<n>-<CODE>.png` for each button flow. Check its output for `⚠` lines and fix the spec before finalizing.
+`render-md-images.mjs <image-spec.json> <out-dir>` writes `alv.png` with the buttons and badges, `screen-<dynnr>.png` for each `screens` entry, and `flow-<n>-<CODE>.png` for each button flow. Check its output for `⚠` lines and fix the spec before finalizing.
+
+**One subsection per screen** in the screens section (§3), main screen first, then each further screen in the order the user reaches it:
+
+```markdown
+### 3.4 Popup 0200 — Simulation result (called from SIMU / CONV, C L345)
+![Popup 0200 — …](_assets/<OBJECT>-<YYYYMMDD>-<lang>/screen-0200.png)
+
+| Event | Module / code | Processing |
+|---|---|---|
+| PBO | STATUS_0200 | Sets status S0200; hides DETACH when no group is red |
+| PAI | OKAY | COMMAND_0200_OKAY — … |
+| PAI | EXIT | Clears the result, frees the grid, LEAVE TO SCREEN 0 |
+```
+
+- Say what the screen is for, who calls it, its fields and columns, then a **PBO / PAI table** transcribed from the flow logic: every PBO module, every PAI function code (`CASE ok_code`), `AT EXIT-COMMAND` and POV modules, each with the method it calls and the business effect (messages as `CODE (English text)`). The main screen gets the same table.
 
 In the Markdown spec, put the button flows in §4 after the main flow:
 

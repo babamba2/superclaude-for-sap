@@ -11,7 +11,7 @@ import {
   // @ts-expect-error — plain .mjs script, no type declarations
 } from '../../scripts/spec/screen-image-renderer.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { buttonFlowFile } from '../../scripts/spec/render-md-images.mjs';
+import { buttonFlowFile, screenFile } from '../../scripts/spec/render-md-images.mjs';
 
 const GRID = {
   columns: [{ name: 'VBELN', header: 'Order', width: 120, hotspot: true }, { name: 'NETWR', header: 'Value', width: 120, align: 'end' }],
@@ -150,6 +150,44 @@ describe('ALV screen buttons', () => {
       expect(has('#3 "X" has a "codes" that is not an array')).toBe(true);
     });
 
+    it('draws dynpro fields and badges a push button among them (ZSDR24730 screen 0100)', () => {
+      const flowIndex = buildFlowIndex([{ code: 'APPLY', source: 'pai', flow: FLOW }]);
+      const svg: string = renderAlvScreenSVG({
+        ...GRID,
+        screen: {
+          title: 'Inquiry list', status: 'S0100',
+          fields: [
+            { type: 'input', label: 'Target SO type', value: 'ZWH1' },
+            { type: 'checkbox', label: 'Fill automatically', checked: true },
+            { type: 'output', value: 'ATP is considered' },
+            { type: 'pushbutton', code: 'APPLY', label: 'Apply', icon: 'check' },
+          ],
+        },
+      }, { lang: 'en', flowIndex });
+      for (const text of ['Target SO type', 'ZWH1', 'Fill automatically', 'ATP is considered', 'Apply']) expect(svg).toContain(text);
+      expect(svg).toMatch(/fill="#D9730D"[^>]*\/><text[^>]*>1<\/text>/);
+      expect(buttonSchemaWarnings({
+        alv: { ...GRID, screen: { fields: [{ type: 'pushbutton', code: 'APPLY', label: 'Apply' }] } },
+        buttonFlows: [{ code: 'APPLY', source: 'pai', flow: FLOW }],
+      })).toEqual([]);
+    });
+
+    it('checks the buttons of further screens and lets a flow link them', () => {
+      const spec = {
+        alv: { ...GRID, screen: { buttons: [{ code: 'CONV', label: 'Convert' }] } },
+        screens: [
+          { dynnr: '0200', ...GRID, screen: { title: 'Simulation', buttons: [{ code: 'OKAY', label: 'OK' }, { code: 'EXIT', label: 'Cancel', flow: false }] } },
+          { dynnr: '0400', ...GRID, screen: { buttons: [{ code: 'CREATE', label: 'Create DN' }] } },
+        ],
+        buttonFlows: [{ code: 'CONV', source: 'pai', codes: ['OKAY'], flow: FLOW }],
+      };
+      const warns: string[] = buttonSchemaWarnings(spec);
+      expect(warns).toEqual(['PAI button "CREATE" has no usable buttonFlows entry — add its business flow, list it in the "codes" of the flow it shares, or set "flow": false if it only navigates (BACK / EXIT / REFRESH)']);
+      const svg: string = renderAlvScreenSVG(spec.screens[0], { lang: 'en', flowIndex: buildFlowIndex(spec.buttonFlows) });
+      expect(svg).toContain('Simulation');
+      expect(svg).toMatch(/fill="#D9730D"[^>]*\/><text[^>]*>1<\/text>/);
+    });
+
     it('keeps a long label inside a narrow side-by-side pane', () => {
       const spec = {
         layout: 'split-vertical', splitRatio: [20, 80],
@@ -256,8 +294,59 @@ describe('ALV screen buttons', () => {
     });
   });
 
+  it('keeps a tall message node clear of the one above it and of the top edge (ZSDR24730 flow ②)', () => {
+    const many = Array.from({ length: 12 }, (_, i) => `E${String(i + 1).padStart(2, '0')} (A long message text number ${i + 1})`).join('\n');
+    const graph = {
+      nodes: [
+        { id: 'S', type: 'start', label: 'Click' },
+        { id: 'D1', type: 'decision', label: 'Group rows?' },
+        { id: 'M1', type: 'io', label: 'E000 (You must fill group at least one.)', lane: 'right' },
+        { id: 'P1', type: 'process', label: 'Check groups' },
+        { id: 'M2', type: 'io', label: many, lane: 'right' },
+        { id: 'E', type: 'end', label: 'Done' },
+      ],
+      edges: [
+        { from: 'S', to: 'D1' }, { from: 'D1', to: 'M1', label: 'No' }, { from: 'D1', to: 'P1', label: 'Yes' },
+        { from: 'P1', to: 'M2' }, { from: 'P1', to: 'E' }, { from: 'M1', to: 'E' }, { from: 'M2', to: 'E' },
+      ],
+    };
+    const svg: string = renderFlowchartSVG(graph, { lang: 'en' });
+    const boxes = [...svg.matchAll(/<polygon points="([^"]+)" fill="#FCE7E4"/g)]
+      .map((m) => m[1].split(' ').map((p) => Number(p.split(',')[1])))
+      .map((ys) => ({ top: Math.min(...ys), bottom: Math.max(...ys) }))
+      .filter((b) => b.bottom - b.top > 30); // the legend swatch is ~16 px
+    expect(boxes.length).toBe(2);
+    expect(boxes[1].top).toBeGreaterThan(boxes[0].bottom);
+    expect(Math.min(boxes[0].top, boxes[1].top)).toBeGreaterThan(0);
+  });
+
+  it('keeps the chip of a right-lane loop-back inside the canvas', () => {
+    const graph = {
+      nodes: [
+        { id: 'P1', type: 'process', label: 'Enter criteria' },
+        { id: 'D1', type: 'decision', label: 'Allowed?' },
+        { id: 'M1', type: 'io', label: 'Not allowed', lane: 'right' },
+        { id: 'P2', type: 'process', label: 'Read' },
+        { id: 'D2', type: 'decision', label: 'Data?' },
+        { id: 'M2', type: 'io', label: 'No data', lane: 'right' },
+      ],
+      edges: [
+        { from: 'P1', to: 'D1' }, { from: 'D1', to: 'M1', label: 'No' }, { from: 'M1', to: 'P1', label: 'Back to selection' },
+        { from: 'D1', to: 'P2', label: 'Yes' }, { from: 'P2', to: 'D2' },
+        { from: 'D2', to: 'M2', label: 'No' }, { from: 'M2', to: 'P1', label: 'Back to selection' },
+      ],
+    };
+    const svg: string = renderFlowchartSVG(graph, { lang: 'en' });
+    const width = Number(svg.match(/viewBox="0 0 ([\d.]+)/)![1]);
+    const rights = [...svg.matchAll(/<rect x="([\d.-]+)" y="[\d.-]+" width="([\d.]+)" height="16" rx="3"[^>]*\/><text[^>]*>Back to selection</g)]
+      .map((m) => Number(m[1]) + Number(m[2]));
+    expect(rights.length).toBe(2);
+    for (const r of rights) expect(r).toBeLessThanOrEqual(width);
+  });
+
   it('names button flow files by number and a file-safe code', () => {
     expect(buttonFlowFile(3, 'PCREATE')).toBe('flow-3-PCREATE.png');
     expect(buttonFlowFile(1, '/NS/ACT ONE')).toBe('flow-1-_NS_ACT_ONE.png');
+    expect(screenFile('0200')).toBe('screen-0200.png');
   });
 });

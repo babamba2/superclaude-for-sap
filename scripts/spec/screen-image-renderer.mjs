@@ -929,6 +929,7 @@ const FC_PAD_BOT  = 56;
 const FC_SKIP_X   = 62;   // left lane for spine edges that skip nodes; the widest box starts at 100
 const FC_LANE_GAP = 12;   // spacing between parallel lane edges
 const FC_SIB_GAP  = 20;   // vertical offset between left-lane edges that leave the same node
+const FC_SIDE_GAP = 14;   // minimum vertical gap between stacked side (message) nodes
 const FC_INK      = '#2B3A4A';
 const FC_EDGE     = '#5E7388';
 
@@ -963,24 +964,42 @@ function layoutFlowchart(graph = {}) {
   const edges = graph.edges || [];
   const byId = Object.fromEntries(nodes.map(n => [n.id, n]));
   const pos = {};
-  // Stack spine nodes (centre column); `spine` is the stacking order.
+  // Side nodes hang off the spine node that points at them, centred on it.
+  const sidesOf = {};
+  for (const n of nodes) {
+    if (n.lane !== 'right') continue;
+    const src = edges.find(e => e.to === n.id && byId[e.from] && byId[e.from].lane !== 'right');
+    if (src) (sidesOf[src.from] ||= []).push(n);
+  }
+  // Stack spine nodes (centre column); `spine` is the stacking order. A tall
+  // side node (a long message list) would overlap the side node above it or
+  // run off the top, so its spine node moves down until the side node clears.
   let y = FC_PAD_TOP;
   let order = 0;
+  let sideBottom = FC_PAD_TOP - FC_SIDE_GAP;
   for (const n of nodes) {
     if (n.lane === 'right') continue;
     const m = fcMeasure(n);
-    pos[n.id] = { ...m, x: FC_CENTER_X, yTop: y, cy: y + m.h / 2, spine: order++ };
+    const sides = (sidesOf[n.id] || []).map(s => ({ id: s.id, m: fcMeasure(s) }));
+    const sideH = sides.reduce((h, s) => h + s.m.h, 0) + FC_SIDE_GAP * Math.max(0, sides.length - 1);
+    if (sides.length) y = Math.max(y, sideBottom + FC_SIDE_GAP + sideH / 2 - m.h / 2);
+    const cy = y + m.h / 2;
+    pos[n.id] = { ...m, x: FC_CENTER_X, yTop: y, cy, spine: order++ };
+    let top = cy - sideH / 2;
+    for (const s of sides) {
+      pos[s.id] = { ...s.m, x: FC_RIGHT_X, yTop: top, cy: top + s.m.h / 2 };
+      top += s.m.h + FC_SIDE_GAP;
+    }
+    if (sides.length) sideBottom = cy + sideH / 2;
     y += m.h + FC_VGAP;
   }
-  let maxY = y - FC_VGAP;
-  // Place side nodes aligned to the decision that points at them.
+  let maxY = Math.max(y - FC_VGAP, sideBottom);
+  // A side node no spine node points at goes to the top of the side column.
   for (const n of nodes) {
-    if (n.lane !== 'right') continue;
+    if (n.lane !== 'right' || pos[n.id]) continue;
     const m = fcMeasure(n);
-    const src = edges.find(e => e.to === n.id && pos[e.from]);
-    const cy = src ? pos[src.from].cy : FC_PAD_TOP + m.h / 2;
-    pos[n.id] = { ...m, x: FC_RIGHT_X, yTop: cy - m.h / 2, cy };
-    if (cy + m.h / 2 > maxY) maxY = cy + m.h / 2;
+    pos[n.id] = { ...m, x: FC_RIGHT_X, yTop: FC_PAD_TOP, cy: FC_PAD_TOP + m.h / 2 };
+    maxY = Math.max(maxY, FC_PAD_TOP + m.h);
   }
   // Lanes for edges that cannot run straight. A spine edge that skips nodes
   // (a "no → end" shortcut) or climbs back up gets its own left lane; a side
@@ -1074,9 +1093,16 @@ function fcEdgeSvg(e, L, lang, i) {
   } else if (lane?.side === 'right') {         // side exit around another side node
     const x = FC_WIDTH - 12 - lane.k * FC_LANE_GAP;
     pts = [east(a), { x, y: a.cy }, { x, y: b.cy }, east(b)];
-    lx = x; ly = (a.cy + b.cy) / 2; lcol = '#7A4B9C';
+    // The lane hugs the right edge; keep its chip inside the canvas.
+    lx = Math.min(x, FC_WIDTH - (approxTextWidthPx(label || '') + 12) / 2 - 4);
+    ly = (a.cy + b.cy) / 2; lcol = '#7A4B9C';
   } else if (!aSide && bSide) {                // decision → exception (horizontal)
-    pts = [east(a), { x: b.x - b.w / 2, y: a.cy }];
+    // Straight when the side node sits on the source row; an elbow when it
+    // was stacked below another side node of the same source.
+    const mx = (a.x + a.w / 2 + b.x - b.w / 2) / 2;
+    pts = Math.abs(b.cy - a.cy) < 1
+      ? [east(a), { x: b.x - b.w / 2, y: a.cy }]
+      : [east(a), { x: mx, y: a.cy }, { x: mx, y: b.cy }, { x: b.x - b.w / 2, y: b.cy }];
     lx = (a.x + a.w / 2 + b.x - b.w / 2) / 2; ly = a.cy - 7;
     if (label === legendFor(lang).fc_no || /no|아니|いいえ/i.test(label || '')) lcol = '#B0402F';
   } else if (aSide && !bSide) {                // side → spine (loop-back up / exit down)
@@ -1903,9 +1929,91 @@ function buttonBarSvg(x0, y0, width, items, { variant, lang, flowIndex }) {
         parts.push(`<text x="${tx}" y="${cy}" font-size="11.5" fill="${style.ink}">${xml(fitLabel(b.label, bx + w - 10 - tx))}</text>`);
       }
       const n = b.code && !b.std ? flowIndex?.get(flowKey(variant, b.code)) : undefined;
-      if (n) {
-        parts.push(`<circle cx="${bx + w - 1}" cy="${by + 1}" r="8" fill="#D9730D" stroke="#FFF" stroke-width="1.2"/>`
-          + `<text x="${bx + w - 1}" y="${by + 4.5}" text-anchor="middle" font-size="10" font-weight="700" fill="#FFF">${n}</text>`);
+      if (n) parts.push(badgeSvg(bx, by, w, n));
+    }
+  });
+  return parts.join('');
+}
+
+// ──────────────────────────────────────────────────────────────
+// Dynpro elements above the grid (v15) — alv.screen.fields
+// ──────────────────────────────────────────────────────────────
+// A screen often carries its own input fields, checkboxes, output text and
+// push buttons between the GUI status and the ALV container (condition
+// fields + an Apply button, say). They are drawn in source order and wrap
+// like a button bar. A push button sends a PAI function code, so it carries
+// a flow badge exactly like a status button.
+//
+//   Field = { type: 'input', label?, value?, width? } | { type: 'checkbox', label, checked? }
+//         | { type: 'output', value } | { type: 'pushbutton', code, label?, icon?, flow? }
+const FLD_ROW_H = 30, FLD_GAP = 14, FLD_BOX_H = 20;
+
+function normalizeFields(list) {
+  return (Array.isArray(list) ? list : []).filter(f => f && typeof f === 'object');
+}
+function fieldWidth(f) {
+  const type = f.type || 'input';
+  if (type === 'pushbutton') return btnWidth(f);
+  if (type === 'checkbox') return 20 + Math.ceil(approxTextWidthPx(f.label || ''));
+  if (type === 'output') return Math.ceil(approxTextWidthPx(String(f.value ?? ''))) + 8;
+  const box = Math.max(56, Math.ceil(approxTextWidthPx(String(f.value ?? ''))) + 18, Number(f.width) || 0);
+  return (f.label ? Math.ceil(approxTextWidthPx(f.label)) + 8 : 0) + box;
+}
+function fieldsNeedW(items) {
+  return TB_PAD_X * 2 + items.reduce((s, f) => s + fieldWidth(f) + FLD_GAP, 0);
+}
+function layoutFields(items, width) {
+  const rows = [[]];
+  let x = TB_PAD_X;
+  for (const f of items) {
+    const w = Math.min(fieldWidth(f), width - TB_PAD_X * 2);
+    if (x + w > width - TB_PAD_X && rows[rows.length - 1].length) { rows.push([]); x = TB_PAD_X; }
+    rows[rows.length - 1].push({ f, x, w });
+    x += w + FLD_GAP;
+  }
+  return rows;
+}
+function fieldsHeight(items, width) {
+  return items.length ? layoutFields(items, width).length * FLD_ROW_H + 8 : 0;
+}
+/** Orange number badge at a button's top-right corner. */
+function badgeSvg(bx, by, w, n) {
+  return `<circle cx="${bx + w - 1}" cy="${by + 1}" r="8" fill="#D9730D" stroke="#FFF" stroke-width="1.2"/>`
+    + `<text x="${bx + w - 1}" y="${by + 4.5}" text-anchor="middle" font-size="10" font-weight="700" fill="#FFF">${n}</text>`;
+}
+function screenFieldsSvg(x0, y0, width, items, { flowIndex }) {
+  if (!items.length) return '';
+  const rows = layoutFields(items, width);
+  const parts = [`<rect x="${x0}" y="${y0}" width="${width}" height="${rows.length * FLD_ROW_H + 8}" fill="#FAFBFC" stroke="#DCE3EA"/>`];
+  rows.forEach((row, r) => {
+    const by = y0 + 4 + r * FLD_ROW_H + (FLD_ROW_H - FLD_BOX_H) / 2;
+    const ty = by + FLD_BOX_H / 2 + 4;
+    for (const { f, x, w } of row) {
+      const bx = x0 + x;
+      const type = f.type || 'input';
+      if (type === 'pushbutton') {
+        parts.push(`<rect x="${bx}" y="${by}" width="${w}" height="${FLD_BOX_H}" rx="4" fill="#FFF7D6" stroke="#B89B2E"/>`);
+        const icon = btnIcon(f);
+        let tx = bx + 10;
+        if (icon) { parts.push(`<text x="${tx + 5}" y="${ty}" text-anchor="middle" font-size="12" font-weight="700" fill="#5C4A0A">${xml(icon)}</text>`); tx += 16; }
+        parts.push(`<text x="${tx}" y="${ty}" font-size="11.5" fill="#5C4A0A">${xml(fitLabel(f.label || f.code || '', bx + w - 10 - tx))}</text>`);
+        const n = f.code ? flowIndex?.get(flowKey('pai', f.code)) : undefined;
+        if (n) parts.push(badgeSvg(bx, by, w, n));
+      } else if (type === 'checkbox') {
+        parts.push(`<rect x="${bx}" y="${by + 3}" width="14" height="14" rx="2" fill="#FFF" stroke="#7A8896"/>`);
+        if (f.checked) parts.push(`<text x="${bx + 7}" y="${by + 15}" text-anchor="middle" font-size="12" font-weight="700" fill="#1F4E79">✓</text>`);
+        parts.push(`<text x="${bx + 20}" y="${ty}" font-size="11.5" fill="#2B3A4A">${xml(f.label || '')}</text>`);
+      } else if (type === 'output') {
+        parts.push(`<text x="${bx}" y="${ty}" font-size="11.5" font-weight="700" fill="#1F4E79">${xml(String(f.value ?? ''))}</text>`);
+      } else {
+        let bxBox = bx;
+        if (f.label) {
+          parts.push(`<text x="${bx}" y="${ty}" font-size="11.5" fill="#2B3A4A">${xml(f.label)}</text>`);
+          bxBox += Math.ceil(approxTextWidthPx(f.label)) + 8;
+        }
+        const bw = bx + w - bxBox;
+        parts.push(`<rect x="${bxBox}" y="${by}" width="${bw}" height="${FLD_BOX_H}" fill="#FFFFFF" stroke="#9AA7B5"/>`);
+        parts.push(`<text x="${bxBox + 6}" y="${ty}" font-size="11.5" font-family="Consolas,monospace" fill="#2B3A4A">${xml(fitLabel(String(f.value ?? ''), bw - 10))}</text>`);
       }
     }
   });
@@ -1919,7 +2027,11 @@ function hasFlowBadge(alv, flowIndex) {
     ...normalizeButtons(alv?.toolbar),
     ...(Array.isArray(alv?.panes) ? alv.panes.flatMap(p => normalizeButtons(p?.toolbar)) : []),
   ];
-  return normalizeButtons(alv?.screen?.buttons).some(b => b.code && flowIndex.has(flowKey('pai', b.code)))
+  const paiButtons = [
+    ...normalizeButtons(alv?.screen?.buttons),
+    ...normalizeFields(alv?.screen?.fields).filter(f => f.type === 'pushbutton'),
+  ];
+  return paiButtons.some(b => b.code && flowIndex.has(flowKey('pai', b.code)))
     || alvButtons.some(b => b.code && flowIndex.has(flowKey('alv', b.code)));
 }
 
@@ -1936,18 +2048,21 @@ export function renderAlvScreenSVG(alv = {}, { lang = 'ko', flowIndex = new Map(
     : renderAlvLayoutSVG({ ...alv, lang });
   const screen = alv.screen && typeof alv.screen === 'object' ? alv.screen : null;
   const pai = normalizeButtons(screen?.buttons);
+  const fields = normalizeFields(screen?.fields);
   const grid = isMultipane ? [] : barButtons(alv);
   const note = hasFlowBadge(alv, flowIndex);
   if (!screen && !grid.length && !note) return inner;
 
   const vb = inner.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/);
   const innerW = Number(vb[1]), innerH = Number(vb[2]);
-  const W = Math.min(SCREEN_MAX_W, Math.max(innerW, pai.length ? barNeedW(pai) : 0, grid.length ? barNeedW(grid) + 20 : 0));
+  const W = Math.min(SCREEN_MAX_W, Math.max(innerW, pai.length ? barNeedW(pai) : 0,
+    fields.length ? fieldsNeedW(fields) : 0, grid.length ? barNeedW(grid) + 20 : 0));
   const titleH = screen ? SCREEN_TITLE_H : 0;
   const paiH = barHeight(pai, W);
+  const fieldsH = fieldsHeight(fields, W);
   const gridH = barHeight(grid, W - 20);
   const noteH = note ? SCREEN_NOTE_H : 0;
-  const H = titleH + paiH + (gridH ? gridH + 10 : 0) + innerH + noteH;
+  const H = titleH + paiH + fieldsH + (gridH ? gridH + 10 : 0) + innerH + noteH;
   const parts = [];
   let y = 0;
   if (screen) {
@@ -1961,6 +2076,7 @@ export function renderAlvScreenSVG(alv = {}, { lang = 'ko', flowIndex = new Map(
     y += titleH;
   }
   if (paiH) { parts.push(buttonBarSvg(0, y, W, pai, { variant: 'pai', lang, flowIndex })); y += paiH; }
+  if (fieldsH) { parts.push(screenFieldsSvg(0, y, W, fields, { flowIndex })); y += fieldsH; }
   if (gridH) { parts.push(buttonBarSvg(10, y + 10, W - 20, grid, { variant: 'alv', lang, flowIndex })); y += gridH + 10; }
   parts.push(`<svg x="0" y="${y}" width="${innerW}" height="${innerH}" viewBox="0 0 ${innerW} ${innerH}">${extractInnerSvg(inner)}</svg>`);
   y += innerH;
@@ -1995,10 +2111,18 @@ export function buttonSchemaWarnings(spec = {}) {
     .map(raw => ({ raw, b: normalizeButtons([raw])[0] }))
     .filter(({ b }) => b && !b.sep && !b.std)
     .map(({ raw, b }) => ({ ...b, source, bar, shorthand: typeof raw === 'string' }));
+  // Every screen's buttons: the main output screen (alv) and each further
+  // screen in `screens` (popups and other dynpros). Push buttons among the
+  // screen fields send PAI function codes, like the GUI status buttons.
+  const screenButtons = (s, id) => [
+    ...tag(s?.screen?.buttons, 'pai', `pai@${id}`),
+    ...tag(normalizeFields(s?.screen?.fields).filter(f => f.type === 'pushbutton'), 'pai', `fields@${id}`),
+    ...tag(s?.toolbar, 'alv', `grid@${id}`),
+    ...(Array.isArray(s?.panes) ? s.panes.flatMap((p, i) => tag(p?.toolbar, 'alv', `pane${i}@${id}`)) : []),
+  ];
   const buttons = [
-    ...tag(alv.screen?.buttons, 'pai', 'pai'),
-    ...tag(alv.toolbar, 'alv', 'grid'),
-    ...(Array.isArray(alv.panes) ? alv.panes.flatMap((p, i) => tag(p?.toolbar, 'alv', `pane${i}`)) : []),
+    ...screenButtons(alv, 'main'),
+    ...(Array.isArray(spec.screens) ? spec.screens.flatMap((s, i) => screenButtons(s, s?.dynnr || `screen${i}`)) : []),
   ];
   const where = (source) => (source === 'pai' ? 'PAI' : 'ALV');
 
@@ -2025,7 +2149,7 @@ export function buttonSchemaWarnings(spec = {}) {
       const what = j === 0 ? `"${code}"` : `links "${code}", which`;
       if (seenFlows.has(key)) warns.push(`buttonFlows #${n} ${what} repeats an earlier ${where(source)} flow — only the first is used`);
       seenFlows.add(key);
-      if (!seenButtons.has(key)) warns.push(`buttonFlows #${n} ${what} (source "${source}") has no matching button in ${source === 'pai' ? 'alv.screen.buttons' : 'alv.toolbar / panes[].toolbar'}`);
+      if (!seenButtons.has(key)) warns.push(`buttonFlows #${n} ${what} (source "${source}") has no matching button in ${source === 'pai' ? 'screen.buttons / screen.fields' : 'toolbar / panes[].toolbar'} of alv or screens[]`);
     });
     if (!isRenderableFlow(f)) warns.push(`buttonFlows #${n} "${f.code}" has no drawable flow — "flow" must be { nodes: [..at least one..], edges }`);
   });
@@ -2252,8 +2376,8 @@ export async function rasterizeSvgToPng(svg, { width, height } = {}) {
  * come out in the spec's language. When absent it defaults to 'ko' inside
  * the renderers, preserving backward-compatible behaviour.
  */
-export async function renderScreenImages({ selection, alv, processFlow, buttonFlows, lang = 'ko' } = {}, { renderButtonFlows = true } = {}) {
-  const out = { selection: null, alv: null, processFlow: null, buttonFlows: [] };
+export async function renderScreenImages({ selection, alv, screens, processFlow, buttonFlows, lang = 'ko' } = {}, { renderButtonFlows = true, renderScreens = true } = {}) {
+  const out = { selection: null, alv: null, processFlow: null, screens: [], buttonFlows: [] };
   // Buttons with their own flow keep their array position as their number;
   // the ALV image badges each button with it. The xlsx path passes
   // renderButtonFlows:false — it has no slot for them, so it keeps the badges
@@ -2284,31 +2408,45 @@ export async function renderScreenImages({ selection, alv, processFlow, buttonFl
       } catch { /* keep selection null → wireframe fallback */ }
     })());
   }
+  // One output screen → PNG. Shared by the main screen (`alv`) and every
+  // further screen in `screens` (popups, detail dynpros).
+  const renderOutputScreen = async (spec) => {
+    // v10: when `panes` is supplied we route to the multipane composer
+    // (Split-ALV / Tabstrip / Sequence). Otherwise the legacy single-grid
+    // path renders unchanged. The shape detection happens here, not at
+    // the driver level, so existing per-spec drivers keep working as-is.
+    // v14: renderAlvScreenSVG adds the GUI-status (PAI) bar and ALV
+    // toolbars when the spec has them, and returns the plain grid
+    // otherwise — so the viewport comes from the SVG's own size.
+    const isMultipane = Array.isArray(spec.panes) && spec.panes.length > 0;
+    // `standardToolbar` written at the top of a multi-pane ALV means the
+    // panes that have a toolbar — a writer's natural reading of the flag.
+    if (isMultipane && spec.standardToolbar) {
+      spec = { ...spec, panes: spec.panes.map(p => (p?.toolbar?.length && p.standardToolbar === undefined ? { ...p, standardToolbar: true } : p)) };
+    }
+    const svg = renderAlvScreenSVG(spec, { lang, flowIndex });
+    const { width, height } = svg.includes('<svg x="0"')
+      ? svgPixelSize(svg)
+      : isMultipane ? multipaneAlvMetrics({ ...spec }) : alvLayoutMetrics(spec);
+    const png = await rasterizeSvgToPng(svg, { width, height });
+    return png ? { pngBuffer: png, width, height } : null;
+  };
   if (alv) {
     tasks.push((async () => {
-      try {
-        // v10: when `panes` is supplied we route to the multipane composer
-        // (Split-ALV / Tabstrip / Sequence). Otherwise the legacy single-grid
-        // path renders unchanged. The shape detection happens here, not at
-        // the driver level, so existing per-spec drivers keep working as-is.
-        // v14: renderAlvScreenSVG adds the GUI-status (PAI) bar and ALV
-        // toolbars when the spec has them, and returns the plain grid
-        // otherwise — so the viewport comes from the SVG's own size.
-        const isMultipane = Array.isArray(alv.panes) && alv.panes.length > 0;
-        // `standardToolbar` written at the top of a multi-pane ALV means the
-        // panes that have a toolbar — a writer's natural reading of the flag.
-        if (isMultipane && alv.standardToolbar) {
-          alv = { ...alv, panes: alv.panes.map(p => (p?.toolbar?.length && p.standardToolbar === undefined ? { ...p, standardToolbar: true } : p)) };
-        }
-        const svg = renderAlvScreenSVG(alv, { lang, flowIndex });
-        const { width, height } = svg.includes('<svg x="0"')
-          ? svgPixelSize(svg)
-          : isMultipane ? multipaneAlvMetrics({ ...alv }) : alvLayoutMetrics(alv);
-        const png = await rasterizeSvgToPng(svg, { width, height });
-        if (png) out.alv = { pngBuffer: png, width, height };
-      } catch { /* keep alv null → wireframe fallback */ }
+      try { out.alv = await renderOutputScreen(alv); } catch { /* keep alv null → wireframe fallback */ }
     })());
   }
+  // v15: further screens a button opens (popups 0200/0300…, detail dynpros).
+  const extraScreens = renderScreens && Array.isArray(screens) ? screens.filter(s => s && typeof s === 'object') : [];
+  const screenResults = new Array(extraScreens.length).fill(null);
+  extraScreens.forEach((s, i) => {
+    tasks.push((async () => {
+      try {
+        const r = await renderOutputScreen(s);
+        if (r) screenResults[i] = { dynnr: String(s.dynnr || `S${i + 1}`), title: s.screen?.title || '', ...r };
+      } catch { /* this screen stays out; its Markdown table stands alone */ }
+    })());
+  });
   // processFlow accepts TWO shapes:
   //   · string[]          → legacy linear horizontal flow (back-compat)
   //   · { nodes, edges }  → v12 branching flowchart (Mermaid-style TD), the
@@ -2332,6 +2470,7 @@ export async function renderScreenImages({ selection, alv, processFlow, buttonFl
     })());
   }
   await Promise.all(tasks);
+  out.screens = screenResults.filter(Boolean);
 
   // One flow image per business button, three browsers at a time — every
   // rasterize is a headless-browser launch, and a program can have a dozen.

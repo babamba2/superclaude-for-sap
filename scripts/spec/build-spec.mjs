@@ -137,9 +137,9 @@ export async function buildSpec({ trPath, imageSpecPath = null, outPath, verbose
   if (verbose) {
     for (const w of [...selectionSchemaWarnings(imageSpec.selection), ...buttonSchemaWarnings(imageSpec)]) console.log(`⚠ build-spec: ${w}`);
   }
-  // The template has no slot for per-button flows: keep their badges on the
-  // ALV image, skip rendering the flows themselves (a browser launch each).
-  const rendered = await renderScreenImages(imageSpec, { renderButtonFlows: false });
+  // The template has no slot for per-button flows or further screens: keep
+  // the badges on the ALV image, skip rendering the rest (a browser launch each).
+  const rendered = await renderScreenImages(imageSpec, { renderButtonFlows: false, renderScreens: false });
   if (verbose) {
     const ok = (s) => s ? `OK ${s.width}x${s.height}` : 'NULL';
     console.log(`build-spec: rendered selection=${ok(rendered.selection)} alv=${ok(rendered.alv)} processFlow=${ok(rendered.processFlow)}`);
