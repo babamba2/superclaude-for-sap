@@ -1,0 +1,3 @@
+클로드 실행시 아래 주의 메세지가 나오는 이유가 뭐야 ? Permission allow rule (.claude\settings.local.json): Write(.sc4sap/**) is not matched by file permission checks — only Edit(path) rules are. Use Edit(.sc4sap/**) instead (Edit rules cover all file-editing tools).
+Permission allow rule (.claude\settings.local.json): Glob(.sc4sap/**) is not matched by file permission checks — only Read(path) rules are. Use Read(.sc4sap/**) instead (Read rules cover all file-reading tools).
+Permission allow rule (.claude\settings.local.json): Glob(sc4sap/**) is not matched by file permission checks — only Read(path) rules are. Use Read(sc4sap/**) instead (Read rules cover all file-reading tools).
