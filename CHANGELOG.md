@@ -3,6 +3,13 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.32] — 2026-10-02
+
+### Fixed — `trust-session`: no more permission-rule warning at startup
+
+- Permission rules are aligned with Claude Code's path-rule model: `Read(path)` covers all file-reading tools and `Edit(path)` covers all file-editing tools. trust-session now grants only `Read(.sc4sap/**)`, `Read(sc4sap/**)` and `Edit(.sc4sap/**)` (plus `Agent(*)`).
+- The stale `Write(.sc4sap/**)`, `Glob(...)` and `Grep(...)` entries that earlier versions wrote never matched and made Claude Code print a warning at startup. trust-session now removes them automatically; no other rule is touched.
+
 ## [0.6.31] — 2026-09-30
 
 ### Added — `program-to-manual`: edit the finished manual in the page

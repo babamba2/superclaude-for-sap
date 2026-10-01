@@ -66,9 +66,9 @@ Single-layer, non-MCP permission grant written to `.claude/settings.local.json` 
 - **Sub-agent dispatch — allowed**:
   - `Agent(*)` — required so parallel review fan-out and any other sub-agent dispatch run without prompts. Each sub-agent's MCP calls are still auto-approved individually by the `permission-approver` hook; its non-MCP tool calls follow this same allowlist.
 - **Internal state file I/O — allowed (path-scoped)**:
-  - `Write(.sc4sap/**)`, `Edit(.sc4sap/**)` — runtime state files only (`state.json`, `spec.md`, `plan.md`, `review.md`, `report.md`, `cbo/**`, `session-trust.log`, etc.). Writes outside `.sc4sap/**` still prompt.
-  - `Read(.sc4sap/**)`, `Read(sc4sap/**)` — read project state and rule files.
-  - `Glob(.sc4sap/**)`, `Glob(sc4sap/**)`, `Grep(.sc4sap/**)`, `Grep(sc4sap/**)` — search within project and state folders.
+  - `Edit(.sc4sap/**)` — runtime state files only (`state.json`, `spec.md`, `plan.md`, `review.md`, `report.md`, `cbo/**`, `session-trust.log`, etc.). Writes outside `.sc4sap/**` still prompt.
+  - `Read(.sc4sap/**)`, `Read(sc4sap/**)` — read and search project state and rule files.
+  - Claude Code path checks match only `Read(path)` (covers Read/Glob/Grep) and `Edit(path)` (covers Edit/Write/NotebookEdit). Never write `Write(path)` / `Glob(path)` / `Grep(path)` — they never match and Claude Code warns at startup.
 - **Everything else — NOT added to allow** (normal prompt behavior preserved):
   - `Bash(...)` — prompt per command.
   - `Write` / `Edit` outside `.sc4sap/**` — prompt (protects `sc4sap/` source, `.claude/`, elsewhere).
@@ -87,21 +87,17 @@ Idempotent: if an entry already exists, do not duplicate.
    - Broad wildcards: `Read(*)`, `Write(*)`, `Edit(*)`, `Glob(*)`, `Grep(*)`.
    - SAP MCP entries added by a prior version or by an "Always allow" click — the hook now owns MCP approval, so enumerated `mcp__plugin_sc4sap_sap__*` / `mcp__mcp-abap-adt__*` entries are redundant and the wildcards `mcp__plugin_sc4sap_sap__*` / `mcp__mcp-abap-adt__*` MUST be removed (a wildcard would silently auto-approve `GetTableContents` / `GetSqlQuery`, defeating the safeguard). Removing enumerated non-gated MCP entries is optional cleanup; removing the two gated tools and any MCP wildcard is MANDATORY.
    - Non-SAP MCP wildcards: `mcp__claude_ai_Notion__*`, `mcp__ide__*`.
+   - Stale path rules from prior versions (never matched by Claude Code; cause a startup warning): `Write(.sc4sap/**)`, `Glob(.sc4sap/**)`, `Glob(sc4sap/**)`, `Grep(.sc4sap/**)`, `Grep(sc4sap/**)`. Remove these exact strings only — leave any other user-added rule untouched.
 3. **Append scoped entries** to `permissions.allow` only if not already present:
    ```
    Agent(*)
    Read(.sc4sap/**)
    Read(sc4sap/**)
-   Write(.sc4sap/**)
    Edit(.sc4sap/**)
-   Glob(.sc4sap/**)
-   Glob(sc4sap/**)
-   Grep(.sc4sap/**)
-   Grep(sc4sap/**)
    ```
 4. Preserve all other existing entries verbatim (env, hooks, other permissions).
 5. Write the updated JSON back with 2-space indent.
-6. Print one-line confirmation: `"✅ Session trust granted by {parent_skill} — Agent dispatch + .sc4sap/ state I/O auto-approved. SAP MCP handlers are auto-approved by the permission-approver hook; Bash, WebFetch, Write/Edit outside .sc4sap/, GetTableContents, GetSqlQuery remain prompt-gated."`
+6. Print one-line confirmation: `"✅ Session trust granted by {parent_skill} — Agent dispatch + .sc4sap/ state I/O auto-approved. SAP MCP handlers are auto-approved by the permission-approver hook; Bash, WebFetch, file edits outside .sc4sap/, GetTableContents, GetSqlQuery remain prompt-gated."`
 7. Record activation in `.sc4sap/session-trust.log` (append line: `{ISO-timestamp} granted-by={parent_skill}`) for audit.
 </Execution_Steps>
 
