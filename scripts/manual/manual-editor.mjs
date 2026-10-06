@@ -276,7 +276,8 @@ export const EDITOR_SCRIPT = String.raw`
     tr.setAttribute('data-row','');
     cols.forEach(function(c){
       var td=document.createElement('td');
-      if(c.kind==='flag'){item[c.key]=false;td.setAttribute('data-flag',c.key);}
+      if(c.kind==='num')td.className='fnum'; // filled by renumberFields
+      else if(c.kind==='flag'){item[c.key]=false;td.setAttribute('data-flag',c.key);}
       else{item[c.key]='';var sp='<span data-c="'+c.key+'"></span>';td.innerHTML=c.kind==='code'?'<code>'+sp+'</code>':sp;}
       tr.appendChild(td);
     });
@@ -378,7 +379,32 @@ export const EDITOR_SCRIPT = String.raw`
 
   // ── undo / dirty / autosave ──
   var saveTimer=null;
-  function mark(){dirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(saveDraft,1500);}
+  function mark(){dirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(saveDraft,1500);renumberFields();}
+
+  // ── field reference: the # column and the numbers on the screens above it follow the rows ──
+  function renumberFields(){
+    if(!ready)return;
+    tables().forEach(function(t){
+      var path=t.getAttribute('data-array');
+      var figs=[].slice.call(document.querySelectorAll('figure.field-fig[data-for="'+path+'"]'));
+      if(!figs.length)return;
+      var prefix=figs[0].getAttribute('data-prefix'),no=0;
+      var sets=figs.map(function(f){var s={};f.querySelectorAll('svg [data-anchor]').forEach(function(e){s[e.getAttribute('data-anchor')]=1;});return s;});
+      var marks=figs.map(function(){return [];});
+      rowsOf(t).forEach(function(tr){
+        var cell=tr.querySelector('td.fnum');if(!cell)return;
+        var cands=String((tr._row&&tr._row.name)||'').split(/[\s\/,]+/).filter(Boolean).map(function(n){return prefix+':'+n;});
+        var fi=-1,a=null;
+        for(var i=0;i<figs.length&&fi<0;i++)for(var j=0;j<cands.length;j++)if(sets[i][cands[j]]){fi=i;a=cands[j];break;}
+        if(fi<0){cell.textContent='';return;}
+        no++;cell.textContent=String(no);marks[fi].push([no,a,null,null]);
+      });
+      figs.forEach(function(f,i){
+        var v=JSON.stringify(marks[i]);if(f.getAttribute('data-callouts')===v)return;
+        f.setAttribute('data-callouts',v);if(window.sc4sapPlace)window.sc4sapPlace(f);
+      });
+    });
+  }
   function pushUndo(fn){undoStack.push(fn);if(undoStack.length>200)undoStack.shift();refreshBar();}
   function undo(){
     if(active)unmount();

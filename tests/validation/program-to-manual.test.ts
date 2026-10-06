@@ -19,6 +19,7 @@ import {
   nextVersion,
   svgAnchors,
   noteLines,
+  fieldFigure,
   // @ts-expect-error — plain .mjs script, no type declarations
 } from '../../scripts/manual/build-manual.mjs';
 
@@ -356,6 +357,23 @@ describe('manual builder', () => {
     expect(versions.map((v: { version: string }) => v.version)).toEqual(['1.0', '1.1']);
     expect(versions[1]).toMatchObject({ author: '홍길동', note: '체크포인트 정리', date: '2026-10-06', source: 'edit' });
     expect(readFileSync(again.html, 'utf-8')).toContain('체크포인트 정리');
+  });
+
+  it('draws the screens above the field tables and numbers the fields on them', () => {
+    const m = sample();
+    const sel = fieldFigure(m, 'selection', [...m.fields.selection, { name: 'NOT_ON_SCREEN', label: 'x' }], 'fields.selection');
+    expect(sel.html).toContain('class="screen field-fig" data-for="fields.selection" data-prefix="sel"');
+    expect(sel.missing).toEqual(['NOT_ON_SCREEN']);
+    expect(sel.nums.at(-1)).toBe('');
+    expect(sel.nums.filter(Boolean)).toEqual(m.fields.selection.map((_: unknown, i: number) => String(i + 1)));
+    const out = fieldFigure(m, 'output', m.fields.output, 'fields.output');
+    expect(out.html).toContain('data-prefix="col"');
+    expect(JSON.parse(/data-callouts="([^"]*)"/.exec(out.html)![1].replace(/&quot;/g, '"'))[0][1]).toMatch(/^col:/);
+    const p = join(home, 'fieldfig.json');
+    writeFileSync(p, JSON.stringify(m));
+    const html = readFileSync(buildManual({ manualPath: p, outDir: join(home, 'fieldfig'), cwd: home, verbose: false }).html, 'utf-8');
+    expect(html).toContain('<th class="fnum">#</th>');
+    expect(html).toContain('<td class="fnum">1</td>');
   });
 
   it('renders step notes one line per item and an empty details list per callout', () => {

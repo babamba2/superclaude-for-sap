@@ -201,18 +201,77 @@ function table(head, rows) {
  * that array (data-row), each cell names its key in the item — data-c for text,
  * data-flag for a ● yes/no column. Column `keys` lists fallbacks (header, then label).
  */
-function editTable(arrayPath, cols, items) {
+function editTable(arrayPath, cols, items, nums) {
   if (!items.length) return '';
-  const cell = (col, item) => {
+  const cell = (col, item, i) => {
+    if (col.kind === 'num') return `<td class="fnum">${esc(nums?.[i] ?? '')}</td>`; // read-only, set by the build / edit mode
     const key = col.keys.find(k => item[k] != null) ?? col.keys[0];
     if (col.kind === 'flag') return `<td data-flag="${esc(key)}">${item[key] ? '●' : ''}</td>`;
     const span = `<span data-c="${esc(key)}">${inline(item[key] ?? '')}</span>`;
     return `<td>${col.kind === 'code' ? `<code>${span}</code>` : span}</td>`;
   };
-  const spec = cols.map(c => ({ key: c.keys[0], kind: c.kind || 'text' }));
+  const spec = cols.map(c => ({ key: c.keys?.[0] ?? '', kind: c.kind || 'text' }));
   return `<table class="ed-table" data-array="${esc(arrayPath)}" data-cols="${esc(JSON.stringify(spec))}">`
-    + `<thead><tr>${cols.map(c => `<th>${esc(c.head)}</th>`).join('')}</tr></thead>`
-    + `<tbody>${items.map((it, i) => `<tr data-row="${i}">${cols.map(c => cell(c, it)).join('')}</tr>`).join('')}</tbody></table>`;
+    + `<thead><tr>${cols.map(c => `<th${c.kind === 'num' ? ' class="fnum"' : ''}>${esc(c.head)}</th>`).join('')}</tr></thead>`
+    + `<tbody>${items.map((it, i) => `<tr data-row="${i}">${cols.map(c => cell(c, it, i)).join('')}</tr>`).join('')}</tbody></table>`;
+}
+
+// ── Field reference figures ─────────────────────────────────────────────
+// The selection screen and the output grid drawn above their field tables, every
+// field / column the table lists numbered on the picture (callouts sel:<name> /
+// col:<name>) and in the table's # column, in table order. Rows whose field is not
+// on the drawn screen (hidden fields, file columns) get no number.
+
+/** Anchors a table row may point at: its name, or each name in "P_DIST2 / P_DIST1". */
+const rowAnchors = (prefix, name) => String(name ?? '').split(/[\s/,]+/).filter(Boolean).map(n => `${prefix}:${n}`);
+
+/**
+ * Screens to draw for a field table, in order: the selection screen; for output
+ * columns the grid showing most of them, then the grid (popup) showing most of the
+ * rest, and so on. Returns [{ key, svg, anchors }].
+ */
+export function fieldScreens(manual, kind, items) {
+  const keys = Object.keys(manual.screens || {});
+  const draw = (k) => { const d = renderStepScreen(manual, { screen: k }); return d?.svg ? { key: k, svg: d.svg, anchors: new Set(svgAnchors(d.svg)) } : null; };
+  if (kind === 'selection') {
+    const k = keys.find(x => isSelection(x, manual.screens[x]));
+    const d = k && draw(k);
+    return d ? [d] : [];
+  }
+  const grids = keys.filter(k => !isSelection(k, manual.screens[k]) && manual.screens[k]?.kind !== 'excel').map(draw).filter(Boolean);
+  const out = [];
+  let rest = items.map(it => rowAnchors('col', it.name));
+  for (;;) {
+    let best = null, bestHits = 0;
+    for (const g of grids) {
+      if (out.includes(g)) continue;
+      const hits = rest.filter(as => as.some(a => g.anchors.has(a))).length;
+      if (hits > bestHits) { best = g; bestHits = hits; }
+    }
+    if (!best) return out;
+    out.push(best);
+    rest = rest.filter(as => !as.some(a => best.anchors.has(a)));
+  }
+}
+
+/** { html, nums, missing }: the numbered figures for a field table, the # of each row, the rows on no screen. */
+export function fieldFigure(manual, kind, items, arrayPath) {
+  const figs = fieldScreens(manual, kind, items);
+  const prefix = kind === 'selection' ? 'sel' : 'col';
+  const marks = figs.map(() => []), nums = [], missing = [];
+  let no = 0;
+  items.forEach((it) => {
+    const cands = rowAnchors(prefix, it.name);
+    const fi = figs.findIndex(f => cands.some(a => f.anchors.has(a)));
+    if (fi < 0) { nums.push(''); missing.push(String(it.name ?? '')); return; }
+    no += 1;
+    nums.push(String(no));
+    marks[fi].push([no, cands.find(a => figs[fi].anchors.has(a)), null, null]);
+  });
+  const html = figs.map((f, i) => (marks[i].length
+    ? `<figure class="screen field-fig" data-for="${esc(arrayPath)}" data-prefix="${prefix}" data-fig="${i}" data-callouts="${esc(JSON.stringify(marks[i]))}">${f.svg}</figure>`
+    : '')).join('');
+  return { html, nums: no ? nums : [], missing };
 }
 
 // Editable text carries its manual.json path so the page's edit mode (manual-editor.mjs)
@@ -329,14 +388,18 @@ export function renderManualHtml(manual, { version, date, config = {}, history =
   if (selF.length || outF.length) {
     n += 1;
     toc.push(['fields', `${n}. ${T.fields}`]);
+    // Each table gets the screen drawn above it, its fields numbered there and in the # column.
+    const selFig = selF.length ? fieldFigure(manual, 'selection', selF, 'fields.selection') : { html: '', nums: [] };
+    const outFig = outF.length ? fieldFigure(manual, 'output', outF, 'fields.output') : { html: '', nums: [] };
+    const numCol = (fig) => (fig.html ? [{ head: '#', kind: 'num' }] : []);
     sec.push(`<section id="fields" class="page-break"><h2>${n}. ${esc(T.fields)}</h2>`
-      + (selF.length ? `<h3>${esc(T.selFields)}</h3>${editTable('fields.selection', [
+      + (selF.length ? `<h3>${esc(T.selFields)}</h3>${selFig.html}${editTable('fields.selection', [...numCol(selFig),
         { head: T.field, keys: ['name'], kind: 'code' }, { head: T.label, keys: ['label'] },
         { head: T.required, keys: ['required'], kind: 'flag' }, { head: T.f4, keys: ['f4'], kind: 'flag' },
-        { head: T.example, keys: ['example'] }, { head: T.meaning, keys: ['description'] }], selF)}` : '')
-      + (outF.length ? `<h3>${esc(T.outFields)}</h3>${editTable('fields.output', [
+        { head: T.example, keys: ['example'] }, { head: T.meaning, keys: ['description'] }], selF, selFig.nums)}` : '')
+      + (outF.length ? `<h3>${esc(T.outFields)}</h3>${outFig.html}${editTable('fields.output', [...numCol(outFig),
         { head: T.field, keys: ['name'], kind: 'code' }, { head: T.label, keys: ['header', 'label'] },
-        { head: T.meaning, keys: ['description'] }], outF)}` : '')
+        { head: T.meaning, keys: ['description'] }], outF, outFig.nums)}` : '')
       + `</section>`);
   }
 
