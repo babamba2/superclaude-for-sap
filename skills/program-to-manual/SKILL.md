@@ -49,7 +49,7 @@ These were settled when the skill was designed — do not ask the user about the
 | Body structure | By usage scenario ("to do X") — radio options, execution modes and buttons that start a distinct task each become a scenario |
 | Business context | Module consultant drafts it; low-confidence items go to a 1–3 question interview |
 | Check points | Derived from source validations, mandatory fields, confirmation popups and irreversible processing (posting, sending); business rules added from the interview |
-| Extra sections | Field reference (selection + output) and Messages & actions |
+| Extra sections | Field reference (selection + output) — the selection screen and the output grids drawn above their tables, each listed field numbered on the picture and in the table's # column (automatic, follows edits) — and Messages & actions |
 | Front / back matter | Cover, revision history (automatic), glossary |
 | Language | One language per manual file (ko / en / ja); mixed prose is rejected by the build check. An English companion is always built as well (Step 8) unless the manual language is English or the user opts out |
 | Cover / footer | Author, team, company, confidentiality notice from the active profile's `config.json` → `manual`, asked once |

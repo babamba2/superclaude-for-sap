@@ -108,6 +108,10 @@ th{background:var(--head);font-weight:600}
 .step-note{margin:12px 0 0;color:var(--muted)}
 .step-notes{list-style:none;padding:0}.step-notes>li+li{margin-top:4px}
 .callouts ul:empty{display:none}
+.field-fig{margin:6px 0 12px}
+.field-fig>svg{width:auto;max-width:none}
+@media print{.field-fig>svg{width:100%!important;max-width:100%!important}}
+th.fnum,td.fnum{width:2.6em;text-align:center;font-weight:700;color:var(--call);white-space:nowrap}
 a.gl{color:inherit;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
 a.msg{color:var(--link);text-decoration:underline dotted;text-underline-offset:3px;font-weight:600}
 mark.em{background:none;color:var(--call);font-weight:700}

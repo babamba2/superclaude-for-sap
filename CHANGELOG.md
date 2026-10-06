@@ -3,6 +3,16 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.34] — 2026-10-06
+
+### Added — `program-to-manual`: numbered screens in the Field Reference
+
+- The Field Reference section now shows the selection screen above the selection-field table and the output grid above the output-column table. Every field the table lists is numbered on the picture, and the same number heads its row in a new `#` column.
+- Numbers follow the table order and are made by the build — `manual.json` needs no new keys. A row's `name` is matched to the drawn screen element (`sel:<name>`, `col:<name>`; "P_DIST2 / P_DIST1" tries each name).
+- Output columns spread over several screens (main grid, popups) get one picture per screen, numbered continuously. Rows whose field is on no drawn screen (Excel columns, fields shown only in a variant) stay unnumbered.
+- In edit mode, adding, deleting or renaming rows renumbers the table and the pictures at once; undo restores them.
+- These pictures are shown at natural size with horizontal scrolling, so wide grids stay readable; in print they fit the page width.
+
 ## [0.6.33] — 2026-10-06
 
 ### Added — process flows you can redraw in the page (`program-to-manual`, `program-to-spec`)
