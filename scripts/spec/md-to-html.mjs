@@ -44,6 +44,7 @@ import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'node:fs';
 import { resolve, dirname, extname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { STYLE, SCRIPT, labelsFor } from './md-to-html-assets.mjs';
+import { FLOW_EDITOR_STYLE, FLOW_EDITOR_SCRIPT, FLOW_PAGE_SCRIPT, flowEditorLabels } from './flow-editor.mjs';
 
 const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
 
@@ -120,6 +121,24 @@ function inlineImage(src, baseDir) {
   const mime = MIME[extname(fp).toLowerCase()];
   if (!mime || !existsSync(fp)) return src;
   return `data:${mime};base64,${readFileSync(fp).toString('base64')}`;
+}
+
+/**
+ * The flow drawn into a PNG, when render-md-images.mjs left its graph next to
+ * it (`flow.graph.json`): { key, graph, opts } — the page can then edit it.
+ */
+function flowGraphFor(src, baseDir) {
+  if (/^(https?:|data:)/i.test(src) || !/\.png$/i.test(src.split(/[?#]/)[0])) return null;
+  let path = src.split(/[?#]/)[0];
+  try { path = decodeURIComponent(path); } catch { /* keep as written */ }
+  const fp = (isAbsolute(path) ? path : join(baseDir, path)).replace(/\.png$/i, '.graph.json');
+  if (!existsSync(fp)) return null;
+  try { return JSON.parse(readFileSync(fp, 'utf8')); } catch { return null; }
+}
+
+/** An image whose flow the reader can edit in the page (flow-editor.mjs FLOW_PAGE_SCRIPT). */
+function flowFigure(img, data) {
+  return `<figure class="flow-fig">${img}<script type="application/json" class="flow-graph">${JSON.stringify(data).replace(/</g, '\\u003c')}</script></figure>`;
 }
 
 // ── Cross-references ────────────────────────────────────────────────────────
@@ -245,8 +264,13 @@ function renderInline(text, ctx, shared) {
     st.codeNames.set(st.stash.length - 1, body);
     return mark;
   });
-  s = s.replace(/!\[([^\]]*)\]\(\s*<?([^)\s>]+)>?(?:\s+"([^"]*)")?\s*\)/g, (_, alt, src, title) =>
-    keep(`<img src="${escapeHtml(inlineImage(decodeBasic(stripTags(src.replace(PLACEHOLDER, (__, i) => st.stash[Number(i)]))), ctx.baseDir))}" alt="${attr(alt)}"${title ? ` title="${attr(title)}"` : ''}>`));
+  s = s.replace(/!\[([^\]]*)\]\(\s*<?([^)\s>]+)>?(?:\s+"([^"]*)")?\s*\)/g, (_, alt, src, title) => {
+    const path = decodeBasic(stripTags(src.replace(PLACEHOLDER, (__, i) => st.stash[Number(i)])));
+    const img = `<img src="${escapeHtml(inlineImage(path, ctx.baseDir))}" alt="${attr(alt)}"${title ? ` title="${attr(title)}"` : ''}>`;
+    const flow = flowGraphFor(path, ctx.baseDir);
+    if (flow && ctx.flags) ctx.flags.flowEditor = true;
+    return keep(flow ? flowFigure(img, flow) : img);
+  });
   s = s.replace(/\[([^\]]+)\]\(\s*<?([^)\s>]+)>?(?:\s+"([^"]*)")?\s*\)/g, (_, label, href, title) =>
     keep(`<a href="${attr(href)}"${title ? ` title="${attr(title)}"` : ''}>${renderInline(label, { ...ctx, noLink: true }, st)}</a>`));
   s = s.replace(/<(https?:\/\/[^\s>]+)>/g, (_, url) => keep(`<a href="${escapeHtml(url)}">${escapeHtml(url)}</a>`));
@@ -667,7 +691,7 @@ export function mdToHtml(markdown, { baseDir = process.cwd(), title, lang } = {}
   // numbering agree.
   const found = new Map();
   found.sections = new Map();
-  const base = { baseDir, labels, mermaid: false };
+  const base = { baseDir, labels, mermaid: false, flags: {} };
   const first = { ...base, title: '', ids: new Set(), tables: [], tableNo: 0, found, headings: [] };
   renderBlockList(lines, first);
   const ctx = {
@@ -685,6 +709,10 @@ export function mdToHtml(markdown, { baseDir = process.cwd(), title, lang } = {}
   const body = sections.map((s) =>
     `<section class="sec" aria-labelledby="${s.id}"${s.audience ? ` data-audience="${s.audience}"` : ''}>\n${s.parts.join('\n')}\n</section>`).join('\n');
 
+  const flowEditor = ctx.flags.flowEditor
+    ? `\n<script type="application/json" id="flow-editor-labels">${JSON.stringify(flowEditorLabels(lang)).replace(/</g, '\\u003c')}</script>`
+      + `\n<script>${FLOW_EDITOR_SCRIPT}</script>\n<script>${FLOW_PAGE_SCRIPT}</script>`
+    : '';
   const mermaid = ctx.mermaid
     ? `\n<script src="${MERMAID_CDN}"></script>\n<script>if(window.mermaid){var d=document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');mermaid.initialize({startOnLoad:true,securityLevel:'strict',theme:d==='dark'?'dark':'default'});}</script>`
     : '';
@@ -695,7 +723,7 @@ export function mdToHtml(markdown, { baseDir = process.cwd(), title, lang } = {}
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="sc4sap md-to-html">
 <title>${escapeHtml(ctx.title || 'Document')}</title>
-<style>${STYLE}</style>
+<style>${STYLE}${ctx.flags.flowEditor ? FLOW_EDITOR_STYLE : ''}</style>
 </head>
 <body>
 <div class="layout">
@@ -705,7 +733,7 @@ ${heroHtml}
 ${body}
 </main>
 </div>
-<script>var L=${JSON.stringify(labels).replace(/</g, '\\u003c')};${SCRIPT}</script>${mermaid}
+<script>var L=${JSON.stringify(labels).replace(/</g, '\\u003c')};${SCRIPT}</script>${flowEditor}${mermaid}
 </body>
 </html>
 `;

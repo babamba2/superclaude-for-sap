@@ -18,17 +18,21 @@
 //   Prints warnings, then a JSON manifest { html, version, history, source, warnings }.
 //   node build-manual.mjs --import <edited.html> <manual.json>
 //     writes the manual.json a user saved from the page's edit mode (backs up the old one as .bak)
+//     and adds the revision the page recorded on save (+0.1, author, note) to history.json —
+//     rebuild with --same-version to publish exactly that version
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
   renderSelectionScreenSVG, renderAlvScreenSVG, renderFlowchartSVG, renderProcessFlowSVG, selectionSchemaWarnings,
+  toFreeFlow, freeFlowOptions,
 } from '../spec/screen-image-renderer.mjs';
+import { FLOW_EDITOR_STYLE, FLOW_EDITOR_SCRIPT, flowEditorLabels } from '../spec/flow-editor.mjs';
 import { looksLikeEnglishProse } from '../spec/build-spec.mjs';
 import { resolveArtifactBase, readScreenTheme } from '../lib/profile-resolve.mjs';
 import { readManualConfig } from './manual-config.mjs';
-import { labelsFor, STYLE, SCRIPT } from './manual-page.mjs';
+import { labelsFor, STYLE, SCRIPT, LINK_SCRIPT } from './manual-page.mjs';
 import { renderExcelSheetSVG } from './excel-sheet-svg.mjs';
 import { EDITOR_STYLE, EDITOR_SCRIPT, QUILL_CSS, QUILL_JS, editorLabels } from './manual-editor.mjs';
 
@@ -214,15 +218,32 @@ function editTable(arrayPath, cols, items) {
 // Editable text carries its manual.json path so the page's edit mode (manual-editor.mjs)
 // can write changes back: data-p = absolute path, data-k = path inside the step.
 const ed = (path, s, attr = 'data-p') => `<span ${attr}="${esc(path)}">${inline(s)}</span>`;
+
+/**
+ * A bullet list whose items the edit mode can add and delete: the list names the
+ * array it shows (data-list), each <li data-i> is one item, its text sits in
+ * <span data-l>. An item may be a string or { text, … } (check points keep `source`).
+ * `extra(item)` adds read-only markup after the text (badges, source).
+ */
+function editList(arrayPath, items, extra = () => '') {
+  return `<ul class="ed-list" data-list="${esc(arrayPath)}">${items.map((it, i) => {
+    const text = typeof it === 'string' ? it : it?.text ?? '';
+    return `<li data-i="${i}"><span data-l="">${inline(text)}</span>${extra(it)}</li>`;
+  }).join('')}</ul>`;
+}
 const stepEd = (key, s) => ed(key, s, 'data-k');
 
 /** One callout's mark data for the page script: [number, anchor, offset, pos]. */
 const markOf = (c, i) => [i + 1, c.anchor || '', Array.isArray(c.offset) ? c.offset : null, Array.isArray(c.pos) ? c.pos : null];
 
+// A callout always has its details list (empty when none) so the edit mode can add the first one.
 function calloutsHtml(callouts) {
   return `<ol class="callouts">${callouts.map((c, i) => `<li data-ci="${i}"><span class="num">${i + 1}</span><div>${stepEd(`callouts.${i}.text`, c.text)}`
-    + `${arr(c.details).length ? `<ul>${arr(c.details).map((d, di) => `<li>${stepEd(`callouts.${i}.details.${di}`, d)}</li>`).join('')}</ul>` : ''}</div></li>`).join('')}</ol>`;
+    + `<ul>${arr(c.details).map((d, di) => `<li>${stepEd(`callouts.${i}.details.${di}`, d)}</li>`).join('')}</ul></div></li>`).join('')}</ol>`;
 }
+
+/** A step note, one item per line, so the edit mode can add, delete and move lines. */
+export const noteLines = (note) => (Array.isArray(note) ? note : String(note ?? '').split(/\r?\n/)).map(String).filter(l => l.trim());
 
 function stepHtml(manual, sc, si, st, ti, T, secNo) {
   const drawn = renderStepScreen(manual, st);
@@ -239,7 +260,8 @@ function stepHtml(manual, sc, si, st, ti, T, secNo) {
     + `<tr><th>${esc(T.tcode)}</th><td><code>${esc(tcode)}</code>${manual.cbo === false ? '' : ` <span class="flag">${esc(T.cbo)}</span>`}</td></tr>`
     + (manual.menuPath ? `<tr><th>${esc(T.menuPath)}</th><td>${inline(manual.menuPath)}</td></tr>` : '')
     + `</tbody></table>`;
-  const note = `<p class="step-note"${st.note ? '' : ' hidden'}>${stepEd('note', st.note || '')}</p>`
+  const lines = noteLines(st.note);
+  const note = `<ul class="step-note step-notes"${lines.length ? '' : ' hidden'}>${lines.map((l, i) => `<li>${stepEd(`note.${i}`, l)}</li>`).join('')}</ul>`
     + `<p class="step-note"${st.result ? '' : ' hidden'}><strong>${esc(T.result)}:</strong> ${stepEd('result', st.result || '')}</p>`;
   return `<article class="step${ti > 0 ? ' page-break' : ''}" id="s${si + 1}-${ti + 1}" data-si="${si}" data-ti="${ti}">${head}`
     + `<div class="step-body${figure ? ' has-screen' : ''}">${figure}<div>${calloutsHtml(callouts)}${note}</div></div></article>`;
@@ -257,7 +279,7 @@ export function renderManualHtml(manual, { version, date, config = {}, history =
   // Cover
   const meta = [
     [T.program, `<code>${esc(manual.program)}</code>`], [T.tcode, `<code>${esc(manual.tcode || manual.program)}</code>`],
-    [T.version, `v${esc(version)}`], [T.date, esc(date)],
+    [T.version, `<span data-ver>v${esc(version)}</span>`], [T.date, `<span data-ver-date>${esc(date)}</span>`],
     config.team && [T.team, esc(config.team)], config.author && [T.author, esc(config.author)],
   ].filter(Boolean);
   sec.push(`<section class="cover" id="cover"><div class="kicker">${esc(manual.module ? `${manual.module} · ` : '')}${esc(T.manual)}</div><h1>${ed('title', title)}</h1>`
@@ -267,19 +289,23 @@ export function renderManualHtml(manual, { version, date, config = {}, history =
   // Revision history
   toc.push(['revision', T.revision]);
   sec.push(`<section id="revision" class="page-break"><h2>${esc(T.revision)}</h2>${table([T.version, T.date, T.author, T.change],
-    history.map(h => [`v${esc(h.version)}`, esc(h.date), esc(h.author || ''), inline(h.note || '')]))}</section>`);
+    history.map(h => [`v${esc(h.version)}`, esc(h.date), esc(h.author || ''), inline(h.note || '')])).replace('<table>', '<table id="rev-table">')}</section>`);
 
   // 1. Introduction
   let n = 1;
   const introParts = [];
   if (intro.purpose) introParts.push(`<h3>${esc(T.purpose)}</h3><p>${ed('intro.purpose', intro.purpose)}${mark(intro.purpose)}</p>`);
   if (intro.background) introParts.push(`<h3>${esc(T.background)}</h3><p>${ed('intro.background', intro.background)}${mark(intro.background)}</p>`);
-  if (arr(intro.businessRules).length) introParts.push(`<h3>${esc(T.rules)}</h3><ul>${arr(intro.businessRules).map((r, i) => `<li>${ed(`intro.businessRules.${i}`, r)}${mark(r)}</li>`).join('')}</ul>`);
+  // Shown even when empty (hidden outside edit mode) so a key user can add the first rule.
+  const rules = arr(intro.businessRules);
+  introParts.push(`<div class="ed-list-wrap"${rules.length ? '' : ' hidden'}><h3>${esc(T.rules)}</h3>${editList('intro.businessRules', rules, mark)}</div>`);
   if (intro.users) introParts.push(`<h3>${esc(T.users)}</h3><p>${ed('intro.users', intro.users)}${mark(intro.users)}</p>`);
   const pf = manual.processFlow;
   const pfSvg = pf && !Array.isArray(pf) && Array.isArray(pf.nodes) ? renderFlowchartSVG(pf, { lang: manual.lang })
     : Array.isArray(pf) && pf.length ? renderProcessFlowSVG(pf, { lang: manual.lang, orientation: 'horizontal' }) : '';
-  if (pfSvg) introParts.push(`<h3>${esc(T.flow)}</h3><figure class="screen">${fitSvg(pfSvg)}</figure>`);
+  // The edit mode turns the figure into a flow editor (flow-editor.mjs), starting from this graph.
+  const flowSeed = pfSvg ? { graph: toFreeFlow(pf), opts: freeFlowOptions(manual.lang || 'ko') } : null;
+  if (pfSvg) introParts.push(`<h3>${esc(T.flow)}</h3><figure class="screen flow-fig" data-flow="processFlow">${fitSvg(pfSvg)}</figure>`);
   toc.push(['intro', `${n}. ${T.intro}`]);
   sec.push(`<section id="intro" class="page-break"><h2>${n}. ${esc(T.intro)}</h2>${introParts.join('')}</section>`);
 
@@ -289,10 +315,9 @@ export function renderManualHtml(manual, { version, date, config = {}, history =
   const scHtml = arr(manual.scenarios).map((sc, si) => {
     scToc.push([`s${si + 1}`, `${n}-${si + 1} ${sc.title || ''}`]);
     const steps = arr(sc.steps).map((st, ti) => stepHtml(manual, sc, si, st, ti, T, n)).join('');
-    const cps = arr(sc.checkpoints).map((c, ci) => (typeof c === 'string' ? { text: c, path: `${ci}` } : { ...c, path: `${ci}.text` })).filter(c => c?.text);
-    const cpHtml = cps.length
-      ? `<aside class="checkpoints"><h4>${esc(T.checkpoints)}</h4><ul>${cps.map(c => `<li>${ed(`scenarios.${si}.checkpoints.${c.path}`, c.text)}${c.source ? ` <span class="src">(${esc(c.source)})</span>` : ''}</li>`).join('')}</ul></aside>`
-      : '';
+    const cps = arr(sc.checkpoints); // unfiltered: data-i is the index in this array
+    const cpHtml = `<aside class="checkpoints ed-list-wrap"${cps.some(c => (typeof c === 'string' ? c : c?.text)) ? '' : ' hidden'}><h4>${esc(T.checkpoints)}</h4>`
+      + `${editList(`scenarios.${si}.checkpoints`, cps, c => (c?.source ? ` <span class="src">(${esc(c.source)})</span>` : ''))}</aside>`;
     return `<section id="s${si + 1}" data-si="${si}"${si > 0 ? ' class="page-break"' : ''}><h3>${n}-${si + 1} ${ed(`scenarios.${si}.title`, sc.title)}</h3>`
       + `${sc.goal ? `<p class="scenario-goal">${esc(T.goal)}: ${ed(`scenarios.${si}.goal`, sc.goal)}</p>` : ''}${steps}${cpHtml}</section>`;
   }).join('');
@@ -339,18 +364,21 @@ export function renderManualHtml(manual, { version, date, config = {}, history =
   return `<!doctype html>
 <html lang="${esc(manual.lang || 'ko')}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} — ${esc(T.manual)} v${esc(version)}</title>
-<style>${STYLE}${QUILL_CSS}${EDITOR_STYLE}</style></head>
+<style>${STYLE}${QUILL_CSS}${EDITOR_STYLE}${FLOW_EDITOR_STYLE}</style></head>
 <body>
-<header class="topbar"><span class="t">${esc(title)} · <code>${esc(manual.program)}</code> · v${esc(version)}</span><span class="ed-bar" id="ed-bar" hidden></span><button id="edit-btn" type="button">${esc(editorLabels(manual.lang).edit)}</button><button id="print-btn" type="button">${esc(T.print)}</button><button id="theme-btn" type="button">${esc(T.theme)}</button></header>
+<header class="topbar"><span class="t">${esc(title)} · <code>${esc(manual.program)}</code> · <span data-ver>v${esc(version)}</span></span><span class="ed-bar" id="ed-bar" hidden></span><button id="edit-btn" type="button">${esc(editorLabels(manual.lang).edit)}</button><button id="print-btn" type="button">${esc(T.print)}</button><button id="theme-btn" type="button">${esc(T.theme)}</button></header>
 <div class="layout"><nav class="toc" aria-label="${esc(T.contents)}">${tocHtml}</nav><main>
 ${sec.join('\n')}
 <footer class="doc-end"><strong>${esc(T.endOfDoc)}</strong>${config.confidentiality ? inline(config.confidentiality) : ''}</footer>
 </main></div>
-${footer ? `<div class="print-footer">${esc(footer)} · ${esc(manual.program)} v${esc(version)}</div>` : ''}
+${footer ? `<div class="print-footer">${esc(footer)} · ${esc(manual.program)} <span data-ver>v${esc(version)}</span></div>` : ''}
 <script type="application/json" id="manual-source">${embedJson({ manual, version })}</script>
-<script type="application/json" id="editor-labels">${embedJson(editorLabels(manual.lang))}</script>
+<script type="application/json" id="editor-labels">${embedJson({ ...editorLabels(manual.lang), flow: flowEditorLabels(manual.lang) })}</script>
+${flowSeed ? `<script type="application/json" id="flow-seed">${embedJson(flowSeed)}</script>` : ''}
 <script>${SCRIPT}</script>
+<script>${LINK_SCRIPT}</script>
 ${QUILL_JS ? `<script>${QUILL_JS}</script>` : ''}
+<script>${FLOW_EDITOR_SCRIPT}</script>
 <script>${EDITOR_SCRIPT}</script>
 </body></html>
 `;
@@ -375,8 +403,13 @@ export function buildManual({ manualPath, outDir, sameVersion = false, major = f
   const historyPath = join(dir, `${slug(program)}-${lang}.history.json`);
   const history = existsSync(historyPath) ? JSON.parse(readFileSync(historyPath, 'utf8')) : { program, lang, versions: [] };
   const version = nextVersion(history, { sameVersion, major });
-  const entry = { version, date: today(), author: config.author || '', note: manual.changeNote || '' };
   const versions = arr(history.versions);
+  // A version a user recorded in the page's edit mode (imported with --import) keeps
+  // their author, date and note when it is rebuilt in place.
+  const last = versions.at(-1);
+  const entry = last?.version === version && last.source === 'edit'
+    ? last
+    : { version, date: today(), author: config.author || '', note: manual.changeNote || '' };
   const previous = versions.at(-1)?.version === version ? versions.at(-2) : versions.at(-1);
   if (verbose && previous && entry.note && previous.note === entry.note) {
     console.log(`⚠ build-manual: changeNote "${entry.note}" repeats v${previous.version}'s note — describe what changed in v${version}`);
@@ -395,18 +428,39 @@ export function buildManual({ manualPath, outDir, sameVersion = false, major = f
   return { html: htmlPath, version, history: historyPath, source: sourcePath, warnings };
 }
 
+const versionKey = (v) => String(v).split('.').map(n => Number(n) || 0);
+const byVersion = (a, b) => { const [x, y] = [versionKey(a.version), versionKey(b.version)]; return x[0] - y[0] || x[1] - y[1]; };
+
+/** history.json next to the manuals: `<dir>/<PROGRAM>-<lang>.history.json`, `dir` = parent of `_draft/` / `_src/`. */
+export function historyPathFor(manualPath, manual) {
+  const d = dirname(manualPath);
+  const dir = /^_(draft|src)$/.test(basename(d)) ? dirname(d) : d;
+  return join(dir, `${slug(String(manual.program || 'PROGRAM'))}-${manual.lang || 'ko'}.history.json`);
+}
+
 /**
  * Reads the manual.json a user saved from the page's edit mode (embedded as
  * <script id="manual-source">) and writes it to `outPath`, so the next build keeps the edits.
+ * Revision entries the page recorded on save ({ version, date, author, note, source: 'edit' })
+ * go into history.json; rebuild with --same-version to publish that version.
  */
-export function importEditedHtml(htmlPath, outPath) {
+export function importEditedHtml(htmlPath, outPath, historyPath) {
   const html = readFileSync(htmlPath, 'utf8');
   const m = /<script type="application\/json" id="manual-source">([\s\S]*?)<\/script>/.exec(html);
   if (!m) throw new Error(`${htmlPath} has no embedded manual source — was it saved from the page's edit mode?`);
-  const { manual, version } = JSON.parse(m[1]);
+  const { manual, version, history: added } = JSON.parse(m[1]);
   if (existsSync(outPath)) writeFileSync(`${outPath}.bak`, readFileSync(outPath));
   writeFileSync(outPath, `${JSON.stringify(manual, null, 2)}\n`, 'utf8');
-  return { manual: outPath, fromVersion: version, edited: manual.edited || null, backup: existsSync(`${outPath}.bak`) ? `${outPath}.bak` : null };
+  let revisions = null;
+  if (arr(added).length) {
+    const hp = historyPath || historyPathFor(outPath, manual);
+    const history = existsSync(hp) ? JSON.parse(readFileSync(hp, 'utf8')) : { program: manual.program, lang: manual.lang || 'ko', versions: [] };
+    const versions = arr(history.versions).filter(v => !arr(added).some(a => a.version === v.version));
+    history.versions = [...versions, ...arr(added).map(a => ({ ...a, source: 'edit' }))].sort(byVersion);
+    writeFileSync(hp, `${JSON.stringify(history, null, 2)}\n`, 'utf8');
+    revisions = { history: hp, added: arr(added).map(a => a.version) };
+  }
+  return { manual: outPath, fromVersion: version, edited: manual.edited || null, backup: existsSync(`${outPath}.bak`) ? `${outPath}.bak` : null, revisions };
 }
 
 const thisFile = fileURLToPath(import.meta.url);

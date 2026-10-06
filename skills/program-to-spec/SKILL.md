@@ -55,7 +55,7 @@ Issue ONE `AskUserQuestion` call with these four questions in this exact order �
 | 1 | Audience | Who is the primary audience for the spec? | Both (Recommended) · Functional · Technical |
 | 2 | Format | Which output formats? (select one or more) | Markdown (Recommended) · HTML · Excel |
 | 3 | Depth | What depth of detail? | L2 Standard (Recommended) · L1 Quick Spec · L3 Deep Technical · L4 Audit-grade |
-| 4 | Language | Output language? | Korean · English · Japanese (order follows user's current language — promote the matching one to first with "(Recommended)") |
+| 4 | Language | Output language? (an English companion is added automatically unless you pick English) | Korean · English · Japanese (order follows user's current language — promote the matching one to first with "(Recommended)") |
 
 **Round 1 — Target object (only if ARGUMENTS did not supply it)**
 - "Which object? (program / FM group / class / CDS / RAP BO name)"
@@ -86,14 +86,14 @@ Ask ONE narrowing question per turn until ambiguity ≤3:
 - The rendered `Where-Used` section MUST repeat this scope in its header so reviewers know what was (and wasn't) searched.
 
 **Round 5 — Output location**
-- Default: `.sc4sap/specs/{object_name}-{YYYYMMDD}-{lang}.{md|html|xlsx}` — one file per selected format
+- Default: `.sc4sap/specs/{object_name}-{YYYYMMDD}-{lang}.{md|html|xlsx}` — one file per selected format, plus the same files with `-en` (English companion, `workflow-steps.md` Step 6) when `lang` ≠ `en`
 - Language: ko / en / ja (infer from user's current language; confirm once).
 
 **Stop condition**: every dimension above has a concrete answer OR user explicitly says "skip remaining, use defaults".
 </Socratic_Scope_Narrowing>
 
 <Workflow_Steps>
-The 6-step workflow (Step 0 Socratic → Step 5 Review) lives in a companion file to keep this skill doc short.
+The 7-step workflow (Step 0 Socratic → Step 5 Review → Step 6 English companion) lives in a companion file to keep this skill doc short.
 
 **MUST read `workflow-steps.md`** (in this skill folder) and execute the steps defined there in order whenever this skill runs.
 </Workflow_Steps>
@@ -118,6 +118,7 @@ Per-step model allocation. The main thread follows the session model (`model: in
     2. **image-spec.json** — `{selection, alv, processFlow, lang}` per-program image data; exact key names + sample values in `spec-templates.md` § Image Replacement, and `selection` MUST follow `selection-schema.md` (blocks / pushbuttons / radio groups transcribed 1:1 from source). Drives the Sheet 3 Selection/ALV mockups + Sheet 4 horizontal Process Flow PNG.
     Writer does NOT generate workbook styles, drivers, geometry, or PNGs directly — `asset/template_base.xlsx` supplies geometry, `build-spec.mjs` does clone + render + swap in one shot. Depth-driven model override still applies (Sonnet for L3/L4 because the warning-row and processing-step narrative is longer).
     **Two hard requirements on both JSON files** (full rules in `spec-templates.md`): (1) **business-first content** — Sheet 4 Step text + `processFlow[]` describe the business process for a functional reader, with the ABAP event/FORM kept as a secondary annotation (never an event-only list); (2) **single-language output** — every prose string is in the target `lang`; only SAP identifiers / ABAP literals stay as-is. `build-spec.mjs` prints a `⚠ LANGUAGE MIX` gate for ko/ja — finalize only when it reports `language check OK`.
+- **English companion (`sap-writer` × 1, `model: "sonnet"` override)** — Step 6, when `lang` ≠ `en`: translates the finished files (`.md`, `image-spec.json`, `tr.json`) into their `-en` twins; the main thread re-runs the same render scripts on them.
 - **Audit verification (`sap-critic` × 1, Opus 4.7, frontmatter, conditional L4 only)** — Step 3 gate: verifies every claim in the rendered spec cross-references a concrete line range in source. Skip for L1 / L2 / L3.
 
 </Agent_Composition>
@@ -129,6 +130,8 @@ Depth: L2 Standard · Format: markdown, html · Lang: ko
 Sections: 9 · Tables referenced: 6 · Screens: 1 · GUI status: 1
 Files: .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-ko.md
        .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-ko.html
+       .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-en.md     (English companion)
+       .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-en.html
 
 Top-level summary:
   Report that lists open sales orders by Sales Organization and date range and displays them via ALV.
@@ -138,7 +141,7 @@ Top-level summary:
 Next options:
   • "Regenerate as Excel" / "Also give me HTML"
   • "Extend to L4 with Where-used"
-  • "Add an English version"
+  • "Japanese version too"
 ```
 </Output_Format>
 

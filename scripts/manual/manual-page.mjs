@@ -106,6 +106,10 @@ th{background:var(--head);font-weight:600}
 .num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--call);color:#fff;font-size:12.5px;font-weight:700}
 .callouts ul{margin:4px 0 0;padding-left:18px;color:var(--muted);font-size:14px}
 .step-note{margin:12px 0 0;color:var(--muted)}
+.step-notes{list-style:none;padding:0}.step-notes>li+li{margin-top:4px}
+.callouts ul:empty{display:none}
+a.gl{color:inherit;text-decoration:underline dotted;text-underline-offset:3px;cursor:help}
+a.msg{color:var(--link);text-decoration:underline dotted;text-underline-offset:3px;font-weight:600}
 mark.em{background:none;color:var(--call);font-weight:700}
 .bl::before{content:"• "}
 .checkpoints{margin:16px 0 8px;padding:12px 16px;background:var(--warn-bg);border-left:4px solid var(--warn-line);border-radius:6px}
@@ -131,6 +135,72 @@ mark.em{background:none;color:var(--call);font-weight:700}
   table,tr,.checkpoints{break-inside:avoid}
   .print-footer{display:block;position:fixed;bottom:-9mm;left:0;right:0;text-align:center;font-size:8.5pt;color:#59636e}
 }
+`;
+
+// Cross-links read from the page's own tables, so the edit mode re-links after a
+// change (window.sc4sapLinkTerms):
+//   · glossary terms (and both halves of "용어 (Term)") → their glossary row, meaning as
+//     tooltip, dotted underline — first occurrence per step, check-point box or section
+//   · message codes (E07, Q01 — codes of letters + digits only) → their row in the
+//     messages table, message text as tooltip — every occurrence, including
+//     the check-point sources "(FORM … (E16, E17))"
+// No ${…} below; String.raw keeps backslashes.
+export const LINK_SCRIPT = String.raw`
+(function(){
+  function rows(sel){var t=document.querySelector(sel);return t?Array.prototype.slice.call(t.querySelectorAll('tbody>tr')):[];}
+  function targets(){
+    var out=[];
+    rows('#glossary table').forEach(function(tr,i){
+      var td=tr.querySelectorAll('td');if(td.length<2)return;
+      var term=td[0].textContent.trim(),desc=td[1].textContent.trim();if(!term)return;
+      tr.id='gl-'+(i+1);
+      var vars=[term],m=/^(.+?)\s*[(（]([^)）]+)[)）]\s*$/.exec(term);
+      if(m)vars.push(m[1].trim(),m[2].trim());
+      vars.forEach(function(v){if(v.length>=2)out.push({v:v,id:tr.id,tip:desc,cls:'gl',once:true});});
+    });
+    rows('#messages table').forEach(function(tr){
+      var td=tr.querySelectorAll('td');if(td.length<3)return;
+      var code=td[0].textContent.trim();if(!/^[A-Z]{1,3}\d{2,4}$/.test(code))return;
+      tr.id='msg-'+code;
+      out.push({v:code,id:tr.id,tip:td[2].textContent.trim(),cls:'msg',once:false});
+    });
+    return out.sort(function(a,b){return b.v.length-a.v.length;});
+  }
+  function esc(s){return s.replace(/[.*+?^$(){}|[\]\\]/g,'\\$&');}
+  function unlink(root){
+    Array.prototype.slice.call(root.querySelectorAll('a.gl,a.msg')).forEach(function(a){a.replaceWith(document.createTextNode(a.textContent));});
+    root.normalize();
+  }
+  function link(){
+    var main=document.querySelector('main');if(!main)return;
+    unlink(main);
+    var list=targets();if(!list.length)return;
+    var byKey={};list.forEach(function(t){var k=t.v.toLowerCase();if(!byKey[k])byKey[k]=t;});
+    var re=new RegExp(list.map(function(t){return /^[A-Za-z0-9 _-]+$/.test(t.v)?'\\b'+esc(t.v)+'\\b':esc(t.v);}).join('|'),'gi');
+    var seenIn=new Map(); // glossary: one link per term per step / check-point box / section
+    main.querySelectorAll('[data-p],[data-k],[data-l],.src').forEach(function(f){
+      if(f.closest('#glossary,#messages,h1,h2,h3,h4,.cover,.ed-quill'))return;
+      var box=f.closest('article.step,aside,section')||main;
+      if(!seenIn.has(box))seenIn.set(box,{});
+      var seen=seenIn.get(box),walker=document.createTreeWalker(f,NodeFilter.SHOW_TEXT,null),nodes=[],n;
+      while((n=walker.nextNode()))if(!n.parentNode.closest('code,a'))nodes.push(n);
+      nodes.forEach(function(node){
+        var s=node.nodeValue,last=0,m,frag=null;re.lastIndex=0;
+        while((m=re.exec(s))){
+          var t=byKey[m[0].toLowerCase()];if(!t||(t.once&&seen[t.id]))continue;
+          if(t.cls==='msg'&&m[0]!==t.v)continue; // codes match case-sensitively
+          seen[t.id]=1;frag=frag||document.createDocumentFragment();
+          frag.appendChild(document.createTextNode(s.slice(last,m.index)));
+          var a=document.createElement('a');a.className=t.cls;a.href='#'+t.id;a.title=t.tip;a.textContent=m[0];frag.appendChild(a);
+          last=m.index+m[0].length;
+        }
+        if(frag){frag.appendChild(document.createTextNode(s.slice(last)));node.replaceWith(frag);}
+      });
+    });
+  }
+  window.sc4sapLinkTerms=link;
+  if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',link);else link();
+})();
 `;
 
 export const SCRIPT = `

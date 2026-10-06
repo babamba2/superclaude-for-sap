@@ -17,7 +17,7 @@ Input of `scripts/manual/build-manual.mjs`. A complete example: [`example-manual
 | `theme` | string \| object? | Screen theme: `signature` (default), `signature-pink`, `modern` or `{ base, …colours }`. The default comes from the profile `config.json` `screenTheme`. See [`../program-to-spec/selection-schema.md`](../program-to-spec/selection-schema.md) § Screen theme |
 | `meta` | object? | Overrides the config.json cover values for this manual only (`author`, `team`, `company`, `confidentiality`) |
 | `intro` | object | `purpose`, `background?`, `businessRules[]`, `users?`, `unverified[]` |
-| `processFlow` | graph \| string[]? | Business flow: `{ nodes, edges }` (program-to-spec `spec-templates.md` § Image Replacement) or a linear list (`?` = decision, `!` = end) |
+| `processFlow` | graph \| string[]? | Business flow: `{ nodes, edges }` (program-to-spec `spec-templates.md` § Image Replacement) or a linear list (`?` = decision, `!` = end). After a user edits the flow in the page it comes back as a free graph (`"layout":"free"`, nodes with `x`,`y`) — keep it as imported |
 | `screens` | object | Screen catalog: key → screen spec (§2) |
 | `scenarios` | array | §3 |
 | `fields` | object | `selection[]`: `{ name, label, required?, f4?, example?, description }`; `output[]`: `{ name, header, description }` |

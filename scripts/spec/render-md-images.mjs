@@ -23,7 +23,7 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve, basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { renderScreenImages, selectionSchemaWarnings, buttonSchemaWarnings } from './screen-image-renderer.mjs';
+import { renderScreenImages, selectionSchemaWarnings, buttonSchemaWarnings, toFreeFlow, freeFlowOptions } from './screen-image-renderer.mjs';
 import { readScreenTheme } from '../lib/profile-resolve.mjs';
 
 /** File name of button flow n: `flow-3-PCREATE.png`. */
@@ -32,6 +32,18 @@ export const buttonFlowFile = (index, code) =>
 
 /** File name of a further screen: `screen-0200.png`. */
 export const screenFile = (dynnr) => `screen-${String(dynnr).replace(/[^A-Za-z0-9_-]+/g, '_')}.png`;
+
+/**
+ * `<flow>.graph.json` next to a flow PNG: the flow as a free graph plus how to
+ * draw it. md-to-html.mjs turns that image into an editable flow figure, and
+ * flow-editor.mjs --import writes a changed graph back under `key`.
+ */
+function writeGraph(outDir, pngName, key, flow, lang, heading = null) {
+  const graph = toFreeFlow(flow);
+  if (!graph) return;
+  const file = join(outDir, pngName.replace(/\.png$/i, '.graph.json'));
+  writeFileSync(file, `${JSON.stringify({ key, graph, opts: freeFlowOptions(lang, heading) })}\n`, 'utf8');
+}
 
 export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) {
   if (!imageSpecPath || !existsSync(imageSpecPath)) {
@@ -47,6 +59,7 @@ export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) 
     }
   }
   const rendered = await renderScreenImages({ ...spec, theme: spec.theme ?? readScreenTheme(process.cwd()) ?? undefined });
+  const lang = spec.lang || 'ko';
 
   const manifest = { selection: null, alv: null, flow: null, buttonFlows: [] };
   const slots = [
@@ -59,6 +72,7 @@ export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) 
       const fp = join(outDir, fname);
       writeFileSync(fp, res.pngBuffer);
       manifest[key] = { file: fname, width: res.width, height: res.height, bytes: res.pngBuffer.length };
+      if (key === 'flow') writeGraph(outDir, fname, 'processFlow', spec.processFlow, lang);
       if (verbose) console.log(`render-md-images: ${fname} ${res.width}x${res.height} (${res.pngBuffer.length} B)`);
     } else if (verbose) {
       console.log(`render-md-images: ${key} → null (no PNG; MD keeps text fallback)`);
@@ -78,6 +92,7 @@ export async function renderMdImages({ imageSpecPath, outDir, verbose = true }) 
   for (const f of rendered.buttonFlows || []) {
     const fname = buttonFlowFile(f.index, f.code);
     writeFileSync(join(outDir, fname), f.pngBuffer);
+    writeGraph(outDir, fname, `buttonFlow:${f.code}`, f.flow, lang, f.heading);
     manifest.buttonFlows.push({ index: f.index, code: f.code, codes: f.codes || [], source: f.source, label: f.label, file: fname, width: f.width, height: f.height, bytes: f.pngBuffer.length });
     if (verbose) console.log(`render-md-images: ${fname} ${f.width}x${f.height} (${f.pngBuffer.length} B)`);
   }

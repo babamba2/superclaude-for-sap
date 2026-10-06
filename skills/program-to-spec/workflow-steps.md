@@ -1,11 +1,12 @@
 # Program → Spec — Workflow Steps
 
-Referenced by `SKILL.md`. Follow these 6 steps (Step 0 through Step 5) whenever the skill runs.
+Referenced by `SKILL.md`. Follow these 7 steps (Step 0 through Step 6) whenever the skill runs.
 
 **Step 0 — Socratic interview** (see `Socratic_Scope_Narrowing` section in `SKILL.md`)
 Default opener: issue ONE bundled `AskUserQuestion` call with the four standard questions — **Audience / Format / Depth / Language** — in that exact order, with the "(Recommended)" option first. **Format is multi-select** (Markdown / HTML / Excel — any combination); the other three are single-select. Hold the answer as `formats[]`. This is MANDATORY whenever the target object is already present in `ARGUMENTS`; it replaces Rounds 2+3+5 in a single UI turn.
 Fall back to per-round questioning only when (a) the object is missing/ambiguous (run Round 1 first) or (b) the user picks L3/L4 in the bundle (run Round 4 scope-trimming after).
 Never skip entirely unless the user supplies `object=... depth=L2 format=md,html lang=ko` style fully-qualified arguments (`format` = comma-separated subset of `md`, `html`, `xlsx`).
+**User-edited flows** — when the user hands over a spec HTML saved from its flow editor (`…-edited.html`), skip the interview: `node scripts/spec/flow-editor.mjs --import <edited.html> .sc4sap/specs/_img/{OBJECT}-{YYYYMMDD}.image-spec.json` (writes only the changed flows into `processFlow` / `buttonFlows[].flow` as free graphs, old file kept as `.bak`), then re-run Step 3.5 images and Step 4 for the original formats. Keep the user's free graphs in every later change.
 
 **Step 1 — Inventory** (auto, parallel MCP calls)
 - `SearchObject` — confirm object + sub-type
@@ -70,6 +71,7 @@ For objects without UI (pure class, FM, CDS, RAP without screens), skip the imag
   node scripts/spec/md-to-html.mjs .sc4sap/specs/{OBJECT}-{YYYYMMDD}-{lang}.md .sc4sap/specs/{OBJECT}-{YYYYMMDD}-{lang}.html
   ```
   One self-contained file: the three PNGs are inlined, any Mermaid fallback is drawn by the Mermaid CDN script when opened online. If `md` was NOT selected, delete the intermediate `.md` after the HTML is written (keep `_assets/` for regeneration). Re-run the converter whenever the `.md` changes in Step 5 so both stay identical.
+  **Editable flows** — `render-md-images.mjs` leaves `<flow>.graph.json` next to `flow.png` and every `flow-<n>-<CODE>.png`; the converter turns those images into flow figures with an "✎ Edit flow" button (drag shapes, draw / reconnect arrows, add / delete steps, edit text; Save downloads `…-edited.html`). Never delete the `.graph.json` files.
 
 - **Excel (MANDATORY workflow — 양식 보존 + program-specific imagery, single entry point)**:
 
@@ -107,4 +109,22 @@ For objects without UI (pure class, FM, CDS, RAP without screens), skip the imag
 **Step 5 — Review loop**
 - Show a table of contents + first section inline.
 - Ask: "OK to finalize, or trim/expand a section?"
-- On confirm → write one file per selected format (`.md` / `.html` / `.xlsx`) → print every absolute path.
+- On confirm → write one file per selected format (`.md` / `.html` / `.xlsx`) → go to Step 6 (or print every absolute path and finish when `lang` is `en`).
+
+**Step 6 — English companion** (default, when `lang` ≠ `en`)
+
+Every spec also ships in English, in the same formats, so global teams, auditors and offshore developers read the same content. It runs after Step 5 so review changes are in it. Skip it only when the user says so ("no English version").
+
+```
+▶ phase=6.translate (English spec) · agent=sc4sap:sap-writer · model=Sonnet (override)
+```
+
+- The writer reads the final `{lang}` files and writes their English twins (one `Write` call per file), never re-analysing the source:
+  - `md` / `html` → `.sc4sap/specs/{OBJECT}-{YYYYMMDD}-en.md`, image links pointing at `_assets/{OBJECT}-{YYYYMMDD}-en/`
+  - images (any format) → `.sc4sap/specs/_img/{OBJECT}-{YYYYMMDD}-en.image-spec.json` with `lang: "en"`
+  - `xlsx` → `.sc4sap/specs/_tr/{OBJECT}-{YYYYMMDD}-en.tr.json` (same keys, English values)
+- Translate every prose string: headings, narrative, table cells, selection labels / notes, ALV headers, pane titles, flow node and edge labels (`예`/`아니오` → `Yes`/`No`), button-flow labels, `processFlow[]`. Keep unchanged: SAP identifiers, T-Codes, function codes, table / field / class names, code blocks, line references, `CODE (English text)` message references (already English), `sampleRows` data codes, and every structural key — `screens`, anchors, node `id`s, edges, `lane`, and a free graph's `x` / `y` / sides (the user's layout stays; only labels change).
+- Then run Step 3.5 / Step 4 on the English files exactly as for the first language: `render-md-images.mjs` into `_assets/{OBJECT}-{YYYYMMDD}-en/`, `md-to-html.mjs` for `-en.html` (delete the `-en.md` afterwards when `md` was not selected), `build-spec.mjs <en.tr.json> <en.image-spec.json> .sc4sap/specs/{OBJECT}-{YYYYMMDD}-en.xlsx`.
+- Check: no Hangul / Kana / CJK left in any English file (`grep -P '[\x{AC00}-\x{D7AF}\x{3040}-\x{30FF}\x{4E00}-\x{9FFF}]'`) except SAP texts shown as SAP shows them; fix and re-render until clean.
+- A user-edited flow imported later (Step 0 **User-edited flows**) goes into the image-spec of the language of the page it came from; re-translate only its labels into the other language's image-spec, keeping the positions.
+- Finally print every absolute path of both languages.
