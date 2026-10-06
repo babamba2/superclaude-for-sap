@@ -36,12 +36,17 @@ const LABELS = {
     unsaved: '저장하지 않은 변경이 있습니다.', delCallout: '이 번호 삭제', undo: '되돌리기', help: '도움말',
     draft: '저장하지 않은 편집이 있습니다', resume: '이어서 편집', discard: '버리기', ok: '확인',
     addRow: '행 추가', insertRow: '아래에 행 추가', delRow: '행 삭제',
+    addItem: '항목 추가', insertItem: '아래에 항목 추가', delItem: '항목 삭제',
+    addNote: '설명 줄 추가', addDetail: '상세 추가', moveTo: '다른 시나리오로 이동', resultPh: '결과를 입력하세요', itemPh: '내용을 입력하세요',
+    revTitle: '저장 — 개정 이력', revVersion: '버전', revAuthor: '작성자', revNote: '변경 내용', revDefault: '편집 모드에서 내용 수정',
+    revNeedAuthor: '작성자를 입력하세요.', cancel: '취소',
     bold: '굵게', em: '강조', list: '목록', clean: '서식 지우기',
     guideTitle: '편집 방법',
     guide: [
       '글자를 클릭하면 바로 고칠 수 있습니다. 글자를 선택하면 굵게 · 강조 · 목록 버튼이 나타납니다.',
-      '화면 위 번호는 드래그해서 옮깁니다. 스텝 위의 버튼으로 번호 추가, 스텝 이동 · 복제 · 삭제를 합니다. 표는 행 오른쪽 ＋ / ✕ 로 행을 추가 · 삭제하고, ● 칸은 클릭하면 켜고 꺼집니다.',
+      '화면 위 번호는 드래그해서 옮깁니다. 스텝 위의 버튼으로 번호 추가, 스텝 이동 · 복제 · 삭제를 합니다. 표, Business Rule · Check Points, 스텝 설명 줄, 번호별 상세는 ▲ ▼ ＋ ✕ 로 순서 변경 · 추가 · 삭제하고(Check Point는 ⇄ 로 다른 시나리오로 이동), ● 칸은 클릭하면 켜고 꺼집니다.',
       '스텝을 클릭한 뒤 Ctrl+V 하면 그림 대신 실제 캡처 화면이 들어갑니다.',
+      '처리 흐름도는 도형을 드래그해 옮기고, 도형 가장자리의 점을 다른 도형으로 끌어 화살표를 잇습니다. 더블클릭하면 글자를 고치고, 위 버튼으로 단계를 추가 · 삭제합니다.',
       '실수하면 Ctrl+Z(되돌리기). 편집 내용은 브라우저에 자동으로 임시 저장됩니다.',
       '다 고쳤으면 [저장]을 누르고, 받은 파일을 담당 컨설턴트에게 보내 주세요.',
     ],
@@ -53,12 +58,17 @@ const LABELS = {
     unsaved: 'You have unsaved changes.', delCallout: 'Delete this callout', undo: 'Undo', help: 'Help',
     draft: 'You have unsaved edits', resume: 'Continue editing', discard: 'Discard', ok: 'OK',
     addRow: 'Add row', insertRow: 'Insert a row below', delRow: 'Delete row',
+    addItem: 'Add item', insertItem: 'Insert an item below', delItem: 'Delete item',
+    addNote: 'Add note line', addDetail: 'Add detail', moveTo: 'Move to another scenario', resultPh: 'Type the result', itemPh: 'Type the text',
+    revTitle: 'Save — revision history', revVersion: 'Version', revAuthor: 'Author', revNote: 'Changes', revDefault: 'Edited in the page edit mode',
+    revNeedAuthor: 'Enter the author.', cancel: 'Cancel',
     bold: 'Bold', em: 'Highlight', list: 'List', clean: 'Clear formatting',
     guideTitle: 'How to edit',
     guide: [
       'Click any text to change it. Select text to get Bold · Highlight · List buttons.',
-      'Drag a number on the screen to move it. The buttons above a step add callouts and move, duplicate or delete the step. In tables, ＋ / ✕ at the end of a row add and delete rows; click a ● cell to switch it.',
+      'Drag a number on the screen to move it. The buttons above a step add callouts and move, duplicate or delete the step. Tables, Business Rules, Check Points, step note lines and callout details have ▲ ▼ ＋ ✕ to reorder, add and delete (⇄ moves a check point to another scenario); click a ● cell to switch it.',
       'Click a step and press Ctrl+V to use a real screenshot instead of the drawing.',
+      'In the process flow, drag a shape to move it and drag a dot on its edge onto another shape to draw an arrow. Double-click to change text; the buttons above add and delete steps.',
       'Made a mistake? Ctrl+Z (Undo). Your edits are kept in the browser until you save.',
       'When you are done, press [Save] and send the file to your consultant.',
     ],
@@ -70,12 +80,17 @@ const LABELS = {
     unsaved: '保存していない変更があります。', delCallout: 'この番号を削除', undo: '元に戻す', help: 'ヘルプ',
     draft: '保存していない編集があります', resume: '編集を続ける', discard: '破棄', ok: 'OK',
     addRow: '行を追加', insertRow: '下に行を追加', delRow: '行を削除',
+    addItem: '項目を追加', insertItem: '下に項目を追加', delItem: '項目を削除',
+    addNote: '説明行を追加', addDetail: '詳細を追加', moveTo: '別のシナリオへ移動', resultPh: '結果を入力してください', itemPh: '内容を入力してください',
+    revTitle: '保存 — 改訂履歴', revVersion: '版', revAuthor: '作成者', revNote: '変更内容', revDefault: '編集モードで内容を修正',
+    revNeedAuthor: '作成者を入力してください。', cancel: 'キャンセル',
     bold: '太字', em: '強調', list: 'リスト', clean: '書式クリア',
     guideTitle: '編集方法',
     guide: [
       '文字をクリックするとそのまま修正できます。文字を選択すると 太字・強調・リスト のボタンが出ます。',
-      '画面上の番号はドラッグで移動します。ステップ上のボタンで番号追加、ステップの移動・複製・削除ができます。表は行末の ＋ / ✕ で行を追加・削除し、● の欄はクリックで切り替えます。',
+      '画面上の番号はドラッグで移動します。ステップ上のボタンで番号追加、ステップの移動・複製・削除ができます。表、Business Rule・Check Points、ステップ説明行、番号ごとの詳細は ▲ ▼ ＋ ✕ で並べ替え・追加・削除し（Check Point は ⇄ で別のシナリオへ移動）、● の欄はクリックで切り替えます。',
       'ステップをクリックして Ctrl+V で、図の代わりに実際のキャプチャ画面を使えます。',
+      '処理フローは図形をドラッグで移動し、図形の縁の点を別の図形へドラッグして矢印をつなぎます。ダブルクリックで文字を修正し、上のボタンでステップを追加・削除します。',
       '間違えたら Ctrl+Z（元に戻す）。編集内容はブラウザに自動で一時保存されます。',
       '終わったら［保存］を押し、ダウンロードしたファイルを担当コンサルタントに送ってください。',
     ],
@@ -104,8 +119,24 @@ body.editing .ed-tools button:hover,body.editing .ed-x:hover{border-color:var(--
 .ed-x{display:none}
 body.editing .ed-x{display:inline-block;padding:0 6px;align-self:start}
 body.editing .callouts>li{grid-template-columns:26px 1fr auto}
-body.editing [data-p],body.editing [data-k],body.editing [data-c]{outline:1px dashed color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:2px;border-radius:2px;cursor:text;min-width:2em;display:inline-block}
-body.editing li>[data-p],body.editing li>[data-k]{display:inline}
+body.editing [data-p],body.editing [data-k],body.editing [data-c],body.editing [data-l]{outline:1px dashed color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:2px;border-radius:2px;cursor:text;min-width:2em;display:inline-block}
+body.editing li>[data-p],body.editing li>[data-k],body.editing li>[data-l]{display:inline}
+body.editing .ed-list-wrap[hidden]{display:block!important}
+body.editing .ed-list>li>[data-l]:empty{display:inline-block;min-width:12em}
+body.editing .ed-list>li>.ed-quill{display:inline-block!important;min-width:60%;max-width:calc(100% - 90px);vertical-align:top}
+.ed-litools{display:none}
+body.editing .ed-litools{display:inline;margin-left:8px;white-space:nowrap}
+body.editing .ed-litools button{font:inherit;font-size:11px;padding:0 6px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--fg);cursor:pointer;margin-right:3px}
+body.editing .ed-list+.ed-addrow{margin:2px 0 12px}
+body.editing .ed-addin{display:inline-block;margin:4px 0 0;font-size:11px;padding:0 7px}
+body.editing [data-k]:empty::before,body.editing [data-l]:empty::before{content:attr(data-ph);color:var(--muted);font-style:italic}
+body.editing .step-notes>li>[data-k]{display:inline}
+.ed-pick{font:inherit;font-size:12px;margin-left:4px}
+.ed-revrow{display:grid;grid-template-columns:90px 1fr;gap:8px;align-items:start;margin:0 0 10px;font-size:14px}
+.ed-revrow input,.ed-revrow textarea{font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg);width:100%}
+.ed-reverr{color:#c0392b;margin:0 0 8px;font-size:13px}
+.ed-revbar{display:flex;gap:8px;justify-content:flex-end}
+.ed-guide button.ed-revcancel{background:var(--card);color:var(--fg);border-color:var(--line)}
 body.editing td [data-c]{display:block;min-height:1.4em}
 body.editing td code>[data-c]{display:inline-block;min-width:3em;min-height:0;outline:0}
 .ed-rowtools,.ed-addrow{display:none}
@@ -113,7 +144,7 @@ body.editing td.ed-rowtools,body.editing th.ed-rowtools{display:table-cell;width
 body.editing .ed-addrow{display:inline-block;margin:-8px 0 16px}
 body.editing td[data-flag]{cursor:pointer;text-align:center;outline:1px dashed color-mix(in srgb,var(--accent) 45%,transparent);outline-offset:-3px}
 body.editing .ed-rowtools button,body.editing .ed-addrow{font:inherit;font-size:12px;padding:1px 7px;border:1px solid var(--line);border-radius:5px;background:var(--card);color:var(--fg);cursor:pointer;margin-right:4px}
-body.editing [data-p]:focus,body.editing [data-k]:focus{outline:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
+body.editing [data-p]:focus,body.editing [data-k]:focus,body.editing [data-l]:focus{outline:2px solid var(--accent);background:color-mix(in srgb,var(--accent) 8%,transparent)}
 body.editing .ed-quill{display:block!important;outline:2px solid var(--accent)!important;background:var(--bg);color:var(--fg);border-radius:4px}
 .ed-quill .ql-editor{padding:2px 4px;font:inherit;line-height:inherit;overflow:visible}
 .ed-quill .ql-editor p{margin:0}.ed-quill .ql-editor ul,.ed-quill .ql-editor ol{padding-left:4px;margin:0}
@@ -123,7 +154,7 @@ body.editing .step-note[hidden],body.editing .screen figcaption{display:block!im
 body.editing .step.ed-current{box-shadow:0 0 0 2px var(--accent)}
 body.editing .callout-badge{cursor:grab}
 body.editing .callout-badge:active{cursor:grabbing}
-@media print{.ed-rowtools,.ed-addrow,.ed-tools,.ed-x,.ed-bar,.ed-draft,.ed-guide,#edit-btn{display:none!important}}
+@media print{.ed-litools,.ed-rowtools,.ed-addrow,.ed-tools,.ed-x,.ed-bar,.ed-draft,.ed-guide,#edit-btn{display:none!important}}
 `;
 
 // String.raw keeps the script's backslashes as written; the script uses no ${…}.
@@ -136,7 +167,7 @@ export const EDITOR_SCRIPT = String.raw`
   var Q=window.Quill||null;
   var editing=false,dirty=false,ready=false,current=null,original={},undoStack=[],active=null,activeQ=null;
   var BT='\x60',DRAFT_KEY=location.pathname,GUIDE_KEY='sc4sap-manual-guide-seen',RESUME_KEY='sc4sap-manual-resume';
-  var FIELDS='[data-p],[data-k],[data-c]'; // absolute path · path in a step · key in a table row
+  var FIELDS='[data-p],[data-k],[data-c],[data-l]'; // absolute path · path in a step · key in a table row · list item text
 
   // ── markup <-> HTML / Quill delta ──
   var RE=new RegExp('\\*\\*([^*]+)\\*\\*|==([^=]+)==|'+BT+'([^'+BT+']+)'+BT,'g');
@@ -207,6 +238,7 @@ export const EDITOR_SCRIPT = String.raw`
   function fieldRef(el){
     if(el.hasAttribute('data-p'))return {obj:M,path:el.getAttribute('data-p')};
     if(el.hasAttribute('data-c')){var tr=el.closest('tr[data-row]');return tr&&tr._row?{obj:tr._row,path:el.getAttribute('data-c'),row:tr}:null;}
+    if(el.hasAttribute('data-l')){var li=el.closest('li[data-i]');return li&&li._box?{obj:li._box,path:'v',li:li}:null;}
     var art=el.closest('article.step');return art?{obj:art._step,path:el.getAttribute('data-k'),art:art}:null;
   }
   function valueOf(el){var r=fieldRef(el);var v=r&&getPath(r.obj,r.path);return v==null?'':String(v);}
@@ -217,6 +249,7 @@ export const EDITOR_SCRIPT = String.raw`
   }
   function findField(ref){
     if(ref.row)return ref.row.querySelector('[data-c="'+ref.path+'"]');
+    if(ref.li)return ref.li.querySelector('[data-l]');
     if(!ref.art)return document.querySelector('[data-p="'+ref.path+'"]');
     return ref.art.querySelector('[data-k="'+ref.path+'"]');
   }
@@ -266,6 +299,83 @@ export const EDITOR_SCRIPT = String.raw`
     pushUndo(function(){set(before);});
   }
 
+  // ── bullet lists (business rules, check points): items kept on their <li>, rebuilt on save ──
+  function lists(){return Array.prototype.slice.call(document.querySelectorAll('ul.ed-list[data-list]'));}
+  function itemsOf(ul){return Array.prototype.slice.call(ul.querySelectorAll(':scope>li[data-i]'));}
+  function prepareList(ul){
+    var items=getPath(M,ul.getAttribute('data-list'))||[];
+    itemsOf(ul).forEach(function(li){
+      var it=items[+li.getAttribute('data-i')];
+      li._orig=it==null?'':clone(it);li._box={v:typeof it==='string'?it:(it&&it.text)||''};addListTools(ul,li);
+    });
+    var add=button('＋ '+L.addItem,function(){insertItem(ul,null);});add.className='ed-addrow';
+    ul.parentNode.insertBefore(add,ul.nextSibling);
+  }
+  /** ▲ ▼ ＋ ✕ after a list item; fns = { up, down, ins, del }. */
+  function itemTools(fns){
+    var s=document.createElement('span');s.className='ed-litools';
+    [['▲','up',L.up],['▼','down',L.down],['＋','ins',L.insertItem],['✕','del',L.delItem]].forEach(function(b){
+      var x=button(b[0],fns[b[1]]);x.title=b[2];s.appendChild(x);
+    });
+    return s;
+  }
+  function addListTools(ul,li){
+    var s=itemTools({
+      up:function(){moveItem(li,-1);},down:function(){moveItem(li,1);},
+      ins:function(){insertItem(li.parentNode,li);},del:function(){deleteItem(li);}
+    });
+    if(/^scenarios\.\d+\.checkpoints$/.test(ul.getAttribute('data-list'))&&sections().length>1){
+      var mv=button('⇄',function(){pickScenario(li,mv);});mv.title=L.moveTo;s.appendChild(mv);
+    }
+    li.appendChild(s);
+  }
+  function moveItem(li,dir){
+    var sib=dir<0?li.previousElementSibling:li.nextElementSibling;if(!sib)return;
+    if(active)unmount();
+    if(dir<0)li.parentNode.insertBefore(li,sib);else li.parentNode.insertBefore(sib,li);
+    mark();pushUndo(function(){moveItem(li,-dir);undoStack.pop();});
+  }
+  // A check point to another scenario: a menu of the other scenarios, appended to that list.
+  function pickScenario(li,anchor){
+    var old=document.querySelector('.ed-pick');if(old)old.remove();
+    var from=li.closest('section[data-si]'),sel=document.createElement('select');sel.className='ed-pick';
+    var o=document.createElement('option');o.textContent=L.moveTo+' …';o.value='';sel.appendChild(o);
+    sections().forEach(function(sec){
+      if(sec===from)return;var h=sec.querySelector(':scope>h3');
+      var op=document.createElement('option');op.value=sec.getAttribute('data-si');op.textContent=h?h.textContent:'#'+op.value;sel.appendChild(op);
+    });
+    sel.addEventListener('change',function(){
+      var to=document.querySelector('ul.ed-list[data-list="scenarios.'+sel.value+'.checkpoints"]');sel.remove();if(!to)return;
+      var parent=li.parentNode,next=li.nextSibling,wrap=to.closest('.ed-list-wrap'),wasHidden=wrap&&wrap.hidden;
+      to.appendChild(li);if(wrap)wrap.hidden=false;mark();li.scrollIntoView({block:'center'});
+      pushUndo(function(){parent.insertBefore(li,next);if(wrap)wrap.hidden=wasHidden;});
+    });
+    sel.addEventListener('blur',function(){setTimeout(function(){sel.remove();},150);});
+    anchor.parentNode.appendChild(sel);sel.focus();
+  }
+  function insertItem(ul,after){
+    if(active)unmount();
+    var li=document.createElement('li');li.setAttribute('data-i','');li.innerHTML='<span data-l="" data-ph="'+esc(L.itemPh)+'"></span>';
+    li._orig='';li._box={v:''};addListTools(ul,li);
+    ul.insertBefore(li,after?after.nextSibling:null);
+    editable(li,true);mark();
+    pushUndo(function(){li.remove();});
+    var f=li.querySelector('[data-l]');if(Q)mount(f);else f.focus();
+  }
+  function deleteItem(li){
+    if(active&&li.contains(active))unmount();
+    var parent=li.parentNode,next=li.nextSibling;li.remove();mark();
+    pushUndo(function(){parent.insertBefore(li,next);});
+  }
+  function listValue(ul){
+    var un=(M.intro&&M.intro.unverified)||[];
+    return itemsOf(ul).map(function(li){
+      var o=li._orig,v=li._box.v,before=typeof o==='string'?o:(o&&o.text)||'';
+      var i=before?un.indexOf(before):-1;if(i>=0&&v!==before){un[i]=v;if(typeof o==='string')li._orig=v;else o.text=v;}
+      return o&&typeof o==='object'?assign(o,{text:v}):v;
+    }).filter(function(it){return String(typeof it==='string'?it:it.text).trim();});
+  }
+
   // ── undo / dirty / autosave ──
   var saveTimer=null;
   function mark(){dirty=true;clearTimeout(saveTimer);saveTimer=setTimeout(saveDraft,1500);}
@@ -284,8 +394,49 @@ export const EDITOR_SCRIPT = String.raw`
     var fig=art.querySelector('figure.screen'),body=art.querySelector('.step-body');
     if(s.fig){var tmp=document.createElement('div');tmp.innerHTML=s.fig;var nf=tmp.firstChild;if(fig)fig.replaceWith(nf);else body.insertBefore(nf,body.firstChild);body.classList.add('has-screen');}
     else if(fig){fig.remove();body.classList.remove('has-screen');}
-    redrawCallouts(art);refreshTools(art);
-    art.querySelectorAll('[data-k="title"],[data-k="note"],[data-k="result"],[data-k="caption"]').forEach(function(e){e.innerHTML=inline(valueOf(e));});
+    redrawCallouts(art);redrawNotes(art);refreshTools(art);
+    art.querySelectorAll('[data-k="title"],[data-k="result"],[data-k="caption"]').forEach(function(e){e.innerHTML=inline(valueOf(e));});
+  }
+
+  // ── lists inside a step (note lines, callout details): array ops on art._step, undone by snapshot ──
+  function noteArr(art){var st=art._step;if(!Array.isArray(st.note))st.note=String(st.note||'').split(/\r?\n/).filter(function(x){return x.trim();});return st.note;}
+  function detailArr(art,ci){var c=art._step.callouts[ci];if(!Array.isArray(c.details))c.details=[];return c.details;}
+  /** op on array a at i: up / down / ins (after i) / add (at end) / del; then redraw and edit a new item. */
+  function stepListOp(art,get,op,i,redraw,pathOf){
+    var fresh=-1;
+    stepChange(art,function(){
+      var a=get();
+      if(op==='up'&&i>0)a.splice(i-1,0,a.splice(i,1)[0]);
+      else if(op==='down'&&i<a.length-1)a.splice(i+1,0,a.splice(i,1)[0]);
+      else if(op==='ins'){a.splice(i+1,0,'');fresh=i+1;}
+      else if(op==='add'){a.push('');fresh=a.length-1;}
+      else if(op==='del')a.splice(i,1);
+      redraw();
+    });
+    if(fresh>=0){var f=art.querySelector('[data-k="'+pathOf(fresh)+'"]');if(f){if(Q)mount(f);else f.focus();}}
+  }
+  function toolsFor(art,get,i,redraw,pathOf){
+    function op(o){return function(){stepListOp(art,get,o,i,redraw,pathOf);};}
+    return itemTools({up:op('up'),down:op('down'),ins:op('ins'),del:op('del')});
+  }
+  function addButton(label,fn){var b=button('＋ '+label,fn);b.className='ed-addrow ed-addin';return b;}
+  function redrawNotes(art){
+    if(active&&art.contains(active))unmount();
+    var ul=art.querySelector('ul.step-notes');if(!ul)return;
+    var a=noteArr(art),redraw=function(){redrawNotes(art);},path=function(i){return 'note.'+i;};
+    ul.innerHTML=a.map(function(x,i){return '<li><span data-k="note.'+i+'" data-ph="'+esc(L.itemPh)+'">'+inline(x)+'</span></li>';}).join('');
+    ul.hidden=!a.length;editable(ul,true);
+    Array.prototype.slice.call(ul.children).forEach(function(li,i){li.appendChild(toolsFor(art,function(){return noteArr(art);},i,redraw,path));});
+    var nx=ul.nextElementSibling;if(nx&&nx.classList.contains('ed-addin'))nx.remove();
+    ul.parentNode.insertBefore(addButton(L.addNote,function(){stepListOp(art,function(){return noteArr(art);},'add',0,redraw,path);}),ul.nextSibling);
+  }
+  function detailTools(art){
+    art.querySelectorAll('ol.callouts>li').forEach(function(li){
+      var ci=+li.getAttribute('data-ci'),ul=li.querySelector(':scope>div>ul');if(!ul)return;
+      var get=function(){return detailArr(art,ci);},redraw=function(){redrawCallouts(art);},path=function(i){return 'callouts.'+ci+'.details.'+i;};
+      Array.prototype.slice.call(ul.children).forEach(function(dli,i){dli.appendChild(toolsFor(art,get,i,redraw,path));});
+      ul.parentNode.appendChild(addButton(L.addDetail,function(){stepListOp(art,get,'add',0,redraw,path);}));
+    });
   }
   function stepChange(art,fn){var s=snapshot(art);fn();pushUndo(function(){restoreSnap(art,s);});mark();}
 
@@ -388,11 +539,28 @@ export const EDITOR_SCRIPT = String.raw`
         art._step=clone(st);
         var fig=art.querySelector('figure.screen');
         art._origFig=fig&&!st.image?fig.outerHTML:null;
-        addTools(art);
+        addTools(art);redrawNotes(art);detailTools(art);
+        art.querySelectorAll('[data-k="result"]').forEach(function(e){e.setAttribute('data-ph',L.resultPh);});
       });
     });
     tables().forEach(prepareTable);
+    lists().forEach(prepareList);
     document.querySelectorAll('[data-p]').forEach(function(e){original[e.getAttribute('data-p')]=getPath(M,e.getAttribute('data-p'));});
+    prepareFlow();
+  }
+
+  // ── process flow: flow-editor.mjs on the figure; a change replaces manual.processFlow ──
+  var flowCtl=null;
+  function prepareFlow(){
+    var fig=document.querySelector('figure.flow-fig[data-flow]'),seedEl=document.getElementById('flow-seed');
+    if(!fig||!seedEl||!window.sc4sapFlow)return;
+    var seed=JSON.parse(seedEl.textContent),pf=M.processFlow;
+    var start=pf&&pf.layout==='free'&&pf.nodes?pf:seed.graph; // a saved / resumed page already holds the edited graph
+    if(!start)return;
+    flowCtl=window.sc4sapFlow.attach(fig,{graph:start,opts:seed.opts,labels:L.flow,onChange:function(next,prev){
+      M.processFlow=next;mark();
+      pushUndo(function(){M.processFlow=prev;flowCtl.set(prev);});
+    }});
   }
   function button(label,fn){var b=document.createElement('button');b.type='button';b.textContent=label;b.addEventListener('click',function(ev){ev.stopPropagation();fn();});return b;}
   function addTools(art){
@@ -441,10 +609,10 @@ export const EDITOR_SCRIPT = String.raw`
   function duplicate(art){
     if(active&&art.contains(active))unmount();
     var copy=art.cloneNode(true);
-    copy.querySelectorAll('.ed-tools,.ed-x,g.callout-layer').forEach(function(e){e.remove();});
+    copy.querySelectorAll('.ed-tools,.ed-x,g.callout-layer,.ed-litools,.ed-addin').forEach(function(e){e.remove();});
     copy._step=clone(art._step);copy._origFig=art._origFig;
     art.parentNode.insertBefore(copy,art.nextSibling);
-    addTools(copy);editable(copy,true);renumber();placeFig(copy);mark();
+    addTools(copy);redrawNotes(copy);redrawCallouts(copy);editable(copy,true);renumber();mark();
     pushUndo(function(){copy.remove();});
   }
   function marksOf(st){
@@ -459,10 +627,10 @@ export const EDITOR_SCRIPT = String.raw`
     if(active&&art.contains(active))unmount();
     var st=art._step,ol=art.querySelector('ol.callouts');
     ol.innerHTML=(st.callouts||[]).map(function(c,i){
-      var d=(c.details||[]).map(function(x,di){return '<li><span data-k="callouts.'+i+'.details.'+di+'">'+inline(x)+'</span></li>';}).join('');
-      return '<li data-ci="'+i+'"><span class="num">'+(i+1)+'</span><div><span data-k="callouts.'+i+'.text">'+inline(c.text)+'</span>'+(d?'<ul>'+d+'</ul>':'')+'</div></li>';
+      var d=(c.details||[]).map(function(x,di){return '<li><span data-k="callouts.'+i+'.details.'+di+'" data-ph="'+esc(L.itemPh)+'">'+inline(x)+'</span></li>';}).join('');
+      return '<li data-ci="'+i+'"><span class="num">'+(i+1)+'</span><div><span data-k="callouts.'+i+'.text">'+inline(c.text)+'</span><ul>'+d+'</ul></div></li>';
     }).join('');
-    editable(ol,true);addCalloutX(art);placeFig(art);
+    editable(ol,true);addCalloutX(art);detailTools(art);placeFig(art);
   }
   function addCallout(art){
     stepChange(art,function(){
@@ -553,10 +721,18 @@ export const EDITOR_SCRIPT = String.raw`
   },true);
 
   // ── save ──
+  function filled(x){return String(x==null?'':x).trim();}
+  /** A step as manual.json keeps it: note lines joined back into one string, empty lines and details dropped. */
+  function stepOut(st){
+    var s=clone(st);
+    if(Array.isArray(s.note)){var t=s.note.filter(filled).join('\n');if(t)s.note=t;else delete s.note;}
+    (s.callouts||[]).forEach(function(c){if(Array.isArray(c.details)){c.details=c.details.filter(filled);if(!c.details.length)delete c.details;}});
+    return s;
+  }
   function collect(){
     sections().forEach(function(sec){
       var si=+sec.getAttribute('data-si');
-      M.scenarios[si].steps=articles(sec).map(function(a){return a._step;});
+      M.scenarios[si].steps=articles(sec).map(function(a){return stepOut(a._step);});
     });
     var un=(M.intro&&M.intro.unverified)||[];
     Object.keys(original).forEach(function(p){
@@ -564,20 +740,41 @@ export const EDITOR_SCRIPT = String.raw`
       if(i>=0&&now!==original[p]){un[i]=now;original[p]=now;}
     });
     tables().forEach(function(t){setPath(M,t.getAttribute('data-array'),rowsOf(t).map(function(tr){return tr._row;}));});
+    lists().forEach(function(ul){setPath(M,ul.getAttribute('data-list'),listValue(ul));});
     M.edited={at:new Date().toISOString().slice(0,19).replace('T',' ')};
   }
   function pageHtml(){
     var doc=document.documentElement.cloneNode(true);
-    doc.querySelectorAll('.ed-tools,.ed-x,.ed-rowtools,.ed-addrow,g.callout-layer,.ed-draft,.ed-guide').forEach(function(e){e.remove();});
-    doc.querySelectorAll('table.ed-table').forEach(function(t){rowsOf(t).forEach(function(tr,i){tr.setAttribute('data-row',i);});});
-    doc.querySelectorAll('[contenteditable]').forEach(function(e){e.removeAttribute('contenteditable');});
-    doc.querySelectorAll('.ed-current').forEach(function(e){e.classList.remove('ed-current');});
     if(active){ // the field being edited: its text, not Quill's editor
       var live=[].slice.call(document.querySelectorAll(FIELDS)).indexOf(active);
       var copy=doc.querySelectorAll(FIELDS)[live];
       if(copy){copy.classList.remove('ed-quill','ql-container','ql-bubble');copy.innerHTML=inline(valueOf(active));}
     }
-    doc.querySelectorAll('.step-note').forEach(function(p){var s=p.querySelector('[data-k]');if(s)p.hidden=!s.textContent.trim();});
+    doc.querySelectorAll('.ed-tools,.ed-x,.ed-litools,.ed-rowtools,.ed-addrow,.ed-pick,g.callout-layer,.ed-draft,.ed-guide,.fe-tools,.fe-label').forEach(function(e){e.remove();});
+    // step lists match stepOut(): empty items dropped, paths renumbered
+    doc.querySelectorAll('ul.step-notes').forEach(function(ul){
+      [].slice.call(ul.children).filter(function(li){return !li.textContent.trim();}).forEach(function(li){li.remove();});
+      [].slice.call(ul.querySelectorAll(':scope>li>[data-k]')).forEach(function(s,i){s.setAttribute('data-k','note.'+i);});
+    });
+    doc.querySelectorAll('ol.callouts>li').forEach(function(li){
+      var ci=li.getAttribute('data-ci'),ul=li.querySelector(':scope>div>ul');if(!ul)return;
+      [].slice.call(ul.children).filter(function(d){return !d.textContent.trim();}).forEach(function(d){d.remove();});
+      [].slice.call(ul.querySelectorAll(':scope>li>[data-k]')).forEach(function(s,i){s.setAttribute('data-k','callouts.'+ci+'.details.'+i);});
+    });
+    doc.querySelectorAll('figure.flow-fig').forEach(function(f){
+      f.classList.remove('fe-on','fe-linking');
+      var c=f.querySelector(':scope>.flow-canvas');if(c&&flowCtl)c.innerHTML=flowCtl.staticSvg();
+    });
+    doc.querySelectorAll('table.ed-table').forEach(function(t){rowsOf(t).forEach(function(tr,i){tr.setAttribute('data-row',i);});});
+    doc.querySelectorAll('.ed-litools').forEach(function(e){e.remove();});
+    doc.querySelectorAll('ul.ed-list').forEach(function(ul){ // match the rebuilt array: empty items dropped, indexes renumbered
+      itemsOf(ul).filter(function(li){return !li.querySelector('[data-l]').textContent.trim();}).forEach(function(li){li.remove();});
+      itemsOf(ul).forEach(function(li,i){li.setAttribute('data-i',i);});
+      var w=ul.closest('.ed-list-wrap');if(w)w.hidden=!itemsOf(ul).length;
+    });
+    doc.querySelectorAll('[contenteditable]').forEach(function(e){e.removeAttribute('contenteditable');});
+    doc.querySelectorAll('.ed-current').forEach(function(e){e.classList.remove('ed-current');});
+    doc.querySelectorAll('.step-note').forEach(function(p){p.hidden=![].slice.call(p.querySelectorAll('[data-k]')).some(function(s){return s.textContent.trim();});});
     doc.querySelector('body').classList.remove('editing');
     var eb=doc.querySelector('#ed-bar');if(eb){eb.hidden=true;eb.innerHTML='';}
     var eBtn=doc.querySelector('#edit-btn');if(eBtn)eBtn.textContent=L.edit;
@@ -585,10 +782,54 @@ export const EDITOR_SCRIPT = String.raw`
     return '<!doctype html>\n'+doc.outerHTML;
   }
   function fileName(){
-    var f=decodeURIComponent((location.pathname.split('/').pop()||'manual.html'));
+    var f=decodeURIComponent((location.pathname.split('/').pop()||'manual.html')).replace(/-v\d+(\.\d+)?-/,'-v'+SRC.version+'-');
     return /-edited\.html$/i.test(f)?f:f.replace(/\.html?$/i,'')+'-edited.html';
   }
-  function save(){
+
+  // ── revision history: the first save of a session adds version +0.1; later saves update it ──
+  var rev=null,revRow=null,AUTHOR_KEY='sc4sap-manual-author';
+  function today(){var d=new Date();return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);}
+  function nextVersion(v){var p=String(v||'1.0').split('.');return (+p[0]||1)+'.'+((+p[1]||0)+1);}
+  function askRevision(then){
+    var o=document.createElement('div');o.className='ed-guide';
+    var box=document.createElement('div'),h=document.createElement('h3');h.textContent=L.revTitle;box.appendChild(h);
+    var ver=rev?rev.version:nextVersion(SRC.version);
+    function row(label,el){var l=document.createElement('label');l.className='ed-revrow';var t=document.createElement('span');t.textContent=label;l.appendChild(t);l.appendChild(el);box.appendChild(l);return el;}
+    var v=document.createElement('strong');v.textContent='v'+ver+' · '+today();row(L.revVersion,v);
+    var who=row(L.revAuthor,document.createElement('input'));
+    var saved='';try{saved=localStorage.getItem(AUTHOR_KEY)||'';}catch(e){}
+    who.value=rev?rev.author:saved;
+    var note=row(L.revNote,document.createElement('textarea'));note.rows=3;note.value=rev?rev.note:L.revDefault;
+    var err=document.createElement('p');err.className='ed-reverr';err.hidden=true;err.textContent=L.revNeedAuthor;box.appendChild(err);
+    var bar=document.createElement('div');bar.className='ed-revbar';
+    function close(){o.remove();}
+    function ok(){
+      var a=who.value.trim();if(!a){err.hidden=false;who.focus();return;}
+      try{localStorage.setItem(AUTHOR_KEY,a);}catch(e){}
+      setRevision(ver,a,note.value.trim()||L.revDefault);close();then();
+    }
+    var cancel=button(L.cancel,close);cancel.className='ed-revcancel';
+    bar.appendChild(cancel);bar.appendChild(button(L.save,ok));box.appendChild(bar);
+    o.appendChild(box);document.body.appendChild(o);
+    o.addEventListener('keydown',function(e){e.stopPropagation();if(e.key==='Escape')close();else if(e.key==='Enter'&&e.target===who){e.preventDefault();ok();}});
+    (who.value?note:who).focus();
+  }
+  function setRevision(ver,author,note){
+    var prev=SRC.version;
+    if(!rev){rev={version:ver,date:today(),author:author,note:note};SRC.history=SRC.history||[];SRC.history.push(rev);}
+    else{rev.author=author;rev.note=note;rev.date=today();}
+    SRC.version=ver;
+    var t=document.getElementById('rev-table');
+    if(t){
+      if(!revRow){revRow=document.createElement('tr');for(var i=0;i<4;i++)revRow.appendChild(document.createElement('td'));t.querySelector('tbody').appendChild(revRow);}
+      var c=revRow.children;c[0].textContent='v'+rev.version;c[1].textContent=rev.date;c[2].textContent=rev.author;c[3].innerHTML=inline(rev.note);
+    }
+    document.querySelectorAll('[data-ver]').forEach(function(e){e.textContent='v'+ver;});
+    document.querySelectorAll('[data-ver-date]').forEach(function(e){e.textContent=rev.date;});
+    if(prev&&prev!==ver)document.title=document.title.split('v'+prev).join('v'+ver);
+  }
+  function save(){askRevision(writeFile);}
+  function writeFile(){
     collect();
     var html=pageHtml(),blob=new Blob([html],{type:'text/html'});
     function done(){dirty=false;clearTimeout(saveTimer);clearDraft();status(L.saved);}
@@ -619,6 +860,8 @@ export const EDITOR_SCRIPT = String.raw`
     editing=on;
     document.body.classList.toggle('editing',on);
     editable(document,on);
+    if(flowCtl)flowCtl.setEditing(on);
+    if(!on&&window.sc4sapLinkTerms)window.sc4sapLinkTerms(); // glossary links for the edited text
     btn.textContent=on?L.done:L.edit;
     bar.hidden=!on;
     if(on&&!bar.childNodes.length){

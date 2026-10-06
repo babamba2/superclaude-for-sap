@@ -28,6 +28,7 @@ import { writeFileSync, readFileSync, mkdtempSync, rmSync, existsSync } from 'no
 import { tmpdir, platform } from 'node:os';
 import { join } from 'node:path';
 import { inflateSync, deflateSync } from 'node:zlib';
+import { drawFreeFlow, measureFlowNode, isFreeGraph } from './flow-draw.mjs';
 
 // ──────────────────────────────────────────────────────────────
 // SVG templates — minimal, no gradients
@@ -1350,7 +1351,68 @@ function fcLegendSvg(lang, y, width) {
   }).join('');
 }
 
+/** drawFreeFlow options for a page or image in `lang`: heading, legend, yes / no labels. */
+export function freeFlowOptions(lang = 'ko', heading = null) {
+  const T = legendFor(lang);
+  return {
+    heading: heading || T.flow_heading, yes: T.fc_yes, no: T.fc_no,
+    legend: { terminal: T.fc_terminal, process: T.fc_process, decision: T.fc_decision, message: T.fc_message },
+  };
+}
+
+/**
+ * Auto-layout result as a free graph (flow-draw.mjs): every node gets the
+ * position the layout gave it, every edge the sides it was drawn between,
+ * so the page editor starts from the picture the reader already saw.
+ */
+export function flowchartToFree(graph = {}) {
+  const L = layoutFlowchart(graph);
+  const side = (id) => L.byId[id]?.lane === 'right';
+  const nodes = L.nodes.filter(n => L.pos[n.id]).map(n => ({
+    id: String(n.id), type: n.type || 'process', label: String(n.label ?? ''), x: L.pos[n.id].x, y: Math.round(L.pos[n.id].cy),
+  }));
+  const edges = L.edges.filter(e => L.pos[e.from] && L.pos[e.to]).map((e) => {
+    // Sides only where the layout routed round other nodes; plain edges pick
+    // their sides from where the nodes sit, so they follow a node the user moves.
+    const i = L.edges.indexOf(e), lane = L.lanes.get(i), a = L.pos[e.from], b = L.pos[e.to];
+    let s = null;
+    if (lane?.side === 'left') s = ['W', 'W'];
+    else if (lane?.side === 'right') s = ['E', 'E'];
+    else if (side(e.from) && !side(e.to)) s = [b.cy < a.cy ? 'N' : 'S', 'E'];
+    return { from: String(e.from), to: String(e.to), ...(e.label ? { label: String(e.label) } : {}), ...(s ? { fromSide: s[0], toSide: s[1] } : {}) };
+  });
+  return { layout: 'free', nodes, edges };
+}
+
+/** Linear flow (string[], `?` decision, `!` end) as a free graph laid out in one row. */
+export function linearFlowToFree(items = []) {
+  const nodes = [];
+  let x = 0;
+  items.forEach((raw, i) => {
+    const txt = String(raw ?? '').trim();
+    const type = /^\?/.test(txt) ? 'decision' : /^!/.test(txt) ? 'end' : 'process';
+    const node = { id: `n${i + 1}`, type, label: txt.replace(/^[?!]\s*/, ''), x: 0, y: 0 };
+    const w = measureFlowNode(node).w;
+    node.x = Math.round(x + w / 2);
+    x += w + 46;
+    nodes.push(node);
+  });
+  const edges = nodes.slice(1).map((n, i) => ({ from: nodes[i].id, to: n.id }));
+  return { layout: 'free', nodes, edges };
+}
+
+/** Any processFlow shape (string[], auto graph, free graph) as a free graph; null when empty. */
+export function toFreeFlow(flow) {
+  if (isFreeGraph(flow)) return flow;
+  if (flow && !Array.isArray(flow) && Array.isArray(flow.nodes)) return flow.nodes.length ? flowchartToFree(flow) : null;
+  if (Array.isArray(flow) && flow.length) return linearFlowToFree(flow);
+  return null;
+}
+
 export function renderFlowchartSVG(graph = {}, { lang = 'ko', heading = null } = {}) {
+  if (isFreeGraph(graph)) {
+    return `<?xml version="1.0" encoding="UTF-8"?>\n${drawFreeFlow(graph, { ...freeFlowOptions(lang, heading), scale: RENDER_SCALE }).svg}`;
+  }
   heading = heading || legendFor(lang).flow_heading;
   const L = layoutFlowchart(graph);
   const defs = `<defs>`
@@ -1372,6 +1434,10 @@ ${legendSvg}
 }
 
 export function flowchartMetrics(graph = {}) {
+  if (isFreeGraph(graph)) {
+    const { width, height } = drawFreeFlow(graph, { ...freeFlowOptions(), scale: RENDER_SCALE });
+    return { width, height };
+  }
   const L = layoutFlowchart(graph);
   return { width: Math.round(L.width * RENDER_SCALE), height: Math.round(L.height * RENDER_SCALE) };
 }
@@ -2793,7 +2859,7 @@ export async function renderScreenImages({ selection, alv, screens, processFlow,
         const svg = renderFlowchartSVG(f.flow, { lang, heading });
         const { width, height } = flowchartMetrics(f.flow);
         const png = await rasterizeSvgToPng(svg, { width, height });
-        if (png) results[i] = { index: f.number, code: f.code, codes: flowButtonKeys(f).slice(1).map(c => c.code), source: f.source || 'alv', label: f.label || '', pngBuffer: png, width, height };
+        if (png) results[i] = { index: f.number, code: f.code, codes: flowButtonKeys(f).slice(1).map(c => c.code), source: f.source || 'alv', label: f.label || '', heading, flow: f.flow, pngBuffer: png, width, height };
       } catch { /* this button's flow stays null → its Markdown step list stands alone */ }
     }
   };
