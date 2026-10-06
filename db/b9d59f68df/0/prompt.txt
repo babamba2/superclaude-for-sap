@@ -1,0 +1,1 @@
+안녕 C:\Users\pssps\Documents\Projects\sc4sap_project\.sc4sap\work\HKT-DEV\manuals\ZSDM24710-v1.0-ko 편집가능.html 파일은 program-to-mannual skill 로 html 을 만든거야. 이때 하나 추가할게 있어. 현재 흐름표를 수정할 수 가 없어. (program-to-spec / mannual 모두) mannual 의 경우 같은 폴더의 " 처리흐름.png" 부분이야. 이 부분을 유저가 자유롭게 수정할 수 있게끔 하였으면 해. 논리적인 흐름도를 추가하거나 제거하거나, 혹은 화살표를 연결하거나.
