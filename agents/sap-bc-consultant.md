@@ -73,7 +73,7 @@ disallowedTools: [Write, Edit]
     2. Load the per-module customization cache for each involved module: `.sc4sap/work/<alias>/customizations/{MODULE}/enhancements.json` + `.sc4sap/work/<alias>/customizations/{MODULE}/extensions.json`.
     3. Reverse-lookup the failing object:
        - If it is a `Z*` BAdI impl class → find its `standardName` in `badiImplementations[]` so the root cause can be explained against the standard BAdI contract.
-       - If it is a customer include like `ZXV45U01` or a customized SAP include like `MV45AFZZ` → find it in `formBasedExits[]` and note the line count (heavy customization = higher likelihood of the dump being customer-side).
+       - If it is a customer include like `ZXV45U01` or a customized SAP include like `MV45AFZZ` → find it in `formBasedExits[]` and note `codeLines` and its `zIncludes` (heavy customization = higher likelihood of the dump being customer-side).
        - If it is a Z append structure / ZZ field on a standard table → find it in `extensions.json → appendStructures[]`.
     4. Follow the protocol in `common/customization-lookup.md`. If the cache is missing, recommend `/sc4sap:setup customizations` before the next iteration but do not block the current analysis.
   </Customization_Context>

@@ -3,6 +3,28 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.35] — 2026-10-07
+
+### Added — customization extraction: VOFM routines
+
+- `extract-customizations` now lists customer VOFM routines (requirements, formulas, data transfer, copy requirements, …) in `enhancements.json → vofmRoutines[]`: group, number, description, KAPPL, active flag, the routine include (`RV61A` + number, `RV45C` + number, …), its FORMs and code lines. The summary line gets a `VOFM:n` column.
+- Customer routines are told apart by number only, with the ranges of transaction VOFM itself: 600–999, PSTK / TDAT 50–99, FOFU 900–999. Their includes live in SAP packages, so the package says nothing. SAP routines below the range are never reported, even when modified.
+- Module: condition routines by KAPPL (V… / F → SD, M… / E… → MM, TX → FI), the rest by group (sales / shipping / billing → SD; batch, PURCHIS, stock control → MM; SFIS → PP; PMIS → PM; QMIS → QM). Group catalog and rules: `scripts/lib/customization-vofm.mjs`.
+- A routine registered but never activated is kept with `note`; a registered routine whose include was never generated goes to `notPresent[]`.
+
+### Fixed — customization extraction on ECC and its accuracy
+
+- **ECC (BASIS < 7.50)**: the table reads (CMOD, GGB, BTE, VOFM) now work through the `ZMCP_ADT_DISPATCH` action `TABLE_READ` (requires abap-mcp-adt-powerup 4.8.9 and the updated `abap/zmcp_adt_dispatch_ecc.abap`; pinned SHA `9a948be` → `bbb2e98`).
+- **GGB rules were never read**: the scan queried columns that do not exist on GB03. It now reads the rule tables GB93 (validations) and GB92 (substitutions). A customer rule is one not created by user `SAP`, whatever its name — productive rules are often named without Z/Y. GB31 maps each rule to its application area (FI / AA / CO / PS); FI rules carry their company-code assignments from T001D / T001Q.
+- **BTE function modules were never read**: wrong columns on TBE24 / TPS34. Now TBE34 (Publish/Subscribe) and TPS34 (Process), Z/Y function modules split by application (APPLK), with the product active flag from TBE24.
+- **Unreadable is no longer "none"**: a check that could not run is listed in `unavailable[]` and printed as `NOT READ: …` (repeats counted, e.g. `FORMEXIT ×3`); a catalog include the system does not have goes to `notPresent[]`.
+- CMOD: SMOD enhancements are matched against active Z/Y CMOD projects (MODATTR + MODACT, read once).
+- BAdI: classic BAdIs are read with `GetBadiImplementations` (`source: "classic"`); the enhancement-spot scan is kept as a fallback marked `confidence: "low"`.
+- Form-based exits: an include counts as customized when a FORM has code, it declares FORMs of its own, or it pulls in Z/Y includes — the old 150-line threshold is gone. `codeLines`, `routines` and `zIncludes` are recorded.
+- Table extensions: a field is a customer field when its name or its data element starts with Z/Y. On ECC append-structure names are not readable, so only the fields are listed, with a `note`.
+- SD catalog: three form-exit includes that do not exist in any release were removed.
+- Documentation updated: `common/customization-lookup.md`, `skills/setup/customization-auto-generation.md`, `create-program/inventory-lookups.md`, `analyze-symptom/SKILL.md`, `agents/sap-bc-consultant.md`, README feature line.
+
 ## [0.6.34] — 2026-10-06
 
 ### Added — `program-to-manual`: numbered screens in the Field Reference

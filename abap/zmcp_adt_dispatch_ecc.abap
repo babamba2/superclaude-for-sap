@@ -27,6 +27,11 @@ FUNCTION zmcp_adt_dispatch
 *   CUA_FETCH      — read GUI status (RS_CUA_INTERNAL_FETCH)
 *   CUA_WRITE      — write GUI status (RS_CUA_INTERNAL_WRITE)
 *   CUA_DELETE     — delete GUI status (RS_CUA_DELETE)
+*   TABLE_READ     — read-only SELECT on an allow-listed customizing table
+*                    (MODACT, MODATTR, MODSAP, GB31, GB92, GB93, T001D, T001Q,
+*                    TBE24, TBE34, TPS34, TFRM, TFRMT, T100); the
+*                    MCP server's GetSqlQuery / GetTableContents fallback, as
+*                    ECC has no ADT data preview
 
   CLEAR: ev_subrc, ev_message, ev_result.
 
@@ -49,6 +54,9 @@ FUNCTION zmcp_adt_dispatch
                             CHANGING ev_subrc ev_message ev_result.
         WHEN 'CUA_DELETE'.
           PERFORM cua_delete USING iv_params
+                             CHANGING ev_subrc ev_message ev_result.
+        WHEN 'TABLE_READ'.
+          PERFORM table_read USING iv_params
                              CHANGING ev_subrc ev_message ev_result.
         WHEN OTHERS.
           ev_subrc = 4.
@@ -384,4 +392,114 @@ FORM cua_delete USING iv_params TYPE string
     ev_result  = '{"deleted":true}'.
   ENDIF.
 
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form TABLE_READ - read-only SELECT on an allow-listed customizing table
+*&---------------------------------------------------------------------*
+* Used by the MCP server where the ADT data preview is missing (BASIS < 7.50):
+* GetSqlQuery / GetTableContents on CMOD (MODACT/MODATTR/MODSAP),
+* GGB (GB31/GB92/GB93, FI assignment T001D/T001Q), BTE (TBE24/TBE34/TPS34),
+* VOFM routines (TFRM/TFRMT) and message texts (T100).
+* params: table_name, field_list (string table), condition, max_rows
+* result: rows (array of objects) and count
+FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message TYPE string ev_result TYPE string.
+  TYPES ty_names TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
+  DATA: BEGIN OF ls_input,
+          table_name TYPE string,
+          field_list TYPE ty_names,
+          condition  TYPE string,
+          max_rows   TYPE i,
+        END OF ls_input.
+  DATA: lv_tab    TYPE tabname,
+        lv_where  TYPE string,
+        lv_upper  TYPE string,
+        lv_max    TYPE i,
+        lv_count  TYPE i,
+        lv_cnt    TYPE string,
+        lt_sel    TYPE ty_names,
+        lt_comp   TYPE cl_abap_structdescr=>component_table,
+        lt_keep   TYPE cl_abap_structdescr=>component_table,
+        ls_comp   TYPE abap_componentdescr,
+        lo_struct TYPE REF TO cl_abap_structdescr,
+        lo_line   TYPE REF TO cl_abap_structdescr,
+        lo_table  TYPE REF TO cl_abap_tabledescr,
+        lr_data   TYPE REF TO data,
+        lx_sql    TYPE REF TO cx_sy_dynamic_osql_error,
+        lv_field  TYPE string,
+        lv_rows   TYPE string.
+  FIELD-SYMBOLS: <lt_data> TYPE STANDARD TABLE.
+
+  /ui2/cl_json=>deserialize( EXPORTING json = iv_params CHANGING data = ls_input ).
+  lv_tab = to_upper( condense( ls_input-table_name ) ).
+
+  " Allow list: customizing / repository tables only - never business data.
+  IF lv_tab <> 'MODACT' AND lv_tab <> 'MODATTR' AND lv_tab <> 'MODSAP'
+     AND lv_tab <> 'GB31' AND lv_tab <> 'GB92' AND lv_tab <> 'GB93'
+     AND lv_tab <> 'T001D' AND lv_tab <> 'T001Q'
+     AND lv_tab <> 'TBE24' AND lv_tab <> 'TBE34' AND lv_tab <> 'TPS34'
+     AND lv_tab <> 'TFRM' AND lv_tab <> 'TFRMT' AND lv_tab <> 'T100'.
+    ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
+    RETURN.
+  ENDIF.
+
+  " The condition must stay on this table: no sub-queries.
+  lv_where = ls_input-condition.
+  lv_upper = to_upper( lv_where ).
+  IF lv_upper CS 'SELECT' OR lv_upper CS ' FROM ' OR lv_upper CS 'JOIN'.
+    ev_subrc = 4. ev_message = 'TABLE_READ: sub-queries are not allowed in the condition'. ev_result = '{}'.
+    RETURN.
+  ENDIF.
+
+  lv_max = ls_input-max_rows.
+  IF lv_max <= 0. lv_max = 500. ENDIF.
+  IF lv_max > 5000. lv_max = 5000. ENDIF.
+
+  lo_struct ?= cl_abap_typedescr=>describe_by_name( lv_tab ).
+  lt_comp = lo_struct->get_components( ).
+
+  " Requested fields (all when none): each must exist on the table.
+  IF ls_input-field_list IS INITIAL.
+    lt_keep = lt_comp.
+  ELSE.
+    LOOP AT ls_input-field_list INTO lv_field.
+      lv_field = to_upper( condense( lv_field ) ).
+      READ TABLE lt_comp INTO ls_comp WITH KEY name = lv_field.
+      IF sy-subrc <> 0.
+        ev_subrc = 4. ev_message = |TABLE_READ: field { lv_field } is not on { lv_tab }|. ev_result = '{}'.
+        RETURN.
+      ENDIF.
+      APPEND ls_comp TO lt_keep.
+      APPEND lv_field TO lt_sel.
+    ENDLOOP.
+  ENDIF.
+
+  lo_line  = cl_abap_structdescr=>create( p_components = lt_keep ).
+  lo_table = cl_abap_tabledescr=>create( p_line_type = lo_line ).
+  CREATE DATA lr_data TYPE HANDLE lo_table.
+  ASSIGN lr_data->* TO <lt_data>.
+
+  TRY.
+      IF lt_sel IS INITIAL.
+        SELECT * FROM (lv_tab) UP TO lv_max ROWS
+          INTO CORRESPONDING FIELDS OF TABLE <lt_data>
+          WHERE (lv_where).
+      ELSE.
+        SELECT (lt_sel) FROM (lv_tab) UP TO lv_max ROWS
+          INTO CORRESPONDING FIELDS OF TABLE <lt_data>
+          WHERE (lv_where).
+      ENDIF.
+    CATCH cx_sy_dynamic_osql_error INTO lx_sql.
+      ev_subrc = 8. ev_message = lx_sql->get_text( ). ev_result = '{}'.
+      RETURN.
+  ENDTRY.
+
+  lv_rows = /ui2/cl_json=>serialize( data = <lt_data> ).
+  lv_count = lines( <lt_data> ).
+  lv_cnt = lv_count.
+  CONDENSE lv_cnt.
+  CONCATENATE '{"rows":' lv_rows ',"count":' lv_cnt '}' INTO ev_result.
+  ev_subrc = 0.
+  ev_message = 'OK'.
 ENDFORM.

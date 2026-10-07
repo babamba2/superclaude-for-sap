@@ -112,9 +112,6 @@ SD(영업 및 유통) 모듈은 SAP에서 가장 풍부한 확장 환경을 제�
 
 | Include | System | Description |
 |---------|--------|-------------|
-| **FV45PFAP_PARTNER_SUBSTITUTION** | ECC/S4 | Partner substitution / 파트너 대체 |
-| **LV09CFZZ** | ECC/S4 | Organizational data / 조직 데이터 |
-| **LV50C_VIEWG01** | ECC/S4 | Delivery pricing view / 배송 가격 뷰 |
 | **LVEDAF0F** | ECC/S4 | IDoc processing / IDoc 처리 |
 | **MV50AFZ1** | ECC/S4 | Delivery processing / 배송 처리 |
 | **MV50AFZK** | ECC/S4 | Delivery processing additional / 배송 처리 추가 |

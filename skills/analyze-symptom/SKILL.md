@@ -84,7 +84,7 @@ Evidence collection strategy — prefer MCP auto-query, fall back to manual TCod
 | Performance / long runtime | `RuntimeListProfilerTraceFiles`, `RuntimeAnalyzeProfilerTrace` (existing traces only — never start a run) | ST05, SAT, SQLM |
 | Suspect program/class logic | `GetInclude`/`GetProgram`/`GetClass`/`GetFunctionModule`, `GetAbapAST`, `GetAbapSemanticAnalysis`, `GetWhereUsed` | SE80, SE24, SE38 |
 | Recent change tracking | `ListTransports`, `GetTransport`, `GetObjectInfo` (Author/Changed-by) | SE09, SE10, SE16 → E070 |
-| **Z\*/Y\* object or customized SAP include in trace** | Local file read (path from Step 1, no search): `<CUSTOMIZATION_DIR>/<MODULE>/enhancements.json` (→ `badiImplementations[]`, `cmodProjects[]`, `formBasedExits[]`) and `<CUSTOMIZATION_DIR>/<MODULE>/extensions.json` (→ `appendStructures[]`) | n/a — local cache only |
+| **Z\*/Y\* object or customized SAP include in trace** | Local file read (path from Step 1, no search): `<CUSTOMIZATION_DIR>/<MODULE>/enhancements.json` (→ `badiImplementations[]`, `smodExits[]`, `formBasedExits[]`) and `<CUSTOMIZATION_DIR>/<MODULE>/extensions.json` (→ `appendStructures[]`) | n/a — local cache only |
 | Enhancement / BAdI | `GetEnhancements`, `GetEnhancementImpl`, `GetEnhancementSpot` | SE18, SE19, SMOD, CMOD |
 | System / session info | `GetSession` | /n (status), /o SM04 |
 | Table schema (not rows) | `GetTable`, `GetStructure`, `GetView`, `GetDataElement`, `GetDomain` | SE11 |

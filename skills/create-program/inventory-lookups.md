@@ -35,14 +35,14 @@ Reuse gating rule (applied by `sap-planner` and `sap-writer`):
 
 Steps:
 1. For the resolved `<MODULE>`, check whether `.sc4sap/customizations/<MODULE>/enhancements.json` **and/or** `.sc4sap/customizations/<MODULE>/extensions.json` exist.
-   - **Exists** → Read both files. Treat every `badiImplementations[]` entry, `cmodProjects[]` entry, `formBasedExits[]` entry, and `appendStructures[]` entry as a **reuse candidate**.
+   - **Exists** → Read both files. Treat every `badiImplementations[]` entry, `smodExits[]` entry, `formBasedExits[]` entry, and `appendStructures[]` entry as a **reuse candidate**.
    - **Does not exist** → Print one line to the user:
      > "No customization inventory at `.sc4sap/customizations/<MODULE>/`. Run `/sc4sap:setup customizations` to scan this module's Z*/Y* enhancements first, or type `skip` to proceed without customization reuse analysis."
      If the user chooses to skip, record `customization_inventory: "skipped"` in `.sc4sap/program/{PROG}/platform.md` and continue.
 2. Persist the loaded inventory to `.sc4sap/program/{PROG}/customization-context.md`. One bullet per entry:
    - BAdI impl: `• BAdI {standardName} → existing impl {Z*_CLASS} (impl name: {impl_name}) — reuse target for any new hook into this BAdI`
    - CMOD project: `• SMOD {standardName} → existing CMOD project {Z_PROJECT} — add new components here instead of creating a second project`
-   - Form-based exit: `• Include {ZXVEDU01|MV45AFZZ|...} ({lineCount} lines) — already customized; read existing logic before adding new FORMs`
+   - Form-based exit: `• Include {ZXVEDU01|MV45AFZZ|...} ({codeLines} code lines; FORMs with code: {routines}; Z includes: {zIncludes}) — already customized; read existing logic before adding new FORMs`
    - Append: `• Table {VBAK|EKKO|...} → existing append {CI_VBAK_ZZ|Z_APPEND_VBAK} fields: [{ZZ_FIELD1}, {ZZ_FIELD2}] — extend this append, do not create a second one`
 3. Follow `../../common/customization-lookup.md` for the full resolution protocol and "prefer reuse" ✅/❌ examples.
 
