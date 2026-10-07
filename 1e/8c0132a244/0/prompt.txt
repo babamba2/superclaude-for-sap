@@ -1,0 +1,38 @@
+<pasted_content id="acb4">
+A~D 수정은 모두 끝났고 테스트도 통과했습니다. 실제 시스템에서 다시 추출해 보는 검증은 아직 못 했습니다. MCP가 시작할 때 읽은 옛 코드로 돌고 있어서 Claude Code를 재시작해야 바뀐 내용이 적용됩니다.
+
+A. GGB 스캔 (scripts/extract-customizations.mjs)
+- 존재하지 않는 컬럼을 조회하던 GB03 대신 실제 규칙 테이블을 읽습니다. 검증 규칙은 GB93, 대체 규칙은 GB92입니다.
+- 필터는 말씀하신 대로 두 조건을 AND로 겁니다: 이름이 Z/Y로 시작하고, 생성자(GBOPCREATE)가 SAP가 아닌 것.
+  - 말씀하신 "Z*"는 스크립트의 다른 검사들과 맞춰 Z/Y로 적용했습니다. Z만 원하시면 한 줄만 고치면 됩니다.
+- 모듈 구분은 GB31로 합니다. 규칙의 Boolean class를 적용 영역(GL, AM, CO, PS)으로 바꿔서 FI/AA/CO/PS로 나눕니다.
+- FI 규칙에는 T001D/T001Q에서 읽은 회사코드 할당이 같이 붙습니다.
+
+B. BTE 스캔
+- 존재하지 않는 컬럼을 조회하던 쿼리를 고쳤습니다. 이제 TBE34(P/S)와 TPS34(Process)에서 Z/Y 고객 FM을 읽습니다.
+- 제품 활성 여부는 TBE24.AKTIV를 따로 읽어서 붙입니
+
+C. 허용 목록 3곳
+1. sc4sap 스크립트 수정과 단위 테스트 추가: 377개 통과.
+2. MCP 허용 목록: GB31, GB92, GB93, T001D, T001Q, TBE34를 추가하고, 이제 안 쓰는 GB03은 뺐습니다.
+   - Jest 117개 통과, build:fast 성공.
+   - 타입 체크 오류 44건은 수정 전에도 똑같이 있던 것이고, 이번 변경에서 생긴 건 없습니다.
+   - 바뀐 dist 파일 4개는 실행 중인 cache vendor에
+3. HKT-DEV ZMCP_ADT_DISPATCH: HKDK9A208A로 수정하고 활성화했습니다.
+   - 이 트랜스포트는 다른 사용자 소유라 조회는 안   받아들였습니다.
+   - 시스템에 있는 버전에는 SSF_* 액션이 들어 있어서 로컬 파일을 올리지 않고, 시스템 소스에서 허용 목록 줄만 고쳤습니다.
+   - 다시 읽어 비교해 보니 의도한 줄만 바뀌었고, 비컬 abap/zmcp_adt_dispatch_ecc.abap도 같게고쳤습니다.
+
+D. 작은 개선
+- 시스템에 없는 include(404)는 이제 "NOT READ"가 아니라 notPresent(존재하지 않음)로 따로 기록합니다.
+- Summary 줄 중복은 FORMEXIT ×3처럼 묶어서 보여 줍니다.
+- MCP truncated는 이제 실제로 행이 더 남았을 때만 true가 됩니다.
+- 404가 났던 SD 3건(FV45PFAP_PARTNER_SUBSTITUTION, archObject로 찾아보니 표준에 없는 이름이었습니다. SD 카탈로그(configs/SD/enhancements.md)에서 지웠습니다.
+
+관련 문서 2개(common/customization-lookup.md, skills/setup/customization-auto-generation.md)도 새 테이블 기준으로 고쳤습니다.
+
+재시작 후 할 일 (인수인계 문서 맨 위 §0에 적어 두었습니다)
+1. SD를 다시 추출하고, FI도 추출해서 GGB/BTE 결과를 확인합니다. FI 추출 결과를 봐야 회사코드 할당 표시까지 맞는지 알 수 있습니다.
+2. 검증용 임시 파일 extract-customizations.validate
+3. 릴리스합니다: sc4sap 버전 올림과 CHANGELOG, MCP 4.8.9, 커밋, 3곳 동기화. 커밋과 푸시는 아직 하지 않았습니다.
+</pasted_content id="acb4">
