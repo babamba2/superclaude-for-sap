@@ -32,7 +32,7 @@ SuperClaude for SAP은 Claude Code를 풀스택 SAP 개발 어시스턴트로 �
 | 🗺️ **패키지 → 프로세스** | `/sc4sap:package-to-process` — CBO 패키지를 **엔드-투-엔드 비즈니스 프로세스** 문서로 역공학: TCode 진입점 자동 감지 → AI 프로세스 그루핑(PR→PO→GR→IR) → 프로세스별 내러티브 + Mermaid 플로우차트 / 시퀀스 다이어그램 + 단계 테이블. CBO 인벤토리 없으면 `sap-stocker` 자동 연계 → `.sc4sap/processes/<MODULE>/<PACKAGE>/`. |
 | 🩺 **운영 진단** | 운영 트리아지 루프: ST22 덤프, SM02, /IWFND/ERROR_LOG, 프로파일러 트레이스, 로그, where-used — 모두 Claude에서. |
 | ♻️ **CBO 재사용** | Z-패키지 1회 인벤토리 → `create-program` / `program-to-spec`이 기존 CBO 자산 우선 재사용. 브라운필드에 필수. |
-| 🧷 **CBO Extension 인식 (CMOD / GGB1·2 / BAdI / APPEND)** | 사용자 익스짓(CMOD), 치환·검증(GGB1/GGB2), BAdI 구현, APPEND Structure 인벤토리. `create-program` / BAPI 호출 시 기존 Extension 필드(예: BAPI `EXTENSIONIN` / 테이블 append) 우선 재사용; 덤프·장애 대응 시 Extension 포인트를 1순위 용의자로 검토. |
+| 🧷 **CBO Extension 인식 (CMOD / GGB0·1 / BTE / VOFM / BAdI / APPEND)** | 사용자 익스짓(CMOD), 검증·치환(GGB0/GGB1), BTE 펑션 모듈, VOFM 루틴(조건 / 공식 / 데이터 전송), BAdI 구현, APPEND Structure 인벤토리. `create-program` / BAPI 호출 시 기존 Extension 필드(예: BAPI `EXTENSIONIN` / 테이블 append) 우선 재사용; 덤프·장애 대응 시 Extension 포인트를 1순위 용의자로 검토. |
 | 🏭 **산업 컨텍스트** | 14개 산업 레퍼런스 (retail, fashion, cosmetics, tire, automotive, pharma, F&B, chemical, electronics, construction, steel, utilities, banking, public-sector). |
 | 🌏 **국가/로컬라이제이션** | 15개 국가 + EU-common (KR/JP/CN/US/DE/GB/FR/IT/ES/NL/BR/MX/IN/AU/SG). e-인보이스, 뱅킹, 페이롤, 세제. |
 | 🧩 **활성 모듈 인식** | 교차 모듈 통합 힌트: MM + PS 활성 → MM CBO에 WBS 필드 자동 제안; SD + CO 활성 → CO-PA 파생. [상세 →](common/active-modules.md) |

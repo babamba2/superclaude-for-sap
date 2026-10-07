@@ -32,7 +32,7 @@ const LAUNCHER = resolve(VENDOR_DIR, 'dist', 'server', 'launcher.js');
 // checks out exactly this SHA so a compromised upstream main cannot push code
 // into user machines. Bump this on a vetted vendor upgrade, cut a new sc4sap
 // release, document the old → new SHA in release notes.
-const DEFAULT_PINNED_SHA = '9a948be549599d5cfea8115229a60627f43a8000';
+const DEFAULT_PINNED_SHA = 'bbb2e98f1d55517174c21eef666330809be6c5c2';
 // Env override for maintainers / CI testing an unreleased vendor commit. Must
 // be a 40-hex SHA; anything else is rejected so the override cannot be an
 // accidental branch name like "main".

@@ -10,12 +10,12 @@ Paths below are shown in legacy form. With an active profile (`.sc4sap/active-pr
 
 | File | Holds |
 |---|---|
-| `.sc4sap/customizations/{MODULE}/enhancements.json` | `smodExits[]` (standard SMOD → Z-namespace CMOD projects), `badiImplementations[]` (standard BAdI → Z*/Y* impl classes), `formBasedExits[]` (customized include programs with line counts), `ggbRules[]` (customer GGB0 substitutions / GGB1 validations / rules from table `GB03`, filtered by `APPLAREA`), `bteImplementations[]` (customer BTE Publish/Subscribe and Process FMs from `TBE24` / `TPS34`, filtered by `APPL`) |
+| `.sc4sap/customizations/{MODULE}/enhancements.json` | `smodExits[]` (standard SMOD → Z-namespace CMOD projects), `badiImplementations[]` (standard BAdI → Z*/Y* implementations; `source: "spot-scan"` hits carry `confidence: "low"` — verify before citing), `formBasedExits[]` (customized include programs: FORMs with code, customer FORMs, `Z*` includes, `codeLines`), `ggbRules[]` (customer GGB0 validations / GGB1 substitutions from `GB93` / `GB92` — any rule not created by `SAP`, whatever its name — with application areas from `GB31` and FI company-code assignments from `T001D` / `T001Q`), `bteImplementations[]` (customer BTE Publish/Subscribe and Process FMs from `TBE34` / `TPS34`, filtered by application `APPLK`, product active flag from `TBE24`), `vofmRoutines[]` (customer VOFM requirements / formulas / data transfer routines registered in `TFRM` — customer number range only, never SAP routines — with group, number, description from `TFRMT`, active flag, the routine include such as `RV61A901`, its FORMs and `codeLines`) |
 | `.sc4sap/customizations/{MODULE}/extensions.json` | `appendStructures[]` — for each base table, the `CI_*` / `Z*` appends and `ZZ*` / `YY*` custom fields actually on the table |
 
-**Modules with GGB/BTE coverage**: `FI`, `CO`, `PS`, `TR`, `AA`, `PM`, `SD`, `HCM`. For other modules these arrays are always empty and should not be relied on.
+**Modules with GGB coverage**: `FI`, `AA`, `CO`, `PS`. **BTE coverage**: `FI`, `AA`, `CO`, `PS`, `TR`, `PM`, `SD`, `HCM`. For other modules these arrays are always empty and should not be relied on. **VOFM coverage**: `SD` (sales / shipping / billing groups and condition routines with `KAPPL` V…/F), `MM` (`KAPPL` M…/E…, batch and PURCHIS / stock-control LIS groups), `FI` (`KAPPL` TX), `PP` / `PM` / `QM` (their LIS groups).
 
-The JSON is **positive-only**: a standard exit or base table is listed only when the customer has actually customized it. Silence for a given exit means "no customization detected at last scan".
+The JSON is **positive-only**: a standard exit or base table is listed only when the customer has actually customized it. Silence for a given exit means "no customization detected at last scan" — **unless** `enhancements.json → unavailable[]` names that check (`smod`, `ggb`, `bte`, `formExit`); then it was never read and says nothing. Say so instead of assuming "none". `notPresent[]` lists catalog includes this system does not have — those are genuinely absent, not unread.
 
 ## Resolution Order
 
@@ -43,10 +43,11 @@ If the cache file is missing, the static doc still tells you the *names* of the 
 
 If the task is high-stakes (e.g., sap-critic about to REJECT a plan, sap-planner sizing WRICEF, sap-architect proposing a new BAdI implementation) AND no cache exists, you MAY call:
 
-- `GetEnhancementSpot` to inspect a specific BAdI for Z*/Y* implementations
-- `GetSqlQuery` on `MODSAP` / `MODACT` to find CMOD projects for a given SMOD enhancement
-- `GetSqlQuery` on `GB03` filtered by `APPLAREA` to find customer GGB0/GGB1 rules (`BSTAT = 'A'`, `VSR_NAME` starts with `Z`/`Y`)
-- `GetSqlQuery` on `TBE24` / `TPS34` filtered by `APPL` to find customer BTE subscriber FMs (`FUNCTION` starts with `Z`/`Y`)
+- `GetBadiImplementations` (classic BAdI) or `GetEnhancementSpot` to inspect a specific BAdI for Z*/Y* implementations
+- `GetSqlQuery` on `MODACT` (`MEMBER` = SMOD name) and `MODATTR` (`STATUS = 'A'`) to find active CMOD projects for a given SMOD enhancement — single-table queries, no JOIN, so they also run on ECC
+- `GetSqlQuery` on `GB93` (`VALID`) / `GB92` (`SUBSTID`) for customer GGB0/GGB1 rules (`GBOPCREATE <> 'SAP'`; names are not filtered — productive rules are often named without `Z`/`Y`); `GB31` maps the rule's `BOOLCLASS` (= `RCLASS`) to its application area `VALUSER`
+- `GetSqlQuery` on `TBE34` / `TPS34` for customer BTE FMs (`FUNCT` starts with `Z`/`Y`, application in `APPLK`)
+- `GetSqlQuery` on `TFRM` (`GRPZE`, `GRPNO` 600–999; `PSTK` / `TDAT` 50–99, `FOFU` 900–999) for customer VOFM routines, then `GetInclude` on the routine include (e.g. `RV61A` + number for pricing requirements)
 - `GetTable` on a base table to read its appends and custom fields
 
 Every live call must:
@@ -84,10 +85,10 @@ When the cache shows `VBAK → appendStructures: [CI_VBAK], customFields: [ZZAPP
 - ✅ Recommend: "Add new field `ZZ_PRIORITY` to existing append `CI_VBAK` (already contains `ZZAPPROVER`)."
 - ❌ Do NOT recommend: "Create a second append `ZAVBAK_NEW` on `VBAK`."
 
-When the cache shows `MV45AFZZ → lineCount: 420, customized: true`:
+When the cache shows `MV45AFZZ → routines: [USEREXIT_SAVE_DOCUMENT_PREPARE (35 lines)], zIncludes: [ZSDU0100], codeLines: 420`:
 
-- ✅ Recommend: "Add the check inside FORM `USEREXIT_SAVE_DOCUMENT_PREPARE` in `MV45AFZZ` (already customized — 420 non-comment lines)."
-- ❌ Do NOT recommend: "Create a new BAdI — the customer already has 420 lines of legacy form-exit code that must be kept coherent with any new logic."
+- ✅ Recommend: "Add the check inside FORM `USEREXIT_SAVE_DOCUMENT_PREPARE` in `MV45AFZZ` (already customized — its logic lives in `ZSDU0100`)."
+- ❌ Do NOT recommend: "Create a new BAdI" — the customer already has 420 lines of form-exit code that must be kept coherent with any new logic.
 
 When FI cache shows `ggbRules: [{ name: "ZGL0001", type: "substitution", applArea: "GLT0", callupPoint: "0001" }]`:
 
@@ -98,6 +99,11 @@ When FI-AP cache shows `bteImplementations: [{ kind: "P/S", event: "00001025", a
 
 - ✅ Recommend: "Add the logic inside FM `Z_BTE_1025_PAYMENT_BLOCK` (already registered as subscriber for event 1025 / FI-AP)."
 - ❌ Do NOT recommend: "Implement `BAdI_PAYMENT_PROPOSAL`" — when the customer is already using BTE for this event, adding a BAdI splits control flow and makes reconciliation between the two paths fragile.
+
+When SD cache shows `vofmRoutines: [{ group: "PBED", number: "905", description: "Exclude free-of-charge items", include: "RV61A905" }]`:
+
+- ✅ Recommend: "Assign the existing requirement 905 to the new condition type in the pricing procedure, or extend `RV61A905` if the check needs one more field."
+- ❌ Do NOT recommend: "Add the check in `USEREXIT_PRICING_PREPARE_TKOMP`" — a requirement routine already exists for exactly this decision; a second path in a user exit hides the rule from the pricing procedure.
 
 ## Setup Awareness
 

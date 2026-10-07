@@ -31,7 +31,7 @@ SuperClaude for SAP は Claude Code をフルスタック SAP 開発アシスタ
 | 🔀 **プログラム比較** | `/sc4sap:compare-programs` — 同一の業務シナリオを共有しつつモジュール(MM/CO)・国(KR/EU)・ペルソナ(コントローラー/倉庫)で分岐した 2〜5 本の ABAP プログラムをコンサルタント視点で 10 次元比較 → Markdown レポート。 |
 | 🩺 **運用診断** | 運用トリアージ:ST22 ダンプ、SM02、/IWFND/ERROR_LOG、プロファイラトレース、ログ、where-used — すべて Claude から。 |
 | ♻️ **CBO 再利用** | Z パッケージを一度棚卸し → `create-program` / `program-to-spec` が既存 CBO 資産を優先再利用。ブラウンフィールドに必須。 |
-| 🧷 **CBO 拡張認識 (CMOD / GGB1·2 / BAdI / APPEND)** | ユーザーエグジット (CMOD)、置換/検証 (GGB1/GGB2)、BAdI 実装、APPEND ストラクチャを棚卸し。`create-program` / BAPI 呼び出しでは既存の拡張フィールド(例:BAPI `EXTENSIONIN` / テーブル append)を新規 CBO より優先;ダンプ・障害対応では拡張ポイントを第一容疑者として検査。 |
+| 🧷 **CBO 拡張認識 (CMOD / GGB0·1 / BTE / VOFM / BAdI / APPEND)** | ユーザーエグジット (CMOD)、検証/置換 (GGB0/GGB1)、BTE ファンクションモジュール、VOFM ルーチン (要件 / 計算式 / データ転送)、BAdI 実装、APPEND ストラクチャを棚卸し。`create-program` / BAPI 呼び出しでは既存の拡張フィールド(例:BAPI `EXTENSIONIN` / テーブル append)を新規 CBO より優先;ダンプ・障害対応では拡張ポイントを第一容疑者として検査。 |
 | 🏭 **業界コンテキスト** | 14 業界リファレンス (retail, fashion, cosmetics, tire, automotive, pharma, F&B, chemical, electronics, construction, steel, utilities, banking, public-sector)。 |
 | 🌏 **国別ローカライゼーション** | 15 カ国 + EU 共通 (KR/JP/CN/US/DE/GB/FR/IT/ES/NL/BR/MX/IN/AU/SG)。適格請求書、銀行、給与、税制。 |
 | 🧩 **アクティブモジュール認識** | クロスモジュール統合ヒント:MM + PS 有効 → MM CBO に WBS フィールド自動提案;SD + CO 有効 → CO-PA 派生。[詳細 →](common/active-modules.md) |
