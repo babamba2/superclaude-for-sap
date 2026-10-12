@@ -26,32 +26,31 @@ Show the **Scope Prompt** from `comparison-scope.md` with defaults pre-ticked. R
 
 Store the confirmed dimension set as `active_dimensions` (subset of 1–10) and the output choice as `formats` (`[md]` default, `[md, html]` on `html`, `[html]` on `html only`). Echo back one line confirming the selection, e.g.: *"Dimensions confirmed: 1·2·3·5·6·7·10 (7 of 10) · output: Markdown + HTML. Starting analysis."*
 
-## Step 3 — Facts Extraction (per-program `sap-code-reviewer` dispatch, Sonnet override)
+## Step 3 — Facts Extraction (per-program `sap-checker` scout, Haiku)
 
-**Fires N parallel `Agent(...)` dispatches — one per program.** Each reviewer reads its own program's source + structural metadata ITSELF. The main thread never holds full source code.
+**Fires N parallel `Agent(...)` dispatches — one per program.** Each checker reads its own program's source + structural metadata ITSELF and returns verbatim `FACT` lines. Extraction is read-and-copy work, so it runs on Haiku per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Tier 3; every interpretation happens in the Opus analyst (Step 4). The main thread never holds full source code.
 
 For each program in `compared_objects`, emit phase banner:
 ```
-▶ phase=3 (facts-<PROG>) · agent=sap-code-reviewer · model=Sonnet
+▶ phase=3 (facts-<PROG>) · agent=sap-checker · model=Haiku
 ```
 
 Dispatch shape (repeat per program, parallel in one message):
 ```
 Agent({
-  subagent_type: "sc4sap:sap-code-reviewer",
-  model: "sonnet",   // override base Opus — facts-only extraction doesn't need Opus judgment
+  subagent_type: "sc4sap:sap-checker",   // frontmatter model: haiku
   description: "Facts — <PROG>",
-  prompt: "<facts-extraction prompt per dispatch-prompts.md § Step 3>, target=<PROG>, type=<TYPE>"
+  prompt: "<scout prompt per dispatch-prompts.md § Step 3>, scope=<PROG>, type=<TYPE>"
 })
 ```
 
 The full facts-extraction prompt (MCP tool list + output schema + safety rules) lives in [`dispatch-prompts.md`](dispatch-prompts.md) § Step 3. Keep workflow.md compact.
 
-On any reviewer `BLOCKED`, surface the reason and ask the user whether to proceed with the remaining programs or abort. Store the N facts blobs in `program_facts[<PROG>]`.
+On `status=BLOCKED reason="scope too large …"`, call `GetIncludesList(<PROG>)` and re-dispatch one checker per batch of 4 includes (same prompt, `includes:` filled, the first batch marked "first"; ≤ 16 checkers in total). CLAS / CDS objects cannot be split this way — treat them as the other `BLOCKED` case below. Any other `BLOCKED`, or a split that is still blocked → surface the reason and ask the user whether to proceed with the remaining programs or abort. Store each program's `CHECKER … END` blocks unchanged in `program_facts[<PROG>]`.
 
 ## Step 4 — Analysis & Narrative (single `sap-analyst` dispatch, Opus)
 
-**One consolidated dispatch.** The analyst receives all N facts blobs + the active dimension set + user's conversation language, and returns module classification + dimension scoring + executive summary + recommendation in one continuous reasoning pass.
+**One consolidated dispatch.** The analyst receives all N programs' `FACT` lines + the active dimension set + user's conversation language, and returns module classification + dimension scoring + executive summary + recommendation in one continuous reasoning pass.
 
 Emit phase banner:
 ```
@@ -67,7 +66,10 @@ Agent({
     Compare <N> programs across dimensions <active_dimensions>.
 
     Facts (one block per program):
-    <JSON dump of program_facts>
+    <CHECKER blocks per program — program_facts>
+
+    The facts are verbatim source lines from Haiku scouts. Write the business-logic narrative
+    (dimension 5) yourself from the computation / db_access lines; mark ❓ where facts are missing.
 
     Perform in this order, produce all outputs in ONE response:
 
@@ -137,7 +139,7 @@ Agent({
     Inputs:
     - compared_objects: <list>
     - active_dimensions: <list>
-    - program_facts: <N facts blobs>
+    - program_facts: <CHECKER blocks per program>
     - analyst_outputs: { module_classification, dimension_matrix, exec_summary, recommendation }
     - module_consultant_outputs (optional): <per-module blobs>
     - user_language: <lang>
@@ -176,7 +178,7 @@ Wait for user instruction — do not loop automatically.
 
 ## Safety Rails
 
-- Blocklist: `GetTableContents` / `GetSqlQuery` are **forbidden** in this skill — enforced per-reviewer-dispatch.
+- Blocklist: `GetTableContents` / `GetSqlQuery` are **forbidden** in this skill — enforced per checker dispatch.
 - Country/Industry context: if dimension 9 is active, the analyst loads `country/<iso>.md` based on `.sc4sap/config.json` → `country` (or `sap.env` → `SAP_COUNTRY`). If unset, the analyst asks once for the relevant country list via its `BLOCKED` channel.
 - Module activation: respect `common/active-modules.md` — if a module is not active in the project, the analyst flags with "(module not active in this landscape — observation only)".
 - Per-call transports: this skill is **read-only** — never creates or modifies transports.

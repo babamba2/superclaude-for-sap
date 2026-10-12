@@ -4,9 +4,9 @@ Companion to `SKILL.md` + `workflow.md`. Applies Type B (Coder ↔ Consultant, a
 
 ## Gating — when teamMode activates
 
-teamMode runs AFTER Step 2 (reviewer full review) when ALL:
+teamMode runs AFTER Step 2 (single reviewer, or detectors + judge) and Step 2d (evidence verify) when ALL:
 
-1. Reviewer's return includes ≥ 1 finding on a **business-alignment dimension** — § 1 (Business Purpose), § 2 (Rule Faithfulness), or § 13 (Cross-Module Side-Effects) per [`analysis-dimensions.md`](analysis-dimensions.md).
+1. The **verified** findings include ≥ 1 **business-alignment** finding — business purpose, business-rule faithfulness, or cross-module side-effects. The reviewer / judge decides this from the finding's content; the dimension numbers in [`analysis-dimensions.md`](analysis-dimensions.md) (§1 Syntax, §2 Naming, §13 Security) are not the trigger.
 2. The analyzed object touches **2+ modules** (imports from FI tables AND MM FM, or similar).
 
 When not satisfied → skip teamMode, proceed to Step 3 legacy report.
@@ -15,7 +15,7 @@ When not satisfied → skip teamMode, proceed to Step 3 legacy report.
 
 | Role | Agent | Count |
 |---|---|---|
-| Worker | `sap-code-reviewer` (same instance that ran Step 2, re-spawned for deliberation) | 1 |
+| Worker | `sap-code-reviewer` (the Step 2 reviewer or Step 2c judge role, re-spawned for deliberation with the verified findings) | 1 |
 | Peers | `sap-<module>-consultant` — one per module the code touches | 1-3 |
 
 ## Rounds
@@ -30,7 +30,7 @@ Transport is return-based ([`../../common/team-consultation-protocol.md`](../../
    - members: `sap-code-reviewer`, `sap-<module>-consultant` × N
    - environment (omit null fields)
    - object: `<type>/<name>`
-   - reviewer's Step 2 findings (inline summary of § 1/2/13 findings, NOT full report)
+   - reviewer's Step 2 findings (inline summary of the verified business-alignment findings, NOT full report)
 3. Emit phase banner:
    ```
    ▶ phase=2.R0 (draft) · agent=sap-code-reviewer · model=Opus
@@ -84,7 +84,7 @@ Replaces `workflow.md` Step 3 when teamMode ran:
 ## Response prefix — teamMode variant
 
 ```
-[Model: <main> · Dispatched: Opus×1 (sap-code-reviewer) + Opus×N (consultants), Haiku×1 (sap-writer) · Team: <N+1> members × <rounds> rounds]
+[Model: <main> · Dispatched: Haiku×K (sap-checker), Opus×1 (sap-code-reviewer) + Opus×N (consultants), Haiku×1 (sap-writer) · Team: <N+1> members × <rounds> rounds]
 ```
 
 ## Cleanup
@@ -93,13 +93,13 @@ No shutdown step — members are one-shot dispatches that terminate on return. K
 
 ## Prototype notes
 
-- **Scope guardrail**: Type B on analyze-code is for business-alignment dimensions only (§ 1/2/13). Technical dimensions (§ 3-12 Clean ABAP, performance, security) do NOT activate teamMode — they're reviewer's solo judgment domain.
+- **Scope guardrail**: Type B on analyze-code is for business-alignment findings only (business purpose, rule faithfulness, cross-module side-effects). Technical findings (naming, Clean ABAP, performance, security) do NOT activate teamMode — they're reviewer's solo judgment domain.
 - **Token cost concern**: reviewer-tm re-spawn duplicates the object's full context. Consider whether R0 DRAFT can reuse the Step 2 reviewer return instead of a fresh re-spawn if experiment shows redundancy.
 
 ## Related
 
 - [`SKILL.md`](SKILL.md), [`workflow.md`](workflow.md) — main skill spec (workflow.md Step 2/3 is the integration point)
-- [`analysis-dimensions.md`](analysis-dimensions.md) — 14 dimensions; teamMode applies only to § 1/2/13
+- [`analysis-dimensions.md`](analysis-dimensions.md) — 14 technical dimensions; teamMode keys on business-alignment content, not on these numbers
 - [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) — shared protocol (§ Type B)
 - [`../../docs/team-consultation-architecture.md`](../../docs/team-consultation-architecture.md) — architecture doc
 - [`../ask-consultant/team-mode.md`](../ask-consultant/team-mode.md) — Type A prototype template (reference for round mechanics)

@@ -2,50 +2,56 @@
 
 Full `Agent(...)` prompt bodies for the compare-programs skill. Referenced from `workflow.md` to keep that file under the 200-line cap.
 
-## Step 3 — sap-code-reviewer (facts extraction, Sonnet override)
+## Step 3 — sap-checker (facts scout, Haiku)
 
-Dispatched N times in parallel (one per program). Each reviewer reads ONE program and returns structured facts only — no quality scoring.
+Dispatched N times in parallel (one per program, or one per include batch after a split). Each checker reads ONE scope and returns `FACT` lines only — no scoring, no comparison, no narrative. The Opus analyst in Step 4 does all interpretation.
 
 ```
-Extract structural facts ONLY from ABAP object <PROG> (type: <TYPE>) — no quality scoring.
+MODE: scout
+Scope: <PROG> (type: <TYPE>)  [includes: <list> — only after a split]
+Active dimensions: <active_dimensions>
 
-Read and return:
-- Source: GetProgFullCode (REPS, FUGR) / GetClass (CLAS) / GetView + GetMetadataExtension (CDS). Pass output: "file" to GetProgFullCode and GetClass: you get file paths plus an outline (FORM/METHOD/MODULE with line ranges) — Grep the files for SELECT, AUTHORITY-CHECK, PARAMETERS and CALL instead of reading every line.
-- Structure: GetAbapAST (selection-screen fields, SELECT targets, AUTHORITY-CHECK calls)
-- Object info: GetObjectInfo (package, author, transport history)
-- UI surface (if applicable): GetScreensList + per-screen GetScreen, GetGuiStatusList, GetTextElement
-- Enhancements (only if dim 8 active): GetEnhancements, GetEnhancementImpl, GetEnhancementSpot
-- Where-used (only if caller-frequency in scope): GetWhereUsed
+Read: GetProgFullCode (REPS, FUGR) / GetClass (CLAS) with output: "file" — you get file paths plus an
+outline (FORM / METHOD / MODULE with line ranges). Grep the files for SELECT, AUTHORITY-CHECK,
+PARAMETERS, SELECT-OPTIONS, COLLECT, CALL FUNCTION, fieldcat … instead of reading every line.
+After a split: GetInclude per listed include. CDS: GetView + GetMetadataExtension.
+GetObjectInfo for package and transports.
+UI (dims 3, 6): GetScreensList + GetScreen, GetGuiStatusList, ReadTextElementsBulk.
+Enhancements (dim 8 only): GetEnhancements, GetEnhancementImpl, GetEnhancementSpot.
+Callers (only when the prompt says caller frequency is in scope): GetWhereUsed.
 
-Output format (structured JSON, minimal):
-- selection_fields: [{name, type, label}]
-- db_tables: [{name, ops: [SELECT|MODIFY|INSERT|DELETE]}]
-- authority_checks: [{object, fields}]
-- alv_columns: [{position, fieldname, title}]
-- computation_narrative: 1 paragraph (what the program computes at a high level)
-- package: <name>
-- transport_history: [{trkorr, desc, released_at}]
-- screens: [{number, title, fields_count}]
-- gui_statuses: [{code, functions_count}]
-- text_elements: {symbols_count, messages_count}
-- enhancements_found: [{name, type, status}]   // only if dim 8
-- callers: {count, top_10: [...]}               // only if caller-frequency in scope
+Return one FACT line per item (obj=<PROG>, kind=PROG|CLAS|FUGR|DDLS); value = verbatim source where it exists:
+- key="package" / "title" / "transport"         — GetObjectInfo (transport: trkorr + description, newest 5)
+  (after a split: package / title / transport / screen / gui_status / text_counts only in the batch marked "first")
+- key="selection_field"   value="<name> TYPE <type> [OBLIGATORY] label=<text>"
+- key="db_access"          value="<SELECT|INSERT|UPDATE|MODIFY|DELETE> <table> WHERE <fields only>"
+- key="org_filter"         value="<statement restricting BUKRS / WERKS / VKORG / LAND1 …>"
+- key="authority_check"    value="AUTHORITY-CHECK OBJECT '<obj>' ID … FIELD …"
+- key="computation"        value="<COLLECT / AT END OF / SUM / conversion FM / BAPI call statement>"
+- key="output_column"      value="<fieldcat or WRITE column name> title=<text>"
+- key="screen" / "gui_status" / "text_counts"   — number + title / code + function count / symbols + messages
+- key="enhancement"        value="<name> <type> <status>"   (dim 8 only)
+- key="callers"            value="<count> top=<up to 10>"   (only when asked)
 
 Rules:
-- Do NOT call GetTableContents or GetSqlQuery under any circumstance.
-- No quality scoring, no "this is bad" commentary — pure facts.
-- No cross-program comparison — each reviewer handles ONE program.
+- Never call GetTableContents or GetSqlQuery.
+- Facts only — no "this is bad", no cross-program remarks, no summary paragraph.
+- Values over 160 chars: cut and end with "…".
+- Over ~100K tokens of source → status=BLOCKED reason="scope too large — split by include".
 ```
 
 ## Step 4 — sap-analyst (consolidated analysis + narrative)
 
-One dispatch. Consumes facts from every reviewer + active dimensions and returns classification + scoring + summary + recommendation in a single continuous response.
+One dispatch. Consumes facts from every checker + active dimensions and returns classification + scoring + summary + recommendation in a single continuous response.
 
 ```
 Compare <N> programs across dimensions <active_dimensions>.
 
 Facts (one block per program):
-<JSON dump of program_facts>
+<CHECKER blocks per program — program_facts>
+
+The facts are verbatim source lines from Haiku scouts. Write the business-logic narrative
+(dimension 5) yourself from the computation / db_access lines; mark ❓ where facts are missing.
 
 Perform in this order, produce all outputs in ONE response:
 
@@ -89,7 +95,7 @@ Do NOT re-read any MCP objects — work only from the inputs below.
 Inputs:
 - compared_objects: <list>
 - active_dimensions: <list>
-- program_facts: <N facts blobs>
+- program_facts: <CHECKER blocks per program>
 - analyst_outputs: { module_classification, dimension_matrix, exec_summary, recommendation }
 - module_consultant_outputs (optional): <per-module blobs>
 - user_language: <lang>

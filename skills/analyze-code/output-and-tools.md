@@ -21,15 +21,20 @@ MINOR (2)
   Line 78: RAISE EXCEPTION TYPE cx_sy_... — prefer structured exception message
 
 INFO (1)
-  Line 1: Class uses obsolete FINAL addition pattern — consider ABAP 7.54+ syntax
+  Line 1: CREATE OBJECT — prefer NEW (7.40+)
 
 Quality Score: 6.2/10
 Top fix: Eliminate SELECT inside LOOP (line 67) — highest performance impact
+
+UNVERIFIED (1) — cited line did not contain the quoted code; not scored
+  Line 140: "READ TABLE lt_vbap WITH KEY vbeln" — checker: line 140 is "ENDLOOP."
 ```
+
+The UNVERIFIED block appears only when Step 2d failed at least one finding.
 
 ## MCP Tools Used
 
-**Only `SearchObject` is called by the main thread (Step 1 intake verification).** Every other MCP tool below is called **by the `sap-code-reviewer` agent** inside its dispatch (Step 2), keeping the orchestrator context light.
+**Only `SearchObject` is called by the main thread (Step 1 intake verification).** Every other MCP tool below is called **by the `sap-code-reviewer` agent** or **the `sap-checker` workers** inside their dispatches (Step 2), keeping the orchestrator context light.
 
 ### Main thread
 - `SearchObject` — verify object exists during Step 1 intake
@@ -41,3 +46,7 @@ Top fix: Eliminate SELECT inside LOOP (line 67) — highest performance impact
 - `GetAbapSemanticAnalysis` — semantic and type analysis
 - `GetWhereUsed` — usage scope and caller list
 - `GetObjectInfo` — object metadata (package, transport, author)
+
+### Checker workers (Haiku, Steps 2a / 2b / 2d)
+- `GetIncludesList` + `GetProgram` / `GetInclude` / `GetClass` / `GetFunctionModule` / `GetInterface` — units, line counts, source for detect / verify
+- `GetWhereUsed` — caller count for the size scout

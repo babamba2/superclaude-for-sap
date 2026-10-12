@@ -1,12 +1,12 @@
 ---
 name: analyze-code
-description: ABAP code analysis — delegate source reads + AST/semantic/where-used analysis + rule-based review to sap-code-reviewer, then render a canned report or a richer briefing on the main thread
+description: ABAP code analysis — size-gated review (one Opus sap-code-reviewer, or Haiku sap-checker detectors + Opus judge for large objects), Haiku evidence check on every finding, then a canned report or a richer briefing on the main thread
 model: inherit
 ---
 
 # SC4SAP Analyze Code
 
-Reviews an ABAP object by delegating the heavy work (source read, structural/semantic/where-used analysis, 14-dimension rule matching) to `sap-code-reviewer` (Opus). The main thread (session model, `model: inherit`) only handles Socratic intake, report formatting, and the follow-up action menu.
+Reviews an ABAP object by delegating the heavy work (source read, structural/semantic/where-used analysis, 14-dimension rule matching) to `sap-code-reviewer` (Opus) — for objects over 1,500 lines, Haiku `sap-checker` detectors find candidates and the Opus reviewer judges them. Every finding's cited line is then checked by Haiku before it reaches the report. The main thread (session model, `model: inherit`) only handles Socratic intake, report formatting, and the follow-up action menu.
 
 
 <Purpose>
@@ -22,7 +22,7 @@ Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<lab
 </Phase_Banner>
 
 <Team_Mode>
-Type B (Coder ↔ Consultant) teamMode activates between Step 2 (reviewer full review) and Step 3 (report) when reviewer's findings include a **business-alignment dimension** (§ 1 Business Purpose, § 2 Rule Faithfulness, § 13 Cross-Module Side-Effects) AND the object touches 2+ modules. Reviewer becomes Worker, module consultants become Peers; consultants live-validate the reviewer's business-alignment findings. See [`team-mode.md`](team-mode.md). Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Type B.
+Type B (Coder ↔ Consultant) teamMode activates between Step 2d (evidence verify) and Step 3 (report) when the verified findings include a **business-alignment** finding (business purpose, business-rule faithfulness, cross-module side-effects — judged by content, not dimension number) AND the object touches 2+ modules. Reviewer becomes Worker, module consultants become Peers; consultants live-validate the reviewer's business-alignment findings. See [`team-mode.md`](team-mode.md). Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Type B.
 </Team_Mode>
 
 <Use_When>
@@ -56,21 +56,24 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 | Companion | Scope |
 |-----------|-------|
 | [`analysis-dimensions.md`](analysis-dimensions.md) | 9 `common/` rule files that the **reviewer agent** (not main) loads + 14 evaluation dimensions |
-| [`workflow.md`](workflow.md) | 4-step execution flow: Identify → Review (delegated) → Report (branching) → Actions |
+| [`workflow.md`](workflow.md) | 4-step execution flow: Identify → Review (delegated, size-gated) → Report (branching) → Actions |
+| [`detect-judge.md`](detect-judge.md) | Step 2a size scout · 2b Haiku detectors · 2c Opus judge · 2d evidence verify · `FINDING` line format |
 | [`output-and-tools.md`](output-and-tools.md) | Report output format + MCP tool list used **by the reviewer agent** |
 </Companion_Files>
 
 <Execution_Summary>
-Orchestration is **1 main-thread Socratic intake + one delegated dispatch to `sap-code-reviewer` + a branching report + main-thread action menu**.
+Orchestration is **1 main-thread Socratic intake + a size-gated delegated review + a Haiku evidence check + a branching report + main-thread action menu**.
 
 - **Step 1 (main)** — Identify: ask for (or confirm) the ABAP object name + type; verify via `SearchObject`.
-- **Step 2 (delegated · Opus)** — Dispatch to `sap-code-reviewer` with only the object reference. The reviewer agent **itself** reads source (via `GetClass`/`GetProgram`/`GetProgFullCode`/...), runs structural analysis (`GetAbapAST` + `GetAbapSemanticAnalysis` + `GetWhereUsed`), loads the 9 `common/` rule files, and evaluates all 14 dimensions. Returns: findings list (severity · location · rule ref · fix suggestion) + summary metrics.
+- **Step 2a (delegated · Haiku)** — `sap-checker` scout returns source units with line counts + caller count.
+- **Step 2 (delegated · Opus)** — ≤ 1,500 lines: dispatch to `sap-code-reviewer` with only the object reference. > 1,500 lines: Haiku detectors × N (5 rule groups) write candidates, then one Opus `sap-code-reviewer` judges them and evaluates the judgment dimensions (§1 / §4 / §9 / §14) — see [`detect-judge.md`](detect-judge.md). On the single path the reviewer agent **itself** reads source (via `GetClass`/`GetProgram`/`GetProgFullCode`/...), runs structural analysis (`GetAbapAST` + `GetAbapSemanticAnalysis` + `GetWhereUsed`), loads the 9 `common/` rule files, and evaluates all 14 dimensions. Returns: findings list (severity · location · rule ref · fix suggestion, one `FINDING` line each) + summary metrics.
+- **Step 2d (delegated · Haiku)** — `sap-checker` verify confirms each finding's evidence quote exists at the cited line; failures move to an **Unverified** section and leave the score.
 - **Step 3 (branching)**:
   - **Branch A — canned** (default: no Critical findings AND < 10 findings total) → main formats the standard report template from [`output-and-tools.md`](output-and-tools.md).
   - **Branch B — briefing** (Critical present OR ≥ 10 findings) → main renders a richer reader-facing briefing (Critical/High with root cause + fix code, where-used impact, top-3 fixes) per [`workflow.md`](workflow.md) § Branch B. No extra agent dispatch.
 - **Step 4 (main)** — Follow-up action menu: show where-used · explain finding #N · save report (Markdown · HTML · both) · delegate fix to `sap-executor` (user's choice).
 
-Full spec in [`workflow.md`](workflow.md). Main thread NEVER calls `ReadClass` / `GetAbapAST` / `GetWhereUsed` directly — that context stays inside the reviewer agent so the orchestrator window remains small even for large objects.
+Full spec in [`workflow.md`](workflow.md). Main thread NEVER calls `ReadClass` / `GetAbapAST` / `GetWhereUsed` directly — that context stays inside the reviewer and checker agents so the orchestrator window remains small even for large objects.
 </Execution_Summary>
 
 Task: $ARGUMENTS

@@ -47,15 +47,15 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Session_Trust_Bootstrap>
 
 <Workflow_Steps>
-Orchestration is **3 main-thread Socratic steps + one delegated dispatch to `sap-stocker` (Sonnet) + a branching hand-off**. Detailed spec lives in [`workflow-steps.md`](./workflow-steps.md).
+Orchestration is **3 main-thread Socratic steps + a delegated stocking pass (`sap-stocker` walk → `sap-checker` scout fan-out → `sap-stocker` finalize) + a branching hand-off**. Detailed spec lives in [`workflow-steps.md`](./workflow-steps.md).
 
 - **Step 1 / 1.5 / 2 (main thread)** — Socratic intake: package name → flagship programs (optional `<KEY_PROGRAMS>`) → module. The main thread follows the session model (`model: inherit`).
-- **Step 3–7 (delegated · Sonnet)** — One `Agent(...)` dispatch to `sap-stocker`. The stocker runs its own Investigation_Protocol: walk → `GetWhereUsed` graph → pin/frequency tiering → business-purpose inference → cross-module gap analysis (per [`../../common/active-modules.md`](../../common/active-modules.md)) → sensitive-name flagging → persist `index.md` + `inventory.json` → return a `Logic-heavy: <bool>` flag. Authoritative spec: [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md) § Investigation_Protocol + § Output_Format.
+- **Step 3–7 (delegated · Sonnet + Haiku)** — `sap-stocker` `MODE: walk` writes `walk.json`; for packages with ≥ 30 objects, Haiku `sap-checker` × N collect in-package callers + DDIC signals per batch in parallel (`scout-facts.md`); `sap-stocker` `MODE: finalize` does the rest. Spec: [`stocker-fanout.md`](stocker-fanout.md). Together they run the stocker's Investigation_Protocol: walk → `GetWhereUsed` graph → pin/frequency tiering → business-purpose inference → cross-module gap analysis (per [`../../common/active-modules.md`](../../common/active-modules.md)) → sensitive-name flagging → persist `index.md` + `inventory.json` → return a `Logic-heavy: <bool>` flag. Authoritative spec: [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md) § Investigation_Protocol + § Output_Format.
 - **Step 8 (branching)**:
   - **Branch A** (`Logic-heavy: false`, DDIC-dominant) — canned summary printed by main thread. No agent dispatch.
   - **Branch B** (`Logic-heavy: true`, FM/CLAS/INTF/large-PROG in inventory) — main thread renders a reader-facing briefing from `inventory.json`: pinned highlights · business-logic assets · cross-module gaps · sensitive objects · next-step hint. No extra agent dispatch.
 
-Main thread NEVER calls `GetPackageContents` / `GetWhereUsed` itself for the inventory pass — that context stays inside the stocker so the orchestrator window remains small even for large packages (200+ objects).
+Main thread NEVER calls `GetPackageContents` / `GetWhereUsed` itself for the inventory pass — that context stays inside the stocker and checker agents so the orchestrator window remains small even for large packages (200+ objects).
 </Workflow_Steps>
 
 <Output_Files>
@@ -66,6 +66,8 @@ Main thread NEVER calls `GetPackageContents` / `GetWhereUsed` itself for the inv
         ├── index.md        # human-readable summary, grouped by object type
         ├── index.html      # optional single-file HTML view of index.md (offered at Step 8)
         ├── inventory.json  # machine-readable, consumed by sibling skills
+        ├── walk.json       # package member list + scout batches (stocker walk)
+        ├── scout-facts.md  # Haiku checker FACT lines (only for packages with ≥ 30 objects)
         └── raw-walk.md     # optional full walk (only if asked or small package)
 ```
 </Output_Files>
