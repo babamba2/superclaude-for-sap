@@ -1,6 +1,6 @@
 # Grouping Heuristics — Auto Process Detection
 
-Referenced by `workflow.md` § Step 4 and by `dispatch-analyst.md` § Step 4 — Auto Process Grouping. The `sap-analyst` agent loads this file to seed cluster labels with **module-specific business-document patterns**.
+Referenced by `workflow-render.md` § Step 4 and by `dispatch-analyst.md` § Step 4 — Auto Process Grouping. The `sap-analyst` agent loads this file to seed cluster labels with **module-specific business-document patterns**.
 
 ## Algorithm (used by sap-analyst in Step 4)
 
@@ -116,4 +116,4 @@ For each module, the **canonical end-to-end document flow** plus its **anchor ta
 - **Single-entry monolith** — one program implements the full flow internally. Confidence = 1.0, group = 1, label = canonical flow with `(monolithic)` suffix.
 - **Multi-flow program** — one program serves >1 flow (e.g., consolidated MM+SD report). List the program under each matching cluster with a `(shared)` annotation; report a Cross-module Note.
 - **Cross-module clusters** — when anchors span 2+ modules' dictionaries (e.g., `EKKO + BKPF` → MM→FI), label as `MM→FI (P2P-to-Accounting)` and flag in the report's `Cross-Module Notes` per [`../../common/active-modules.md`](../../common/active-modules.md).
-- **Empty inventory** — if `inventory.json → objects[]` has no PROG with a TCode AND `key_programs[]` is empty, STOP with a request for manual entry-point input (Step 3 escape hatch).
+- **No entry points** — handled before grouping by `workflow.md` § Step 3.7: the main thread offers the largest PROG as the entry point (or free-text entry programs) and stops only when the user says so or the inventory has no PROG at all. The analyst therefore always receives ≥ 1 entry point; it never stops on this case itself.

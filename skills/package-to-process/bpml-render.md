@@ -1,46 +1,52 @@
 # package-to-process — BPML Render Contract
 
-Referenced by `SKILL.md` / `workflow.md` (Step 6b). Defines how the BPML
+Referenced by `SKILL.md` / `workflow-render.md` (Step 6 + 6b) / `dispatch-writer.md`. Defines how the BPML
 (Business Process Master List) deliverable is assembled and rendered.
+
+**Who does what** (single source of truth): the **6b `sap-writer`** (Sonnet,
+dispatched in parallel with the process-document writer) authors the spec JSON
+from the `_state/` files; the **main thread** only runs the builder once per
+format and relays its one-line result. The analyst does not author BPML.
 
 ## Builder
 
-`scripts/spec/build-bpml.mjs` — zero-dep OOXML/Markdown builder. CLI:
+`<PLUGIN_ROOT>/scripts/spec/build-bpml.mjs` — zero-dep OOXML/Markdown builder. CLI:
 
 ```
-node scripts/spec/build-bpml.mjs <bpml.json> <out.xlsx>   # styled workbook
-node scripts/spec/build-bpml.mjs <bpml.json> <out.md>     # same data as Markdown
-node scripts/spec/build-bpml.mjs <bpml.json> <out.html>   # md content as one self-contained page
+node "<PLUGIN_ROOT>/scripts/spec/build-bpml.mjs" <bpml.json> <out.xlsx>   # styled workbook
+node "<PLUGIN_ROOT>/scripts/spec/build-bpml.mjs" <bpml.json> <out.md>     # same data as Markdown
+node "<PLUGIN_ROOT>/scripts/spec/build-bpml.mjs" <bpml.json> <out.html>   # md content as one self-contained page
 ```
 
 Output formats are chosen by the user in Step 1 (multi-select: `md` /
 `html` / `xlsx`). Run the CLI once per selected format — the extension picks
 the mode. HTML mode builds the md content in memory (no `.md` is left behind
 unless `md` was also selected), inlines the flow SVGs, and uses
-`scripts/spec/md-to-html.mjs` for the page.
+`<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs` for the page.
 
 ## Output paths
 
+`<PROC_DIR>` = `<ARTIFACT_BASE>/processes/<MODULE>/<PACKAGE>` (absolute — see `paths-and-state.md`).
+
 ```
-.sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.xlsx
-.sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.md
-.sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.html
+<PROC_DIR>/bpml-<YYYYMMDD>-<lang>.xlsx
+<PROC_DIR>/bpml-<YYYYMMDD>-<lang>.md
+<PROC_DIR>/bpml-<YYYYMMDD>-<lang>.html
 ```
 
 Spec JSON (intermediate, kept for regeneration):
-`.sc4sap/processes/<MODULE>/<PACKAGE>/_img/bpml-<YYYYMMDD>-<lang>.json`
+`<PROC_DIR>/_img/bpml-<YYYYMMDD>-<lang>.json`
 
 ## Language rules
 
-- `meta.language` = the language selected in Step 1 (ISO 639-1).
-- Builder has built-in dictionaries **ko / en / ja**; any other code falls
-  back to **en**. For a language outside ko/en/ja, pass localized strings via
-  `meta.labels` (`{overviewSheet?, title?, headers?{}, ov?{}}`) — the analyst
-  supplies these when assembling the JSON.
-- Sheet 1 name is localized (개요 / Overview / 概要). **Sheet 2 is ALWAYS
-  named `BPML`** (English, lingua franca) — never localize it.
+- `meta.language` = the language selected in Step 1 — always `ko`, `en` or
+  `ja` (the skill accepts no other language). The builder's built-in
+  dictionaries cover exactly these three; `meta.labels` overrides exist in the
+  builder for other callers and are not used by this skill.
+- Sheet 1 name is localized by the builder. **Sheet 2 is ALWAYS named `BPML`**
+  (English, lingua franca) — never localize it.
 - Row content (`l1..l5`, `task_desc`, `io`, …) must be written in the selected
-  language by the analyst — the builder localizes labels only, never data.
+  language by the 6b writer — the builder localizes labels only, never data.
 
 ## BPML JSON contract
 
@@ -51,22 +57,21 @@ Spec JSON (intermediate, kept for regeneration):
     "sap_version": "…", "abap_release": "…",
     "industry": "…", "country": "…",
     "active_modules": ["MM", "FI"],
-    "generated_at": "YYYY-MM-DD HH:mm", "language": "ko",
+    "generated_at": "YYYY-MM-DD HH:mm", "language": "en",
     "entry_points": [{ "program", "tcode", "short", "persona" }],
     "wricef_legend": { "R": "Report", "…": "…" }
-    // "labels": { … }   ← only for languages outside ko/en/ja
   },
   "rows": [
     // STAIRCASE: every level gets its OWN row, in document order
-    { "lv": 1, "code": "1",     "l1": "구매관리",          "task_desc": "…" },
-    { "lv": 2, "code": "1.1",   "l2": "구매요청(PR) 관리", "task_desc": "…" },
+    { "lv": 1, "code": "1",     "l1": "Purchasing",                 "task_desc": "…" },
+    { "lv": 2, "code": "1.1",   "l2": "Purchase requisition (PR)",  "task_desc": "…" },
     { "lv": 3, "code": "1.1.1", "l3": "…", "task_desc": "…" },
     { "lv": 4, "code": "1.1.1.1", "l4": "…", "task_desc": "…" },
     // leaf (lv 5) carries program attributes:
     { "lv": 5, "code": "1.1.1.1.1", "l5": "…",
-      "program": "…", "tcode": "…", "std_cbo": "표준|CBO",
-      "task_desc": "…", "io": "입력: … / 출력: …", "wricef": "R",
-      "dept": "…(추정)", "legacy": "…(확인필요)", "note": "-" }
+      "program": "…", "tcode": "…", "std_cbo": "Standard|CBO (in <lang>)",
+      "task_desc": "…", "io": "Input: … / Output: …", "wricef": "R",
+      "dept": "… <estimated marker>", "legacy": "… <TBD marker>", "note": "-" }
   ]
 }
 ```
@@ -90,13 +95,15 @@ Per-row fields for md mode (`desc` optional, `seq` REQUIRED for L2–L5):
 - **Scenario, not skeleton.** Every L2–L4 `seq`: 4–9 actors (real departments
   from `dept` + narrative as `kind:'actor'`; programs/tables as
   `'participant'`), 8–16 items covering the real hand-offs, with `alt`/`opt`
-  (+`elselbl`) frames for the business branches (반려/예외/오버라이드) and
-  `loop` for recurring checks. L5 `seq`: that program's runtime scenario
-  (담당자 → 프로그램 → 테이블 → dashed return of the ALV/output).
+  (+`elselbl`) frames for the business branches (rejection / exception /
+  override) and `loop` for recurring checks. L5 `seq`: that program's runtime
+  scenario (person in charge → program → table → dashed return of the
+  ALV/output).
 - Keep SAP identifiers literal (`ZMMR00010`, `EBAN`); all prose in `lang`.
-- Derive from Step 5 narratives + `task_desc`/`io` — same source of truth as
-  the process document. Builder auto-derive (linear flowchart) is a
-  LAST-RESORT fallback for rows the analyst genuinely cannot flesh out; a
+- Derive from the Step 5 narratives (`_state/step5.part-*.json`, listed in
+  `step5.json`) + `task_desc`/`io` — same source of truth as the process
+  document. Builder auto-derive (linear flowchart) is a LAST-RESORT fallback
+  for rows the 6b writer genuinely cannot flesh out; a
   document full of skeletal diagrams is a defect, not an output.
 
 md / html mode extras (builder-automatic — nothing to assemble; html carries the same sections with the SVGs inlined):
@@ -126,11 +133,14 @@ Hard rules:
 
 - **NEVER supply `proc_id`** — the builder auto-numbers L5 rows as
   `[meta.module]-001, -002, …` in document order.
-- Rows derive from Steps 3–5 state: L1 groups = Step 4 process groups,
-  L5 leaves = entry-point programs + their sub-flows from Step 5 narratives.
-- Values not extractable from ABAP (dept, legacy) are marked `(추정)` /
-  `(확인필요)` (or the language's equivalent: `(estimated)`/`(TBD)`,
-  `(推定)`/`(要確認)`) — warn markers auto-highlight yellow (xlsx) / `⚠` (md).
+- Rows derive from the `_state/` files: L1 groups = `step4.json` processes
+  (narrated only — skip `step5.json → failed_processes`), L5 leaves =
+  entry-point programs (`entry_points.json`) + their sub-flows from the Step 5
+  narratives.
+- Values not extractable from ABAP (dept, legacy) carry the language's markers
+  — exact builder tokens: en `(estimated)` / `(TBD)`, ko `(추정)` / `(확인필요)`,
+  ja `(推定)` / `(要確認)`. The TBD-type token auto-highlights yellow (xlsx) /
+  `⚠` (md).
 - No row data from `GetTableContents`/`GetSqlQuery` — ever (same as the
   process document).
 
