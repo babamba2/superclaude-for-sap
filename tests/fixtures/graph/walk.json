@@ -1,0 +1,15 @@
+{
+  "package": "ZGT",
+  "module": "SD",
+  "key_programs": ["ZGT_ORDER"],
+  "objects": [
+    { "name": "ZGT_ORDER", "type": "PROG" },
+    { "name": "ZGT_READER", "type": "PROG" },
+    { "name": "ZGT_POST", "type": "FUGR" },
+    { "name": "ZCL_GT_UTIL", "type": "CLAS" },
+    { "name": "ZGT_LOG", "type": "TABL" },
+    { "name": "ZGT_HEAD", "type": "TABL" },
+    { "name": "ZGT_EXT_S", "type": "STRU" },
+    { "name": "ZGT_MISSING", "type": "PROG" }
+  ]
+}
