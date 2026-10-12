@@ -35,8 +35,23 @@
 // GFM tables, lists, blockquotes, fenced code, images, links, emphasis) —
 // not a general CommonMark implementation.
 //
+// Editable page (opt-in, `editable: true` / `--editable`; program-to-spec):
+// every top-level block carries data-b="<n>" and the page embeds the source
+// Markdown with each block's line range (<script id="spec-source">). Inline
+// content the reader may change sits in <span data-f>, images keep their
+// relative path in data-src. spec-editor.mjs adds the edit mode, and
+// html-to-md.mjs turns a saved page back into Markdown: blocks the reader did
+// not touch keep their source lines byte for byte. The cover card shows the
+// version and a Revision History section closes the page (spec-version.mjs).
+// Without the flag the output is exactly what it was before.
+//
 // CLI
 //   node md-to-html.mjs <in.md> [out.html]   (default: same path, .html)
+//   node md-to-html.mjs <in.md> [out.html] --editable [--version V | --same-version | --major]
+//                       [--history H | --no-history] [--author A] [--note N] [--out-dir D]
+//   node md-to-html.mjs --next-version --history H [--major]
+//   node md-to-html.mjs --import <edited.html> <spec.md> [--image-spec J] [--history H]
+//   (the versioned build and the import live in spec-version.mjs — see there)
 //
 // Zero external deps — node:fs / node:path / node:url only.
 
@@ -45,6 +60,7 @@ import { resolve, dirname, extname, isAbsolute, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { STYLE, SCRIPT, labelsFor } from './md-to-html-assets.mjs';
 import { FLOW_EDITOR_STYLE, FLOW_EDITOR_SCRIPT, FLOW_PAGE_SCRIPT, flowEditorLabels } from './flow-editor.mjs';
+import { SPEC_EDITOR_STYLE, SPEC_EDITOR_SCRIPT, specEditorLabels, quillAssets } from './spec-editor.mjs';
 
 const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
 
@@ -135,6 +151,13 @@ function flowGraphFor(src, baseDir) {
   if (!existsSync(fp)) return null;
   try { return JSON.parse(readFileSync(fp, 'utf8')); } catch { return null; }
 }
+
+/** Inline content the edit mode may change (editable pages only). */
+const field = (html, ctx) => (ctx.editable ? `<span data-f="">${html}</span>` : html);
+
+/** JSON inside a <script> element: nothing in it may close the element. */
+const LS = String.fromCharCode(0x2028), PS = String.fromCharCode(0x2029);
+export const embedJson = (v) => JSON.stringify(v).replace(/</g, '\\u003c').split(LS).join('\\u2028').split(PS).join('\\u2029');
 
 /** An image whose flow the reader can edit in the page (flow-editor.mjs FLOW_PAGE_SCRIPT). */
 function flowFigure(img, data) {
@@ -266,7 +289,8 @@ function renderInline(text, ctx, shared) {
   });
   s = s.replace(/!\[([^\]]*)\]\(\s*<?([^)\s>]+)>?(?:\s+"([^"]*)")?\s*\)/g, (_, alt, src, title) => {
     const path = decodeBasic(stripTags(src.replace(PLACEHOLDER, (__, i) => st.stash[Number(i)])));
-    const img = `<img src="${escapeHtml(inlineImage(path, ctx.baseDir))}" alt="${attr(alt)}"${title ? ` title="${attr(title)}"` : ''}>`;
+    const keepSrc = ctx.editable ? ` data-src="${escapeHtml(path)}"` : '';
+    const img = `<img src="${escapeHtml(inlineImage(path, ctx.baseDir))}" alt="${attr(alt)}"${title ? ` title="${attr(title)}"` : ''}${keepSrc}>`;
     const flow = flowGraphFor(path, ctx.baseDir);
     if (flow && ctx.flags) ctx.flags.flowEditor = true;
     return keep(flow ? flowFigure(img, flow) : img);
@@ -290,6 +314,10 @@ function renderInline(text, ctx, shared) {
   }
   return s;
 }
+
+/** Inline Markdown → HTML with no cross-references and no file access (html-to-md's escape check). */
+export const renderInlinePlain = (text) =>
+  renderInline(text, { baseDir: '\u0000', labels: labelsFor('en'), noLink: true });
 
 // ── Blocks ──────────────────────────────────────────────────────────────────
 
@@ -336,7 +364,7 @@ function renderTable(headRaw, alignRaw, rows, ctx) {
   const info = ctx.glossary ? ctx.tables[t] : null;
 
   const style = (k) => (align[k] ? ` style="text-align:${align[k]}"` : '');
-  const th = head.map((c, k) => `<th${style(k)}>${renderInline(c, { ...ctx, noLink: true })}</th>`).join('');
+  const th = head.map((c, k) => `<th${style(k)}>${field(renderInline(c, { ...ctx, noLink: true }), ctx)}</th>`).join('');
   const body = rows.map((r, k) => {
     const cells = head.map((_, col) => {
       let anchors = '';
@@ -349,7 +377,7 @@ function renderTable(headRaw, alignRaw, rows, ctx) {
         anchors = own.map((name) => `<span class="ref-target" id="ref-${name}"></span>`).join('');
         if (own.length) cellCtx = { ...ctx, selfIds: new Set(own) };
       }
-      return `<td${style(col)}>${anchors}${renderInline(r[col] ?? '', cellCtx)}</td>`;
+      return `<td${style(col)}>${anchors}${field(renderInline(r[col] ?? '', cellCtx), ctx)}</td>`;
     }).join('');
     return `<tr>${cells}</tr>`;
   }).join('\n');
@@ -357,16 +385,37 @@ function renderTable(headRaw, alignRaw, rows, ctx) {
   return `<div class="table-wrap${tall}"><table>\n<thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody>\n</table></div>`;
 }
 
+/** `src` and `title` of a paragraph that holds only an image (editable figures keep them). */
+function figureSource(text) {
+  const m = text.match(/!\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"([^"]*)")?\s*\)/);
+  return m ? ` data-src="${escapeHtml(m[1])}"${m[2] ? ` data-title="${escapeHtml(m[2])}"` : ''}` : '';
+}
+
 function renderBlockList(lines, ctx) {
   const out = [];
   let i = 0;
   const para = [];
+  let paraStart = -1; // first source line of the paragraph; -1 when it began after a comment
+  // Editable page, top level, rendering pass: each block gets data-b="<n>",
+  // and ctx.spans[n] = [first line, line after the last] in `lines`.
+  const top = ctx.editable && ctx.glossary && !ctx.depth;
+  const push = (html, start, end) => {
+    if (top && start >= 0) {
+      html = html.replace(/^(<[A-Za-z][A-Za-z0-9]*)([^>]*)>/, `$1$2 data-b="${ctx.spans.length}">`);
+      ctx.spans.push([start, end]);
+    }
+    out.push(html);
+  };
   const flushPara = () => {
     if (para.length === 1 && IMAGE_ONLY_RE.test(para[0])) {
       const alt = para[0].match(/!\[([^\]]*)\]/)[1];
-      out.push(`<figure>${renderInline(para[0].trim(), ctx)}${alt ? `<figcaption>${renderInline(alt, { ...ctx, noLink: true })}</figcaption>` : ''}</figure>`);
+      // An editable figure always has its caption, so the reader can write one.
+      const caption = alt || ctx.editable
+        ? `<figcaption>${field(renderInline(alt, { ...ctx, noLink: true }), ctx)}</figcaption>` : '';
+      const src = ctx.editable ? figureSource(para[0]) : '';
+      push(`<figure${src}>${renderInline(para[0].trim(), ctx)}${caption}</figure>`, paraStart, i);
     } else if (para.length) {
-      out.push(`<p>${renderInline(para.join('\n'), ctx)}</p>`);
+      push(`<p>${field(renderInline(para.join('\n'), ctx), ctx)}</p>`, paraStart, i);
     }
     para.length = 0;
   };
@@ -395,13 +444,14 @@ function renderBlockList(lines, ctx) {
       if (aud) out.push(MARK[aud[1].toLowerCase()]);
       else if (body === 'sc4sap:facts') out.push(MARK.facts);
       // Text after the comment on its closing line is ordinary content.
-      if (rest.trim()) para.push(rest.trim());
+      if (rest.trim()) { paraStart = -1; para.push(rest.trim()); }
       continue;
     }
 
     const fence = line.match(/^\s*(`{3,}|~{3,})\s*([\w+-]*)/);
     if (fence) {
       flushPara();
+      const start = i;
       const close = new RegExp(`^\\s*${fence[1][0]}{${fence[1].length},}\\s*$`);
       const body = [];
       i++;
@@ -409,11 +459,16 @@ function renderBlockList(lines, ctx) {
       i++;
       const lang = fence[2].toLowerCase();
       const code = escapeHtml(body.join('\n'));
-      if (lang === 'mermaid') { ctx.mermaid = true; out.push(`<pre class="mermaid">${code}</pre>`); continue; }
+      if (lang === 'mermaid') {
+        // Mermaid replaces the text with its drawing; an editable page keeps the source.
+        ctx.mermaid = true;
+        push(`<pre class="mermaid"${ctx.editable ? ` data-src="${code}"` : ''}>${code}</pre>`, start, Math.min(i, lines.length));
+        continue;
+      }
       const pre = `<pre><code${lang ? ` class="language-${lang}"` : ''}>${code}</code></pre>`;
-      out.push(body.length > FOLD_CODE_LINES
+      push(body.length > FOLD_CODE_LINES
         ? `<details class="code"><summary>${escapeHtml(ctx.labels.code.replace('{n}', body.length))}</summary>${pre}</details>`
-        : pre);
+        : pre, start, Math.min(i, lines.length));
       continue;
     }
 
@@ -429,42 +484,46 @@ function renderBlockList(lines, ctx) {
       if (num && !ctx.glossary && !ctx.found.sections.has(num[1])) ctx.found.sections.set(num[1], id);
       if (level === 2 || level === 3) ctx.headings.push({ level, id, text });
       const hash = level > 1 ? `<a class="hash" href="#${id}" aria-label="${escapeHtml(ctx.labels.link)}">#</a>` : '';
-      out.push(`<h${level} id="${id}">${hash}${inner}</h${level}>`);
+      push(`<h${level} id="${id}">${hash}${field(inner, ctx)}</h${level}>`, i, i + 1);
       i++;
       continue;
     }
 
-    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) { flushPara(); out.push('<hr>'); i++; continue; }
+    if (/^\s*([-*_])(\s*\1){2,}\s*$/.test(line)) { flushPara(); push('<hr>', i, i + 1); i++; continue; }
 
     if (HTML_BLOCK_RE.test(line)) { flushPara(); out.push(line.trim()); i++; continue; }
 
     if (line.includes('|') && i + 1 < lines.length && isTableDivider(lines[i + 1])) {
       flushPara();
+      const start = i;
       const headRaw = line;
       const alignRaw = lines[i + 1];
       const rows = [];
       i += 2;
       while (i < lines.length && lines[i].includes('|') && !/^\s*$/.test(lines[i])) rows.push(splitRow(lines[i++]));
-      out.push(renderTable(headRaw, alignRaw, rows, ctx));
+      push(renderTable(headRaw, alignRaw, rows, ctx), start, i);
       continue;
     }
 
     if (/^\s*>/.test(line)) {
       flushPara();
+      const start = i;
       const quoted = [];
       while (i < lines.length && /^\s*>/.test(lines[i])) quoted.push(lines[i++].replace(/^\s*>\s?/, ''));
-      out.push(renderQuote(quoted, ctx));
+      push(renderQuote(quoted, ctx), start, i);
       continue;
     }
 
     if (listItemRe.test(line)) {
       flushPara();
+      const start = i;
       const block = [];
       while (i < lines.length && (listItemRe.test(lines[i]) || (/^\s+\S/.test(lines[i]) && block.length))) block.push(lines[i++]);
-      out.push(renderList(block, ctx));
+      push(renderList(block, ctx), start, i);
       continue;
     }
 
+    if (!para.length) paraStart = i;
     para.push(line);
     i++;
   }
@@ -472,7 +531,15 @@ function renderBlockList(lines, ctx) {
   return out;
 }
 
-const renderBlocks = (lines, ctx) => renderBlockList(lines, ctx).filter((b) => !b.startsWith('\u0001')).join('\n');
+/** Blocks nested in a quote or a list item: not top level, so never tagged on their own. */
+function renderBlocks(lines, ctx) {
+  ctx.depth = (ctx.depth || 0) + 1;
+  try {
+    return renderBlockList(lines, ctx).filter((b) => !b.startsWith('\u0001')).join('\n');
+  } finally {
+    ctx.depth--;
+  }
+}
 
 /** A blockquote, or a callout when it opens with `[!NOTE]` / `[!WARNING]` / …. */
 function renderQuote(quoted, ctx) {
@@ -502,7 +569,7 @@ function renderList(block, ctx) {
   const start = ordered ? parseInt(first[2], 10) : 1;
   const body = items.map((it) => {
     const nested = it.children.length ? renderBlocks(dedent(it.children), ctx) : '';
-    return `<li>${renderInline(it.text.join('\n'), ctx)}${nested}</li>`;
+    return `<li>${field(renderInline(it.text.join('\n'), ctx), ctx)}${nested}</li>`;
   }).join('\n');
   return ordered ? `<ol${start !== 1 ? ` start="${start}"` : ''}>${body}</ol>` : `<ul>${body}</ul>`;
 }
@@ -529,29 +596,42 @@ function findFacts(lines) {
     if (!/^[-*+]\s+/.test(lines[i])) continue;
     let end = i;
     const items = [];
+    const spans = []; // each item's lines [first, after last]
     while (end < lines.length && (/^[-*+]\s+/.test(lines[end]) || (/^\s+\S/.test(lines[end]) && items.length))) {
-      if (/^[-*+]\s+/.test(lines[end])) items.push(lines[end].replace(/^[-*+]\s+/, ''));
-      else items[items.length - 1] += ` ${lines[end].trim()}`;
+      if (/^[-*+]\s+/.test(lines[end])) { items.push(lines[end].replace(/^[-*+]\s+/, '')); spans.push([end, end + 1]); }
+      else { items[items.length - 1] += ` ${lines[end].trim()}`; spans[spans.length - 1][1] = end + 1; }
       end++;
     }
     const pairs = [];
-    for (const item of items) {
-      for (const piece of item.split(/\s+·\s+(?=\*\*[^*]+\*\*\s*[:：])/)) {
+    const itemOf = []; // the item each pair came from
+    for (let k = 0; k < items.length; k++) {
+      for (const piece of items[k].split(/\s+·\s+(?=\*\*[^*]+\*\*\s*[:：])/)) {
         const m = piece.match(/^\*\*([^*]+?)\*\*\s*[:：]\s*([\s\S]*)$/);
         if (!m) return null;
         pairs.push([m[1].trim(), m[2].trim()]);
+        itemOf.push(k);
       }
     }
-    return pairs.length >= 2 ? { start: i, end, pairs } : null;
+    return pairs.length >= 2 ? { start: i, end, pairs, itemOf, spans } : null;
   }
   return null;
 }
 
-function factsCard(pairs, ctx) {
-  if (!pairs.length) return '';
-  const items = pairs.map(([k, v]) =>
-    `<div><dt>${renderInline(k, { ...ctx, noLink: true })}</dt><dd>${renderInline(v, ctx)}</dd></div>`);
-  return `<dl class="facts">${items.join('')}</dl>`;
+/**
+ * The cover card. On an editable page `meta[n]` says where pair n came from —
+ * { fm: true } frontmatter (read-only), { fi: k } item k of the fact list
+ * (editable) — and `extra` holds generated rows (the version), marked data-gen.
+ */
+function factsCard(pairs, ctx, meta = null, extra = []) {
+  if (!pairs.length && !extra.length) return '';
+  const items = pairs.map(([k, v], n) => {
+    const m = meta?.[n];
+    if (!m) return `<div><dt>${renderInline(k, { ...ctx, noLink: true })}</dt><dd>${renderInline(v, ctx)}</dd></div>`;
+    if (m.fm) return `<div data-fm=""><dt>${renderInline(k, { ...ctx, noLink: true })}</dt><dd>${renderInline(v, ctx)}</dd></div>`;
+    return `<div data-fi="${m.fi}"><dt>${field(renderInline(k, { ...ctx, noLink: true }), ctx)}</dt><dd>${field(renderInline(v, ctx), ctx)}</dd></div>`;
+  });
+  for (const [k, html] of extra) items.push(`<div data-gen=""><dt>${escapeHtml(k)}</dt><dd>${html}</dd></div>`);
+  return `<dl class="facts"${meta ? ' data-b="facts"' : ''}>${items.join('')}</dl>`;
 }
 
 function frontmatterPairs(yaml) {
@@ -667,12 +747,35 @@ function chipsHtml(sections, labels) {
   return `<ul class="chips">${chips.join('')}</ul>`;
 }
 
-export function mdToHtml(markdown, { baseDir = process.cwd(), title, lang } = {}) {
+/** The Revision History section of an editable page, from history.json versions. */
+function revisionSection(history, ctx, E) {
+  const id = slugify('revision-history', ctx.ids);
+  ctx.headings.push({ level: 2, id, text: E.revision });
+  const note = (s) => escapeHtml(s || '').replace(/\r?\n/g, '<br>');
+  const rows = history.map((h) =>
+    `<tr><td>v${escapeHtml(h.version)}</td><td>${escapeHtml(h.date || '')}</td><td>${escapeHtml(h.author || '')}</td><td>${note(h.note)}</td></tr>`);
+  return `<section class="sec" aria-labelledby="${id}" data-rev="">\n`
+    + `<h2 id="${id}"><a class="hash" href="#${id}" aria-label="${escapeHtml(ctx.labels.link)}">#</a>${escapeHtml(E.revision)}</h2>\n`
+    + `<div class="table-wrap"><table id="rev-table">\n<thead><tr><th>${escapeHtml(E.version)}</th><th>${escapeHtml(E.date)}</th>`
+    + `<th>${escapeHtml(E.author)}</th><th>${escapeHtml(E.change)}</th></tr></thead>\n<tbody>${rows.join('\n')}</tbody>\n</table></div>\n</section>`;
+}
+
+/**
+ * @param {object} [o]
+ * @param {boolean} [o.editable] add the edit mode (spec-editor.mjs) and the source map html-to-md.mjs reads
+ * @param {string} [o.version] shown on the cover card (editable pages)
+ * @param {Array} [o.history] history.json versions for the Revision History section (editable pages)
+ * @param {string} [o.object] object name the page's Save uses for its file name
+ */
+export function mdToHtml(markdown, { baseDir = process.cwd(), title, lang, editable = false, version, history = [], object } = {}) {
   let text = String(markdown).replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+  const source = text;
   let pairs = [];
+  const meta = editable ? [] : null; // where each card pair came from (factsCard)
   const fm = text.match(/^---\n([\s\S]*?)\n---\n/);
   if (fm) {
     pairs = frontmatterPairs(fm[1]);
+    meta?.push(...pairs.map(() => ({ fm: true })));
     text = text.slice(fm[0].length);
     const fmLang = fm[1].match(/^(?:lang|language):\s*["']?([A-Za-z-]+)/m);
     if (!lang && fmLang) lang = fmLang[1];
@@ -683,8 +786,12 @@ export function mdToHtml(markdown, { baseDir = process.cwd(), title, lang } = {}
   const facts = findFacts(lines);
   if (facts) {
     pairs = [...pairs, ...facts.pairs];
+    meta?.push(...facts.itemOf.map((fi) => ({ fi })));
     lines = [...lines.slice(0, facts.start), '<!-- sc4sap:facts -->', ...lines.slice(facts.end)];
   }
+  // Line n of `lines` \u2192 its line in `source` (frontmatter cut, fact list folded into one line).
+  const fmLines = fm ? fm[0].split('\n').length - 1 : 0;
+  const origLine = (n) => fmLines + (!facts || n <= facts.start ? n : n + facts.end - facts.start - 1);
 
   // Pass 1 learns the glossary and the section numbers; pass 2 renders with
   // them. Both walk the same lines in the same order, so table and heading
@@ -696,23 +803,44 @@ export function mdToHtml(markdown, { baseDir = process.cwd(), title, lang } = {}
   renderBlockList(lines, first);
   const ctx = {
     ...base, title: title || '', ids: new Set(), tables: first.tables, tableNo: 0,
-    glossary: found, sectionIds: found.sections, headings: [],
+    glossary: found, sectionIds: found.sections, headings: [], editable, spans: [],
   };
   const blocks = renderBlockList(lines, ctx);
 
-  const card = factsCard(pairs, ctx);
+  const E = editable ? specEditorLabels(lang) : null;
+  const versionRow = editable && version ? [[E.version, `<span data-ver="">v${escapeHtml(version)}</span>`]] : [];
+  const card = factsCard(pairs, ctx, meta, versionRow);
   const { hero, sections, audiences } = sectionize(blocks, card);
   const chips = chipsHtml(sections, labels);
   const heroHtml = hero.length || chips
     ? `<header class="hero">\n${hero.join('\n')}\n${chips}\n</header>`
     : '';
-  const body = sections.map((s) =>
+  let body = sections.map((s) =>
     `<section class="sec" aria-labelledby="${s.id}"${s.audience ? ` data-audience="${s.audience}"` : ''}>\n${s.parts.join('\n')}\n</section>`).join('\n');
+  if (editable && history.length) body += `\n${revisionSection(history, ctx, E)}`;
 
-  const flowEditor = ctx.flags.flowEditor
+  const flowEditor = ctx.flags.flowEditor && !editable
     ? `\n<script type="application/json" id="flow-editor-labels">${JSON.stringify(flowEditorLabels(lang)).replace(/</g, '\\u003c')}</script>`
       + `\n<script>${FLOW_EDITOR_SCRIPT}</script>\n<script>${FLOW_PAGE_SCRIPT}</script>`
     : '';
+  // The edit mode: the source map html-to-md.mjs needs, labels, Quill (inlined), the editor.
+  // Flows use the flow editor under the edit mode's one Save, not FLOW_PAGE_SCRIPT.
+  let editor = '';
+  if (editable) {
+    const span = ([s, e]) => [origLine(s), origLine(e - 1) + 1];
+    const spec = {
+      object: object || '', lang: lang || '', version: version || '', revisions: [],
+      bom: /^\uFEFF/.test(String(markdown)), md: source, blocks: ctx.spans.map(span),
+      facts: facts ? { start: origLine(facts.start), end: origLine(facts.start) + facts.end - facts.start, items: facts.spans.map((s) => s.map((n) => n + fmLines)) } : null,
+    };
+    const { js } = quillAssets();
+    editor = `\n<script type="application/json" id="spec-source">${embedJson(spec)}</script>`
+      + `\n<script type="application/json" id="spec-editor-labels">${embedJson({ ...E, flow: flowEditorLabels(lang) })}</script>`
+      + (ctx.flags.flowEditor ? `\n<script>${FLOW_EDITOR_SCRIPT}</script>` : '')
+      + (js ? `\n<script>${js}</script>` : '')
+      + `\n<script>${SPEC_EDITOR_SCRIPT}</script>`;
+  }
+  const editorStyle = editable ? `${ctx.flags.flowEditor ? FLOW_EDITOR_STYLE : ''}${quillAssets().css}${SPEC_EDITOR_STYLE}` : '';
   const mermaid = ctx.mermaid
     ? `\n<script src="${MERMAID_CDN}"></script>\n<script>if(window.mermaid){var d=document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');mermaid.initialize({startOnLoad:true,securityLevel:'strict',theme:d==='dark'?'dark':'default'});}</script>`
     : '';
@@ -723,7 +851,7 @@ export function mdToHtml(markdown, { baseDir = process.cwd(), title, lang } = {}
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="generator" content="sc4sap md-to-html">
 <title>${escapeHtml(ctx.title || 'Document')}</title>
-<style>${STYLE}${ctx.flags.flowEditor ? FLOW_EDITOR_STYLE : ''}</style>
+<style>${STYLE}${ctx.flags.flowEditor && !editable ? FLOW_EDITOR_STYLE : ''}${editorStyle}</style>
 </head>
 <body>
 <div class="layout">
@@ -733,7 +861,7 @@ ${heroHtml}
 ${body}
 </main>
 </div>
-<script>var L=${JSON.stringify(labels).replace(/</g, '\\u003c')};${SCRIPT}</script>${flowEditor}${mermaid}
+<script>var L=${JSON.stringify(labels).replace(/</g, '\\u003c')};${SCRIPT}</script>${flowEditor}${editor}${mermaid}
 </body>
 </html>
 `;
@@ -742,6 +870,8 @@ ${body}
 export function convertMdFile(inPath, outPath) {
   const src = resolve(inPath);
   const dest = resolve(outPath || src.replace(/\.(md|markdown)$/i, '') + '.html');
+  // A shell glob that matches two specs passes the second one as outPath — never overwrite Markdown.
+  if (/\.(md|markdown)$/i.test(dest)) throw new Error(`refusing to write HTML over Markdown: ${dest}`);
   const lang = (src.match(/-(ko|en|ja|[a-z]{2})\.(md|markdown)$/i) || [])[1];
   const html = mdToHtml(readFileSync(src, 'utf8'), { baseDir: dirname(src), lang });
   mkdirSync(dirname(dest), { recursive: true });
@@ -750,7 +880,14 @@ export function convertMdFile(inPath, outPath) {
 }
 
 const thisFile = fileURLToPath(import.meta.url);
-if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
+const VERSIONED_FLAGS = ['--editable', '--import', '--next-version', '--version', '--same-version', '--major', '--history', '--no-history'];
+if (process.argv[1] && resolve(process.argv[1]) === thisFile && process.argv.slice(2).some((a) => VERSIONED_FLAGS.includes(a))) {
+  // Editable / versioned builds and the import of an edited page (spec-version.mjs).
+  // A promise, not top-level await: spec-version.mjs imports this module back.
+  import('./spec-version.mjs')
+    .then((m) => m.runCli(process.argv.slice(2)))
+    .catch((e) => { console.error(`md-to-html: ${e.message}`); process.exit(1); });
+} else if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
   const [inPath, outPath] = process.argv.slice(2);
   if (!inPath) {
     console.error('Usage: node md-to-html.mjs <in.md> [out.html]');

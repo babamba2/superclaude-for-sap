@@ -46,6 +46,16 @@ The HTML toolbar offers **All / Functional**. Functional hides what is marked te
 
 Do not mark business content as technical to shorten the Functional view. Only ABAP mechanics (events, FORMs, methods, line numbers, internal tables) qualify.
 
+## Editing in the page — what survives the round trip
+
+The spec page is editable ([`edit-mode.md`](edit-mode.md)); its import turns the page back into this Markdown. A block the reader did not touch keeps its source lines exactly. A touched block is rewritten from the page, and then:
+
+| Survives as written | Rewritten in a canonical form | Never written into the `.md` |
+|---|---|---|
+| Headings (text and numbering), paragraphs, `-` / `1.` lists with nested lists, pipe tables with alignment, `> [!KIND]` alerts, `>` quotes, `![alt](path)` figures (the relative path is kept), ```` ```mermaid ```` and code blocks, `<details>` / `<summary>`, `<span class="tech">`, `<!-- audience: … -->`, `**bold**`, `` `code` ``, `~~strike~~`, links, `<br>`, `&nbsp;`, `<sub>` / `<sup>` / `<kbd>`, `<a id>`, the fact list and frontmatter | `_italic_` → `*italic*`; list numbers become consecutive; a continued fact item joins one line; an alert's text moves to the line after `[!KIND]`; `<br>` in a heading becomes a space; a new table divider is `\|---\|` (the old one is kept while the column count is the same) | Cross-reference links and tooltips, `§n` links, row anchors, the contents, section chips, the version row, the Revision History section (regenerated from history.json), every toolbar and edit tool |
+
+So keep to the markup this file describes: anything else inside a paragraph the reader edits may be normalized. Comments other than the audience directives, and text after a comment on the same line, are only safe in blocks nobody edits.
+
 ## Do not
 
 - Do not add HTML layout (`<div>`, inline styles, custom classes other than `tech`). The page styles itself.

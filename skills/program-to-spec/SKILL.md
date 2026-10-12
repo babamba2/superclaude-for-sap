@@ -86,7 +86,7 @@ Ask ONE narrowing question per turn until ambiguity ≤3:
 - The rendered `Where-Used` section MUST repeat this scope in its header so reviewers know what was (and wasn't) searched.
 
 **Round 5 — Output location**
-- Default: `.sc4sap/specs/{object_name}-{YYYYMMDD}-{lang}.{md|html|xlsx}` — one file per selected format, plus the same files with `-en` (English companion, `workflow-steps.md` Step 6) when `lang` ≠ `en`
+- Default: `.sc4sap/specs/{object_name}-v{ver}-{lang}.{md|html}` (versioned, history in `{object_name}-{lang}.history.json` — see [`edit-mode.md`](edit-mode.md)) and `.sc4sap/specs/{object_name}-{YYYYMMDD}-{lang}.xlsx` — one file per selected format, plus the same files with `-en` (English companion, `workflow-steps.md` Step 6) when `lang` ≠ `en`
 - Language: ko / en / ja (infer from user's current language; confirm once).
 
 **Stop condition**: every dimension above has a concrete answer OR user explicitly says "skip remaining, use defaults".
@@ -125,13 +125,16 @@ Per-step model allocation. The main thread follows the session model (`model: in
 
 <Output_Format>
 ```
-Spec generated: ZSDR_OPEN_ORDER_ALV
+Spec generated: ZSDR_OPEN_ORDER_ALV  v1.0
 Depth: L2 Standard · Format: markdown, html · Lang: ko
 Sections: 9 · Tables referenced: 6 · Screens: 1 · GUI status: 1
-Files: .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-ko.md
-       .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-ko.html
-       .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-en.md     (English companion)
-       .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-20260414-en.html
+Files: .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-v1.0-ko.md
+       .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-v1.0-ko.html      (editable: Edit → Save → …-edited.html)
+       .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-ko.history.json
+       .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-v1.0-en.md        (English companion)
+       .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-v1.0-en.html
+       .sc4sap/specs/ZSDR_OPEN_ORDER_ALV-en.history.json
+Edited copy back from a reader? Hand over the …-edited.html — it is imported as v1.1 (edit-mode.md § Import).
 
 Top-level summary:
   Report that lists open sales orders by Sales Organization and date range and displays them via ALV.
@@ -180,7 +183,9 @@ Spec generation only reads **source code + DDIC metadata + where-used** — neve
 
 **Markdown output — unchanged:** continue emitting ASCII wireframes inside fenced code blocks (Step 3.5 in `workflow-steps.md`). ASCII wireframes never go in xlsx cells.
 
-**HTML output:** converted from the finished `.md` by `node scripts/spec/md-to-html.mjs <spec.md> <spec.html>` — PNGs inlined as data URIs, Mermaid fallbacks drawn by the Mermaid CDN script when opened online (plain source text offline). Same content as the `.md`, by construction, laid out as a web page: contents sidebar, cover fact card, cross-linked SAP names, sortable / filterable tables, callouts, and a Functional view. The writer follows [`html-markup.md`](html-markup.md) so the page can find what it needs.
+**HTML output:** converted from the finished `.md` by `node scripts/spec/md-to-html.mjs <spec.md> --editable --version <ver>` — PNGs inlined as data URIs, Mermaid fallbacks drawn by the Mermaid CDN script when opened online (plain source text offline). Same content as the `.md`, by construction, laid out as a web page: contents sidebar, cover fact card with the version, cross-linked SAP names, sortable / filterable tables, callouts, a Functional view, and a Revision History section. The writer follows [`html-markup.md`](html-markup.md) so the page can find what it needs.
+
+**Edit mode and versions:** the page has an **Edit** button — readers change text, table rows, list items, images and flows in place and Save an `…-edited.html` carrying their revision (+0.1, author, note). `md-to-html.mjs --import` turns it back into the next version's `.md` (only the edited blocks change) and records the revision in history.json. Versioning, review-loop rebuilds (`--same-version`), import and the English companion: **MUST read [`edit-mode.md`](edit-mode.md)** before building or importing an HTML spec.
 </Inputs_And_Screens_Rendering>
 
 Task: $ARGUMENTS
