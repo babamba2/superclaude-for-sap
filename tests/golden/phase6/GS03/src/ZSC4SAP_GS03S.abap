@@ -1,0 +1,5 @@
+*& Include ZSC4SAP_GS03S
+SELECTION-SCREEN BEGIN OF BLOCK b01 WITH FRAME TITLE TEXT-b01.
+SELECT-OPTIONS: s_carrid FOR gv_sel_carrid,
+                s_fldate FOR gv_sel_fldate.
+SELECTION-SCREEN END OF BLOCK b01.

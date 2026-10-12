@@ -1,0 +1,169 @@
+{
+  "case": "GS07",
+  "program": "ZSC4SAP_GS07",
+  "paradigm": "Procedural",
+  "planted": [
+    {
+      "id": "GS07-P1",
+      "checklist_item": "§1",
+      "rule_file": "common/ok-code-pattern.md",
+      "severity": "MAJOR",
+      "objects": [
+        "ZSC4SAP_GS07F"
+      ],
+      "lines": [
+        167
+      ],
+      "description": "FORM user_command_0100 branches on CASE sy-ucomm instead of the OK_CODE variable ok_code. TOP declaration (DATA ok_code TYPE sy-ucomm) and screen OKCODE NAME=OK_CODE are correct; CASE sy-ucomm stays forbidden (MAJOR) under common/ok-code-pattern.md.",
+      "detection_hint": "Grep F include for \"CASE sy-ucomm\" inside FORM user_command_0100.",
+      "also_acceptable_as": [
+        "§8 (clean-code-procedural PAI routing rule)"
+      ],
+      "fix": "CASE ok_code. (copy to a local + CLEAR ok_code recommended, MINOR)."
+    }
+  ],
+  "unavoidable_secondary_findings": [
+    "ok_code is declared and bound but never read in ABAP — consequence of GS07-P1, not a separate finding."
+  ],
+  "must_not_flag": [
+    {
+      "id": "MNF-GLOBAL-CONTROLS",
+      "checklist_item": "§8",
+      "construct": "go_dock / go_grid / gt_flights shared between FORMs as TOP globals",
+      "reason": "Control references must survive PBO cycles and the grid table is the main data table — common/clean-code-procedural.md § Global vs Local allows the main data table; FORM headers document the side effect."
+    },
+    {
+      "id": "MNF-NAMING",
+      "checklist_item": "§7",
+      "construct": "Program / include / FG / FM names ZSC4SAP_GS* do not follow Z{MODULE}{TYPE}{NN}, Z{MODULE}FG_, Z{MODULE}FM_",
+      "reason": "common/naming-conventions.md § Exceptions: ZSC4SAP_* harness objects in $TMP → §7 N/A (also listed in spec.md § Naming)."
+    },
+    {
+      "id": "MNF-TRANSPORT",
+      "checklist_item": "§12",
+      "construct": "Objects are in $TMP without a transport request",
+      "reason": "Local golden-set objects; interview.md dim 6."
+    },
+    {
+      "id": "MNF-VERIFY4",
+      "checklist_item": "§1",
+      "construct": "No verify-phase4.md for the screen / GUI status",
+      "reason": "Golden-set run feeds Phase 6 only; reviewers verify screens / statuses directly (run-plan.md)."
+    },
+    {
+      "id": "MNF-OPENSQL",
+      "checklist_item": "§8/§9",
+      "construct": "Classic Open SQL without @ host-variable escaping / comma field lists",
+      "reason": "common/abap-release-reference.md § 1a: abapRelease 740 with abapSp unset → classic Open SQL, recorded in spec.md (\"SP unknown — classic SQL\")."
+    },
+    {
+      "id": "MNF-HEADER",
+      "checklist_item": "§8",
+      "construct": "Main program header block above REPORT (Module / Program ID / Tcode / Old Program ID / Title / Description + Change History)",
+      "reason": "common/clean-code-procedural.md § Mandatory Main Program Header (both paradigms); common/clean-code.md § Comments names it as the one allowed banner."
+    },
+    {
+      "id": "MNF-LOCAL-DATA",
+      "checklist_item": "§6/§8",
+      "construct": "DATA / FIELD-SYMBOLS declared inside a FORM, METHOD or MODULE",
+      "reason": "common/clean-code-procedural.md § Global vs Local: \"DATA inside a FORM, METHOD or MODULE body is local and allowed\"; phase6-review.md §6."
+    },
+    {
+      "id": "MNF-NO-COUNT",
+      "checklist_item": "§8",
+      "construct": "No SELECT COUNT(*) pre-check / no secondary key on the result table",
+      "reason": "SFLIGHT / SCARR are small demo tables, not the transactional tables the clean-code.md secondary-key / COUNT rule names."
+    },
+    {
+      "id": "MNF-MSGTYPE",
+      "checklist_item": "§3",
+      "construct": "MESSAGE ... TYPE gc_msgty_* / DISPLAY LIKE gc_msgty_*",
+      "reason": "Message types come from constants — compliant with common/constant-rule.md."
+    },
+    {
+      "id": "MNF-FCAT-LITERALS",
+      "checklist_item": "§3",
+      "construct": "Field-name literals in CASE <fcat>-fieldname ('SEATSMAX', 'OCCUPANCY')",
+      "reason": "common/constant-rule.md § Exceptions: field catalog modification."
+    },
+    {
+      "id": "MNF-SUBRC-CLEAR",
+      "checklist_item": "§8",
+      "construct": "IF sy-subrc <> 0. CLEAR … / RETURN. after a SELECT ... INTO TABLE",
+      "reason": "Explicit handling of the empty result; not an empty branch."
+    },
+    {
+      "id": "MNF-NO-AUTH",
+      "checklist_item": "§8",
+      "construct": "No AUTHORITY-CHECK before the SFLIGHT / SCARR reads",
+      "reason": "SAP demo data, not restricted business data (common/clean-code.md § Security and Data Handling targets restricted data); harness exemption recorded in spec.md §8."
+    },
+    {
+      "id": "MNF-HOUSE-GUIDE-INCLUDE",
+      "checklist_item": "§6/§7",
+      "construct": "A shared, non-executed syntax-guide include pulled in by INCLUDE (house practice)",
+      "reason": "common/naming-conventions.md § Exceptions: never generated, never flagged. Not applicable here — no such include exists in this case; a finding about it is a false positive.",
+      "applicable": false
+    },
+    {
+      "id": "MNF-FLOWLOGIC",
+      "checklist_item": "§1",
+      "construct": "Flow logic lines are \"MODULE status_0100.\" without an OUTPUT / INPUT keyword",
+      "reason": "Dynpro flow-logic syntax never carries OUTPUT/INPUT (phase6-review.md §1, phase4-verify.md a1/a2); the lines are uncommented. Regression guard."
+    },
+    {
+      "id": "MNF-LEAVE0",
+      "checklist_item": "§3/§8",
+      "construct": "LEAVE TO SCREEN 0",
+      "reason": "Standard return from a called screen; not a magic screen number, not LEAVE PROGRAM error handling."
+    },
+    {
+      "id": "MNF-WHEN-OTHERS",
+      "checklist_item": "§8",
+      "construct": "WHEN OTHERS branch holding only a comment in the user-command CASE / fieldcat CASE",
+      "reason": "common/ok-code-pattern.md Step 3 template ends with an empty WHEN OTHERS."
+    },
+    {
+      "id": "MNF-OKCODE-NAME",
+      "checklist_item": "§1/§8",
+      "construct": "OK_CODE variable named ok_code (no g prefix), screen OKCODE NAME = OK_CODE",
+      "reason": "common/ok-code-pattern.md Step 1: any one name declared in TOP; common/clean-code-procedural.md g-prefix rule exempts ok_code."
+    },
+    {
+      "id": "MNF-NEW-CONTROL",
+      "checklist_item": "§8",
+      "construct": "NEW cl_gui_docking_container( ) / NEW cl_gui_custom_container( ) / NEW cl_gui_alv_grid( ) without EXCEPTIONS",
+      "reason": "common/clean-code.md § Expressions and Constructors: prefer NEW over CREATE OBJECT."
+    },
+    {
+      "id": "MNF-INCLUDE-BANNER",
+      "checklist_item": "§8",
+      "construct": "One-line *& Include {NAME} banner at the top of each include",
+      "reason": "common/clean-code-procedural.md § Mandatory Main Program Header: includes get only this one-line banner."
+    },
+    {
+      "id": "MNF-SALV-NO-SUFFIX",
+      "checklist_item": "§4",
+      "construct": "SALV-only, selection-level and utility FORMs (display_data, get_data, check_carrier / check_carriers, convert_fcat_data_grid) without _{screen_no}",
+      "reason": "common/procedural-form-naming.md: SALV-only and utility FORMs take no suffix; selection screen 1000 is not a dynpro binding."
+    },
+    {
+      "id": "MNF-COUNT-EXISTS",
+      "checklist_item": "§8",
+      "construct": "SELECT COUNT(*) FROM scarr WHERE carrid IN ... for existence",
+      "reason": "Existence check with sy-subrc; no SELECT *."
+    },
+    {
+      "id": "MNF-NO-TESTS",
+      "checklist_item": "§8",
+      "construct": "No {PROG}ct include / no LCL_HELPER",
+      "reason": "common/clean-code-procedural.md § Testing: Procedural + testing scope none → no ABAP Unit (interview.md dim 7)."
+    },
+    {
+      "id": "MNF-NO-C-A",
+      "checklist_item": "§6",
+      "construct": "No {PROG}c / {PROG}a include",
+      "reason": "common/include-structure.md: Procedural c / a only when the spec declares a local class / split ALV FORMs."
+    }
+  ]
+}

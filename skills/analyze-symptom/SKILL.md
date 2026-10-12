@@ -114,7 +114,7 @@ Per-step model allocation (the main thread follows the session model — `model:
 | 3 Relay | main | **Sonnet** | output the report verbatim; wait for answers → repeat Step 2 |
 | 4 Follow-up Routing | main | **Sonnet** | pointers only when the user asks for the fix (apply the proposal in SE38/ADT outside this skill, /sc4sap:analyze-code, module consultant) — never a write call |
 
-sap-debugger's tool set already covers the dumps feed (`RuntimeListFeeds`), `RuntimeGetDumpById`, profiler, transport queries, code reads, enhancement lookup, and customization cache reads — see the agent's Investigation_Protocol for the full inventory. A `quick-dump` round is read-mostly work (dump → source → explanation), which `common/model-routing-rule.md` § Tier 1 routes to Sonnet; `full` rounds need cross-file reasoning (dump × transport × source × customization) and stay on Opus. Ambiguity resolves to `quick-dump`, never to `full`: the cheap path escalates itself when it cannot finish, and the expensive one has no way back.
+sap-debugger's tool set already covers the dumps feed (`RuntimeListFeeds`), `RuntimeGetDumpById`, profiler, transport queries, code reads, enhancement lookup, and customization cache reads — see the agent's Investigation_Protocol for the full inventory. A `quick-dump` round is read-mostly work (dump → source → explanation), which `common/model-routing-rule.md` keeps on Sonnet (§ Tier 2 — the debugger still explains the dump, so it is not a pure Haiku fetch); `full` rounds need cross-file reasoning (dump × transport × source × customization) and stay on Opus. Ambiguity resolves to `quick-dump`, never to `full`: the cheap path escalates itself when it cannot finish, and the expensive one has no way back.
 </Workflow_Steps>
 
 <Question_Strategy>

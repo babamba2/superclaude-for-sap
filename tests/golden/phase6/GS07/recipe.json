@@ -1,0 +1,452 @@
+{
+  "case": "GS07",
+  "paradigm": "Procedural",
+  "display_mode": "Full CL_GUI_ALV_GRID (Docking Container)",
+  "package": "$TMP",
+  "transport": null,
+  "planted_summary": "FORM user_command_0100 branches on CASE sy-ucomm instead of branching on the OK_CODE variable ok_code. TOP declaration (DATA ok_code TYPE sy-ucomm) and screen OKCODE NAME=OK_CODE are correct.",
+  "objects": [
+    {
+      "type": "PROG/P",
+      "name": "ZSC4SAP_GS07",
+      "parent": null,
+      "description": "Flight list (ALV grid)"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS07T",
+      "parent": "ZSC4SAP_GS07",
+      "description": "TOP — types, constants, OK_CODE, grid references"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS07S",
+      "parent": "ZSC4SAP_GS07",
+      "description": "Selection screen"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS07O",
+      "parent": "ZSC4SAP_GS07",
+      "description": "PBO modules (one-line PERFORM)"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS07I",
+      "parent": "ZSC4SAP_GS07",
+      "description": "PAI modules (one-line PERFORM)"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS07F",
+      "parent": "ZSC4SAP_GS07",
+      "description": "FORMs incl. ALV FORMs (_0100) and convert_fcat_data_grid"
+    },
+    {
+      "type": "DYNP",
+      "name": "ZSC4SAP_GS07 0100",
+      "parent": "ZSC4SAP_GS07",
+      "description": "Flight list grid"
+    },
+    {
+      "type": "CUAD",
+      "name": "ZSC4SAP_GS07 STATUS_0100",
+      "parent": "ZSC4SAP_GS07",
+      "description": "Flight list"
+    }
+  ],
+  "screens": [
+    {
+      "program_name": "ZSC4SAP_GS07",
+      "screen_number": "0100",
+      "description": "Flight list grid",
+      "type": "N",
+      "next_screen": "0100",
+      "lines": 27,
+      "columns": 120,
+      "flow_logic": "PROCESS BEFORE OUTPUT.\n  MODULE status_0100.\n  MODULE display_alv_0100.\n\nPROCESS AFTER INPUT.\n  MODULE user_command_0100.\n",
+      "fields_to_containers": [
+        {
+          "CONT_TYPE": "SCREEN",
+          "CONT_NAME": "SCREEN",
+          "TYPE": "OKCODE",
+          "NAME": "OK_CODE",
+          "TEXT": "____________________",
+          "LENGTH": 20,
+          "VISLENGTH": 20,
+          "HEIGHT": 1,
+          "FORMAT": "CHAR",
+          "INPUT_FLD": "X"
+        }
+      ],
+      "procedure": "CreateScreen(program_name, screen_number, description) -> GetScreen to obtain the dynpro_data JSON shape -> set flow_logic exactly as above and the OKCODE field NAME=OK_CODE (the TOP variable) -> UpdateScreen(dynpro_data, activate=true) -> GetScreen and confirm both."
+    }
+  ],
+  "gui_statuses": [
+    {
+      "program_name": "ZSC4SAP_GS07",
+      "status_name": "STATUS_0100",
+      "status_type": "N",
+      "title": "TITLE_0100",
+      "functions": [
+        "BACK (F3)",
+        "REFRESH (F5, toolbar button ICON_REFRESH)",
+        "CANC (F12)",
+        "EXIT (Shift+F3)"
+      ],
+      "procedure": "CreateGuiStatus(program_name, status_name, description, status_type=N) -> UpdateGuiStatus(program_name, cua_data, activate=true) with cua_data below (full replace; read ReadGuiStatus first on a re-run) -> GetGuiStatus and confirm STATUS_0100 has the 4 PFK rows and TITLE_0100 exists.",
+      "cua_data": {
+        "ADM": {
+          "ACTCODE": "000001",
+          "PFKCODE": "000001"
+        },
+        "STA": [
+          {
+            "CODE": "STATUS_0100",
+            "MODAL": "D",
+            "ACTCODE": "000001",
+            "PFKCODE": "000001",
+            "BUTCODE": "0001",
+            "INT_NOTE": "Flight list"
+          }
+        ],
+        "FUN": [
+          {
+            "CODE": "BACK",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "FUN_TEXT": "Back"
+          },
+          {
+            "CODE": "EXIT",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "FUN_TEXT": "Exit"
+          },
+          {
+            "CODE": "CANC",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "TEXT_NAME": "ICON_CANCEL",
+            "ICON_ID": "@0W@",
+            "FUN_TEXT": "Cancel"
+          },
+          {
+            "CODE": "REFRESH",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "TEXT_NAME": "ICON_REFRESH",
+            "ICON_ID": "@42@",
+            "FUN_TEXT": "Refresh"
+          }
+        ],
+        "PFK": [
+          {
+            "CODE": "000001",
+            "PFNO": "03",
+            "FUNCODE": "BACK",
+            "FUNNO": "001"
+          },
+          {
+            "CODE": "000001",
+            "PFNO": "05",
+            "FUNCODE": "REFRESH",
+            "FUNNO": "001"
+          },
+          {
+            "CODE": "000001",
+            "PFNO": "12",
+            "FUNCODE": "CANC",
+            "FUNNO": "001"
+          },
+          {
+            "CODE": "000001",
+            "PFNO": "15",
+            "FUNCODE": "EXIT",
+            "FUNNO": "001"
+          }
+        ],
+        "BUT": [
+          {
+            "PFK_CODE": "000001",
+            "CODE": "0001",
+            "NO": "01",
+            "PFNO": "05"
+          }
+        ],
+        "SET": [
+          {
+            "STATUS": "STATUS_0100",
+            "FUNCTION": "BACK"
+          },
+          {
+            "STATUS": "STATUS_0100",
+            "FUNCTION": "EXIT"
+          },
+          {
+            "STATUS": "STATUS_0100",
+            "FUNCTION": "CANC"
+          },
+          {
+            "STATUS": "STATUS_0100",
+            "FUNCTION": "REFRESH"
+          }
+        ],
+        "DOC": [
+          {
+            "OBJ_TYPE": "A",
+            "OBJ_CODE": "000001",
+            "MODAL": "D",
+            "INT_NOTE": "Flight list"
+          },
+          {
+            "OBJ_TYPE": "P",
+            "OBJ_CODE": "000001",
+            "MODAL": "D",
+            "INT_NOTE": "Flight list"
+          },
+          {
+            "OBJ_TYPE": "B",
+            "OBJ_CODE": "000001",
+            "SUB_CODE": "0001",
+            "MODAL": "D",
+            "INT_NOTE": "Flight list"
+          }
+        ],
+        "TIT": [
+          {
+            "CODE": "TITLE_0100",
+            "TEXT": "Flight list"
+          }
+        ]
+      }
+    }
+  ],
+  "text_elements": {
+    "languages": [
+      "E",
+      "<PRIMARY>"
+    ],
+    "rows": [
+      {
+        "type": "R",
+        "text": "Flight list (ALV grid)"
+      },
+      {
+        "type": "I",
+        "key": "B01",
+        "text": "Selection"
+      },
+      {
+        "type": "I",
+        "key": "M01",
+        "text": "No flights found for the selection"
+      },
+      {
+        "type": "I",
+        "key": "M02",
+        "text": "No airline matches the selection"
+      },
+      {
+        "type": "I",
+        "key": "M03",
+        "text": "ALV grid could not be displayed"
+      },
+      {
+        "type": "S",
+        "key": "S_CARRID",
+        "text": "Airline"
+      },
+      {
+        "type": "S",
+        "key": "S_FLDATE",
+        "text": "Flight date"
+      }
+    ]
+  },
+  "activation": {
+    "activate": [
+      "ZSC4SAP_GS07",
+      "ZSC4SAP_GS07T",
+      "ZSC4SAP_GS07S",
+      "ZSC4SAP_GS07O",
+      "ZSC4SAP_GS07I",
+      "ZSC4SAP_GS07F"
+    ],
+    "must_stay_inactive": []
+  },
+  "steps": [
+    {
+      "step": 1,
+      "tool": "CreateProgram",
+      "args": {
+        "program_name": "ZSC4SAP_GS07",
+        "package_name": "$TMP",
+        "program_type": "executable",
+        "description": "Flight list (ALV grid)"
+      }
+    },
+    {
+      "step": 2,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS07T",
+        "main_program": "ZSC4SAP_GS07",
+        "package_name": "$TMP",
+        "description": "TOP — types, constants, OK_CODE, grid references",
+        "source_file": "src/ZSC4SAP_GS07T.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 3,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS07S",
+        "main_program": "ZSC4SAP_GS07",
+        "package_name": "$TMP",
+        "description": "Selection screen",
+        "source_file": "src/ZSC4SAP_GS07S.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 4,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS07O",
+        "main_program": "ZSC4SAP_GS07",
+        "package_name": "$TMP",
+        "description": "PBO modules (one-line PERFORM)",
+        "source_file": "src/ZSC4SAP_GS07O.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 5,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS07I",
+        "main_program": "ZSC4SAP_GS07",
+        "package_name": "$TMP",
+        "description": "PAI modules (one-line PERFORM)",
+        "source_file": "src/ZSC4SAP_GS07I.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 6,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS07F",
+        "main_program": "ZSC4SAP_GS07",
+        "package_name": "$TMP",
+        "description": "FORMs incl. ALV FORMs (_0100) and convert_fcat_data_grid",
+        "source_file": "src/ZSC4SAP_GS07F.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 7,
+      "tool": "UpdateProgram",
+      "args": {
+        "program_name": "ZSC4SAP_GS07",
+        "source_file": "src/ZSC4SAP_GS07.abap",
+        "activate": false
+      },
+      "note": "Main source already lists every INCLUDE line; CreateInclude was told not to insert."
+    },
+    {
+      "step": 8,
+      "tool": "ActivateObjects",
+      "args": {
+        "objects": [
+          {
+            "name": "ZSC4SAP_GS07",
+            "type": "PROG/P"
+          },
+          {
+            "name": "ZSC4SAP_GS07T",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS07S",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS07O",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS07I",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS07F",
+            "type": "PROG/I"
+          }
+        ]
+      }
+    },
+    {
+      "step": 9,
+      "tool": "WriteTextElementsBulk",
+      "args": {
+        "program_name": "ZSC4SAP_GS07",
+        "language": "E",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      }
+    },
+    {
+      "step": 10,
+      "tool": "WriteTextElementsBulk",
+      "args": {
+        "program_name": "ZSC4SAP_GS07",
+        "language": "<PRIMARY>",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      },
+      "note": "Repeat with the system primary logon language (config.json systemInfo.language / SAP_LANGUAGE). Skip when it is E. English text is acceptable."
+    },
+    {
+      "step": 11,
+      "tool": "CreateScreen + UpdateScreen",
+      "args": {
+        "ref": "screens[0]"
+      }
+    },
+    {
+      "step": 12,
+      "tool": "CreateGuiStatus + UpdateGuiStatus",
+      "args": {
+        "ref": "gui_statuses[0]"
+      }
+    },
+    {
+      "step": 13,
+      "tool": "GetInactiveObjects",
+      "args": {
+        "filter": "ZSC4SAP_GS07*"
+      },
+      "note": "Expected: 0 entries. Re-activate leftovers before continuing."
+    }
+  ],
+  "cleanup": "DeleteProgram ZSC4SAP_GS07 (with includes / screen / status) - only with explicit per-call user approval."
+}

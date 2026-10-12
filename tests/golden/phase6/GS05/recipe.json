@@ -1,0 +1,231 @@
+{
+  "case": "GS05",
+  "paradigm": "Procedural",
+  "display_mode": "SALV popup (CL_SALV_TABLE)",
+  "package": "$TMP",
+  "transport": null,
+  "planted_summary": "Procedural program has an {PROG}E include (ZSC4SAP_GS05E) holding the event blocks AT SELECTION-SCREEN / START-OF-SELECTION / END-OF-SELECTION; Main has no event blocks. Forbidden for Procedural; plan.md lists t/s/f only.",
+  "objects": [
+    {
+      "type": "PROG/P",
+      "name": "ZSC4SAP_GS05",
+      "parent": null,
+      "description": "Flight list (SALV popup)"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS05T",
+      "parent": "ZSC4SAP_GS05",
+      "description": "TOP — types, constants, global result table"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS05S",
+      "parent": "ZSC4SAP_GS05",
+      "description": "Selection screen"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS05F",
+      "parent": "ZSC4SAP_GS05",
+      "description": "FORMs: check_carriers, get_data, display_data"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS05E",
+      "parent": "ZSC4SAP_GS05",
+      "description": "Event blocks"
+    }
+  ],
+  "screens": [],
+  "gui_statuses": [],
+  "text_elements": {
+    "languages": [
+      "E",
+      "<PRIMARY>"
+    ],
+    "rows": [
+      {
+        "type": "R",
+        "text": "Flight list (SALV popup)"
+      },
+      {
+        "type": "I",
+        "key": "B01",
+        "text": "Selection"
+      },
+      {
+        "type": "I",
+        "key": "M01",
+        "text": "No flights found for the selection"
+      },
+      {
+        "type": "I",
+        "key": "M02",
+        "text": "No airline matches the selection"
+      },
+      {
+        "type": "S",
+        "key": "S_CARRID",
+        "text": "Airline"
+      },
+      {
+        "type": "S",
+        "key": "S_FLDATE",
+        "text": "Flight date"
+      }
+    ]
+  },
+  "activation": {
+    "activate": [
+      "ZSC4SAP_GS05",
+      "ZSC4SAP_GS05T",
+      "ZSC4SAP_GS05S",
+      "ZSC4SAP_GS05F",
+      "ZSC4SAP_GS05E"
+    ],
+    "must_stay_inactive": []
+  },
+  "steps": [
+    {
+      "step": 1,
+      "tool": "CreateProgram",
+      "args": {
+        "program_name": "ZSC4SAP_GS05",
+        "package_name": "$TMP",
+        "program_type": "executable",
+        "description": "Flight list (SALV popup)"
+      }
+    },
+    {
+      "step": 2,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS05T",
+        "main_program": "ZSC4SAP_GS05",
+        "package_name": "$TMP",
+        "description": "TOP — types, constants, global result table",
+        "source_file": "src/ZSC4SAP_GS05T.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 3,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS05S",
+        "main_program": "ZSC4SAP_GS05",
+        "package_name": "$TMP",
+        "description": "Selection screen",
+        "source_file": "src/ZSC4SAP_GS05S.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 4,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS05F",
+        "main_program": "ZSC4SAP_GS05",
+        "package_name": "$TMP",
+        "description": "FORMs: check_carriers, get_data, display_data",
+        "source_file": "src/ZSC4SAP_GS05F.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 5,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS05E",
+        "main_program": "ZSC4SAP_GS05",
+        "package_name": "$TMP",
+        "description": "Event blocks",
+        "source_file": "src/ZSC4SAP_GS05E.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 6,
+      "tool": "UpdateProgram",
+      "args": {
+        "program_name": "ZSC4SAP_GS05",
+        "source_file": "src/ZSC4SAP_GS05.abap",
+        "activate": false
+      },
+      "note": "Main source already lists every INCLUDE line; CreateInclude was told not to insert."
+    },
+    {
+      "step": 7,
+      "tool": "ActivateObjects",
+      "args": {
+        "objects": [
+          {
+            "name": "ZSC4SAP_GS05",
+            "type": "PROG/P"
+          },
+          {
+            "name": "ZSC4SAP_GS05T",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS05S",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS05F",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS05E",
+            "type": "PROG/I"
+          }
+        ]
+      }
+    },
+    {
+      "step": 8,
+      "tool": "WriteTextElementsBulk",
+      "args": {
+        "program_name": "ZSC4SAP_GS05",
+        "language": "E",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      }
+    },
+    {
+      "step": 9,
+      "tool": "WriteTextElementsBulk",
+      "args": {
+        "program_name": "ZSC4SAP_GS05",
+        "language": "<PRIMARY>",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      },
+      "note": "Repeat with the system primary logon language (config.json systemInfo.language / SAP_LANGUAGE). Skip when it is E. English text is acceptable."
+    },
+    {
+      "step": 10,
+      "tool": "GetInactiveObjects",
+      "args": {
+        "filter": "ZSC4SAP_GS05*"
+      },
+      "note": "Expected: 0 entries. Re-activate leftovers before continuing."
+    }
+  ],
+  "cleanup": "DeleteProgram ZSC4SAP_GS05 (with includes / screen / status) - only with explicit per-call user approval."
+}

@@ -1,0 +1,8 @@
+*& Include ZSC4SAP_GS07O
+MODULE status_0100 OUTPUT.
+  PERFORM set_status_0100.
+ENDMODULE.
+
+MODULE display_alv_0100 OUTPUT.
+  PERFORM show_grid_0100.
+ENDMODULE.

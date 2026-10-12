@@ -1,0 +1,533 @@
+{
+  "case": "GS01",
+  "paradigm": "OOP",
+  "display_mode": "Full CL_GUI_ALV_GRID (Docking Container)",
+  "package": "$TMP",
+  "transport": null,
+  "planted_summary": "LCL_ALV->GET_FIELDCAT (ZSC4SAP_GS01C) builds LVC_T_FCAT by hand with nine repeated APPEND VALUE #( fieldname = ... ) TO rt_fcat statements instead of the SALV factory + cl_salv_controller_metadata=>get_lvc_fieldcatalog standard. Contradicts spec.md §5.",
+  "objects": [
+    {
+      "type": "PROG/P",
+      "name": "ZSC4SAP_GS01",
+      "parent": null,
+      "description": "Flight occupancy list"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS01T",
+      "parent": "ZSC4SAP_GS01",
+      "description": "TOP — types, constants, OK_CODE, selection helpers"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS01S",
+      "parent": "ZSC4SAP_GS01",
+      "description": "Selection screen"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS01C",
+      "parent": "ZSC4SAP_GS01",
+      "description": "LCL_DATA + LCL_ALV (GO_DATA / GO_ALV after DEFERRED)"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS01CT",
+      "parent": "ZSC4SAP_GS01",
+      "description": "Unit tests — LCL_TEST"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS01E",
+      "parent": "ZSC4SAP_GS01",
+      "description": "LCL_EVENT_ALV — grid double-click"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS01O",
+      "parent": "ZSC4SAP_GS01",
+      "description": "PBO modules"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS01I",
+      "parent": "ZSC4SAP_GS01",
+      "description": "PAI modules"
+    },
+    {
+      "type": "DYNP",
+      "name": "ZSC4SAP_GS01 0100",
+      "parent": "ZSC4SAP_GS01",
+      "description": "Flight list grid"
+    },
+    {
+      "type": "CUAD",
+      "name": "ZSC4SAP_GS01 STATUS_0100",
+      "parent": "ZSC4SAP_GS01",
+      "description": "Flight list"
+    }
+  ],
+  "screens": [
+    {
+      "program_name": "ZSC4SAP_GS01",
+      "screen_number": "0100",
+      "description": "Flight list grid",
+      "type": "N",
+      "next_screen": "0100",
+      "lines": 27,
+      "columns": 120,
+      "flow_logic": "PROCESS BEFORE OUTPUT.\n  MODULE status_0100.\n  MODULE alv_0100.\n\nPROCESS AFTER INPUT.\n  MODULE user_command_0100.\n",
+      "fields_to_containers": [
+        {
+          "CONT_TYPE": "SCREEN",
+          "CONT_NAME": "SCREEN",
+          "TYPE": "OKCODE",
+          "NAME": "OK_CODE",
+          "TEXT": "____________________",
+          "LENGTH": 20,
+          "VISLENGTH": 20,
+          "HEIGHT": 1,
+          "FORMAT": "CHAR",
+          "INPUT_FLD": "X"
+        }
+      ],
+      "procedure": "CreateScreen(program_name, screen_number, description) -> GetScreen to obtain the dynpro_data JSON shape -> set flow_logic exactly as above and the OKCODE field NAME=OK_CODE (the TOP variable) -> UpdateScreen(dynpro_data, activate=true) -> GetScreen and confirm both."
+    }
+  ],
+  "gui_statuses": [
+    {
+      "program_name": "ZSC4SAP_GS01",
+      "status_name": "STATUS_0100",
+      "status_type": "N",
+      "title": "TITLE_0100",
+      "functions": [
+        "BACK (F3)",
+        "REFRESH (F5, toolbar button ICON_REFRESH)",
+        "CANC (F12)",
+        "EXIT (Shift+F3)"
+      ],
+      "procedure": "CreateGuiStatus(program_name, status_name, description, status_type=N) -> UpdateGuiStatus(program_name, cua_data, activate=true) with cua_data below (full replace; read ReadGuiStatus first on a re-run) -> GetGuiStatus and confirm STATUS_0100 has the 4 PFK rows and TITLE_0100 exists.",
+      "cua_data": {
+        "ADM": {
+          "ACTCODE": "000001",
+          "PFKCODE": "000001"
+        },
+        "STA": [
+          {
+            "CODE": "STATUS_0100",
+            "MODAL": "D",
+            "ACTCODE": "000001",
+            "PFKCODE": "000001",
+            "BUTCODE": "0001",
+            "INT_NOTE": "Flight list"
+          }
+        ],
+        "FUN": [
+          {
+            "CODE": "BACK",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "FUN_TEXT": "Back"
+          },
+          {
+            "CODE": "EXIT",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "FUN_TEXT": "Exit"
+          },
+          {
+            "CODE": "CANC",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "TEXT_NAME": "ICON_CANCEL",
+            "ICON_ID": "@0W@",
+            "FUN_TEXT": "Cancel"
+          },
+          {
+            "CODE": "REFRESH",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "TEXT_NAME": "ICON_REFRESH",
+            "ICON_ID": "@42@",
+            "FUN_TEXT": "Refresh"
+          }
+        ],
+        "PFK": [
+          {
+            "CODE": "000001",
+            "PFNO": "03",
+            "FUNCODE": "BACK",
+            "FUNNO": "001"
+          },
+          {
+            "CODE": "000001",
+            "PFNO": "05",
+            "FUNCODE": "REFRESH",
+            "FUNNO": "001"
+          },
+          {
+            "CODE": "000001",
+            "PFNO": "12",
+            "FUNCODE": "CANC",
+            "FUNNO": "001"
+          },
+          {
+            "CODE": "000001",
+            "PFNO": "15",
+            "FUNCODE": "EXIT",
+            "FUNNO": "001"
+          }
+        ],
+        "BUT": [
+          {
+            "PFK_CODE": "000001",
+            "CODE": "0001",
+            "NO": "01",
+            "PFNO": "05"
+          }
+        ],
+        "SET": [
+          {
+            "STATUS": "STATUS_0100",
+            "FUNCTION": "BACK"
+          },
+          {
+            "STATUS": "STATUS_0100",
+            "FUNCTION": "EXIT"
+          },
+          {
+            "STATUS": "STATUS_0100",
+            "FUNCTION": "CANC"
+          },
+          {
+            "STATUS": "STATUS_0100",
+            "FUNCTION": "REFRESH"
+          }
+        ],
+        "DOC": [
+          {
+            "OBJ_TYPE": "A",
+            "OBJ_CODE": "000001",
+            "MODAL": "D",
+            "INT_NOTE": "Flight list"
+          },
+          {
+            "OBJ_TYPE": "P",
+            "OBJ_CODE": "000001",
+            "MODAL": "D",
+            "INT_NOTE": "Flight list"
+          },
+          {
+            "OBJ_TYPE": "B",
+            "OBJ_CODE": "000001",
+            "SUB_CODE": "0001",
+            "MODAL": "D",
+            "INT_NOTE": "Flight list"
+          }
+        ],
+        "TIT": [
+          {
+            "CODE": "TITLE_0100",
+            "TEXT": "Flight list"
+          }
+        ]
+      }
+    }
+  ],
+  "text_elements": {
+    "languages": [
+      "E",
+      "<PRIMARY>"
+    ],
+    "rows": [
+      {
+        "type": "R",
+        "text": "Flight occupancy list"
+      },
+      {
+        "type": "I",
+        "key": "B01",
+        "text": "Selection"
+      },
+      {
+        "type": "I",
+        "key": "F01",
+        "text": "Occupancy %"
+      },
+      {
+        "type": "I",
+        "key": "M01",
+        "text": "No flights found for the selection"
+      },
+      {
+        "type": "I",
+        "key": "M02",
+        "text": "ALV grid could not be displayed"
+      },
+      {
+        "type": "I",
+        "key": "M03",
+        "text": "Occupancy of flight"
+      },
+      {
+        "type": "S",
+        "key": "S_CARRID",
+        "text": "Airline"
+      },
+      {
+        "type": "S",
+        "key": "S_FLDATE",
+        "text": "Flight date"
+      }
+    ]
+  },
+  "activation": {
+    "activate": [
+      "ZSC4SAP_GS01",
+      "ZSC4SAP_GS01T",
+      "ZSC4SAP_GS01S",
+      "ZSC4SAP_GS01C",
+      "ZSC4SAP_GS01CT",
+      "ZSC4SAP_GS01E",
+      "ZSC4SAP_GS01O",
+      "ZSC4SAP_GS01I"
+    ],
+    "must_stay_inactive": []
+  },
+  "steps": [
+    {
+      "step": 1,
+      "tool": "CreateProgram",
+      "args": {
+        "program_name": "ZSC4SAP_GS01",
+        "package_name": "$TMP",
+        "program_type": "executable",
+        "description": "Flight occupancy list"
+      }
+    },
+    {
+      "step": 2,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS01T",
+        "main_program": "ZSC4SAP_GS01",
+        "package_name": "$TMP",
+        "description": "TOP — types, constants, OK_CODE, selection helpers",
+        "source_file": "src/ZSC4SAP_GS01T.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 3,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS01S",
+        "main_program": "ZSC4SAP_GS01",
+        "package_name": "$TMP",
+        "description": "Selection screen",
+        "source_file": "src/ZSC4SAP_GS01S.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 4,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS01C",
+        "main_program": "ZSC4SAP_GS01",
+        "package_name": "$TMP",
+        "description": "LCL_DATA + LCL_ALV (GO_DATA / GO_ALV after DEFERRED)",
+        "source_file": "src/ZSC4SAP_GS01C.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 5,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS01CT",
+        "main_program": "ZSC4SAP_GS01",
+        "package_name": "$TMP",
+        "description": "Unit tests — LCL_TEST",
+        "source_file": "src/ZSC4SAP_GS01CT.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 6,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS01E",
+        "main_program": "ZSC4SAP_GS01",
+        "package_name": "$TMP",
+        "description": "LCL_EVENT_ALV — grid double-click",
+        "source_file": "src/ZSC4SAP_GS01E.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 7,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS01O",
+        "main_program": "ZSC4SAP_GS01",
+        "package_name": "$TMP",
+        "description": "PBO modules",
+        "source_file": "src/ZSC4SAP_GS01O.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 8,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS01I",
+        "main_program": "ZSC4SAP_GS01",
+        "package_name": "$TMP",
+        "description": "PAI modules",
+        "source_file": "src/ZSC4SAP_GS01I.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 9,
+      "tool": "UpdateProgram",
+      "args": {
+        "program_name": "ZSC4SAP_GS01",
+        "source_file": "src/ZSC4SAP_GS01.abap",
+        "activate": false
+      },
+      "note": "Main source already lists every INCLUDE line; CreateInclude was told not to insert."
+    },
+    {
+      "step": 10,
+      "tool": "ActivateObjects",
+      "args": {
+        "objects": [
+          {
+            "name": "ZSC4SAP_GS01",
+            "type": "PROG/P"
+          },
+          {
+            "name": "ZSC4SAP_GS01T",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS01S",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS01C",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS01CT",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS01E",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS01O",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS01I",
+            "type": "PROG/I"
+          }
+        ]
+      }
+    },
+    {
+      "step": 11,
+      "tool": "WriteTextElementsBulk",
+      "args": {
+        "program_name": "ZSC4SAP_GS01",
+        "language": "E",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      }
+    },
+    {
+      "step": 12,
+      "tool": "WriteTextElementsBulk",
+      "args": {
+        "program_name": "ZSC4SAP_GS01",
+        "language": "<PRIMARY>",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      },
+      "note": "Repeat with the system primary logon language (config.json systemInfo.language / SAP_LANGUAGE). Skip when it is E. English text is acceptable."
+    },
+    {
+      "step": 13,
+      "tool": "CreateScreen + UpdateScreen",
+      "args": {
+        "ref": "screens[0]"
+      }
+    },
+    {
+      "step": 14,
+      "tool": "CreateGuiStatus + UpdateGuiStatus",
+      "args": {
+        "ref": "gui_statuses[0]"
+      }
+    },
+    {
+      "step": 15,
+      "tool": "GetInactiveObjects",
+      "args": {
+        "filter": "ZSC4SAP_GS01*"
+      },
+      "note": "Expected: 0 entries. Re-activate leftovers before continuing."
+    },
+    {
+      "step": 16,
+      "tool": "RunUnitTest",
+      "note": "After activation: run the local test class of the program. Expected: all tests green (2 methods of LCL_TEST, 0 failures). ECC (BASIS < 7.50): synchronous, result inline as run_result. S/4HANA: the MCP tool runs CLAS containers only — run the program tests in ADT / SE80 (Ctrl+Shift+F10) instead and record the result, or record \"not run (S/4 PROG container unsupported)\".",
+      "args": {
+        "tests": [
+          {
+            "container_class": "ZSC4SAP_GS01",
+            "container_type": "PROG",
+            "test_class": "LCL_TEST"
+          }
+        ],
+        "risk_level": {
+          "harmless": true
+        },
+        "duration": {
+          "short": true
+        },
+        "title": "ZSC4SAP_GS01 golden-set unit tests"
+      },
+      "expect": {
+        "failures": 0,
+        "tests": 2
+      }
+    }
+  ],
+  "cleanup": "DeleteProgram ZSC4SAP_GS01 (with includes / screen / status) - only with explicit per-call user approval.",
+  "alv_framework": "none"
+}

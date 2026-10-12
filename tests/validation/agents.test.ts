@@ -12,11 +12,11 @@ const EXPECTED_AGENTS = [
   'sap-co-consultant', 'sap-pp-consultant', 'sap-ps-consultant', 'sap-pm-consultant',
   'sap-qm-consultant', 'sap-tr-consultant', 'sap-hcm-consultant',
   'sap-wm-consultant', 'sap-tm-consultant', 'sap-ariba-consultant',
-  'sap-bw-consultant',
+  'sap-bw-consultant', 'sap-checker',
 ];
 
 describe('Agents Validation', () => {
-  it('all 24 agent files exist', () => {
+  it('all expected agent files exist', () => {
     for (const agent of EXPECTED_AGENTS) {
       const file = join(AGENTS_DIR, `${agent}.md`);
       expect(existsSync(file), `Missing agent: ${agent}.md`).toBe(true);
