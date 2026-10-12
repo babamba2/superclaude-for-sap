@@ -21,6 +21,8 @@ This choice is **critical** — it determines:
 - Which ABAP syntax features agents can use in generated code (see ABAP Release Reference below)
 - Store as `SAP_VERSION` (`S4` or `ECC`) and `ABAP_RELEASE` (e.g., `756`) in `.sc4sap/sap.env` and `.sc4sap/config.json`
 
+**2b-SP. Support package (only when the release is `740`)** — ask for the `SAP_BASIS` support package (two digits, e.g. `05`; SAP GUI System → Status → Component information). Store as `abapSp` in the profile `config.json`. Unknown → leave it unset: generated code then uses classic Open SQL (no `@` host variables) — see `common/abap-release-reference.md` § 1a.
+
 ## 2c. Industry
 
 Present a numbered selection menu. Ask **one question** and wait; do NOT dump descriptions inline:

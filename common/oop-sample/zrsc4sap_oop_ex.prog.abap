@@ -1,63 +1,48 @@
 *&---------------------------------------------------------------------*
-*& Sample Report Program Template
-*& Program  : ZRSC4SAP_OOP_EX
-*& Author   : SVT_00005
-*& Date     : 2026-04-03
-*& S/4HANA  : 2025 Release
-*& Version  : v1.0 - Include Structure Change Completed
-*& Desc     : Sample Report Program Template
-*&            
-*&            
+*& Module         : MM
+*& Program ID     : ZRSC4SAP_OOP_EX
+*& Tcode          :
+*& Old Program ID :
+*& Title          : Sample OOP ALV program (sc4sap template)
+*& Description    : PO list as grid (0100) or tree + grid (0200)
+*&---------------------------------------------------------------------*
+*& Change History
+*&---------------------------------------------------------------------*
+*& Change No | Changed by    | Change Date
+*&           | SC4SAP        | 2026-10-12
 *&---------------------------------------------------------------------*
 REPORT ZRSC4SAP_OOP_EX.
 
+INCLUDE ZRSC4SAP_OOP_EXT.     "TOP
+INCLUDE ZRSC4SAP_OOP_EXS.     "Selection screen
+INCLUDE ZRSC4SAP_OOP_EXC.     "LCL_DATA + LCL_ALV
+INCLUDE ZRSC4SAP_OOP_EXCT.    "Unit tests (LCL_TEST)
+INCLUDE ZRSC4SAP_OOP_EXE.     "Event handler classes
+INCLUDE ZRSC4SAP_OOP_EXO.     "PBO
+INCLUDE ZRSC4SAP_OOP_EXI.     "PAI
 
-INCLUDE ZRSC4SAP_OOP_EXT.
-INCLUDE ZRSC4SAP_OOP_EXS.
-INCLUDE ZRSC4SAP_OOP_EXC.
-INCLUDE ZRSC4SAP_OOP_EXA.
-INCLUDE ZRSC4SAP_OOP_EXE.
-INCLUDE ZRSC4SAP_OOP_EXO.
-INCLUDE ZRSC4SAP_OOP_EXI.
-INCLUDE ZRSC4SAP_OOP_EXF.
-INCLUDE ZRSC4SAP_OOP_EXTST. "Test Class
-
-
-*&---------------------------------------------------------------------*
-*& INITIALIZATION
-*&---------------------------------------------------------------------*
+*----------------------------------------------------------------------*
+* INITIALIZATION
+*----------------------------------------------------------------------*
 INITIALIZATION.
   GO_DATA = NEW #( ).
-  GO_ALV  = NEW #( ).
+  GO_ALV ?= GO_DATA->MO_ALV.
+  GO_DATA->INITIALIZATION( ).
 
-
-*&---------------------------------------------------------------------*
-*& AT SELECTION-SCREEN
-*&---------------------------------------------------------------------*
-AT SELECTION-SCREEN.
-
-*&---------------------------------------------------------------------*
-*& AT SELECTION-SCREEN OUTPUT 
-*&---------------------------------------------------------------------*
+*----------------------------------------------------------------------*
+* AT SELECTION-SCREEN OUTPUT
+*----------------------------------------------------------------------*
 AT SELECTION-SCREEN OUTPUT.
+  GO_DATA->HANDLE_SCREEN( ).
 
-*&---------------------------------------------------------------------*
-*& AT SELECTION-SCREEN
-*&---------------------------------------------------------------------*
-AT SELECTION-SCREEN OUTPUT FOR FIELD P_FILE.
-
-*   GO_DATA->GET_FILE( P_FILE ).
-
-*&---------------------------------------------------------------------*
-*& START-OF-SELECTION
-*&---------------------------------------------------------------------*
+*----------------------------------------------------------------------*
+* START-OF-SELECTION
+*----------------------------------------------------------------------*
 START-OF-SELECTION.
-
   GO_DATA->GET_DATA( ).
 
-*&---------------------------------------------------------------------*
-*& END-OF-SELECTION
-*&---------------------------------------------------------------------*
+*----------------------------------------------------------------------*
+* END-OF-SELECTION
+*----------------------------------------------------------------------*
 END-OF-SELECTION.
-
   GO_ALV->DISPLAY( ).

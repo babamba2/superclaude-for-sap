@@ -142,8 +142,8 @@ sc4sap は **[abap-mcp-adt-powerup](https://github.com/babamba2/abap-mcp-adt-pow
 | ファイル | 内容 |
 |---------|------|
 | `clean-code.md` + `clean-code-oop.md` + `clean-code-procedural.md` | Clean ABAP 標準、パラダイム別分離 |
-| `include-structure.md` | Main + 条件付き Include セット (t/s/c/a/o/i/e/f/_tst) |
-| `oop-pattern.md` | 2 クラス OOP 分離 (`LCL_DATA` + `LCL_ALV` + `LCL_EVENT`) |
+| `include-structure.md` | Main + 条件付き Include セット (t/s/c/ct/e/o/i/a/f) |
+| `oop-pattern.md` | 2 クラス OOP 分離 (`LCL_DATA` + `LCL_ALV` in `c`, `LCL_EVENT_ALV` in `e`) |
 | `alv-rules.md` | フル ALV (CL_GUI_ALV_GRID + Docking) vs SALV + SALV-factory fieldcatalog |
 | `text-element-rule.md` | 必須 Text Elements — 2-pass 言語規則 (primary + `'E'` 安全網) |
 | `constant-rule.md` | 必須 CONSTANTS (non-fieldcatalog マジックリテラル) |

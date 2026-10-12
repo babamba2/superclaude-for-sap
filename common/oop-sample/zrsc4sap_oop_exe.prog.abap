@@ -1,6 +1,10 @@
 *&---------------------------------------------------------------------*
-*& Include          YRTEST001E
+*& Include          ZRSC4SAP_OOP_EXE
 *&---------------------------------------------------------------------*
+"alvFramework = s4sap-cm: grid / tree events of ZCL_S4SAP_CM_OALV / _OTREE,
+"registered by name from the LCL_ALV constructor (E follows C).
+"none: FOR EVENT ... OF CL_GUI_ALV_GRID; LCL_ALV creates the receiver with
+"CREATE OBJECT mo_event TYPE ('LCL_EVENT_ALV') - see common/oop-pattern.md.
 
 
 

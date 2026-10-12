@@ -1,0 +1,32 @@
+*&---------------------------------------------------------------------*
+*&  Include           ZRSC4SAP_OOP_EXCT
+*&---------------------------------------------------------------------*
+CLASS LCL_TEST DEFINITION FOR TESTING
+               RISK LEVEL HARMLESS
+               DURATION SHORT.
+
+  PRIVATE SECTION.
+    DATA CUT TYPE REF TO LCL_DATA.
+
+    METHODS :
+      SETUP,
+      QTY_VALID_WHEN_POSITIVE FOR TESTING,
+      QTY_INVALID_WHEN_ZERO   FOR TESTING.
+
+ENDCLASS.
+
+CLASS LCL_TEST IMPLEMENTATION.
+
+  METHOD SETUP.
+    CUT = NEW #( ).
+  ENDMETHOD.
+
+  METHOD QTY_VALID_WHEN_POSITIVE.
+    CL_ABAP_UNIT_ASSERT=>ASSERT_TRUE( CUT->IS_QUANTITY_VALID( 5 ) ).
+  ENDMETHOD.
+
+  METHOD QTY_INVALID_WHEN_ZERO.
+    CL_ABAP_UNIT_ASSERT=>ASSERT_FALSE( CUT->IS_QUANTITY_VALID( 0 ) ).
+  ENDMETHOD.
+
+ENDCLASS.

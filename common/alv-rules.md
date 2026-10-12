@@ -7,7 +7,7 @@ Shared ALV display rules for sc4sap programs.
 **Full ALV** → `CL_GUI_ALV_GRID`
 - Custom Screen (e.g. 0100) created via `CreateScreen`
 - GUI Status via `CreateGuiStatus` (standard BACK/EXIT/CANCEL + application toolbar)
-- Container: **Docking Container** (`CL_GUI_DOCKING_CONTAINER`) — not custom container
+- Container: **Docking Container** (`CL_GUI_DOCKING_CONTAINER`) — not custom container. Exception: an ALV inside a tabstrip subscreen uses a custom control (`CL_GUI_CUSTOM_CONTAINER`) — see [`screen-tabstrip.md`](screen-tabstrip.md)
 - Field catalog type: `LVC_T_FCAT`
 
 **Simple popup display** → `CL_SALV_TABLE` (SALV) allowed
@@ -42,3 +42,9 @@ ENDFORM.
 ### Step 2 — Modify Per-Screen Catalog Attributes
 
 Adjust per-field properties (examples: `coltext`, `qfieldname`, `cfieldname`, `do_sum`, `no_out`, `outputlen`, `hotspot`) via `CASE` on `FIELDNAME`. See `field-catalog-guide.abap` for a worked example.
+
+### OOP programs
+
+- Step 1 may come from the ALV framework base class (`GET_FIELDCAT( it_data = … )`, SALV-metadata based) when `alvFramework` ≠ `none` — that counts as compliant. With `alvFramework = none`, call `cl_salv_controller_metadata=>get_lvc_fieldcatalog` directly.
+- Step 2 lives in a method named `REFINE_FCAT` (`CASE fieldname`, optionally nested in `CASE` on the screen number for multi-screen programs).
+- Never `APPEND … TO lt_fcat` per column — the most-often violated rule.

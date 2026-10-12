@@ -142,8 +142,8 @@ Cross-Skill-Authoring-Regeln leben in `common/`. `CLAUDE.md` ist ein dünner Ind
 | Datei | Inhalt |
 |-------|--------|
 | `clean-code.md` + `clean-code-oop.md` + `clean-code-procedural.md` | Clean ABAP Standards, nach Paradigma getrennt |
-| `include-structure.md` | Main-Programm + bedingte Include-Set (t/s/c/a/o/i/e/f/_tst) |
-| `oop-pattern.md` | Zwei-Klassen-OOP-Split (`LCL_DATA` + `LCL_ALV` + `LCL_EVENT`) |
+| `include-structure.md` | Main-Programm + bedingte Include-Set (t/s/c/ct/e/o/i/a/f) |
+| `oop-pattern.md` | Zwei-Klassen-OOP-Split (`LCL_DATA` + `LCL_ALV` in `c`, `LCL_EVENT_ALV` in `e`) |
 | `alv-rules.md` | Volles ALV (CL_GUI_ALV_GRID + Docking) vs SALV + SALV-Factory-Fieldcatalog |
 | `text-element-rule.md` | Obligatorische Text Elements — Zwei-Pass-Sprachregel (primär + `'E'` Sicherheitsnetz) |
 | `constant-rule.md` | Obligatorische CONSTANTS (non-fieldcatalog Magic-Literale) |

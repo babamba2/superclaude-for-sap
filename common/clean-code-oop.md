@@ -8,9 +8,9 @@ Clean ABAP rules specific to the **OOP paradigm** — local classes (`LCL_DATA` 
 
 When generating an OOP program's main `REPORT` source, the executor MUST start from and conform to the canonical sample:
 
-**Source of truth**: [`oop-sample/zrsc4sap_oop_ex.prog.abap`](oop-sample/zrsc4sap_oop_ex.prog.abap) (companion includes: `zrsc4sap_oop_exa/exc/exe/exf/exi/exo/exs/ext.prog.abap`, screens `zrsc4sap_oop_ex.prog.screen_0100.abap` / `_0200.abap`).
+**Source of truth**: [`oop-sample/zrsc4sap_oop_ex.prog.abap`](oop-sample/zrsc4sap_oop_ex.prog.abap) (companion includes: `zrsc4sap_oop_ext/exs/exc/exct/exe/exo/exi.prog.abap`, screens `zrsc4sap_oop_ex.prog.screen_0100.abap` / `_0200.abap`).
 
-- **Do**: copy the skeleton (REPORT statement, INCLUDE order, INITIALIZATION / AT SELECTION-SCREEN / START-OF-SELECTION / END-OF-SELECTION blocks, class bootstrap pattern `DATA(go_data) = NEW lcl_data( )` / `DATA(go_alv) = NEW lcl_alv( go_data )`), then adapt identifiers (`zrsc4sap_oop_ex` → actual program name, include suffix letters preserved).
+- **Do**: copy the skeleton (REPORT statement, INCLUDE order, INITIALIZATION / AT SELECTION-SCREEN / START-OF-SELECTION / END-OF-SELECTION blocks, class bootstrap pattern `go_data = NEW #( ).` / `go_alv ?= go_data->mo_alv.` / `go_data->initialization( ).` — globals declared in `{PROG}c` after `DEFERRED`, no inline `DATA( )` in event blocks), then adapt identifiers (`zrsc4sap_oop_ex` → actual program name, include suffix letters preserved).
 - **Do not**: rearrange the event blocks, skip the two-class bootstrap, inline logic into events (all logic lives in class methods), replace Docking + Full ALV with Custom Control, or substitute a different include-suffix convention.
 - **Deviation requires written justification in `spec.md`** before the executor runs Phase 4. Undocumented structural drift from the template is a MAJOR finding in Phase 6 review.
 
@@ -39,8 +39,8 @@ When generating an OOP program's main `REPORT` source, the executor MUST start f
 - **Prefer objects to static classes**. Static classes encourage hidden global state; instances make dependencies explicit.
 - **Prefer composition to inheritance**. Inheritance couples child to parent layout; composition accepts a collaborator via constructor / setter.
 - **Don't mix stateful and stateless** in the same class. Stateless services (pure computation) belong in a separate class from stateful aggregates.
-- **FINAL by default**. Mark classes `FINAL` unless they are explicitly designed as a base for inheritance.
-- **PRIVATE by default**. Members are PRIVATE; promote to PROTECTED / PUBLIC only when there is a demonstrated need.
+- **FINAL is allowed, not required.** Report-local classes may stay non-final (house OOP programs inherit `LCL_ALV` from a framework ALV base class). The reviewer does not flag a missing `FINAL`.
+- **PRIVATE by default**. Members are PRIVATE; promote to PROTECTED / PUBLIC only when there is a demonstrated need. Being called from the test class, a PBO/PAI module, an event handler or the main event blocks is a demonstrated need.
 - **READ-ONLY sparingly**. A public `READ-ONLY` attribute exposes state; prefer a getter method that returns a computed value.
 - **Immutable over getter** when the value cannot change after construction — public `READ-ONLY` on a constructor-assigned attribute is cleaner than a trivial getter.
 - **Instance over static methods** — static methods are awkward to mock and encode a design that resists evolution.
@@ -48,7 +48,7 @@ When generating an OOP program's main `REPORT` source, the executor MUST start f
 
 ## Constructors
 
-- **Prefer `NEW #( ... )`** to `CREATE OBJECT lo_x EXPORTING ...`.
+- **Prefer `NEW #( ... )`** to `CREATE OBJECT lo_x EXPORTING ...`. Exception: `CREATE OBJECT … TYPE ('LCL_EVENT_ALV')` for the event receiver created by name (`oop-pattern.md` § Event Wiring) — `NEW` has no dynamic type.
 - **Global `CREATE PRIVATE` classes still have a public CONSTRUCTOR** — constructor visibility is PUBLIC even when instantiation is restricted; use static factory methods to gate creation.
 - **Multiple static creation methods over optional parameters**. `zcl_order=>create_from_vbeln( )` + `zcl_order=>create_from_posnr( )` is clearer than a single constructor with `OPTIONAL` parameters and branching logic.
 - **Descriptive creation method names** — `build_`, `from_`, `copy_of_`. Never `create_1`, `create_2`.
@@ -120,6 +120,8 @@ When generating an OOP program's main `REPORT` source, the executor MUST start f
 - **No assignment chaining** — `lv_a = lv_b = 0.` is compact but harder to read and debug.
 
 ## Testing — Detail
+
+- **`{PROG}ct` always exists** for an OOP program: `LCL_TEST … FOR TESTING RISK LEVEL HARMLESS DURATION SHORT` (+ optional `LTC_*`). Testing scope `none` → Phase 5 is skipped, but Phase 4 still writes one smoke test of a pure `LCL_DATA` method (no DB writes, no screen).
 
 - **Test publics, not private internals**. Private members are implementation; refactoring them must not break tests.
 - **Don't obsess about coverage** — 100% line coverage can coexist with meaningless asserts. Prefer focused tests on critical paths.

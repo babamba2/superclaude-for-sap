@@ -73,6 +73,8 @@ Target shape in the profile's `config.json`:
 {
   "sapVersion": "S4",
   "abapRelease": "816",
+  "abapSp": "",
+  "alvFramework": "none",
   "industry": "other",
   "activeModules": ["FI", "CO", "MM", "SD", "PP"],
   "systemInfo": {
@@ -107,7 +109,8 @@ Four bundles in `$TMP`: 9a (`ZMCP_ADT_UTILS` FMs) + 9b (ALV OOP handlers) + 9c (
 
 Write the remaining plugin-side fields into `~/.sc4sap/profiles/<alias>/config.json`:
 
-- `sapVersion`, `abapRelease`, `industry`, `activeModules` — from Step 2
+- `sapVersion`, `abapRelease`, `industry`, `activeModules` — from Step 2 (`abapSp` too, when the release is 740)
+- `alvFramework` — `s4sap-cm` when 9b installed or found the handlers, otherwise leave unset (= `none`); a customer framework is set later via `/sc4sap:sap-option` (`custom` + `alvBaseClass`). Rules: `common/oop-pattern.md` § ALV Framework
 - `namingConvention` — either migrated from the legacy project `config.json` at Step 0 or freshly emitted defaults
 - `blocklistProfile` — from Step 12 (L3 hook profile; written back here for HUD + sap-option display)
 - `systemInfo` — already written at Step 7 (merge, don't overwrite)

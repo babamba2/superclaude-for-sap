@@ -79,7 +79,7 @@ Phase 1 runs as **two sequential sub-phases** (1A then 1B) on every `sc4sap:crea
 4. **Screen/GUI** — required? screen numbers? Docking Container vs Splitter vs TOP_OF_PAGE layout?
 5. **Data source** — standard tables / Z-tables / BAPI / CDS view (consistent with Phase 1A reference assets)
 6. **Package + Transport** — target package, new or existing transport
-7. **Testing scope** — when OOP is selected, which test class methods to cover
+7. **Testing scope** — when OOP is selected, which test class methods to cover (`none` still yields one smoke test in `{PROG}ct`)
 
 For each dimension, the skill may propose a recommended default (derived from Phase 1A context + CBO inventory + platform constraints). The proposal belongs to the **single question** for that dimension — never merge proposals across dimensions into a table.
 

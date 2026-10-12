@@ -142,8 +142,8 @@ sc4sap은 **[abap-mcp-adt-powerup](https://github.com/babamba2/abap-mcp-adt-powe
 | 파일 | 내용 |
 |------|------|
 | `clean-code.md` + `clean-code-oop.md` + `clean-code-procedural.md` | Clean ABAP 표준, 패러다임별 분리 |
-| `include-structure.md` | Main + 조건부 Include 세트 (t/s/c/a/o/i/e/f/_tst) |
-| `oop-pattern.md` | 2-class OOP 분리 (`LCL_DATA` + `LCL_ALV` + `LCL_EVENT`) |
+| `include-structure.md` | Main + 조건부 Include 세트 (t/s/c/ct/e/o/i/a/f) |
+| `oop-pattern.md` | 2-class OOP 분리 (`LCL_DATA` + `LCL_ALV` in `c`, `LCL_EVENT_ALV` in `e`) |
 | `alv-rules.md` | 풀 ALV (CL_GUI_ALV_GRID + Docking) vs SALV + SALV-factory fieldcatalog |
 | `text-element-rule.md` | 필수 Text Elements — 2-pass 언어 규칙 (primary + `'E'` 안전망) |
 | `constant-rule.md` | 필수 CONSTANTS (non-fieldcatalog 매직 리터럴) |

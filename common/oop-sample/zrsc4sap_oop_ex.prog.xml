@@ -32,6 +32,7 @@
        <CONT_TYPE>SCREEN</CONT_TYPE>
        <CONT_NAME>SCREEN</CONT_NAME>
        <TYPE>OKCODE</TYPE>
+       <NAME>OK_CODE</NAME>
        <TEXT>____________________</TEXT>
        <LENGTH>020</LENGTH>
        <VISLENGTH>020</VISLENGTH>
@@ -254,6 +255,30 @@
     </DOC>
    </CUA>
    <TPOOL>
+    <item>
+     <ID>I</ID>
+     <KEY>E01</KEY>
+     <ENTRY>Quantity must be greater than 0</ENTRY>
+     <LENGTH>31</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>H01</KEY>
+     <ENTRY>Purchase Order</ENTRY>
+     <LENGTH>14</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>S01</KEY>
+     <ENTRY>Grid (0100)</ENTRY>
+     <LENGTH>11</LENGTH>
+    </item>
+    <item>
+     <ID>I</ID>
+     <KEY>S02</KEY>
+     <ENTRY>Tree + grid (0200)</ENTRY>
+     <LENGTH>18</LENGTH>
+    </item>
     <item>
      <ID>R</ID>
      <ENTRY>Sample Program for alv</ENTRY>

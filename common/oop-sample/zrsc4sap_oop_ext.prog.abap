@@ -1,7 +1,8 @@
 *&---------------------------------------------------------------------*
-*& Include          YRTEST001T
+*& Include          ZRSC4SAP_OOP_EXT
 *&---------------------------------------------------------------------*
 
+"alvFramework = s4sap-cm: event-method names used by the base class event registry
 
 CONSTANTS :C_HANDLE_NODE_DOUBLE_CLICK     TYPE C LENGTH 50 VALUE 'HANDLE_NODE_DOUBLE_CLICK',
            C_HANDLE_CHECKBOX_CHANGE       TYPE C LENGTH 50 VALUE 'HANDLE_CHECKBOX_CHANGE',
@@ -59,5 +60,12 @@ TYPES : BEGIN OF ty_node,
           node_key TYPE LVC_NKEY,
         END OF ty_node.
 
+CONSTANTS : C_DYNNR_0100       TYPE SY-DYNNR VALUE '0100',
+            C_DYNNR_0200       TYPE SY-DYNNR VALUE '0200',
+            C_STATUS_0100      TYPE SY-PFKEY VALUE 'S0100',
+            C_STATUS_0200      TYPE SY-PFKEY VALUE 'S0200',
+            C_FCODE_REFRESH    TYPE SY-UCOMM VALUE 'REFRESH',
+            C_TCODE_PO_DISPLAY TYPE SY-TCODE VALUE 'ME23N',
+            C_MSGID            TYPE SY-MSGID VALUE 'S_UNIFIED_CON'. "alvFramework = s4sap-cm
 
-*DATA: LV_001 TYPE C LENGTH 15 VALUE 'Screen 100'.
+DATA : OK_CODE TYPE SY-UCOMM.          "screen 0100 / 0200 OK_CODE field NAME

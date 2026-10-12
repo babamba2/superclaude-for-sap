@@ -219,8 +219,8 @@ Cross-skill authoring rules live in `common/` so every skill and agent follows t
 | File | Covers |
 |------|--------|
 | `clean-code.md` + `clean-code-oop.md` + `clean-code-procedural.md` | Clean ABAP standards, split by paradigm |
-| `include-structure.md` | Main program + conditional include set (t/s/c/a/o/i/e/f/_tst) |
-| `oop-pattern.md` | Two-class OOP split (`LCL_DATA` + `LCL_ALV` + `LCL_EVENT`) |
+| `include-structure.md` | Main program + conditional include set (t/s/c/ct/e/o/i/a/f) |
+| `oop-pattern.md` | Two-class OOP split (`LCL_DATA` + `LCL_ALV` in `c`, `LCL_EVENT_ALV` in `e`) |
 | `alv-rules.md` | Full ALV (CL_GUI_ALV_GRID + Docking) vs SALV + SALV-factory fieldcatalog |
 | `text-element-rule.md` | Mandatory Text Elements — two-pass language rule (primary + `'E'` safety-net) |
 | `constant-rule.md` | Mandatory CONSTANTS for non-fieldcatalog magic literals |
@@ -233,7 +233,7 @@ Cross-skill authoring rules live in `common/` so every skill and agent follows t
 | `active-modules.md` | Cross-module integration matrix (MM↔PS, SD↔CO, QM↔PP, …) |
 | `context-loading-protocol.md` | 4-tier on-demand file loading (global → role → triggered → per-task) |
 | `model-routing-rule.md` | Sonnet / Opus / Haiku routing + Response Prefix Convention + Phase Banner Convention. See **[`skill-model-architecture.md`](skill-model-architecture.md)** for per-skill / per-phase model allocation (design intent — frontmatter `model:` is declarative). |
-| `ok-code-pattern.md` | Procedural screen OK_CODE 3-step contract (TOP decl → screen NAME → PAI FORM local routing) |
+| `ok-code-pattern.md` | Screen OK_CODE contract (one TOP variable → screen NAME → PAI dispatch; never CASE sy-ucomm) |
 | `field-typing-rule.md` | DDIC field typing priority (Standard DE → CBO DE → new DE → primitive) |
 | `function-module-rule.md` | FM source convention (inline IMPORTING/EXPORTING/TABLES signature) |
 | `transport-client-rule.md` | Every `CreateTransport` requires explicit client from `sap.env` |
