@@ -1,0 +1,8 @@
+sc4sap_web 기준으로 최신버젼 pull 해줘요. pull 한 다음 아래 에러를 확인해줘요. 내가 별도로 작업해야한느 것으로 알고있어요 
+
+<pasted_content id="e5a2">
+- 15번 외부 링크: "sc4sap"으로 검색하면 claudepluginhub, glama 같은 디렉터리 사이트만 나오고 sc4sap.dev는 보이지 않습니다. 다음 세 곳에 sc4sap.dev를 걸어주면 Google이 공식 사이트로 인식하는 데 크게 도움이 됩니다. 코드 작업이 아니라 직접 하셔야 하는 일입니다.
+  - GitHub 저장소 오른쪽 About의 Website 칸
+  - README 상단 링크
+  - npm 패키지 package.json의 homepage
+</pasted_content id="e5a2">
