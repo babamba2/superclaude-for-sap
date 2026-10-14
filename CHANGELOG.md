@@ -32,15 +32,32 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 - `abap-mcp-adt-powerup` pin `bbb2e98` (4.8.9) → `1af0724` (4.8.12 + legacy `TABLE_READ` passes every table to `ZMCP_ADT_DISPATCH`, which decides by delivery class).
 
+### Added — model routing for Opus 5.5 and a Haiku checker
+
+- `common/model-routing-rule.md` rewritten for the Opus 5.5 / Sonnet 5.5 / Haiku 5.5 tiers with effort per agent role, an escalation pattern and a fan-out table; HUD pricing for the 5.5 models.
+- New agent `sap-checker` (Haiku, read-only) for narrow scout / verify / detect jobs with a line-oriented output contract.
+- `create-program`: Phase 1A DDIC scout, Phase 4 verification by checker, Phase 6 detect-judge behind a golden-set gate; the reviewer stays read-only.
+- `analyze-code`: a size scout first; large objects go through checker detection over five rule groups and an Opus judge, and every finding gets a Haiku evidence check (unconfirmed ones are listed separately).
+- `compare-programs` facts scouts and the CBO stocking walk / scout / finalize fan-out (`analyze-cbo-obj`, `package-to-process`) use the checker as well.
+
+### Added — editable reports
+
+- `program-to-spec`: versioned spec pages with an in-page editor; `html-to-md.mjs` turns an edited page back into Markdown (untouched blocks byte-exact) and imports it as the next version with history.
+- `compare-programs`: one editable, versioned HTML report with an English companion — fact card, decision guide, verdict matrix with evidence, field presence, both programs' screens side by side, message texts quoted from T100 / the text pool — plus an optional Excel copy (`md-to-xlsx.mjs`).
+
+### Added — other
+
+- CBO reference graph (`scripts/graph/`): ABAP statement lexer, edge extraction (include, calls, submits, reads, writes, types, uses) with evidence lines, and queries (callers, reach, impact, flow, components).
+- `package-to-process`: multi-profile output paths, `_state/` checkpoints with resume, parallel narrative and render steps.
+- Conventions: include names without underscores plus a `{PROG}ct` test include, tabstrip screens, the OK_CODE contract, an ALV framework option in `sap-option`, ABAP 7.40 SP05 / SP08 feature gates.
+- ECC ABAP: usage FMs `ZMCP_WL_TCODE_USAGE` / `ZMCP_WL_JOB_USAGE` (back MCP `GetTcodeUsage` / `GetJobUsage`); `ZMCP_ADT_DISPATCH` gets a real `DYNPRO_INSERT`, the 7.40 `TR_KEY` for `CUA_WRITE`, and `TSTC` / `TSTCP` / `DD03L` / `DD04L` reads.
+- Screen renderer draws the common SAP toolbar icons (list, convert, release, history, …).
+- `.mjs` files check out with LF line endings; homepage links point at sc4sap.dev.
+
 ### Changed — `ZMCP_ADT_DISPATCH` `TABLE_READ` (ECC)
 
 - Reads customizing and system tables by delivery class (C, G, E, S) plus a fixed list of repository tables (CMOD, TSTC, DDIC metadata, transport keys); application data and credential tables are still refused.
 - Fields inside a `.INCLUDE` can be selected.
-
-### Fixed
-
-- `.gitattributes` checks out `.mjs` files with LF line endings, so the Vitest shebang works on Windows checkouts.
-- Homepage links point at sc4sap.dev.
 
 ## [0.6.35] — 2026-10-07
 
