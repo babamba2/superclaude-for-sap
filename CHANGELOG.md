@@ -3,6 +3,26 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added — `config-to-document`: module configuration from the live system
+
+- New skill `/sc4sap:config-to-document` (MM first): one HTML file along the module's IMG tree — per IMG activity the real table values drawn on an SM30-style screen, rows changed by customer transports with their transport history, configuration checks (`configs/<MODULE>/config-checks.json`), SAP's IMG documentation, and consultant notes written by the module consultant agent and reviewed by `sap-critic`. Output: `config-docs/<MODULE>/<MODULE>-config-v<n>-<lang>.html` under the profile artifact base.
+- Reference panel per IMG activity, written by the consultant agent and reviewed by `sap-critic`: SAP documentation summarised in the document language, 2–3 setup cases with flow diagrams and which one the system follows, comparison table, decision checklist, decision criteria, and sources limited to official SAP documentation (SAP Help Portal, SAP Notes / KBAs, SAP Learning — anything else is refused on save).
+- The notes scope (customized / all with values / all / none) is asked on every run with its batch count and measured cost; reviewed activities are not rewritten.
+- Names SAP has no text for in the document language (IMG folders, activity titles, field labels) are translated once by the consultant agent, reviewed, and reused by later runs.
+- Number range activities show their intervals (NRIV) on an SNUM-style screen; view variants (`VV_*`) resolve to their base table and selection condition.
+
+### Changed — `ZMCP_ADT_DISPATCH` `TABLE_READ` (ECC)
+
+- Reads customizing and system tables by delivery class (C, G, E, S) plus a fixed list of repository tables (CMOD, TSTC, DDIC metadata, transport keys); application data and credential tables are still refused.
+- Fields inside a `.INCLUDE` can be selected.
+
+### Fixed
+
+- `.gitattributes` checks out `.mjs` files with LF line endings, so the Vitest shebang works on Windows checkouts.
+- Homepage links point at sc4sap.dev.
+
 ## [0.6.35] — 2026-10-07
 
 ### Added — customization extraction: VOFM routines

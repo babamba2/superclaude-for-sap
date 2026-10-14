@@ -42,6 +42,7 @@ Suggested session model per skill (guidance only — nothing enforces it):
 | `analyze-code` | Sonnet or above | Orchestrates review; report composition needs judgment |
 | `analyze-symptom` | Sonnet or above | Routes questions, composes narratives from debugger output |
 | `compare-programs` | Sonnet or above | Orchestrates multi-program analysis; matrix assembly |
+| `config-to-document` | Sonnet or above | Runs the extract / notes / build scripts, batches the consultant-note dispatches, reports counts |
 | `create-object` | Sonnet or above | Metadata validation + executor/writer orchestration |
 | `create-program` | Sonnet or above | 9-phase pipeline orchestration, resume logic, state.json |
 | `package-to-process` | Sonnet or above | Entry-point detection, progress, per-process assembly and render |
@@ -100,6 +101,11 @@ Steps 11/11b (SPRO / customization extraction) are intentionally LLM-free: `scri
 - Step 4b (conditional, 2+ modules) — `sap-{module}-consultant` × K (Opus)
 - Step 5 — `sap-writer` × 1 (Sonnet override) — per-program screen specs + render, report `.md`; main thread builds the editable HTML page
 - Step 5.3 (when the report language ≠ en) — `sap-writer` × 1 (Sonnet override) — English companion
+
+#### `config-to-document` — session-model main, 2–3 dispatches per note batch
+- Steps 2–3, 5 — no agent: `scripts/config/extract-config.mjs` (background Node) reads the IMG tree, table values, transports and IMG documentation; `build-config-doc.mjs` renders the HTML
+- Step 4 write / revise — `sap-{module}-consultant` × 1 per batch (Opus, frontmatter; ≤ 4 batches in parallel) — consultant notes per IMG activity
+- Step 4 review — `sap-critic` × 1 per batch (Opus, frontmatter) — `ok` / `fix` verdict per note; one revise round for `fix` items
 
 ### Creation cluster (session-model main)
 

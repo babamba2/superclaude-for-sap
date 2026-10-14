@@ -31,10 +31,9 @@ FUNCTION zmcp_adt_dispatch
 *   CUA_FETCH      — read GUI status (RS_CUA_INTERNAL_FETCH)
 *   CUA_WRITE      — write GUI status (RS_CUA_INTERNAL_WRITE)
 *   CUA_DELETE     — delete GUI status (RS_CUA_DELETE)
-*   TABLE_READ     — read-only SELECT on an allow-listed customizing table
-*                    (MODACT, MODATTR, MODSAP, GB31, GB92, GB93, T001D, T001Q,
-*                    TBE24, TBE34, TPS34, TFRM, TFRMT, T100, TSTC, TSTCP,
-*                    DD03L, DD04L); the
+*   TABLE_READ     — read-only SELECT on a customizing / system table
+*                    (delivery class C, G, E, S) or a listed repository
+*                    table (CMOD, TSTC, DDIC metadata, transport keys); the
 *                    MCP server's GetSqlQuery / GetTableContents fallback, as
 *                    ECC has no ADT data preview
 
@@ -547,13 +546,12 @@ ENDFORM.
 
 
 *&---------------------------------------------------------------------*
-*& Form TABLE_READ - read-only SELECT on an allow-listed customizing table
+*& Form TABLE_READ - read-only SELECT on a customizing / system table
 *&---------------------------------------------------------------------*
 * Used by the MCP server where the ADT data preview is missing (BASIS < 7.50):
-* GetSqlQuery / GetTableContents on CMOD (MODACT/MODATTR/MODSAP),
-* GGB (GB31/GB92/GB93, FI assignment T001D/T001Q), BTE (TBE24/TBE34/TPS34),
-* VOFM routines (TFRM/TFRMT), message texts (T100), transaction codes
-* (TSTC/TSTCP) and DDIC field / data element types (DD03L/DD04L).
+* GetSqlQuery / GetTableContents on customizing and system tables (CMOD,
+* GGB, BTE, VOFM, T100, IMG structure and documentation, configuration
+* tables for config-to-document), DDIC metadata and transport keys.
 * params: table_name, field_list (string table), condition, max_rows
 * result: rows (array of objects) and count
 FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message TYPE string ev_result TYPE string.
@@ -580,22 +578,43 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
         lr_data   TYPE REF TO data,
         lx_sql    TYPE REF TO cx_sy_dynamic_osql_error,
         lv_field  TYPE string,
-        lv_rows   TYPE string.
+        lv_rows   TYPE string,
+        lv_class  TYPE dd02l-contflag,
+        lt_view   TYPE abap_component_view_tab,
+        ls_view   TYPE abap_simple_componentdescr.
   FIELD-SYMBOLS: <lt_data> TYPE STANDARD TABLE.
 
   /ui2/cl_json=>deserialize( EXPORTING json = iv_params CHANGING data = ls_input ).
   lv_tab = to_upper( condense( ls_input-table_name ) ).
 
-  " Allow list: customizing / repository tables only - never business data.
-  IF lv_tab <> 'MODACT' AND lv_tab <> 'MODATTR' AND lv_tab <> 'MODSAP'
-     AND lv_tab <> 'GB31' AND lv_tab <> 'GB92' AND lv_tab <> 'GB93'
-     AND lv_tab <> 'T001D' AND lv_tab <> 'T001Q'
-     AND lv_tab <> 'TBE24' AND lv_tab <> 'TBE34' AND lv_tab <> 'TPS34'
-     AND lv_tab <> 'TFRM' AND lv_tab <> 'TFRMT' AND lv_tab <> 'T100'
-     AND lv_tab <> 'TSTC' AND lv_tab <> 'TSTCP'
-     AND lv_tab <> 'DD03L' AND lv_tab <> 'DD04L'.
+  " Allow rule: customizing and system tables only - never business data.
+  " Delivery class C/G (customizing), E/S (control / system) pass, plus a
+  " fixed list of repository tables (class W): CMOD, transaction codes,
+  " DDIC metadata and the transport key tables for change history.
+  " Application (A) and temporary (L) data stay closed, and so do tables
+  " that hold credentials or user master data whatever their class.
+  IF lv_tab = 'RFCDES' OR lv_tab = 'RSECTAB' OR lv_tab = 'RSECACTB'
+     OR lv_tab CP 'USR*' OR lv_tab CP 'UST*' OR lv_tab CP 'AGR_*'
+     OR lv_tab CP 'SSF_PSE*' OR lv_tab CP 'STRUST*' OR lv_tab CP 'SNC*'
+     OR lv_tab CP 'TRUSTED*' OR lv_tab CP 'RSAU*'.
     ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
     RETURN.
+  ENDIF.
+  IF lv_tab <> 'MODACT' AND lv_tab <> 'MODATTR' AND lv_tab <> 'MODSAP'
+     AND lv_tab <> 'TSTC' AND lv_tab <> 'TSTCP'
+     AND lv_tab <> 'DD02L' AND lv_tab <> 'DD02T' AND lv_tab <> 'DD03L' AND lv_tab <> 'DD03T'
+     AND lv_tab <> 'DD04L' AND lv_tab <> 'DD04T' AND lv_tab <> 'DD07L' AND lv_tab <> 'DD07T'
+     AND lv_tab <> 'DD26S' AND lv_tab <> 'DD27S' AND lv_tab <> 'DD28S'
+     AND lv_tab <> 'TVDIR' AND lv_tab <> 'OBJH' AND lv_tab <> 'OBJS' AND lv_tab <> 'OBJT'
+     AND lv_tab <> 'E070' AND lv_tab <> 'E07T' AND lv_tab <> 'E071' AND lv_tab <> 'E071K'.
+    SELECT SINGLE contflag FROM dd02l INTO lv_class
+      WHERE tabname = lv_tab AND as4local = 'A' AND as4vers = '0000'
+        AND tabclass IN ('TRANSP','POOL','CLUSTER').
+    IF sy-subrc <> 0 OR ( lv_class <> 'C' AND lv_class <> 'G'
+                          AND lv_class <> 'E' AND lv_class <> 'S' ).
+      ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
+      RETURN.
+    ENDIF.
   ENDIF.
 
   " The condition must stay on this table: no sub-queries.
@@ -610,8 +629,15 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
   IF lv_max <= 0. lv_max = 500. ENDIF.
   IF lv_max > 5000. lv_max = 5000. ENDIF.
 
+  " Flat component list: fields inside an .INCLUDE count as table fields.
   lo_struct ?= cl_abap_typedescr=>describe_by_name( lv_tab ).
-  lt_comp = lo_struct->get_components( ).
+  lt_view = lo_struct->get_included_view( ).
+  LOOP AT lt_view INTO ls_view.
+    CLEAR ls_comp.
+    ls_comp-name = ls_view-name.
+    ls_comp-type = ls_view-type.
+    APPEND ls_comp TO lt_comp.
+  ENDLOOP.
 
   " Requested fields (all when none): each must exist on the table.
   IF ls_input-field_list IS INITIAL.

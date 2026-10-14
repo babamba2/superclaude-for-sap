@@ -49,6 +49,7 @@
 | `sc4sap:create-program` | フル ABAP プログラムパイプライン — Main+Include、OOP/Procedural、ALV、Dynpro、Text Elements、ABAP Unit |
 | `sc4sap:program-to-spec` | ABAP プログラムを機能/技術仕様にリバースエンジニアリング (Markdown / Excel) |
 | `sc4sap:compare-programs` | 同一シナリオをモジュール / 国 / ペルソナで分岐した 2〜5 本の ABAP プログラムを比較 → コンサルタント向け編集可能な HTML レポート(判定マトリクス、項目差分表、画面の並列比較、判断ガイド。バージョン管理、英語版) |
+| `sc4sap:config-to-document` | 接続先システムのモジュール設定をそのまま文書化(MM から)→ IMG ツリーに沿った HTML 1 本(SM30 風画面に実テーブル値、顧客変更行とトランスポート、設定チェック、SAP IMG ドキュメント、`sap-critic` がレビューしたコンサルタントノート) |
 | `sc4sap:analyze-code` | ABAP コード解析 (Clean ABAP / パフォーマンス / セキュリティ) |
 | `sc4sap:analyze-cbo-obj` | CBO インベントリスキャナー + クロスモジュールギャップ解析 |
 | `sc4sap:analyze-symptom` | SAP 運用エラー/症状のステップバイステップ解析 (ダンプ、ログ、SAP Note 候補) |

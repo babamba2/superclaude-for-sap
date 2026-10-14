@@ -1,0 +1,61 @@
+{
+  "reads": [
+    { "table": "NRIV", "where": { "OBJECT": ["EINKBELEG", "BANF"] } },
+    { "table": "T001K" },
+    { "table": "T024E" },
+    { "table": "T024W" },
+    { "table": "T156" }
+  ],
+  "rules": [
+    {
+      "id": "MM-PUR-01",
+      "severity": "error",
+      "title": { "ko": "구매오더 문서 유형의 내부 번호 범위가 없음", "en": "PO document type without its internal number range" },
+      "detail": { "ko": "T161의 구매오더 유형(BSTYP F)이 가리키는 내부 번호 범위가 번호 범위 객체 EINKBELEG에 없습니다. 이 유형으로 구매오더를 저장할 수 없습니다.", "en": "The internal number range of a PO document type (T161, BSTYP F) is missing in number range object EINKBELEG. Purchase orders of this type cannot be saved." },
+      "type": "exists",
+      "from": { "table": "T161", "where": { "BSTYP": "F" }, "fields": ["NUMKI"] },
+      "to": { "table": "NRIV", "where": { "OBJECT": "EINKBELEG" }, "fields": ["NRRANGENR"] },
+      "show": ["BSART"]
+    },
+    {
+      "id": "MM-PUR-02",
+      "severity": "error",
+      "title": { "ko": "구매요청 문서 유형의 내부 번호 범위가 없음", "en": "Requisition document type without its internal number range" },
+      "detail": { "ko": "T161의 구매요청 유형(BSTYP B)이 가리키는 내부 번호 범위가 번호 범위 객체 BANF에 없습니다.", "en": "The internal number range of a requisition document type (T161, BSTYP B) is missing in number range object BANF." },
+      "type": "exists",
+      "from": { "table": "T161", "where": { "BSTYP": "B" }, "fields": ["NUMKI"] },
+      "to": { "table": "NRIV", "where": { "OBJECT": "BANF" }, "fields": ["NRRANGENR"] },
+      "show": ["BSART"]
+    },
+    {
+      "id": "MM-ORG-01",
+      "severity": "error",
+      "title": { "ko": "평가 영역이 없는 플랜트", "en": "Plant without a valuation area" },
+      "detail": { "ko": "플랜트(T001W)의 평가 영역이 T001K에 없습니다. 자재 평가와 재고 전기가 되지 않습니다.", "en": "The valuation area of a plant (T001W) is missing in T001K. Material valuation and stock postings fail." },
+      "type": "exists",
+      "from": { "table": "T001W", "fields": ["BWKEY"] },
+      "to": { "table": "T001K", "fields": ["BWKEY"] },
+      "show": ["WERKS"]
+    },
+    {
+      "id": "MM-ORG-02",
+      "severity": "warn",
+      "title": { "ko": "플랜트가 지정되지 않은 구매 조직", "en": "Purchasing organization without plants" },
+      "detail": { "ko": "T024E의 구매 조직이 T024W에서 어떤 플랜트에도 지정되지 않았습니다. 쓰지 않는 조직이면 정리 대상입니다.", "en": "A purchasing organization in T024E is assigned to no plant in T024W. If unused, it is a clean-up candidate." },
+      "type": "assigned",
+      "from": { "table": "T024E", "fields": ["EKORG"] },
+      "to": { "table": "T024W", "fields": ["EKORG"] }
+    },
+    {
+      "id": "MM-IM-01",
+      "severity": "info",
+      "title": { "ko": "고객 정의 이동 유형", "en": "Customer movement types" },
+      "detail": { "ko": "고객 이름 공간(9xx, X/Y/Z로 시작)의 이동 유형입니다. 표준 이동 유형을 복사해 만든 것이므로 원본 대비 차이를 확인하세요.", "en": "Movement types in the customer name space (9xx, starting with X/Y/Z). They are copies of standard types; review how they differ from the original." },
+      "type": "custom-keys",
+      "table": "T156",
+      "field": "BWART",
+      "pattern": "^(9..|[XYZ].*)$",
+      "show": ["BWART"]
+    }
+  ]
+}
