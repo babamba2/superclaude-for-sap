@@ -98,7 +98,8 @@ Steps 11/11b (SPRO / customization extraction) are intentionally LLM-free: `scri
 - Step 3 — `sap-checker` × N (Haiku) — verbatim `FACT` extraction per program (per include batch when a program is too large)
 - Step 4 — `sap-analyst` × 1 (Opus) — consolidated module classify + dimension scoring + exec summary + recommendation
 - Step 4b (conditional, 2+ modules) — `sap-{module}-consultant` × K (Opus)
-- Step 5 — `sap-writer` × 1 (Haiku) — final Markdown render
+- Step 5 — `sap-writer` × 1 (Sonnet override) — per-program screen specs + render, report `.md`; main thread builds the editable HTML page
+- Step 5.3 (when the report language ≠ en) — `sap-writer` × 1 (Sonnet override) — English companion
 
 ### Creation cluster (session-model main)
 

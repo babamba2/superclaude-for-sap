@@ -33,6 +33,7 @@ When a Step skips (inventory exists, resumed from a checkpoint), still print its
 ```
   ↳ 2.A walk                      (or: walk reused — walk.json <age>)
   ↳ 2.C scout <done>/<b> batches   (once per checker message; ECC adds "· where-used skipped (ECC)")
+  ↳ 2.G graph <nodes> nodes · <edges> edges · used <d>+<i> · unused <u>   (usage part on ECC only)
   ↳ 2.D finalize
   ↳ 5 narrative <k>/<n> parts      (split mode only)
   ↳ 6  process .md written · <lines> lines

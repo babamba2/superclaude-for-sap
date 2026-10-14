@@ -58,7 +58,7 @@ Skills that read or produce project-local artifacts must adopt this pattern:
 - `/sc4sap:program-to-spec` — reads existing programs, writes spec.md / spec.xlsx
 - `/sc4sap:analyze-code` — writes review report
 - `/sc4sap:analyze-cbo-obj` — writes `cbo/<MODULE>/<PACKAGE>/{index,inventory}.md`
-- `/sc4sap:compare-programs` — writes `comparisons/*.md`
+- `/sc4sap:compare-programs` — writes `comparisons/<NAME>-v<n>-<lang>.html` + `.md` source + `<NAME>-<lang>.history.json` + `_img/` / `_assets/` screen pictures
 - `/sc4sap:package-to-process` — reads `cbo/<MODULE>/<PACKAGE>/inventory.json` (cross-view hit → refuse on a `sap_version` mismatch, else ask), writes `processes/<MODULE>/<PACKAGE>/{process-*, bpml-*, _state/}`
 - `/sc4sap:program-to-manual` — writes `manuals/<PROGRAM>-v<n>-<lang>.html` + `<PROGRAM>-<lang>.history.json` + `_src/` / `_draft/` manual.json
 - `/sc4sap:analyze-symptom` — writes audit reports

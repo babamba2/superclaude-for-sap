@@ -16,7 +16,11 @@
 //     line under a heading mark technical detail, which the page's
 //     "Functional" view hides (see skills/program-to-spec/html-markup.md);
 //   - a paragraph holding only an image becomes a <figure> with its alt text
-//     as the caption; long code blocks are folded;
+//     as the caption; long code blocks are folded; after an
+//     `<!-- layout: side-by-side -->` line the next figures share one row;
+//   - comparison tables: a cell starting with ✅ / 🔷 / ⚠️ / ❓ (verdict) or
+//     holding only ● / ○ (present / absent) is coloured, and its row is
+//     marked as same / different for the page's "Differences only" switch;
 //   - local images (PNG / SVG / JPG / GIF) are inlined as data: URIs, so the
 //     file can be mailed without its _assets/ / _img/ folders;
 //   - ```mermaid blocks become <pre class="mermaid"> drawn by the Mermaid
@@ -341,7 +345,7 @@ const listItemRe = /^(\s*)([-*+]|\d{1,9}[.)])\s+(.*)$/;
 const HTML_BLOCK_RE = /^\s*<\/?(a|details|summary|div|p|table|thead|tbody|tr|td|th|br|hr|img|section|figure|figcaption|center|sup|sub|span)(\s[^>]*)?\/?>/i;
 const IMAGE_ONLY_RE = /^\s*!\[[^\]]*\]\([^)]*\)\s*$/;
 /** Markers renderBlocks leaves for the sectioning pass; never reach the page. */
-const MARK = { technical: '\u0001audience:technical', functional: '\u0001audience:functional', facts: '\u0001facts' };
+const MARK = { technical: '\u0001audience:technical', functional: '\u0001audience:functional', facts: '\u0001facts', sideBySide: '\u0001layout:side-by-side' };
 
 function renderTable(headRaw, alignRaw, rows, ctx) {
   const t = ctx.tableNo++;
@@ -365,7 +369,11 @@ function renderTable(headRaw, alignRaw, rows, ctx) {
 
   const style = (k) => (align[k] ? ` style="text-align:${align[k]}"` : '');
   const th = head.map((c, k) => `<th${style(k)}>${field(renderInline(c, { ...ctx, noLink: true }), ctx)}</th>`).join('');
+  let compare = false;
   const body = rows.map((r, k) => {
+    const marks = head.map((_, col) => cellMark(r[col] ?? ''));
+    const diff = rowDiff(marks);
+    if (diff !== null) compare = true;
     const cells = head.map((_, col) => {
       let anchors = '';
       let cellCtx = ctx;
@@ -377,12 +385,40 @@ function renderTable(headRaw, alignRaw, rows, ctx) {
         anchors = own.map((name) => `<span class="ref-target" id="ref-${name}"></span>`).join('');
         if (own.length) cellCtx = { ...ctx, selfIds: new Set(own) };
       }
-      return `<td${style(col)}>${anchors}${field(renderInline(r[col] ?? '', cellCtx), ctx)}</td>`;
+      const mark = marks[col] ? ` class="${marks[col]}"` : '';
+      return `<td${mark}${style(col)}>${anchors}${field(renderInline(r[col] ?? '', cellCtx), ctx)}</td>`;
     }).join('');
-    return `<tr>${cells}</tr>`;
+    return `<tr${diff === null ? '' : ` data-diff="${diff ? 1 : 0}"`}>${cells}</tr>`;
   }).join('\n');
   const tall = rows.length > TALL_TABLE_ROWS ? ' tall' : '';
-  return `<div class="table-wrap${tall}"><table>\n<thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody>\n</table></div>`;
+  return `<div class="table-wrap${tall}"><table${compare ? ' class="cmp"' : ''}>\n<thead><tr>${th}</tr></thead>\n<tbody>${body}</tbody>\n</table></div>`;
+}
+
+// Comparison tables (compare-programs): a cell that starts with a verdict
+// mark, or holds only a presence dot, gets a class the page colours. Only the
+// <td> and <tr> attributes change — the cell text stays, so the edit-mode
+// round trip is untouched.
+const VERDICTS = [['✅', 'v v-same'], ['🔷', 'v v-var'], ['⚠', 'v v-div'], ['❓', 'v v-unk']];
+
+/** Class for a verdict / presence cell, or ''. */
+function cellMark(raw) {
+  const t = String(raw).replace(/\*\*/g, '').trim();
+  if (t === '●') return 'pr pr-yes';
+  if (t === '○') return 'pr pr-no';
+  const v = VERDICTS.find(([m]) => t.startsWith(m));
+  return v ? v[1] : '';
+}
+
+/**
+ * Whether a row shows a difference: null when it has no verdict or presence
+ * cell; otherwise true unless every verdict is "same" / every dot is filled.
+ */
+function rowDiff(marks) {
+  const v = marks.filter((m) => m.startsWith('v '));
+  const p = marks.filter((m) => m.startsWith('pr '));
+  if (!v.length && !p.length) return null;
+  if (v.length) return v.some((m) => m !== 'v v-same');
+  return p.some((m) => m === 'pr pr-no');
 }
 
 /** `src` and `title` of a paragraph that holds only an image (editable figures keep them). */
@@ -443,6 +479,7 @@ function renderBlockList(lines, ctx) {
       const aud = body.match(/^audience:\s*(technical|functional)$/i);
       if (aud) out.push(MARK[aud[1].toLowerCase()]);
       else if (body === 'sc4sap:facts') out.push(MARK.facts);
+      else if (/^layout:\s*side-by-side$/i.test(body)) out.push(MARK.sideBySide);
       // Text after the comment on its closing line is ordinary content.
       if (rest.trim()) { paraStart = -1; para.push(rest.trim()); }
       continue;
@@ -677,7 +714,19 @@ function sectionize(blocks, card) {
     }
     sec = null;
   };
+  // `<!-- layout: side-by-side -->`: the figures right after it share one row
+  // (a wrapper only — every figure keeps its own data-b for the edit mode).
+  let row = null;
+  const closeRow = () => {
+    if (row?.figs.length) row.into.push(`<div class="fig-row" style="--n:${row.figs.length}">\n${row.figs.join('\n')}\n</div>`);
+    row = null;
+  };
   for (const block of blocks) {
+    if (block === MARK.sideBySide) { closeRow(); row = { figs: [], into: (sub ? sub.parts : sec ? sec.parts : hero) }; continue; }
+    if (row) {
+      if (block.startsWith('<figure')) { row.figs.push(block); continue; }
+      closeRow();
+    }
     if (block.startsWith('<h2')) {
       closeSec();
       sec = { id: block.match(/id="([^"]*)"/)[1], parts: [block], audience: null, heading: block };
@@ -696,6 +745,7 @@ function sectionize(blocks, card) {
     if (block === MARK.facts) { hero.push(card); continue; }
     (sub ? sub.parts : sec ? sec.parts : hero).push(block);
   }
+  closeRow();
   closeSec();
   if (!hero.includes(card) && card) {
     const h1 = hero.findIndex((b) => b.startsWith('<h1'));
@@ -705,7 +755,7 @@ function sectionize(blocks, card) {
 }
 
 function sectionRows(html) {
-  const rows = (html.match(/<tr>/g) || []).length - (html.match(/<thead>/g) || []).length;
+  const rows = (html.match(/<tr[\s>]/g) || []).length - (html.match(/<thead>/g) || []).length;
   return Math.max(0, rows);
 }
 

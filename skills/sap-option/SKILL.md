@@ -83,6 +83,9 @@ RFC backend (optional — selects transport for Screen / GUI Status / Text Eleme
 
 Per-backend env blocks (Native / Gateway / OData credentials and knobs) live in [`rfc-managed-keys.md`](rfc-managed-keys.md). Read that file when the user asks to change the RFC backend or edit any `SAP_RFC_*` field.
 
+Usage statistics source (optional, ECC — read by the CBO graph step and `GetTcodeUsage`):
+- `SAP_USAGE_RFCDEST` — SM59 destination on THIS system pointing to the QA / PRD system whose ST03N usage counts (a DEV profile only sees developer tests). Site-specific — no default; validate by one `GetTcodeUsage` call with `destination` (success shows the remote SID). Empty / unset → the connected system.
+
 XSUAA (only when `SAP_AUTH_TYPE=xsuaa`):
 - `XSUAA_URL`, `XSUAA_CLIENT_ID`, `XSUAA_CLIENT_SECRET`, `XSUAA_TOKEN_URL`
 

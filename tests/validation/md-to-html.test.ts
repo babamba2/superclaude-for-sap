@@ -158,6 +158,63 @@ describe('md-to-html', () => {
     });
   });
 
+  describe('comparison markup (compare-programs)', () => {
+    const CMP = `# Compare
+
+## 1. Matrix
+
+| # | Dimension | ZA | ZB | Verdict |
+|---|---|---|---|---|
+| 1 | Module | SD | SD | ✅ Same |
+| 2 | Logic | qty <span class="ev">COLLECT menge (F01 L120)</span> | value | ⚠️ Divergent |
+
+## 2. Fields
+
+| Field | ZA | ZB |
+|---|---|---|
+| VBELN | ● | ● |
+| KUNNR | ● | ○ |
+
+## 3. Screens
+
+<!-- layout: side-by-side -->
+![ZA selection](a.png)
+
+![ZB selection](b.png)
+
+Text after.`;
+
+    it('colours verdict and presence cells and marks rows for "Differences only"', () => {
+      const out = mdToHtml(CMP);
+      expect(out.match(/<table class="cmp">/g)).toHaveLength(2);
+      expect(out).toContain('<td class="v v-same">');
+      expect(out).toContain('<td class="v v-div">');
+      expect(out).toMatch(/<tr data-diff="0"><td>1<\/td>/);
+      expect(out).toMatch(/<tr data-diff="1"><td>2<\/td>/);
+      expect(out).toContain('<td class="pr pr-no">');
+      expect(out).toMatch(/<tr data-diff="1">.*KUNNR/);
+      expect(out).toContain('L.diffOnly');
+      expect(out).toContain('qty <span class="ev">COLLECT menge (F01 L120)</span>');
+      expect(out).toContain('.ev-tip');
+      expect(mdToHtml('| A | B |\n|---|---|\n| 1 | 2 |')).not.toContain('class="cmp"');
+    });
+
+    it('puts the figures after a side-by-side directive in one row, and stops at other content', () => {
+      const out = mdToHtml(CMP);
+      expect(out).toMatch(/<div class="fig-row" style="--n:2">\n<figure>[\s\S]*ZA selection[\s\S]*<figure>[\s\S]*ZB selection[\s\S]*<\/figure>\n<\/div>\n<p>Text after\.<\/p>/);
+    });
+
+    it('ships a page script that compiles (template-literal escapes)', () => {
+      const out = mdToHtml(CMP);
+      const script = out.match(/<script>var L=[\s\S]*?<\/script>/)![0].replace(/^<script>|<\/script>$/g, '');
+      expect(() => new Function(script)).not.toThrow();
+    });
+
+    it('still counts section rows when rows carry data-diff', () => {
+      expect(mdToHtml(CMP)).toMatch(/<span class="n">2 rows<\/span>/);
+    });
+  });
+
   it('reads frontmatter into the cover card', () => {
     const out = mdToHtml('---\nlang: ja\nowner: Team A\n---\n# T\n\n## 1. A\n\ntext\n\n## 2. B\n\ntext');
     expect(out).toContain('<html lang="ja">');

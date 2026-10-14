@@ -30,7 +30,7 @@ Before Step A: `<CBO_WRITE_DIR>/walk.json` exists, its `package` matches, and it
 
 ## Sub-progress
 
-Print `↳ 2.A walk`, `↳ 2.C scout <done>/<b> batches` (after each checker message; at most 8 checkers per message), `↳ 2.D finalize` as each sub-phase starts — format in `workflow.md` § Progress Reporting.
+Print `↳ 2.A walk`, `↳ 2.C scout <done>/<b> batches` (after each checker message; at most 8 checkers per message), `↳ 2.G graph …` (line format in [`../analyze-cbo-obj/graph-usage.md`](../analyze-cbo-obj/graph-usage.md) § G5), `↳ 2.D finalize` as each sub-phase starts — format in `workflow.md` § Progress Reporting.
 
 ## Failure handling
 

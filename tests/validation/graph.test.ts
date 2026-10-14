@@ -7,7 +7,15 @@ import { lexAbap, statementText } from '../../scripts/graph/abap-lexer.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { extractGraph, discoverUnits, runCli } from '../../scripts/graph/extract-edges.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { loadGraph, callers, reach, impact, flow, components, stats, runQuery } from '../../scripts/graph/graph-query.mjs';
+import { loadGraph, callers, reach, impact, flow, components, stats, usage, runQuery } from '../../scripts/graph/graph-query.mjs';
+// @ts-expect-error — plain .mjs script, no type declarations
+import { buildPackageGraph } from '../../scripts/graph/build-package-graph.mjs';
+// @ts-expect-error — plain .mjs script, no type declarations
+import { parseDdicFacts } from '../../scripts/graph/ddic-edges.mjs';
+// @ts-expect-error — plain .mjs script, no type declarations
+import { importUsage, nameTokens, xlsxText } from '../../scripts/graph/import-usage.mjs';
+// @ts-expect-error — plain .mjs script, no type declarations
+import { zipFiles } from '../../scripts/spec/xlsx-zip.mjs';
 
 type Ev = { unit: string; line: number; text: string };
 type Edge = { from: string; to: string; kind: string; evidence: Ev[]; count: number; [k: string]: unknown };
@@ -204,6 +212,123 @@ describe('graph-query', () => {
     expect(c.components[0].members).toEqual(expect.arrayContaining(['PROG:ZGT_ORDER', 'PROG:ZGT_READER', 'FUGR:ZGT_POST', 'CLAS:ZCL_GT_UTIL', 'TABL:ZGT_LOG']));
     expect(c.components[0].sharedTables.find((t: { table: string }) => t.table === 'TABL:ZGT_LOG')).toMatchObject({ writers: ['TRAN:ZGT1'], readers: ['TRAN:ZGT2'] });
     expect(c.unreached).toEqual([]);
+  });
+
+  it('usage: TCode / job roots → direct, reach → indirect, measured false → unused', () => {
+    const u = usage(G, {
+      tcodes: { months: 12, coverage: 3, result: { ZGT1: true, ZGT2: false } },
+      jobs: { months: 12, oldest: '20260928', complete: false, result: { ZGT_READER: false, ZGT_MISSING: false } },
+    });
+    const st = (id: string) => u.objects.find((o: { id: string }) => o.id === id);
+    expect(st('TRAN:ZGT1')).toMatchObject({ status: 'direct', reasons: ['tcode ZGT1'] });
+    expect(st('PROG:ZGT_ORDER')).toMatchObject({ status: 'direct', reasons: ['tcode ZGT1'] });
+    expect(st('FUGR:ZGT_POST').status).toBe('indirect');
+    expect(st('TABL:ZGT_LOG').status).toBe('indirect');
+    expect(st('PROG:ZGT_READER')).toMatchObject({ status: 'indirect' }); // submitted by ZGT_ORDER
+    expect(st('PROG:ZGT_READER').via[0]).toBe('PROG:ZGT_ORDER');
+    expect(st('TRAN:ZGT2').status).toBe('unused');
+    expect(u.counts.direct).toBe(2);
+    expect(u.caveats.join(' ')).toMatch(/3 of 12 months/);
+    expect(u.caveats.join(' ')).toMatch(/since 20260928/);
+    // a job step alone makes a program direct
+    const j = usage(G, { jobs: { result: { ZGT_READER: true } } });
+    expect(j.objects.find((o: { id: string }) => o.id === 'PROG:ZGT_READER')).toMatchObject({ status: 'direct', reasons: ['job step'] });
+    expect(j.objects.find((o: { id: string }) => o.id === 'PROG:ZGT_ORDER').status).toBe('no-evidence');
+    // listed members without source / references are still nodes; TCodes without a mapping still listed
+    expect(fx.nodes.find((n) => n.id === 'PROG:ZGT_MISSING')).toMatchObject({ scope: 'member', unreferenced: true });
+    const m = usage(G, { tcodes: { result: { ZGT9: false } } });
+    expect(m.objects.find((o: { id: string }) => o.id === 'TRAN:ZGT9')).toMatchObject({ status: 'unused', unmapped: true });
+  });
+
+  it('DDIC (DD03L / DD04L) and GetTransaction TCodes become edges; usage follows them', () => {
+    const ddic = {
+      fields: {
+        rows: [
+          { TABNAME: 'ZGT_LOG', FIELDNAME: 'MANDT', ROLLNAME: 'MANDT' }, // standard DTEL: skipped
+          { TABNAME: 'ZGT_LOG', FIELDNAME: 'STATUS', ROLLNAME: 'ZGT_DE_STATUS' },
+          { TABNAME: 'ZGT_LOG', FIELDNAME: '.INCLUDE', ROLLNAME: '', PRECFIELD: 'ZGT_EXT_S' },
+          { TABNAME: 'MARA', FIELDNAME: 'ZZFLAG', ROLLNAME: 'ZGT_DE_FLAG' }, // standard table: skipped
+        ],
+      },
+      dtels: [{ ROLLNAME: 'ZGT_DE_STATUS', DOMNAME: 'ZGT_DO_STATUS' }],
+    };
+    const tcodesTx = {
+      success: true,
+      transactions: [
+        { tcode: 'ZGT1', found: true, kind: 'program', program: 'ZGT_ORDER' },
+        { tcode: 'ZGT9', found: true, kind: 'parameter', target_tcode: 'SM30', parameters: { VIEWNAME: 'ZGT_V_LOG', UPDATE: 'X' } },
+        { tcode: 'ZGT0', found: false },
+      ],
+    };
+    const g2: Graph = extractGraph(discoverUnits(SRC), { members: walk, package: 'ZGT', tcodes: tcodesTx, ddic, builtAt: '2026-10-12T00:00:00Z' });
+    expect(edge(g2, 'TABL:ZGT_LOG', 'types', 'DTEL:ZGT_DE_STATUS')?.evidence[0].unit).toBe('DD03L');
+    expect(edge(g2, 'TABL:ZGT_LOG', 'types', 'STRU:ZGT_EXT_S')).toBeTruthy();
+    expect(edge(g2, 'DTEL:ZGT_DE_STATUS', 'types', 'DOMA:ZGT_DO_STATUS')).toBeTruthy();
+    expect(g2.edges.some((e) => e.to === 'DTEL:MANDT' && e.evidence[0]?.unit === 'DD03L')).toBe(false);
+    expect(g2.edges.some((e) => e.from === 'TABL:MARA')).toBe(false);
+    expect(edge(g2, 'TRAN:ZGT9', 'launches', 'VIEW:ZGT_V_LOG')).toMatchObject({ via: 'SM30' });
+    expect(g2.coverage.ddic).toEqual({ fields: 2, dtels: 1 });
+    const u = usage(loadGraph(g2), { tcodes: { result: { ZGT1: true } } });
+    const st = (id: string) => u.objects.find((o: { id: string }) => o.id === id);
+    expect(st('TABL:ZGT_LOG').status).toBe('indirect');
+    expect(st('STRU:ZGT_EXT_S').status).toBe('indirect');
+  });
+
+  it('parseDdicFacts: checker FACT lines → DD03L / DD04L-shaped rows', () => {
+    const d = parseDdicFacts([
+      'CHECKER scout scope=ZGT_LOG status=OK',
+      'FACT obj=ZGT_LOG kind=TABL key="types" value="STATUS=ZGT_DE_STATUS/ZGT_DO_STATUS"',
+      'FACT obj=ZGT_LOG kind=TABL key="types" value="FLAG=ZGT_DE_FLAG"',
+      'FACT obj=ZGT_DE_X kind=DTEL key="domain" value="ZGT_DO_X"',
+      'FACT obj=ZGT_DE_Y kind=DTEL key="domain" value="-"',
+      'END count=4',
+    ].join('\r\n'));
+    expect(d.fields).toEqual([
+      { TABNAME: 'ZGT_LOG', FIELDNAME: 'STATUS', ROLLNAME: 'ZGT_DE_STATUS' },
+      { TABNAME: 'ZGT_LOG', FIELDNAME: 'FLAG', ROLLNAME: 'ZGT_DE_FLAG' },
+    ]);
+    expect(d.dtels).toEqual([
+      { ROLLNAME: 'ZGT_DE_STATUS', DOMNAME: 'ZGT_DO_STATUS' },
+      { ROLLNAME: 'ZGT_DE_X', DOMNAME: 'ZGT_DO_X' },
+    ]);
+  });
+
+  it('build-package-graph: member folders only, graph + usage files next to walk.json', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sc4sap-pkg-'));
+    try {
+      writeFileSync(join(dir, 'walk.json'), JSON.stringify(walk));
+      writeFileSync(join(dir, 'tcodes.json'), JSON.stringify(tcodes));
+      writeFileSync(join(dir, 'usage.json'), JSON.stringify({ tcodes: { result: { ZGT1: true, ZGT2: false } } }));
+      const s = buildPackageGraph({ dir, src: SRC, system: 'DEV', sapVersion: 'ECC', builtAt: '2026-10-12T00:00:00Z' });
+      expect(s.sourcesMissing).toEqual(['PROG:ZGT_MISSING']);
+      expect(s.usage.direct).toBe(2);
+      const g = JSON.parse(readFileSync(join(dir, 'graph.json'), 'utf8'));
+      expect(g.nodes.some((n: Node) => n.id === 'FUGR:ZGT_POST')).toBe(true);
+      expect(readFileSync(join(dir, 'usage.md'), 'utf8')).toMatch(/direct 2/);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('import-usage: user-submitted QA list (text / xlsx) → usage.json side + source caveat', () => {
+    const w = { objects: [{ name: 'ZGT1', type: 'TRAN' }, { name: 'ZGT2', type: 'TRAN' }, { name: 'ZGT_READER', type: 'PROG' }] };
+    const st03n = 'Transaction\tSteps\tResp. time\nzgt1\t1,204\t310\nVA01\t88\t200\nZOTHER9\t3\t10\n';
+    const r = importUsage({ walk: w, text: st03n, system: 'QAS', months: 6, file: 'C:/x/st03n.txt', today: '2026-10-12' });
+    expect(r.side.result).toEqual({ ZGT1: true, ZGT2: false });
+    expect(r.notInPackage).toEqual(['ZOTHER9']);
+    expect(r.side).toMatchObject({ months: 6, coverage: 6, source: { system: 'QAS', file: 'st03n.txt', kind: 'user-file' } });
+    expect(importUsage({ walk: w, text: 'ZGT_READER', kind: 'jobs', system: 'QAS' }).side).toMatchObject({ complete: true, result: { ZGT_READER: true } });
+
+    const sheet = '<worksheet><sheetData><row><c t="s"><v>0</v></c><c t="inlineStr"><is><t>ZGT2</t></is></c></row></sheetData></worksheet>';
+    const xlsx = zipFiles([
+      { name: 'xl/sharedStrings.xml', data: Buffer.from('<sst><si><t>Tx &amp; profile</t></si></sst>') },
+      { name: 'xl/worksheets/sheet1.xml', data: Buffer.from(sheet) },
+    ]);
+    expect(nameTokens(xlsxText(xlsx)).has('ZGT2')).toBe(true);
+
+    const u = usage(G, { tcodes: { months: 6, coverage: 6, result: { ZGT1: true }, source: r.side.source } });
+    expect(u.window.tcodes.source.system).toBe('QAS');
+    expect(u.caveats.some((c: string) => c.startsWith('TCode usage measured on QAS'))).toBe(true);
   });
 
   it('stats + CLI round trip (extract → query, JSON and Markdown)', () => {

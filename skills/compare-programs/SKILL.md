@@ -1,12 +1,12 @@
 ---
 name: compare-programs
-description: Business-angle comparison of 2–5 ABAP programs that share the same business scenario but diverge by module (MM vs CO), country (KR vs EU), persona (controller vs warehouse), or time horizon. Reader = functional consultant.
+description: Business-angle comparison of 2–5 ABAP programs that share the same business scenario but diverge by module (MM vs CO), country (KR vs EU), persona (controller vs warehouse), or time horizon — one editable, versioned HTML report (verdict matrix, field differences, screens side by side, decision guide) plus an English companion. Reader = functional consultant.
 model: inherit
 ---
 
 # SC4SAP Compare Programs
 
-Reads 2–5 ABAP programs that implement the **same business scenario** but in **different variants**, analyzes them across 10 business dimensions, and emits a side-by-side Markdown comparison targeted at **functional consultants** (not developers).
+Reads 2–5 ABAP programs that implement the **same business scenario** but in **different variants**, analyzes them across 10 business dimensions, and emits **one editable HTML report** targeted at **functional consultants** (not developers): a coloured verdict matrix with a *Differences only* switch, field-by-field differences of the selection screens and output lists, the screens drawn side by side, and a decision guide — versioned and editable like the `program-to-spec` and `program-to-manual` pages, with an English companion.
 
 <Purpose>
 Companies often split one logical business flow (e.g. GR list) into 2–3 programs so the same data answers different questions — MM sees quantity, CO sees value; KR sees e-tax-invoice fields, EU sees VAT codes; month-end controllers see aggregates, warehouse clerks see live transactions.
@@ -62,8 +62,9 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 |-----------|-------|
 | [`comparison-scope.md`](comparison-scope.md) | 10 business comparison dimensions + default scope + scope-selection prompt template |
 | [`workflow.md`](workflow.md) | 6-step execution flow (Input → Scope → Facts × N → Analyze → Render → Follow-up) |
-| [`dispatch-prompts.md`](dispatch-prompts.md) | Full `Agent(...)` prompt bodies for Steps 3, 4, 4b, 5 (kept out of workflow.md to honor the 200-line cap) |
-| [`report-template.md`](report-template.md) | Markdown report skeleton (Executive Summary → Matrix → Per-program detail → Recommendation) |
+| [`dispatch-prompts.md`](dispatch-prompts.md) | Full `Agent(...)` prompt bodies for Steps 3, 4, 4b, 5, 5.3 (kept out of workflow.md to honor the 200-line cap) |
+| [`render-steps.md`](render-steps.md) | Names and versions, screen drawing, the editable HTML build, review loop, English companion, import of an edited page |
+| [`report-template.md`](report-template.md) | Report skeleton (fact card → Summary → Decision guide → Matrix → Field differences → Screens → Per-program → Risks → Appendix) + comparison markup |
 </Companion_Files>
 
 <Agent_Composition>
@@ -73,7 +74,9 @@ Per-step model allocation. The main thread follows the session model (`model: in
 - **Facts extraction (`sap-checker` × N, Haiku)** — Step 3. Each checker reads ONE program (or one include batch of a large program) itself — source / screens / GUI status / text elements / where-used — and returns verbatim `FACT` lines only: no scoring, no narrative. Read-and-copy work belongs on Haiku per `common/model-routing-rule.md` § Tier 3; the Opus analyst does every interpretation.
 - **Analysis + narrative (`sap-analyst` × 1, Opus)** — Step 4: a SINGLE dispatch covering module classification + dimension scoring + executive summary + recommendation. Keeps the analyst's context continuous across reasoning layers instead of fragmenting into 4 chained calls.
 - **Module specialists (conditional, `sap-{module}-consultant` × K, Opus)** — Step 4b: when programs span 2+ modules (MM+CO, SD+FI, etc.), each distinct module gets a consultant dispatch to explain "what would a {module} user use this for". The analyst's scoring consumes these in its narrative.
-- **Rendering (`sap-writer` × 1, Haiku)** — Step 5: renders the final Markdown using `report-template.md`. Pure formatting from structured state.
+- **Rendering (`sap-writer` × 1, `model: "sonnet"` override)** — Step 5: writes the per-program screen specs (selection / ALV), renders them, and writes the report `.md` from `report-template.md`. Sonnet because the screen specs must be transcribed 1:1 and the decision guide is consultant prose.
+- **English companion (`sap-writer` × 1, Sonnet override)** — Step 5.3, when the report language is not English (default on; the user can opt out).
+- **Main thread** builds the HTML page with `scripts/spec/md-to-html.mjs --editable` (Step 5.1), the optional Excel copy with `scripts/spec/md-to-xlsx.mjs` (Step 5.1b), and runs the review loop.
 
 SAP MCP permission prompts are auto-approved by the sc4sap permission-approver PreToolUse hook.
 </Agent_Composition>
@@ -88,10 +91,10 @@ SAP MCP permission prompts are auto-approved by the sc4sap permission-approver P
 </Language_Policy>
 
 <Output_Location>
-`.sc4sap/comparisons/{prog1}__vs__{prog2}[__vs__{prog3}…]-{YYYYMMDD}.md` and/or `.html` — format chosen at Step 2 (Markdown default; `html` adds a single-file HTML converted from the `.md`, `html only` keeps just the HTML).
+`<base>/comparisons/<NAME>-v<ver>-<lang>.html` (the page), `.xlsx` when `excel` was chosen, and `.md` (its source — kept for rebuilds and imports), `<NAME>-<lang>.history.json`, screen pictures under `_assets/<NAME>-<lang>/<PROG>/`, plus the same with `-en` for the English companion. `<base>` per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md).
 
-- Program names are uppercase, underscore-safe (slashes → `_`).
-- If the filename exceeds 120 chars (5-program case), use `.sc4sap/comparisons/compare-{YYYYMMDD}-{hash6}.md` and list the programs inside the front-matter.
+- `<NAME>` = the program names joined by `__vs__` (uppercase, `/` → `_`); over 120 characters → `compare-<hash6>` (rule in [`render-steps.md`](render-steps.md) § Names).
+- Versions `1.0`, `1.1`, … as in `program-to-spec`: a re-run of the same programs is the next minor version; a page edit by a reader comes back as its own version.
 </Output_Location>
 
 <Execution_Summary>
@@ -103,7 +106,7 @@ Do not skip the companion-file reads — the dimension list, step order, and rep
 </Execution_Summary>
 
 <Data_Extraction_Safety>
-This skill reads **source code + DDIC metadata + where-used + screen/GUI-status/text-element metadata** only. It does NOT call `GetTableContents` or `GetSqlQuery`. If the user asks for sample row data to illustrate a difference, refuse per `common/data-extraction-policy.md` and document the request in the report's `Risk & Open Questions` section instead.
+This skill reads **source code + DDIC metadata + where-used + screen/GUI-status/text-element metadata** only. It does NOT call `GetTableContents` or `GetSqlQuery`. Sample rows in the drawn screens are invented — never business data, never real customer, vendor or company names. If the user asks for sample row data to illustrate a difference, refuse per `common/data-extraction-policy.md` and document the request in the report's `Risk & Open Questions` section instead.
 </Data_Extraction_Safety>
 
 <Related_Skills>

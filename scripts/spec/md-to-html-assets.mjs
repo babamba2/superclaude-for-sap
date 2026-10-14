@@ -21,7 +21,7 @@ export const LABELS = {
     fold: 'Fold section', filter: 'Filter rows…', copyTsv: 'Copy TSV', copy: 'Copy',
     copied: 'Copied', copyFailed: 'Copy failed', rows: 'rows', viewAll: 'All',
     viewFunctional: 'Functional', view: 'View', theme: 'Theme', print: 'Print',
-    close: 'Close', code: 'Show code ({n} lines)', link: 'Link to this section',
+    close: 'Close', code: 'Show code ({n} lines)', link: 'Link to this section', diffOnly: 'Differences only',
     callout: { NOTE: 'Note', TIP: 'Tip', IMPORTANT: 'Important', WARNING: 'Warning', CAUTION: 'Caution' },
   },
   ko: {
@@ -29,7 +29,7 @@ export const LABELS = {
     fold: '섹션 접기', filter: '행 필터…', copyTsv: 'TSV 복사', copy: '복사',
     copied: '복사됨', copyFailed: '복사 실패', rows: '행', viewAll: '전체',
     viewFunctional: '기능 관점', view: '보기', theme: '테마', print: '인쇄',
-    close: '닫기', code: '코드 보기 ({n}줄)', link: '이 섹션 링크',
+    close: '닫기', code: '코드 보기 ({n}줄)', link: '이 섹션 링크', diffOnly: '차이만 보기',
     callout: { NOTE: '참고', TIP: '팁', IMPORTANT: '중요', WARNING: '경고', CAUTION: '주의' },
   },
   ja: {
@@ -37,7 +37,7 @@ export const LABELS = {
     fold: 'セクションを折りたたむ', filter: '行を絞り込み…', copyTsv: 'TSVコピー', copy: 'コピー',
     copied: 'コピーしました', copyFailed: 'コピー失敗', rows: '行', viewAll: 'すべて',
     viewFunctional: '機能観点', view: '表示', theme: 'テーマ', print: '印刷',
-    close: '閉じる', code: 'コードを表示 ({n}行)', link: 'このセクションへのリンク',
+    close: '閉じる', code: 'コードを表示 ({n}行)', link: 'このセクションへのリンク', diffOnly: '差分のみ',
     callout: { NOTE: '注記', TIP: 'ヒント', IMPORTANT: '重要', WARNING: '警告', CAUTION: '注意' },
   },
 };
@@ -144,6 +144,27 @@ pre:hover>button.copy{opacity:1}
 .lightbox{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:24px}
 .lightbox img{max-width:100%;max-height:100%;object-fit:contain}
 body.view-functional .tech,body.view-functional [data-audience=technical]{display:none}
+td.v{font-weight:600;white-space:nowrap}
+td.v-same{background:color-mix(in srgb,var(--tip) 13%,transparent)}
+td.v-var{background:color-mix(in srgb,var(--note) 13%,transparent)}
+td.v-div{background:color-mix(in srgb,var(--warning) 18%,transparent)}
+td.v-unk{background:color-mix(in srgb,var(--important) 13%,transparent)}
+td.pr{text-align:center;font-size:1.15em;line-height:1}
+td.pr-yes{color:var(--tip)}
+td.pr-no{color:var(--muted);opacity:.55}
+table.cmp td:first-child{position:sticky;left:0;background:var(--bg);z-index:1}
+table.cmp th:first-child{left:0;z-index:2}
+table.cmp tr[data-diff="1"] td:first-child{box-shadow:inset 3px 0 0 var(--warning)}
+body.diff-only table.cmp tr[data-diff="0"]{display:none}
+.ev{display:none}
+td:has(.ev)::after{content:"ⓘ";margin-left:.35em;color:var(--muted);font-size:.85em;cursor:help}
+body.view-functional td:has(.ev)::after{content:none}
+body.editing .ev{display:inline;font-size:.85em;color:var(--muted);border:1px dashed var(--line);border-radius:4px;padding:0 .3em;margin-left:.3em}
+body.editing td:has(.ev)::after{content:none}
+.ev-tip{position:fixed;z-index:20;max-width:34em;background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:.82em;line-height:1.45;box-shadow:0 4px 16px rgba(0,0,0,.2);pointer-events:none;white-space:pre-line}
+.fig-row{display:grid;grid-template-columns:repeat(var(--n,2),minmax(0,1fr));gap:14px;align-items:start;margin:0 0 1em}
+.fig-row>figure{margin:0}
+@media (max-width:800px){.fig-row{grid-template-columns:minmax(0,1fr)}}
 @media print{
   :root,:root[data-theme]{${LIGHT};color-scheme:light}
   @page{size:A4;margin:16mm 14mm 18mm;@bottom-right{content:counter(page) " / " counter(pages);font-size:9pt;color:#666}}
@@ -156,7 +177,12 @@ body.view-functional .tech,body.view-functional [data-audience=technical]{displa
   .table-wrap,.table-wrap.tall{max-height:none;overflow:visible;border:0}
   th,td{border:1px solid #bbb}
   th{position:static}
-  tr,pre,img,figure,.callout{break-inside:avoid}
+  tr,pre,img,figure,.callout,.fig-row{break-inside:avoid}
+  table.cmp td:first-child{position:static}
+  .ev{display:inline;font-size:8pt;color:#555}
+  .ev::before{content:" ("}
+  .ev::after{content:")"}
+  td:has(.ev)::after{content:none}
   h2,h3{break-after:avoid}
   a.xref,a.secref{color:inherit;text-decoration:none}
 }
@@ -253,6 +279,38 @@ export const SCRIPT = `
     };
     bar.appendChild(seg);
     setView(store('sc4sap-view') === 'functional' ? 'functional' : 'all');
+  }
+  // Comparison tables: hide the rows whose verdict is "same" / all dots filled.
+  if (document.querySelector('table.cmp tr[data-diff="0"]')) {
+    var setDiff = function (on) {
+      body.classList.toggle('diff-only', on);
+      diffBtn.setAttribute('aria-pressed', String(on));
+      store('sc4sap-diff', on ? '1' : '0');
+    };
+    var diffBtn = button(L.diffOnly, function () { setDiff(!body.classList.contains('diff-only')); });
+    setDiff(store('sc4sap-diff') === '1');
+  }
+  // Evidence behind a table cell (<span class="ev">): a floating tip on hover,
+  // outside <main>, so the cell's own markup never changes.
+  if (document.querySelector('td .ev')) {
+    var tip = null;
+    var hideTip = function () { if (tip) { tip.remove(); tip = null; } };
+    main.addEventListener('mouseover', function (e) {
+      var td = e.target.closest && e.target.closest('td');
+      var ev = td && td.querySelector('.ev');
+      if (!ev || body.classList.contains('editing') || body.classList.contains('view-functional')) { hideTip(); return; }
+      if (tip && tip.dataset.for === String(td.cellIndex) + td.parentNode.rowIndex) return;
+      hideTip();
+      tip = el('div', 'ev-tip', Array.prototype.map.call(td.querySelectorAll('.ev'), function (s) { return s.textContent.trim(); }).join('\\n'));
+      tip.dataset.for = String(td.cellIndex) + td.parentNode.rowIndex;
+      body.appendChild(tip);
+      var r = td.getBoundingClientRect();
+      var w = tip.offsetWidth, h = tip.offsetHeight;
+      tip.style.left = Math.max(8, Math.min(r.left, innerWidth - w - 8)) + 'px';
+      tip.style.top = (r.bottom + h + 8 > innerHeight ? r.top - h - 4 : r.bottom + 4) + 'px';
+    });
+    main.addEventListener('mouseleave', hideTip);
+    addEventListener('scroll', hideTip, true);
   }
   if (sections.length > 1) {
     button(L.expandAll, function () { sections.forEach(function (s) { setFold(s, false); }); });

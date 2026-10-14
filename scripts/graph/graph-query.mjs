@@ -8,6 +8,7 @@
 //   components [--entries a,b]            entry points (TRAN launches, else given ids, else root member PROGs)
 //                                         grouped by reach + table hand-offs; shared written tables listed
 //   stats                                 degrees, isolated members, unresolved count, coverage
+//   usage <usage.json>                    used-object list: direct (TCode / job step) → indirect (reach) / unused / no-evidence
 //
 // <id> is TYPE:NAME or a bare NAME (member first, then any unique match).
 // FUNC nodes with `parent` (a parsed FUGR) also follow their group's outgoing edges
@@ -236,7 +237,7 @@ export function components(G, { entries } = {}) {
   });
   const reached = new Set(comps.flatMap((c) => c.members));
   const unreached = [...G.nodes.values()]
-    .filter((n) => n.scope === 'member' && SOURCE_TYPES.includes(n.type) && !reached.has(n.id))
+    .filter((n) => n.scope === 'member' && SOURCE_TYPES.includes(n.type) && !n.unreferenced && !reached.has(n.id))
     .map((n) => n.id)
     .sort();
   return { source, components: comps.sort((a, b) => b.members.length - a.members.length || (a.entries[0] < b.entries[0] ? -1 : 1)), unreached };
@@ -279,6 +280,96 @@ export function stats(G) {
   };
 }
 
+// ---------------------------------------------------------------- usage
+
+export const USAGE_KINDS = [...FLOW_KINDS, 'uses', 'reads', 'writes', 'types'];
+
+/** { tcodes?: GetTcodeUsage response, jobs?: GetJobUsage response } — `result` maps NAME → bool */
+function normalizeUsage(u) {
+  const side = (s) => (s && typeof s === 'object' ? { ...s, result: Object.fromEntries(Object.entries(s.result || {}).map(([k, v]) => [k.toUpperCase(), v === true])) } : null);
+  return { tcodes: side(u?.tcodes), jobs: side(u?.jobs) };
+}
+
+/**
+ * Used-object list. Roots: TCodes used in the window (ST03N) and programs run as job steps.
+ * A program launched by a used TCode is direct too. Everything reached from a root through
+ * USAGE_KINDS edges is indirect (with the shortest path). Members measured false and not
+ * reached are unused; the rest have no evidence either way (callers outside the package,
+ * RFC and dynamic calls are invisible to source parsing).
+ */
+export function usage(G, input) {
+  const u = normalizeUsage(typeof input === 'string' ? JSON.parse(readFileSync(input, 'utf8')) : input);
+  const reasons = new Map();
+  const addReason = (id, r) => reasons.set(id, [...(reasons.get(id) || []), r]);
+  for (const [t, used] of Object.entries(u.tcodes?.result || {})) {
+    const id = `TRAN:${t}`;
+    if (!used || !G.nodes.has(id)) continue;
+    addReason(id, `tcode ${t}`);
+    for (const e of G.out.get(id) || []) if (e.kind === 'launches') addReason(e.to, `tcode ${t}`);
+  }
+  for (const [p, used] of Object.entries(u.jobs?.result || {})) {
+    const id = resolveId(G, p);
+    if (used && id) addReason(id, 'job step');
+  }
+  // multi-source BFS: first visit keeps the shortest path back to a root
+  const kinds = new Set(USAGE_KINDS);
+  const prev = new Map([...reasons.keys()].map((id) => [id, null]));
+  let frontier = [...reasons.keys()].sort();
+  while (frontier.length) {
+    const next = [];
+    for (const cur of frontier) {
+      for (const e of outEdges(G, cur)) {
+        if (!kinds.has(e.kind) || prev.has(e.to)) continue;
+        prev.set(e.to, { from: cur, kind: e.kind });
+        next.push(e.to);
+        const parent = G.nodes.get(e.to)?.type === 'FUNC' ? G.nodes.get(e.to).parent : null;
+        if (parent && !prev.has(parent)) prev.set(parent, { from: e.to, kind: 'parent' });
+      }
+    }
+    frontier = next;
+  }
+  const pathTo = (id) => {
+    const p = [];
+    for (let c = id; prev.get(c); c = prev.get(c).from) p.unshift({ kind: prev.get(c).kind, to: c, from: prev.get(c).from });
+    return p.length ? [p[0].from, ...p.map((s) => `-${s.kind}-> ${s.to}`)] : [];
+  };
+  const measuredFalse = (n) =>
+    (n.type === 'TRAN' && u.tcodes?.result[n.name] === false) || (n.type === 'PROG' && u.jobs?.result[n.name] === false);
+  const objects = [...G.nodes.values()]
+    .filter((n) => n.scope === 'member' && n.type !== 'INCL')
+    .map((n) => {
+      const o = { id: n.id, type: n.type };
+      if (n.type === 'TRAN' && !(G.out.get(n.id) || []).some((e) => e.kind === 'launches')) o.unmapped = true;
+      if (reasons.has(n.id)) return { ...o, status: 'direct', reasons: reasons.get(n.id) };
+      if (prev.has(n.id)) return { ...o, status: 'indirect', via: pathTo(n.id) };
+      return { ...o, status: measuredFalse(n) ? 'unused' : 'no-evidence' };
+    });
+  // measured TCodes without a TRAN node (no program mapping, e.g. SM30 parameter transactions)
+  for (const [t, used] of Object.entries(u.tcodes?.result || {})) {
+    if (G.nodes.has(`TRAN:${t}`)) continue;
+    objects.push(used ? { id: `TRAN:${t}`, type: 'TRAN', status: 'direct', reasons: [`tcode ${t}`], unmapped: true } : { id: `TRAN:${t}`, type: 'TRAN', status: 'unused', unmapped: true });
+  }
+  objects.sort((a, b) => STATUS_ORDER.indexOf(a.status) - STATUS_ORDER.indexOf(b.status) || rankType(a.type) - rankType(b.type) || (a.id < b.id ? -1 : 1));
+  const counts = Object.fromEntries(STATUS_ORDER.map((s) => [s, objects.filter((o) => o.status === s).length]));
+  const caveats = [];
+  if (!u.tcodes) caveats.push('no TCode usage given');
+  else if (u.tcodes.coverage != null && u.tcodes.months && u.tcodes.coverage < u.tcodes.months)
+    caveats.push(`TCode statistics cover ${u.tcodes.coverage} of ${u.tcodes.months} months — a false TCode means "not used in the kept months"`);
+  if (!u.jobs) caveats.push('no job usage given');
+  else if (u.jobs.complete === false) caveats.push(`finished jobs kept only since ${u.jobs.oldest} — a false program means "no job since ${u.jobs.oldest}" (scheduled jobs are always seen)`);
+  if (G.graph.unresolved?.length) caveats.push(`${G.graph.unresolved.length} dynamic call(s) unresolved — their targets may be used without an edge`);
+  caveats.push('callers outside the package (other packages, RFC, workflow, BAdI) are invisible: no-evidence ≠ unused');
+  for (const [k, s] of [['TCode', u.tcodes], ['job', u.jobs]])
+    if (s?.source) caveats.push(`${k} usage measured on ${s.source.system} (user-submitted ${s.source.file || 'list'}, ${s.source.importedAt}), not on ${G.graph.system || 'this system'} — names absent from the file count as not used`);
+  const src = (s) => (s?.source ? { source: s.source } : {});
+  const window = {
+    tcodes: u.tcodes ? { months: u.tcodes.months, coverage: u.tcodes.coverage, ...src(u.tcodes) } : null,
+    jobs: u.jobs ? { months: u.jobs.months, oldest: u.jobs.oldest, complete: u.jobs.complete, ...src(u.jobs) } : null,
+  };
+  return { package: G.graph.package, system: G.graph.system, window, counts, objects, caveats };
+}
+const STATUS_ORDER = ['direct', 'indirect', 'unused', 'no-evidence'];
+
 // ---------------------------------------------------------------- Markdown
 
 const ev1 = (ev) => (ev && ev[0] ? `${ev[0].unit}:${ev[0].line}` : '');
@@ -311,6 +402,14 @@ export function toMarkdown(cmd, res) {
         table(['member', 'in', 'out'], res.degree.slice(0, 20).map((d) => [d.id, d.in, d.out])),
         res.isolated.length ? `\nIsolated members: ${res.isolated.join(', ')}` : '',
       ].join('\n');
+    case 'usage':
+      return [
+        `**${res.package || '(package)'}** ${res.system || ''} — ${STATUS_ORDER.map((s) => `${s} ${res.counts[s]}`).join(', ')}`,
+        '',
+        table(['status', 'object', 'evidence'], res.objects.map((o) => [o.status, o.id, o.reasons ? o.reasons.join(', ') : o.via ? o.via.join(' ') : ''])),
+        '',
+        ...res.caveats.map((c) => `- ${c}`),
+      ].join('\n');
     default:
       return JSON.stringify(res, null, 2);
   }
@@ -330,12 +429,12 @@ export function runQuery(argv) {
     else if (k === '--md') opts.md = true;
     else pos.push(k);
   }
-  if (!file || !cmd) throw new Error('usage: graph-query.mjs <graph.json> <callers|reach|impact|flow|components|stats> [id] [--kinds k,…] [--depth n] [--entries a,b] [--md]');
+  if (!file || !cmd) throw new Error('usage: graph-query.mjs <graph.json> <callers|reach|impact|flow|components|stats|usage> [id | usage.json] [--kinds k,…] [--depth n] [--entries a,b] [--md]');
   const G = loadGraph(file);
-  const fn = { callers, reach, impact, flow, components, stats }[cmd];
+  const fn = { callers, reach, impact, flow, components, stats, usage }[cmd];
   if (!fn) throw new Error(`unknown command: ${cmd}`);
-  const needsId = ['callers', 'reach', 'impact', 'flow'].includes(cmd);
-  if (needsId && !pos[0]) throw new Error(`${cmd} needs an id`);
+  const needsId = ['callers', 'reach', 'impact', 'flow', 'usage'].includes(cmd);
+  if (needsId && !pos[0]) throw new Error(`${cmd} needs ${cmd === 'usage' ? 'a usage.json' : 'an id'}`);
   const res = needsId ? fn(G, pos[0], opts) : fn(G, opts);
   return opts.md ? toMarkdown(cmd, res) : JSON.stringify(res, null, 2);
 }

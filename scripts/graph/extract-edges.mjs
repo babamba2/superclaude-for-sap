@@ -24,11 +24,14 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lexAbap, litValue, statementText } from './abap-lexer.mjs';
+import { addDdicEdges, addTcodeEdges } from './ddic-edges.mjs';
 
 export const EXTRACTOR = 'extract-edges@1';
 export const EDGE_KINDS = ['include', 'calls', 'submits', 'starts', 'launches', 'reads', 'writes', 'uses', 'types', 'dynamic'];
 const EVIDENCE_CAP = 5;
 const SOURCE_TYPES = new Set(['PROG', 'INCL', 'FUGR', 'FUNC', 'CLAS', 'INTF']);
+const NAME_ONLY_TYPES = new Set(['TRAN', 'PARA']);
+const DDIC_TYPES = new Set(['TABL', 'VIEW', 'DDLS', 'STRU', 'TTYP', 'DTEL', 'DOMA']);
 
 const NAME = '[A-Z0-9_/][A-Z0-9_/]*';
 const BUILTIN = new Set(
@@ -549,11 +552,9 @@ export function extractGraph(units, opts = {}) {
   // FUNC nodes inside a parsed FUGR inherit its scope
   for (const n of g.nodes.values()) if (n.parent && !n.scope) n.scope = g.nodes.get(n.parent)?.scope;
 
-  // TCode entry points
-  for (const { tcode, program } of normalizeTcodes(opts.tcodes)) {
-    g.node(idOf('TRAN', tcode), { scope: members.has(up(tcode)) || members.has(up(program)) ? 'member' : undefined });
-    g.edge(idOf('TRAN', tcode), idOf('PROG', program), 'launches', { unit: 'TSTC', line: 0, text: `TCODE ${up(tcode)} → ${up(program)}` });
-  }
+  // TCode entry points (TSTC / TSTCP) and DDIC typing (DD03L / DD04L)
+  addTcodeEdges(g, opts.tcodes, members, idOf);
+  const ddicStats = addDdicEdges(g, opts.ddic, members, idOf);
 
   const sapVersion = opts.sapVersion ? up(opts.sapVersion) : null;
   const srcMembers = [...members.entries()].filter(([, t]) => ['PROG', 'FUGR', 'CLAS', 'INTF', 'FUNC'].includes(t));
@@ -566,6 +567,13 @@ export function extractGraph(units, opts = {}) {
     builtAt: opts.builtAt || new Date().toISOString(),
     extractor: EXTRACTOR,
   });
+  // every listed member is a node, even when nothing parsed references it (DOMA, unused DTEL, VIEW, TRAN without mapping)
+  const ids = new Set(graph.nodes.map((n) => n.id));
+  const ddicNames = new Set(graph.nodes.filter((n) => DDIC_TYPES.has(n.type)).map((n) => n.name));
+  for (const [name, type] of members.pairs || members) {
+    if (type === 'INCL' || ids.has(idOf(type, name)) || (DDIC_TYPES.has(type) && ddicNames.has(name))) continue;
+    graph.nodes.push({ id: idOf(type, name), type, name, scope: 'member', unreferenced: true });
+  }
   const unitCount = [...owners.values()].reduce((s, o) => s + o.units.length, 0);
   const stmtCount = [...owners.values()].reduce((s, o) => s + o.units.reduce((a, x) => a + x.lexed.statements.length, 0), 0);
   graph.coverage = {
@@ -574,6 +582,7 @@ export function extractGraph(units, opts = {}) {
     units: unitCount,
     statements: stmtCount,
     skipped: srcMembers.filter(([n]) => !parsedNames.has(n)).map(([n, t]) => `${t}:${n}`).sort(),
+    ddic: opts.ddic ? ddicStats : undefined,
     whereUsed: sapVersion === 'ECC' ? 'unavailable (ECC 404)' : 'not collected (extractor reads source only)',
     ms: Date.now() - t0,
   };
@@ -587,20 +596,20 @@ export function normalizeMembers(input) {
   let list = input;
   if (!Array.isArray(list) && typeof list === 'object') list = list.objects || list.members || [];
   if (typeof list === 'string') list = list.split(',');
+  // a TCode / parameter ID often shares its name with the program or view: the object type wins the
+  // name → type map, every (name, type) pair is kept in `pairs` (member nodes for each)
+  const pairs = [];
   for (const it of list) {
     if (!it) continue;
-    if (typeof it === 'string') {
-      const [n, t] = it.split(':');
-      out.set(up(n), up((t || '').split('/')[0]));
-    } else if (it.name) out.set(up(it.name), up(String(it.type || '').split('/')[0]));
+    const [n, t] = typeof it === 'string' ? it.split(':') : [it.name, String(it.type || '')];
+    if (!n) continue;
+    const name = up(n);
+    const type = up((t || '').split('/')[0]);
+    pairs.push([name, type]);
+    if (!out.has(name) || !NAME_ONLY_TYPES.has(type)) out.set(name, type);
   }
+  out.pairs = pairs;
   return out;
-}
-
-function normalizeTcodes(t) {
-  if (!t) return [];
-  if (Array.isArray(t)) return t.filter((x) => x && x.tcode && x.program).map((x) => ({ tcode: up(x.tcode), program: up(x.program) }));
-  return Object.entries(t).map(([tcode, program]) => ({ tcode: up(tcode), program: up(program) }));
 }
 
 function unitNameFromFile(file) {
@@ -661,6 +670,7 @@ function parseArgs(argv) {
     else if (k === '--system') a.system = v();
     else if (k === '--sap-version') a.sapVersion = v();
     else if (k === '--tcodes') a.tcodes = v();
+    else if (k === '--ddic') a.ddic = v();
     else if (k === '--built-at') a.builtAt = v();
     else throw new Error(`unknown argument: ${k}`);
   }
@@ -679,7 +689,7 @@ function readMembers(arg) {
 export function runCli(argv) {
   const a = parseArgs(argv);
   if (!a.out || (!a.units && !a.progDirs.length)) {
-    throw new Error('usage: extract-edges.mjs (--units <units.json> | --prog-dir <dir>…) --out <graph.json> [--members …] [--package P] [--system S] [--sap-version ECC|S4] [--tcodes J]');
+    throw new Error('usage: extract-edges.mjs (--units <units.json> | --prog-dir <dir>…) --out <graph.json> [--members …] [--package P] [--system S] [--sap-version ECC|S4] [--tcodes J] [--ddic J]');
   }
   let units = [];
   if (a.units) {
@@ -696,6 +706,7 @@ export function runCli(argv) {
     system: a.system,
     sapVersion: a.sapVersion,
     tcodes: a.tcodes ? JSON.parse(readFileSync(a.tcodes, 'utf8')) : null,
+    ddic: a.ddic ? JSON.parse(readFileSync(a.ddic, 'utf8')) : null,
     builtAt: a.builtAt,
   });
   mkdirSync(dirname(resolve(a.out)), { recursive: true });

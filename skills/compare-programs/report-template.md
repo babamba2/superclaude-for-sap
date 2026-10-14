@@ -1,128 +1,138 @@
 # Report Markdown Template
 
-This is the Markdown skeleton `sap-writer` fills in Step 5 of the workflow. All section headings and body prose are rendered **in the user's current conversation language** (see SKILL.md `Language_Policy`). The example below is English; the same structure applies verbatim when the runtime language is Korean / Japanese / German / etc. — translate the section titles and narrative, keep the structure identical.
+`sap-writer` fills this skeleton in Step 5 ([`render-steps.md`](render-steps.md)). The `.md` is the **source** of the HTML page: `scripts/spec/md-to-html.mjs --editable` builds it, and the reader's page edits are imported back into a new `.md` version. All headings and prose are in the report language (SKILL.md `Language_Policy`); the example below is English — translate the headings and narrative, keep the structure.
 
----
+**Before writing, read [`../program-to-spec/html-markup.md`](../program-to-spec/html-markup.md)** — numbered headings, the fact list, SAP names first in key cells, `> [!KIND]` callouts, `<span class="tech">` and `<!-- audience: technical -->`. The comparison-specific markup is below.
 
-## Front-matter (YAML)
+## Comparison markup — what the page draws from it
 
-```yaml
----
-type: program-comparison
-programs:
-  - ZMMR_GR_LIST
-  - ZCOR_GR_LIST
-generated: 2026-04-19
-language: en
-dimensions_included: [1, 2, 3, 5, 6, 7, 10]
-sap_version: S/4HANA On-Premise 816
-client: "100"
----
+| Write | The page shows |
+|---|---|
+| A table cell that **starts with** `✅` / `🔷` / `⚠️` / `❓` (e.g. `⚠️ Divergent`) | Coloured verdict cell (same / variant / divergent / unclear); the row is a "difference" unless every verdict cell is ✅ |
+| A cell holding **only** `●` (present) or `○` (absent) | Coloured presence dot; a row with any `○` is a difference |
+| Either of the above in a table | Sticky first column + the toolbar's **Differences only** switch (hides the "same" rows) |
+| `<span class="ev">…</span>` at the end of a per-program matrix cell | An ⓘ on the cell; hovering shows the evidence (the FACT it rests on: statement + FORM / line). Hidden in the Functional view, small brackets in print |
+| `<!-- layout: side-by-side -->` on its own line, then one image paragraph per program | The images share one row (stacked on narrow screens / in print) |
+| ```` ```mermaid ```` `flowchart TD` | The decision tree, drawn online (source text offline) |
+
+Nothing else is styled specially — no HTML layout, no inline styles.
+
+## Template body (English example — replace ▫)
+
+````markdown
+# Program Comparison: ZMMR_GR_LIST vs ZCOR_GR_LIST
+
+- **Programs**: ZMMR_GR_LIST · ZCOR_GR_LIST
+- **Scenario**: ▫ Goods receipt lookup
+- **Modules**: ▫ MM · CO
+- **Dimensions**: ▫ 7 (1·2·3·5·6·7·10)
+- **Result**: ▫ Divergent 4 · Variant 2 · Same 1 · Unclear 0
+- **System**: ▫ S/4HANA 2023 · client 100 · **Generated**: ▫ 2026-10-14
+
+## 1. Executive Summary
+
+▫ Three sentences: the shared scenario · the biggest ⚠️ divergence · the recommendation.
+
+> [!IMPORTANT]
+> ▫ The one decision a consultant must not get wrong (e.g. "Month-end values come only from ZCOR_GR_LIST").
+
+## 2. Which program when — decision guide
+
+| Situation | Use | Why |
+|---|---|---|
+| ▫ Daily GR quantity check | **ZMMR_GR_LIST** | ▫ Quantity- and material-centric |
+| ▫ Month-end cost review | **ZCOR_GR_LIST** | ▫ Values and cost elements |
+
+```mermaid
+flowchart TD
+  Q1{"▫ Need values or quantities?"} -->|Quantities| A["ZMMR_GR_LIST"]
+  Q1 -->|Values| B["ZCOR_GR_LIST"]
 ```
 
-## Template Body (English example — replace ▫ placeholders)
+## 3. Shared baseline
 
-```markdown
-# Program Comparison Report: ZMMR_GR_LIST vs ZCOR_GR_LIST
+- ▫ Business scenario · shared selection fields · shared output purpose
 
-## 1. Executive Summary (3 sentences)
-
-▫ [Sentence 1: the shared business scenario. e.g. "Both programs list Goods Receipt (GR) documents."]
-▫ [Sentence 2: the biggest Divergent finding. e.g. "ZMMR is MSEG-based and quantity-centric; ZCOR is ACDOCA-based and cost-value-centric."]
-▫ [Sentence 3: the recommendation. e.g. "Warehouse clerks should use ZMMR; cost controllers should use ZCOR. Personas must be separated so the same report is not run twice."]
-
-## 2. Shared Baseline (what all programs do in common)
-
-- Business scenario: ▫ [e.g. Goods Receipt document lookup]
-- Shared selection-screen fields: ▫ [BUKRS, WERKS, date range]
-- Shared output purpose: ▫ [GR transaction listing and filtering]
-
-## 3. Per-Dimension Comparison Matrix
+## 4. Comparison matrix
 
 Legend: ✅ Same · 🔷 Variant · ⚠️ Divergent · ❓ Unclear
 
 | # | Dimension | ZMMR_GR_LIST | ZCOR_GR_LIST | Verdict |
-|---|-----------|--------------|--------------|---------|
-| 1 | Module / Domain | MM (inventory movement) | CO (cost accounting) | ⚠️ |
-| 2 | Org / Country scope | All company codes | All company codes | ✅ |
-| 3 | Selection screen | MATNR, WERKS, movement type | KOSTL, KOKRS, cost element | ⚠️ |
-| 5 | Business logic | Quantity aggregation (MENGE, MEINS) | Value aggregation (DMBTR, HWAER); no UOM conversion | ⚠️ |
-| 6 | Output columns | Material · quantity · UoM · movement type | G/L · cost element · amount · currency | ⚠️ |
-| 7 | Authorization | M_MSEG_WWA, M_MATE_WRK | F_BKPF_BUK, K_CCA | ⚠️ |
-| 10 | Usage timing / Persona | Daily / warehouse clerk | Month-end / cost controller | ⚠️ |
+|---|---|---|---|---|
+| 1 | Module / Domain | MM (inventory movement) <span class="ev">package ZMMPAEK · SELECT MSEG (FORM get_data, L40)</span> | CO (cost accounting) <span class="ev">SELECT ACDOCA (FORM read_acdoca, L88)</span> | ⚠️ Divergent |
+| 2 | Org / Country scope | All company codes | All company codes | ✅ Same |
 
-(Opt-in dimensions add further rows when enabled.)
+### 4.1 Selection fields
 
-## 4. Per-Program Detail
+| Field | Meaning | ZMMR_GR_LIST | ZCOR_GR_LIST |
+|---|---|---|---|
+| **S_WERKS** | Plant | ● | ● |
+| **S_MATNR** | Material | ● | ○ |
+| **S_KOSTL** | Cost center | ○ | ● |
 
-### 4.1 ZMMR_GR_LIST
+### 4.2 Output columns
 
-- **Package**: ▫ ZMMPAEK
-- **Persona**: ▫ Warehouse clerk (daily)
-- **Core data sources**: ▫ MSEG, MKPF, MARA
-- **Business logic summary**: ▫ Simple sum of MENGE; UOM kept as stored on material master (no conversion)
-- **Main authorizations**: ▫ M_MSEG_WWA, M_MATE_WRK
-- **CBO / Enhancement**: ▫ MSEG append structure (Z-field: ZZ_LOT_NO)
-- **Consultant view (1–2 sentences)**: ▫ [from sap-mm-consultant]
+(Same shape: one row per column field, ● / ○ per program.)
 
-### 4.2 ZCOR_GR_LIST
+## 5. Screens side by side
 
-(Same structure.)
+### 5.1 Selection screens
 
-## 5. Recommendation — "Which program for which situation?"
+<!-- layout: side-by-side -->
+![ZMMR_GR_LIST — selection screen](_assets/ZMMR_GR_LIST__vs__ZCOR_GR_LIST-en/ZMMR_GR_LIST/selection.png)
 
-| Use-case | Recommended program | Reason |
-|----------|---------------------|--------|
-| Daily GR quantity check | ZMMR_GR_LIST | Quantity- and material-centric; live MSEG |
-| Month-end cost review | ZCOR_GR_LIST | ACDOCA-based; accurate amounts and cost elements |
-| Audit reconciliation (quantity vs value) | Both in parallel + persona separation | Both needed |
-| New country rollout (e.g. EU) | ▫ [if neither program covers the target localization, flag as a new localization requirement] | — |
+![ZCOR_GR_LIST — selection screen](_assets/ZMMR_GR_LIST__vs__ZCOR_GR_LIST-en/ZCOR_GR_LIST/selection.png)
 
-## 6. Consolidation Opportunities (optional)
+### 5.2 Output lists
 
-- ▫ [e.g. Extract the shared selection-screen block into a common INCLUDE reused by both programs]
-- ▫ [e.g. Append module marker ("(MM)" / "(CO)") to ALV titles to make the persona distinction visible at first glance]
+(Same pattern with `alv.png`.)
 
-## 7. Risk & Open Questions
+## 6. Per-program detail
 
-- ▫ [Items a consultant should confirm with the business — e.g. "Do both programs use moving-average price?"]
-- ▫ [Items that would need a data sample to verify but are out of scope under this plugin's data-extraction policy — record them here instead of extracting rows.]
+### 6.1 ZMMR_GR_LIST
 
-## 8. Appendix
+- **Package**: ▫ · **Persona**: ▫ Warehouse clerk (daily)
+- **Core data**: ▫ MSEG, MKPF
+- **Business logic**: ▫ Sum of quantities; no unit conversion
+- **Authorizations**: ▫ M_MSEG_WWA
+- **Consultant view**: ▫ (from the module consultant, when Step 4b ran)
 
-### 8.1 Authorization Objects (verbatim)
+## 7. Consolidation opportunities
 
-| Program | Object | Field | Example value |
-|---------|--------|-------|---------------|
-| ZMMR_GR_LIST | M_MSEG_WWA | WERKS, BWART | Various |
-| ZCOR_GR_LIST | F_BKPF_BUK | BUKRS, ACTVT | 03 (Display) |
+- ▫ (optional section — drop it when there is nothing to say)
 
-### 8.2 Main Tables / CDS Views
+## 8. Risks & open questions
 
-| Program | Table / CDS | Note |
-|---------|-------------|------|
-| ZMMR_GR_LIST | MSEG, MKPF | Standard MM inventory document |
-| ZCOR_GR_LIST | ACDOCA | S/4 Universal Journal |
+> [!WARNING]
+> ▫ Risks a reader must see (hard-coded org values, missing authority checks, …).
 
-### 8.3 Related CBO / Enhancement (only if dimension 8 enabled)
+- ▫ Items to confirm with the business; data-sample questions that the extraction policy keeps out of scope.
 
-| Program | CBO / Enh type | Object | Purpose |
-|---------|---------------|--------|---------|
-| ... | ... | ... | ... |
+## 9. Appendix
+<!-- audience: technical -->
 
-### 8.4 Referenced Documents
+### 9.1 Authorization objects (verbatim)
 
-- `common/active-modules.md` — active module matrix
-- `common/customization-lookup.md` — enhancement lookup procedure
-- `country/<iso>.md` — country-specific rules (loaded when dimension 9 is enabled)
-```
+| Object | Program | Fields | Value |
+|---|---|---|---|
+| **M_MSEG_WWA** | ZMMR_GR_LIST | WERKS, ACTVT | 03 |
 
-## Rendering Rules
+### 9.2 Tables / CDS
 
-1. **Omit unused sections** — if a dimension wasn't selected in Step 2, drop the corresponding matrix row AND any dedicated section (e.g. skip §8.3 if dim 8 is off).
-2. **Minimum bar**: Executive Summary + Matrix + Per-program detail + Recommendation are **always** present, even if the user picked only 3 dimensions.
-3. **Placeholder filling**: every ▫ placeholder must be replaced. If a value is genuinely unknown, write "❓ Not determined — confirmation needed" and also add it to §7 Risk & Open Questions.
-4. **Verbatim extracts** in §8 — AUTHORITY-CHECK lines and table names are pulled directly from the source, not paraphrased.
-5. **Length target** — 3–8 printed pages. Trim narrative if longer; split into two sessions if more than 5 programs.
-6. **No code snippets** — this is a consultant-facing document. If an implementation detail is load-bearing, paraphrase it in business terms.
-7. **Language localization** — when rendering for a non-English user, translate all section headers, table headers, narrative sentences, and the Legend (Same/Variant/Divergent/Unclear). Keep placeholders (▫) and technical identifiers (table names, object names, program names, authorization objects) verbatim.
+| Table / CDS | Program | Note |
+|---|---|---|
+| **MSEG** | ZMMR_GR_LIST | Material document item |
+````
+
+## Rendering rules
+
+1. **Omit unused parts** — a dimension not selected in Step 2 loses its matrix row and its own section (§4.1 needs dimension 3, §4.2 needs 6, §9.1 needs 7, §9.2 needs 4, a CBO table needs 8). §5 only when Step 5 drew at least one screen; a program without a picture gets a one-line note in that row's place, not an empty image.
+2. **Always present**: fact list, §1, §2, §4 matrix, §6, and §8 when anything is ❓.
+3. **Every ▫ replaced.** Genuinely unknown → `❓ Not determined — confirmation needed`, and the item goes to §8.
+4. **Verdict cells** start with the mark and its word (`⚠️ Divergent`), so the page colours them and the text stays readable without colour. Presence cells hold only `●` / `○` — put remarks in a separate column.
+5. **Evidence** — every per-program matrix cell whose verdict is not ✅ ends with `<span class="ev">…</span>`: the FACT it rests on, ≤ 120 characters (statement + FORM / line). A ❓ cell's evidence says what was missing.
+6. **Key columns** — in §4.1 / §4.2 / §9 the first column holds the SAP name in bold; spell it identically everywhere so the page links it.
+7. **The `Result` fact** counts the matrix verdicts, in the order Divergent · Variant · Same · Unclear.
+8. **No code snippets.** Paraphrase load-bearing logic in business terms; FORM / line anchors go in `<span class="tech">…</span>`.
+9. **Length** — 3–8 printed pages. Trim narrative before dropping sections.
+10. **Language** — translate headings, table headers, the fact-list and per-program labels (`Programs`, `Persona`, `Core data` …), the legend and verdict words; keep program, table, field and authorization object names, T-Codes and the `●` / `○` / verdict marks as they are.

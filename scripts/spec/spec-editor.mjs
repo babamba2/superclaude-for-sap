@@ -163,7 +163,7 @@ export const SPEC_EDITOR_SCRIPT = String.raw`
   var editing=false,dirty=false,ready=false,undoStack=[],active=null,activeQ=null,currentFig=null;
   var flows=[],tables=[],gloss=null,saveTimer=null,rev=null,revRow=null;
   var DRAFT_KEY='sc4sap-spec-draft:'+location.pathname,GUIDE_KEY='sc4sap-spec-guide-seen',AUTHOR_KEY='sc4sap-manual-author';
-  var UI='.toolbar,.ed-draft,.ed-guide,.ed-rowtools,.ed-addrow,.ed-litools,.ed-imgbtn,.fe-tools,.flow-edit-btn,.fe-label,.fe-bar,.tbl-tools,button.fold,pre>button.copy,.lightbox,.ql-tooltip';
+  var UI='.toolbar,.ed-draft,.ed-guide,.ed-rowtools,.ed-addrow,.ed-litools,.ed-imgbtn,.fe-tools,.flow-edit-btn,.fe-label,.fe-bar,.tbl-tools,button.fold,pre>button.copy,.lightbox,.ql-tooltip,.ev-tip';
 
   function store(k,v){try{if(v===undefined)return localStorage.getItem(k);if(v===null)localStorage.removeItem(k);else localStorage.setItem(k,v);}catch(e){}return null;}
   function arr(x){return Array.prototype.slice.call(x||[]);}
@@ -655,7 +655,7 @@ export const SPEC_EDITOR_SCRIPT = String.raw`
       if(s&&fl.edited){var d=JSON.parse(JSON.stringify(fl.data));d.graph=fl.ctl.get();d.edited=true;s.textContent=JSON.stringify(d).replace(/</g,'\\u003c');}
     });
     cleanTree(doc);
-    var body=doc.querySelector('body');body.classList.remove('editing','view-functional');if(!body.className)body.removeAttribute('class');
+    var body=doc.querySelector('body');body.classList.remove('editing','view-functional','diff-only');if(!body.className)body.removeAttribute('class');
     doc.removeAttribute('data-theme');
     doc.querySelector('#spec-source').textContent=JSON.stringify(SRC).replace(/</g,'\\u003c');
     return '<!doctype html>\n'+doc.outerHTML;

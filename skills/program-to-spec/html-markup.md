@@ -12,6 +12,7 @@ Referenced by `spec-templates.md`. The `.md` stays the source of truth; `scripts
 | Cross-reference links + tooltips | The key column of each table: the first or second column that holds SAP names (tables, parameters, BAPIs, FMs, routines, message numbers) | Put the SAP name at the **start** of its cell (`**VBAK / VBAP**`, `VBFA (SAP standard)`); put its description in the same row. Spell the name identically everywhere else |
 | `§n` links | `§2`, `§4.1` in the text | Refer to sections as `§<number>` |
 | Figures with captions | A paragraph holding only `![Caption](_assets/…/x.png)` | Give every image a meaningful alt text — it becomes the caption |
+| Figures in one row | `<!-- layout: side-by-side -->` on its own line, then one image paragraph per picture | Only for small pictures that belong together (popups of one flow, the same screen of two programs); the row ends at the first non-image block |
 | Folded long code | Fenced blocks over 30 lines | — |
 
 ## Callouts — GitHub alert syntax
@@ -52,12 +53,16 @@ The spec page is editable ([`edit-mode.md`](edit-mode.md)); its import turns the
 
 | Survives as written | Rewritten in a canonical form | Never written into the `.md` |
 |---|---|---|
-| Headings (text and numbering), paragraphs, `-` / `1.` lists with nested lists, pipe tables with alignment, `> [!KIND]` alerts, `>` quotes, `![alt](path)` figures (the relative path is kept), ```` ```mermaid ```` and code blocks, `<details>` / `<summary>`, `<span class="tech">`, `<!-- audience: … -->`, `**bold**`, `` `code` ``, `~~strike~~`, links, `<br>`, `&nbsp;`, `<sub>` / `<sup>` / `<kbd>`, `<a id>`, the fact list and frontmatter | `_italic_` → `*italic*`; list numbers become consecutive; a continued fact item joins one line; an alert's text moves to the line after `[!KIND]`; `<br>` in a heading becomes a space; a new table divider is `\|---\|` (the old one is kept while the column count is the same) | Cross-reference links and tooltips, `§n` links, row anchors, the contents, section chips, the version row, the Revision History section (regenerated from history.json), every toolbar and edit tool |
+| Headings (text and numbering), paragraphs, `-` / `1.` lists with nested lists, pipe tables with alignment, `> [!KIND]` alerts, `>` quotes, `![alt](path)` figures (the relative path is kept), ```` ```mermaid ```` and code blocks, `<details>` / `<summary>`, `<span class="tech">`, `<!-- audience: … -->`, `<!-- layout: side-by-side -->`, `<span class="ev">`, `**bold**`, `` `code` ``, `~~strike~~`, links, `<br>`, `&nbsp;`, `<sub>` / `<sup>` / `<kbd>`, `<a id>`, the fact list and frontmatter | `_italic_` → `*italic*`; list numbers become consecutive; a continued fact item joins one line; an alert's text moves to the line after `[!KIND]`; `<br>` in a heading becomes a space; a new table divider is `\|---\|` (the old one is kept while the column count is the same) | Cross-reference links and tooltips, `§n` links, row anchors, the contents, section chips, the version row, the Revision History section (regenerated from history.json), every toolbar and edit tool |
 
-So keep to the markup this file describes: anything else inside a paragraph the reader edits may be normalized. Comments other than the audience directives, and text after a comment on the same line, are only safe in blocks nobody edits.
+So keep to the markup this file describes: anything else inside a paragraph the reader edits may be normalized. Comments other than the audience and layout directives, and text after a comment on the same line, are only safe in blocks nobody edits.
 
 ## Do not
 
-- Do not add HTML layout (`<div>`, inline styles, custom classes other than `tech`). The page styles itself.
+- Do not add HTML layout (`<div>`, inline styles, custom classes other than `tech` and `ev`). The page styles itself.
+
+## Evidence behind a table cell — `<span class="ev">`
+
+Append `<span class="ev">source anchor or fact</span>` to a table cell to back its value: the page hides it and shows an ⓘ — hovering the cell opens the text as a tooltip (hidden in the Functional view, printed in small type in brackets, shown inline while editing). Keep it short (≤ 120 characters) and factual, e.g. `<span class="ev">COLLECT on MENGE (FORM sum_qty, L812)</span>`. Use it where a reader would ask "says who?" — comparison verdicts, derived values — not on every cell.
 - Do not repeat the title or fact list further down. The cover is built from them once.
 - Do not use a table only to lay out text. Tables become sortable and filterable, and their first SAP-name column becomes a glossary.

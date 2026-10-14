@@ -4,7 +4,7 @@ Shared by [`workflow-steps.md`](workflow-steps.md) (analyze-cbo-obj Step 3–7) 
 
 `<DIR>` = the **absolute** directory of the `path=` in the stocker's `WALKED` line. The stocker resolves it per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md), so it may be under `.sc4sap/work/<alias>/cbo/…` rather than `.sc4sap/cbo/…` — never rebuild it by hand.
 
-`<SAPV>` = `sapVersion` from the active profile's `config.json` (`~/.sc4sap/profiles/<alias>/config.json`, legacy `.sc4sap/config.json`), read by the main thread before Step A. **ECC mode** (`<SAPV>` = `ECC`): `GetWhereUsed` returns ADT 404 for programs and tables on ECC, so no dispatch in this flow calls it — scouts write `callers` as `n/a (ECC — where-used unavailable)` and finalize scores without a reference graph (Step D).
+`<SAPV>` = `sapVersion` from the active profile's `config.json` (`~/.sc4sap/profiles/<alias>/config.json`, legacy `.sc4sap/config.json`), read by the main thread before Step A. **ECC mode** (`<SAPV>` = `ECC`): `GetWhereUsed` returns ADT 404 for programs and tables on ECC, so no dispatch in this flow calls it — scouts write `callers` as `n/a (ECC — where-used unavailable)` and finalize scores from the source / DDIC reference graph built in Step G.
 
 ## Step A — Walk (`sc4sap:sap-stocker`, `MODE: walk`)
 
@@ -52,6 +52,10 @@ For each object return:
 
 Main writes every `CHECKER … END` block unchanged to `<DIR>/scout-facts.md`. A `BLOCKED` batch → split its inline list in two and re-dispatch once; still blocked → list those names under `## Unscanned` at the end of the file.
 
+## Step G — Reference graph + usage
+
+Runs on every package after Step C (or after the gate when Step C is skipped). It fetches the sources, then collects TCode mapping, DDIC typing and, on ECC, TCode / job usage, and builds `<DIR>/graph.json` (+ `usage-result.json`). Spec: [`graph-usage.md`](graph-usage.md). A failure in any sub-step degrades to fewer edges, never a stop.
+
 ## Step D — Finalize (`sc4sap:sap-stocker`, `MODE: finalize`)
 
 Banner: `▶ phase=finalize (stocker) · agent=sap-stocker · model=Sonnet`.
@@ -59,15 +63,17 @@ Banner: `▶ phase=finalize (stocker) · agent=sap-stocker · model=Sonnet`.
 ```
 MODE: finalize
 Package <PACKAGE> (module <MODULE>, SAP version <SAPV>). Flagship programs: <KEY_PROGRAMS or "none">.
-Inputs: <DIR>/walk.json, <DIR>/scout-facts.md (absent when the gate skipped Step C).
+Plugin root: <PLUGIN_ROOT>
+Inputs: <DIR>/walk.json, <DIR>/scout-facts.md (absent when the gate skipped Step C),
+  <DIR>/graph.json and <DIR>/usage-result.json (each absent when Step G could not build it).
 Run Investigation_Protocol steps 3–8.
 ```
 
-How the stocker uses the facts is defined in [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md) § Dispatch_Modes: the graph (step 3) comes from the `callers` facts; step 5 still reads DDIC itself for the pinned and frequently-used objects (keys, check tables for `fk_to_standard`); Logic-heavy PROG sizes come from `lines` facts or its own read. Objects that have no `callers` fact by design (DTEL / DOMA) or carry `n/a (ECC …)` are NOT re-queried with `GetWhereUsed` — only names under `## Unscanned` are. In ECC mode finalize never calls `GetWhereUsed` (also when the gate skipped Step C): it ranks by flagship pins + DDIC signals and states the limitation at the top of `index.md`.
+How the stocker uses the facts is defined in [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md) § Dispatch_Modes: the graph (step 3) comes from the `callers` facts; step 5 still reads DDIC itself for the pinned and frequently-used objects (keys, check tables for `fk_to_standard`); Logic-heavy PROG sizes come from `lines` facts or its own read. Objects that have no `callers` fact by design (DTEL / DOMA) or carry `n/a (ECC …)` are NOT re-queried with `GetWhereUsed` — only names under `## Unscanned` are. In ECC mode finalize never calls `GetWhereUsed` (also when the gate skipped Step C): it ranks from `graph.json` (in-package incoming edges) + flagship pins, or — without a graph — by flagship pins + DDIC signals, and states which at the top of `index.md`.
 
 `BLOCKED` from finalize → same one-time Opus re-dispatch as Step A.
 
-The success block (with `Logic-heavy:`) is unchanged, so the hand-off steps of both callers work as before. `walk.json` and `scout-facts.md` stay in `<DIR>` as raw artifacts.
+The success block (with `Logic-heavy:`) is unchanged, so the hand-off steps of both callers work as before. `walk.json`, `scout-facts.md` and the Step G files stay in `<DIR>` as raw artifacts.
 
 ## walk.json shape
 

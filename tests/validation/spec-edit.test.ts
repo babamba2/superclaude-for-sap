@@ -113,6 +113,51 @@ function edit(html: string, from: string, to: string, markOnly = false): string 
   return markOnly ? marked : marked.replace(from, to);
 }
 
+describe('comparison page round trip (compare-programs)', () => {
+  const CMP = `# Compare ZA vs ZB
+
+- **Programs**: ZA · ZB
+
+## 1. Matrix
+
+| # | Dimension | ZA | ZB | Verdict |
+|---|---|---|---|---|
+| 1 | Module | SD | SD | ✅ Same |
+| 2 | Logic | qty <span class="ev">COLLECT menge (F01 L120)</span> | value | ⚠️ Divergent |
+
+| Field | ZA | ZB |
+|---|---|---|
+| KUNNR | ● | ○ |
+
+## 2. Screens
+
+<!-- layout: side-by-side -->
+![ZA selection](a.png)
+
+![ZB selection](b.png)
+`;
+  const page: string = mdToHtml(CMP, { editable: true, version: '1.0', object: 'ZA__vs__ZB' });
+
+  it('keeps the source byte for byte when nothing was edited', () => {
+    expect(page).toContain('class="fig-row"');
+    const res = htmlToMd(page);
+    expect(res.md).toBe(CMP);
+    expect(res.missing).toEqual([]);
+  });
+
+  it('rewrites only an edited verdict table, keeping the directive and the figures', () => {
+    const res = htmlToMd(edit(page, 'qty', 'quantity'));
+    expect(res.md).toBe(CMP.replace('| qty <span', '| quantity <span'));
+    expect(res.changed).toHaveLength(1);
+  });
+
+  it('finds figures inside the side-by-side row', () => {
+    const res = htmlToMd(edit(page, '>ZB selection</span>', '>ZB screen</span>'));
+    expect(res.md).toContain('![ZB screen](b.png)');
+    expect(res.md).toContain('<!-- layout: side-by-side -->\n![ZA selection](a.png)');
+  });
+});
+
 describe('spec HTML ↔ Markdown round trip', () => {
   const html: string = mdToHtml(SPEC, { editable: true, version: '1.0', object: 'ZDEMO01' });
 

@@ -50,7 +50,7 @@
 | `sc4sap:create-program` | Full ABAP program pipeline — Main+Include, OOP/Procedural, ALV, Dynpro, Text Elements, ABAP Unit |
 | `sc4sap:program-to-spec` | Reverse-engineer an ABAP program into a Functional/Technical Spec (Markdown / Excel) |
 | `sc4sap:program-to-manual` | End-user manual for one program (single HTML) — scenario steps on drawn screens with numbered callouts, check points, messages & actions |
-| `sc4sap:compare-programs` | Side-by-side business comparison of 2–5 ABAP programs that split the same scenario by module / country / persona — consultant-facing Markdown report |
+| `sc4sap:compare-programs` | Side-by-side business comparison of 2–5 ABAP programs that split the same scenario by module / country / persona — consultant-facing editable HTML report (verdict matrix, field differences, screens side by side, decision guide; versioned, English companion) |
 | `sc4sap:analyze-code` | ABAP code analysis (Clean ABAP / performance / security) |
 | `sc4sap:analyze-cbo-obj` | Customer Business Object (CBO) inventory scanner with cross-module gap analysis |
 | `sc4sap:analyze-symptom` | Step-by-step SAP operational error/symptom analysis (dumps, logs, SAP Note candidates) |

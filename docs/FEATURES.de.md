@@ -48,7 +48,7 @@
 | `sc4sap:create-object` | ABAP-Objekterstellung (Hybrid-Mode — Transport + Paket bestätigen, erstellen, aktivieren) |
 | `sc4sap:create-program` | Volle ABAP-Programm-Pipeline — Main+Include, OOP/Prozedural, ALV, Dynpro, Text Elements, ABAP Unit |
 | `sc4sap:program-to-spec` | ABAP-Programm zu Fach-/Technikspezifikation reverse-engineeren (Markdown / Excel) |
-| `sc4sap:compare-programs` | Business-orientierter Seite-an-Seite-Vergleich von 2–5 ABAP-Programmen nach Modul / Land / Persona — berater-gerechter Markdown-Bericht |
+| `sc4sap:compare-programs` | Business-orientierter Seite-an-Seite-Vergleich von 2–5 ABAP-Programmen nach Modul / Land / Persona — berater-gerechter, editierbarer HTML-Bericht (Bewertungsmatrix, Feldvergleich, Bilder nebeneinander, Entscheidungshilfe; versioniert, englische Fassung) |
 | `sc4sap:analyze-code` | ABAP-Codeanalyse (Clean ABAP / Performance / Security) |
 | `sc4sap:analyze-cbo-obj` | CBO-Inventarscanner + Cross-Module-Gap-Analyse |
 | `sc4sap:analyze-symptom` | Schritt-für-Schritt-Analyse von SAP-Betriebsfehlern/-symptomen (Dumps, Logs, SAP-Note-Kandidaten) |
