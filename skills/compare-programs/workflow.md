@@ -47,6 +47,8 @@ When dimension 3 or 6 is active, the scout also returns the selection-screen dec
 
 On `status=BLOCKED reason="scope too large …"`, call `GetIncludesList(<PROG>)` and re-dispatch one checker per batch of 4 includes (same prompt, `includes:` filled, the first batch marked "first"; ≤ 16 checkers in total). CLAS / CDS objects cannot be split this way — treat them as the other `BLOCKED` case below. Any other `BLOCKED`, or a split that is still blocked → surface the reason and ask the user whether to proceed with the remaining programs or abort. Store each program's `CHECKER … END` blocks unchanged in `program_facts[<PROG>]`.
 
+**Step 3b — Message texts (main thread).** Collect the `message_class` / `message` facts of every program and read the class messages from T100 in one `GetSqlQuery` per class: `SELECT SPRSL, ARBGB, MSGNR, TEXT FROM T100 WHERE ARBGB = '<class>' AND MSGNR IN (<numbers used>) AND SPRSL IN ('<logon lang>','E')`. Explicit fields, only the numbers the facts name — the one data read this skill allows (SKILL.md § Data_Extraction_Safety). A bare `MESSAGE E019` belongs to the program's own `MESSAGE-ID` class — never assume two programs share one. Add the texts to `program_facts` as `t100` lines; a number with no row in a language is noted "(no <lang> text)". Check placeholders: a `MESSAGE … WITH x` whose text has no `&` never shows `x` — a finding for §8.
+
 ## Step 4 — Analysis & Narrative (single `sap-analyst` dispatch, Opus)
 
 **One consolidated dispatch** (prompt: [`dispatch-prompts.md`](dispatch-prompts.md) § Step 4). The analyst receives all N programs' `FACT` lines + the active dimensions + `lang`, and returns in one continuous reasoning pass:
@@ -103,7 +105,7 @@ Wait for user instruction — do not loop automatically.
 
 ## Safety Rails
 
-- Blocklist: `GetTableContents` / `GetSqlQuery` are **forbidden** in this skill — enforced per checker dispatch. Screen mockups use invented sample rows only.
+- Blocklist: `GetTableContents` is **forbidden**; `GetSqlQuery` only for the T100 message texts of Step 3b (explicit fields, the numbers used) — never in a checker dispatch. Screen mockups use invented sample rows only.
 - Country/Industry context: if dimension 9 is active, the analyst loads `country/<iso>.md` based on `.sc4sap/config.json` → `country` (or `sap.env` → `SAP_COUNTRY`). If unset, the analyst asks once for the relevant country list via its `BLOCKED` channel.
 - Module activation: respect `common/active-modules.md` — if a module is not active in the project, the analyst flags with "(module not active in this landscape — observation only)".
 - Per-call transports: this skill is **read-only** — never creates or modifies transports.

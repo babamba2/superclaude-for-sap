@@ -97,6 +97,13 @@ Legend: ✅ Same · 🔷 Variant · ⚠️ Divergent · ❓ Unclear
 - **Authorizations**: ▫ M_MSEG_WWA
 - **Consultant view**: ▫ (from the module consultant, when Step 4b ran)
 
+### 6.3 Messages compared
+
+| Message | Screen text | When it appears | ZMMR_GR_LIST | ZCOR_GR_LIST |
+|---|---|---|---|---|
+| **E019** (ZMM01) | ▫ T100 text, logon language / English | ▫ authorization check fails | ● | ○ |
+| **TEXT-E01** | ▫ Data not found. | ▫ nothing selected | ● | ● |
+
 ## 7. Consolidation opportunities
 
 - ▫ (optional section — drop it when there is nothing to say)
@@ -130,9 +137,10 @@ Legend: ✅ Same · 🔷 Variant · ⚠️ Divergent · ❓ Unclear
 2. **Always present**: fact list, §1, §2, §4 matrix, §6, and §8 when anything is ❓.
 3. **Every ▫ replaced.** Genuinely unknown → `❓ Not determined — confirmation needed`, and the item goes to §8.
 4. **Verdict cells** start with the mark and its word (`⚠️ Divergent`), so the page colours them and the text stays readable without colour. Presence cells hold only `●` / `○` — put remarks in a separate column.
-5. **Evidence** — every per-program matrix cell whose verdict is not ✅ ends with `<span class="ev">…</span>`: the FACT it rests on, ≤ 120 characters (statement + FORM / line). A ❓ cell's evidence says what was missing.
-6. **Key columns** — in §4.1 / §4.2 / §9 the first column holds the SAP name in bold; spell it identically everywhere so the page links it.
-7. **The `Result` fact** counts the matrix verdicts, in the order Divergent · Variant · Same · Unclear.
-8. **No code snippets.** Paraphrase load-bearing logic in business terms; FORM / line anchors go in `<span class="tech">…</span>`.
-9. **Length** — 3–8 printed pages. Trim narrative before dropping sections.
-10. **Language** — translate headings, table headers, the fact-list and per-program labels (`Programs`, `Persona`, `Core data` …), the legend and verdict words; keep program, table, field and authorization object names, T-Codes and the `●` / `○` / verdict marks as they are.
+5. **Message references** — every message the report names is written `CODE (text)` with the text as SAP shows it, e.g. `E019 (You are not authorized …)`, `TEXT-E02 (Select lines.)` — in prose, matrix cells, callouts and the appendix alike. Never a bare code. §6.3 lists them all; a text missing in the report language is quoted in English and noted.
+6. **Evidence** — every per-program matrix cell whose verdict is not ✅ ends with `<span class="ev">…</span>`: the FACT it rests on, ≤ 120 characters (statement + FORM / line). A ❓ cell's evidence says what was missing.
+7. **Key columns** — in §4.1 / §4.2 / §9 the first column holds the SAP name in bold; spell it identically everywhere so the page links it.
+8. **The `Result` fact** counts the matrix verdicts, in the order Divergent · Variant · Same · Unclear.
+9. **No code snippets.** Paraphrase load-bearing logic in business terms; FORM / line anchors go in `<span class="tech">…</span>`.
+10. **Length** — 3–8 printed pages. Trim narrative before dropping sections.
+11. **Language** — translate headings, table headers, the fact-list and per-program labels (`Programs`, `Persona`, `Core data` …), the legend and verdict words; keep program, table, field and authorization object names, T-Codes and the `●` / `○` / verdict marks as they are.

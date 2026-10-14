@@ -106,7 +106,7 @@ Do not skip the companion-file reads — the dimension list, step order, and rep
 </Execution_Summary>
 
 <Data_Extraction_Safety>
-This skill reads **source code + DDIC metadata + where-used + screen/GUI-status/text-element metadata** only. It does NOT call `GetTableContents` or `GetSqlQuery`. Sample rows in the drawn screens are invented — never business data, never real customer, vendor or company names. If the user asks for sample row data to illustrate a difference, refuse per `common/data-extraction-policy.md` and document the request in the report's `Risk & Open Questions` section instead.
+This skill reads **source code + DDIC metadata + where-used + screen/GUI-status/text-element metadata** only. It does NOT call `GetTableContents`; its one `GetSqlQuery` is the T100 lookup of the message texts the programs use (workflow Step 3b: fields `SPRSL, ARBGB, MSGNR, TEXT`, only the classes and numbers in the facts, logon language + `E`). Sample rows in the drawn screens are invented — never business data, never real customer, vendor or company names. If the user asks for sample row data to illustrate a difference, refuse per `common/data-extraction-policy.md` and document the request in the report's `Risk & Open Questions` section instead.
 </Data_Extraction_Safety>
 
 <Related_Skills>

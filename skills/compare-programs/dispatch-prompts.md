@@ -34,6 +34,11 @@ Return one FACT line per item (obj=<PROG>, kind=PROG|CLAS|FUGR|DDLS); value = ve
 - key="output_column"      value="<fieldname> title=<text> [key] [edit] [hotspot] [no_out]"   (field catalog / WRITE)
 - key="gui_button"         value="<status> <fcode> <text> icon=<ICON_*> key=<F-key>"   (dims 3 / 6 only)
 - key="screen" / "gui_status" / "text_counts"   — number + title / code + function count / symbols + messages
+- key="message_class"      value="<REPORT … MESSAGE-ID xxx>"   (the default class of bare `MESSAGE E019`)
+- key="message"            value="<active MESSAGE statement, verbatim> (FORM, line)"   — skip commented ones, but
+                          list a commented MESSAGE that the comparison hinges on with "(commented)"
+- key="text_symbol"        value="<KEY> <lang> <text>"   for every TEXT-xxx a MESSAGE or a message field uses
+                          (GetTextElement type I, logon language first, then E; say "no <lang> pool" when it fails)
 - key="enhancement"        value="<name> <type> <status>"   (dim 8 only)
 - key="callers"            value="<count> top=<up to 10>"   (only when asked)
 
@@ -70,6 +75,8 @@ E. Field presence (dims 3 / 6) — every selection field and every visible outpu
    program: name, business meaning, ● / ○ per program. Same field under another name in another
    program → one row, note the names.
 F. Per program: package, T-Code, persona + timing, core data, logic summary, authorizations.
+   Messages: one row per message either program shows — code with class, the T100 / text-symbol
+   text, when it appears, ● / ○ per program; flag MESSAGE … WITH x whose text has no & (x never shows).
    Then consolidation opportunities and risks / open questions (hard-coded values, missing checks).
 G. module_set: [MM, CO, ...] when the programs span 2+ modules (drives Step 4b).
 
