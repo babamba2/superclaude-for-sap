@@ -33,7 +33,8 @@ FUNCTION zmcp_adt_dispatch
 *   CUA_DELETE     — delete GUI status (RS_CUA_DELETE)
 *   TABLE_READ     — read-only SELECT on an allow-listed customizing table
 *                    (MODACT, MODATTR, MODSAP, GB31, GB92, GB93, T001D, T001Q,
-*                    TBE24, TBE34, TPS34, TFRM, TFRMT, T100); the
+*                    TBE24, TBE34, TPS34, TFRM, TFRMT, T100, TSTC, TSTCP,
+*                    DD03L, DD04L); the
 *                    MCP server's GetSqlQuery / GetTableContents fallback, as
 *                    ECC has no ADT data preview
 
@@ -551,7 +552,8 @@ ENDFORM.
 * Used by the MCP server where the ADT data preview is missing (BASIS < 7.50):
 * GetSqlQuery / GetTableContents on CMOD (MODACT/MODATTR/MODSAP),
 * GGB (GB31/GB92/GB93, FI assignment T001D/T001Q), BTE (TBE24/TBE34/TPS34),
-* VOFM routines (TFRM/TFRMT) and message texts (T100).
+* VOFM routines (TFRM/TFRMT), message texts (T100), transaction codes
+* (TSTC/TSTCP) and DDIC field / data element types (DD03L/DD04L).
 * params: table_name, field_list (string table), condition, max_rows
 * result: rows (array of objects) and count
 FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message TYPE string ev_result TYPE string.
@@ -589,7 +591,9 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
      AND lv_tab <> 'GB31' AND lv_tab <> 'GB92' AND lv_tab <> 'GB93'
      AND lv_tab <> 'T001D' AND lv_tab <> 'T001Q'
      AND lv_tab <> 'TBE24' AND lv_tab <> 'TBE34' AND lv_tab <> 'TPS34'
-     AND lv_tab <> 'TFRM' AND lv_tab <> 'TFRMT' AND lv_tab <> 'T100'.
+     AND lv_tab <> 'TFRM' AND lv_tab <> 'TFRMT' AND lv_tab <> 'T100'
+     AND lv_tab <> 'TSTC' AND lv_tab <> 'TSTCP'
+     AND lv_tab <> 'DD03L' AND lv_tab <> 'DD04L'.
     ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
     RETURN.
   ENDIF.
