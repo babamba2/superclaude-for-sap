@@ -2091,6 +2091,11 @@ const BTN_ICONS = {
   detail: '☰', display: '☰', mail: '✉', edit: '✎', change: '✎', copy: '⧉',
   okay: '✓', system_save: '✓', simulate: '◔', transport: '⇄', delivery: '⇨',
   payment: '¤', disconnect: '⊗', operator: '±', delete_row: '✕', insert_row: '+',
+  list: '☰', convert: '⇆', release: '⚑', history: '↺', import: '⇲', receipts: '▤',
+  document: '▤', order: '▤', material: '▣', select: '☑', search: '⌕', find: '⌕',
+  information: 'ℹ', info: 'ℹ', warning: '⚠', calendar: '▦', date: '▦', total: 'Σ',
+  expand: '⊞', collapse: '⊟', link: '⛓', attachment: '⎘', unlocked: '⊙', locked: '⊗',
+  next: '›', previous: '‹', first: '«', last: '»', reject_all: '⊘', post: '⇨',
 };
 // SAP icon names as the GUI status / ALV toolbar define them (ICON_REFRESH,
 // ICON_TRANSPORT, …) map onto the keywords above, so a writer can copy the
@@ -2098,7 +2103,20 @@ const BTN_ICONS = {
 const SAP_ICON_ALIAS = {
   red_light: 'reject', green_light: 'check', led_green: 'check', led_red: 'reject',
   create: 'create', select_all: 'check', deselect_all: 'cancel', display_text: 'display',
+  execute_object: 'execute', system_undo: 'undo', te_receipts: 'receipts', biw_report: 'list',
+  import_transport_request: 'import', import_all_requests: 'import', export_transport_request: 'export',
+  list_box: 'list', overview: 'list', history_note: 'history', booking_ok: 'post', posting: 'post',
+  doc_item_detail: 'detail', select_detail: 'detail', ws_truck: 'delivery', delivery_2: 'delivery',
 };
+/** A compound SAP icon name (`system_undo`, `te_receipts`) falls back to a word of it that has a glyph. */
+function iconByWord(key) {
+  const words = key.split('_').filter(Boolean);
+  for (const w of [words[0], ...words.slice(1).reverse()]) {
+    if (BTN_ICONS[w]) return BTN_ICONS[w];
+    if (BTN_ICONS[w?.replace(/s$/, '')]) return BTN_ICONS[w.replace(/s$/, '')];
+  }
+  return '';
+}
 const STD_ALV_BUTTONS = ['detail', 'sort', 'filter', 'sum', 'export'].map(icon => ({ icon, std: true }));
 
 const TB_ROW_H = 32, TB_BTN_H = 22, TB_PAD_X = 10, TB_GAP = 6, TB_CAPTION_W = 44, TB_SEP_W = 8;
@@ -2110,7 +2128,7 @@ function btnIcon(b) {
     key = key.slice(5);
     key = SAP_ICON_ALIAS[key] || key;
     // An SAP icon without a drawable glyph draws no icon rather than its name.
-    return BTN_ICONS[key] || '';
+    return BTN_ICONS[key] || iconByWord(key);
   }
   if (BTN_ICONS[key]) return BTN_ICONS[key];
   return key && [...String(b.icon)].length <= 2 ? String(b.icon) : '';

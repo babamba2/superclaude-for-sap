@@ -111,7 +111,8 @@ Inputs:
 Do, in order:
 1. Screens (dims 3 / 6 only) — per program with a selection screen or list output, write
    <base>/_img/<NAME>/<PROG>.image-spec.json (lang, selection and/or alv only; transcribe the
-   selection_def lines 1:1; columns from output_column; buttons from gui_button; 2–3 invented
+   selection_def lines 1:1; columns from output_column; buttons from gui_button, each with its
+   icon=ICON_* (quickinfo-only cancel buttons too — never drop an icon the fact names); 2–3 invented
    sample rows, never business data). Then run
    node "<plugin_root>/scripts/spec/render-md-images.mjs" <that json> <base>/_assets/<NAME>-<lang>/<PROG>/
    Fix and re-render on a selection ⚠ line; ignore "has no usable buttonFlows entry".
