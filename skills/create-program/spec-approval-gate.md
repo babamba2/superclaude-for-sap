@@ -50,7 +50,7 @@ One-paragraph summary of what the program does and who uses it.
 
 ## 3. Technical Design
 - Paradigm: OOP / Procedural
-- Include structure: main + which includes (t/s/c/a/o/i/e/f/_tst)
+- Include structure: main + which includes (OOP t/s/c/ct/e/o/i; Procedural t/s/o/i/f + c/a), `alvFramework` mode used (OOP)
 - Class hierarchy (if OOP): LCL_DATA / LCL_ALV / LCL_EVENT
 - Screens + GUI Status (if any)
 - Text Elements registered

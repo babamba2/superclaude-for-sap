@@ -1,0 +1,131 @@
+{
+  "case": "GS06",
+  "paradigm": "Procedural",
+  "display_mode": "SALV popup (CL_SALV_TABLE)",
+  "package": "$TMP",
+  "transport": null,
+  "planted_summary": "Main program contains no INCLUDE statements although plan.md lists ZSC4SAP_GS06T / S / F: TYPES, CONSTANTS, DATA, selection screen, event blocks and all FORMs are inlined into Main.",
+  "objects": [
+    {
+      "type": "PROG/P",
+      "name": "ZSC4SAP_GS06",
+      "parent": null,
+      "description": "Flight list (SALV popup)"
+    }
+  ],
+  "screens": [],
+  "gui_statuses": [],
+  "text_elements": {
+    "languages": [
+      "E",
+      "<PRIMARY>"
+    ],
+    "rows": [
+      {
+        "type": "R",
+        "text": "Flight list (SALV popup)"
+      },
+      {
+        "type": "I",
+        "key": "B01",
+        "text": "Selection"
+      },
+      {
+        "type": "I",
+        "key": "M01",
+        "text": "No flights found for the selection"
+      },
+      {
+        "type": "I",
+        "key": "M02",
+        "text": "No airline matches the selection"
+      },
+      {
+        "type": "S",
+        "key": "S_CARRID",
+        "text": "Airline"
+      },
+      {
+        "type": "S",
+        "key": "S_FLDATE",
+        "text": "Flight date"
+      }
+    ]
+  },
+  "activation": {
+    "activate": [
+      "ZSC4SAP_GS06"
+    ],
+    "must_stay_inactive": []
+  },
+  "steps": [
+    {
+      "step": 1,
+      "tool": "CreateProgram",
+      "args": {
+        "program_name": "ZSC4SAP_GS06",
+        "package_name": "$TMP",
+        "program_type": "executable",
+        "description": "Flight list (SALV popup)"
+      }
+    },
+    {
+      "step": 2,
+      "tool": "UpdateProgram",
+      "args": {
+        "program_name": "ZSC4SAP_GS06",
+        "source_file": "src/ZSC4SAP_GS06.abap",
+        "activate": false
+      },
+      "note": "PLANTED (GS06): single source, no includes are created although plan.md lists t/s/f."
+    },
+    {
+      "step": 3,
+      "tool": "ActivateObjects",
+      "args": {
+        "objects": [
+          {
+            "name": "ZSC4SAP_GS06",
+            "type": "PROG/P"
+          }
+        ]
+      }
+    },
+    {
+      "step": 4,
+      "tool": "WriteTextElementsBulk",
+      "args": {
+        "program_name": "ZSC4SAP_GS06",
+        "language": "E",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      }
+    },
+    {
+      "step": 5,
+      "tool": "WriteTextElementsBulk",
+      "args": {
+        "program_name": "ZSC4SAP_GS06",
+        "language": "<PRIMARY>",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      },
+      "note": "Repeat with the system primary logon language (config.json systemInfo.language / SAP_LANGUAGE). Skip when it is E. English text is acceptable."
+    },
+    {
+      "step": 6,
+      "tool": "GetInactiveObjects",
+      "args": {
+        "filter": "ZSC4SAP_GS06*"
+      },
+      "note": "Expected: 0 entries. Re-activate leftovers before continuing."
+    }
+  ],
+  "cleanup": "DeleteProgram ZSC4SAP_GS06 (with includes / screen / status) - only with explicit per-call user approval."
+}

@@ -41,7 +41,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
 
   <Constraints>
     - SAP side is **read-only**: no Create / Update / Delete / Activate / Patch MCP tools are available. If the work requires a new object, return `NEEDS_CREATE` with the proposed name + rationale and stop — let the orchestrating skill dispatch sap-executor.
-    - Local file writes are **allowed but confined** to `.sc4sap/cbo/**` and `.sc4sap/blocklist-extend.txt`. Do not touch project source (`sc4sap/**`) or user code.
+    - Local file writes are **allowed but confined** to the package inventory directory (`.sc4sap/cbo/**`, or `.sc4sap/work/<alias>/cbo/**` when resolved per `multi-profile-artifact-resolution.md`) and `.sc4sap/blocklist-extend.txt`. Do not touch project source (`sc4sap/**`) or user code.
     - Never call `GetTableContents` or `GetSqlQuery`. Inventory is built from DDIC metadata (`GetTable`, `GetStructure`, `GetDataElement`, `GetObjectInfo`) and `GetWhereUsed` — never from row data.
     - Respect package scope strictly: when building the where-used graph, **drop callers outside the target package** (they inflate counts with SAP-standard noise).
     - Cross-module classification requires `SAP_ACTIVE_MODULES`. If unset, emit `crossModuleGaps: "skipped — SAP_ACTIVE_MODULES not configured"` instead of guessing.
@@ -50,13 +50,20 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
   <Investigation_Protocol>
     1) Resolve target: package name (from caller args or Socratic ask), module, optional `<KEY_PROGRAMS>` flagship list.
     2) Walk: `GetPackageContents` + `GetPackageTree` → collect TABL / STRU / TTYP / DTEL / DOMA / VIEW / CLAS / INTF / FUGR / PROG / DDLS / BDEF / SRVB (as applicable by sapVersion).
-    3) Graph: per object `GetWhereUsed` → filter to in-package callers → compute `ref_count`, `used_by_key_programs`, `key_boost = len(used_by_key_programs) * 10`, `score`.
+    3) Graph: per object `GetWhereUsed` → filter to in-package callers → compute `ref_count`, `used_by_key_programs`, `key_boost = len(used_by_key_programs) * 10`, `score`. Skip DTEL / DOMA (`ref_count` from DDIC signals instead: in-package fields / components / DTEL→DOMA links seen in the reads). **ECC** (`sapVersion` = `ECC`): `GetWhereUsed` returns ADT 404 for programs and tables — never call it; `ref_count` = in-package DDIC references seen in step 5 reads (field → DTEL, DTEL → DOMA, TTYP → line type, FM / method signature → STRU / TTYP), `used_by_key_programs` = [] unless the caller supplied them, and the top of `index.md` states `Reference graph unavailable on ECC (where-used) — ranking by flagship pins + DDIC signals`.
     4) Classify: rank into "frequently used" by `score` with package-size thresholds (small <30 ≥2 · medium 30–150 ≥3 · large >150 ≥5). Flagship-referenced → always pinned regardless of count.
     5) Interpret: per frequently-used object, pull DDIC signals (`GetObjectInfo`, `GetTable`, `GetDataElement`, `GetClass`, `GetFunctionModule`) and emit a 1–2 sentence business purpose + role tag.
     6) Cross-module gap: for each module in `SAP_ACTIVE_MODULES`, consult `common/active-modules.md` and record expected-but-missing integration fields per the matrix.
     7) Safety check: flag sensitive-name objects against `exceptions/custom-patterns.md`; suggest blocklist extensions.
     8) Persist: `.sc4sap/cbo/<MODULE>/<PACKAGE>/{index.md, inventory.json}` (+ optional `raw-walk.md` if package < 200 objects).
   </Investigation_Protocol>
+
+  <Dispatch_Modes>
+    The prompt's first line may name a mode (spec: `skills/analyze-cbo-obj/stocker-fanout.md`). No mode line → run steps 1–8 as above.
+    - `MODE: walk` — steps 1–2 only. Write `walk.json` in the package's inventory directory (resolved per `multi-profile-artifact-resolution.md`): `package`, `module`, `key_programs`, `objects[{name,type}]`, `batches[]` of 20 `"NAME:TYPE"` strings (widen batches so there are at most 16). Return exactly `WALKED objects=<n> batches=<b> path=<absolute path of walk.json>`.
+    - `MODE: finalize` — steps 3–8. Read `walk.json` and, when present, `scout-facts.md` (Haiku `sap-checker` FACT lines: `callers` in_pkg / names / flagship, `ddic`, `lines`). Step 3: take `ref_count` / `used_by_key_programs` from the `callers` facts; call `GetWhereUsed` only for objects under `## Unscanned`, or for every object when `scout-facts.md` is absent. DTEL / DOMA (no `callers` fact by design) and `callers` = `n/a (ECC …)` are never re-queried — they follow the step 3 DTEL / DOMA and ECC rules; on ECC no `GetWhereUsed` call at all, even for `## Unscanned` objects. Step 5: the `ddic` facts are a first pass only — still read DDIC yourself for the pinned and frequently-used objects (keys, check tables for `fk_to_standard`). Logic-heavy PROG size: `lines` fact when present, else read it. A fact that contradicts a read you make → trust your read and note it in `index.md`. Per-type object counts in `index.md` / `inventory.json` are computed from `walk.json → objects[]`, never re-counted by hand. **`graph.json` present** (Step G, spec `skills/analyze-cbo-obj/graph-usage.md`): `ref_count` = in-package incoming edges except `include` (run `node <PLUGIN_ROOT>/scripts/graph/graph-query.mjs <DIR>/graph.json stats` → `degree[].in`; never open graph.json whole), and `used_by_key_programs` = flagship programs whose `reach` contains the object; this replaces the scout `callers` facts and the ECC fallback. **`usage-result.json` present**: copy each member status into `inventory.json → objects[].usage` (`direct` / `indirect` / `unused` / `no-evidence`) and `{ window, counts, caveats }` into `inventory.json → usage`. Add a `## Usage` section to `index.md` with the counts, the caveats verbatim, and the direct and unused lists. Never call a `no-evidence` object unused.
+    - Caller-specific text in the prompt always comes after the `MODE:` line.
+  </Dispatch_Modes>
 
   <Output_Format>
     Return to the caller:
@@ -75,6 +82,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
     - A pinned (flagship-referenced) object has type `FUGR`, `CLAS`, or `INTF`.
     - Frequently-used set contains ≥ 3 objects of types `FUGR` / `CLAS` / `INTF` combined.
     - A pinned object is a `PROG` with ≥ 500 source lines (heuristic: real business logic, not a thin wrapper).
+    - ECC with `usage-result.json`: a `PROG` with ≥ 500 source lines (main + includes) whose `usage` is `direct` or `indirect`. Size alone never counts — an `unused` / `no-evidence` large PROG does not set the flag.
 
     Otherwise `false` (DDIC-dominant inventory — caller can emit a canned summary without dispatching a briefing). The flag is also persisted into `inventory.json → logic_heavy` for downstream consumers.
 
@@ -82,7 +90,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
   </Output_Format>
 
   <Delegation_Boundary>
-    - Called BY: `/sc4sap:analyze-cbo-obj` (primary), `/sc4sap:create-program` Phase 1/2 (when `inventory.json` is missing for the target package), and any `sap-*-consultant` when CBO stocking is needed to answer a module question.
+    - Called BY: `/sc4sap:analyze-cbo-obj` (primary), `/sc4sap:package-to-process` Step 2 (inventory missing / stale), `/sc4sap:create-program` Phase 1/2 (when `inventory.json` is missing for the target package), and any `sap-*-consultant` when CBO stocking is needed to answer a module question.
     - Consultants decide WHAT to recommend; stocker collects WHAT EXISTS. A consultant MUST NOT walk a package itself — always dispatch to sap-stocker, consume the resulting `inventory.json`, then reason on top.
     - `/sc4sap:program-to-spec` integration is **deferred** (owned by a parallel developer; do not self-invoke from that skill).
   </Delegation_Boundary>

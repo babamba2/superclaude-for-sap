@@ -10,8 +10,11 @@
 
 > Claude Code plugin for SAP ABAP development — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private)
 
+**Website:** [sc4sap.dev](https://sc4sap.dev)
+
+[![Website](https://img.shields.io/badge/website-sc4sap.dev-0A66C2)](https://sc4sap.dev)
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)
-[![Plugin version](https://img.shields.io/badge/sc4sap-v0.6.0-6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
+[![Plugin version](https://img.shields.io/github/package-json/v/babamba2/superclaude-for-sap/main?label=sc4sap&color=6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
 [![GitHub stars](https://img.shields.io/github/stars/babamba2/superclaude-for-sap?style=flat&color=yellow)](https://github.com/babamba2/superclaude-for-sap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -28,7 +31,8 @@ SuperClaude for SAP transforms Claude Code into a full-stack SAP development ass
 | 🏗️ **Formatted Auto Program Maker** | Builds ABAP programs end-to-end: Main + conditional Includes (OOP/Procedural), full ALV + Docking, Dynpro + GUI Status, mandatory Text Elements, ABAP Unit tests — platform-aware (ECC / S4 On-Prem / Cloud). |
 | 🔍 **Program Analyze** | Read any ABAP object via MCP, run Clean ABAP / performance / security review, or reverse-engineer into Functional/Technical Spec (Markdown/Excel). |
 | 🧪 **Analyze Code** | `/sc4sap:analyze-code` — dedicated static review pass (`sap-code-reviewer`): Clean ABAP, performance, security, SAP standard compliance. Severity-ranked findings with concrete fix suggestions. |
-| 🔀 **Compare Programs** | `/sc4sap:compare-programs` — side-by-side business comparison of 2–5 ABAP programs that share the same scenario but split by module (MM/CO), country (KR/EU), or persona (controller/warehouse). Consultant-facing Markdown report across 10 configurable dimensions. |
+| 🔀 **Compare Programs** | `/sc4sap:compare-programs` — side-by-side business comparison of 2–5 ABAP programs that share the same scenario but split by module (MM/CO), country (KR/EU), or persona (controller/warehouse). Consultant-facing editable HTML report across 10 configurable dimensions — coloured verdict matrix with a *Differences only* switch, field-by-field differences, screens drawn side by side, decision guide, versions + English companion. |
+| ⚙️ **Config → Document** | `/sc4sap:config-to-document` — one module's configuration documented as it is in the connected system (MM first). One offline HTML file that follows the IMG tree: per IMG activity the real table values drawn on an SM30-style screen, rows changed by customer transports with their transport history, configuration checks, SAP's IMG documentation, and consultant notes written by the module consultant agent and reviewed by `sap-critic`. Read-only on SAP; an in-page edit mode lets the consultant correct the notes and hand the file back for the next version. |
 | 🗺️ **Package → Process** | `/sc4sap:package-to-process` — reverse-engineer a CBO package into an **end-to-end business-process** document: auto-detected TCode entry points → AI process grouping (PR→PO→GR→IR) → per-process narrative + Mermaid flowchart / sequence diagram + step tables. Auto-chains `sap-stocker` when CBO inventory is missing. → `.sc4sap/processes/<MODULE>/<PACKAGE>/`. |
 | 🩺 **Maintenance Diagnosis** | Operational triage loop: ST22 dumps, SM02 system messages, /IWFND/ERROR_LOG, profiler traces, logs, where-used graphs — all from Claude. |
 | ♻️ **CBO Reuse (Brownfield Accelerator)** | Inventory a Z-package once — `create-program` / `program-to-spec` prefer reusing existing CBO assets over duplicates. |

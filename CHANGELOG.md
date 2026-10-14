@@ -3,6 +3,62 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+## [0.6.36] — 2026-10-15
+
+### Added — `config-to-document`: module configuration from the live system
+
+- New skill `/sc4sap:config-to-document` (MM first): one HTML file along the module's IMG tree — per IMG activity the real table values drawn on an SM30-style screen, rows changed by customer transports with their transport history, configuration checks (`configs/<MODULE>/config-checks.json`), SAP's IMG documentation, and consultant notes written by the module consultant agent and reviewed by `sap-critic`. Output: `config-docs/<MODULE>/<MODULE>-config-v<n>-<lang>.html` under the profile artifact base.
+- Reference panel per IMG activity, written by the consultant agent and reviewed by `sap-critic`: SAP documentation summarised in the document language, 2–3 setup cases with flow diagrams and which one the system follows, comparison table, decision checklist, decision criteria, and sources limited to official SAP documentation (SAP Help Portal, SAP Notes / KBAs, SAP Learning — anything else is refused on save).
+- The notes scope (customized / all with values / all / none) is asked on every run with its batch count and measured cost; reviewed activities are not rewritten.
+- Names SAP has no text for in the document language (IMG folders, activity titles, field labels) are translated once by the consultant agent, reviewed, and reused by later runs.
+- Number range activities show their intervals (NRIV) on an SNUM-style screen; view variants (`VV_*`) resolve to their base table and selection condition.
+- Edit mode in the page: the consultant notes and the reference panel become editable plain text (list items added or deleted, notes added to an activity without them, sources deleted) while the value tables stay read-only; undo, browser autosave with "continue editing", an "Edited" badge per note. "Save" downloads the page with the edits embedded; `build-config-doc.mjs --import <file>` merges them into `notes/edits.json` so every later version keeps them. Edits never enter the knowledge base.
+- Knowledge base of reviewed notes (`notes.mjs kb`): the system-independent part of every reviewed note is kept under `~/.sc4sap/kb/config/<MODULE>/<lang>/`; later runs — the same or another system — write only the system part of those activities, with no web research.
+- Cheaper reviews: a verified-source cache (`notes-sources.mjs`) hands earlier-accepted official pages to the writer and lets the reviewer skip re-opening them; `notes-lint.mjs` checks a batch before review at no token cost — count statements against the snapshot (customer transports only, truncated tables flagged), every named transaction resolved against TSTC / the IMG, check findings the notes leave out.
+- Tables capped at the 5000-row `TABLE_READ` limit are read again per value of their first key field, so output determination (usage B) rows are no longer cut off behind pricing rows.
+
+### Fixed — `config-to-document`
+
+- Customer rows count customer transports only (`<SID>K` + 6 characters); SAP delivery records (`SAPK…`, command files such as `P30A_C_SFC`, `/SPE/100_CUST`) are no longer counted as customer changes.
+- View conditions on blank values (`INAKTIV = ' '`) match empty fields.
+
+### Fixed — screen drawings
+
+- ALV cells cut a value wider than its column with "…" instead of drawing it over the next column; `config-to-document` sizes each column to its longest shown value (80–240 px). Measured on a full MM document: 288 drawings had overlapping or spilling texts before, none after.
+
+### Changed — MCP pin
+
+- `abap-mcp-adt-powerup` pin `bbb2e98` (4.8.9) → `1af0724` (4.8.12 + legacy `TABLE_READ` passes every table to `ZMCP_ADT_DISPATCH`, which decides by delivery class).
+
+### Added — model routing for Opus 5.5 and a Haiku checker
+
+- `common/model-routing-rule.md` rewritten for the Opus 5.5 / Sonnet 5.5 / Haiku 5.5 tiers with effort per agent role, an escalation pattern and a fan-out table; HUD pricing for the 5.5 models.
+- New agent `sap-checker` (Haiku, read-only) for narrow scout / verify / detect jobs with a line-oriented output contract.
+- `create-program`: Phase 1A DDIC scout, Phase 4 verification by checker, Phase 6 detect-judge behind a golden-set gate; the reviewer stays read-only.
+- `analyze-code`: a size scout first; large objects go through checker detection over five rule groups and an Opus judge, and every finding gets a Haiku evidence check (unconfirmed ones are listed separately).
+- `compare-programs` facts scouts and the CBO stocking walk / scout / finalize fan-out (`analyze-cbo-obj`, `package-to-process`) use the checker as well.
+
+### Added — editable reports
+
+- `program-to-spec`: versioned spec pages with an in-page editor; `html-to-md.mjs` turns an edited page back into Markdown (untouched blocks byte-exact) and imports it as the next version with history.
+- `compare-programs`: one editable, versioned HTML report with an English companion — fact card, decision guide, verdict matrix with evidence, field presence, both programs' screens side by side, message texts quoted from T100 / the text pool — plus an optional Excel copy (`md-to-xlsx.mjs`).
+
+### Added — other
+
+- CBO reference graph (`scripts/graph/`): ABAP statement lexer, edge extraction (include, calls, submits, reads, writes, types, uses) with evidence lines, and queries (callers, reach, impact, flow, components).
+- `package-to-process`: multi-profile output paths, `_state/` checkpoints with resume, parallel narrative and render steps.
+- Conventions: include names without underscores plus a `{PROG}ct` test include, tabstrip screens, the OK_CODE contract, an ALV framework option in `sap-option`, ABAP 7.40 SP05 / SP08 feature gates.
+- ECC ABAP: usage FMs `ZMCP_WL_TCODE_USAGE` / `ZMCP_WL_JOB_USAGE` (back MCP `GetTcodeUsage` / `GetJobUsage`); `ZMCP_ADT_DISPATCH` gets a real `DYNPRO_INSERT`, the 7.40 `TR_KEY` for `CUA_WRITE`, and `TSTC` / `TSTCP` / `DD03L` / `DD04L` reads.
+- Screen renderer draws the common SAP toolbar icons (list, convert, release, history, …).
+- `.mjs` files check out with LF line endings; homepage links point at sc4sap.dev.
+
+### Changed — `ZMCP_ADT_DISPATCH` `TABLE_READ` (ECC)
+
+- Reads customizing and system tables by delivery class (C, G, E, S) plus a fixed list of repository tables (CMOD, TSTC, DDIC metadata, transport keys); application data and credential tables are still refused.
+- Fields inside a `.INCLUDE` can be selected.
+
 ## [0.6.35] — 2026-10-07
 
 ### Added — customization extraction: VOFM routines

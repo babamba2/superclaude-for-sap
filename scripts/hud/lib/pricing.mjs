@@ -1,11 +1,14 @@
 // Pricing per 1M tokens (USD), Anthropic first-party rates. Update when Anthropic changes rates.
-// Last checked 2026-09-28 against the claude-api skill's model table (cached 2026-06-24).
+// Last checked 2026-10-12 against the claude-api skill's model table (cached 2026-10-06).
+// Single price source for the HUD, common/model-routing-rule.md and tests/golden/phase6/run-plan.md § Cost.
 // Context-window size is NOT here — it depends on the plan; see context-window.mjs.
 // Keys match model.id by prefix (longest-first lookup), so `claude-opus-5-5` wins over
 // `claude-opus-5`, and the bare family keys (`claude-opus`, …) only catch versions not listed.
 // The [1m] suffix in model IDs (e.g. `claude-opus-5-5[1m]`) is transparently handled
 // by startsWith() — the entry matches regardless of whether the 1M indicator is present.
 // cacheWrite is the 5-minute TTL rate (1.25× input); 1-hour writes are priced in costOf().
+// `longPrompt` (optional): rates applied to a whole request whose prompt (input + cache read +
+// cache write tokens) exceeds `threshold` tokens.
 
 const rates = (input, output, cacheRead = input * 0.1) =>
   ({ input, output, cacheWrite: input * 1.25, cacheWrite1h: input * 2, cacheRead });
@@ -16,6 +19,10 @@ export const PRICING = {
   'claude-fable-5':     rates(10, 50),
   'claude-mythos-5':    rates(10, 50),
   'claude-opus-5-5':    rates(4, 20, 0.20),
+  'claude-sonnet-5-5':  rates(2, 10, 0.20),
+  // Haiku 5.5: input/output $0.10/$0.50 for prompts ≤ 100K tokens, $0.50/$2.50 above (skill table).
+  // Cache prices are unverified — the source lists none; assumed 1.25× / 2× / 0.1× of input.
+  'claude-haiku-5-5':   { ...rates(0.10, 0.50), longPrompt: { threshold: 100_000, ...rates(0.50, 2.50) } },
   'claude-opus-5':      rates(5, 25),
   'claude-opus-4-8':    rates(5, 25),
   'claude-opus-4-7':    rates(5, 25),
@@ -52,6 +59,8 @@ export function costOf(usage, price) {
   const cr     = (usage.cache_read_input_tokens || 0);
   // Split cache writes by TTL when the breakdown is present; otherwise treat all as 5-minute.
   const cwTotal = (usage.cache_creation_input_tokens || 0);
+  const lp = price.longPrompt;
+  if (lp && inTok + cr + cwTotal > lp.threshold) price = lp;
   const cw1h    = Math.min(usage.cache_creation?.ephemeral_1h_input_tokens || 0, cwTotal);
   const cw5m    = cwTotal - cw1h;
   const write1h = price.cacheWrite1h ?? price.cacheWrite;

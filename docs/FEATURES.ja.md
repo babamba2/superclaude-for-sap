@@ -48,7 +48,8 @@
 | `sc4sap:create-object` | ABAP オブジェクト作成 (ハイブリッドモード — トランスポート + パッケージ確認、作成、アクティブ化) |
 | `sc4sap:create-program` | フル ABAP プログラムパイプライン — Main+Include、OOP/Procedural、ALV、Dynpro、Text Elements、ABAP Unit |
 | `sc4sap:program-to-spec` | ABAP プログラムを機能/技術仕様にリバースエンジニアリング (Markdown / Excel) |
-| `sc4sap:compare-programs` | 同一シナリオをモジュール / 国 / ペルソナで分岐した 2〜5 本の ABAP プログラムを比較 → コンサルタント向け Markdown レポート |
+| `sc4sap:compare-programs` | 同一シナリオをモジュール / 国 / ペルソナで分岐した 2〜5 本の ABAP プログラムを比較 → コンサルタント向け編集可能な HTML レポート(判定マトリクス、項目差分表、画面の並列比較、判断ガイド。バージョン管理、英語版) |
+| `sc4sap:config-to-document` | 接続先システムのモジュール設定をそのまま文書化(MM から)→ IMG ツリーに沿った HTML 1 本(SM30 風画面に実テーブル値、顧客変更行とトランスポート、設定チェック、SAP IMG ドキュメント、`sap-critic` がレビューしたコンサルタントノート、ノートの編集モード — `--import` で次のバージョンへ) |
 | `sc4sap:analyze-code` | ABAP コード解析 (Clean ABAP / パフォーマンス / セキュリティ) |
 | `sc4sap:analyze-cbo-obj` | CBO インベントリスキャナー + クロスモジュールギャップ解析 |
 | `sc4sap:analyze-symptom` | SAP 運用エラー/症状のステップバイステップ解析 (ダンプ、ログ、SAP Note 候補) |
@@ -142,8 +143,8 @@ sc4sap は **[abap-mcp-adt-powerup](https://github.com/babamba2/abap-mcp-adt-pow
 | ファイル | 内容 |
 |---------|------|
 | `clean-code.md` + `clean-code-oop.md` + `clean-code-procedural.md` | Clean ABAP 標準、パラダイム別分離 |
-| `include-structure.md` | Main + 条件付き Include セット (t/s/c/a/o/i/e/f/_tst) |
-| `oop-pattern.md` | 2 クラス OOP 分離 (`LCL_DATA` + `LCL_ALV` + `LCL_EVENT`) |
+| `include-structure.md` | Main + 条件付き Include セット (t/s/c/ct/e/o/i/a/f) |
+| `oop-pattern.md` | 2 クラス OOP 分離 (`LCL_DATA` + `LCL_ALV` in `c`, `LCL_EVENT_ALV` in `e`) |
 | `alv-rules.md` | フル ALV (CL_GUI_ALV_GRID + Docking) vs SALV + SALV-factory fieldcatalog |
 | `text-element-rule.md` | 必須 Text Elements — 2-pass 言語規則 (primary + `'E'` 安全網) |
 | `constant-rule.md` | 必須 CONSTANTS (non-fieldcatalog マジックリテラル) |

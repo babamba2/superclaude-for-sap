@@ -1,3 +1,4 @@
+*.mjs text eol=lf
 runtime-deps/** -text
 runtime-deps/**/*.node binary
 scripts/manual/third_party/** -text

@@ -128,7 +128,7 @@ Unlike ask-consultant (writer produces user-facing answer), compare-programs Ste
 Override standard prefix to include team cost:
 
 ```
-[Model: <main> · Dispatched: Opus×K (sap-<module>-consultant names), Opus×1 (sap-analyst), Haiku×1 (sap-writer) · Team: <K> members × <rounds> rounds]
+[Model: <main> · Dispatched: Haiku×N (sap-checker facts), Opus×K (sap-<module>-consultant names), Opus×1 (sap-analyst), Haiku×1 (sap-writer) · Team: <K> members × <rounds> rounds]
 ```
 
 Where `<K>` = distinct modules in module_set, `<rounds>` = actual rounds (1 if no ownership conflict; 2 or 3 if escalated).

@@ -1,36 +1,42 @@
 # Include Structure Convention
 
-Shared convention for sc4sap ABAP programs that wrap logic in a Main Program + conditional Includes. **Source of truth for Procedural programs: [`procedural-sample/main-program.abap`](procedural-sample/main-program.abap)**. OOP programs follow [`oop-sample/zrsc4sap_oop_ex.prog.abap`](oop-sample/zrsc4sap_oop_ex.prog.abap).
+Shared convention for sc4sap ABAP programs that wrap logic in a Main Program + conditional Includes. **Source of truth for Procedural programs: [`procedural-sample/main-program.abap`](procedural-sample/main-program.abap)**. OOP programs follow [`oop-sample/zrsc4sap_oop_ex.prog.abap`](oop-sample/zrsc4sap_oop_ex.prog.abap) and [`oop-pattern.md`](oop-pattern.md).
+
+Include name = `{PROG}` + suffix letter(s), **no underscore** (`ZSDR00010T`, `ZSDR00010CT`). Keep the program name ≤ 38 characters so `{PROG}CT` stays within the 40-character limit.
 
 ## Include Set
 
 | Include | Suffix | Procedural | OOP | Content |
 |---------|--------|------------|-----|---------|
-| TOP | `{PROG}t` | Always | Always | `TYPES`, `DATA`, `CONSTANTS` declarations. **MUST declare `DATA: gv_okcode TYPE sy-ucomm.`** when a screen is present — full 3-step binding contract (TOP decl + screen OK_CODE NAME + PAI FORM routing) in [`ok-code-pattern.md`](ok-code-pattern.md); `CASE sy-ucomm` in PAI is a MAJOR Phase 6 finding. |
+| TOP | `{PROG}t` | Always | Always | Global `TYPES`, `DATA`, `CONSTANTS`. **MUST declare one OK_CODE variable** (any name, e.g. `DATA ok_code TYPE sy-ucomm.` or `DATA gv_okcode TYPE sy-ucomm.`) when a screen is present — contract (TOP decl + screen OK_CODE NAME + PAI dispatch) in [`ok-code-pattern.md`](ok-code-pattern.md); `CASE sy-ucomm` in PAI is a MAJOR Phase 6 finding. |
 | Selection Screen | `{PROG}s` | Always | Always | `SELECTION-SCREEN`, `PARAMETERS`, `SELECT-OPTIONS` |
-| FORM / Logic | `{PROG}f` | Always | Optional | `PERFORM` business logic |
-| Class Definition | `{PROG}c` | **NEVER** | OOP | `LCL_DATA` — data extraction class |
-| ALV Class | `{PROG}a` | **NEVER** | ALV present | `LCL_ALV` — screen/ALV display class |
-| PBO | `{PROG}o` | Screen/GUI present | Screen/GUI present | Screen PBO modules (`MODULE status_0100 OUTPUT.`) |
-| PAI | `{PROG}i` | Screen/GUI present | Screen/GUI present | Screen PAI modules (`MODULE user_command_0100 INPUT.`) |
-| Event Handler | `{PROG}e` | **FORBIDDEN** | OOP + ALV events | ALV event handler class (`LCL_EVENT`). **In Procedural mode this include MUST NOT be created** — event blocks (`INITIALIZATION`, `AT SELECTION-SCREEN`, `AT SELECTION-SCREEN OUTPUT`, `START-OF-SELECTION`, `END-OF-SELECTION`) live in the Main program body, never in an include. |
-| Test Class | `{PROG}_tst` | Optional | OOP (required) | `FOR TESTING` local test classes |
+| Class | `{PROG}c` | Only when the spec has a local class (ALV event receiver, `LCL_HELPER`) | Always | OOP: `CLASS lcl_data DEFINITION DEFERRED.` + `CLASS lcl_alv DEFINITION DEFERRED.` + `DATA go_data` / `go_alv`, then `LCL_DATA` and `LCL_ALV` (definitions, then implementations) — see [`oop-pattern.md`](oop-pattern.md) |
+| Class Test | `{PROG}ct` | Only for `LCL_HELPER` tests | Always (at least one test) | `LCL_TEST … FOR TESTING RISK LEVEL HARMLESS DURATION SHORT` (+ optional `LTC_*` classes) |
+| Event Handler | `{PROG}e` | **FORBIDDEN** | When the program handles ALV / SALV / tree events | `LCL_EVENT_ALV` (grid), `LCL_SALV_EVENT_HANDLER` (SALV), `LCL_EVENT_TREE` (tree) — only the classes needed. **In Procedural mode this include MUST NOT be created** — event blocks (`INITIALIZATION`, `AT SELECTION-SCREEN`, `START-OF-SELECTION`, `END-OF-SELECTION`) live in the Main program body, never in an include. |
+| PBO | `{PROG}o` | Screen/GUI present | Screen/GUI present | Screen PBO modules (ABAP module definition `MODULE status_0100 OUTPUT.` — flow logic itself never writes `OUTPUT`) |
+| PAI | `{PROG}i` | Screen/GUI present | Screen/GUI present | Screen PAI modules (ABAP module definition `MODULE user_command_0100 INPUT.` — flow logic itself never writes `INPUT`) |
+| ALV FORMs | `{PROG}a` | Optional — ALV FORMs may live in `a` or in `f` | Not used | Procedural ALV FORMs split out of `f` |
+| FORM / Logic | `{PROG}f` | Always | Only when FORMs are needed (usually none) | `PERFORM` business logic |
 
 ## Main Program Body
 
 The main program contains ONLY:
-- `REPORT` statement
-- **6-field header comment block** (mandatory — see [`clean-code-procedural.md`](clean-code-procedural.md) § *Mandatory Main Program Header*)
-- `INCLUDE` statements (Procedural order: t → s → c → a → o → i → f → _tst; `e` is NEVER in Procedural order)
-- Event blocks: `INITIALIZATION`, `AT SELECTION-SCREEN`, `AT SELECTION-SCREEN OUTPUT`, `AT SELECTION-SCREEN OUTPUT FOR FIELD <p>`, `START-OF-SELECTION`, `END-OF-SELECTION`
+- **Main program header block** (mandatory — see [`clean-code-procedural.md`](clean-code-procedural.md) § *Mandatory Main Program Header*)
+- `REPORT` statement (`MESSAGE-ID` = the profile / module message class when one is configured)
+- `INCLUDE` statements in this order:
+  - Procedural: `t` → `c` → `s` → `o` → `i` → `a` → `f` (→ `ct`), each only when generated; `e` is NEVER in Procedural order
+  - OOP: `t` → `s` → `c` → `ct` → `e` → `o` → `i` (→ `f`)
+- Event blocks: `INITIALIZATION`, `AT SELECTION-SCREEN`, `AT SELECTION-SCREEN OUTPUT`, `AT SELECTION-SCREEN ON VALUE-REQUEST FOR <p>`, `START-OF-SELECTION`, `END-OF-SELECTION` — only the blocks the program needs; no empty event blocks
 
-All declarations and business logic live inside the includes, not the main program. Event blocks delegate to FORMs: `START-OF-SELECTION. PERFORM get_data_0100.`
+All declarations and business logic live inside the includes, not the main program. Procedural event blocks delegate to FORMs (`START-OF-SELECTION. PERFORM get_data_0100.`); OOP event blocks call methods (`go_data->get_data( ).`).
 
 ## Conditional Generation Rule
 
 - **Procedural, no Screen, no ALV**: generate `t` / `s` / `f` only.
-- **Procedural, with Screen + ALV**: generate `t` / `s` / `a` / `o` / `i` / `f` (6 — `c` may be skipped if no local classes are used). **Never add `e`.**
-- **OOP, with Screen + ALV**: generate `t` / `s` / `c` / `a` / `o` / `i` / `e` / `f` / `_tst` (`e` only for `LCL_EVENT` — ALV event handler class).
+- **Procedural, with Screen + ALV**: generate `t` / `s` / `o` / `i` / `f`; add `c` when a local class is needed (ALV grid event receiver, `LCL_HELPER`) and `a` when the spec splits ALV FORMs out of `f`. **Never add `e`.**
+- **OOP**: generate `t` / `s` / `c` / `ct`, plus `o` / `i` when a screen exists and `e` when the program handles ALV / SALV / tree events. `f` only when FORMs are needed. **Never add `a`** — `LCL_ALV` lives in `c`.
+
+Shared house includes found in existing programs (for example a non-executed syntax-guide include of reference FORMs) are not generated by sc4sap and are not flagged — see [`naming-conventions.md`](naming-conventions.md) § Exceptions.
 
 ## Activation Protocol — MANDATORY (matches every skill that creates includes)
 
@@ -38,7 +44,7 @@ All declarations and business logic live inside the includes, not the main progr
 
 1. Create each include (`CreateInclude`) and upload its body (`UpdateInclude`).
 2. After every include is uploaded, either:
-   - Call `UpdateInclude` with `activate=true` for each include **in dependency order** (typically `t → s → a → o → i → f` because later includes reference earlier declarations), OR
+   - Call `UpdateInclude` with `activate=true` for each include **in dependency order** (OOP `t → s → c → ct → e → o → i`; Procedural `t → c → s → o → i → a → f`, because later includes reference earlier declarations), OR
    - Call `ActivateObjects` once with the full list `[main + every include + screen + gui_status]`.
 3. **Verify with `GetInactiveObjects`** — if any program-scoped include appears in the result, the skill has FAILED regardless of what individual tool responses reported.
 
@@ -48,7 +54,8 @@ Agents that report "5/5 프로그램 활성화 OK" without a `GetInactiveObjects
 
 - **`{PROG}e` include exists in a Procedural program** — event blocks moved out of Main body into `e` include. This is an invalid structure that hides control flow.
 - **Event blocks (`START-OF-SELECTION` / `END-OF-SELECTION` / `AT SELECTION-SCREEN`) placed in `f` or `e` include instead of Main** — same control-flow hiding.
-- **Main program missing the 6-field header comment block** — violates `clean-code-procedural.md` § *Mandatory Main Program Header*.
+- **Main program missing the main program header block** — violates `clean-code-procedural.md` § *Mandatory Main Program Header*.
 - **Includes left inactive after "successful" build** — `GetInactiveObjects` returns any `{PROG}<suffix>` entry.
-- **`c` / `a` include missing when spec declares local classes or ALV** — silently skipped.
+- **`c` / `a` include missing when the spec declares local classes or split ALV FORMs** — silently skipped.
+- **OOP program without `{PROG}ct`**, or with an `a` include holding `LCL_ALV`.
 - **Inferring suffix meaning from the suffix list in `naming-conventions.md` alone** — that file only enumerates suffixes. Their conditions (OOP vs Procedural, ALV vs none) live **here** and in the sample files. Always cross-check this table + the sample before generating.

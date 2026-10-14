@@ -10,8 +10,11 @@
 
 > SAP ABAP 개발을 위한 Claude Code 플러그인 — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private) 지원
 
+**공식 사이트:** [sc4sap.dev](https://sc4sap.dev)
+
+[![Website](https://img.shields.io/badge/website-sc4sap.dev-0A66C2)](https://sc4sap.dev)
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)
-[![Plugin version](https://img.shields.io/badge/sc4sap-v0.6.0-6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
+[![Plugin version](https://img.shields.io/github/package-json/v/babamba2/superclaude-for-sap/main?label=sc4sap&color=6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
 [![GitHub stars](https://img.shields.io/github/stars/babamba2/superclaude-for-sap?style=flat&color=yellow)](https://github.com/babamba2/superclaude-for-sap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -28,7 +31,8 @@ SuperClaude for SAP은 Claude Code를 풀스택 SAP 개발 어시스턴트로 �
 | 🏗️ **자동 프로그램 생성기** | ABAP 프로그램 엔드-투-엔드 생성: Main + Include 컨벤션, OOP/Procedural, 풀 ALV + Docking, Dynpro + GUI 스테이터스, Text Elements, ABAP Unit — 플랫폼 인식(ECC / S4 On-Prem / Cloud). |
 | 🔍 **프로그램 분석** | MCP로 ABAP 객체 읽기 → Clean ABAP / 성능 / 보안 리뷰, 또는 Functional/Technical Spec 역공학 (Markdown/Excel). |
 | 🧪 **코드 분석** | `/sc4sap:analyze-code` — `sap-code-reviewer` 전용 정적 리뷰: Clean ABAP / 성능 / 보안 / SAP 표준 준수. 심각도별 이슈와 구체적 수정 제안. |
-| 🔀 **프로그램 비교** | `/sc4sap:compare-programs` — 같은 비즈니스 시나리오를 공유하지만 모듈(MM/CO)·국가(KR/EU)·Persona(컨트롤러/창고)로 분화된 2~5개 ABAP 프로그램을 컨설턴트 관점에서 10개 차원으로 비교 → Markdown 리포트. |
+| 🔀 **프로그램 비교** | `/sc4sap:compare-programs` — 같은 비즈니스 시나리오를 공유하지만 모듈(MM/CO)·국가(KR/EU)·Persona(컨트롤러/창고)로 분화된 2~5개 ABAP 프로그램을 컨설턴트 관점에서 10개 차원으로 비교 → 편집 가능한 HTML 리포트(색상 판정 매트릭스·차이만 보기, 필드 차이표, 화면 나란히 비교, 의사결정 가이드, 버전 관리 + 영어판). |
+| ⚙️ **설정 → 문서** | `/sc4sap:config-to-document` — 연결된 시스템에 실제로 설정된 모듈 구성을 문서화 (MM 우선). IMG 트리를 따르는 오프라인 HTML 파일 하나: IMG 액티비티별 실제 테이블 값을 SM30 스타일 화면으로 그림, 고객 트랜스포트로 변경된 행과 트랜스포트 이력, 설정 점검, SAP IMG 문서, 모듈 컨설턴트 에이전트가 쓰고 `sap-critic`이 검토한 컨설턴트 노트. SAP에는 읽기 전용이며, 페이지 안 편집 모드로 컨설턴트가 노트를 고쳐 다음 버전에 반영할 수 있음. |
 | 🗺️ **패키지 → 프로세스** | `/sc4sap:package-to-process` — CBO 패키지를 **엔드-투-엔드 비즈니스 프로세스** 문서로 역공학: TCode 진입점 자동 감지 → AI 프로세스 그루핑(PR→PO→GR→IR) → 프로세스별 내러티브 + Mermaid 플로우차트 / 시퀀스 다이어그램 + 단계 테이블. CBO 인벤토리 없으면 `sap-stocker` 자동 연계 → `.sc4sap/processes/<MODULE>/<PACKAGE>/`. |
 | 🩺 **운영 진단** | 운영 트리아지 루프: ST22 덤프, SM02, /IWFND/ERROR_LOG, 프로파일러 트레이스, 로그, where-used — 모두 Claude에서. |
 | ♻️ **CBO 재사용** | Z-패키지 1회 인벤토리 → `create-program` / `program-to-spec`이 기존 CBO 자산 우선 재사용. 브라운필드에 필수. |

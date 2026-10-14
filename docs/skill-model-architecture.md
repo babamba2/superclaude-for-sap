@@ -42,6 +42,7 @@ Suggested session model per skill (guidance only — nothing enforces it):
 | `analyze-code` | Sonnet or above | Orchestrates review; report composition needs judgment |
 | `analyze-symptom` | Sonnet or above | Routes questions, composes narratives from debugger output |
 | `compare-programs` | Sonnet or above | Orchestrates multi-program analysis; matrix assembly |
+| `config-to-document` | Sonnet or above | Runs the extract / notes / build scripts, batches the consultant-note dispatches, reports counts |
 | `create-object` | Sonnet or above | Metadata validation + executor/writer orchestration |
 | `create-program` | Sonnet or above | 9-phase pipeline orchestration, resume logic, state.json |
 | `package-to-process` | Sonnet or above | Entry-point detection, progress, per-process assembly and render |
@@ -80,12 +81,14 @@ Steps 11/11b (SPRO / customization extraction) are intentionally LLM-free: `scri
 
 ### Analysis cluster (session-model main)
 
-#### `analyze-cbo-obj` — session-model main, 1–2 dispatches
-- Steps 3–7 — `sap-stocker` (Sonnet) walks package + where-used graph + business purpose inference + cross-module gap
+#### `analyze-cbo-obj` — session-model main, 2 + N dispatches
+- Steps 3–7 — `sap-stocker` (Sonnet) `MODE: walk` → `sap-checker` × N (Haiku, packages ≥ 30 objects) collect in-package callers + DDIC signals per batch → `sap-stocker` `MODE: finalize` scores, infers business purpose, checks cross-module gaps, persists (`skills/analyze-cbo-obj/stocker-fanout.md`; package-to-process Step 2 reuses it)
 - Step 8 (conditional, `Logic-heavy: true`) — main thread renders the briefing from `inventory.json` (no agent dispatch)
 
-#### `analyze-code` — session-model main, 1–3 dispatches
-- Step 2 — `sap-code-reviewer` (Opus) reads source + AST + semantic + where-used, evaluates 14 dimensions
+#### `analyze-code` — session-model main, 3 + N dispatches
+- Step 2a — `sap-checker` (Haiku) size scout: source units, line counts, caller count
+- Step 2 — ≤ 1,500 lines: `sap-code-reviewer` (Opus) reads source + AST + semantic + where-used, evaluates 14 dimensions. > 1,500 lines: `sap-checker` × N (Haiku) detect candidates in 5 rule groups, then `sap-code-reviewer` (Opus) judges them + evaluates the judgment dimensions
+- Step 2d — `sap-checker` × N (Haiku) verify every finding's quoted evidence at its cited line; failures are reported as Unverified, not scored
 - Step 3 Branch B (conditional, Critical or ≥ 10 findings) — main thread renders the briefing (no agent dispatch)
 - Step 4 user-selected fix — `sap-executor` (Sonnet)
 
@@ -93,10 +96,16 @@ Steps 11/11b (SPRO / customization extraction) are intentionally LLM-free: `scri
 - Step 2 per round — `sap-debugger` with `model: "opus"` override for full investigation + hypothesis narrowing (dump + transport + code + enhancement + customization + profiler)
 
 #### `compare-programs` — session-model main, N+1+K+1 dispatches
-- Step 3 — `sap-code-reviewer` × N with `model: "sonnet"` override — facts extraction per program
+- Step 3 — `sap-checker` × N (Haiku) — verbatim `FACT` extraction per program (per include batch when a program is too large)
 - Step 4 — `sap-analyst` × 1 (Opus) — consolidated module classify + dimension scoring + exec summary + recommendation
 - Step 4b (conditional, 2+ modules) — `sap-{module}-consultant` × K (Opus)
-- Step 5 — `sap-writer` × 1 (Haiku) — final Markdown render
+- Step 5 — `sap-writer` × 1 (Sonnet override) — per-program screen specs + render, report `.md`; main thread builds the editable HTML page
+- Step 5.3 (when the report language ≠ en) — `sap-writer` × 1 (Sonnet override) — English companion
+
+#### `config-to-document` — session-model main, 2–3 dispatches per note batch
+- Steps 2–3, 5 — no agent: `scripts/config/extract-config.mjs` (background Node) reads the IMG tree, table values, transports and IMG documentation; `build-config-doc.mjs` renders the HTML
+- Step 4 write / revise — `sap-{module}-consultant` × 1 per batch (Opus, frontmatter; ≤ 4 batches in parallel) — consultant notes per IMG activity
+- Step 4 review — `sap-critic` × 1 per batch (Opus, frontmatter) — `ok` / `fix` verdict per note; one revise round for `fix` items
 
 ### Creation cluster (session-model main)
 
@@ -136,13 +145,12 @@ Excel output uses the same writer tier (depth-driven) — xlsx driver fill-in is
 Applied in every analysis / creation skill. Main thread holds only the structured return from agents, not their working memory (dump stack, source code, AST, where-used graph). Keeps orchestrator context small even for large objects / packages.
 
 ### Pattern 2 — Conditional branching
-Analyze-cbo-obj, analyze-code, ask-consultant branch between canned output (main thread formats directly) and rich briefing (dispatch to writer). Branching decision lives in the primary agent's return (`Logic-heavy`, `complexity_hint`, consultant count).
+Analyze-cbo-obj, analyze-code, ask-consultant branch between canned output (main thread formats directly) and rich briefing (dispatch to writer). Branching decision lives in the primary agent's return (`Logic-heavy`, consultant count) or, for analyze-code, in the verified finding counts after the Haiku evidence check.
 
 ### Pattern 3 — Model override on agent dispatch
 The `Agent(...)` tool's `model` parameter overrides the agent's frontmatter. Used in:
 - `sap-executor` → Opus for novel code generation (`create-object`, `create-program` Wave 1/2.G2/3)
 - `sap-debugger` → Opus for production-incident triage (`analyze-symptom`)
-- `sap-code-reviewer` → Sonnet for facts-only extraction (`compare-programs`)
 - `sap-writer` → Opus for spec writing (`create-program` Phase 3)
 - `sap-writer` → Sonnet for reports (`create-program` Phase 8, `ask-consultant` synthesis)
 - `sap-writer` → Sonnet for L3/L4 specs (`program-to-spec` Step 3)

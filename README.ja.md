@@ -10,8 +10,11 @@
 
 > SAP ABAP 開発向け Claude Code プラグイン — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private) 対応
 
+**公式サイト:** [sc4sap.dev](https://sc4sap.dev)
+
+[![Website](https://img.shields.io/badge/website-sc4sap.dev-0A66C2)](https://sc4sap.dev)
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)
-[![Plugin version](https://img.shields.io/badge/sc4sap-v0.6.0-6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
+[![Plugin version](https://img.shields.io/github/package-json/v/babamba2/superclaude-for-sap/main?label=sc4sap&color=6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
 [![GitHub stars](https://img.shields.io/github/stars/babamba2/superclaude-for-sap?style=flat&color=yellow)](https://github.com/babamba2/superclaude-for-sap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -28,7 +31,8 @@ SuperClaude for SAP は Claude Code をフルスタック SAP 開発アシスタ
 | 🏗️ **自動プログラムメーカー** | ABAP プログラムのエンドツーエンド生成:Main + 条件付き Include、OOP/Procedural、フル ALV + Docking、Dynpro + GUI ステータス、必須 Text Elements、ABAP Unit — プラットフォーム対応(ECC / S4 On-Prem / Cloud)。 |
 | 🔍 **プログラム解析** | MCP で ABAP オブジェクトを読み取り → Clean ABAP / パフォーマンス / セキュリティレビュー、または機能/技術仕様へのリバースエンジニアリング(Markdown/Excel)。 |
 | 🧪 **コード解析** | `/sc4sap:analyze-code` — `sap-code-reviewer` 専用の静的レビュー:Clean ABAP / パフォーマンス / セキュリティ / SAP 標準準拠。重大度順の指摘と具体的な修正提案。 |
-| 🔀 **プログラム比較** | `/sc4sap:compare-programs` — 同一の業務シナリオを共有しつつモジュール(MM/CO)・国(KR/EU)・ペルソナ(コントローラー/倉庫)で分岐した 2〜5 本の ABAP プログラムをコンサルタント視点で 10 次元比較 → Markdown レポート。 |
+| 🔀 **プログラム比較** | `/sc4sap:compare-programs` — 同一の業務シナリオを共有しつつモジュール(MM/CO)・国(KR/EU)・ペルソナ(コントローラー/倉庫)で分岐した 2〜5 本の ABAP プログラムをコンサルタント視点で 10 次元比較 → 編集可能な HTML レポート(色分けした判定マトリクス・差分のみ表示、項目差分表、画面の並列比較、判断ガイド、バージョン管理 + 英語版)。 |
+| ⚙️ **設定 → ドキュメント** | `/sc4sap:config-to-document` — 接続先システムに実際に設定されているモジュールのカスタマイジングを文書化(MM から)。IMG ツリーに沿ったオフライン HTML ファイル 1 本:IMG アクティビティごとに実テーブル値を SM30 風の画面に描画、顧客トランスポートで変更された行とトランスポート履歴、設定チェック、SAP の IMG ドキュメント、モジュールコンサルタントエージェントが書き `sap-critic` がレビューしたコンサルタントノート。SAP には読み取り専用。ページ内の編集モードでコンサルタントがノートを直し、次のバージョンに引き継げる。 |
 | 🩺 **運用診断** | 運用トリアージ:ST22 ダンプ、SM02、/IWFND/ERROR_LOG、プロファイラトレース、ログ、where-used — すべて Claude から。 |
 | ♻️ **CBO 再利用** | Z パッケージを一度棚卸し → `create-program` / `program-to-spec` が既存 CBO 資産を優先再利用。ブラウンフィールドに必須。 |
 | 🧷 **CBO 拡張認識 (CMOD / GGB0·1 / BTE / VOFM / BAdI / APPEND)** | ユーザーエグジット (CMOD)、検証/置換 (GGB0/GGB1)、BTE ファンクションモジュール、VOFM ルーチン (要件 / 計算式 / データ転送)、BAdI 実装、APPEND ストラクチャを棚卸し。`create-program` / BAPI 呼び出しでは既存の拡張フィールド(例:BAPI `EXTENSIONIN` / テーブル append)を新規 CBO より優先;ダンプ・障害対応では拡張ポイントを第一容疑者として検査。 |

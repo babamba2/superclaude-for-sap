@@ -10,7 +10,7 @@ When multi-profile mode is active (`<project>/.sc4sap/active-profile.txt` exists
 <project>/.sc4sap/work/{activeAlias}/<category>/<rest>
 ```
 
-Categories: `program/`, `cbo/`, `customizations/`, `audit/`, `comparisons/`. Writes NEVER fall back to another profile or to the project root.
+Categories: `program/`, `cbo/`, `customizations/`, `audit/`, `comparisons/`, `processes/`. Writes NEVER fall back to another profile or to the project root.
 
 Legacy (no active-profile.txt): writes go to `<project>/.sc4sap/<category>/<rest>` exactly as before.
 
@@ -58,7 +58,9 @@ Skills that read or produce project-local artifacts must adopt this pattern:
 - `/sc4sap:program-to-spec` — reads existing programs, writes spec.md / spec.xlsx
 - `/sc4sap:analyze-code` — writes review report
 - `/sc4sap:analyze-cbo-obj` — writes `cbo/<MODULE>/<PACKAGE>/{index,inventory}.md`
-- `/sc4sap:compare-programs` — writes `comparisons/*.md`
+- `/sc4sap:compare-programs` — writes `comparisons/<NAME>-v<n>-<lang>.html` + `.md` source + `<NAME>-<lang>.history.json` + `_img/` / `_assets/` screen pictures
+- `/sc4sap:config-to-document` — writes `config-docs/<MODULE>/<MODULE>-config-v<n>-<lang>.html` + `snapshot.json` + `_cache.json` (read cache) + `notes/` (consultant notes, review)
+- `/sc4sap:package-to-process` — reads `cbo/<MODULE>/<PACKAGE>/inventory.json` (cross-view hit → refuse on a `sap_version` mismatch, else ask), writes `processes/<MODULE>/<PACKAGE>/{process-*, bpml-*, _state/}`
 - `/sc4sap:program-to-manual` — writes `manuals/<PROGRAM>-v<n>-<lang>.html` + `<PROGRAM>-<lang>.history.json` + `_src/` / `_draft/` manual.json
 - `/sc4sap:analyze-symptom` — writes audit reports
 - `/sc4sap:create-object` — writes nothing long-term (transient state only)

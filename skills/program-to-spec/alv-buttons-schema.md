@@ -105,6 +105,20 @@ All fields are optional. A spec without them renders exactly as before.
 ```
 
 - Say what the screen is for, who calls it, its fields and columns, then a **PBO / PAI table** transcribed from the flow logic: every PBO module, every PAI function code (`CASE ok_code`), `AT EXIT-COMMAND` and POV modules, each with the method it calls and the business effect (messages as `CODE (English text)`). The main screen gets the same table.
+- **Popups that belong together go side by side.** Two or three modal popups opened by the same button, or one after the other in one flow (confirm → result), share ONE subsection: the images after `<!-- layout: side-by-side -->` (one image paragraph each, nothing in between), then one PBO / PAI table per popup under a bold popup name. The HTML page draws them in one row (stacked on narrow screens and in print). Full screens and ALV grids stay one per subsection — at half width they are unreadable.
+
+```markdown
+### 3.4 Popups 0200 / 0300 — Simulation and result (called from SIMU, C L345)
+<!-- layout: side-by-side -->
+![Popup 0200 — Simulation](_assets/<OBJECT>-<YYYYMMDD>-<lang>/screen-0200.png)
+
+![Popup 0300 — Result](_assets/<OBJECT>-<YYYYMMDD>-<lang>/screen-0300.png)
+
+**0200 — Simulation**
+
+| Event | Module / code | Processing |
+|---|---|---|
+```
 
 In the Markdown spec, put the button flows in §4 after the main flow:
 

@@ -2,6 +2,7 @@
 name: sap-code-reviewer
 description: ABAP code review — Clean ABAP, performance, security, SAP standard compliance (Opus, R/O)
 model: opus
+effort: high
 tools: [Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__plugin_sc4sap_sap__GetPackage, mcp__plugin_sc4sap_sap__GetPackageContents, mcp__plugin_sc4sap_sap__GetPackageTree, mcp__plugin_sc4sap_sap__GetObjectsByType, mcp__plugin_sc4sap_sap__SearchObject, mcp__plugin_sc4sap_sap__GetTable, mcp__plugin_sc4sap_sap__GetStructure, mcp__plugin_sc4sap_sap__GetDataElement, mcp__plugin_sc4sap_sap__GetDomain, mcp__plugin_sc4sap_sap__GetView, mcp__plugin_sc4sap_sap__GetClass, mcp__plugin_sc4sap_sap__GetInterface, mcp__plugin_sc4sap_sap__GetProgram, mcp__plugin_sc4sap_sap__GetFunctionModule, mcp__plugin_sc4sap_sap__GetFunctionGroup, mcp__plugin_sc4sap_sap__GetInclude, mcp__plugin_sc4sap_sap__GetBehaviorDefinition, mcp__plugin_sc4sap_sap__GetBehaviorImplementation, mcp__plugin_sc4sap_sap__GetServiceDefinition, mcp__plugin_sc4sap_sap__GetServiceBinding, mcp__plugin_sc4sap_sap__GetMetadataExtension, mcp__plugin_sc4sap_sap__GetScreen, mcp__plugin_sc4sap_sap__GetGuiStatus, mcp__plugin_sc4sap_sap__GetTextElement, mcp__plugin_sc4sap_sap__GetEnhancements, mcp__plugin_sc4sap_sap__GetEnhancementImpl, mcp__plugin_sc4sap_sap__GetEnhancementSpot, mcp__plugin_sc4sap_sap__GetUnitTest, mcp__plugin_sc4sap_sap__GetCdsUnitTest, mcp__plugin_sc4sap_sap__GetLocalTestClass, mcp__plugin_sc4sap_sap__GetLocalDefinitions, mcp__plugin_sc4sap_sap__GetLocalTypes, mcp__plugin_sc4sap_sap__GetLocalMacros, mcp__plugin_sc4sap_sap__GetAbapSemanticAnalysis, mcp__plugin_sc4sap_sap__GetAbapAST, mcp__plugin_sc4sap_sap__GetWhereUsed, mcp__plugin_sc4sap_sap__GetInactiveObjects, mcp__plugin_sc4sap_sap__GetTransport, mcp__plugin_sc4sap_sap__ListTransports, mcp__plugin_sc4sap_sap__GetObjectInfo, mcp__plugin_sc4sap_sap__GetObjectStructure, mcp__plugin_sc4sap_sap__GetTypeInfo, mcp__plugin_sc4sap_sap__GetAdtTypes, mcp__plugin_sc4sap_sap__GetIncludesList, mcp__plugin_sc4sap_sap__GetScreensList, mcp__plugin_sc4sap_sap__GetGuiStatusList, mcp__plugin_sc4sap_sap__GetProgFullCode]
 disallowedTools: [Write, Edit]
 ---
@@ -55,7 +56,8 @@ disallowedTools: [Write, Edit]
 
     - When dispatched for a specific bucket (e.g., §1 ALV), read ONLY that bucket's named file(s): e.g., `../common/alv-rules.md` + `../common/ok-code-pattern.md` (if `CALL SCREEN` present). Do NOT read the other 11 sections' rule files.
     - If the skill dispatches you for multiple buckets at once, read each bucket's files independently; do NOT merge-load them preemptively.
-    - On a MAJOR finding, stop the current bucket and return the finding with its narrow context — the skill escalates to Opus with that context only, NOT the full 12-file set.
+    - Bucket mode: on a MAJOR finding, finish the bucket and return every finding with its narrow context — the skill escalates to Opus with that context only, NOT the full 12-file set.
+    - Judge mode (`detect-judge`, prompt names `review-candidates.md`): adjudicate every `CAND` line, then run §5 / §8 paradigm design / §11 yourself. The paradigm clean-code file and `spro-lookup.md` are part of the judge kit and do not count toward the 2-extra-file limit.
   </Context_Kit_Protocol>
 
   <Model_Selection>
@@ -66,6 +68,10 @@ disallowedTools: [Write, Edit]
     - 3+ buckets produce MAJOR findings concurrently (systemic issue).
 
     When escalated, you receive the Sonnet-level findings as part of the prompt and focus only on the cross-bucket synthesis — do not re-check cleanly-passed buckets.
+
+    In `detect-judge` the skill dispatches you once on Opus as the judge over Haiku `sap-checker` candidates (`skills/create-program/phase6-detect-judge.md`).
+
+    Output contract (all modes): you are read-only — never write files, never fix. Return the verdict table as text plus one line per confirmed finding: `FIX obj=<name> item=<§n> severity=<MINOR|MAJOR> line=<n> change="<what to change>"`. The skill writes the files and sends the FIX lines to `sap-executor`.
   </Model_Selection>
 
   <Investigation_Protocol>

@@ -1,6 +1,6 @@
 # Analysis Dimensions
 
-**Rule loading is owned by the `sap-code-reviewer` agent**, not the main thread. When dispatched by `analyze-code` (see `workflow.md` Step 2), the reviewer reads the files below itself and evaluates the 14 dimensions against them. The main skill orchestrator never needs to preload them — keeping the orchestrator context light.
+**Rule loading is owned by the `sap-code-reviewer` agent** (or, for objects over 1,500 lines, split across the Haiku detector groups in [`detect-judge.md`](detect-judge.md) § Step 2b), not the main thread. When dispatched by `analyze-code` (see `workflow.md` Step 2), the reviewer reads the files below itself and evaluates the 14 dimensions against them. The main skill orchestrator never needs to preload them — keeping the orchestrator context light.
 
 ## Rule Files (loaded by the reviewer agent)
 
@@ -10,7 +10,7 @@
 | `common/constant-rule.md` | Constants declaration & usage (GC_/LC_/CO_ patterns, magic number avoidance) |
 | `common/oop-pattern.md` | OO design patterns (class responsibility, interfaces, exception classes) |
 | `common/procedural-form-naming.md` | FORM/PERFORM naming for legacy procedural code |
-| `common/include-structure.md` | Include organization (_TOP, _F01, _SEL, _CLS separations) |
+| `common/include-structure.md` | Include organization (T/S/C/CT/E/O/I/F suffixes, no underscore) |
 | `common/text-element-rule.md` | Text symbols/messages handling (hardcoded strings forbidden) |
 | `common/alv-rules.md` | ALV grid / list display patterns and field catalog conventions |
 | `common/spro-lookup.md` | SPRO config lookup patterns (avoid hardcoded values) |
@@ -22,7 +22,7 @@ Also reference `configs/common/naming-conventions.md` as the module-aware naming
 
 ## 14 Evaluation Dimensions
 
-The sap-code-reviewer agent evaluates these dimensions:
+The sap-code-reviewer agent evaluates these dimensions — on objects over 1,500 lines, Haiku detector groups find the candidates for §2 / §3 / §5–§8 / §10–§13 and the reviewer (as judge) decides them and evaluates §1 / §4 / §9 / §14 itself ([`detect-judge.md`](detect-judge.md)):
 
 **1. Syntax and Semantics**
 - Parse tree validity via `GetAbapAST`

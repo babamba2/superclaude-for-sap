@@ -24,30 +24,16 @@ Referenced by `SKILL.md`. The orchestration is **3 main-thread Socratic steps** 
 - Valid values = folder list under `configs/`. Reject anything else and re-ask.
 - Normalize to uppercase (e.g., `sd` → `SD`) and verify `configs/<MODULE>/` exists.
 
-## Delegated stocking (single agent dispatch)
+## Delegated stocking (walk → Haiku scout fan-out → finalize)
 
-**Step 3–7 — Dispatch to `sap-stocker`** (one `Agent(...)` call)
+**Step 3–7 — Stocker walk, checker scouts, stocker finalize** — full dispatch spec in [`stocker-fanout.md`](stocker-fanout.md):
 
-Emit phase banner per `common/model-routing-rule.md` § Phase Banner Convention:
-```
-▶ phase=walk (stocker) · agent=sap-stocker · model=Sonnet
-```
+1. `sap-stocker` `MODE: walk` → `walk.json` + `WALKED objects=<n> batches=<b>`.
+2. `objects ≥ 30` → `sap-checker` × `b` (`MODE: scout`, one batch each, ONE message) → main writes `scout-facts.md`. Smaller packages skip this step.
+3. Step G (main + Haiku `sap-checker` source fetch) → `graph.json` + on ECC `usage-result.json` — spec [`graph-usage.md`](graph-usage.md).
+4. `sap-stocker` `MODE: finalize` → steps 3–8 from the facts file and the graph → the standard success block.
 
-Dispatch with the collected intake as context:
-```
-Agent({
-  subagent_type: "sc4sap:sap-stocker",
-  description: "CBO inventory — <PACKAGE>",
-  prompt: """
-    Stock the CBO package <PACKAGE> (module <MODULE>).
-    Flagship programs (may be empty): <KEY_PROGRAMS>.
-    Follow your Investigation_Protocol steps 2–8 (walk → graph → classify → interpret → cross-module gap → safety → persist).
-    Return the standard success block or BLOCKED with reason.
-  """
-})
-```
-
-The stocker executes the full inventory pass internally — consult `agents/sap-stocker.md` § Investigation_Protocol and § Success_Criteria for the authoritative spec. Summary of what happens inside:
+Across the walk and finalize dispatches the stocker executes the full inventory pass — consult `agents/sap-stocker.md` § Investigation_Protocol and § Success_Criteria for the authoritative spec. Summary of what happens inside:
 
 - **Walk** (`GetPackageContents` + `GetPackageTree`): TABL / STRU / TTYP / DTEL / DOMA / VIEW / CLAS / INTF / FUGR / PROG (+ DDLS / BDEF / SRVB on S/4).
 - **Reference graph** (`GetWhereUsed` per object, filtered to in-package callers): `ref_count`, `used_by_key_programs`, `key_boost`, `score`.
@@ -77,9 +63,12 @@ The stocker executes the full inventory pass internally — consult `agents/sap-
       "purpose": "append-only sales-order processing log keyed by VBELN",
       "keys": ["MANDT", "VBELN", "POSNR", "LOGDATE"],
       "fk_to_standard": ["VBAK-VBELN", "VBAP-POSNR"],
-      "reuse_hint": "extend this table instead of creating a new order log — used by both flagship programs"
+      "reuse_hint": "extend this table instead of creating a new order log — used by both flagship programs",
+      "usage": "indirect"
     }
   ],
+  "usage": { "window": { "tcodes": { "months": 12, "coverage": 3 }, "jobs": { "months": 12, "oldest": "20260928", "complete": false } },
+             "counts": { "direct": 6, "indirect": 8, "unused": 26, "no-evidence": 58 }, "caveats": ["…"] },
   "crossModuleGaps": []
 }
 ```
@@ -89,7 +78,8 @@ Sort order in `objects[]`: every object with `used_by_key_programs` non-empty fi
 Sort order in `index.md`:
 1. `## 📌 Pinned — used by flagship programs` (grouped by the flagship program that pulls each in)
 2. `## Frequently used tables`, `## Frequently used structures`, ... (remaining non-pinned frequently-used objects, by score descending)
-3. `## Sensitive CBO objects` (name-pattern flagged; suggest additions to `.sc4sap/blocklist-extend.txt`)
+3. `## Usage` (only with `usage-result.json`: counts, caveats verbatim, direct and unused lists)
+4. `## Sensitive CBO objects` (name-pattern flagged; suggest additions to `.sc4sap/blocklist-extend.txt`)
 
 ## Main-thread hand-off (branches on `Logic-heavy` flag)
 
@@ -120,7 +110,7 @@ Structured counts alone do not convey what the business-logic assets DO. The mai
 
 Required sections (15–25 lines, markdown):
 1. **📌 Pinned highlights** — for each pinned object, one line: name · type · 1-sentence purpose · reuse_hint.
-2. **🔧 Business-logic assets** — top 3 most-referenced FUGR/CLAS/INTF (outside pinned). For each: name · what it does in business terms · when to call it vs write new.
+2. **🔧 Business-logic assets** — top 3 most-referenced FUGR/CLAS/INTF (outside pinned). For each: name · what it does in business terms · when to call it vs write new. None in the inventory → top 3 largest `PROG` with `usage` `direct` / `indirect` instead: name · what it does · which TCode runs it (programs are read for logic, not called — say so).
 3. **🔗 Cross-module gaps** — if `crossModuleGaps[]` non-empty, explain each gap in one sentence with a concrete remediation hint. If empty, one line "No integration gaps detected for active modules: <list>".
 4. **⚠️ Sensitive objects** — if any, list with short reason and blocklist-extension suggestion. Skip section if none.
 5. **▶ Next step hint** — one line pointing to which downstream skill to run next (create-program / create-object / program-to-spec).
@@ -133,4 +123,4 @@ End the hand-off with one line: *"Also want an HTML view of index.md? (y/N)"* �
 
 ### Failure handling (both branches)
 
-On `BLOCKED: <reason>` from the stocker, surface the reason verbatim and stop — do not retry on main thread.
+On `BLOCKED: <reason>` from the stocker, re-dispatch that mode once on Opus per [`stocker-fanout.md`](stocker-fanout.md); still blocked → surface the reason verbatim and stop — never do the stocker's work on the main thread.

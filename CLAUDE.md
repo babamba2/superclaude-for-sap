@@ -16,7 +16,8 @@ This file is the **index** of development rules — NOT a payload to preload. De
 | OOP two-class split pattern | [`common/oop-pattern.md`](common/oop-pattern.md) |
 | Include structure (Main + conditional includes) | [`common/include-structure.md`](common/include-structure.md) |
 | ALV display rules | [`common/alv-rules.md`](common/alv-rules.md) |
-| OK_CODE binding pattern (TOP decl + screen NAME + PAI FORM routing; never `CASE sy-ucomm`) | [`common/ok-code-pattern.md`](common/ok-code-pattern.md) |
+| Tabstrip screens (STRIP_CTRL + subscreen area + tab PUSH rows, `CALL SUBSCREEN` in PBO and PAI) | [`common/screen-tabstrip.md`](common/screen-tabstrip.md) |
+| OK_CODE binding pattern (one TOP variable + screen NAME + PAI dispatch; never `CASE sy-ucomm`) | [`common/ok-code-pattern.md`](common/ok-code-pattern.md) |
 | SPRO lookup protocol (consultant agents, IMG/Customizing) | [`common/spro-lookup.md`](common/spro-lookup.md) |
 | Customization lookup protocol (existing Z*/Y* BAdI impl, CMOD, form-exits, appends — mandatory before recommending new enhancements/extensions) | [`common/customization-lookup.md`](common/customization-lookup.md) |
 | Data extraction policy (blocklist rule, `acknowledge_risk` hard rule, refusal template) | [`common/data-extraction-policy.md`](common/data-extraction-policy.md) |
@@ -26,7 +27,7 @@ This file is the **index** of development rules — NOT a payload to preload. De
 | Country / localization references (16 countries + EU common) | [`country/README.md`](country/README.md) + `country/*.md` |
 | Active modules — cross-module integration matrix (MM↔PS, SD↔CO, QM↔PP, …) | [`common/active-modules.md`](common/active-modules.md) |
 | Context loading protocol (CLAUDE.md is an index; every dispatch declares its minimal context kit) | [`common/context-loading-protocol.md`](common/context-loading-protocol.md) |
-| Model routing (Sonnet for reads + repetitive bulk; Opus for novel code, cross-file reasoning, ambiguity) | [`common/model-routing-rule.md`](common/model-routing-rule.md) |
+| Model routing (Opus for judgment / novel code; Sonnet for template + bulk writes; Haiku `sap-checker` fan-out for fetch / verify / detect) | [`common/model-routing-rule.md`](common/model-routing-rule.md) |
 | Model dispatch mode (`auto` default = route per rule; `user-defined` = ask Opus / Sonnet / Haiku before each dispatch group; set via `/sc4sap:sap-option`) | [`common/model-dispatch-mode.md`](common/model-dispatch-mode.md) |
 
 Before any work: verify `.sc4sap/config.json` exists and contains `sapVersion`, `abapRelease`, `industry`. Every recommendation, piece of generated code, and tool invocation must respect those fields.
@@ -53,10 +54,11 @@ Enforcement: L1 agent instructions → L2 this file → L3 `PreToolUse` hook (`s
 - `/sc4sap:program-to-spec` — Reverse-engineer a program into a spec artifact
 - `/sc4sap:program-to-manual` — End-user manual for one program: one HTML file, scenario steps on drawn screens with numbered callouts, check points, field reference, messages & actions, glossary, revision history; one step per A4 landscape page in print. Output `.sc4sap/manuals/<PROGRAM>-v<n>-<lang>.html` (auto-invokes `trust-session`)
 - `/sc4sap:analyze-code` — Static code review (auto-invokes `trust-session`)
-- `/sc4sap:compare-programs` — Business-angle side-by-side comparison of 2–5 ABAP programs sharing the same scenario but differing by module / country / persona (reader = consultant) → `.sc4sap/comparisons/*.md` (auto-invokes `trust-session`)
+- `/sc4sap:compare-programs` — Business-angle side-by-side comparison of 2–5 ABAP programs sharing the same scenario but differing by module / country / persona (reader = consultant) → one editable, versioned HTML report (verdict matrix + *Differences only*, field differences, screens side by side, decision guide, English companion) `comparisons/<NAME>-v<n>-<lang>.html` under the profile artifact base (auto-invokes `trust-session`)
+- `/sc4sap:config-to-document` — One module's configuration documented from the live system: IMG tree, per IMG activity the real table values drawn on an SM30-style screen, customer-changed rows with their transports, configuration checks, SAP IMG documentation, consultant notes written by the module consultant agent and reviewed by `sap-critic` → one HTML file `config-docs/<MODULE>/<MODULE>-config-v<n>-<lang>.html` under the profile artifact base. MM first.
 - `/sc4sap:analyze-symptom` — Dump/error root-cause analysis (auto-invokes `trust-session`)
 - `/sc4sap:analyze-cbo-obj` — Inventory a CBO package → save frequently-used Z objects to `.sc4sap/cbo/<MODULE>/<PACKAGE>/` for reuse by `create-program` / `program-to-spec` (auto-invokes `trust-session`)
-- `/sc4sap:package-to-process` — Reverse-engineer a CBO package into an End-to-End Business Process document (Markdown): auto-detected TCode entry points → AI process grouping (PR→PO→GR→IR style) → per-process narrative + Mermaid flowchart + sequenceDiagram + step tables. Auto-chains `sap-stocker` if CBO inventory missing. Progress bar at each step. Output: `.sc4sap/processes/<MODULE>/<PACKAGE>/process-<YYYYMMDD>-<lang>.md` (auto-invokes `trust-session`)
+- `/sc4sap:package-to-process` — Reverse-engineer a CBO package into an End-to-End Business Process document (Markdown): auto-detected TCode entry points → AI process grouping (PR→PO→GR→IR style) → per-process narrative + Mermaid flowchart + sequenceDiagram + step tables. Auto-chains `sap-stocker` if CBO inventory missing. Progress bar at each step. Output: `processes/<MODULE>/<PACKAGE>/process-<YYYYMMDD>-<lang>.md` under the profile-resolved artifact base (`common/multi-profile-artifact-resolution.md`), with `_state/` checkpoints for resume (auto-invokes `trust-session`)
 - `/sc4sap:ask-consultant` — Direct user-facing Q&A with a module consultant agent (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC). Auto-routes by keywords, answers against the configured SAP environment. Read-only (no writes, no row extraction).
 - `/sc4sap:mcp-setup` — MCP ABAP ADT server configuration guide
 - `/sc4sap:sap-option` — View and edit `.sc4sap/sap.env` (credentials, industry, blocklist profile, HUD limits)
@@ -65,6 +67,7 @@ Enforcement: L1 agent instructions → L2 this file → L3 `PreToolUse` hook (`s
 
 ### Agents
 - Core: `sap-analyst`, `sap-architect`, `sap-code-reviewer`, `sap-critic`, `sap-debugger`, `sap-doc-specialist`, `sap-executor`, `sap-planner`, `sap-qa-tester`, `sap-writer`
+- Checker: `sap-checker` — Haiku, read-only fan-out worker (`scout` / `verify` / `detect`) that returns structured lines; the main thread dispatches N of them and one Opus agent consumes the result. Used by `/sc4sap:create-program` Phase 1A scout, Phase 4 verification, Phase 6 `detect-judge`; `/sc4sap:analyze-code` size scout, large-object detect-judge, evidence verify; `/sc4sap:compare-programs` facts extraction; `/sc4sap:analyze-cbo-obj` + `/sc4sap:package-to-process` stocking scouts.
 - Discovery: `sap-stocker` — CBO inventory / where-used graph / reusable object cataloging (Sonnet, R/O SAP + R/W on `.sc4sap/cbo/`). Consumed by `/sc4sap:analyze-cbo-obj`, `/sc4sap:create-program` (CBO reuse gate), and module consultants via their `<CBO_Stocking_Delegation>` block.
 - Basis: `sap-bc-consultant`
 - Module consultants: `sap-sd-`, `sap-mm-`, `sap-pp-`, `sap-pm-`, `sap-qm-`, `sap-wm-`, `sap-tm-`, `sap-tr-`, `sap-fi-`, `sap-co-`, `sap-hcm-`, `sap-bw-`, `sap-ps-`, `sap-ariba-consultant`

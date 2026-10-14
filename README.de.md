@@ -10,8 +10,11 @@
 
 > Claude-Code-Plugin für die SAP-ABAP-Entwicklung — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private)
 
+**Website:** [sc4sap.dev](https://sc4sap.dev)
+
+[![Website](https://img.shields.io/badge/website-sc4sap.dev-0A66C2)](https://sc4sap.dev)
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)
-[![Plugin version](https://img.shields.io/badge/sc4sap-v0.6.0-6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
+[![Plugin version](https://img.shields.io/github/package-json/v/babamba2/superclaude-for-sap/main?label=sc4sap&color=6B4FBB)](https://github.com/babamba2/superclaude-for-sap/releases)
 [![GitHub stars](https://img.shields.io/github/stars/babamba2/superclaude-for-sap?style=flat&color=yellow)](https://github.com/babamba2/superclaude-for-sap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
@@ -28,7 +31,8 @@ SuperClaude for SAP verwandelt Claude Code in einen Full-Stack-SAP-Entwicklungsa
 | 🏗️ **Formatierter Auto-Programm-Generator** | Erstellt ABAP-Programme End-to-End: Main + bedingte Includes (OOP/Prozedural), volles ALV + Docking, Dynpro + GUI-Status, obligatorische Text Elements, ABAP-Unit-Tests — plattformbewusst (ECC / S4 On-Prem / Cloud). |
 | 🔍 **Programmanalyse** | Lese beliebige ABAP-Objekte via MCP, führe Clean ABAP / Performance / Security Review aus, oder Reverse Engineering zu Fach-/Technikspezifikation (Markdown/Excel). |
 | 🧪 **Code-Analyse** | `/sc4sap:analyze-code` — dedizierter statischer Review-Pass (`sap-code-reviewer`): Clean ABAP, Performance, Security, SAP-Standard-Compliance. Nach Schweregrad sortierte Befunde mit konkreten Korrekturvorschlägen. |
-| 🔀 **Programme vergleichen** | `/sc4sap:compare-programs` — Business-orientierter Seite-an-Seite-Vergleich von 2–5 ABAP-Programmen, die dasselbe Szenario teilen, aber nach Modul (MM/CO), Land (KR/EU) oder Persona (Controller/Lager) aufgeteilt sind. Berater-gerechter Markdown-Bericht über 10 konfigurierbare Dimensionen. |
+| 🔀 **Programme vergleichen** | `/sc4sap:compare-programs` — Business-orientierter Seite-an-Seite-Vergleich von 2–5 ABAP-Programmen, die dasselbe Szenario teilen, aber nach Modul (MM/CO), Land (KR/EU) oder Persona (Controller/Lager) aufgeteilt sind. Berater-gerechter, editierbarer HTML-Bericht über 10 konfigurierbare Dimensionen — farbige Bewertungsmatrix mit „Nur Unterschiede“, Feldvergleich, Bilder nebeneinander, Entscheidungshilfe, Versionen + englische Fassung. |
+| ⚙️ **Customizing → Dokument** | `/sc4sap:config-to-document` — dokumentiert das Customizing eines Moduls so, wie es im verbundenen System eingestellt ist (zuerst MM). Eine offline nutzbare HTML-Datei entlang des IMG-Baums: je IMG-Aktivität die echten Tabellenwerte auf einem SM30-ähnlichen Bild, durch Kundentransporte geänderte Zeilen mit Transporthistorie, Customizing-Prüfungen, SAP-IMG-Dokumentation sowie Beraterhinweise, geschrieben vom Modulberater-Agenten und geprüft von `sap-critic`. Im SAP-System nur lesend; im Bearbeitungsmodus der Seite korrigiert der Berater die Hinweise, die in die nächste Version übernommen werden. |
 | 🩺 **Betriebsdiagnose** | Operative Triage: ST22-Dumps, SM02, /IWFND/ERROR_LOG, Profiler-Traces, Logs, Where-Used — alles aus Claude. |
 | ♻️ **CBO-Wiederverwendung** | Z-Paket einmal inventarisieren → `create-program` / `program-to-spec` bevorzugen bestehende CBO-Assets statt Duplikate. Essenziell für Brownfield. |
 | 🧷 **CBO-Extension-Erkennung (CMOD / GGB0·1 / BTE / VOFM / BAdI / APPEND)** | Inventarisiert User-Exits (CMOD), Validierungen & Substitutionen (GGB0/GGB1), BTE-Funktionsbausteine, VOFM-Routinen (Bedingungen / Formeln / Datentransport), BAdI-Implementierungen und APPEND-Strukturen. `create-program` / BAPI-Aufrufe bevorzugen bestehende Extension-Felder (z. B. BAPI `EXTENSIONIN` / Tabellen-Append) gegenüber neuen CBOs; die Dump- und Störungsdiagnose prüft Extension-Stellen als erstklassige Verdächtige. |

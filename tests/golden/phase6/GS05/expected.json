@@ -1,0 +1,134 @@
+{
+  "case": "GS05",
+  "program": "ZSC4SAP_GS05",
+  "paradigm": "Procedural",
+  "planted": [
+    {
+      "id": "GS05-P1",
+      "checklist_item": "§6",
+      "rule_file": "common/include-structure.md",
+      "severity": "MAJOR",
+      "objects": [
+        "ZSC4SAP_GS05E",
+        "ZSC4SAP_GS05"
+      ],
+      "lines": [
+        19
+      ],
+      "description": "Procedural program has an {PROG}E include (ZSC4SAP_GS05E) holding the event blocks AT SELECTION-SCREEN / START-OF-SELECTION / END-OF-SELECTION; Main has no event blocks. Forbidden for Procedural; plan.md lists t/s/f only.",
+      "detection_hint": "SearchObject ZSC4SAP_GS05E hits while interview.md paradigm = Procedural; Main source ends with INCLUDE zsc4sap_gs05e.",
+      "also_acceptable_as": [
+        "§8 (Main does not match procedural-sample/main-program.abap — event blocks missing from Main)"
+      ],
+      "fix": "Move the three event blocks into Main after INCLUDE ...f, delete the INCLUDE ...e line and the ZSC4SAP_GS05E include."
+    }
+  ],
+  "unavoidable_secondary_findings": [
+    "Same root cause may be reported twice (§6 Procedural-E and §8 template mismatch); score as one detection, no false MAJOR."
+  ],
+  "must_not_flag": [
+    {
+      "id": "MNF-NAMING",
+      "checklist_item": "§7",
+      "construct": "Program / include / FG / FM names ZSC4SAP_GS* do not follow Z{MODULE}{TYPE}{NN}, Z{MODULE}FG_, Z{MODULE}FM_",
+      "reason": "common/naming-conventions.md § Exceptions: ZSC4SAP_* harness objects in $TMP → §7 N/A (also listed in spec.md § Naming)."
+    },
+    {
+      "id": "MNF-TRANSPORT",
+      "checklist_item": "§12",
+      "construct": "Objects are in $TMP without a transport request",
+      "reason": "Local golden-set objects; interview.md dim 6."
+    },
+    {
+      "id": "MNF-VERIFY4",
+      "checklist_item": "§1",
+      "construct": "No verify-phase4.md for the screen / GUI status",
+      "reason": "Golden-set run feeds Phase 6 only; reviewers verify screens / statuses directly (run-plan.md)."
+    },
+    {
+      "id": "MNF-OPENSQL",
+      "checklist_item": "§8/§9",
+      "construct": "Classic Open SQL without @ host-variable escaping / comma field lists",
+      "reason": "common/abap-release-reference.md § 1a: abapRelease 740 with abapSp unset → classic Open SQL, recorded in spec.md (\"SP unknown — classic SQL\")."
+    },
+    {
+      "id": "MNF-HEADER",
+      "checklist_item": "§8",
+      "construct": "Main program header block above REPORT (Module / Program ID / Tcode / Old Program ID / Title / Description + Change History)",
+      "reason": "common/clean-code-procedural.md § Mandatory Main Program Header (both paradigms); common/clean-code.md § Comments names it as the one allowed banner."
+    },
+    {
+      "id": "MNF-LOCAL-DATA",
+      "checklist_item": "§6/§8",
+      "construct": "DATA / FIELD-SYMBOLS declared inside a FORM, METHOD or MODULE",
+      "reason": "common/clean-code-procedural.md § Global vs Local: \"DATA inside a FORM, METHOD or MODULE body is local and allowed\"; phase6-review.md §6."
+    },
+    {
+      "id": "MNF-NO-COUNT",
+      "checklist_item": "§8",
+      "construct": "No SELECT COUNT(*) pre-check / no secondary key on the result table",
+      "reason": "SFLIGHT / SCARR are small demo tables, not the transactional tables the clean-code.md secondary-key / COUNT rule names."
+    },
+    {
+      "id": "MNF-MSGTYPE",
+      "checklist_item": "§3",
+      "construct": "MESSAGE ... TYPE gc_msgty_* / DISPLAY LIKE gc_msgty_*",
+      "reason": "Message types come from constants — compliant with common/constant-rule.md."
+    },
+    {
+      "id": "MNF-FCAT-LITERALS",
+      "checklist_item": "§3",
+      "construct": "Field-name literals in CASE <fcat>-fieldname ('SEATSMAX', 'OCCUPANCY')",
+      "reason": "common/constant-rule.md § Exceptions: field catalog modification."
+    },
+    {
+      "id": "MNF-SUBRC-CLEAR",
+      "checklist_item": "§8",
+      "construct": "IF sy-subrc <> 0. CLEAR … / RETURN. after a SELECT ... INTO TABLE",
+      "reason": "Explicit handling of the empty result; not an empty branch."
+    },
+    {
+      "id": "MNF-NO-AUTH",
+      "checklist_item": "§8",
+      "construct": "No AUTHORITY-CHECK before the SFLIGHT / SCARR reads",
+      "reason": "SAP demo data, not restricted business data (common/clean-code.md § Security and Data Handling targets restricted data); harness exemption recorded in spec.md §8."
+    },
+    {
+      "id": "MNF-HOUSE-GUIDE-INCLUDE",
+      "checklist_item": "§6/§7",
+      "construct": "A shared, non-executed syntax-guide include pulled in by INCLUDE (house practice)",
+      "reason": "common/naming-conventions.md § Exceptions: never generated, never flagged. Not applicable here — no such include exists in this case; a finding about it is a false positive.",
+      "applicable": false
+    },
+    {
+      "id": "MNF-INCLUDE-BANNER",
+      "checklist_item": "§8",
+      "construct": "One-line *& Include {NAME} banner at the top of each include",
+      "reason": "common/clean-code-procedural.md § Mandatory Main Program Header: includes get only this one-line banner."
+    },
+    {
+      "id": "MNF-SALV-NO-SUFFIX",
+      "checklist_item": "§4",
+      "construct": "SALV-only, selection-level and utility FORMs (display_data, get_data, check_carrier / check_carriers, convert_fcat_data_grid) without _{screen_no}",
+      "reason": "common/procedural-form-naming.md: SALV-only and utility FORMs take no suffix; selection screen 1000 is not a dynpro binding."
+    },
+    {
+      "id": "MNF-COUNT-EXISTS",
+      "checklist_item": "§8",
+      "construct": "SELECT COUNT(*) FROM scarr WHERE carrid IN ... for existence",
+      "reason": "Existence check with sy-subrc; no SELECT *."
+    },
+    {
+      "id": "MNF-NO-TESTS",
+      "checklist_item": "§8",
+      "construct": "No {PROG}ct include / no LCL_HELPER",
+      "reason": "common/clean-code-procedural.md § Testing: Procedural + testing scope none → no ABAP Unit (interview.md dim 7)."
+    },
+    {
+      "id": "MNF-NO-C-A",
+      "checklist_item": "§6",
+      "construct": "No {PROG}c / {PROG}a include",
+      "reason": "common/include-structure.md: Procedural c / a only when the spec declares a local class / split ALV FORMs."
+    }
+  ]
+}

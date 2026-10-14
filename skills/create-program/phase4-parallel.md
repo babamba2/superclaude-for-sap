@@ -19,7 +19,7 @@ Running everything in one giant parallel batch breaks DDIC dependencies; running
 | **G2 — Classes + Interfaces** | Global Class, Global Interface, Exception Class | G1 types |
 | **G3 — Functions** | Function Group, Function Module | G1 types, G2 classes |
 | **G4 — Screens + GUI Status + Text Elements** | Dynpro Screen, GUI Status (PF-Status), Text Elements | G1 structures (for screen fields), main program (screens attach to a program) |
-| **G5 — Includes + Main Program** | All `_TOP` / `_SEL` / `_CLASS` / `_ALV` / `_PBO` / `_PAI` / `_FORM` / `_TST` includes, main REPORT program | G1, G2, G3 (everything referenced inside includes) |
+| **G5 — Includes + Main Program** | All `{PROG}T` / `S` / `C` / `CT` / `E` / `O` / `I` (/ `F`) includes (no underscore), main REPORT program | G1, G2, G3 (everything referenced inside includes) |
 
 ## Wave Order
 
@@ -50,7 +50,7 @@ Final step:
 
 ## Multi-Executor Split — triggered by Phase 2 sizing
 
-Default is ONE `sap-executor` dispatch per Wave. When `plan.md` § *Execution Sizing* crosses the thresholds in [`multi-executor-split.md`](./multi-executor-split.md) (programs > 5, or includes > 15, or total writes > 40, or text elements > 40, or DDIC > 5), Wave 3 + Wave 4 split into 2-way or 3-way parallel executors per Strategy A/B/C in that file. Transport is shared; `ActivateObjects` and `GetInactiveObjects` run once at Final Step by the leader.
+Default is ONE `sap-executor` dispatch per Wave and model (Wave 2 = two dispatches: G2+G3 on Opus, G4-prep on Sonnet). When `plan.md` § *Execution Sizing* crosses the thresholds in [`multi-executor-split.md`](./multi-executor-split.md) (programs > 5, or includes > 15, or total writes > 40, or text elements > 40, or DDIC > 5), Wave 3 + Wave 4 split into 2-way or 3-way parallel executors per Strategy A/B/C in that file. Transport is shared; `ActivateObjects` runs once at Final Step (main thread or the leader executor) and the inactive-count check is one Haiku `sap-checker` per [`phase4-verify.md`](./phase4-verify.md).
 
 ## Per-Wave Protocol
 
@@ -59,7 +59,7 @@ Each Wave declares a **Context kit** (files agent MUST read — per `../../commo
 ### Wave 1 — G1 (DDIC + CDS)
 
 - **Context kit**: `../../common/naming-conventions.md`, `../../common/field-typing-rule.md`, `../../common/ecc-ddic-fallback.md` (ECC only)
-- **Model**: Opus — novel DDIC writes, cross-type refs
+- **Model**: Opus — `sap-executor` dispatched with `model: "opus"` (frontmatter is Sonnet); novel DDIC writes, cross-type refs
 - **Mandatory first.** Everything else references these types.
 
 Sub-order within G1 (DDIC has internal dependencies):
@@ -77,9 +77,9 @@ Between steps, NO activation call — SAP can create inactive chains. Activation
 > **teamMode variant (Type B)** — within G2 (Classes) and G3 (Function Modules), if the drafted code touches tables/FMs in 2+ modules AND is novel business logic, activate Type B teamMode per [`team-mode-b.md`](team-mode-b.md) BEFORE `ActivateObjects`. Consultants live-review; findings annotated `peer-validated` propagate to Phase 6 (avoids double-review). Skip for template-fill / boilerplate.
 
 - **Context kit**: `../../common/oop-pattern.md` (OOP), `../../common/function-module-rule.md`, `../../common/text-element-rule.md` (G4-prep)
-- **Model**: Opus for G2/G3 (novel classes/FMs); **Sonnet for G4-prep** (bulk repetitive CreateTextElement)
+- **Model**: Opus for G2/G3 (`model: "opus"` override — novel classes/FMs); **Sonnet for G4-prep** (bulk repetitive CreateTextElement); **Haiku `sap-checker`** for the G4-prep count check
 
-All three groups launch in a single multi-tool-use message. Within each group, members launch in parallel too:
+All three groups launch in a single multi-tool-use message as **two** `Agent(...)` calls — one `sap-executor` with `model: "opus"` for G2 + G3, one with `model: "sonnet"` for G4-prep (one model per dispatch). Within each group, members launch in parallel too:
 
 - **G2**: parallel `CreateInterface` + `CreateClass` calls. If a class `IMPLEMENTS` an interface, SAP tolerates inactive interface refs during creation — activation resolves them in the final batch.
 - **G3**: `CreateFunctionGroup` first (small-serial), then parallel `CreateFunctionModule` within the group. Each `UpdateFunctionModule` body **MUST follow [`../../common/function-module-rule.md`](../../common/function-module-rule.md)** — inline `IMPORTING / EXPORTING / CHANGING / TABLES / EXCEPTIONS` clauses directly in the `FUNCTION` statement (not as `*"` comments, not as shadow locals). Empty signature placeholder `" You can use the template 'functionModuleParameter' ...` is a failure marker.
@@ -88,14 +88,14 @@ All three groups launch in a single multi-tool-use message. Within each group, m
   - Type `I` — one per `TEXT-xxx` literal used in source (ALV coltext, MESSAGE, titles in code).
   - **Type `S` — one per `SELECT-OPTIONS` and `PARAMETERS` name on the selection screen.** Skipping `S` is the single most common Phase 4 regression — runtime shows `S_BUDAT` / `P_FILE` instead of human labels. Do not rely on a later pass to add them.
   - Type `H` — only when the program emits classical WRITE lists (skip for ALV-only).
-  - After creation (for every language pass), call `ReadTextElementsBulk(program, language)` and verify: `counts.R ≥ 1` AND `counts.I == emitted_I` AND `counts.S == declared_select_options_and_parameters`. On mismatch, re-emit the missing rows before Wave 3 starts.
+  - After creation, the main thread dispatches one `sap-checker` (`MODE: verify`) per language pass per [`phase4-verify.md`](./phase4-verify.md) § Verification fan-out; it calls `ReadTextElementsBulk(program, language)` and asserts: `counts.R ≥ 1` AND `counts.I == emitted_I` AND `counts.S == declared_select_options_and_parameters`. On mismatch, re-emit the missing rows before Wave 3 starts.
 
 ### Wave 3 — G5 (Includes + Main Program)
 
 > **teamMode variant (Type B)** — same pattern as Wave 2 for novel cross-module business logic in event blocks / FORM routines. See [`team-mode-b.md`](team-mode-b.md). Skip for pure-structural includes (TOP decl, selection screen, PBO/PAI boilerplate).
 
 - **Context kit**: `../../common/include-structure.md`, `../../common/procedural-sample/main-program.abap` OR `../../common/oop-sample/zrsc4sap_oop_ex.prog.abap` (per paradigm), `../../common/clean-code-procedural.md` OR `../../common/clean-code-oop.md`, `../../common/ok-code-pattern.md` (if `CALL SCREEN` present)
-- **Model**: Opus — code layout + cross-include reference resolution
+- **Model**: Opus — `model: "opus"` override; code layout + cross-include reference resolution
 
 Local source generation (executor, no MCP) happens first — `sap-executor` reads `spec.md` + `plan.md` and builds every include body + main program body in memory, referencing G1/G2/G3 artifacts by name.
 
@@ -106,42 +106,15 @@ Local source generation (executor, no MCP) happens first — `sap-executor` read
 Any structural deviation (event block reordering, include-suffix rename, bootstrap shortcut) requires a written justification in `spec.md`. Without it, Phase 6 B3 (Structure + Naming) bucket flags the deviation as MAJOR and escalates to Opus.
 
 Then:
-1. **Parallel**: `CreateInclude` for every required include (TOP / SEL / CLASS / ALV / PBO / PAI / FORM / TST as the spec dictates)
+1. **Parallel**: `CreateInclude` for every required include (`{PROG}T` / `S` / `C` / `CT` / `E` / `O` / `I` / `F` as the spec dictates — see `include-structure.md`)
 2. **Single**: `CreateProgram` for the main REPORT (attaches include refs)
 3. **Single**: `GetAbapSemanticAnalysis(main)` — analyzes the whole include tree together; per-include check is skipped because includes cannot parse standalone (cross-include type refs fail).
 
 On syntax errors, parse locations → identify offending include(s) → **parallel** `UpdateInclude` patches → re-run `GetAbapSemanticAnalysis(main)`. Loop max 3 iterations. On persistent failure, escalate to Phase 7 (sap-debugger).
 
-### Wave 4 — G4-late (Screens + GUI Status)
+### Wave 4 — G4-late (Screens + GUI Status) + Final Step — Batch Activation
 
-- **Context kit**: `../../common/alv-rules.md`, `../../common/ok-code-pattern.md`
-- **Model**: Sonnet — template-based Create/Update/Verify
-
-Needs the main program. **Each screen and each GUI Status MUST follow the 3-step `Create → Update(body) → VerifyNonEmpty` protocol** — `Create*` alone creates an empty shell; it does NOT populate flow logic, PFKEYS, menus, or titles. Skipping the `Update*` step has been a recurring Phase 4 regression (screens with `* MODULE STATUS_0100.` commented out and empty GUI statuses passing review).
-
-**Per screen (parallel across screens):**
-1. `CreateScreen(program, screen_number, ...)` — shell + field list.
-2. `UpdateScreen(program, screen_number, flow_logic=..., fields_to_containers=...)` — flow logic MUST include uncommented `MODULE STATUS_xxxx.` and `MODULE USER_COMMAND_xxxx.` lines (PBO / PAI). Every field the screen needs must be in the field list. **OK_CODE field binding is mandatory per [`../../common/ok-code-pattern.md`](../../common/ok-code-pattern.md)**: the `fields_to_containers[]` entry with `TYPE=OKCODE` MUST have `NAME=GV_OKCODE` (not the placeholder underscores). A screen whose OKCODE field has no NAME routes user commands into `sy-ucomm` only — breaks silently on popup flows and is a MAJOR Phase 6 finding.
-3. **Verify**: `GetScreen(program, screen_number)` → (a) `flow_logic` contains a non-comment `MODULE ... OUTPUT.` line AND a non-comment `MODULE ... INPUT.` line (lines starting with `*` or `"` do NOT count), AND (b) `fields_to_containers[]` OKCODE entry has `NAME=GV_OKCODE`. On failure → re-`UpdateScreen` with the correct body; do not advance to activation.
-
-**Per GUI Status (parallel across statuses):**
-1. `CreateGuiStatus(program, status_name, ...)` — shell.
-2. `UpdateGuiStatus(program, status_name, pfkeys=..., menu=..., toolbar=..., title=...)` — populate PFKEYS (BACK/EXIT/CANC at minimum), application toolbar entries for SAVE/REFRESH/etc., and the status title. **A separate title row per status code must also be emitted (CUAD `TIT` entry).**
-3. **Verify**: `GetGuiStatus(program, status_name)` → `definition.STA[*].CODE` matches requested AND the status has non-empty function codes (not just an empty `STA` + `TIT` pair). On failure → re-`UpdateGuiStatus`; do not advance.
-
-**Anti-pattern to block**: reporting "Screen/GUI 생성 완료" after only `Create*` returned 200. The empty-shell state is indistinguishable from success unless `Get*` is called after `Update*`. Reviewer treats missing verify step as MAJOR finding.
-
-## Final Step — Batch Activation + Post-Activation Verification
-
-- **Context kit**: (none — mechanical activation + verify)
-- **Model**: Sonnet
-
-1. `GetInactiveObjects(transport=...)` → list inactive objects from this session.
-2. Single `ActivateObjects` call against the full list.
-3. **Mandatory post-activation verification (NEW)** — call `GetInactiveObjects` again and filter for entries whose `name` matches this program's prefix (`{PROG}*`) AND every created FG/CLAS/TABL from the plan. The expected count is **exactly 0**. Any non-zero result means activation partially failed (common case: an include body references an identifier that was never activated, so the include stays inactive while the main program activates).
-4. If step 3 returns > 0 entries: do NOT report "활성화 완료" / "completed". Re-run step 1 targeting the remaining items; on persistent failure (2 attempts) escalate to Phase 7 and surface the exact list of still-inactive objects to the user. Past regression: reviewer reported "5/5 프로그램 활성화 OK" while 30+ sub-includes remained in inactive state — step 3 blocks that class of false positive.
-
-SAP's ADT activation accepts a list and resolves dependencies atomically. If one object fails (rare at this point), reorder by dependency chain and retry the remaining set. Persistent failure → Phase 7.
+Moved to [`phase4-verify.md`](./phase4-verify.md): the 3-step `Create → Update(body) → Verify` protocol per screen / GUI status (Sonnet executor writes, Haiku `sap-checker` ×N verifies), the single `ActivateObjects` batch, and the mandatory post-activation inactive-count check. Read it before Wave 4.
 
 ## Ordering Constraints Summary
 

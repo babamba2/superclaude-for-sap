@@ -138,6 +138,17 @@ describe('ALV column headers', () => {
     expect(svg).not.toContain('ICON_SOMETHING');
   });
 
+  it('draws the icons of common GUI-status / ALV-toolbar SAP names, compound names by their words', () => {
+    const icons: Record<string, string> = {
+      ICON_LIST: '☰', ICON_CONVERT: '⇆', ICON_RELEASE: '⚑', ICON_HISTORY: '↺', ICON_EXECUTE_OBJECT: '▶',
+      ICON_SYSTEM_UNDO: '↶', ICON_TE_RECEIPTS: '▤', ICON_IMPORT_TRANSPORT_REQUEST: '⇲', ICON_IMPORT_ALL_REQUESTS: '⇲',
+      ICON_MATERIAL: '▣', ICON_ORDER: '▤', ICON_DELETE_ROW: '✕',
+    };
+    const buttons = Object.keys(icons).map((icon, i) => ({ code: `B${i}`, label: `B${i}`, icon }));
+    const svg: string = renderAlvScreenSVG({ screen: { title: 'T', buttons }, columns: [{ name: 'A' }], sampleRows: [{ A: '1' }] }, { lang: 'en' });
+    for (const glyph of new Set(Object.values(icons))) expect(svg, glyph).toContain(`>${glyph}<`);
+  });
+
   it('draws red / yellow / green cell values as status lamps', () => {
     const svg: string = renderAlvScreenSVG({ columns: [{ name: 'ICON_STATS', header: 'Status' }], sampleRows: [{ ICON_STATS: 'red' }, { ICON_STATS: 'Green' }] }, { lang: 'en' });
     expect(svg).toContain('fill="#D64545"');

@@ -136,7 +136,7 @@ This file lists the Clean ABAP rules that apply regardless of paradigm. Follow e
 
 - **Default: no comments.** Clean naming and short methods explain themselves.
 - **Write a comment only for the WHY** — a hidden invariant, a workaround for a specific SAP Note, a constraint from a domain expert. Never the WHAT.
-- **No comment banners, author tags, or change logs.** Git/Transport is the audit trail.
+- **No comment banners, author tags, or change logs** — except the mandatory main-program header (see [`clean-code-procedural.md`](clean-code-procedural.md) § Mandatory Main Program Header), which is the only place for them. Git/Transport stays the detailed audit trail.
 - **Delete commented-out code** — don't check it in.
 
 ## Testing (paradigm-neutral principles)

@@ -34,7 +34,7 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:create-object`. Skip si
 
 ## Step 4 + 5 + 6 — Create + Implement + Activate (one `sap-executor` dispatch, Opus override)
 
-**Standard flow (S/4HANA, or non-DDIC on ECC).** Single dispatch covers object creation, initial implementation code, and activation — no round-trip to the main thread between them. Opus override is required because Step 5 is novel code generation per `common/model-routing-rule.md` § Tier 2 (field typing priority 1–4, class/FM body, etc.).
+**Standard flow (S/4HANA, or non-DDIC on ECC).** Single dispatch covers object creation, initial implementation code, and activation — no round-trip to the main thread between them. Opus override is required because Step 5 is novel code generation per `common/model-routing-rule.md` § Tier 1 — Opus (field typing priority 1–4, class/FM body, etc.).
 
 Emit phase banner:
 ```

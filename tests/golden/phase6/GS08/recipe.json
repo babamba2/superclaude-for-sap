@@ -1,0 +1,261 @@
+{
+  "case": "GS08",
+  "paradigm": "Procedural",
+  "display_mode": "SALV popup (CL_SALV_TABLE)",
+  "package": "$TMP",
+  "transport": null,
+  "planted_summary": "ZSC4SAP_GS08_FM has the ADT placeholder signature (\"You can use the template 'functionModuleParameter'...\") and shadow locals lv_iv_carrid / lv_ev_carrname instead of IMPORTING iv_carrid / EXPORTING ev_carrname / EXCEPTIONS not_found. The FM is dead: the guard always returns, and the caller passes parameters that do not exist (runtime CALL_FUNCTION_PARM_UNKNOWN).",
+  "objects": [
+    {
+      "type": "FUGR",
+      "name": "ZSC4SAP_GSFG",
+      "parent": null,
+      "description": "Golden set phase 6 - FM host"
+    },
+    {
+      "type": "FUNC",
+      "name": "ZSC4SAP_GS08_FM",
+      "parent": "ZSC4SAP_GSFG",
+      "description": "Read airline name"
+    },
+    {
+      "type": "PROG/P",
+      "name": "ZSC4SAP_GS08",
+      "parent": null,
+      "description": "Flights of one airline"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS08T",
+      "parent": "ZSC4SAP_GS08",
+      "description": "TOP — types, constants, global result table"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS08S",
+      "parent": "ZSC4SAP_GS08",
+      "description": "Selection screen (P_CARRID, S_FLDATE)"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS08F",
+      "parent": "ZSC4SAP_GS08",
+      "description": "FORMs: check_carrier (calls ZSC4SAP_GS08_FM), get_data, disp"
+    }
+  ],
+  "screens": [],
+  "gui_statuses": [],
+  "text_elements": {
+    "languages": [
+      "E",
+      "<PRIMARY>"
+    ],
+    "rows": [
+      {
+        "type": "R",
+        "text": "Flights of one airline"
+      },
+      {
+        "type": "I",
+        "key": "B01",
+        "text": "Selection"
+      },
+      {
+        "type": "I",
+        "key": "M01",
+        "text": "No flights found for the selection"
+      },
+      {
+        "type": "I",
+        "key": "M02",
+        "text": "Airline does not exist"
+      },
+      {
+        "type": "I",
+        "key": "M03",
+        "text": "Airline:"
+      },
+      {
+        "type": "I",
+        "key": "M04",
+        "text": "Airline check failed"
+      },
+      {
+        "type": "S",
+        "key": "P_CARRID",
+        "text": "Airline"
+      },
+      {
+        "type": "S",
+        "key": "S_FLDATE",
+        "text": "Flight date"
+      }
+    ]
+  },
+  "activation": {
+    "activate": [
+      "ZSC4SAP_GS08",
+      "ZSC4SAP_GS08T",
+      "ZSC4SAP_GS08S",
+      "ZSC4SAP_GS08F",
+      "ZSC4SAP_GSFG",
+      "ZSC4SAP_GS08_FM"
+    ],
+    "must_stay_inactive": []
+  },
+  "steps": [
+    {
+      "step": 1,
+      "tool": "CreateFunctionGroup",
+      "args": {
+        "function_group_name": "ZSC4SAP_GSFG",
+        "package_name": "$TMP",
+        "description": "Golden set phase 6 - FM host",
+        "activate": true
+      },
+      "note": "Skip if it already exists from an earlier run (SearchObject first)."
+    },
+    {
+      "step": 2,
+      "tool": "CreateFunctionModule",
+      "args": {
+        "function_group_name": "ZSC4SAP_GSFG",
+        "function_module_name": "ZSC4SAP_GS08_FM",
+        "description": "Read airline name"
+      }
+    },
+    {
+      "step": 3,
+      "tool": "UpdateFunctionModule",
+      "args": {
+        "function_group_name": "ZSC4SAP_GSFG",
+        "function_module_name": "ZSC4SAP_GS08_FM",
+        "source_file": "src/ZSC4SAP_GS08_FM.abap",
+        "activate": true
+      },
+      "note": "PLANTED: upload the source verbatim (placeholder signature + shadow locals). Do not \"fix\" it."
+    },
+    {
+      "step": 4,
+      "tool": "CreateProgram",
+      "args": {
+        "program_name": "ZSC4SAP_GS08",
+        "package_name": "$TMP",
+        "program_type": "executable",
+        "description": "Flights of one airline"
+      }
+    },
+    {
+      "step": 5,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS08T",
+        "main_program": "ZSC4SAP_GS08",
+        "package_name": "$TMP",
+        "description": "TOP — types, constants, global result table",
+        "source_file": "src/ZSC4SAP_GS08T.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 6,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS08S",
+        "main_program": "ZSC4SAP_GS08",
+        "package_name": "$TMP",
+        "description": "Selection screen (P_CARRID, S_FLDATE)",
+        "source_file": "src/ZSC4SAP_GS08S.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 7,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS08F",
+        "main_program": "ZSC4SAP_GS08",
+        "package_name": "$TMP",
+        "description": "FORMs: check_carrier (calls ZSC4SAP_GS08_FM), get_data, disp",
+        "source_file": "src/ZSC4SAP_GS08F.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 8,
+      "tool": "UpdateProgram",
+      "args": {
+        "program_name": "ZSC4SAP_GS08",
+        "source_file": "src/ZSC4SAP_GS08.abap",
+        "activate": false
+      },
+      "note": "Main source already lists every INCLUDE line; CreateInclude was told not to insert."
+    },
+    {
+      "step": 9,
+      "tool": "ActivateObjects",
+      "args": {
+        "objects": [
+          {
+            "name": "ZSC4SAP_GS08",
+            "type": "PROG/P"
+          },
+          {
+            "name": "ZSC4SAP_GS08T",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS08S",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS08F",
+            "type": "PROG/I"
+          }
+        ]
+      }
+    },
+    {
+      "step": 10,
+      "tool": "WriteTextElementsBulk",
+      "args": {
+        "program_name": "ZSC4SAP_GS08",
+        "language": "E",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      }
+    },
+    {
+      "step": 11,
+      "tool": "WriteTextElementsBulk",
+      "args": {
+        "program_name": "ZSC4SAP_GS08",
+        "language": "<PRIMARY>",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      },
+      "note": "Repeat with the system primary logon language (config.json systemInfo.language / SAP_LANGUAGE). Skip when it is E. English text is acceptable."
+    },
+    {
+      "step": 12,
+      "tool": "GetInactiveObjects",
+      "args": {
+        "filter": "ZSC4SAP_GS08*, ZSC4SAP_GSFG, ZSC4SAP_GS08_FM"
+      },
+      "note": "Expected: 0 entries. Re-activate leftovers before continuing."
+    }
+  ],
+  "cleanup": "DeleteProgram ZSC4SAP_GS08 (with includes / screen / status); DeleteFunctionModule ZSC4SAP_GS08_FM; DeleteFunctionGroup ZSC4SAP_GSFG - only with explicit per-call user approval."
+}

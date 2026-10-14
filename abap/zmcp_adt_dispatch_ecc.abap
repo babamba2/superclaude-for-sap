@@ -19,6 +19,10 @@ FUNCTION zmcp_adt_dispatch
 *   3. Screen containers / fields declared using the FM's TABLES-parameter
 *      table types `DYCATT_TAB` / `DYFATC_TAB` directly, because the line
 *      type `RPY_DYFIELD` does not exist on ECC 7.40 (S/4HANA-only DDIC).
+*   4. DYNPRO_INSERT flow logic typed `RPY_DYFLOW` (LINE CHAR 72) instead
+*      of `SWBSE_MAX_LINE_TAB`; 7.40 exception list of RPY_DYNPRO_INSERT.
+*   5. CUA_WRITE passes the mandatory 7.40 parameter TR_KEY (TRKEY) to
+*      `RS_CUA_INTERNAL_WRITE`; exceptions NOT_FOUND / INVALID_DATA.
 *
 * Supported actions:
 *   DYNPRO_INSERT  — create screen   (RPY_DYNPRO_INSERT)
@@ -27,9 +31,9 @@ FUNCTION zmcp_adt_dispatch
 *   CUA_FETCH      — read GUI status (RS_CUA_INTERNAL_FETCH)
 *   CUA_WRITE      — write GUI status (RS_CUA_INTERNAL_WRITE)
 *   CUA_DELETE     — delete GUI status (RS_CUA_DELETE)
-*   TABLE_READ     — read-only SELECT on an allow-listed customizing table
-*                    (MODACT, MODATTR, MODSAP, GB31, GB92, GB93, T001D, T001Q,
-*                    TBE24, TBE34, TPS34, TFRM, TFRMT, T100); the
+*   TABLE_READ     — read-only SELECT on a customizing / system table
+*                    (delivery class C, G, E, S) or a listed repository
+*                    table (CMOD, TSTC, DDIC metadata, transport keys); the
 *                    MCP server's GetSqlQuery / GetTableContents fallback, as
 *                    ECC has no ADT data preview
 
@@ -71,19 +75,127 @@ ENDFUNCTION.
 
 
 *&---------------------------------------------------------------------*
-*& Form DYNPRO_INSERT — stub on ECC
+*& Form DYNPRO_INSERT (ECC 7.40)
 *&---------------------------------------------------------------------*
-* flow_logic line type on ECC 7.40 is `RPY_DYFLOW`; its internal field
-* layout and the JSON round-trip mapping differ from S/4HANA enough that
-* porting requires a dedicated pass. Until then this form is a stub so
-* the other actions (READ / CUA) can compile and install cleanly.
+* params: program, dynpro, dynpro_data (JSON string, same contract as the
+*         S/4 variant: HEADER / CONTAINERS / FIELDS_TO_CONTAINERS /
+*         FLOW_LOGIC = [{LINE}] - also the shape DYNPRO_READ returns).
+* ECC 7.40 RPY_DYNPRO_INSERT interface:
+*   HEADER LIKE RPY_DYHEAD, CONTAINERS TYPE DYCATT_TAB,
+*   FIELDS_TO_CONTAINERS TYPE DYFATC_TAB, FLOW_LOGIC LIKE RPY_DYFLOW
+*   (one component LINE CHAR 72) - all mandatory; PARAMS optional.
+* Same semantics as S/4: SUPPRESS_EXIST_CHECKS = 'X', so an existing
+* screen is overwritten (UpdateScreen deletes it first anyway). Because
+* that flag also skips the TRDIR check, the program is checked here.
 FORM dynpro_insert USING iv_params TYPE string
                    CHANGING ev_subrc   TYPE i
                             ev_message TYPE string
                             ev_result  TYPE string.
-  ev_subrc   = 4.
-  ev_message = 'DYNPRO_INSERT not yet supported in the ECC variant — TODO'.
-  ev_result  = '{}'.
+
+  TYPES: BEGIN OF ty_flow_in,
+           line TYPE string,
+         END OF ty_flow_in,
+         ty_flow_in_tab TYPE STANDARD TABLE OF ty_flow_in WITH DEFAULT KEY.
+
+  DATA: BEGIN OF ls_input,
+          program     TYPE string,
+          dynpro      TYPE string,
+          dynpro_data TYPE string,
+        END OF ls_input.
+
+  DATA: BEGIN OF ls_dynpro,
+          header               TYPE rpy_dyhead,
+          containers           TYPE dycatt_tab,
+          fields_to_containers TYPE dyfatc_tab,
+          flow_logic           TYPE ty_flow_in_tab,
+        END OF ls_dynpro.
+
+  DATA: lt_flow    TYPE STANDARD TABLE OF rpy_dyflow WITH DEFAULT KEY,
+        ls_flow    TYPE rpy_dyflow,
+        ls_flow_in TYPE ty_flow_in,
+        lv_lineno  TYPE i,
+        lv_name    TYPE trdir-name,
+        lv_sap_msg TYPE string.
+
+  /ui2/cl_json=>deserialize(
+    EXPORTING json = iv_params
+    CHANGING  data = ls_input ).
+
+  /ui2/cl_json=>deserialize(
+    EXPORTING json = ls_input-dynpro_data
+    CHANGING  data = ls_dynpro ).
+
+  " Screen key: fall back to the call parameters, program in upper case.
+  IF ls_dynpro-header-program IS INITIAL.
+    ls_dynpro-header-program = ls_input-program.
+  ENDIF.
+  IF ls_dynpro-header-screen IS INITIAL.
+    ls_dynpro-header-screen = ls_input-dynpro.
+  ENDIF.
+  TRANSLATE ls_dynpro-header-program TO UPPER CASE.
+
+  SELECT SINGLE name FROM trdir INTO lv_name
+    WHERE name = ls_dynpro-header-program.
+  IF sy-subrc <> 0.
+    ev_subrc   = 4.
+    ev_message = |Program { ls_dynpro-header-program } does not exist|.
+    RETURN.
+  ENDIF.
+
+  " Flow logic: text lines -> RPY_DYFLOW (LINE CHAR 72). Trailing blanks
+  " and CR (CRLF input) are dropped; a longer line is rejected, not cut.
+  LOOP AT ls_dynpro-flow_logic INTO ls_flow_in.
+    lv_lineno = sy-tabix.
+    ls_flow_in-line = replace( val = ls_flow_in-line regex = `\s+$` with = `` ).
+    IF strlen( ls_flow_in-line ) > 72.
+      ev_subrc   = 4.
+      ev_message = |Flow logic line { lv_lineno } is longer than 72 characters|.
+      RETURN.
+    ENDIF.
+    ls_flow-line = ls_flow_in-line.
+    APPEND ls_flow TO lt_flow.
+  ENDLOOP.
+
+  CALL FUNCTION 'RPY_DYNPRO_INSERT'
+    EXPORTING
+      header                 = ls_dynpro-header
+      suppress_exist_checks  = abap_true
+    TABLES
+      containers             = ls_dynpro-containers
+      fields_to_containers   = ls_dynpro-fields_to_containers
+      flow_logic             = lt_flow
+    EXCEPTIONS
+      cancelled              = 1
+      already_exists         = 2
+      program_not_exists     = 3
+      not_executed           = 4
+      missing_required_field = 5
+      illegal_field_value    = 6
+      field_not_allowed      = 7
+      not_generated          = 8
+      illegal_field_position = 9
+      OTHERS                 = 10.
+
+  ev_subrc = sy-subrc.
+  IF ev_subrc <> 0.
+    IF sy-msgid IS NOT INITIAL.
+      MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_sap_msg.
+    ENDIF.
+    IF ev_subrc = 8.
+      " The screen is already stored; only GENERATE DYNPRO failed.
+      ev_message = |Screen { ls_dynpro-header-program }/{ ls_dynpro-header-screen } saved but not generated (sy-subrc=8)|.
+    ELSE.
+      ev_message = |RPY_DYNPRO_INSERT failed (sy-subrc={ ev_subrc })|.
+    ENDIF.
+    IF lv_sap_msg IS NOT INITIAL.
+      ev_message = |{ ev_message }: { lv_sap_msg }|.
+    ENDIF.
+  ELSE.
+    ev_message = |Screen { ls_dynpro-header-program }/{ ls_dynpro-header-screen } created|.
+    ev_result  = '{}'.
+  ENDIF.
+
 ENDFORM.
 
 
@@ -326,10 +438,43 @@ FORM cua_write USING iv_params TYPE string
     lv_lang = sy-langu.
   ENDIF.
 
+  " ECC 7.40: TR_KEY (LIKE TRKEY) is a mandatory IMPORTING parameter of
+  " RS_CUA_INTERNAL_WRITE (omitting it -> CX_SY_DYN_CALL_PARAM_MISSING).
+  " OBJ_TYPE must fit the program type (PROG for 1/M, FUGR for F) or the
+  " FM raises INVALID_DATA; SUB_NAME drives the tree / TCODE index.
+  DATA: ls_tr_key  TYPE trkey,
+        lv_prog    TYPE trdir-name,
+        lv_subc    TYPE trdir-subc,
+        lv_ns      TYPE string,
+        lv_rest    TYPE string,
+        lv_sap_msg TYPE string.
+
+  lv_prog = to_upper( ls_input-program ).
+  SELECT SINGLE subc FROM trdir INTO lv_subc WHERE name = lv_prog.
+  IF lv_subc = 'F'.
+    ls_tr_key-obj_type = 'FUGR'.
+    IF lv_prog(1) = '/'.
+      FIND REGEX '^(/[^/]+/)SAPL(.+)$' IN lv_prog SUBMATCHES lv_ns lv_rest.
+      ls_tr_key-obj_name = lv_ns && lv_rest.
+    ELSE.
+      ls_tr_key-obj_name = lv_prog+4.
+    ENDIF.
+  ELSE.
+    ls_tr_key-obj_type = 'PROG'.
+    ls_tr_key-obj_name = lv_prog.
+  ENDIF.
+  ls_tr_key-sub_type = 'CUAD'.
+  ls_tr_key-sub_name = lv_prog.
+  SELECT SINGLE devclass FROM tadir INTO ls_tr_key-devclass
+    WHERE pgmid    = 'R3TR'
+      AND object   = ls_tr_key-obj_type
+      AND obj_name = ls_tr_key-obj_name.
+
   CALL FUNCTION 'RS_CUA_INTERNAL_WRITE'
     EXPORTING
-      program         = CONV syrepid( to_upper( ls_input-program ) )
+      program         = lv_prog
       language        = lv_lang
+      tr_key          = ls_tr_key
       adm             = ls_cua-adm
       state           = 'A'
     TABLES
@@ -346,12 +491,17 @@ FORM cua_write USING iv_params TYPE string
       biv             = ls_cua-biv
     EXCEPTIONS
       not_found       = 1
-      unknown_version = 2
+      invalid_data    = 2
       OTHERS          = 3.
 
   ev_subrc = sy-subrc.
-  IF sy-subrc <> 0.
-    ev_message = |RS_CUA_INTERNAL_WRITE failed (sy-subrc={ sy-subrc })|.
+  IF ev_subrc <> 0.
+    ev_message = |RS_CUA_INTERNAL_WRITE failed (sy-subrc={ ev_subrc })|.
+    IF sy-msgid IS NOT INITIAL.
+      MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_sap_msg.
+      ev_message = |{ ev_message }: { lv_sap_msg }|.
+    ENDIF.
   ELSE.
     ev_message = |CUA written for { ls_input-program }|.
     ev_result  = '{"written":true}'.
@@ -396,12 +546,12 @@ ENDFORM.
 
 
 *&---------------------------------------------------------------------*
-*& Form TABLE_READ - read-only SELECT on an allow-listed customizing table
+*& Form TABLE_READ - read-only SELECT on a customizing / system table
 *&---------------------------------------------------------------------*
 * Used by the MCP server where the ADT data preview is missing (BASIS < 7.50):
-* GetSqlQuery / GetTableContents on CMOD (MODACT/MODATTR/MODSAP),
-* GGB (GB31/GB92/GB93, FI assignment T001D/T001Q), BTE (TBE24/TBE34/TPS34),
-* VOFM routines (TFRM/TFRMT) and message texts (T100).
+* GetSqlQuery / GetTableContents on customizing and system tables (CMOD,
+* GGB, BTE, VOFM, T100, IMG structure and documentation, configuration
+* tables for config-to-document), DDIC metadata and transport keys.
 * params: table_name, field_list (string table), condition, max_rows
 * result: rows (array of objects) and count
 FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message TYPE string ev_result TYPE string.
@@ -428,20 +578,43 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
         lr_data   TYPE REF TO data,
         lx_sql    TYPE REF TO cx_sy_dynamic_osql_error,
         lv_field  TYPE string,
-        lv_rows   TYPE string.
+        lv_rows   TYPE string,
+        lv_class  TYPE dd02l-contflag,
+        lt_view   TYPE abap_component_view_tab,
+        ls_view   TYPE abap_simple_componentdescr.
   FIELD-SYMBOLS: <lt_data> TYPE STANDARD TABLE.
 
   /ui2/cl_json=>deserialize( EXPORTING json = iv_params CHANGING data = ls_input ).
   lv_tab = to_upper( condense( ls_input-table_name ) ).
 
-  " Allow list: customizing / repository tables only - never business data.
-  IF lv_tab <> 'MODACT' AND lv_tab <> 'MODATTR' AND lv_tab <> 'MODSAP'
-     AND lv_tab <> 'GB31' AND lv_tab <> 'GB92' AND lv_tab <> 'GB93'
-     AND lv_tab <> 'T001D' AND lv_tab <> 'T001Q'
-     AND lv_tab <> 'TBE24' AND lv_tab <> 'TBE34' AND lv_tab <> 'TPS34'
-     AND lv_tab <> 'TFRM' AND lv_tab <> 'TFRMT' AND lv_tab <> 'T100'.
+  " Allow rule: customizing and system tables only - never business data.
+  " Delivery class C/G (customizing), E/S (control / system) pass, plus a
+  " fixed list of repository tables (class W): CMOD, transaction codes,
+  " DDIC metadata and the transport key tables for change history.
+  " Application (A) and temporary (L) data stay closed, and so do tables
+  " that hold credentials or user master data whatever their class.
+  IF lv_tab = 'RFCDES' OR lv_tab = 'RSECTAB' OR lv_tab = 'RSECACTB'
+     OR lv_tab CP 'USR*' OR lv_tab CP 'UST*' OR lv_tab CP 'AGR_*'
+     OR lv_tab CP 'SSF_PSE*' OR lv_tab CP 'STRUST*' OR lv_tab CP 'SNC*'
+     OR lv_tab CP 'TRUSTED*' OR lv_tab CP 'RSAU*'.
     ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
     RETURN.
+  ENDIF.
+  IF lv_tab <> 'MODACT' AND lv_tab <> 'MODATTR' AND lv_tab <> 'MODSAP'
+     AND lv_tab <> 'TSTC' AND lv_tab <> 'TSTCP'
+     AND lv_tab <> 'DD02L' AND lv_tab <> 'DD02T' AND lv_tab <> 'DD03L' AND lv_tab <> 'DD03T'
+     AND lv_tab <> 'DD04L' AND lv_tab <> 'DD04T' AND lv_tab <> 'DD07L' AND lv_tab <> 'DD07T'
+     AND lv_tab <> 'DD26S' AND lv_tab <> 'DD27S' AND lv_tab <> 'DD28S'
+     AND lv_tab <> 'TVDIR' AND lv_tab <> 'OBJH' AND lv_tab <> 'OBJS' AND lv_tab <> 'OBJT'
+     AND lv_tab <> 'E070' AND lv_tab <> 'E07T' AND lv_tab <> 'E071' AND lv_tab <> 'E071K'.
+    SELECT SINGLE contflag FROM dd02l INTO lv_class
+      WHERE tabname = lv_tab AND as4local = 'A' AND as4vers = '0000'
+        AND tabclass IN ('TRANSP','POOL','CLUSTER').
+    IF sy-subrc <> 0 OR ( lv_class <> 'C' AND lv_class <> 'G'
+                          AND lv_class <> 'E' AND lv_class <> 'S' ).
+      ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
+      RETURN.
+    ENDIF.
   ENDIF.
 
   " The condition must stay on this table: no sub-queries.
@@ -456,8 +629,15 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
   IF lv_max <= 0. lv_max = 500. ENDIF.
   IF lv_max > 5000. lv_max = 5000. ENDIF.
 
+  " Flat component list: fields inside an .INCLUDE count as table fields.
   lo_struct ?= cl_abap_typedescr=>describe_by_name( lv_tab ).
-  lt_comp = lo_struct->get_components( ).
+  lt_view = lo_struct->get_included_view( ).
+  LOOP AT lt_view INTO ls_view.
+    CLEAR ls_comp.
+    ls_comp-name = ls_view-name.
+    ls_comp-type = ls_view-type.
+    APPEND ls_comp TO lt_comp.
+  ENDLOOP.
 
   " Requested fields (all when none): each must exist on the table.
   IF ls_input-field_list IS INITIAL.

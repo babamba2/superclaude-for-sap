@@ -47,11 +47,11 @@ Use only when one program's Wave 4 generates > 15 text elements + 5 screens + 2 
 
 - **Transport**: all executors share the same transport number. Do NOT open per-executor transports.
 - **Shared resources**:
-  - `GetInactiveObjects` is called ONCE at Final Step by the "leader" executor (the first one in the dispatch order). Other executors report per-object status to the leader via their result summaries.
+  - Post-activation inactive check runs ONCE at Final Step as one Haiku `sap-checker` verify per [`phase4-verify.md`](./phase4-verify.md). Executors report per-object status in their result summaries.
   - `ActivateObjects` is ONE call at Final Step with the aggregated object list from all executors — NOT per-executor activation.
 - **Disjoint scopes enforced**: the dispatching skill validates that no two executors list the same object name. If overlap detected → abort split, fall back to single executor.
 - **Shared context kit**: every executor receives the same kit per `context-loading-protocol.md`. Triggered reads may differ based on what objects each ends up processing.
-- **Model per executor**: independently resolved per `model-routing-rule.md` — Strategy A executors are typically all Sonnet (uniform template work across ranges); Strategy B Exec-α (DDIC) and Exec-β (Code) are typically Opus, Exec-γ (UI) Sonnet.
+- **Model per executor**: independently resolved per `model-routing-rule.md` — Strategy A executors own Mains + includes (Wave 3 work) → `model: "opus"`, plus Sonnet for their Wave 4 screen / GUI writes; Strategy B Exec-α (DDIC) and Exec-β (Code) are typically Opus, Exec-γ (UI) Sonnet.
 - **Failure isolation**: if one executor returns `BLOCKED`, the other executors finish their scopes. The skill then re-dispatches ONLY the blocked scope (not the full batch).
 
 ## Return format (skill aggregates)
@@ -60,7 +60,7 @@ Each executor returns a per-object status table and a count summary (created / u
 
 1. Concatenates the tables in dispatch order.
 2. Verifies scope disjointness one more time (no object appears in two executor reports).
-3. Calls `GetInactiveObjects` ONCE, filters by the program namespace prefix, asserts == 0.
+3. Runs the Final Step inactive check ONCE (Haiku `sap-checker`, program namespace prefix, assert == 0) per `phase4-verify.md`.
 4. Produces the consolidated report to Phase 6 review.
 
 ## Anti-patterns

@@ -1,0 +1,215 @@
+{
+  "case": "GS02",
+  "program": "ZSC4SAP_GS02",
+  "paradigm": "OOP",
+  "planted": [
+    {
+      "id": "GS02-P1",
+      "checklist_item": "§1",
+      "rule_file": "common/alv-rules.md (+ skills/create-program/phase4-verify.md GUI assertions)",
+      "severity": "MAJOR",
+      "objects": [
+        "ZSC4SAP_GS02 STATUS_0100 (CUAD)"
+      ],
+      "lines": [],
+      "description": "GUI status STATUS_0100 exists only as an STA shell: no FUN / PFK / BUT rows, so BACK / EXIT / CANC / REFRESH are missing and the toolbar is blank at runtime (user cannot leave screen 0100). Title TITLE_0100 is also absent.",
+      "detection_hint": "GetGuiStatus(ZSC4SAP_GS02, STATUS_0100): definition has STA row but zero PFK and zero BUT entries.",
+      "also_acceptable_as": [
+        "§3 / §1 OK_CODE (gc_fcode_* codes can never arrive)"
+      ],
+      "fix": "UpdateGuiStatus with the full cua_data from GS01 recipe.json (BACK/EXIT/CANC/REFRESH + TITLE_0100)."
+    }
+  ],
+  "unavoidable_secondary_findings": [
+    "SET TITLEBAR gc_title_0100 references a title that does not exist — consequence of the same empty CUAD, count as GS02-P1."
+  ],
+  "must_not_flag": [
+    {
+      "id": "MNF-NAMING",
+      "checklist_item": "§7",
+      "construct": "Program / include / FG / FM names ZSC4SAP_GS* do not follow Z{MODULE}{TYPE}{NN}, Z{MODULE}FG_, Z{MODULE}FM_",
+      "reason": "common/naming-conventions.md § Exceptions: ZSC4SAP_* harness objects in $TMP → §7 N/A (also listed in spec.md § Naming)."
+    },
+    {
+      "id": "MNF-TRANSPORT",
+      "checklist_item": "§12",
+      "construct": "Objects are in $TMP without a transport request",
+      "reason": "Local golden-set objects; interview.md dim 6."
+    },
+    {
+      "id": "MNF-VERIFY4",
+      "checklist_item": "§1",
+      "construct": "No verify-phase4.md for the screen / GUI status",
+      "reason": "Golden-set run feeds Phase 6 only; reviewers verify screens / statuses directly (run-plan.md)."
+    },
+    {
+      "id": "MNF-OPENSQL",
+      "checklist_item": "§8/§9",
+      "construct": "Classic Open SQL without @ host-variable escaping / comma field lists",
+      "reason": "common/abap-release-reference.md § 1a: abapRelease 740 with abapSp unset → classic Open SQL, recorded in spec.md (\"SP unknown — classic SQL\")."
+    },
+    {
+      "id": "MNF-HEADER",
+      "checklist_item": "§8",
+      "construct": "Main program header block above REPORT (Module / Program ID / Tcode / Old Program ID / Title / Description + Change History)",
+      "reason": "common/clean-code-procedural.md § Mandatory Main Program Header (both paradigms); common/clean-code.md § Comments names it as the one allowed banner."
+    },
+    {
+      "id": "MNF-LOCAL-DATA",
+      "checklist_item": "§6/§8",
+      "construct": "DATA / FIELD-SYMBOLS declared inside a FORM, METHOD or MODULE",
+      "reason": "common/clean-code-procedural.md § Global vs Local: \"DATA inside a FORM, METHOD or MODULE body is local and allowed\"; phase6-review.md §6."
+    },
+    {
+      "id": "MNF-NO-COUNT",
+      "checklist_item": "§8",
+      "construct": "No SELECT COUNT(*) pre-check / no secondary key on the result table",
+      "reason": "SFLIGHT / SCARR are small demo tables, not the transactional tables the clean-code.md secondary-key / COUNT rule names."
+    },
+    {
+      "id": "MNF-MSGTYPE",
+      "checklist_item": "§3",
+      "construct": "MESSAGE ... TYPE gc_msgty_* / DISPLAY LIKE gc_msgty_*",
+      "reason": "Message types come from constants — compliant with common/constant-rule.md."
+    },
+    {
+      "id": "MNF-FCAT-LITERALS",
+      "checklist_item": "§3",
+      "construct": "Field-name literals in CASE <fcat>-fieldname ('SEATSMAX', 'OCCUPANCY')",
+      "reason": "common/constant-rule.md § Exceptions: field catalog modification."
+    },
+    {
+      "id": "MNF-SUBRC-CLEAR",
+      "checklist_item": "§8",
+      "construct": "IF sy-subrc <> 0. CLEAR … / RETURN. after a SELECT ... INTO TABLE",
+      "reason": "Explicit handling of the empty result; not an empty branch."
+    },
+    {
+      "id": "MNF-NO-AUTH",
+      "checklist_item": "§8",
+      "construct": "No AUTHORITY-CHECK before the SFLIGHT / SCARR reads",
+      "reason": "SAP demo data, not restricted business data (common/clean-code.md § Security and Data Handling targets restricted data); harness exemption recorded in spec.md §8."
+    },
+    {
+      "id": "MNF-HOUSE-GUIDE-INCLUDE",
+      "checklist_item": "§6/§7",
+      "construct": "A shared, non-executed syntax-guide include pulled in by INCLUDE (house practice)",
+      "reason": "common/naming-conventions.md § Exceptions: never generated, never flagged. Not applicable here — no such include exists in this case; a finding about it is a false positive.",
+      "applicable": false
+    },
+    {
+      "id": "MNF-FLOWLOGIC",
+      "checklist_item": "§1",
+      "construct": "Flow logic lines are \"MODULE status_0100.\" without an OUTPUT / INPUT keyword",
+      "reason": "Dynpro flow-logic syntax never carries OUTPUT/INPUT (phase6-review.md §1, phase4-verify.md a1/a2); the lines are uncommented. Regression guard."
+    },
+    {
+      "id": "MNF-LEAVE0",
+      "checklist_item": "§3/§8",
+      "construct": "LEAVE TO SCREEN 0",
+      "reason": "Standard return from a called screen; not a magic screen number, not LEAVE PROGRAM error handling."
+    },
+    {
+      "id": "MNF-NEW-CONTROL",
+      "checklist_item": "§8",
+      "construct": "NEW cl_gui_docking_container( ) / NEW cl_gui_custom_container( ) / NEW cl_gui_alv_grid( ) without EXCEPTIONS",
+      "reason": "common/clean-code.md § Expressions and Constructors: prefer NEW over CREATE OBJECT."
+    },
+    {
+      "id": "MNF-WHEN-OTHERS",
+      "checklist_item": "§8",
+      "construct": "WHEN OTHERS branch holding only a comment in the user-command CASE / fieldcat CASE",
+      "reason": "common/ok-code-pattern.md Step 3 template ends with an empty WHEN OTHERS."
+    },
+    {
+      "id": "MNF-OKCODE-NAME",
+      "checklist_item": "§1/§8",
+      "construct": "OK_CODE variable named ok_code (no g prefix), screen OKCODE NAME = OK_CODE",
+      "reason": "common/ok-code-pattern.md Step 1: any one name declared in TOP; common/clean-code-procedural.md g-prefix rule exempts ok_code."
+    },
+    {
+      "id": "MNF-READ-TABLE-INDEX",
+      "checklist_item": "§8",
+      "construct": "READ TABLE mt_outtab INDEX iv_row INTO DATA(ls_flight) instead of VALUE #( itab[ … ] OPTIONAL )",
+      "reason": "Table expressions with OPTIONAL need 740 SP08; abapSp is unset (common/abap-release-reference.md § 1a)."
+    },
+    {
+      "id": "MNF-INCLUDE-BANNER",
+      "checklist_item": "§8",
+      "construct": "One-line *& Include {NAME} banner at the top of each include",
+      "reason": "common/clean-code-procedural.md § Mandatory Main Program Header: includes get only this one-line banner."
+    },
+    {
+      "id": "MNF-FINAL",
+      "checklist_item": "§8/§9",
+      "construct": "Local classes without FINAL",
+      "reason": "common/clean-code-oop.md: \"FINAL is allowed, not required\"; phase6-review.md §8 (\"FINAL optional\")."
+    },
+    {
+      "id": "MNF-NO-F-A",
+      "checklist_item": "§6/§8",
+      "construct": "No {PROG}f and no {PROG}a include",
+      "reason": "common/include-structure.md: OOP uses f only when FORMs exist and never a (LCL_ALV lives in c)."
+    },
+    {
+      "id": "MNF-NO-CM-HANDLERS",
+      "checklist_item": "§5/§8",
+      "construct": "Plain CL_GUI_ALV_GRID in a docking container instead of ZCL_S4SAP_CM_ALV; text symbols instead of S_UNIFIED_CON; no MESSAGE-ID",
+      "reason": "Profile alvFramework = none (recipe.json alv_framework, spec.md §2): common/oop-pattern.md § ALV Framework; phase6-review.md §5 \"with none … PASS\"."
+    },
+    {
+      "id": "MNF-OKCODE-IN-METHOD",
+      "checklist_item": "§1/§5",
+      "construct": "Global ok_code (TOP) dispatched in LCL_ALV->USER_COMMAND_0100 / _0200, called from the PAI module",
+      "reason": "common/ok-code-pattern.md Step 3: OOP may dispatch in an LCL_ALV method; copy + CLEAR is done."
+    },
+    {
+      "id": "MNF-GLOBALS-IN-C",
+      "checklist_item": "§6/§7",
+      "construct": "GO_DATA / GO_ALV declared in {PROG}C after CLASS … DEFINITION DEFERRED, not in TOP",
+      "reason": "common/oop-pattern.md § Two-Class Split; common/naming-conventions.md § Global References."
+    },
+    {
+      "id": "MNF-PUBLIC-CALC",
+      "checklist_item": "§5",
+      "construct": "CALCULATE_OCCUPANCY / CALCULATE_FREE_SEATS is PUBLIC",
+      "reason": "Called from LCL_TEST — common/clean-code-oop.md: a test caller is a demonstrated need; phase6-review.md §5."
+    },
+    {
+      "id": "MNF-PUBLIC-SCREEN-METHODS",
+      "checklist_item": "§5",
+      "construct": "LCL_ALV STATUS_* / SET_ALV_* / USER_COMMAND_* / SHOW_FLIGHT_* / TAB_SET_* are PUBLIC",
+      "reason": "Called from PBO / PAI modules and the event handler — callers outside the class (phase6-review.md §5)."
+    },
+    {
+      "id": "MNF-DYNAMIC-RECEIVER",
+      "checklist_item": "§8",
+      "construct": "mo_event TYPE REF TO object; CREATE OBJECT mo_event TYPE (gc_event_class) EXPORTING io_grid = mo_grid",
+      "reason": "common/oop-pattern.md § Event Wiring (E follows C) and the CREATE OBJECT exception in common/clean-code-oop.md § Constructors."
+    },
+    {
+      "id": "MNF-INIT-DEFAULT",
+      "checklist_item": "§5/§8",
+      "construct": "LCL_DATA->INITIALIZATION fills the S_FLDATE default range (current year)",
+      "reason": "Bootstrap method of common/oop-pattern.md § Main Program Orchestration; behaviour documented in spec.md §3."
+    },
+    {
+      "id": "MNF-NO-INTF-NO-ZCX",
+      "checklist_item": "§8",
+      "construct": "Local classes without interfaces / own exception class",
+      "reason": "Report-local LCL_DATA / LCL_ALV as in the canonical common/oop-sample/ (no interfaces, no own exception class); no exception is raised by the program."
+    },
+    {
+      "id": "MNF-TEST-LITERALS",
+      "checklist_item": "§3",
+      "construct": "Numeric literals (seat counts, expected results) in test methods",
+      "reason": "Test data, not business logic."
+    },
+    {
+      "id": "MNF-NO-AT-SEL",
+      "checklist_item": "§8",
+      "construct": "Main has no AT SELECTION-SCREEN blocks",
+      "reason": "common/include-structure.md / oop-pattern.md: only the event blocks the program needs; no empty blocks."
+    }
+  ]
+}

@@ -31,7 +31,7 @@ Step X/7 · <label>   [██████░░░░░░░░░░░░░
 - Percentage = `floor(step_id × 100 / 7)` at entry (Step 0 = 0%, Done = 100%)
 - Authoritative mapping table: [`workflow.md`](workflow.md) § Progress Reporting
 
-The bar is the **only** progress feedback for the user during long Steps 4–6 (multi-minute analyst dispatches), so it MUST be printed before each Step starts.
+The bar is the **only** progress feedback for the user during long Steps 4–6 (multi-minute analyst dispatches), so it MUST be printed before each Step starts. Steps 2, 5 and 6 also print indented sub-progress lines (walk → scout b/b → finalize; narrative part k/n; 6b BPML build) — formats in `workflow.md` § Progress Reporting.
 </Progress_Bar>
 
 <Use_When>
@@ -65,46 +65,49 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 
 | Companion | Scope |
 |-----------|-------|
-| [`workflow.md`](workflow.md) | 7-step execution flow + Progress Reporting (bar template + step→% table) |
+| [`paths-and-state.md`](paths-and-state.md) | `<PLUGIN_ROOT>` + multi-profile path resolution, `_state/` checkpoint files, resume, escalation + partial-failure rules |
+| [`workflow.md`](workflow.md) | Steps 0–3 + Progress Reporting (bar template + step→% table + sub-progress lines) |
+| [`workflow-render.md`](workflow-render.md) | Steps 4–7: grouping, narrative (parallel split > 6 processes), render + BPML, validation |
 | [`grouping-heuristics.md`](grouping-heuristics.md) | Auto-grouping algorithm: shared-table clustering + module-specific document-flow dictionary (MM/SD/PP/PM/QM/FI/CO) |
 | [`document-template.md`](document-template.md) | Master `.md` skeleton: frontmatter + auto-TOC + per-process section + Mermaid (flowchart + sequenceDiagram) + tables |
 | [`dispatch-stocker.md`](dispatch-stocker.md) | Step 2 — `sap-stocker` auto-chain (conditional, inventory missing) |
 | [`dispatch-analyst.md`](dispatch-analyst.md) | Steps 4 & 5 — `sap-analyst` grouping + per-process narrative |
-| [`dispatch-writer.md`](dispatch-writer.md) | Step 6 — `sap-writer` master `.md` render |
-| [`bpml-render.md`](bpml-render.md) | Step 6b — BPML deliverable: spec-JSON contract + `build-bpml.mjs` CLI (xlsx / md / html, one run per format) + language rules |
+| [`dispatch-writer.md`](dispatch-writer.md) | Step 6 + 6b — two parallel `sap-writer` dispatches: master `.md` render and BPML spec JSON |
+| [`bpml-render.md`](bpml-render.md) | Step 6b — BPML deliverable: spec-JSON contract (authored by the 6b writer) + `build-bpml.mjs` CLI (xlsx / md / html, one run per format, main thread) + language rules |
 </Companion_Files>
 
 <Agent_Composition>
 Per-step model allocation. The main thread follows the session model (`model: inherit`); each `Agent(...)` carries its own model (frontmatter or explicit override).
 
-- **Main orchestrator (Sonnet)** — Steps 0, 1, 2 (gate), 3, 7: trust-session, intake, inventory gate, entry-point detection, validation/handoff. Sonnet provides enough headroom for the intake state machine and entry-point matching across PROG × TCode.
-- **`sap-stocker` (Sonnet, conditional)** — Step 2 dispatch only when `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json` is missing. Runs the full Investigation_Protocol per [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md).
-- **`sap-analyst` (Opus, frontmatter)** — Step 4 (auto process grouping w/ rationale) + Step 5 (per-process narrative + 1-hop boundary + sequenceDiagram). Opus is required: novel cross-program reasoning + business-flow inference, not template-fill.
-- **`sap-writer` (Sonnet via `model: "sonnet"` override)** — Step 6 render. Master Markdown is L3-grade depth (TOC + multiple Mermaid blocks + per-process tables + cross-module gap section); Haiku is insufficient.
-- **Module consultant (optional, conditional)** — if Step 5 narrative discovers a strong cross-module integration (e.g., MM ↔ FI through `BAPI_ACC_DOC_POST`), the analyst MAY annotate via `sap-{module}-consultant` (Opus) for the boundary section only. NOT a default dispatch — costs additional context only when warranted.
+- **Main orchestrator (session model, `model: inherit`)** — Steps 0, 1, 2 (gate), 3, 7 + the `build-bpml.mjs` runs: trust-session, intake, inventory gate, entry-point detection, state checkpoints, validation/handoff. It relays file paths, never large JSON — the only analyst JSON it emits is the one-time write of each analyst return into `_state/`.
+- **`sap-stocker` (Sonnet) + `sap-checker` × N (Haiku), conditional** — Step 2, only when the resolved `<INVENTORY_PATH>` is missing or the user asks for a refresh: stocker walk → checker scout fan-out (≥ 30 objects, ≤ 8 per message) → stocker finalize per [`../analyze-cbo-obj/stocker-fanout.md`](../analyze-cbo-obj/stocker-fanout.md). `BLOCKED` → one Opus re-dispatch.
+- **`sap-analyst` (Opus, frontmatter)** — Step 4 (auto process grouping w/ rationale) + Step 5 (per-process narrative + 1-hop boundary + sequenceDiagram; > 6 processes → parallel dispatches of ≤ 3 processes). Opus is required: novel cross-program reasoning + business-flow inference, not template-fill. It has no Write tool — it returns JSON as text and the main thread persists it.
+- **`sap-writer` × 2 (Sonnet via `model: "sonnet"` override), parallel** — Step 6 master `.md` render and Step 6b BPML spec JSON, both reading the `_state/` files by path. `BLOCKED` → one Opus re-dispatch.
+- **Module consultant (not dispatched)** — sub-agents cannot spawn agents, so the analyst cannot call a `sap-{module}-consultant`. When Step 5 finds a strong cross-module integration (e.g., MM ↔ FI through `BAPI_ACC_DOC_POST`) it records it under `open_questions`; the handoff points the user to `/sc4sap:ask-consultant`.
 
 SAP MCP permission prompts are auto-approved by the sc4sap permission-approver PreToolUse hook.
 </Agent_Composition>
 
 <Language_Policy>
-**Output language is user-selected at Step 1** (bundled `AskUserQuestion`, see `workflow.md` Step 1-6b): 한국어(ko) / English(en) / 日本語(ja) / Other. The first option = detected conversation language, labeled `(Recommended)` — so one Enter keeps today's behavior.
+**Output language is user-selected at Step 1** (bundled `AskUserQuestion`, see `workflow.md` Step 1): `Korean (ko)` / `English (en)` / `Japanese (ja)`. The first option = detected conversation language, labeled `(Recommended)` — so one Enter keeps today's behavior.
+- **Supported: ko / en / ja only.** The document template labels and the BPML builder dictionaries exist for these three. A different language typed via Other → reply that only ko / en / ja are supported and re-ask once; never pass another code downstream.
 - The selection applies to the process document AND the BPML (labels + row content), in every output format.
-- BPML sheet naming: sheet 1 (overview) is localized (개요/Overview/概要); **sheet 2 is always English `BPML`** — never localized.
-- Languages outside ko/en/ja: builder falls back to en labels unless `meta.labels` overrides are supplied (see `bpml-render.md`).
+- BPML sheet naming: sheet 1 (overview) is localized by the builder; **sheet 2 is always English `BPML`** — never localized.
 </Language_Policy>
 
 <Output_Location>
-Output formats are a Step 1 multi-select (`formats` ⊆ Markdown / HTML / Excel):
+Uses multi-profile artifact resolution per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md): `<PROC_DIR>` = `<ARTIFACT_BASE>/processes/<MODULE>/<PACKAGE>` where `<ARTIFACT_BASE>` is `.sc4sap/work/<alias>` (multi-profile) or `.sc4sap` (legacy) — resolution in [`paths-and-state.md`](paths-and-state.md). Output formats are a Step 1 multi-select (`formats` ⊆ Markdown / HTML / Excel):
 
-`.sc4sap/processes/<MODULE>/<PACKAGE>/process-<YYYYMMDD>-<lang>.md` and/or `.html` (the process document has no Excel form — an Excel-only selection keeps its `.md`)
-`.sc4sap/processes/<MODULE>/<PACKAGE>/bpml-<YYYYMMDD>-<lang>.xlsx` / `.md` / `.html` (one per selected format)
+`<PROC_DIR>/process-<YYYYMMDD>-<lang>.md` and/or `.html` (the process document has no Excel form — an Excel-only selection keeps its `.md`)
+`<PROC_DIR>/bpml-<YYYYMMDD>-<lang>.xlsx` / `.md` / `.html` (one per selected format)
+`<PROC_DIR>/_state/` — checkpoint files (resume support), kept after the run
 
-HTML = the matching `.md` converted by `scripts/spec/md-to-html.mjs` (images inlined; Mermaid via CDN when opened online).
+HTML = the matching `.md` converted by `<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs` (images inlined; Mermaid via CDN when opened online).
 
 - `<MODULE>` = uppercase module key (SD, MM, FI, CO, PP, PM, QM, WM, TM, TR, HCM, BW, PS, Ariba)
 - `<PACKAGE>` = uppercase package name
 - `<YYYYMMDD>` = generation date
-- `<lang>` = ISO 639-1 selected at Step 1 (`ko` / `en` / `ja` / other)
+- `<lang>` = ISO 639-1 selected at Step 1 (`ko` / `en` / `ja`)
 - Existing file at the same path → overwrite WITH a one-line `> Regenerated from <old-date>` note at the top (md, carried into html; xlsx overwrites silently).
 </Output_Location>
 
@@ -113,7 +116,7 @@ HTML = the matching `.md` converted by `scripts/spec/md-to-html.mjs` (images inl
 - Entry-point detection: `SearchObject(objectType='TRAN')`, `GetTransaction`
 - Object detail: `GetProgram`, `GetProgFullCode`, `GetFunctionGroup`, `GetFunctionModule`, `GetClass`, `GetInterface`, `GetInclude`
 - Structural metadata: `GetIncludesList`, `GetScreensList`, `GetGuiStatusList`
-- Reference graph: `GetWhereUsed`
+- Reference graph: `GetWhereUsed` (S/4 only — on ECC it returns ADT 404 for programs and tables, so stocking skips it; see `stocker-fanout.md`)
 - DDIC (read-only): `GetTable`, `GetStructure`, `GetDataElement`, `GetDomain`, `GetView`
 - Semantic / AST: `GetAbapSemanticAnalysis`, `GetAbapAST` (Step 5 only, on demand)
 - Object info: `GetObjectInfo`, `GetObjectStructure`
@@ -132,9 +135,9 @@ This skill reads **source code + DDIC metadata + where-used + transaction metada
 </Related_Skills>
 
 <Execution_Summary>
-1. Load companion files (`workflow.md`, `grouping-heuristics.md`, `document-template.md`, `dispatch-stocker.md`, `dispatch-analyst.md`, `dispatch-writer.md`).
-2. Execute the 7 steps in `workflow.md` in order; print the progress bar at each Step entry per § Progress Reporting.
-3. Render the artifact using `document-template.md`.
+1. Load companion files (`paths-and-state.md`, `workflow.md`, `workflow-render.md`, `grouping-heuristics.md`, `document-template.md`, `dispatch-stocker.md`, `dispatch-analyst.md`, `dispatch-writer.md`, `bpml-render.md`).
+2. Resolve `<PLUGIN_ROOT>` and `<ARTIFACT_BASE>` once (`paths-and-state.md`), then execute Steps 0–7 (`workflow.md`, `workflow-render.md`) in order — offering resume when `_state/` checkpoints exist; print the progress bar at each Step entry per § Progress Reporting.
+3. The writers render the artifacts using `document-template.md` and `bpml-render.md`; the main thread runs `build-bpml.mjs`.
 
 Do not skip the companion-file reads — the step order, grouping dictionary, output skeleton, and dispatch prompts all live there.
 </Execution_Summary>

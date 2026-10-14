@@ -3,7 +3,7 @@
  <asx:abap xmlns:asx="http://www.sap.com/abapxml" version="1.0">
   <asx:values>
    <PROGDIR>
-    <NAME>ZRSC4SAP_OOP_EXA</NAME>
+    <NAME>ZRSC4SAP_OOP_EXCT</NAME>
     <SUBC>I</SUBC>
     <RLOAD>E</RLOAD>
     <UCCHECK>X</UCCHECK>
@@ -11,8 +11,8 @@
    <TPOOL>
     <item>
      <ID>R</ID>
-     <ENTRY>Include YRTEST001A</ENTRY>
-     <LENGTH>18</LENGTH>
+     <ENTRY>Include ZRSC4SAP_OOP_EXCT</ENTRY>
+     <LENGTH>25</LENGTH>
     </item>
    </TPOOL>
   </asx:values>

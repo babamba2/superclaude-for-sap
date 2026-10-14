@@ -1,0 +1,645 @@
+{
+  "case": "GS09",
+  "paradigm": "OOP",
+  "display_mode": "Tabstrip screen 0200 with two subscreens, each CL_GUI_ALV_GRID in a custom control",
+  "alv_framework": "none",
+  "package": "$TMP",
+  "transport": null,
+  "planted_summary": "Tabstrip screen 0200: PAI flow logic lacks \"CALL SUBSCREEN ts_sca.\" — the PAI of subscreens 0210 / 0220 never runs (common/screen-tabstrip.md).",
+  "objects": [
+    {
+      "type": "PROG/P",
+      "name": "ZSC4SAP_GS09",
+      "parent": null,
+      "description": "Flights and airlines (tabstrip)"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS09T",
+      "parent": "ZSC4SAP_GS09",
+      "description": "TOP — types, constants, CONTROLS ts_main, OK_CODE, tab state"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS09S",
+      "parent": "ZSC4SAP_GS09",
+      "description": "Selection screen"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS09C",
+      "parent": "ZSC4SAP_GS09",
+      "description": "LCL_DATA + LCL_ALV (GO_DATA / GO_ALV after DEFERRED)"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS09CT",
+      "parent": "ZSC4SAP_GS09",
+      "description": "Unit tests — LCL_TEST"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS09O",
+      "parent": "ZSC4SAP_GS09",
+      "description": "PBO modules (0200 + subscreens 0210 / 0220)"
+    },
+    {
+      "type": "PROG/I",
+      "name": "ZSC4SAP_GS09I",
+      "parent": "ZSC4SAP_GS09",
+      "description": "PAI modules"
+    },
+    {
+      "type": "DYNP",
+      "name": "ZSC4SAP_GS09 0210",
+      "parent": "ZSC4SAP_GS09",
+      "description": "Subscreen: flights grid"
+    },
+    {
+      "type": "DYNP",
+      "name": "ZSC4SAP_GS09 0220",
+      "parent": "ZSC4SAP_GS09",
+      "description": "Subscreen: airlines grid"
+    },
+    {
+      "type": "DYNP",
+      "name": "ZSC4SAP_GS09 0200",
+      "parent": "ZSC4SAP_GS09",
+      "description": "Tabstrip screen"
+    },
+    {
+      "type": "CUAD",
+      "name": "ZSC4SAP_GS09 STATUS_0200",
+      "parent": "ZSC4SAP_GS09",
+      "description": "Flights and airlines"
+    }
+  ],
+  "screens": [
+    {
+      "program_name": "ZSC4SAP_GS09",
+      "screen_number": "0210",
+      "description": "Subscreen: flights grid",
+      "type": "I",
+      "next_screen": "0000",
+      "lines": 16,
+      "columns": 78,
+      "containers": [
+        {
+          "TYPE": "CUST_CTRL",
+          "NAME": "CC_0210",
+          "ELEMENT_OF": "SCREEN",
+          "LINE": 1,
+          "COLUMN": 1,
+          "LENGTH": 76,
+          "HEIGHT": 14,
+          "C_RESIZE_V": "X",
+          "C_RESIZE_H": "X",
+          "C_LINE_MIN": 1,
+          "C_COLN_MIN": 1
+        }
+      ],
+      "fields_to_containers": [],
+      "flow_logic": "PROCESS BEFORE OUTPUT.\n  MODULE alv_0210.\n\nPROCESS AFTER INPUT.\n",
+      "procedure": "CreateScreen(program_name, screen_number, description) -> GetScreen for the dynpro_data shape -> set header TYPE=I, NEXTSCREEN=0000, the CUST_CTRL container and flow_logic exactly as above -> UpdateScreen(dynpro_data, activate=true) -> GetScreen and confirm."
+    },
+    {
+      "program_name": "ZSC4SAP_GS09",
+      "screen_number": "0220",
+      "description": "Subscreen: airlines grid",
+      "type": "I",
+      "next_screen": "0000",
+      "lines": 16,
+      "columns": 78,
+      "containers": [
+        {
+          "TYPE": "CUST_CTRL",
+          "NAME": "CC_0220",
+          "ELEMENT_OF": "SCREEN",
+          "LINE": 1,
+          "COLUMN": 1,
+          "LENGTH": 76,
+          "HEIGHT": 14,
+          "C_RESIZE_V": "X",
+          "C_RESIZE_H": "X",
+          "C_LINE_MIN": 1,
+          "C_COLN_MIN": 1
+        }
+      ],
+      "fields_to_containers": [],
+      "flow_logic": "PROCESS BEFORE OUTPUT.\n  MODULE alv_0220.\n\nPROCESS AFTER INPUT.\n",
+      "procedure": "CreateScreen(program_name, screen_number, description) -> GetScreen for the dynpro_data shape -> set header TYPE=I, NEXTSCREEN=0000, the CUST_CTRL container and flow_logic exactly as above -> UpdateScreen(dynpro_data, activate=true) -> GetScreen and confirm."
+    },
+    {
+      "program_name": "ZSC4SAP_GS09",
+      "screen_number": "0200",
+      "description": "Flights and airlines (tabstrip)",
+      "type": "N",
+      "next_screen": "0200",
+      "lines": 27,
+      "columns": 120,
+      "containers": [
+        {
+          "TYPE": "STRIP_CTRL",
+          "NAME": "TS_MAIN",
+          "ELEMENT_OF": "SCREEN",
+          "LINE": 1,
+          "COLUMN": 2,
+          "LENGTH": 80,
+          "HEIGHT": 18,
+          "C_RESIZE_V": "X",
+          "C_RESIZE_H": "X",
+          "C_LINE_MIN": 6,
+          "C_COLN_MIN": 15
+        },
+        {
+          "TYPE": "SUBSCREEN",
+          "NAME": "TS_SCA",
+          "ELEMENT_OF": "TS_MAIN",
+          "LINE": 3,
+          "COLUMN": 3,
+          "LENGTH": 78,
+          "HEIGHT": 16,
+          "C_RESIZE_V": "X",
+          "C_RESIZE_H": "X",
+          "C_SCROLL_V": "X",
+          "C_SCROLL_H": "X"
+        }
+      ],
+      "fields_to_containers": [
+        {
+          "CONT_TYPE": "STRIP_CTRL",
+          "CONT_NAME": "TS_MAIN",
+          "TYPE": "PUSH",
+          "NAME": "TS_MAIN_TAB1",
+          "TEXT": "Flights",
+          "LINE": 1,
+          "COLUMN": 1,
+          "LENGTH": 7,
+          "VISLENGTH": 7,
+          "PUSH_FCODE": "TAB1",
+          "PUSH_FTYPE": "",
+          "REQU_ENTRY": "N",
+          "REF_FIELD": "TS_SCA"
+        },
+        {
+          "CONT_TYPE": "STRIP_CTRL",
+          "CONT_NAME": "TS_MAIN",
+          "TYPE": "PUSH",
+          "NAME": "TS_MAIN_TAB2",
+          "TEXT": "Airlines",
+          "LINE": 1,
+          "COLUMN": 2,
+          "LENGTH": 8,
+          "VISLENGTH": 8,
+          "PUSH_FCODE": "TAB2",
+          "PUSH_FTYPE": "",
+          "REQU_ENTRY": "N",
+          "REF_FIELD": "TS_SCA"
+        },
+        {
+          "CONT_TYPE": "SCREEN",
+          "CONT_NAME": "SCREEN",
+          "TYPE": "OKCODE",
+          "NAME": "OK_CODE",
+          "TEXT": "____________________",
+          "LENGTH": 20,
+          "VISLENGTH": 20,
+          "HEIGHT": 1,
+          "FORMAT": "CHAR",
+          "INPUT_FLD": "X"
+        }
+      ],
+      "flow_logic": "PROCESS BEFORE OUTPUT.\n  MODULE status_0200.\n  MODULE tab_set_0200.\n  CALL SUBSCREEN ts_sca INCLUDING sy-repid gs_ts_main-subscreen.\n\nPROCESS AFTER INPUT.\n  MODULE user_command_0200.\n",
+      "flow_logic_correct": "PROCESS BEFORE OUTPUT.\n  MODULE status_0200.\n  MODULE tab_set_0200.\n  CALL SUBSCREEN ts_sca INCLUDING sy-repid gs_ts_main-subscreen.\n\nPROCESS AFTER INPUT.\n  CALL SUBSCREEN ts_sca.\n  MODULE user_command_0200.\n",
+      "planted": "PLANTED (GS09): flow_logic is written WITHOUT the PAI line \"CALL SUBSCREEN ts_sca.\" (flow_logic_correct shows the compliant version - never use it). If UpdateScreen or activation rejects the planted flow logic, record the error and exclude the case.",
+      "procedure": "Create subscreens 0210 / 0220 first. CreateScreen(program_name, \"0200\", description) -> GetScreen for the dynpro_data shape -> set the two containers, the tab PUSH rows and the OKCODE row exactly as above, and flow_logic (PLANTED version) -> UpdateScreen(dynpro_data, activate=true) -> GetScreen and confirm the containers, PUSH_FCODE / REF_FIELD and the flow logic."
+    }
+  ],
+  "gui_statuses": [
+    {
+      "program_name": "ZSC4SAP_GS09",
+      "status_name": "STATUS_0200",
+      "status_type": "N",
+      "title": "TITLE_0200",
+      "functions": [
+        "BACK (F3)",
+        "REFRESH (F5, toolbar button ICON_REFRESH)",
+        "CANC (F12)",
+        "EXIT (Shift+F3)"
+      ],
+      "procedure": "CreateGuiStatus(program_name, status_name, description, status_type=N) -> UpdateGuiStatus(program_name, cua_data, activate=true) with cua_data below (full replace; read ReadGuiStatus first on a re-run) -> GetGuiStatus and confirm STATUS_0200 has the 4 PFK rows and TITLE_0200 exists.",
+      "cua_data": {
+        "ADM": {
+          "ACTCODE": "000001",
+          "PFKCODE": "000001"
+        },
+        "STA": [
+          {
+            "CODE": "STATUS_0200",
+            "MODAL": "D",
+            "ACTCODE": "000001",
+            "PFKCODE": "000001",
+            "BUTCODE": "0001",
+            "INT_NOTE": "Flights and airlines"
+          }
+        ],
+        "FUN": [
+          {
+            "CODE": "BACK",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "FUN_TEXT": "Back"
+          },
+          {
+            "CODE": "EXIT",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "FUN_TEXT": "Exit"
+          },
+          {
+            "CODE": "CANC",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "TEXT_NAME": "ICON_CANCEL",
+            "ICON_ID": "@0W@",
+            "FUN_TEXT": "Cancel"
+          },
+          {
+            "CODE": "REFRESH",
+            "TEXTNO": "001",
+            "TEXT_TYPE": "S",
+            "TEXT_NAME": "ICON_REFRESH",
+            "ICON_ID": "@42@",
+            "FUN_TEXT": "Refresh"
+          }
+        ],
+        "PFK": [
+          {
+            "CODE": "000001",
+            "PFNO": "03",
+            "FUNCODE": "BACK",
+            "FUNNO": "001"
+          },
+          {
+            "CODE": "000001",
+            "PFNO": "05",
+            "FUNCODE": "REFRESH",
+            "FUNNO": "001"
+          },
+          {
+            "CODE": "000001",
+            "PFNO": "12",
+            "FUNCODE": "CANC",
+            "FUNNO": "001"
+          },
+          {
+            "CODE": "000001",
+            "PFNO": "15",
+            "FUNCODE": "EXIT",
+            "FUNNO": "001"
+          }
+        ],
+        "BUT": [
+          {
+            "PFK_CODE": "000001",
+            "CODE": "0001",
+            "NO": "01",
+            "PFNO": "05"
+          }
+        ],
+        "SET": [
+          {
+            "STATUS": "STATUS_0200",
+            "FUNCTION": "BACK"
+          },
+          {
+            "STATUS": "STATUS_0200",
+            "FUNCTION": "EXIT"
+          },
+          {
+            "STATUS": "STATUS_0200",
+            "FUNCTION": "CANC"
+          },
+          {
+            "STATUS": "STATUS_0200",
+            "FUNCTION": "REFRESH"
+          }
+        ],
+        "DOC": [
+          {
+            "OBJ_TYPE": "A",
+            "OBJ_CODE": "000001",
+            "MODAL": "D",
+            "INT_NOTE": "Flights and airlines"
+          },
+          {
+            "OBJ_TYPE": "P",
+            "OBJ_CODE": "000001",
+            "MODAL": "D",
+            "INT_NOTE": "Flights and airlines"
+          },
+          {
+            "OBJ_TYPE": "B",
+            "OBJ_CODE": "000001",
+            "SUB_CODE": "0001",
+            "MODAL": "D",
+            "INT_NOTE": "Flights and airlines"
+          }
+        ],
+        "TIT": [
+          {
+            "CODE": "TITLE_0200",
+            "TEXT": "Flights and airlines"
+          }
+        ]
+      }
+    }
+  ],
+  "text_elements": {
+    "languages": [
+      "E",
+      "<PRIMARY>"
+    ],
+    "rows": [
+      {
+        "type": "R",
+        "text": "Flights and airlines (tabstrip)"
+      },
+      {
+        "type": "I",
+        "key": "B01",
+        "text": "Selection"
+      },
+      {
+        "type": "I",
+        "key": "F01",
+        "text": "Free seats"
+      },
+      {
+        "type": "I",
+        "key": "M01",
+        "text": "No flights found for the selection"
+      },
+      {
+        "type": "I",
+        "key": "M02",
+        "text": "ALV grid could not be displayed"
+      },
+      {
+        "type": "S",
+        "key": "S_CARRID",
+        "text": "Airline"
+      },
+      {
+        "type": "S",
+        "key": "S_FLDATE",
+        "text": "Flight date"
+      }
+    ]
+  },
+  "activation": {
+    "activate": [
+      "ZSC4SAP_GS09",
+      "ZSC4SAP_GS09T",
+      "ZSC4SAP_GS09S",
+      "ZSC4SAP_GS09C",
+      "ZSC4SAP_GS09CT",
+      "ZSC4SAP_GS09O",
+      "ZSC4SAP_GS09I"
+    ],
+    "must_stay_inactive": []
+  },
+  "steps": [
+    {
+      "step": 1,
+      "tool": "CreateProgram",
+      "args": {
+        "program_name": "ZSC4SAP_GS09",
+        "package_name": "$TMP",
+        "program_type": "executable",
+        "description": "Flights and airlines (tabstrip)"
+      }
+    },
+    {
+      "step": 2,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS09T",
+        "main_program": "ZSC4SAP_GS09",
+        "package_name": "$TMP",
+        "description": "TOP — types, constants, CONTROLS ts_main, OK_CODE, tab state",
+        "source_file": "src/ZSC4SAP_GS09T.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 3,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS09S",
+        "main_program": "ZSC4SAP_GS09",
+        "package_name": "$TMP",
+        "description": "Selection screen",
+        "source_file": "src/ZSC4SAP_GS09S.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 4,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS09C",
+        "main_program": "ZSC4SAP_GS09",
+        "package_name": "$TMP",
+        "description": "LCL_DATA + LCL_ALV (GO_DATA / GO_ALV after DEFERRED)",
+        "source_file": "src/ZSC4SAP_GS09C.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 5,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS09CT",
+        "main_program": "ZSC4SAP_GS09",
+        "package_name": "$TMP",
+        "description": "Unit tests — LCL_TEST",
+        "source_file": "src/ZSC4SAP_GS09CT.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 6,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS09O",
+        "main_program": "ZSC4SAP_GS09",
+        "package_name": "$TMP",
+        "description": "PBO modules (0200 + subscreens 0210 / 0220)",
+        "source_file": "src/ZSC4SAP_GS09O.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 7,
+      "tool": "CreateInclude",
+      "args": {
+        "include_name": "ZSC4SAP_GS09I",
+        "main_program": "ZSC4SAP_GS09",
+        "package_name": "$TMP",
+        "description": "PAI modules",
+        "source_file": "src/ZSC4SAP_GS09I.abap",
+        "insert_into_main": false,
+        "activate_main_program": false,
+        "skip_program_tree_check": true
+      }
+    },
+    {
+      "step": 8,
+      "tool": "UpdateProgram",
+      "note": "Main source already lists every INCLUDE line; CreateInclude was told not to insert.",
+      "args": {
+        "program_name": "ZSC4SAP_GS09",
+        "source_file": "src/ZSC4SAP_GS09.abap",
+        "activate": false
+      }
+    },
+    {
+      "step": 9,
+      "tool": "ActivateObjects",
+      "note": "Modules must be active before the screens are created (screen-tabstrip.md § Creation order).",
+      "args": {
+        "objects": [
+          {
+            "name": "ZSC4SAP_GS09",
+            "type": "PROG/P"
+          },
+          {
+            "name": "ZSC4SAP_GS09T",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS09S",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS09C",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS09CT",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS09O",
+            "type": "PROG/I"
+          },
+          {
+            "name": "ZSC4SAP_GS09I",
+            "type": "PROG/I"
+          }
+        ]
+      }
+    },
+    {
+      "step": 10,
+      "tool": "WriteTextElementsBulk",
+      "args": {
+        "program_name": "ZSC4SAP_GS09",
+        "language": "E",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      }
+    },
+    {
+      "step": 11,
+      "tool": "WriteTextElementsBulk",
+      "note": "Repeat with the system primary logon language (config.json systemInfo.language / SAP_LANGUAGE). Skip when it is E. English text is acceptable.",
+      "args": {
+        "program_name": "ZSC4SAP_GS09",
+        "language": "<PRIMARY>",
+        "replace_existing": true,
+        "activate": true,
+        "text_elements": {
+          "ref": "text_elements.rows"
+        }
+      }
+    },
+    {
+      "step": 12,
+      "tool": "CreateScreen + UpdateScreen",
+      "args": {
+        "ref": "screens[0]"
+      }
+    },
+    {
+      "step": 13,
+      "tool": "CreateScreen + UpdateScreen",
+      "args": {
+        "ref": "screens[1]"
+      }
+    },
+    {
+      "step": 14,
+      "tool": "CreateScreen + UpdateScreen",
+      "note": "PLANTED (GS09): flow_logic is written WITHOUT the PAI line \"CALL SUBSCREEN ts_sca.\" (flow_logic_correct shows the compliant version - never use it). If UpdateScreen or activation rejects the planted flow logic, record the error and exclude the case.",
+      "args": {
+        "ref": "screens[2]"
+      }
+    },
+    {
+      "step": 15,
+      "tool": "CreateGuiStatus + UpdateGuiStatus",
+      "args": {
+        "ref": "gui_statuses[0]"
+      }
+    },
+    {
+      "step": 16,
+      "tool": "GetInactiveObjects",
+      "note": "Expected: 0 entries. Re-activate leftovers before continuing.",
+      "args": {
+        "filter": "ZSC4SAP_GS09*"
+      }
+    },
+    {
+      "step": 17,
+      "tool": "RunUnitTest",
+      "note": "After activation: run the local test class of the program. Expected: all tests green (2 methods of LCL_TEST, 0 failures). ECC (BASIS < 7.50): synchronous, result inline as run_result. S/4HANA: the MCP tool runs CLAS containers only — run the program tests in ADT / SE80 (Ctrl+Shift+F10) instead and record the result, or record \"not run (S/4 PROG container unsupported)\".",
+      "args": {
+        "tests": [
+          {
+            "container_class": "ZSC4SAP_GS09",
+            "container_type": "PROG",
+            "test_class": "LCL_TEST"
+          }
+        ],
+        "risk_level": {
+          "harmless": true
+        },
+        "duration": {
+          "short": true
+        },
+        "title": "ZSC4SAP_GS09 golden-set unit tests"
+      },
+      "expect": {
+        "failures": 0,
+        "tests": 2
+      }
+    }
+  ],
+  "cleanup": "DeleteProgram ZSC4SAP_GS09 (with includes / screens / status) - only with explicit per-call user approval."
+}

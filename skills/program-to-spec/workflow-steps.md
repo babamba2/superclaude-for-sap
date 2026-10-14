@@ -6,7 +6,7 @@ Referenced by `SKILL.md`. Follow these 7 steps (Step 0 through Step 6) whenever 
 Default opener: issue ONE bundled `AskUserQuestion` call with the four standard questions — **Audience / Format / Depth / Language** — in that exact order, with the "(Recommended)" option first. **Format is multi-select** (Markdown / HTML / Excel — any combination); the other three are single-select. Hold the answer as `formats[]`. This is MANDATORY whenever the target object is already present in `ARGUMENTS`; it replaces Rounds 2+3+5 in a single UI turn.
 Fall back to per-round questioning only when (a) the object is missing/ambiguous (run Round 1 first) or (b) the user picks L3/L4 in the bundle (run Round 4 scope-trimming after).
 Never skip entirely unless the user supplies `object=... depth=L2 format=md,html lang=ko` style fully-qualified arguments (`format` = comma-separated subset of `md`, `html`, `xlsx`).
-**User-edited flows** — when the user hands over a spec HTML saved from its flow editor (`…-edited.html`), skip the interview: `node scripts/spec/flow-editor.mjs --import <edited.html> .sc4sap/specs/_img/{OBJECT}-{YYYYMMDD}.image-spec.json` (writes only the changed flows into `processFlow` / `buttonFlows[].flow` as free graphs, old file kept as `.bak`), then re-run Step 3.5 images and Step 4 for the original formats. Keep the user's free graphs in every later change.
+**User-edited spec** — when the user hands over a spec HTML saved from the page's edit mode (`{OBJECT}-v{ver}-{lang}-edited.html`), skip the interview and import it per [`edit-mode.md`](edit-mode.md) § Import: `node scripts/spec/md-to-html.mjs --import <edited.html> .sc4sap/specs/{OBJECT}-v{base}-{lang}.md` converts the page back to Markdown (only the blocks the reader changed are rewritten), writes the revision's `.md` (old file kept as `.bak`), replaced images, the changed flows into the image-spec, and the revision into history.json. Then re-run Step 3.5 images when `flows` reports written flows, and rebuild with `--same-version`. Keep the user's text and free graphs in every later change. An older page saved from the flow editor alone (no `spec-source` in the file) still imports with `node scripts/spec/flow-editor.mjs --import <edited.html> .sc4sap/specs/_img/{OBJECT}-{YYYYMMDD}.image-spec.json`.
 
 **Step 1 — Inventory** (auto, parallel MCP calls)
 - `SearchObject` — confirm object + sub-type
@@ -66,12 +66,13 @@ For objects without UI (pure class, FM, CDS, RAP without screens), skip the imag
 **Step 4 — Render**
 - **Markdown**: single `.md` with H2 sections per spec dimension, tables for selection-screen / tables / methods / exits, plus the three embedded PNGs from Step 3.5 (Selection §3.2 · ALV §3.3 · Process Flow §4.1). See [`spec-templates.md`](spec-templates.md) for the section skeleton. Assets live in `.sc4sap/specs/_assets/{OBJECT}-{YYYYMMDD}-{lang}/` and are referenced relatively so the `.md` + its `_assets/` subfolder stay portable together.
 
-- **HTML** (when `formats[]` has `html`): after the `.md` is final, run
+- **File names (md / html)** — versioned like the manual: `.sc4sap/specs/{OBJECT}-v{ver}-{lang}.md` / `.html` plus `.sc4sap/specs/{OBJECT}-{lang}.history.json`. Get `{ver}` before the writer writes the `.md`: `node scripts/spec/md-to-html.mjs --next-version --history .sc4sap/specs/{OBJECT}-{lang}.history.json` (`1.0` for a first spec, +0.1 for a re-analysis; add `--major` when the user asks for a new major version). Full rules: [`edit-mode.md`](edit-mode.md).
+- **HTML** (when `formats[]` has `html`): after the `.md` is final, build the editable page
   ```bash
-  node scripts/spec/md-to-html.mjs .sc4sap/specs/{OBJECT}-{YYYYMMDD}-{lang}.md .sc4sap/specs/{OBJECT}-{YYYYMMDD}-{lang}.html
+  node scripts/spec/md-to-html.mjs .sc4sap/specs/{OBJECT}-v{ver}-{lang}.md --editable --version {ver} --note "<what this version covers>"
   ```
-  One self-contained file: the three PNGs are inlined, any Mermaid fallback is drawn by the Mermaid CDN script when opened online. If `md` was NOT selected, delete the intermediate `.md` after the HTML is written (keep `_assets/` for regeneration). Re-run the converter whenever the `.md` changes in Step 5 so both stay identical.
-  **Editable flows** — `render-md-images.mjs` leaves `<flow>.graph.json` next to `flow.png` and every `flow-<n>-<CODE>.png`; the converter turns those images into flow figures with an "✎ Edit flow" button (drag shapes, draw / reconnect arrows, add / delete steps, edit text; Save downloads `…-edited.html`). Never delete the `.graph.json` files.
+  It writes `{OBJECT}-v{ver}-{lang}.html` next to the `.md` and the version's entry in history.json (cover card shows the version; a Revision History section closes the page). One self-contained file: the PNGs are inlined, Quill and the editor are inlined, only the Mermaid fallback loads from a CDN. The reader can edit the page and Save `…-edited.html` (see [`edit-mode.md`](edit-mode.md)). Keep the `.md` even when `md` was not selected — it is the page's source for imports and rebuilds (keep `_assets/` too).
+  **Editable flows** — `render-md-images.mjs` leaves `<flow>.graph.json` next to `flow.png` and every `flow-<n>-<CODE>.png`; the edit mode turns those images into flow editors (drag shapes, draw / reconnect arrows, add / delete steps, edit text) under the page's one Save. Never delete the `.graph.json` files.
 
 - **Excel (MANDATORY workflow — 양식 보존 + program-specific imagery, single entry point)**:
 
@@ -109,6 +110,7 @@ For objects without UI (pure class, FM, CDS, RAP without screens), skip the imag
 **Step 5 — Review loop**
 - Show a table of contents + first section inline.
 - Ask: "OK to finalize, or trim/expand a section?"
+- Each change edits the same `{OBJECT}-v{ver}-{lang}.md` and rebuilds the page in place: `node scripts/spec/md-to-html.mjs .sc4sap/specs/{OBJECT}-v{ver}-{lang}.md --editable --same-version` (the review loop never adds a version).
 - On confirm → write one file per selected format (`.md` / `.html` / `.xlsx`) → go to Step 6 (or print every absolute path and finish when `lang` is `en`).
 
 **Step 6 — English companion** (default, when `lang` ≠ `en`)
@@ -120,11 +122,11 @@ Every spec also ships in English, in the same formats, so global teams, auditors
 ```
 
 - The writer reads the final `{lang}` files and writes their English twins (one `Write` call per file), never re-analysing the source:
-  - `md` / `html` → `.sc4sap/specs/{OBJECT}-{YYYYMMDD}-en.md`, image links pointing at `_assets/{OBJECT}-{YYYYMMDD}-en/`
+  - `md` / `html` → `.sc4sap/specs/{OBJECT}-v{ver}-en.md` (the same `{ver}` as the first language), image links pointing at `_assets/{OBJECT}-{YYYYMMDD}-en/`
   - images (any format) → `.sc4sap/specs/_img/{OBJECT}-{YYYYMMDD}-en.image-spec.json` with `lang: "en"`
   - `xlsx` → `.sc4sap/specs/_tr/{OBJECT}-{YYYYMMDD}-en.tr.json` (same keys, English values)
 - Translate every prose string: headings, narrative, table cells, selection labels / notes, ALV headers, pane titles, flow node and edge labels (`예`/`아니오` → `Yes`/`No`), button-flow labels, `processFlow[]`. Keep unchanged: SAP identifiers, T-Codes, function codes, table / field / class names, code blocks, line references, `CODE (English text)` message references (already English), `sampleRows` data codes, and every structural key — `screens`, anchors, node `id`s, edges, `lane`, and a free graph's `x` / `y` / sides (the user's layout stays; only labels change).
-- Then run Step 3.5 / Step 4 on the English files exactly as for the first language: `render-md-images.mjs` into `_assets/{OBJECT}-{YYYYMMDD}-en/`, `md-to-html.mjs` for `-en.html` (delete the `-en.md` afterwards when `md` was not selected), `build-spec.mjs <en.tr.json> <en.image-spec.json> .sc4sap/specs/{OBJECT}-{YYYYMMDD}-en.xlsx`.
+- Then run Step 3.5 / Step 4 on the English files exactly as for the first language: `render-md-images.mjs` into `_assets/{OBJECT}-{YYYYMMDD}-en/`, `node scripts/spec/md-to-html.mjs .sc4sap/specs/{OBJECT}-v{ver}-en.md --editable --version {ver} --note "<the same note in English>"` — the English page keeps its own history, `{OBJECT}-en.history.json`, mirroring the first language's versions — and `build-spec.mjs <en.tr.json> <en.image-spec.json> .sc4sap/specs/{OBJECT}-{YYYYMMDD}-en.xlsx`.
 - Check: no Hangul / Kana / CJK left in any English file (`grep -P '[\x{AC00}-\x{D7AF}\x{3040}-\x{30FF}\x{4E00}-\x{9FFF}]'`) except SAP texts shown as SAP shows them; fix and re-render until clean.
-- A user-edited flow imported later (Step 0 **User-edited flows**) goes into the image-spec of the language of the page it came from; re-translate only its labels into the other language's image-spec, keeping the positions.
+- A user-edited page imported later (Step 0 **User-edited spec**) changes the language of the page it came from and adds a version there; carry the same edits (text, rows, replaced images, flow positions) into the other language's `.md` / image-spec — translated, never re-analysed — and build it with `--version` set to the new version and the revision's note in that language. See [`edit-mode.md`](edit-mode.md) § English companion.
 - Finally print every absolute path of both languages.

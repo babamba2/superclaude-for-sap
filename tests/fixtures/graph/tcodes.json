@@ -1,0 +1,4 @@
+[
+  { "tcode": "ZGT1", "program": "ZGT_ORDER" },
+  { "tcode": "ZGT2", "program": "ZGT_READER" }
+]

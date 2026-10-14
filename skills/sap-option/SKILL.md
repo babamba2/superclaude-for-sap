@@ -47,6 +47,7 @@ Contents (only show rows you could resolve):
 - **Blocklist (L3, PreToolUse hook)**: profile `<config.json blocklistProfile>` · extend/custom file presence
 - **Model dispatch**: `<auto (default) | user-defined>` — from `~/.sc4sap/preferences.json` → `modelDispatch`
 - **Screen theme**: `<screenTheme | signature (default)>` — from `config.json` → `screenTheme`
+- **ALV framework / ABAP SP**: `<alvFramework | none (default)>` · ABAP SP `<abapSp | unset>` — from `config.json` (see `<ALV_Framework>`)
 - **sap.env path**: absolute path being edited
 
 If the user's intent is **status-only** (they just said "hud" / "show status"), render the panel and stop. Do not ask follow-up "what to change" questions unless the user continues.
@@ -82,6 +83,9 @@ RFC backend (optional — selects transport for Screen / GUI Status / Text Eleme
 
 Per-backend env blocks (Native / Gateway / OData credentials and knobs) live in [`rfc-managed-keys.md`](rfc-managed-keys.md). Read that file when the user asks to change the RFC backend or edit any `SAP_RFC_*` field.
 
+Usage statistics source (optional, ECC — read by the CBO graph step and `GetTcodeUsage`):
+- `SAP_USAGE_RFCDEST` — SM59 destination on THIS system pointing to the QA / PRD system whose ST03N usage counts (a DEV profile only sees developer tests). Site-specific — no default; validate by one `GetTcodeUsage` call with `destination` (success shows the remote SID). Empty / unset → the connected system.
+
 XSUAA (only when `SAP_AUTH_TYPE=xsuaa`):
 - `XSUAA_URL`, `XSUAA_CLIENT_ID`, `XSUAA_CLIENT_SECRET`, `XSUAA_TOKEN_URL`
 
@@ -111,6 +115,10 @@ See [model-dispatch.md](model-dispatch.md). `auto` (default) routes sub-agent mo
 <Screen_Theme>
 See [screen-theme.md](screen-theme.md). Theme of the SAP screen mockups in `program-to-spec` / `program-to-manual`: `signature` (default), `signature-pink`, `modern`, or custom colours. Written with `scripts/spec/screen-theme.mjs`.
 </Screen_Theme>
+
+<ALV_Framework>
+See [alv-framework.md](alv-framework.md). Triggers: "alv framework", "alv base class", "abap sp", "support package". Edits `config.json` → `alvFramework` (`s4sap-cm` | `custom` | `none`), `alvBaseClass`, `alvGridClass`, `messageClass`, `abapSp` — not `sap.env`.
+</ALV_Framework>
 
 <Validation>
 - `SAP_URL`: must match `^https?://[^ ]+` and not end with `/`.

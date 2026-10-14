@@ -12,7 +12,7 @@ Per-type naming patterns for ABAP objects. Companion to [naming-conventions.md](
 | Local class | `LCL_{NAME}` | `LCL_ITEM_HANDLER` |
 | Persistent class | `ZCP_{MODULE}_{NAME}` | `ZCP_MM_MATERIAL` |
 | Exception class | `ZCX_{MODULE}_{NAME}` | `ZCX_SD_ORDER_FAILED` |
-| Test class (local) | `LTCL_{NAME}` | `LTCL_ORDER_PROCESSOR` |
+| Test class (local) | `LTCL_{NAME}` (programs from `/sc4sap:create-program`: `LCL_TEST` / `LTC_*` in `{PROG}CT`) | `LTCL_ORDER_PROCESSOR` |
 | Test class (global) | `ZCL_{MODULE}_{NAME}_TEST` | `ZCL_SD_ORDER_TEST` |
 
 ### Interfaces / 인터페이스
@@ -27,6 +27,7 @@ Per-type naming patterns for ABAP objects. Companion to [naming-conventions.md](
 | Type | Pattern | Example |
 |------|---------|---------|
 | Executable (report) | `ZR_{MODULE}_{NAME}` or `Z_{MODULE}_{NAME}` | `ZR_SD_ORDER_LIST` |
+| Include | Not used by `/sc4sap:create-program` — see `common/include-structure.md` (`{PROG}T` / `S` / `C` / `CT` / `E` / `O` / `I`, no underscore). Generic patterns below: | |
 | Include | `Z{PROGRAM}_TOP` (global data) | `ZR_SD_ORDER_LIST_TOP` |
 | Include | `Z{PROGRAM}_F01` (forms) | `ZR_SD_ORDER_LIST_F01` |
 | Include | `Z{PROGRAM}_SEL` (selection screen) | `ZR_SD_ORDER_LIST_SEL` |

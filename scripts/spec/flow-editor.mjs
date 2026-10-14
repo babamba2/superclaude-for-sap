@@ -19,7 +19,9 @@
 //   · program-to-spec HTML: FLOW_PAGE_SCRIPT gives each flow figure an
 //     "Edit flow" button and a Save bar of its own. md-to-html.mjs writes the
 //     figures from the <image>.graph.json files render-md-images.mjs leaves
-//     next to each flow PNG.
+//     next to each flow PNG. An editable page (md-to-html --editable) attaches
+//     the editor from its edit mode instead (spec-editor.mjs), under the
+//     page's one Save; editedFlows() / importEditedFlows() read both.
 //
 // CLI (spec)
 //   node flow-editor.mjs --import <edited.html> <image-spec.json>

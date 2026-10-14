@@ -162,7 +162,7 @@ const RENDER_SCALE = 1.15;
 // long English labels (e.g. "Distribution Channel (S_VTWEG)") don't run
 // underneath the input boxes — the previous fixed inputX=200 truncated
 // anything wider than 162 px.
-function approxTextWidthPx(s) {
+export function approxTextWidthPx(s) {
   let w = 0;
   for (const ch of String(s ?? '')) {
     w += (ch.charCodeAt(0) > 0x7F ? 13 : 7);
@@ -755,13 +755,15 @@ function alvLayoutSvg({ columns = [], sampleRows = [], maxRows = 3, lang = 'ko' 
       if (lamp) {
         return `<circle cx="${cx}" cy="${cy - 4}" r="6" fill="${lamp}" stroke="#FFFFFF" stroke-width="1"/>`;
       }
+      // A value wider than its column is cut with '…' — it never runs into the next column.
+      const fitted = fitLabel(strVal, alvColW(c) - 12);
       if (c.hotspot) {
-        return `<text x="${cx}" y="${cy}" text-anchor="middle" font-family="monospace" fill="${sig ? T.link : '#1F5AA0'}" text-decoration="underline">${xml(strVal)}</text>`;
+        return `<text x="${cx}" y="${cy}" text-anchor="middle" font-family="monospace" fill="${sig ? T.link : '#1F5AA0'}" text-decoration="underline">${xml(fitted)}</text>`;
       }
       const anchor = c.align === 'end' ? 'end' : (c.align === 'left' ? 'start' : 'middle');
       const tx = anchor === 'end' ? rightX : anchor === 'start' ? leftX : cx;
       const fam = /^[\d.,\-]+$/.test(strVal) ? 'monospace' : 'Arial,sans-serif';
-      return `<text x="${tx}" y="${cy}" text-anchor="${anchor}" font-family="${fam}">${xml(strVal)}</text>`;
+      return `<text x="${tx}" y="${cy}" text-anchor="${anchor}" font-family="${fam}">${xml(fitted)}</text>`;
     }).join('');
     return bandBg + cells;
   }).join('');
@@ -2091,6 +2093,11 @@ const BTN_ICONS = {
   detail: '☰', display: '☰', mail: '✉', edit: '✎', change: '✎', copy: '⧉',
   okay: '✓', system_save: '✓', simulate: '◔', transport: '⇄', delivery: '⇨',
   payment: '¤', disconnect: '⊗', operator: '±', delete_row: '✕', insert_row: '+',
+  list: '☰', convert: '⇆', release: '⚑', history: '↺', import: '⇲', receipts: '▤',
+  document: '▤', order: '▤', material: '▣', select: '☑', search: '⌕', find: '⌕',
+  information: 'ℹ', info: 'ℹ', warning: '⚠', calendar: '▦', date: '▦', total: 'Σ',
+  expand: '⊞', collapse: '⊟', link: '⛓', attachment: '⎘', unlocked: '⊙', locked: '⊗',
+  next: '›', previous: '‹', first: '«', last: '»', reject_all: '⊘', post: '⇨',
 };
 // SAP icon names as the GUI status / ALV toolbar define them (ICON_REFRESH,
 // ICON_TRANSPORT, …) map onto the keywords above, so a writer can copy the
@@ -2098,7 +2105,20 @@ const BTN_ICONS = {
 const SAP_ICON_ALIAS = {
   red_light: 'reject', green_light: 'check', led_green: 'check', led_red: 'reject',
   create: 'create', select_all: 'check', deselect_all: 'cancel', display_text: 'display',
+  execute_object: 'execute', system_undo: 'undo', te_receipts: 'receipts', biw_report: 'list',
+  import_transport_request: 'import', import_all_requests: 'import', export_transport_request: 'export',
+  list_box: 'list', overview: 'list', history_note: 'history', booking_ok: 'post', posting: 'post',
+  doc_item_detail: 'detail', select_detail: 'detail', ws_truck: 'delivery', delivery_2: 'delivery',
 };
+/** A compound SAP icon name (`system_undo`, `te_receipts`) falls back to a word of it that has a glyph. */
+function iconByWord(key) {
+  const words = key.split('_').filter(Boolean);
+  for (const w of [words[0], ...words.slice(1).reverse()]) {
+    if (BTN_ICONS[w]) return BTN_ICONS[w];
+    if (BTN_ICONS[w?.replace(/s$/, '')]) return BTN_ICONS[w.replace(/s$/, '')];
+  }
+  return '';
+}
 const STD_ALV_BUTTONS = ['detail', 'sort', 'filter', 'sum', 'export'].map(icon => ({ icon, std: true }));
 
 const TB_ROW_H = 32, TB_BTN_H = 22, TB_PAD_X = 10, TB_GAP = 6, TB_CAPTION_W = 44, TB_SEP_W = 8;
@@ -2110,7 +2130,7 @@ function btnIcon(b) {
     key = key.slice(5);
     key = SAP_ICON_ALIAS[key] || key;
     // An SAP icon without a drawable glyph draws no icon rather than its name.
-    return BTN_ICONS[key] || '';
+    return BTN_ICONS[key] || iconByWord(key);
   }
   if (BTN_ICONS[key]) return BTN_ICONS[key];
   return key && [...String(b.icon)].length <= 2 ? String(b.icon) : '';

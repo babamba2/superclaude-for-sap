@@ -117,7 +117,7 @@ Reusable ALV Grid + ALV Tree + SALV wrapper library consumed by generated progra
    - **⑥ `ZCL_S4SAP_CM_TREE_EVENT`** (event handler for `CL_GUI_ALV_TREE`) — no Z deps. Source: `zcl_s4sap_cm_tree_event.clas.abap`.
    - **⑦ `ZCL_S4SAP_CM_ALV`** (main container manager) — depends on ①②③④⑤⑥. Source: `zcl_s4sap_cm_alv.clas.abap`. Implements `ZIF_S4SAP_CM`.
 5. After each object: run `GetAbapSemanticAnalysis` for syntax, then activate. If activation fails at step ⑦ with unresolved references, verify ①–⑥ are **active** (not just created) via `GetInactiveObjects`.
-6. Final check: `SearchObject` for `ZCL_S4SAP_CM_ALV` returns an active object → report "✅ ALV OOP handlers installed (7 objects)".
+6. Final check: `SearchObject` for `ZCL_S4SAP_CM_ALV` returns an active object → report "✅ ALV OOP handlers installed (7 objects)". Then set `alvFramework: "s4sap-cm"` in the profile `config.json` unless it already holds `custom` (also when step 1 found them already installed). The handlers live in `$TMP` — programs in transportable packages need them transported first, or `alvFramework = none`.
 7. On partial failure (some objects created, others failed): surface which object failed and the error; do NOT auto-delete successfully created objects — let the user decide whether to retry or remove.
 
 ## 9c. OData Backend Classes + Cache Utility — CONDITIONAL

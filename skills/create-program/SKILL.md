@@ -38,7 +38,7 @@ The following rules are **shared across sc4sap skills** and live in `sc4sap/comm
 
 | Convention | Reference File | Applied In |
 |------------|----------------|------------|
-| Include structure (t/s/c/a/o/i/e/f/_tst) | `../../common/include-structure.md` | Planner, Executor |
+| Include structure (OOP t/s/c/ct/e/o/i; Procedural t/s/o/i/f + c/a) | `../../common/include-structure.md` | Planner, Executor |
 | OOP two-class pattern (LCL_DATA + LCL_ALV) | `../../common/oop-pattern.md` | Executor (OOP mode only) |
 | ALV rules (Full vs SALV, field catalog standard) | `../../common/alv-rules.md` | Executor, Reviewer |
 | Text element rule (no hardcoded display literals) | `../../common/text-element-rule.md` | Executor, Reviewer |
@@ -161,10 +161,13 @@ Do not inline or paraphrase phase logic here — update `agent-pipeline.md` inst
 - `.sc4sap/program/{PROG}/interview.md` — Phase 1B technical interview (analyst+architect-led: 7 dimensions Q&A log)
 - `.sc4sap/program/{PROG}/cbo-context.md` — CBO reuse candidates (written by `<Inventory_Lookups>` / [`inventory-lookups.md`](inventory-lookups.md))
 - `.sc4sap/program/{PROG}/customization-context.md` — Z*/Y* BAdI impl / CMOD / form-exit / append reuse candidates (written by `<Inventory_Lookups>` / [`inventory-lookups.md`](inventory-lookups.md))
+- `.sc4sap/program/{PROG}/ddic-brief.md` — Haiku `sap-checker` scout facts for objects named in Phase 1A (read before any `Get*` by 1B / consultants / planner)
 - `.sc4sap/program/{PROG}/plan.md` — planner output
 - `.sc4sap/program/{PROG}/spec.md` — writer output (requires user confirm)
 - `.sc4sap/program/{PROG}/state.json` — execution_mode + per-phase status/timing (schema in `execution-mode.md`, drives resume support)
-- `.sc4sap/program/{PROG}/review-bucket-{B1|B2|B3|B4}.md` — Phase 6 per-bucket reviews (merged into review.md, see `phase6-buckets.md`)
+- `.sc4sap/program/{PROG}/verify-phase4.md` — Haiku verify results for text pools, screens, GUI statuses, inactive count (see `phase4-verify.md`)
+- `.sc4sap/program/{PROG}/review-bucket-{B1|B2|B3|B4}.md` — Phase 6 per-bucket reviews, `buckets` strategy (merged into review.md, see `phase6-buckets.md`)
+- `.sc4sap/program/{PROG}/review-candidates.md` — Phase 6 Haiku detector output, `detect-judge` strategy (see `phase6-detect-judge.md`)
 - `.sc4sap/program/{PROG}/review.md` — Phase 6 consolidated review
 - `.sc4sap/program/{PROG}/report.md` — final completion report
 - `.sc4sap/program/{PROG}/{spec,report}.html` — optional single-file HTML copies, offered after Phase 8

@@ -1,6 +1,8 @@
 # Phase 6 — Bucket Parallelization + Model Escalation
 
-Authoritative rule for how `sap-code-reviewer` runs Phase 6 reviews in parallel buckets with a Sonnet→Opus escalation ladder. Referenced from `phase6-review.md`.
+Authoritative rule for how `sap-code-reviewer` runs Phase 6 reviews in parallel buckets with a Sonnet→Opus escalation ladder. Referenced from `phase6-review.md`. This is the **default** strategy (`~/.sc4sap/preferences.json` → `phase6Strategy` = `buckets`); the opt-in alternative is [`phase6-detect-judge.md`](./phase6-detect-judge.md).
+
+**Read-only reviewer**: `sap-code-reviewer` has `disallowedTools: [Write, Edit]` and no `Update*` MCP tools. It **returns** bucket verdicts and fix lists as text; the main thread writes every file below and dispatches `sap-executor` for fixes.
 
 ## Goal
 
@@ -48,18 +50,18 @@ Agent({
 })
 ```
 
-Each bucket agent:
+Every bucket prompt ends with: "Return the verdict table as text plus one `FIX …` line per finding; do not write files." Each bucket agent:
 1. Fetches source of all created objects via MCP (`GetInclude`, `GetProgram`, etc.)
 2. Runs its subset of checklist items
-3. Writes verdict to `.sc4sap/program/{PROG}/review-bucket-{B1|B2|B3|B4}.md`
-4. Classifies each finding: `PASS` / `MINOR` / `MAJOR`
+3. Classifies each finding `PASS` / `MINOR` / `MAJOR`, with one `FIX obj=<name> item=<§n> severity=<…> line=<n> change="<…>"` line per finding
+4. Returns the verdict text — main writes it to `.sc4sap/program/{PROG}/review-bucket-{B1|B2|B3|B4}.md`
 
 Wait for all 4 buckets. Merge into consolidated `review.md`.
 
 ## Finding Classification
 
 - **PASS** — no violation found
-- **MINOR** — violation exists but non-blocking (e.g., a TEXT-Txx missing an optional tooltip). Reviewer fixes in-place via `Update*` and records `FIX-APPLIED`.
+- **MINOR** — violation exists but non-blocking (e.g., a TEXT-Txx missing an optional tooltip). Main dispatches `sap-executor` (`model: "opus"`) with the `FIX` lines; once applied the item is recorded `FIX-APPLIED`.
 - **MAJOR** — violation blocks Phase 8 (e.g., manual LVC_T_FCAT build, Docking replaced by Custom Control, ECC-deprecated pattern on S/4). Escalate per below.
 
 ## Model Escalation (6-3)
@@ -69,8 +71,8 @@ After all 4 buckets finish, count MAJOR findings:
 | MAJOR count | Action |
 |-------------|--------|
 | **0** | Skip Opus. Merge bucket outputs into `review.md`, final verdict `✅ ALL PASS`. Proceed to Phase 8. |
-| **1–2** | Dispatch `Agent({subagent_type: "sc4sap:sap-code-reviewer", model: "opus", ...})` **scoped only to the MAJOR findings** — pass finding list + affected object names. Opus re-reviews, attempts fix via `Update*` (up to 3 iterations per finding), writes final verdict to `review.md`. |
-| **3+** | Dispatch Opus with full context (all 4 bucket reports + source). Opus decides whether to auto-fix or BLOCK. If BLOCK, write `review.md` with `❌ BLOCKED` and surface to user. |
+| **1–2** | Dispatch `Agent({subagent_type: "sc4sap:sap-code-reviewer", model: "opus", ...})` **scoped only to the MAJOR findings** — pass finding list + affected object names. Opus re-reviews and returns a confirmed fix list; main dispatches `sap-executor` (`model: "opus"`) to apply it, then re-runs the Opus review scoped to those findings (up to 3 iterations per finding). Main writes the final verdict to `review.md`. |
+| **3+** | Dispatch Opus with full context (all 4 bucket reports + source). Opus decides whether to fix (fix list → `sap-executor` as above) or BLOCK. If BLOCK, write `review.md` with `❌ BLOCKED` and surface to user. |
 
 Rationale: Sonnet is accurate enough to *detect* convention violations; Opus is reserved for *synthesizing fixes across multiple related findings* where reasoning depth matters.
 
@@ -82,7 +84,7 @@ After buckets (and optional Opus pass) complete:
 2. If Opus escalation ran, read its output too
 3. Build consolidated `review.md` using the template in `phase6-review.md`, but with an added header:
    ```markdown
-   **Review Strategy**: 4-bucket parallel (Sonnet) + {Opus escalation: yes/no, N findings}
+   **Review Strategy**: buckets — 4-bucket parallel (Sonnet) + {Opus escalation: yes/no, N findings}
    **Buckets**: B1 ALV+UI, B2 Logic, B3 Structure, B4 Platform
    **Timing**: parallel_sec={T1}, opus_sec={T2}, total_sec={T1+T2}
    ```
@@ -100,7 +102,7 @@ After buckets (and optional Opus pass) complete:
 "6_review": {
   "status": "completed | blocked",
   "ts": "...",
-  "strategy": "4-bucket-parallel",
+  "strategy": "buckets",
   "buckets": {
     "B1": { "verdict": "PASS", "sec": 12 },
     "B2": { "verdict": "MINOR", "sec": 10, "findings": 1 },

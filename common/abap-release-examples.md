@@ -10,7 +10,7 @@ Agents MUST NOT emit features newer than the configured `ABAP_RELEASE` in `.sc4s
 
 **Allowed (740+)**
 ```abap
-SELECT * FROM mara INTO TABLE @DATA(lt_mara) UP TO 10 ROWS.
+SELECT * FROM mara INTO TABLE @DATA(lt_mara) UP TO 10 ROWS.   " @ / INTO @DATA( ): 740 SP05+
 LOOP AT lt_mara INTO DATA(ls_mara).
   READ TABLE lt_items ASSIGNING FIELD-SYMBOL(<ls_item>) WITH KEY matnr = ls_mara-matnr.
 ENDLOOP.
@@ -92,9 +92,9 @@ DATA lv_msg TYPE string.
 CONCATENATE 'Order' lv_vbeln 'posted on' sy-datum 'with' lines( lt_items ) 'items' INTO lv_msg SEPARATED BY space.
 ```
 
-### 2.5 `FOR` Expressions (≥ 741)
+### 2.5 `FOR` Expressions (≥ 740 SP08)
 
-**Allowed (741+)**
+**Allowed (740 SP08+)**
 ```abap
 DATA(lt_matnr) = VALUE string_table(
   FOR ls_line IN lt_items WHERE ( menge > 0 )

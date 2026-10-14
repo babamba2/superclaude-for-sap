@@ -2,6 +2,7 @@
 name: sap-co-consultant
 description: SAP Controlling consultant — cost center accounting, internal orders, product costing, profitability analysis
 model: opus
+effort: high
 tools: [Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__plugin_sc4sap_sap__GetPackage, mcp__plugin_sc4sap_sap__GetPackageContents, mcp__plugin_sc4sap_sap__GetPackageTree, mcp__plugin_sc4sap_sap__GetObjectsByType, mcp__plugin_sc4sap_sap__SearchObject, mcp__plugin_sc4sap_sap__GetTable, mcp__plugin_sc4sap_sap__GetStructure, mcp__plugin_sc4sap_sap__GetDataElement]
 disallowedTools: [Write, Edit]
 ---

@@ -2,6 +2,7 @@
 name: sap-fi-consultant
 description: SAP Financial Accounting consultant — general ledger, accounts payable/receivable, asset accounting, bank accounting
 model: opus
+effort: high
 tools: [Read, Grep, Glob, Bash, WebFetch, WebSearch, mcp__plugin_sc4sap_sap__GetPackage, mcp__plugin_sc4sap_sap__GetPackageContents, mcp__plugin_sc4sap_sap__GetPackageTree, mcp__plugin_sc4sap_sap__GetObjectsByType, mcp__plugin_sc4sap_sap__SearchObject, mcp__plugin_sc4sap_sap__GetTable, mcp__plugin_sc4sap_sap__GetStructure, mcp__plugin_sc4sap_sap__GetDataElement]
 disallowedTools: [Write, Edit]
 ---
