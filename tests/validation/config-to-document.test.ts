@@ -9,11 +9,15 @@ import { keyString, orderSiblings } from '../../scripts/config/extract-config.mj
 // @ts-expect-error — plain .mjs script, no type declarations
 import { runChecks } from '../../scripts/config/config-checks.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { buildModel, applyTerms } from '../../scripts/config/build-config-doc.mjs';
+import { buildModel, applyTerms, mergeEdits } from '../../scripts/config/build-config-doc.mjs';
+// @ts-expect-error — plain .mjs script, no type declarations
+import { sourceStatus, sourceHints } from '../../scripts/config/notes-sources.mjs';
+// @ts-expect-error — plain .mjs script, no type declarations
+import { renderAlvScreenSVG } from '../../scripts/spec/screen-image-renderer.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { pageHtml } from '../../scripts/config/config-doc-page.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { parseNotes, parseTerms, isOfficialSource } from '../../scripts/config/notes.mjs';
+import { parseNotes, parseTerms, isOfficialSource, generalPart, withKb } from '../../scripts/config/notes.mjs';
 
 describe('config-to-document — SAP documentation (ITF)', () => {
   it('joins continuation lines, drops commands and keeps lists and headings', () => {
@@ -143,11 +147,12 @@ describe('config-to-document — view variants and consultant notes', () => {
         V_T161: { name: 'V_T161', root: 'T161', conds: [], fields: [] },
       },
       tables: { T161: { fields: [{ name: 'BSTYP', key: true, type: 'CHAR', leng: 1 }, { name: 'BSART', key: true, type: 'CHAR', leng: 4 }], transports: [],
-        rows: [{ BSTYP: 'B', BSART: 'NB' }, { BSTYP: 'F', BSART: 'NB', _tr: ['K1'] }, { BSTYP: 'F', BSART: 'FO' }] } },
+        rows: [{ BSTYP: 'B', BSART: 'NB' }, { BSTYP: 'F', BSART: 'NB', _tr: ['DEVK9A2OEJ'] }, { BSTYP: 'F', BSART: 'FO', _tr: ['P30A_C_SFC', 'SAPK900001', '/SPE/100_CUST'] }] } },
     };
     const { views, acts } = buildModel(snap, 'ko', { drawScreens: false });
     expect(views.VV_T161_VF.root).toBe('T161');
     expect(views.VV_T161_VF.rows).toEqual([['NB'], ['FO']]);
+    // SAP delivery records (command files, SAPK…) are not customer changes.
     expect(views.VV_T161_VF.cust).toEqual([0]);
     expect(acts.A.tables).toEqual(['T161']);
   });
@@ -232,5 +237,112 @@ describe('config-to-document — official SAP sources only', () => {
     expect(isOfficialSource('http://help.sap.com/x')).toBe(false);
     const r = parseNotes('@@ A\n## purpose\nx\n## sources\n- t | SAP Help | https://help.sap.com/a | s\n- t2 | Blog | https://blogs.example.com/b | s\n', 'draft');
     expect(r.errors).toEqual([expect.stringContaining('not official SAP documentation (https://blogs.example.com/b)')]);
+  });
+});
+
+describe('config-to-document — knowledge base of general note parts', () => {
+  it('keeps the general part without verdicts and fills a system-only note from it', () => {
+    const full = parseNotes([
+      '@@ A', '## purpose', 'Sets the block type.', '## impact', '- Late block (2).', '## sapdoc', '요약',
+      '## cases 어떤 잠금?', '### case CASE 1 — Exclusive', 'flow: a > b', 'desc: d1', 'this: no — 2',
+      '### case CASE 2 — Late', 'flow: a > c', 'desc: d2', 'this: yes — 2',
+      '## sources', '- Late block | SAP Help | https://help.sap.com/x | s', '',
+    ].join('\n'), 'draft').items.A;
+    const kb = generalPart(full);
+    expect(kb.cases.list.map((c: { title: string }) => c.title)).toEqual(['CASE 1 — Exclusive', 'CASE 2 — Late']);
+    expect(kb.cases.list.every((c: object) => !('thisSystem' in c))).toBe(true);
+    expect(kb).not.toHaveProperty('impact');
+
+    const sys = parseNotes('@@ A\n## impact\n- Exclusive (1) here.\n## verdicts\n- CASE 1: yes — 자재보류 = 1\nCASE 2: no — 1\n', 'draft');
+    expect(sys.items.A.verdicts).toEqual([{ n: 1, value: 'yes — 자재보류 = 1' }, { n: 2, value: 'no — 1' }]);
+    const merged = withKb(sys.items.A, kb);
+    expect(merged.purpose).toBe('Sets the block type.');
+    expect(merged.impact).toEqual(['Exclusive (1) here.']);
+    expect(merged.cases.list.map((c: { thisSystem: string }) => c.thisSystem)).toEqual(['yes — 자재보류 = 1', 'no — 1']);
+    expect(merged.sources[0]).toMatchObject({ url: 'https://help.sap.com/x', fromKb: true });
+  });
+});
+
+describe('config-to-document — view conditions on blank values', () => {
+  it("matches INAKTIV = ' ' against an empty field", () => {
+    const snap = {
+      meta: { module: 'MM', lang: 'ko' }, tree: [], clusters: {}, clusterTitles: {}, labels: {}, domains: {}, docs: {}, transports: {},
+      activities: { A: { title: '코드 그룹', objects: [{ type: 'V', name: 'V_QPGR_KAT' }] } },
+      views: { V_QPGR_KAT: { name: 'V_QPGR_KAT', root: 'QPGR', conds: [{ table: 'QPGR', field: 'INAKTIV', value: ' ' }], fields: [{ field: 'CODEGRUPPE', table: 'QPGR', tabField: 'CODEGRUPPE', key: true }] } },
+      tables: { QPGR: { fields: [{ name: 'CODEGRUPPE', key: true, type: 'CHAR', leng: 8 }], transports: [], rows: [{ CODEGRUPPE: 'G1', INAKTIV: '' }, { CODEGRUPPE: 'G2', INAKTIV: 'X' }] } },
+    };
+    expect(buildModel(snap, 'ko', { drawScreens: false }).views.V_QPGR_KAT.rows).toEqual([['G1']]);
+  });
+});
+
+describe('config-to-document — edit mode', () => {
+  const meta = { module: 'MM', system: 'DEV', client: '100', sapVersion: 'ECC', extractedAt: '2026-10-14T00:00:00Z', maxRows: 1000, lang: 'ko' };
+
+  it('embeds the edits as JSON that cannot close the script tag, and shows the edit button', () => {
+    const edits = { edits: { ACT1: { purpose: 'x </script><b>y</b>', impact: [] } }, log: [] };
+    const html = pageHtml({ meta, lang: 'ko', tree: [], acts: {}, views: {}, checks: [], transports: {}, domains: {}, docs: {}, edits }, {});
+    expect(html).toContain('id="ce-edit"');
+    const raw = /id="config-edits">([\s\S]*?)<\/script>/.exec(html)![1];
+    expect(raw).not.toContain('</script>');
+    expect(JSON.parse(raw).edits.ACT1.purpose).toBe('x </script><b>y</b>');
+    // The edits travel in their own script, not inside the packed data.
+    const b64 = /id="data">([^<]*)<\/script>/.exec(html)![1];
+    expect(JSON.parse(gunzipSync(Buffer.from(b64, 'base64')).toString('utf8')).edits).toBeUndefined();
+  });
+
+  it('merges a saved page into the stored edits: page wins, drawings dropped, log kept once', () => {
+    const stored = { edits: { A: { purpose: 'old' }, B: { purpose: 'keep' } }, log: [{ author: 'u1', at: 't1', activities: ['A'] }] };
+    const page = {
+      system: 'DEV', module: 'MM',
+      edits: { A: { purpose: 'new', cases: { title: 'q', list: [{ title: 'c1', flow: ['a'], svg: '<svg/>' }] } } },
+      log: [{ author: 'u1', at: 't1', activities: ['A'] }, { author: 'u2', at: 't2', activities: ['A'] }],
+    };
+    const out = mergeEdits(stored, page, meta);
+    expect(out.edits.A.purpose).toBe('new');
+    expect(out.edits.A.cases.list[0].svg).toBeUndefined();
+    expect(out.edits.B.purpose).toBe('keep');
+    expect(out.log.map((l: { at: string }) => l.at)).toEqual(['t1', 't2']);
+    expect(() => mergeEdits(stored, { ...page, system: 'PRD' }, meta)).toThrow(/PRD/);
+  });
+
+  it('keeps a newer stored edit against an older copy carried by a stale page, and removes on null', () => {
+    const stored = { edits: { A: { purpose: 'a2', edited: { at: '2026-10-15T10:00:00Z' } }, C: { purpose: 'c1', edited: { at: '2026-10-15T08:00:00Z' } } }, log: [] };
+    const page = {
+      system: 'DEV', module: 'MM',
+      edits: { A: { purpose: 'a1', edited: { at: '2026-10-15T09:00:00Z' } }, B: { purpose: 'b1', edited: { at: '2026-10-15T11:00:00Z' } }, C: null },
+      log: [{ author: 'y', at: '2026-10-15T11:00:00Z', activities: ['B', 'C'] }],
+    };
+    const out = mergeEdits(stored, page, meta);
+    expect(out.edits.A.purpose).toBe('a2');
+    expect(out.edits.B.purpose).toBe('b1');
+    expect(out.edits.C).toBeUndefined();
+  });
+});
+
+describe('config-to-document — verified-source cache', () => {
+  const cache = {
+    'https://help.sap.com/a': { title: 'A', source: 'SAP Help', summaries: [{ text: 'Page A  says x.', activity: 'ACT1' }], activities: ['ACT1'], tables: ['T161'] },
+    'https://help.sap.com/b': { title: 'B', source: 'SAP Help', summaries: [{ text: 'Page B.', activity: 'ACT9' }], activities: ['ACT9'], tables: ['T161', 'T162'] },
+  };
+
+  it('tells verified, changed and new sources apart (whitespace does not count)', () => {
+    expect(sourceStatus(cache, { url: 'https://help.sap.com/a', summary: 'Page A says x.' })).toBe('verified');
+    expect(sourceStatus(cache, { url: 'https://help.sap.com/a', summary: 'Other text.' })).toBe('changed');
+    expect(sourceStatus(cache, { url: 'https://help.sap.com/c', summary: 'x' })).toBe('new');
+  });
+
+  it('offers the activity\'s own sources first, then those sharing its tables', () => {
+    const hints = sourceHints(cache, 'ACT1', ['T161']);
+    expect(hints.map((h: { url: string }) => h.url)).toEqual(['https://help.sap.com/a', 'https://help.sap.com/b']);
+    expect(hints[0].summary).toBe('Page A  says x.');
+    expect(sourceHints(cache, 'ACT2', ['T999'])).toEqual([]);
+  });
+});
+
+describe('config-to-document — screen drawing', () => {
+  it('cuts a value wider than its column instead of drawing over the next one', () => {
+    const svg = renderAlvScreenSVG({ columns: [{ name: 'c0', header: 'Class', width: 80 }, { name: 'c1', header: 'Text', width: 80 }], sampleRows: [{ c0: 'ZMM_PO_RELEASE_STRATEGY_CLASS', c1: 'STO Release(LE)' }] });
+    expect(svg).not.toContain('ZMM_PO_RELEASE_STRATEGY_CLASS');
+    expect(svg).toMatch(/ZMM_[A-Z_]*…/);
   });
 });

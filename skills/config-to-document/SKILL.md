@@ -70,15 +70,16 @@ It prints progress (`tables n/N`) on stderr and one JSON line at the end: `{ ok,
    - `none` — no notes this run; the document is built without new notes
    Then `node scripts/config/notes.mjs batches --module <M> --scope <scope> --size 12` → `notes/_in/bNNN.json` (numbered after existing batches; `--redo` rewrites reviewed activities too, only when the user asks).
 2. **Write** — per batch, `Agent(subagent_type: "sc4sap:sap-<m>-consultant")` with prompt § 1 (saves `--kind draft`). Batches run in parallel, at most 4 at a time.
-3. **Review** — per batch, `Agent(subagent_type: "sc4sap:sap-critic")` with prompt § 2 (saves `--kind review`, prints the `fix` list). The reviewer opens every cited URL.
+3. **Review** — per batch, prompt § 2: (a) `notes-lint.mjs` on the main thread (sources, transactions, counts, check findings — no tokens), (b) `sc4sap:sap-critic` judges SAP meaning with the lint facts in hand and opens only sources the lint marks `new` / `changed` (saves `--kind review`, prints the `fix` list). Saving a review adds the sources of every `ok` activity to the verified-source cache, which later batches receive as `knownSources`; `notes.mjs sources --module <M>` seeds that cache from batches reviewed before it existed.
 4. **Revise** — for a batch with `fix` items, the writer agent again with prompt § 3 (saves `--kind revised`). One round; findings still open after it stay visible in the document ("Review findings open").
 5. `node scripts/config/notes.mjs status --module <M>` must show draft + review for every batch of this run before Step 5 (skip this step with scope `none`).
+6. **Knowledge base.** `node scripts/config/notes.mjs kb --module <M>` copies the general part of every reviewed note (purpose, SAP documentation summary, cases without the verdicts, comparison, checklist, criteria, official sources) to `~/.sc4sap/kb/config/<M>/<lang>/`. Later runs — this system again or any other system — mark those activities `"mode": "system"` in their batches: the writer adds only impact, cautions and one verdict per case, with no web research, and the reviewer checks only that part. On MM this cuts a batch to a fraction of the first-run cost.
 
 **Step 5 — Build.**
 ```
-node scripts/config/build-config-doc.mjs --module <M> [--lang <lang>]
+node scripts/config/build-config-doc.mjs --module <M> [--lang <lang>] [--import <edited.html>]
 ```
-Output: `<artifactBase>/config-docs/<M>/<M>-config-v<n>-<lang>.html` (`status` counts and the number of checks with findings in the JSON line).
+Output: `<artifactBase>/config-docs/<M>/<M>-config-v<n>-<lang>.html` (`status` counts, checks with findings and `edited` notes in the JSON line). When the user hands back a page saved from edit mode, build with `--import <file>`: its edits merge into `notes/edits.json` (the page's note wins per activity; a page from another system or module is refused) and every later build keeps them. Edits never enter the knowledge base.
 
 **Step 6 — Close.** Report in the user's language:
 - the file path, IMG activities by status (customized / standard / not set / no values / not readable),
@@ -91,6 +92,8 @@ Do not paste table contents into chat.
 
 <Document_Contents>
 Per IMG activity: IMG path, title (document language + English), status badge, T-codes, consultant notes with their review state, objects (view / view cluster / table), row and customer-row counts; for each view an SM30 overview drawn with the first rows (customer rows first) and, for wide views, a detail screen of one row; the full value table (key columns bold, fixed-value texts next to codes, customer rows highlighted with their transports, filter and "customer rows only"); the customer transports that touched the table (date, request, user, description); checks for the activity; SAP's IMG documentation. Overview: counts by status, areas with status bars, recent customer transports. Right panel: all check findings, click to jump.
+
+Edit mode ("Edit" in the top bar, nothing installed): the consultant notes and the reference panel become editable plain text — add or delete list items, add notes to an activity without them, delete a source; the value tables stay read-only. Undo (Ctrl+Z / button), autosave to the browser with "continue editing" on reopen, an "Edited · author · date" badge per changed note. "Save" asks for author and change note and downloads the page with every edit embedded (`<script id="config-edits">`) — the file to hand back for `--import`.
 </Document_Contents>
 
 <Checks>
@@ -101,7 +104,10 @@ Built-in: activities whose values could not be read. Module rules: `configs/<M>/
 - `scripts/config/extract-config.mjs` — IMG walk, values, transports, docs → `config-docs/<M>/snapshot.json`
 - `scripts/config/sap-reader.mjs` — MCP client, SELECT * reads, IN-list chunking, read cache
 - `scripts/config/itf.mjs` — SAP documentation (ITF) → blocks
-- `scripts/config/notes.mjs` — note and term batches, marker-text parsing, merge of drafts / reviews / revisions
+- `scripts/config/notes.mjs` — note and term batches, marker-text parsing, merge of drafts / reviews / revisions, knowledge base (`kb`), source-cache seeding (`sources`)
+- `scripts/config/notes-sources.mjs` — verified-source cache `~/.sc4sap/kb/config/<M>/sources-<lang>.json` (status, record, hints)
+- `scripts/config/notes-lint.mjs` — mechanical batch checks before review; t-code cache `~/.sc4sap/kb/tcodes/<system>.json`
 - `scripts/config/config-checks.mjs` — rule engine
-- `scripts/config/build-config-doc.mjs` + `config-doc-page.mjs` — model, screen drawings, page
+- `scripts/config/build-config-doc.mjs` + `config-doc-page.mjs` — model, screen drawings, page, `--import` of edits
+- `scripts/config/config-doc-editor.mjs` — edit mode (styles, client script, labels)
 </Files>

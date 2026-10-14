@@ -2,20 +2,24 @@
 // config-to-document — build the HTML document from a snapshot.
 //
 // Usage:
-//   node scripts/config/build-config-doc.mjs --module MM [--snapshot <file>] [--lang ko] [--out <file>]
+//   node scripts/config/build-config-doc.mjs --module MM [--snapshot <file>] [--lang ko] [--out <file>] [--import <edited.html>]
 //
 // Reads <artifactBase>/config-docs/<MODULE>/snapshot.json (extract-config.mjs),
 // runs the module's check rules, draws an SM30-style overview (and a detail
 // screen for wide views) with the real values through the shared screen
 // renderer, and writes one self-contained HTML file next to the snapshot:
 // <MODULE>-config-v<n>-<lang>.html.
+//
+// Edit mode (config-doc-editor.mjs) saves the page with the edited notes embedded;
+// --import merges them into notes/edits.json, and every build lays those edits
+// over the generated notes, so they carry into the next version.
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { renderAlvScreenSVG, renderProcessFlowHorizontalSVG } from '../spec/screen-image-renderer.mjs';
+import { renderAlvScreenSVG, renderProcessFlowHorizontalSVG, approxTextWidthPx } from '../spec/screen-image-renderer.mjs';
 import { resolveArtifactBase, readScreenTheme, readActiveSapEnv } from '../lib/profile-resolve.mjs';
-import { atomicWriteFileSync } from '../lib/atomic-write.mjs';
+import { atomicWriteFileSync, ensureDirSync } from '../lib/atomic-write.mjs';
 import { loadRules, runChecks, attachActivities } from './config-checks.mjs';
 import { pageHtml } from './config-doc-page.mjs';
 import { loadNotes, loadTerms } from './notes.mjs';
@@ -27,13 +31,14 @@ const TABLE_COLS = 30;
 const FLAG_DOMAINS = /^(XFELD|FLAG|XFLAG|BOOLE|BOOLEAN|BOOLE_D|CHAR1_X)$/;
 
 function args(argv) {
-  const o = { module: '', snapshot: '', lang: '', out: '' };
+  const o = { module: '', snapshot: '', lang: '', out: '', import: '' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--module') o.module = String(argv[++i]).toUpperCase();
     else if (a === '--snapshot') o.snapshot = argv[++i];
     else if (a === '--lang') o.lang = argv[++i];
     else if (a === '--out') o.out = argv[++i];
+    else if (a === '--import') o.import = argv[++i];
   }
   if (!o.module && !o.snapshot) throw new Error('--module or --snapshot is required');
   return o;
@@ -45,6 +50,11 @@ const T = {
 };
 
 const show = (v) => (v === true ? 'X' : v === false || v == null ? '' : String(v));
+// A customer request is named <SID>K<6 characters> (digits, then letters once
+// 999999 is used up: HKDK9A2OEJ). SAP's own delivery records (SAPK…, command
+// files like P30A_C_SFC, /SPE/100_CUST) are not customer changes.
+export const isCustomerTr = (t) => /^[A-Z][A-Z0-9]{2}K[A-Z0-9]{6}$/.test(String(t)) && !String(t).startsWith('SAP');
+const custTr = (r) => (r._tr || []).filter(isCustomerTr);
 
 export function buildModel(snap, lang, { drawScreens = true } = {}) {
   const L = T[lang] || T.en;
@@ -85,7 +95,8 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
     const def = snap.tables[root];
     if (!def) return null;
     // View variants restrict the root table (e.g. BSTYP = 'F'); keep the original row index for _tr.
-    const keep = def.rows.map((r, i) => i).filter((i) => conds.every((c) => c.table !== root || show(def.rows[i][c.field]) === c.value));
+    // SAP compares CHAR values without trailing blanks: INAKTIV = ' ' matches an empty field.
+    const keep = def.rows.map((r, i) => i).filter((i) => conds.every((c) => c.table !== root || show(def.rows[i][c.field]).trim() === String(c.value).trim()));
     const src = keep.map((i) => def.rows[i]);
     const rows = src.map((r) => {
       const sec = {};
@@ -95,12 +106,12 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
         return show(sec[c.table]?.[c.tabField]);
       });
     });
-    const cust = src.map((r, i) => (r._tr ? i : -1)).filter((i) => i >= 0);
-    const trOf = Object.fromEntries(cust.map((i) => [i, src[i]._tr]));
+    const cust = src.map((r, i) => (custTr(r).length ? i : -1)).filter((i) => i >= 0);
+    const trOf = Object.fromEntries(cust.map((i) => [i, custTr(src[i])]));
     views[key] = {
       key, title, root, cols: cols.map((c) => ({ name: c.field, label: c.label, key: c.key, dom: c.dom })),
       rows, cust, trOf, truncated: def.truncated, error: def.error || '', tableTitle: def.title,
-      history: def.transports, historyTruncated: def.historyTruncated,
+      history: (def.transports || []).filter(isCustomerTr), historyTruncated: def.historyTruncated,
     };
     return views[key];
   };
@@ -147,11 +158,11 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
     const key = `NR:${obj}`;
     const names = NR_COLS[lang] || NR_COLS.en;
     const rows = nr.rows.map((r) => NR_FIELDS.map((f) => show(r[f])));
-    const cust = nr.rows.map((r, i) => (r._tr ? i : -1)).filter((i) => i >= 0);
+    const cust = nr.rows.map((r, i) => (custTr(r).length ? i : -1)).filter((i) => i >= 0);
     views[key] = {
       key, title: nr.title || obj, root: 'NRIV', tableTitle: obj, nr: true,
       cols: NR_FIELDS.map((f, i) => ({ name: f, label: names[i], key: i < 3, dom: '' })),
-      rows, cust, trOf: Object.fromEntries(cust.map((i) => [i, nr.rows[i]._tr])), truncated: false, error: '', history: nr.transports,
+      rows, cust, trOf: Object.fromEntries(cust.map((i) => [i, custTr(nr.rows[i])])), truncated: false, error: '', history: (nr.transports || []).filter(isCustomerTr),
     };
     return views[key];
   };
@@ -191,7 +202,12 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
   for (const v of drawScreens ? Object.values(views) : []) {
     if (!v.rows.length) continue;
     const order = [...v.cust, ...v.rows.map((_, i) => i).filter((i) => !v.cust.includes(i))].slice(0, MOCK_ROWS);
-    const cols = v.cols.slice(0, MOCK_COLS).map((c, i) => ({ name: `c${i}`, header: c.label }));
+    // Columns as wide as their longest shown value (ZMM_PO_RELEASE), within 80–240 px;
+    // the renderer cuts anything longer with '…'.
+    const cols = v.cols.slice(0, MOCK_COLS).map((c, i) => ({
+      name: `c${i}`, header: c.label,
+      width: Math.min(240, Math.max(80, ...order.map((r) => approxTextWidthPx(String(v.rows[r][i] ?? '')) + 28))),
+    }));
     const sampleRows = order.map((i) => Object.fromEntries(cols.map((c, j) => [c.name, v.rows[i][j]])));
     try {
       svgs[v.key] = renderAlvScreenSVG({
@@ -245,6 +261,43 @@ function withCaseDiagrams(notes, lang) {
   return notes;
 }
 
+const EDITS_RE = /<script type="application\/json" id="config-edits">([\s\S]*?)<\/script>/;
+const stripSvg = (n) => (n?.cases ? { ...n, cases: { ...n.cases, list: n.cases.list.map(({ svg, ...c }) => c) } } : n);
+
+/** notes/edits.json: { system, module, edits: { activity: note }, log: [{ author, at, note, activities }] } */
+export function readEdits(dir) {
+  const f = join(dir, 'notes', 'edits.json');
+  return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : { edits: {}, log: [] };
+}
+
+/**
+ * Merge the edits embedded in a saved page into the stored ones. Per activity the newer edit wins
+ * (a page built earlier still carries older copies of notes others edited since); null removes the
+ * stored edit, so the generated note shows again.
+ */
+export function mergeEdits(stored, page, meta) {
+  if (page.system && page.system !== meta.system) throw new Error(`edited page is from ${page.system}, this snapshot is ${meta.system}`);
+  if (page.module && page.module !== meta.module) throw new Error(`edited page is module ${page.module}, this snapshot is ${meta.module}`);
+  const out = { system: meta.system, module: meta.module, edits: { ...stored.edits }, log: [...(stored.log || [])] };
+  const at = (n) => String(n?.edited?.at || '');
+  for (const [id, n] of Object.entries(page.edits || {})) {
+    if (n == null) { if (page.log?.some((l) => l.activities?.includes(id))) delete out.edits[id]; continue; }
+    if (!out.edits[id] || at(n) >= at(out.edits[id])) out.edits[id] = stripSvg(n);
+  }
+  const seen = new Set(out.log.map((l) => `${l.at}|${l.author}`));
+  for (const l of page.log || []) if (!seen.has(`${l.at}|${l.author}`)) out.log.push(l);
+  return out;
+}
+
+function importEdits(file, dir, meta) {
+  const m = EDITS_RE.exec(readFileSync(file, 'utf8'));
+  if (!m) throw new Error(`${file}: no edits found (not a page saved from edit mode)`);
+  const merged = mergeEdits(readEdits(dir), JSON.parse(m[1] || '{}'), meta);
+  ensureDirSync(join(dir, 'notes'));
+  atomicWriteFileSync(join(dir, 'notes', 'edits.json'), JSON.stringify(merged, null, 1));
+  return Object.keys(merged.edits).length;
+}
+
 function nextVersion(dir, base) {
   const re = new RegExp(`^${base}-v(\\d+)-`);
   const n = existsSync(dir) ? readdirSync(dir).map((f) => Number(re.exec(f)?.[1] || 0)) : [];
@@ -267,17 +320,21 @@ async function main() {
   const rules = loadRules(join(ROOT, 'configs', module, 'config-checks.json'));
   const checks = attachActivities(runChecks(snap, rules, (a) => (acts[a.id] ? acts[a.id].viewKeys.map((k) => ({ tables: [views[k].root] })) : []), lang), rules, acts);
 
+  const imported = o.import ? importEdits(resolve(o.import), dir, snap.meta) : null;
+  // Edited notes (edit mode) replace the generated note of their activity.
+  const edits = readEdits(dir);
   const data = {
     meta: snap.meta, lang, tree: snap.tree, acts, views, checks,
     transports: snap.transports, domains: snap.domains, docs: snap.docs,
-    notes: withCaseDiagrams(loadNotes(dir), lang),
+    notes: withCaseDiagrams({ ...loadNotes(dir, { module, lang }), ...structuredClone(edits.edits) }, lang),
+    edits,
   };
   const ver = nextVersion(dir, `${module}-config`);
   const out = o.out || join(dir, `${module}-config-v${ver}-${lang}.html`);
   atomicWriteFileSync(out, pageHtml(data, svgs));
   const counts = Object.values(acts).reduce((m, a) => ((m[a.status] = (m[a.status] || 0) + 1), m), {});
   const notes = Object.values(data.notes).reduce((m, n) => ((m[n.review] = (m[n.review] || 0) + 1), m), {});
-  process.stdout.write(JSON.stringify({ ok: true, file: out, activities: Object.keys(acts).length, status: counts, checks: checks.filter((c) => c.items.length).length, notes }) + '\n');
+  process.stdout.write(JSON.stringify({ ok: true, file: out, activities: Object.keys(acts).length, status: counts, checks: checks.filter((c) => c.items.length).length, notes, edited: Object.keys(edits.edits).length, ...(imported != null ? { imported } : {}) }) + '\n');
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

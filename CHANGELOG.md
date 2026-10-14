@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.36] — 2026-10-15
+
 ### Added — `config-to-document`: module configuration from the live system
 
 - New skill `/sc4sap:config-to-document` (MM first): one HTML file along the module's IMG tree — per IMG activity the real table values drawn on an SM30-style screen, rows changed by customer transports with their transport history, configuration checks (`configs/<MODULE>/config-checks.json`), SAP's IMG documentation, and consultant notes written by the module consultant agent and reviewed by `sap-critic`. Output: `config-docs/<MODULE>/<MODULE>-config-v<n>-<lang>.html` under the profile artifact base.
@@ -12,6 +14,23 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - The notes scope (customized / all with values / all / none) is asked on every run with its batch count and measured cost; reviewed activities are not rewritten.
 - Names SAP has no text for in the document language (IMG folders, activity titles, field labels) are translated once by the consultant agent, reviewed, and reused by later runs.
 - Number range activities show their intervals (NRIV) on an SNUM-style screen; view variants (`VV_*`) resolve to their base table and selection condition.
+- Edit mode in the page: the consultant notes and the reference panel become editable plain text (list items added or deleted, notes added to an activity without them, sources deleted) while the value tables stay read-only; undo, browser autosave with "continue editing", an "Edited" badge per note. "Save" downloads the page with the edits embedded; `build-config-doc.mjs --import <file>` merges them into `notes/edits.json` so every later version keeps them. Edits never enter the knowledge base.
+- Knowledge base of reviewed notes (`notes.mjs kb`): the system-independent part of every reviewed note is kept under `~/.sc4sap/kb/config/<MODULE>/<lang>/`; later runs — the same or another system — write only the system part of those activities, with no web research.
+- Cheaper reviews: a verified-source cache (`notes-sources.mjs`) hands earlier-accepted official pages to the writer and lets the reviewer skip re-opening them; `notes-lint.mjs` checks a batch before review at no token cost — count statements against the snapshot (customer transports only, truncated tables flagged), every named transaction resolved against TSTC / the IMG, check findings the notes leave out.
+- Tables capped at the 5000-row `TABLE_READ` limit are read again per value of their first key field, so output determination (usage B) rows are no longer cut off behind pricing rows.
+
+### Fixed — `config-to-document`
+
+- Customer rows count customer transports only (`<SID>K` + 6 characters); SAP delivery records (`SAPK…`, command files such as `P30A_C_SFC`, `/SPE/100_CUST`) are no longer counted as customer changes.
+- View conditions on blank values (`INAKTIV = ' '`) match empty fields.
+
+### Fixed — screen drawings
+
+- ALV cells cut a value wider than its column with "…" instead of drawing it over the next column; `config-to-document` sizes each column to its longest shown value (80–240 px). Measured on a full MM document: 288 drawings had overlapping or spilling texts before, none after.
+
+### Changed — MCP pin
+
+- `abap-mcp-adt-powerup` pin `bbb2e98` (4.8.9) → `1af0724` (4.8.12 + legacy `TABLE_READ` passes every table to `ZMCP_ADT_DISPATCH`, which decides by delivery class).
 
 ### Changed — `ZMCP_ADT_DISPATCH` `TABLE_READ` (ECC)
 

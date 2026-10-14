@@ -162,7 +162,7 @@ const RENDER_SCALE = 1.15;
 // long English labels (e.g. "Distribution Channel (S_VTWEG)") don't run
 // underneath the input boxes — the previous fixed inputX=200 truncated
 // anything wider than 162 px.
-function approxTextWidthPx(s) {
+export function approxTextWidthPx(s) {
   let w = 0;
   for (const ch of String(s ?? '')) {
     w += (ch.charCodeAt(0) > 0x7F ? 13 : 7);
@@ -755,13 +755,15 @@ function alvLayoutSvg({ columns = [], sampleRows = [], maxRows = 3, lang = 'ko' 
       if (lamp) {
         return `<circle cx="${cx}" cy="${cy - 4}" r="6" fill="${lamp}" stroke="#FFFFFF" stroke-width="1"/>`;
       }
+      // A value wider than its column is cut with '…' — it never runs into the next column.
+      const fitted = fitLabel(strVal, alvColW(c) - 12);
       if (c.hotspot) {
-        return `<text x="${cx}" y="${cy}" text-anchor="middle" font-family="monospace" fill="${sig ? T.link : '#1F5AA0'}" text-decoration="underline">${xml(strVal)}</text>`;
+        return `<text x="${cx}" y="${cy}" text-anchor="middle" font-family="monospace" fill="${sig ? T.link : '#1F5AA0'}" text-decoration="underline">${xml(fitted)}</text>`;
       }
       const anchor = c.align === 'end' ? 'end' : (c.align === 'left' ? 'start' : 'middle');
       const tx = anchor === 'end' ? rightX : anchor === 'start' ? leftX : cx;
       const fam = /^[\d.,\-]+$/.test(strVal) ? 'monospace' : 'Arial,sans-serif';
-      return `<text x="${tx}" y="${cy}" text-anchor="${anchor}" font-family="${fam}">${xml(strVal)}</text>`;
+      return `<text x="${tx}" y="${cy}" text-anchor="${anchor}" font-family="${fam}">${xml(fitted)}</text>`;
     }).join('');
     return bandBg + cells;
   }).join('');

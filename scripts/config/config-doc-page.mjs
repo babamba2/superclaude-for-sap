@@ -3,10 +3,11 @@
 // everything client-side, so one file works offline.
 
 import { gzipSync } from 'zlib';
+import { EDITOR_SCRIPT, EDITOR_STYLE, editorLabels } from './config-doc-editor.mjs';
 
 const TEXT = {
   ko: {
-    title: (m) => `SAP ${m} 설정 문서`, search: '항목 · T-Code · 뷰 · 테이블 검색', all: '전체', custom: '고객 설정', standard: '표준값',
+    title: (m) => `SAP ${m} 설정 문서`, search: '항목 · T-Code · 뷰 · 테이블 검색', all: '전체', custom: '고객 변경', standard: '표준값',
     empty: '미설정', none: '값 없음', blocked: '읽기 제한', checks: '점검', expand: '모두 펼치기', collapse: '모두 접기', home: '개요',
     ref: '점검 리스트', items: '항목', rows: '행', custRows: '고객 변경 행', tables: '테이블', screen: '화면', values: '설정값',
     history: '변경 이력 (고객 TR)', doc: 'SAP IMG 문서', noDoc: '이 활동에는 SAP 문서가 없습니다.', onlyCust: '고객 변경 행만',
@@ -24,7 +25,7 @@ const TEXT = {
     crit: { rev: '되돌리기', chain: '연쇄 항목', pre: '선행 조건', ind: '산업별 편차', risk: '흔한 실수', s4: 'S/4 · Fiori', auth: '권한 · 조직', mig: '이관 · 인터페이스', rec: '기본 권고' },
   },
   en: {
-    title: (m) => `SAP ${m} Configuration`, search: 'Search item · T-code · view · table', all: 'All', custom: 'Customized', standard: 'Standard',
+    title: (m) => `SAP ${m} Configuration`, search: 'Search item · T-code · view · table', all: 'All', custom: 'Customer-changed', standard: 'Standard',
     empty: 'Not set', none: 'No values', blocked: 'Not readable', checks: 'Checks', expand: 'Expand all', collapse: 'Collapse all', home: 'Overview',
     ref: 'Checklist', items: 'items', rows: 'rows', custRows: 'customer rows', tables: 'Tables', screen: 'Screen', values: 'Values',
     history: 'Change history (customer requests)', doc: 'SAP IMG documentation', noDoc: 'No SAP documentation for this activity.', onlyCust: 'Customer rows only',
@@ -162,6 +163,7 @@ const T=D.T;const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 let term='',filt='all',cur=null;const order=[];const paths={};const opened=new Set();
 const STATUS=['custom','standard','empty','none','blocked'];
+/*EDITOR*/
 const checksOf=id=>D.checks.filter(c=>c.items.length&&c.activities.includes(id));
 function walk(nodes,path,out){for(const n of nodes){if(n.kind==='activity'){if(!D.acts[n.activity])continue;order.push(n.activity);paths[n.activity]=path;out.push({leaf:n.activity});}else{const kids=[];walk(n.children||[],n.text?[...path,n.text]:path,kids);if(!kids.length)continue;if(!n.text)out.push(...kids);else out.push({text:n.text,en:n.textEn,kids});}}return out}
 const TREE=walk(D.tree,[],[]);
@@ -187,9 +189,9 @@ function fullTable(i){const t=$('#tbl'+i);if(!t||t.dataset.full)return t;const v
 function rowsHtml(v,limit){const custSet=new Set(v.cust);return v.rows.slice(0,limit).map((r,ri)=>'<tr'+(custSet.has(ri)?' class="cust" title="'+esc(T.custHint+': '+(v.trOf[ri]||[]).join(', '))+'"':'')+'>'+r.map((x,ci)=>{const dom=v.cols[ci].dom;const tx=dom&&D.domains[dom]&&D.domains[dom][x];return '<td'+(v.cols[ci].key?' class="k"':'')+(tx?' title="'+esc(tx)+'"':'')+'>'+esc(x)+(tx?' <span style="color:var(--mute)">· '+esc(tx)+'</span>':'')+'</td>'}).join('')+'</tr>').join('')}
 function viewCard(k,i,title){const v=D.views[k];if(!v)return'';const svg=SV[k]?'<div class="mock" data-svg="'+esc(k)+'" title="'+esc(T.zoom)+'">'+SV[k]+'</div>':'';const det=SV[k+'#detail']?'<div class="mock" style="margin-top:10px" data-svg="'+esc(k+'#detail')+'">'+SV[k+'#detail']+'</div>':'';return '<div class="card"><h3>'+esc(title||v.title||k)+' <span class="mono">'+esc(k)+(v.root!==k?' · '+esc(v.root):'')+(v.tableTitle?' · '+esc(v.tableTitle):'')+'</span>'+(v.cust.length?'<span class="badge b-custom">'+esc(T.custRows)+' '+v.cust.length+'</span>':'')+'</h3>'+svg+det+valsHtml(v,i)+histHtml(v)+'</div>'}
 function go(id){location.hash='act='+encodeURIComponent(id)}
-function show(id){const a=D.acts[id];if(!a)return home();cur=id;renderTree();const p=paths[id]||[];const idx=order.indexOf(id);let h='<div class="detail"><div class="crumb">'+p.map(x=>'<span>'+esc(x)+'</span>').join('')+'</div><h2>'+esc(a.title)+'</h2><div class="en">'+esc(a.titleEn||'')+' · <span class="mono">'+esc(a.id)+'</span></div><div>'+badge(a.status)+'</div><div class="tcs"><span class="tc spro">SPRO</span>'+(a.tcode?'<span class="tc">'+esc(a.tcode)+'</span>':'')+a.objects.filter(o=>o.kind==='tcode').map(o=>'<span class="tc">'+esc(o.key)+'</span>').join('')+'</div>';
+function show(id){const a=D.acts[id];if(!a)return home();cur=id;renderTree();const p=paths[id]||[];const idx=order.indexOf(id);let h='<div class="ce-bar">'+esc(EL.hint)+'</div><div class="detail"><div class="crumb">'+p.map(x=>'<span>'+esc(x)+'</span>').join('')+'</div><h2>'+esc(a.title)+'</h2><div class="en">'+esc(a.titleEn||'')+' · <span class="mono">'+esc(a.id)+'</span></div><div>'+badge(a.status)+'</div><div class="tcs"><span class="tc spro">SPRO</span>'+(a.tcode?'<span class="tc">'+esc(a.tcode)+'</span>':'')+a.objects.filter(o=>o.kind==='tcode').map(o=>'<span class="tc">'+esc(o.key)+'</span>').join('')+'</div>';
 h+='<div class="card"><div class="kpis"><div class="kpi"><b>'+a.rows+'</b><span>'+T.rows+'</span></div><div class="kpi"><b>'+a.cust+'</b><span>'+T.custRows+'</span></div><div class="kpi"><b>'+a.tables.length+'</b><span>'+T.tables+'</span></div></div>'+(a.tables.length?'<p class="note mono">'+esc(a.tables.join(', '))+'</p>':'')+'</div>';
-const nt=(D.notes||{})[id];if(nt){const ul=(k)=>nt[k]&&nt[k].length?'<h4>'+esc(T[k])+'</h4><ul>'+nt[k].map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>':'';const rc=nt.review==='ok'||nt.review==='revised'?'b-standard':nt.review==='open'?'b-warn':'b-none';h+='<div class="card"><h3>'+esc(T.notes)+'<span class="badge '+rc+'">'+esc(T.rv[nt.review])+'</span><span class="mono">'+esc(T.rvBy.replace('{c}','sap-'+String(D.meta.module).toLowerCase()+'-consultant'))+'</span></h3><div class="doc"><h4>'+esc(T.purpose)+'</h4><p>'+esc(nt.purpose)+'</p>'+ul('impact')+ul('cautions')+ul('refs')+(nt.issues&&nt.issues.length?'<div class="chk warn"><b>'+esc(T.rv.open)+'</b><ul>'+nt.issues.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'</div></div>'}
+const nt=(D.notes||{})[id];if(nt){const ul=(k)=>EDIT||nt[k]&&nt[k].length?'<h4>'+esc(T[k])+'</h4>'+FL(k,nt[k]):'';const rc=nt.review==='ok'||nt.review==='revised'?'b-standard':nt.review==='open'?'b-warn':'b-none';h+='<div class="card"><h3>'+esc(T.notes)+'<span class="badge '+rc+'">'+esc(T.rv[nt.review]||T.rv.none)+'</span>'+editedBadge(nt)+'<span class="mono">'+esc(T.rvBy.replace('{c}','sap-'+String(D.meta.module).toLowerCase()+'-consultant'))+'</span></h3><div class="doc"><h4>'+esc(T.purpose)+'</h4>'+F('purpose',nt.purpose,'p')+ul('impact')+ul('cautions')+ul('refs')+(nt.issues&&nt.issues.length?'<div class="chk warn"><b>'+esc(T.rv.open)+'</b><ul>'+nt.issues.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul></div>':'')+'</div></div>'}else if(EDIT)h+='<div class="card"><h3>'+esc(T.notes)+'</h3><button class="edadd" data-newnote="1">'+esc(EL.newNote)+'</button></div>';
 const cs=checksOf(id);if(cs.length)h+='<div class="card"><h3>'+esc(T.checks)+'</h3>'+cs.map(c=>checkHtml(c.id==='READ-BLOCKED'?{...c,items:[c.items[c.activities.indexOf(id)]]}:c)).join('')+'</div>';
 let i=0;for(const o of a.objects){if(o.kind==='cluster'){h+='<div class="card"><h3>'+esc(o.title)+' <span class="mono">'+esc(o.key)+'</span></h3><div class="struct"><b>'+esc(T.struct)+'</b>'+o.members.map(m=>'<div style="padding-left:'+((m.level-1)*16)+'px" class="'+(m.start?'act':'')+'">▸ '+esc(m.title||m.view)+' <span class="mono" style="color:var(--mute)">'+esc(m.view)+'</span></div>').join('')+'</div></div>';for(const m of o.members)h+=viewCard(m.view,i++,m.title)}else if(o.kind==='view'||o.kind==='table')h+=viewCard(o.key,i++,a.title)}
 h+='<details class="card"><summary>'+esc(T.docOrig)+'</summary>'+docHtml(id)+'</details>';
@@ -211,14 +213,14 @@ $('#ref').addEventListener('click',e=>{const t=e.target.closest('[data-tab]');if
 $('#refbtn').onclick=()=>document.body.classList.toggle('ref-open');$('#menubtn').onclick=()=>document.body.classList.toggle('menu-open');
 const found=D.checks.filter(c=>c.items.length).sort((a,b)=>['error','warn','info'].indexOf(a.severity)-['error','warn','info'].indexOf(b.severity));
 function checklistHtml(){return '<div class="legend">'+STATUS.map(s=>'<span><i class="dot s-'+s+'"></i>'+esc(T[s])+'</span>').join('')+'</div>'+(found.length?found.map(checkHtml).join(''):'<p class="note">'+esc(T.checkNone)+'</p>')+D.checks.filter(c=>c.skipped).map(c=>'<p class="note">'+esc(c.id)+' '+esc(T.skipped)+': '+esc(c.skipped)+'</p>').join('')}
-function refHtml(id){const n=(D.notes||{})[id];if(!n||!(n.sapdoc||n.cases||n.sources&&n.sources.length))return '<p class="note">'+esc(T.noRef)+'</p>';let h='';
-const rc=n.review==='ok'||n.review==='revised'?'b-standard':n.review==='open'?'b-warn':'b-none';h+='<div class="vchk"><span class="badge '+rc+'">'+esc(T.rv[n.review])+'</span>'+esc(T.rvBy.replace('{c}','sap-'+String(D.meta.module).toLowerCase()+'-consultant'))+'</div>';
-if(n.sapdoc)h+='<h4>'+esc(T.sapdocKo)+'</h4><p class="txt">'+esc(n.sapdoc)+'</p>';
-const C=n.cases;if(C&&C.list.length){h+='<h4>'+esc(C.title)+'</h4>'+C.list.map(c=>{const yes=/^(yes|예|해당)/i.test(c.thisSystem||'');return '<div class="case'+(yes?' this':'')+'"><b>'+esc(c.title)+(yes?'<span class="badge b-custom">'+esc(T.thisSys)+'</span>':'')+'</b>'+(c.svg||'')+'<p>'+esc(c.desc)+'</p>'+(c.when?'<div class="when">'+esc(T.when)+' — '+esc(c.when)+'</div>':'')+(c.thisSystem?'<div class="when">'+esc(T.thisSys)+': '+esc(c.thisSystem.replace(/^(yes|no|예|아니오)\s*[—–-]?\s*/i,''))+'</div>':'')+'</div>'}).join('');if(n.mix)h+='<p class="mix">'+esc(n.mix)+'</p>'}
-if(n.compare&&n.compare.length>1)h+='<h4>'+esc(T.cmp)+'</h4><table class="cmp"><tr>'+n.compare[0].map(x=>'<th>'+esc(x)+'</th>').join('')+'</tr>'+n.compare.slice(1).map(r=>'<tr>'+r.map(x=>'<td>'+esc(x)+'</td>').join('')+'</tr>').join('')+'</table>';
-if(n.checklist&&n.checklist.length)h+='<h4>'+esc(T.checklist)+'</h4><ul class="chklist">'+n.checklist.map(x=>'<li>'+esc(x)+'</li>').join('')+'</ul>';
-const cr=n.criteria||{};const ck=Object.keys(T.crit).filter(k=>cr[k]);if(ck.length)h+='<h4>'+esc(T.criteria)+'</h4><table class="cmp crit">'+ck.map(k=>'<tr'+(k==='rec'?' class="rec"':'')+'><td>'+esc(T.crit[k])+'</td><td>'+esc(cr[k])+'</td></tr>').join('')+'</table>';
-if(n.sources&&n.sources.length)h+='<h4>'+esc(T.sources)+'</h4>'+n.sources.map(s=>'<div class="rf"><b>'+esc(s.title)+'</b><div class="src">'+esc(s.source)+'</div>'+(s.summary?'<p>'+esc(s.summary)+'</p>':'')+(/^https?:\/\//.test(s.url)?'<a href="'+esc(s.url)+'" target="_blank" rel="noopener noreferrer">'+esc(s.url)+'</a>':'')+'</div>').join('');
+function refHtml(id){const n=(D.notes||{})[id];if(!n||!EDIT&&!(n.sapdoc||n.cases||n.sources&&n.sources.length))return '<p class="note">'+esc(T.noRef)+'</p>';let h='';
+const rc=n.review==='ok'||n.review==='revised'?'b-standard':n.review==='open'?'b-warn':'b-none';h+='<div class="vchk"><span class="badge '+rc+'">'+esc(T.rv[n.review]||T.rv.none)+'</span>'+editedBadge(n)+esc(T.rvBy.replace('{c}','sap-'+String(D.meta.module).toLowerCase()+'-consultant'))+'</div>';
+if(n.sapdoc||EDIT)h+='<h4>'+esc(T.sapdocKo)+'</h4>'+F('sapdoc',n.sapdoc,'p','txt');
+const C=n.cases;if(C&&C.list.length){h+=F('cases.title',C.title,'h4')+C.list.map((c,i)=>{const yes=/^(yes|예|해당)/i.test(c.thisSystem||'');const P='cases.list.'+i+'.';return '<div class="case'+(yes?' this':'')+'"><b>'+F(P+'title',c.title)+(yes?'<span class="badge b-custom">'+esc(T.thisSys)+'</span>':'')+'</b>'+(c.svg||'')+F(P+'desc',c.desc,'p')+(c.when||EDIT?'<div class="when">'+esc(T.when)+' — '+F(P+'when',c.when)+'</div>':'')+(EDIT?'<div class="when">'+esc(T.thisSys)+': '+F(P+'thisSystem',c.thisSystem)+'</div>':c.thisSystem?'<div class="when">'+esc(T.thisSys)+': '+esc(c.thisSystem.replace(/^(yes|no|예|아니오)\s*[—–-]?\s*/i,''))+'</div>':'')+'</div>'}).join('');if(n.mix||EDIT)h+=F('mix',n.mix,'p','mix')}
+if(n.compare&&n.compare.length>1)h+='<h4>'+esc(T.cmp)+'</h4><table class="cmp"><tr>'+n.compare[0].map((x,c)=>F('compare.0.'+c,x,'th')).join('')+'</tr>'+n.compare.slice(1).map((r,ri)=>'<tr>'+r.map((x,c)=>F('compare.'+(ri+1)+'.'+c,x,'td')).join('')+'</tr>').join('')+'</table>';
+if(EDIT||n.checklist&&n.checklist.length)h+='<h4>'+esc(T.checklist)+'</h4>'+FL('checklist',n.checklist,'chklist');
+const cr=n.criteria||{};const ck=Object.keys(T.crit).filter(k=>EDIT||cr[k]);if(ck.length)h+='<h4>'+esc(T.criteria)+'</h4><table class="cmp crit">'+ck.map(k=>'<tr'+(k==='rec'?' class="rec"':'')+'><td>'+esc(T.crit[k])+'</td>'+F('criteria.'+k,cr[k]||'','td')+'</tr>').join('')+'</table>';
+if(n.sources&&n.sources.length)h+='<h4>'+esc(T.sources)+'</h4>'+n.sources.map((s,i)=>'<div class="rf"><b>'+F('sources.'+i+'.title',s.title)+'</b>'+(EDIT?'<button class="edx" data-del="sources.'+i+'" title="'+esc(EL.del)+'">✕</button>':'')+'<div class="src">'+esc(s.source)+'</div>'+(s.summary||EDIT?F('sources.'+i+'.summary',s.summary,'p'):'')+(/^https?:\/\//.test(s.url)?'<a href="'+esc(s.url)+'" target="_blank" rel="noopener noreferrer">'+esc(s.url)+'</a>':'')+'</div>').join('');
 return h}
 function renderRef(){const tabs='<div class="tabs"><button data-tab="ref" aria-pressed="'+(refTab==='ref')+'">'+esc(T.refPanel)+'</button><button data-tab="chk" aria-pressed="'+(refTab==='chk')+'">'+esc(T.ref)+' '+found.length+'</button></div>';$('#ref').innerHTML=tabs+(refTab==='chk'||!cur?checklistHtml():refHtml(cur))}
 const route=()=>{const m=/act=([^&]+)/.exec(location.hash);m?show(decodeURIComponent(m[1])):home()};window.addEventListener('hashchange',route);route();
@@ -230,15 +232,16 @@ const packed = (v) => gzipSync(Buffer.from(JSON.stringify(v), 'utf8'), { level: 
 export function pageHtml(data, svgs) {
   const T = TEXT[data.lang] || TEXT.en;
   const clientT = Object.fromEntries(Object.entries(T).map(([k, v]) => [k, typeof v === 'function' ? undefined : v]).filter(([, v]) => v !== undefined));
+  const EL = editorLabels(data.lang);
   const title = T.title(data.meta.module);
   const fn = `T.title=${T.title.toString()};T.truncated=${T.truncated.toString()};T.lead=${T.lead.toString()};T.checked=${T.checked.toString()};T.found=${T.found.toString()};T.more=${T.more.toString()};T.showAll=${T.showAll.toString()};`;
   const chips = ['all', 'custom', 'standard', 'empty', 'none', 'blocked', 'checks', 'notes']
     .map((f) => `<button class="chip" data-f="${f}" aria-pressed="${f === 'all'}">${['all', 'checks', 'notes'].includes(f) ? '' : `<i class="s-${f}"></i>`}${f === 'notes' ? `📎 ${T.refPanel}` : T[f]}</button>`).join('');
   return `<!doctype html>
 <html lang="${data.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${title} · ${data.meta.system}</title><style>${CSS}</style></head>
+<title>${title} · ${data.meta.system}</title><style>${CSS}${EDITOR_STYLE}</style></head>
 <body>
-<header><button id="menubtn">☰</button><h1>${title}</h1><span class="sub">${T.lead(data.meta)}</span><button id="refbtn">${T.refPanel}</button></header>
+<header><button id="menubtn">☰</button><h1>${title}</h1><span class="sub">${T.lead(data.meta)}</span><button id="refbtn">${T.refPanel}</button><button id="ce-undo">${EL.undo}</button><button id="ce-save">${EL.save}</button><button id="ce-edit">${EL.edit}</button></header>
 <div class="wrap">
 <aside><div class="search"><input id="q" type="search" placeholder="${T.search}"><div class="chips">${chips}</div><div class="count" id="count"></div></div>
 <div class="tools"><button id="expall">${T.expand}</button><button id="colall">${T.collapse}</button><button id="home">${T.home}</button></div>
@@ -247,9 +250,10 @@ export function pageHtml(data, svgs) {
 <section id="ref"></section>
 </div>
 <div class="lb" id="lb"><div></div></div>
-<script type="application/octet-stream" id="data">${packed({ ...data, T: clientT })}</script>
+<script type="application/octet-stream" id="data">${packed({ ...data, edits: undefined, T: clientT, EL })}</script>
+<script type="application/json" id="config-edits">${JSON.stringify(data.edits || {}).replace(/</g, '\\u003c')}</script>
 <script type="application/octet-stream" id="svgs">${packed(svgs)}</script>
-<script>${SCRIPT.replace('const T=D.T;', `const T=D.T;${fn}`)}</script>
+<script>${SCRIPT.replace('const T=D.T;', `const T=D.T;${fn}`).replace('/*EDITOR*/', () => EDITOR_SCRIPT)}</script>
 </body></html>
 `;
 }

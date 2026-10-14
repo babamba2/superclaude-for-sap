@@ -30,6 +30,9 @@ const ROOT_TEXT = {
   LE: 'Logistics Execution', PS: 'Project System', CO: 'Controlling',
 };
 const LANG_KEY = { ko: '3', en: 'E', ja: 'J', de: 'D', zh: '1' };
+// Customer requests are <SID>K<6 characters> (HKDK900133, HKDK9A2OEJ); SAP delivery
+// records (SAPK…, command files such as P30A_C_SFC) are skipped so they never count as customer rows.
+const CUSTOMER_TR = /^(?!SAP)[A-Z][A-Z0-9]{2}K[A-Z0-9]{6}$/;
 
 function args(argv) {
   const out = { module: '', areas: [], lang: 'ko', maxRows: 1000, docs: true, listAreas: false, fresh: false, rootText: '' };
@@ -199,6 +202,55 @@ export function keyString(row, keyFields) {
   }).join('');
 }
 
+const PARTITION_TOTAL = 20000;
+
+/**
+ * Read a capped table again, one partition per value of its first key field.
+ * Values: the domain's fixed values plus the values already seen. Each partition
+ * is still capped at 5000; `truncated` stays true when one of them hits the cap
+ * or when the first key has no fixed values to split on.
+ */
+export async function readByFirstKey(c, table, fields, first, langs = []) {
+  const key = fields.find((f) => f.key && f.type !== 'CLNT');
+  if (!key) return { ...first, truncated: true };
+  // A text table keyed by language: only the document language and English are shown.
+  if (key.type === 'LANG' && langs.length) {
+    const rows = [];
+    let truncated = false;
+    for (const l of langs) {
+      const part = await readTable(c, table, { where: { [key.name]: l } });
+      if (part.ok) rows.push(...part.rows);
+      if (part.rows.length >= 5000) truncated = true;
+    }
+    log(`  ${table}: read by ${key.name} (${langs.join(', ')}) → ${rows.length} rows${truncated ? ', still capped' : ''}`);
+    return { ok: true, rows, partitioned: true, truncated };
+  }
+  // Values to split on: the domain's fixed values, else the keys of the field's
+  // check table (KVEWE → T681V), plus the values already seen.
+  let fixed = key.domname ? (await readTable(c, 'DD07L', { where: { DOMNAME: key.domname, AS4LOCAL: 'A' } })).rows.map((r) => r.DOMVALUE_L) : [];
+  let ctCapped = false;
+  if (!fixed.length && key.checktable && /^[A-Z0-9_/]+$/.test(key.checktable)) {
+    const ct = await readTable(c, key.checktable, { maxRows: 200 });
+    fixed = ct.rows.map((r) => r[key.name]).filter((v) => v != null);
+    ctCapped = ct.rows.length >= 200;
+  }
+  const seen = (first.rows || []).map((r) => r[key.name]);
+  const all = [...new Set([...fixed, ...seen].map((v) => (v == null ? '' : String(v))))];
+  const values = all.slice(0, 60);
+  if (!fixed.length) { log(`  ${table}: capped at 5000, no values to split ${key.name} on`); return { ...first, truncated: true }; }
+  const rows = [];
+  // Values past the first 60 (T156SC has more movement types) are not read, so the table stays incomplete.
+  let truncated = ctCapped || all.length > values.length;
+  for (const v of values) {
+    const part = await readTable(c, table, { where: { [key.name]: v } });
+    if (!part.ok) continue;
+    rows.push(...part.rows);
+    if (part.rows.length >= 5000) truncated = true;
+  }
+  log(`  ${table}: read by ${key.name} (${values.length} values) → ${rows.length} rows${truncated ? ', still capped' : ''}`);
+  return { ok: true, rows, partitioned: true, truncated: truncated || rows.length > PARTITION_TOTAL };
+}
+
 async function readTables(c, o, tables) {
   const defs = byKey((await readIn(c, 'DD03L', 'TABNAME', tables, { extra: { AS4LOCAL: 'A' } })).rows, 'TABNAME');
   const desc = byKey((await readIn(c, 'DD02T', 'TABNAME', tables, { extra: { DDLANGUAGE: o.langs, AS4LOCAL: 'A' } })).rows, 'TABNAME');
@@ -209,8 +261,11 @@ async function readTables(c, o, tables) {
     i++;
     const fields = (defs[t] || []).filter((f) => !String(f.FIELDNAME).startsWith('.'))
       .sort((a, b) => Number(a.POSITION) - Number(b.POSITION))
-      .map((f) => ({ name: f.FIELDNAME, key: f.KEYFLAG === 'X' || f.KEYFLAG === true, rollname: f.ROLLNAME, domname: f.DOMNAME, type: f.DATATYPE, leng: Number(f.LENG) || 0 }));
-    const rows = await readTable(c, t, { maxRows: o.maxRows + 1 });
+      .map((f) => ({ name: f.FIELDNAME, key: f.KEYFLAG === 'X' || f.KEYFLAG === true, rollname: f.ROLLNAME, domname: f.DOMNAME, checktable: f.CHECKTABLE && f.CHECKTABLE !== '*' ? f.CHECKTABLE : '', type: f.DATATYPE, leng: Number(f.LENG) || 0 }));
+    let rows = await readTable(c, t, { maxRows: o.maxRows + 1 });
+    // At the TABLE_READ cap (5000) the rows are the first key values only (T683S:
+    // pricing usage A, never output usage B) — read again per value of the first key.
+    if ((rows.rows || []).length >= 5000) rows = await readByFirstKey(c, t, fields, rows, o.langs);
     const hist = await readTable(c, 'E071K', { where: `OBJNAME = '${t}' AND TRKORR NOT LIKE 'SAP%'` });
     // TABKEY starts with the client the change was recorded in, which is often
     // not the client read here (customizing client vs. test client), so keys
@@ -219,12 +274,14 @@ async function readTables(c, o, tables) {
     const keyFields = fields.filter((f) => f.key && f.type !== 'CLNT');
     const custKeys = new Map();
     for (const k of hist.rows) {
+      if (!CUSTOMER_TR.test(k.TRKORR)) continue;
       trkorrs.add(k.TRKORR);
       const tk = clientDep ? String(k.TABKEY).slice(3) : String(k.TABKEY);
       (custKeys.get(tk) || custKeys.set(tk, new Set()).get(tk)).add(k.TRKORR);
     }
     const generic = [...custKeys.keys()].filter((k) => k.endsWith('*')).map((k) => [k.slice(0, -1), custKeys.get(k)]);
-    const data = (rows.rows || []).slice(0, o.maxRows).map((r) => {
+    const limit = rows.partitioned ? PARTITION_TOTAL : o.maxRows;
+    const data = (rows.rows || []).slice(0, limit).map((r) => {
       const ks = keyString(r, keyFields);
       const trs = new Set(custKeys.get(ks) || custKeys.get(ks.trimEnd()) || []);
       for (const [p, s] of generic) if (ks.startsWith(p)) s.forEach((x) => trs.add(x));
@@ -232,7 +289,8 @@ async function readTables(c, o, tables) {
     });
     out[t] = {
       name: t, title: pickText(desc[t], o.langs, 'DDTEXT'), fields,
-      rows: data, truncated: (rows.rows || []).length > o.maxRows, error: rows.ok ? '' : rows.error,
+      // TABLE_READ returns at most 5000 rows, so 5000 rows also means "maybe more".
+      rows: data, truncated: rows.partitioned ? rows.truncated : (rows.rows || []).length > o.maxRows || (rows.rows || []).length >= 5000, error: rows.ok ? '' : rows.error,
       customerKeys: hist.rows.length, historyTruncated: !!hist.truncated,
       transports: [...new Set(hist.rows.map((k) => k.TRKORR))],
     };
@@ -263,6 +321,7 @@ async function readNumberRanges(c, o, activities, trkorrs) {
   const hist = await readTable(c, 'E071K', { where: `OBJNAME = 'NRIV' AND TRKORR NOT LIKE 'SAP%'` });
   const custKeys = new Map();
   for (const k of hist.rows) {
+    if (!CUSTOMER_TR.test(k.TRKORR)) continue;
     const tk = String(k.TABKEY).slice(3);
     (custKeys.get(tk) || custKeys.set(tk, new Set()).get(tk)).add(k.TRKORR);
   }

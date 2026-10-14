@@ -12,6 +12,8 @@
 //        → terms/_in/tNNN.json: names without a document-language text (150 per batch);
 //          save with --batch tNNN --kind draft|review, lines `tNNN-NNN = <translation>`
 //   node scripts/config/notes.mjs status --module MM
+//   node scripts/config/notes.mjs sources --module MM
+//        → seeds the verified-source cache (notes-sources.mjs) from every reviewed batch
 //
 // Marker format (draft / revised):        Marker format (review):
 //   @@ <IMG activity id>                    @@ <IMG activity id>
@@ -23,16 +25,17 @@
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { resolveArtifactBase } from '../lib/profile-resolve.mjs';
+import { resolveArtifactBase, sc4sapHome } from '../lib/profile-resolve.mjs';
 import { atomicWriteFileSync, ensureDirSync } from '../lib/atomic-write.mjs';
 import { buildModel } from './build-config-doc.mjs';
 import { loadRules, runChecks, attachActivities } from './config-checks.mjs';
+import { readSources, recordSources, sourceHints } from './notes-sources.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const CONTEXT_ROWS = 15;
 
 function opts(argv) {
-  const o = { cmd: argv[0], module: '', scope: 'custom', size: 12, batch: '', kind: '', redo: false };
+  const o = { cmd: argv[0], module: '', scope: 'custom', size: 12, batch: '', kind: '', redo: false, file: '' };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--module') o.module = String(argv[++i]).toUpperCase();
@@ -41,6 +44,7 @@ function opts(argv) {
     else if (a === '--batch') o.batch = argv[++i];
     else if (a === '--kind') o.kind = argv[++i];
     else if (a === '--redo') o.redo = true;
+    else if (a === '--file') o.file = argv[++i];
   }
   if (!o.module) throw new Error('--module is required');
   return o;
@@ -66,7 +70,7 @@ const kv = (l) => /^\s*([a-z0-9]+)\s*:\s*(.*)$/i.exec(l);
 
 /** One activity's note: the notes card (purpose … refs) and the reference panel (sapdoc … sources). */
 function parseNote(body) {
-  const note = { purpose: '', impact: [], cautions: [], refs: [], sapdoc: '', cases: null, mix: '', compare: [], checklist: [], criteria: {}, sources: [] };
+  const note = { purpose: '', impact: [], cautions: [], refs: [], sapdoc: '', cases: null, mix: '', compare: [], checklist: [], criteria: {}, sources: [], verdicts: [] };
   let sec = null;
   let kase = null;
   for (const raw of body.split('\n')) {
@@ -95,6 +99,10 @@ function parseNote(body) {
     } else if (sec === 'criteria') {
       const m = kv(line);
       if (m) note.criteria[m[1].toLowerCase()] = m[2].trim();
+    } else if (sec === 'verdicts') {
+      // System-only notes (general part from the knowledge base): `CASE 2: yes — <evidence>`.
+      const m = /^\s*-?\s*CASE\s*(\d+)\s*:\s*(.+)$/i.exec(line);
+      if (m) note.verdicts.push({ n: Number(m[1]), value: m[2].trim() });
     } else if (sec === 'sources') {
       const [title = '', source = '', url = '', summary = ''] = bullet(line).split('|').map((s) => s.trim());
       if (title) note.sources.push({ title, source, url, summary });
@@ -161,22 +169,34 @@ function batches(o) {
     return;
   }
   if (!(o.scope in SCOPES)) throw new Error('--scope custom | values | all');
-  const ids = pick(o.scope);
-  const docText = (id) => (snap.docs[acts[id].docuId]?.blocks || []).map((b) => b.text).join(' ').slice(0, 1500);
+  // Activities already in a batch input (written, under review or waiting) are not batched again.
+  const batched = new Set(existsSync(join(dir, 'notes', '_in')) ? readdirSync(join(dir, 'notes', '_in')).filter((f) => /^b\d{3}\.json$/.test(f))
+    .flatMap((f) => JSON.parse(readFileSync(join(dir, 'notes', '_in', f), 'utf8')).items.map((x) => x.id)) : []);
+  const ids = pick(o.scope).filter((id) => o.redo || !batched.has(id));
+  const docText = (id) => (snap.docs[acts[id].docuId]?.blocks || []).map((b) => b.text).join(' ').slice(0, 1000);
+  // Activities whose general part (purpose, SAP documentation, cases, criteria,
+  // sources) is already in the knowledge base get only the system part written.
+  const kb = (id) => kbRead(o.module, lang, id);
+  // Full items carry the sources earlier reviews accepted for the same activity or tables.
+  const cache = readSources(o.module, lang);
   const inDir = join(dir, 'notes', '_in');
   ensureDirSync(inDir);
   const manifest = [];
-  // New batches are numbered after the existing ones, so earlier notes are never overwritten.
-  const first = Math.max(0, ...readdirSync(inDir).map((f) => Number(/^b(\d{3})\.json$/.exec(f)?.[1] || 0)).filter((n) => existsSync(join(dir, 'notes', `b${String(n).padStart(3, '0')}.draft.json`))));
+  // New batches are numbered after every existing batch input, so no batch — written,
+  // in progress or waiting — is ever overwritten.
+  const first = Math.max(0, ...readdirSync(inDir).map((f) => Number(/^b(\d{3})\.json$/.exec(f)?.[1] || 0)));
   for (let i = 0; i < ids.length; i += o.size) {
     const name = `b${String(first + i / o.size + 1).padStart(3, '0')}`;
     const items = ids.slice(i, i + o.size).map((id) => {
       const a = acts[id];
+      const known = kb(id) ? [] : sourceHints(cache, id, a.viewKeys.map((k) => views[k].root));
       return {
         id, path: paths[id], title: a.title, titleEn: a.titleEn, tcode: a.tcode, status: a.status,
         objects: a.viewKeys.map((k) => ({ key: k, title: views[k].title, table: views[k].root, rows: views[k].rows.length, customerRows: views[k].cust.length, columns: views[k].cols.map((c) => `${c.label} [${c.name}]`), sample: rowsFor(views[k], snap.domains || {}) })),
         checks: checks.filter((c) => c.activities.includes(id)).map((c) => ({ severity: c.severity, title: c.title, items: c.items.slice(0, 10) })),
-        sapDoc: docText(id),
+        ...(kb(id)
+          ? { mode: 'system', kb: { purpose: kb(id).purpose, cases: (kb(id).cases?.list || []).map((c, n) => `CASE ${n + 1}: ${c.title} — ${c.desc}`) } }
+          : { mode: 'full', sapDoc: docText(id), ...(known.length ? { knownSources: known } : {}) }),
       };
     });
     atomicWriteFileSync(join(inDir, `${name}.json`), JSON.stringify({ module: o.module, system: snap.meta.system, lang, items }, null, 1));
@@ -190,7 +210,7 @@ function saveTerms(o) {
   const dir = join(dirOf(o.module), 'terms');
   const input = JSON.parse(readFileSync(join(dir, '_in', `${o.batch}.json`), 'utf8'));
   const known = new Set(input.items.map((x) => x.id));
-  const items = parseTerms(readFileSync(0, 'utf8'));
+  const items = parseTerms(readFileSync(o.file || 0, 'utf8'));
   const errors = Object.keys(items).filter((id) => !known.has(id)).map((id) => `${id}: not in batch ${o.batch}`);
   for (const id of Object.keys(items)) if (!known.has(id)) delete items[id];
   if (o.kind === 'draft') for (const id of known) if (!items[id]) errors.push(`${id}: missing`);
@@ -204,12 +224,48 @@ function save(o) {
   const dir = join(dirOf(o.module), 'notes');
   const input = JSON.parse(readFileSync(join(dir, '_in', `${o.batch}.json`), 'utf8'));
   const known = new Set(input.items.map((x) => x.id));
-  const { items, errors } = parseNotes(readFileSync(0, 'utf8'), o.kind);
+  const parsed = parseNotes(readFileSync(o.file || 0, 'utf8'), o.kind);
+  const { items } = parsed;
+  // System-only items (general part in the knowledge base) need no purpose, but a verdict per KB case.
+  const systemOnly = new Map(input.items.filter((x) => x.mode === 'system').map((x) => [x.id, x.kb.cases.length]));
+  const errors = parsed.errors.filter((e) => !(systemOnly.has(e.split(':')[0]) && /empty purpose/.test(e)));
+  if (o.kind !== 'review') {
+    for (const [id, n] of systemOnly) if (items[id] && items[id].verdicts.length < n && !items[id].cases) errors.push(`${id}: needs a "## verdicts" line for each of its ${n} cases`);
+  }
   for (const id of Object.keys(items)) if (!known.has(id)) { errors.push(`${id}: not in batch ${o.batch}`); delete items[id]; }
   if (o.kind !== 'revised') for (const id of known) if (!items[id]) errors.push(`${id}: missing`);
-  atomicWriteFileSync(join(dir, `${o.batch}.${o.kind}.json`), JSON.stringify({ batch: o.batch, kind: o.kind, savedAt: new Date().toISOString(), items }, null, 1));
+  // Revisions accumulate: a later follow-up revision replaces only the items it carries.
+  const out = join(dir, `${o.batch}.${o.kind}.json`);
+  const kept = o.kind === 'revised' && existsSync(out) ? JSON.parse(readFileSync(out, 'utf8')).items : {};
+  atomicWriteFileSync(out, JSON.stringify({ batch: o.batch, kind: o.kind, savedAt: new Date().toISOString(), items: { ...kept, ...items } }, null, 1));
   const fix = o.kind === 'review' ? Object.entries(items).filter(([, r]) => r.verdict === 'fix').map(([id]) => id) : [];
+  // Sources of the notes the reviewer passed are verified for later batches.
+  if (o.kind === 'review') acceptSources(o.module, input, dir, o.batch, new Set(Object.keys(items).filter((id) => items[id].verdict === 'ok')));
   process.stdout.write(JSON.stringify({ ok: errors.length === 0, saved: Object.keys(items).length, errors, ...(o.kind === 'review' ? { fix } : {}) }) + '\n');
+}
+
+function acceptSources(module, input, dir, batch, okIds) {
+  const f = join(dir, `${batch}.draft.json`);
+  if (!okIds.size || !existsSync(f)) return { added: 0 };
+  const draft = JSON.parse(readFileSync(f, 'utf8')).items;
+  const entries = input.items.filter((x) => okIds.has(x.id) && draft[x.id])
+    .map((x) => ({ id: x.id, tables: x.objects.map((ob) => ob.table), sources: (draft[x.id].sources || []).filter((s) => isOfficialSource(s.url)) }));
+  return recordSources(module, input.lang || 'ko', entries, `${batch} review`);
+}
+
+/** Seed the source cache from every batch already reviewed. */
+function seedSources(o) {
+  const dir = join(dirOf(o.module), 'notes');
+  let added = 0, urls = 0;
+  for (const b of readdirSync(join(dir, '_in')).filter((f) => /^b\d{3}\.json$/.test(f)).map((f) => f.slice(0, 4))) {
+    if (!existsSync(join(dir, `${b}.review.json`))) continue;
+    const review = JSON.parse(readFileSync(join(dir, `${b}.review.json`), 'utf8')).items;
+    const input = JSON.parse(readFileSync(join(dir, '_in', `${b}.json`), 'utf8'));
+    const r = acceptSources(o.module, input, dir, b, new Set(Object.keys(review).filter((id) => review[id].verdict === 'ok')));
+    added += r.added || 0;
+    urls = r.urls || urls;
+  }
+  process.stdout.write(JSON.stringify({ added, urls }) + '\n');
 }
 
 // ── terms: names SAP has no document-language text for (IMG folders, activity
@@ -276,8 +332,53 @@ export function loadTerms(dir) {
   return out;
 }
 
+// ── knowledge base: the system-independent part of reviewed notes, per module,
+// language and IMG activity, under ~/.sc4sap/kb/config/ — reused by every later
+// run and every other system, so only the system part is written again.
+const GENERAL = ['purpose', 'sapdoc', 'mix', 'compare', 'checklist', 'criteria'];
+const kbDir = (module, lang) => join(sc4sapHome(), 'kb', 'config', module, lang);
+const kbFile = (module, lang, id) => join(kbDir(module, lang), `${id.replace(/[^A-Za-z0-9_-]/g, '_')}.json`);
+export function kbRead(module, lang, id) {
+  const f = kbFile(module, lang, id);
+  return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null;
+}
+
+/** General part of one reviewed note (case verdicts are system-specific and left out). */
+export function generalPart(note) {
+  const out = Object.fromEntries(GENERAL.map((k) => [k, note[k]]));
+  out.cases = note.cases ? { title: note.cases.title, list: note.cases.list.map(({ thisSystem, svg, ...c }) => c) } : null;
+  out.sources = (note.sources || []).filter((s) => isOfficialSource(s.url));
+  return out;
+}
+
+/** Note + knowledge base: general fields filled from the KB, verdicts applied to its cases. */
+export function withKb(note, entry) {
+  if (!entry) return note;
+  const out = { ...note };
+  for (const k of GENERAL) if (!out[k] || (Array.isArray(out[k]) && !out[k].length) || (typeof out[k] === 'object' && !Array.isArray(out[k]) && !Object.keys(out[k]).length)) out[k] = entry[k];
+  if (!out.sources?.length) out.sources = (entry.sources || []).map((s) => ({ ...s, fromKb: true }));
+  if (!out.cases && entry.cases) {
+    out.cases = { title: entry.cases.title, list: entry.cases.list.map((c, n) => ({ ...c, thisSystem: (note.verdicts || []).find((v) => v.n === n + 1)?.value || '' })) };
+  }
+  return out;
+}
+
+function kbPromote(o) {
+  const dir = dirOf(o.module);
+  const lang = JSON.parse(readFileSync(join(dir, 'snapshot.json'), 'utf8')).meta.lang || 'ko';
+  ensureDirSync(kbDir(o.module, lang));
+  let saved = 0, kept = 0;
+  for (const [id, n] of Object.entries(loadNotes(dir))) {
+    if (!['ok', 'revised'].includes(n.review) || !n.cases || n.fromKb) continue;
+    if (!o.redo && kbRead(o.module, lang, id)) { kept++; continue; }
+    atomicWriteFileSync(kbFile(o.module, lang, id), JSON.stringify({ activity: id, module: o.module, lang, savedAt: new Date().toISOString(), ...generalPart(n) }, null, 1));
+    saved++;
+  }
+  process.stdout.write(JSON.stringify({ kb: kbDir(o.module, lang), saved, kept }) + '\n');
+}
+
 /** Merge drafts, reviews and revisions: { id: { ...note, review: 'ok'|'revised'|'open'|'none', issues } }. */
-export function loadNotes(dir) {
+export function loadNotes(dir, { module = '', lang = 'ko' } = {}) {
   const ndir = join(dir, 'notes');
   if (!existsSync(ndir)) return {};
   const read = (f) => (existsSync(join(ndir, f)) ? JSON.parse(readFileSync(join(ndir, f), 'utf8')).items : {});
@@ -288,7 +389,8 @@ export function loadNotes(dir) {
       const r = review[id];
       const fixed = revised[id];
       const n = fixed || note;
-      out[id] = { ...n, sources: (n.sources || []).filter((s) => isOfficialSource(s.url)), review: fixed ? 'revised' : r ? (r.verdict === 'ok' ? 'ok' : 'open') : 'none', issues: fixed ? [] : r?.issues || [] };
+      const m = module ? withKb(n, kbRead(module, lang, id)) : n;
+      out[id] = { ...m, sources: (m.sources || []).filter((s) => isOfficialSource(s.url)), review: fixed ? 'revised' : r ? (r.verdict === 'ok' ? 'ok' : 'open') : 'none', issues: fixed ? [] : r?.issues || [] };
     }
   }
   return out;
@@ -304,8 +406,8 @@ function status(o) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const o = opts(process.argv.slice(2));
-    const run = { batches, scopes: batches, terms, save, status }[o.cmd];
-    if (!run) throw new Error('command: scopes | batches | terms | save | status');
+    const run = { batches, scopes: batches, terms, kb: kbPromote, sources: seedSources, save, status }[o.cmd];
+    if (!run) throw new Error('command: scopes | batches | terms | kb | sources | save | status');
     run(o);
   } catch (e) {
     process.stderr.write(`[notes] ${e.message}\n`);
