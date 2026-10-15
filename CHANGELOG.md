@@ -9,7 +9,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 - What the customer BAdI implementations do: the extraction reads every implementing class (and the Z includes it branches into, two levels deep) and splits it per method — code or empty, size, the function modules, tables read and changed, classes and includes it calls. The module consultant writes a summary and one line per method with code, `sap-critic` checks them against the source, one revision (`scripts/config/badi-notes.mjs`, prompt § 6). The BAdI card shows them under each implementation with the method table and the source (folded).
 - IMG activities that only open SE18 / SE19 name their BAdIs in the documentation, not in `CUS_ACTEXT`: those names count when the system knows them as a BAdI, so implementations such as invoice-verification BAdIs appear on their activity.
-- Value lists per column: the ⓘ popup and the column meanings list the values a column can take with SAP's text — the domain's fixed values, else the keys of its check table with the text of the table or its text table.
+- Value lists per column: the ⓘ popup and the column meanings list the values a column can take with SAP's text — the domain's fixed values, else the keys of its check table with the text of its language-keyed text table (TVFK → TVFKT), never a user-name column; up to 300 values.
 
 ### Fixed — `config-to-document`
 

@@ -393,17 +393,22 @@ async function main() {
   const textTables = {};
   for (const [name, t] of Object.entries(snap.tables)) {
     const keys = t.fields.filter((f) => f.key && f.type !== 'CLNT' && f.type !== 'LANG');
-    const txt = t.fields.find((f) => !f.key && f.type === 'CHAR' && f.leng >= 10);
+    // The description column: a text-named field (VTEXT, BEZEI, KTEXT …), never a user
+    // name (ERNAM / AENAM hold "SAP" on delivered rows).
+    const chars = t.fields.filter((f) => !f.key && f.type === 'CHAR' && f.leng >= 10 && !/^(ERNAM|AENAM|USNAM|UNAME|CHANGED_BY|CREATED_BY)$/.test(f.name));
+    const txt = chars.find((f) => /^(VTEXT|BEZEI|BEZEICH|KTEXT|LTEXT|TEXT\d*|TXT\w*|\w*TEXT|\w*TXT)$/.test(f.name)) || (t.fields.some((f) => f.key && f.type === 'LANG') ? chars[0] : null);
     if (keys.length === 1 && txt && t.rows.length) (textTables[keys[0].domname || keys[0].name] ??= []).push({ name, key: keys[0].name, txt: txt.name, lang: t.fields.find((f) => f.key && f.type === 'LANG')?.name });
   }
-  const VALUE_CAP = 60;
+  const VALUE_CAP = 300;
   const valueList = (de) => {
     const i = deInfo[de];
     if (!i) return null;
     const fixed = i.dom && snap.domains?.[i.dom];
     if (fixed && Object.keys(fixed).length) return Object.entries(fixed).slice(0, VALUE_CAP).map(([k, t]) => [k, t]);
     if (!i.check) return null;
-    const cands = (textTables[i.dom] || textTables[i.name] || []).sort((a, b) => (b.name === i.check) - (a.name === i.check) || (b.name.startsWith(i.check)) - (a.name.startsWith(i.check)));
+    // A language-keyed text table of the check table (TVFK → TVFKT) first, then the check table itself.
+    const score = (t) => (t.lang ? 4 : 0) + (t.name.startsWith(i.check) ? 2 : 0) + (t.name === i.check ? 1 : 0);
+    const cands = [...(textTables[i.dom] || textTables[i.name] || [])].sort((a, b) => score(b) - score(a));
     const tt = cands[0];
     if (!tt) return null;
     const out = new Map();
