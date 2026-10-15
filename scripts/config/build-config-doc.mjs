@@ -197,37 +197,42 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
 
   // SM30 screens drawn with the real values: overview grid, plus a detail
   // screen of one row when the view is wider than the grid shows.
-  const theme = snap.__theme;
   const svgs = {};
-  for (const v of drawScreens ? Object.values(views) : []) {
-    if (!v.rows.length) continue;
-    const order = [...v.cust, ...v.rows.map((_, i) => i).filter((i) => !v.cust.includes(i))].slice(0, MOCK_ROWS);
-    // Columns as wide as their longest shown value (ZMM_PO_RELEASE), within 80–240 px;
-    // the renderer cuts anything longer with '…'.
-    const cols = v.cols.slice(0, MOCK_COLS).map((c, i) => ({
-      name: `c${i}`, header: c.label,
-      width: Math.min(240, Math.max(80, ...order.map((r) => approxTextWidthPx(String(v.rows[r][i] ?? '')) + 28))),
-    }));
-    const sampleRows = order.map((i) => Object.fromEntries(cols.map((c, j) => [c.name, v.rows[i][j]])));
-    try {
-      svgs[v.key] = renderAlvScreenSVG({
-        screen: v.nr ? { title: L.nr(v.tableTitle), buttons: [{ code: 'INS', label: L.interval, icon: 'create', flow: false }, { code: 'DEL', icon: 'delete', flow: false }] } : { title: L.overview(v.title || v.key), buttons: [{ code: 'NEW', label: L.newEntries, icon: 'create', flow: false }, { code: 'COPY', icon: 'copy', flow: false }, { code: 'DEL', icon: 'delete', flow: false }, { code: 'UNDO', icon: 'undo', flow: false }] },
-        columns: cols, sampleRows, maxRows: MOCK_ROWS,
-      }, { lang, theme });
-      if (v.cols.length > MOCK_COLS) {
-        const r = order[0];
-        svgs[`${v.key}#detail`] = renderAlvScreenSVG({
-          screen: { title: L.detail(v.title || v.key), buttons: [{ code: 'NEW', label: L.newEntries, icon: 'create', flow: false }, { code: 'COPY', icon: 'copy', flow: false }, { code: 'DEL', icon: 'delete', flow: false }],
-            fields: v.cols.slice(0, 40).map((c, j) => (FLAG_DOMAINS.test(c.dom)
-              ? { type: 'checkbox', label: c.label, checked: v.rows[r][j] === 'X' }
-              : { type: 'input', label: c.label, value: v.rows[r][j] })) },
-        }, { lang, theme });
-      }
-    } catch (e) {
-      svgs[v.key] = '';
-    }
-  }
+  for (const v of drawScreens ? Object.values(views) : []) Object.assign(svgs, drawView(v, lang, snap.__theme));
   return { views, acts, svgs };
+}
+
+/** SM30 overview of one view, plus a detail screen of one row when the view is wider than the grid. */
+export function drawView(v, lang, theme) {
+  const L = T[lang] || T.en;
+  const svgs = {};
+  if (!v.rows.length) return svgs;
+  const order = [...v.cust, ...v.rows.map((_, i) => i).filter((i) => !v.cust.includes(i))].slice(0, MOCK_ROWS);
+  // Columns as wide as their longest shown value (ZMM_PO_RELEASE), within 80–240 px;
+  // the renderer cuts anything longer with '…'.
+  const cols = v.cols.slice(0, MOCK_COLS).map((c, i) => ({
+    name: `c${i}`, header: c.label,
+    width: Math.min(240, Math.max(80, ...order.map((r) => approxTextWidthPx(String(v.rows[r][i] ?? '')) + 28))),
+  }));
+  const sampleRows = order.map((i) => Object.fromEntries(cols.map((c, j) => [c.name, v.rows[i][j]])));
+  try {
+    svgs[v.key] = renderAlvScreenSVG({
+      screen: v.nr ? { title: L.nr(v.tableTitle), buttons: [{ code: 'INS', label: L.interval, icon: 'create', flow: false }, { code: 'DEL', icon: 'delete', flow: false }] } : { title: L.overview(v.title || v.key), buttons: [{ code: 'NEW', label: L.newEntries, icon: 'create', flow: false }, { code: 'COPY', icon: 'copy', flow: false }, { code: 'DEL', icon: 'delete', flow: false }, { code: 'UNDO', icon: 'undo', flow: false }] },
+      columns: cols, sampleRows, maxRows: MOCK_ROWS,
+    }, { lang, theme });
+    if (v.cols.length > MOCK_COLS) {
+      const r = order[0];
+      svgs[`${v.key}#detail`] = renderAlvScreenSVG({
+        screen: { title: L.detail(v.title || v.key), buttons: [{ code: 'NEW', label: L.newEntries, icon: 'create', flow: false }, { code: 'COPY', icon: 'copy', flow: false }, { code: 'DEL', icon: 'delete', flow: false }],
+          fields: v.cols.slice(0, 40).map((c, j) => (FLAG_DOMAINS.test(c.dom)
+            ? { type: 'checkbox', label: c.label, checked: v.rows[r][j] === 'X' }
+            : { type: 'input', label: c.label, value: v.rows[r][j] })) },
+      }, { lang, theme });
+    }
+  } catch (e) {
+    svgs[v.key] = '';
+  }
+  return svgs;
 }
 
 // Names SAP has no document-language text for, from the reviewed glossary
@@ -264,10 +269,10 @@ function withCaseDiagrams(notes, lang) {
 const EDITS_RE = /<script type="application\/json" id="config-edits">([\s\S]*?)<\/script>/;
 const stripSvg = (n) => (n?.cases ? { ...n, cases: { ...n.cases, list: n.cases.list.map(({ svg, ...c }) => c) } } : n);
 
-/** notes/edits.json: { system, module, edits: { activity: note }, log: [{ author, at, note, activities }] } */
+/** notes/edits.json: { system, module, edits: { activity: note }, views: { view: { rows, cols, cust, trOf, cardTitle, histList, shots, edited } }, log: [{ author, at, note, activities, views }] } */
 export function readEdits(dir) {
   const f = join(dir, 'notes', 'edits.json');
-  return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : { edits: {}, log: [] };
+  return existsSync(f) ? { views: {}, ...JSON.parse(readFileSync(f, 'utf8')) } : { edits: {}, views: {}, log: [] };
 }
 
 /**
@@ -278,15 +283,36 @@ export function readEdits(dir) {
 export function mergeEdits(stored, page, meta) {
   if (page.system && page.system !== meta.system) throw new Error(`edited page is from ${page.system}, this snapshot is ${meta.system}`);
   if (page.module && page.module !== meta.module) throw new Error(`edited page is module ${page.module}, this snapshot is ${meta.module}`);
-  const out = { system: meta.system, module: meta.module, edits: { ...stored.edits }, log: [...(stored.log || [])] };
+  const out = { system: meta.system, module: meta.module, edits: { ...stored.edits }, views: { ...(stored.views || {}) }, log: [...(stored.log || [])] };
   const at = (n) => String(n?.edited?.at || '');
-  for (const [id, n] of Object.entries(page.edits || {})) {
-    if (n == null) { if (page.log?.some((l) => l.activities?.includes(id))) delete out.edits[id]; continue; }
-    if (!out.edits[id] || at(n) >= at(out.edits[id])) out.edits[id] = stripSvg(n);
-  }
+  const merge = (into, from, logKey, clean) => {
+    for (const [id, n] of Object.entries(from || {})) {
+      if (n == null) { if (page.log?.some((l) => l[logKey]?.includes(id))) delete into[id]; continue; }
+      if (!into[id] || at(n) >= at(into[id])) into[id] = clean(n);
+    }
+  };
+  merge(out.edits, page.edits, 'activities', stripSvg);
+  merge(out.views, page.views, 'views', (v) => v);
   const seen = new Set(out.log.map((l) => `${l.at}|${l.author}`));
   for (const l of page.log || []) if (!seen.has(`${l.at}|${l.author}`)) out.log.push(l);
   return out;
+}
+
+/**
+ * Lay one saved view edit over the extracted view. Rows saved with their column names follow
+ * the columns by name, so a re-extracted view with added, dropped or reordered columns keeps
+ * each value in its column.
+ */
+export function applyViewEdit(v, e) {
+  if (e.rows) {
+    const names = v.cols.map((c) => c.name);
+    const from = e.cols || names;
+    v.rows = e.rows.map((r) => names.map((n) => (from.indexOf(n) < 0 ? '' : String(r[from.indexOf(n)] ?? ''))));
+  }
+  for (const f of ['cust', 'trOf', 'cardTitle', 'histList', 'shots']) if (e[f] != null) v[f] = e[f];
+  v.cust = (v.cust || []).filter((i) => i < v.rows.length);
+  v.edited = e.edited;
+  return v;
 }
 
 function importEdits(file, dir, meta) {
@@ -295,7 +321,7 @@ function importEdits(file, dir, meta) {
   const merged = mergeEdits(readEdits(dir), JSON.parse(m[1] || '{}'), meta);
   ensureDirSync(join(dir, 'notes'));
   atomicWriteFileSync(join(dir, 'notes', 'edits.json'), JSON.stringify(merged, null, 1));
-  return Object.keys(merged.edits).length;
+  return Object.keys(merged.edits).length + Object.keys(merged.views).length;
 }
 
 function nextVersion(dir, base) {
@@ -316,13 +342,29 @@ async function main() {
   snap.__theme = readScreenTheme(cwd) ?? undefined;
   snap.meta.client ||= readActiveSapEnv(cwd)?.env?.SAP_CLIENT || '';
   const { views, acts, svgs } = buildModel(snap, lang);
+  const imported = o.import ? importEdits(resolve(o.import), dir, snap.meta) : null;
+  // Edit mode: edited notes replace the generated ones; edited views replace their values,
+  // card title and change history, and their screens are drawn again from the edited rows.
+  const edits = readEdits(dir);
+  const editedActs = new Set();
+  for (const [key, e] of Object.entries(edits.views)) {
+    const v = views[key];
+    if (!v || !e) continue;
+    applyViewEdit(v, e);
+    delete svgs[key];
+    delete svgs[`${key}#detail`];
+    Object.assign(svgs, drawView(v, lang, snap.__theme));
+    for (const a of Object.values(acts)) if (a.viewKeys.includes(key)) editedActs.add(a);
+  }
+  for (const a of editedActs) {
+    a.rows = a.viewKeys.reduce((n, k) => n + views[k].rows.length, 0);
+    a.cust = a.viewKeys.reduce((n, k) => n + views[k].cust.length, 0);
+    if (a.status !== 'blocked') a.status = a.cust ? 'custom' : a.rows ? 'standard' : 'empty';
+  }
 
   const rules = loadRules(join(ROOT, 'configs', module, 'config-checks.json'));
   const checks = attachActivities(runChecks(snap, rules, (a) => (acts[a.id] ? acts[a.id].viewKeys.map((k) => ({ tables: [views[k].root] })) : []), lang), rules, acts);
 
-  const imported = o.import ? importEdits(resolve(o.import), dir, snap.meta) : null;
-  // Edited notes (edit mode) replace the generated note of their activity.
-  const edits = readEdits(dir);
   const data = {
     meta: snap.meta, lang, tree: snap.tree, acts, views, checks,
     transports: snap.transports, domains: snap.domains, docs: snap.docs,
@@ -334,7 +376,7 @@ async function main() {
   atomicWriteFileSync(out, pageHtml(data, svgs));
   const counts = Object.values(acts).reduce((m, a) => ((m[a.status] = (m[a.status] || 0) + 1), m), {});
   const notes = Object.values(data.notes).reduce((m, n) => ((m[n.review] = (m[n.review] || 0) + 1), m), {});
-  process.stdout.write(JSON.stringify({ ok: true, file: out, activities: Object.keys(acts).length, status: counts, checks: checks.filter((c) => c.items.length).length, notes, edited: Object.keys(edits.edits).length, ...(imported != null ? { imported } : {}) }) + '\n');
+  process.stdout.write(JSON.stringify({ ok: true, file: out, activities: Object.keys(acts).length, status: counts, checks: checks.filter((c) => c.items.length).length, notes, edited: Object.keys(edits.edits).length, editedViews: Object.keys(edits.views).length, ...(imported != null ? { imported } : {}) }) + '\n');
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

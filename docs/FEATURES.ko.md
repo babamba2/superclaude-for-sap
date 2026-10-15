@@ -49,7 +49,7 @@
 | `sc4sap:create-program` | 풀 ABAP 프로그램 파이프라인 — Main+Include, OOP/Procedural, ALV, Dynpro, Text Elements, ABAP Unit |
 | `sc4sap:program-to-spec` | ABAP 프로그램을 Functional/Technical Spec으로 역공학 (Markdown / Excel) |
 | `sc4sap:compare-programs` | 동일 시나리오를 모듈/국가/페르소나로 분화한 2~5개 ABAP 프로그램을 비교 → 컨설턴트용 편집 가능한 HTML 리포트 (판정 매트릭스, 필드 차이표, 화면 나란히 비교, 의사결정 가이드; 버전 관리, 영어판) |
-| `sc4sap:config-to-document` | 연결된 시스템의 모듈 설정을 그대로 문서화 (MM 우선) → IMG 트리를 따르는 HTML 한 파일 (SM30 스타일 화면에 실제 테이블 값, 고객 변경 행과 트랜스포트, 설정 점검, SAP IMG 문서, `sap-critic`이 검토한 컨설턴트 노트, 노트 편집 모드 — `--import`로 다음 버전에 반영) |
+| `sc4sap:config-to-document` | 연결된 시스템의 모듈 설정을 그대로 문서화 (MM 우선) → IMG 트리를 따르는 HTML 한 파일 (SM30 스타일 화면에 실제 테이블 값, 고객 변경 행과 트랜스포트, 설정 점검, SAP IMG 문서, `sap-critic`이 검토한 컨설턴트 노트, 노트 · 설정값 · 변경 이력 편집 모드 — `--import`로 다음 버전에 반영) |
 | `sc4sap:analyze-code` | ABAP 코드 분석 (Clean ABAP / 성능 / 보안) |
 | `sc4sap:analyze-cbo-obj` | CBO 인벤토리 스캐너 + 교차 모듈 갭 분석 |
 | `sc4sap:analyze-symptom` | SAP 운영 에러/증상 단계별 분석 (덤프, 로그, SAP Note 후보) |

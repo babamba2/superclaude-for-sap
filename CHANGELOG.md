@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.37] — 2026-10-15
+
+### Added — `config-to-document`: edit mode covers the views
+
+- Edit mode now also edits each view card: its title, the value-table cells (rows added or deleted) and the change-history rows (added, edited, deleted). Edited views get the "Edited · author · date" badge, so readers see where the page differs from the system.
+- A drawn SM30 screen (overview or detail) can be replaced by a real screenshot in edit mode — button, or click the drawing and Ctrl+V — and switched back to the drawing; captures wider than 1800 px are scaled down, only `data:image/…` sources are drawn.
+- Editable table cells stay table cells (the value table, comparison and criteria tables no longer collapse into one column in edit mode).
+- `--import` carries view edits into `notes/edits.json` (`views`, newer edit wins, null removes); the next build replaces the view's values, title and history, redraws its SM30 screen from the edited rows and recounts the activity's rows.
+
 ## [0.6.36] — 2026-10-15
 
 ### Added — `config-to-document`: module configuration from the live system

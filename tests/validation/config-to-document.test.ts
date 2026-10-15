@@ -9,7 +9,7 @@ import { keyString, orderSiblings } from '../../scripts/config/extract-config.mj
 // @ts-expect-error — plain .mjs script, no type declarations
 import { runChecks } from '../../scripts/config/config-checks.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { buildModel, applyTerms, mergeEdits } from '../../scripts/config/build-config-doc.mjs';
+import { buildModel, applyTerms, mergeEdits, drawView, applyViewEdit } from '../../scripts/config/build-config-doc.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { sourceStatus, sourceHints } from '../../scripts/config/notes-sources.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -316,6 +316,40 @@ describe('config-to-document — edit mode', () => {
     expect(out.edits.A.purpose).toBe('a2');
     expect(out.edits.B.purpose).toBe('b1');
     expect(out.edits.C).toBeUndefined();
+  });
+
+  it('merges edited views (values, card title, history) by the same rule', () => {
+    const stored = { edits: {}, views: { V1: { rows: [['a']], edited: { at: '2026-10-15T10:00:00Z' } }, V2: { rows: [['x']], edited: { at: '2026-10-15T08:00:00Z' } } }, log: [] };
+    const page = {
+      system: 'DEV', module: 'MM', edits: {},
+      views: { V1: { rows: [['old']], edited: { at: '2026-10-15T09:00:00Z' } }, V2: null, V3: { rows: [['n']], cardTitle: 'T', histList: [{ date: '2026-10-15', trkorr: 'DEVK900009', user: 'U', text: 't' }], edited: { at: '2026-10-15T11:00:00Z' } } },
+      log: [{ author: 'y', at: '2026-10-15T11:00:00Z', activities: [], views: ['V2', 'V3'] }],
+    };
+    const out = mergeEdits(stored, page, meta);
+    expect(out.views.V1.rows).toEqual([['a']]);
+    expect(out.views.V2).toBeUndefined();
+    expect(out.views.V3).toMatchObject({ cardTitle: 'T', rows: [['n']] });
+  });
+
+  it('maps saved rows to the current columns by name after a re-extraction', () => {
+    const v = { key: 'V_X', cols: [{ name: 'B' }, { name: 'C' }, { name: 'A' }], rows: [['b0', 'c0', 'a0']], cust: [0, 1] };
+    applyViewEdit(v, { rows: [['a1', 'b1'], ['a2', 'b2']], cols: ['A', 'B'], cust: [0, 5], cardTitle: null, edited: { at: 't' } });
+    expect(v.rows).toEqual([['b1', '', 'a1'], ['b2', '', 'a2']]);
+    expect(v.cust).toEqual([0]);
+    expect(v.cardTitle).toBeUndefined();
+  });
+
+  it('keeps screenshots through the build and accepts image data only', () => {
+    const v = { key: 'V_X', cols: [{ name: 'A' }], rows: [['1']], cust: [] };
+    applyViewEdit(v, { shots: { V_X: 'data:image/png;base64,AAAA' }, edited: { at: 't' } });
+    expect((v as { shots?: Record<string, string> }).shots?.V_X).toBe('data:image/png;base64,AAAA');
+    const html = pageHtml({ meta, lang: 'ko', tree: [], acts: {}, views: {}, checks: [], transports: {}, domains: {}, docs: {} }, {});
+    expect(html).toContain('data:image\\/(png|jpeg|gif|webp);base64,');
+  });
+
+  it('draws an edited view again from its rows', () => {
+    const v = { key: 'V_X', title: 'X', cols: [{ name: 'F', label: 'Field', key: true, dom: '' }], rows: [['EDITED_VALUE']], cust: [] };
+    expect(drawView(v, 'ko').V_X).toContain('EDITED_VALUE');
   });
 });
 
