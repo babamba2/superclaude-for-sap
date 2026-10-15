@@ -60,8 +60,10 @@
 | OVXG | ECC/S4 | Set up Sales Areas / 판매 영역 설정 |
 | OVA8 | ECC/S4 | Automatic Credit Control / 자동 신용 통제 |
 | OVZ2 | ECC/S4 | Availability Check with ATP / ATP 가용성 검사 |
-| V/06 | ECC/S4 | Maintain Pricing Procedure / 가격 결정 절차 유지 |
-| V/08 | ECC/S4 | Assign Pricing Procedure / 가격 결정 절차 배정 |
+| V/06 | ECC/S4 | Maintain Condition Types / 조건 유형 유지 |
+| V/07 | ECC/S4 | Maintain Access Sequences / 접근 순서 유지 |
+| V/08 | ECC/S4 | Maintain Pricing Procedures / 가격 결정 절차 유지 |
+| OVKK | ECC/S4 | Pricing Procedure Determination / 가격 결정 절차 결정 |
 
 ## Reporting
 | TCode | System | Description |

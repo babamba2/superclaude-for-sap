@@ -89,7 +89,8 @@ function parseEnhancementsMd(path) {
     if (/^##\s+/.test(raw)) {
       const h = raw.toLowerCase();
       if (/\bcustomer exits\b|\bcmod\/smod\b|\bclassic\b/.test(h)) mode = 'smod';
-      else if (/\bbadi\b|\benhancement spots\b/.test(h)) mode = 'badi';
+      // "## 2. BAdIs" — the plural must match too, or every catalogue BAdI is skipped.
+      else if (/\bbadis?\b|\benhancement spots?\b/.test(h)) mode = 'badi';
       else if (/\bform[\s-]?based\b|\binclude programs\b|\bmodule-specific\b/.test(h)) mode = 'formExits';
       else if (/\bcustom fields\b|\bappend structures\b/.test(h)) mode = 'appends';
       else mode = null;
@@ -99,7 +100,7 @@ function parseEnhancementsMd(path) {
       const h = raw.toLowerCase();
       if (/\bform[\s-]?based\b|\binclude\b/.test(h)) mode = 'formExits';
       else if (/\bappend\b|\bcustom fields\b/.test(h)) mode = 'appends';
-      else if (/\bbadi\b/.test(h)) mode = 'badi';
+      else if (/\bbadis?\b/.test(h)) mode = 'badi';
       continue;
     }
 
@@ -152,6 +153,8 @@ async function callTool(client, name, args) {
     const r = await client.callTool({ name, arguments: args });
     const text = r?.content?.[0]?.text;
     if (!text) return { ok: false, error: 'empty response' };
+    // A tool error (HTTP 404, input validation …) is a failed read, never an empty result.
+    if (r.isError) return { ok: false, error: text };
     // Some tools return JSON; others return XML/text. Try parsing JSON, else return raw.
     try { return { ok: true, json: JSON.parse(text), raw: text }; }
     catch { return { ok: true, raw: text }; }
@@ -178,14 +181,26 @@ export function classicBadiImpls(json) {
     }));
 }
 
-async function scanBadiImplementations(client, badiName) {
+/** Customer enhancement implementations (BADIIMPL_ENH) of one BAdI definition or enhancement spot. */
+export function enhBadiImpls(rows, name) {
+  const n = String(name).toUpperCase();
+  return (rows || [])
+    .filter((r) => (String(r.BADI_NAME).toUpperCase() === n || String(r.SPOTNAME).toUpperCase() === n) && Z_PATTERN.test(String(r.ENHNAME)) && String(r.ACTIVE).toUpperCase() === 'X')
+    .map((r) => ({ name: String(r.ENHNAME).toUpperCase(), type: 'ENHO', badi: String(r.BADI_NAME).toUpperCase(), ...(r.BADI_IMPL ? { impl: String(r.BADI_IMPL).toUpperCase() } : {}) }));
+}
+
+async function scanBadiImplementations(client, badiName, enhRows = null) {
   const c = await callTool(client, 'GetBadiImplementations', {
     badi_definition: badiName, customer_only: true, active_only: true, include_methods: false,
   });
   const classic = c.ok ? classicBadiImpls(c.json) : null;
-  if (classic) return { ok: true, source: 'classic', customs: classic };
+  // New-style implementations (enhancement implementations) live in BADIIMPL_ENH, read once.
+  const enh = enhRows ? enhBadiImpls(enhRows, badiName).filter((e) => !(classic || []).some((x) => x.name === e.name)) : [];
+  if (classic) return { ok: true, source: enh.length ? 'classic+enh' : 'classic', customs: [...classic, ...enh] };
+  if (enh.length) return { ok: true, source: 'enh', customs: enh };
+  if (enhRows && !c.ok) return { ok: false, source: 'classic', customs: [], error: c.error };
 
-  const r = await callTool(client, 'GetEnhancementSpot', { enhancement_spot_name: badiName });
+  const r = await callTool(client, 'GetEnhancementSpot', { enhancement_spot: badiName });
   if (!r.ok) return { ok: false, source: 'spot-scan', customs: [], error: r.error };
   const names = new Set();
   for (const m of String(r.raw || '').matchAll(/\b([ZY][A-Z0-9_]{2,30})\b/g)) names.add(m[1]);
@@ -530,7 +545,11 @@ async function extractForModule(client, mod, globalCache) {
 
   // 1) BAdI implementations
   for (const b of parsed.badi) {
-    const r = await scanBadiImplementations(client, b.name);
+    const r = await scanBadiImplementations(client, b.name, globalCache?.enhOk ? globalCache.enh : null);
+    if (!r.ok && !isNotFound(r.error)) {
+      enhancements.unavailable.push({ check: 'badi', source: b.name, reason: unavailableReason(r.error) });
+      console.log(`  ✗ BAdI ${b.name} not readable: ${unavailableReason(r.error)}`);
+    }
     if (r.ok && r.customs.length > 0) {
       enhancements.badiImplementations.push({
         standardName: b.name,
@@ -701,7 +720,13 @@ async function main() {
   console.log(vofmAll.ok
     ? `[cust]   → ${vofmAll.routines.length} customer VOFM routines${vofmAll.partial ? ` (${vofmAll.partial})` : ''}${unmapped ? ` — groups outside the catalog, not reported (counted as 600–999): ${unmapped}` : ''}`
     : `[cust]   ✗ TFRM not readable: ${unavailableReason(vofmAll.error)}`);
+  console.log('[cust] Scanning customer enhancement implementations (BADIIMPL_ENH)...');
+  const enhZ = await sqlRows(client, "SELECT * FROM BADIIMPL_ENH WHERE ENHNAME LIKE 'Z%'");
+  const enhY = await sqlRows(client, "SELECT * FROM BADIIMPL_ENH WHERE ENHNAME LIKE 'Y%'");
+  const enhAll = { ok: enhZ.ok, rows: [...enhZ.rows, ...enhY.rows], error: enhZ.error };
+  console.log(enhAll.ok ? `[cust]   → ${enhAll.rows.length} customer BAdI enhancement implementations` : `[cust]   ✗ BADIIMPL_ENH not readable: ${unavailableReason(enhAll.error)}`);
   const globalCache = {
+    enh: enhAll.rows, enhOk: enhAll.ok,
     cmod: cmodAll.byMember || new Map(), cmodOk: cmodAll.ok, cmodError: cmodAll.error,
     ggb: ggbAll.rules || [], ggbOk: ggbAll.ok, ggbError: ggbAll.error, ggbPartial: ggbAll.partial,
     bte: bteAll.implementations || [], bteOk: bteAll.ok, bteError: bteAll.error, btePartial: bteAll.partial,

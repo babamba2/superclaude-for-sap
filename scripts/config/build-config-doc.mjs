@@ -23,6 +23,7 @@ import { atomicWriteFileSync, ensureDirSync } from '../lib/atomic-write.mjs';
 import { loadRules, runChecks, attachActivities } from './config-checks.mjs';
 import { pageHtml } from './config-doc-page.mjs';
 import { loadNotes, loadTerms } from './notes.mjs';
+import { loadFieldMeanings } from './fields.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MOCK_COLS = 8;
@@ -96,7 +97,12 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
     if (!def) return null;
     // View variants restrict the root table (e.g. BSTYP = 'F'); keep the original row index for _tr.
     // SAP compares CHAR values without trailing blanks: INAKTIV = ' ' matches an empty field.
-    const keep = def.rows.map((r, i) => i).filter((i) => conds.every((c) => c.table !== root || show(def.rows[i][c.field]).trim() === String(c.value).trim()));
+    // NUMC values arrive as numbers (REGGB 1 for '001'). Conditions on the same field are
+    // OR-ed (FOFUN = '02' OR '05' OR '06'), different fields AND-ed.
+    const same = (a, b) => (/^\d+$/.test(a) && /^\d+$/.test(b) ? Number(a) === Number(b) : a === b);
+    const groups = {};
+    for (const c of conds.filter((x) => x.table === root)) (groups[c.field] ??= []).push(String(c.value).trim());
+    const keep = def.rows.map((r, i) => i).filter((i) => Object.entries(groups).every(([f, vals]) => vals.some((v) => same(show(def.rows[i][f]).trim(), v))));
     const src = keep.map((i) => def.rows[i]);
     const rows = src.map((r) => {
       const sec = {};
@@ -109,7 +115,7 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
     const cust = src.map((r, i) => (custTr(r).length ? i : -1)).filter((i) => i >= 0);
     const trOf = Object.fromEntries(cust.map((i) => [i, custTr(src[i])]));
     views[key] = {
-      key, title, root, cols: cols.map((c) => ({ name: c.field, label: c.label, key: c.key, dom: c.dom })),
+      key, title, root, cols: cols.map((c) => ({ name: c.field, label: c.label, key: c.key, dom: c.dom, de: c.de || '' })),
       rows, cust, trOf, truncated: def.truncated, error: def.error || '', tableTitle: def.title,
       history: (def.transports || []).filter(isCustomerTr), historyTruncated: def.historyTruncated,
     };
@@ -134,7 +140,8 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
       return true;
     }).map((f) => {
       const d = fieldDef(f.table, f.tabField);
-      return { field: f.field, table: f.table, tabField: f.tabField, key: f.key, dom: d?.domname || '', label: label(snap.labels[f.rollname] ? f.rollname : d?.rollname, f.field) };
+      const de = snap.labels[f.rollname] ? f.rollname : d?.rollname || f.rollname;
+      return { field: f.field, table: f.table, tabField: f.tabField, key: f.key, dom: d?.domname || '', de, label: label(de, f.field) };
     });
     return addView(name, title || v.title, root, cols, conds);
   };
@@ -142,7 +149,7 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
     const def = snap.tables[name];
     if (!def) return null;
     const cols = def.fields.filter((f) => f.type !== 'CLNT').slice(0, TABLE_COLS)
-      .map((f) => ({ field: f.name, table: name, tabField: f.name, key: f.key, dom: f.domname, label: label(f.rollname, f.name) }));
+      .map((f) => ({ field: f.name, table: name, tabField: f.name, key: f.key, dom: f.domname, de: f.rollname, label: label(f.rollname, f.name) }));
     return addView(name, title || def.title, name, cols);
   };
 
@@ -192,7 +199,9 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
     const cust = vs.reduce((n, v) => n + v.cust.length, 0);
     const blocked = vs.some((v) => v.error);
     const status = blocked ? 'blocked' : !vs.length ? 'none' : cust ? 'custom' : rows ? 'standard' : 'empty';
-    acts[id] = { id, title: a.title || a.titleEn || id, titleEn: a.titleEn, tcode: a.tcode, objects: objs, viewKeys: keys, tables: [...new Set(tablesOf(objs))], rows, cust, status, docuId: a.docuId };
+    acts[id] = { id, title: a.title || a.titleEn || id, titleEn: a.titleEn, tcode: a.tcode, objects: objs, viewKeys: keys, tables: [...new Set(tablesOf(objs))], rows, cust, status, docuId: a.docuId, ...(a.badis ? { badis: a.badis } : {}) };
+    // An enhancement activity with an active customer implementation counts as customer-changed.
+    if (a.badis?.some((b) => (snap.badiImpls?.[b] || []).some((x) => x.active)) && ['none', 'empty'].includes(status)) acts[id].status = 'custom';
   }
 
   // SM30 screens drawn with the real values: overview grid, plus a detail
@@ -365,9 +374,18 @@ async function main() {
   const rules = loadRules(join(ROOT, 'configs', module, 'config-checks.json'));
   const checks = attachActivities(runChecks(snap, rules, (a) => (acts[a.id] ? acts[a.id].viewKeys.map((k) => ({ tables: [views[k].root] })) : []), lang), rules, acts);
 
+  // Column meanings (reviewed, or from the knowledge base) and SAP F1 text for the columns that show values.
+  const meanings = loadFieldMeanings(dir, lang);
+  const fields = {};
+  for (const v of Object.values(views)) if (v.rows.length) for (const c of v.cols) {
+    if (!c.de || fields[c.de]) continue;
+    const m = meanings[c.de] || '', f1 = (snap.fieldDocs?.[c.de]?.text || '').slice(0, 600);
+    if (m || f1) fields[c.de] = { m, f1 };
+  }
   const data = {
+    fields,
     meta: snap.meta, lang, tree: snap.tree, acts, views, checks,
-    transports: snap.transports, domains: snap.domains, docs: snap.docs,
+    transports: snap.transports, domains: snap.domains, docs: snap.docs, badiImpls: snap.badiImpls || {}, badiErrors: snap.badiErrors || {},
     notes: withCaseDiagrams({ ...loadNotes(dir, { module, lang }), ...structuredClone(edits.edits) }, lang),
     edits,
   };

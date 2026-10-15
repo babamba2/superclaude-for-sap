@@ -1,0 +1,20 @@
+{
+  "reads": [
+    { "table": "C001" },
+    { "table": "C002" },
+    { "table": "C003" },
+    { "table": "C004" },
+    { "table": "C005" },
+    { "table": "C006" },
+    { "table": "C007" },
+    { "table": "C008" },
+    { "table": "C009" },
+    { "table": "C600" },
+    { "table": "C601" },
+    { "table": "C603" },
+    { "table": "C604" },
+    { "table": "C605" },
+    { "table": "C606" }
+  ],
+  "rules": []
+}

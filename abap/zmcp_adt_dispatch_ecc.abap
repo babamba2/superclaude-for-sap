@@ -589,7 +589,8 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
 
   " Allow rule: customizing and system tables only - never business data.
   " Delivery class C/G (customizing), E/S (control / system) pass, plus a
-  " fixed list of repository tables (class W): CMOD, transaction codes,
+  " fixed list of repository tables (class W): CMOD, transaction codes, BAdI
+  " definitions / implementations (SXS_*, SXC_*, ENHHEADER),
   " DDIC metadata and the transport key tables for change history.
   " Application (A) and temporary (L) data stay closed, and so do tables
   " that hold credentials or user master data whatever their class.
@@ -606,7 +607,9 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
      AND lv_tab <> 'DD04L' AND lv_tab <> 'DD04T' AND lv_tab <> 'DD07L' AND lv_tab <> 'DD07T'
      AND lv_tab <> 'DD26S' AND lv_tab <> 'DD27S' AND lv_tab <> 'DD28S'
      AND lv_tab <> 'TVDIR' AND lv_tab <> 'OBJH' AND lv_tab <> 'OBJS' AND lv_tab <> 'OBJT'
-     AND lv_tab <> 'E070' AND lv_tab <> 'E07T' AND lv_tab <> 'E071' AND lv_tab <> 'E071K'.
+     AND lv_tab <> 'E070' AND lv_tab <> 'E07T' AND lv_tab <> 'E071' AND lv_tab <> 'E071K'
+     AND lv_tab <> 'SXS_ATTR' AND lv_tab <> 'SXC_EXIT' AND lv_tab <> 'SXC_ATTR'
+     AND lv_tab <> 'SXC_CLASS' AND lv_tab <> 'ENHHEADER'.
     SELECT SINGLE contflag FROM dd02l INTO lv_class
       WHERE tabname = lv_tab AND as4local = 'A' AND as4vers = '0000'
         AND tabclass IN ('TRANSP','POOL','CLUSTER').
