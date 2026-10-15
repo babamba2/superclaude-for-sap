@@ -278,6 +278,16 @@ describe('config-to-document — view conditions on blank values', () => {
 describe('config-to-document — edit mode', () => {
   const meta = { module: 'MM', system: 'DEV', client: '100', sapVersion: 'ECC', extractedAt: '2026-10-14T00:00:00Z', maxRows: 1000, lang: 'ko' };
 
+  it('opens case flows and screens in a lightbox with zoom controls', () => {
+    const html = pageHtml({ meta, lang: 'ko', tree: [], acts: {}, views: {}, checks: [], transports: {}, domains: {}, docs: {} }, {});
+    for (const z of ['-', '+', 'fit', 'x']) expect(html).toContain(`data-z="${z}"`);
+    expect(html).toContain('id="lbv"');
+    expect(html).toContain('화면 맞춤');
+    // Case drawings in the reference panel are wrapped so a click reaches the lightbox.
+    expect(html).toContain(`'<div class="flow" title="'`);
+    expect(html).toContain("closest('.flow')");
+  });
+
   it('embeds the edits as JSON that cannot close the script tag, and shows the edit button', () => {
     const edits = { edits: { ACT1: { purpose: 'x </script><b>y</b>', impact: [] } }, log: [] };
     const html = pageHtml({ meta, lang: 'ko', tree: [], acts: {}, views: {}, checks: [], transports: {}, domains: {}, docs: {}, edits }, {});

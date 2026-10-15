@@ -14,7 +14,7 @@ const NUMBER = /^N(\d)$/;
 /** Inline markup: <DS:...>text</>, <ZH>…</>, <LS>…</>, &SYMBOLS& → plain text. */
 export function itfInline(s) {
   return String(s ?? '')
-    .replace(/<DS:[^>]*>/g, '')
+    .replace(/<(DS|GL|LS):[^>]*>/g, '')
     .replace(/<\/>/g, '')
     .replace(/<[A-Z][A-Z0-9]?>/g, '')
     .replace(/&[A-Z0-9_\[\]]+&/g, '')

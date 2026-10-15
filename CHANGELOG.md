@@ -3,7 +3,27 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.6.39] — 2026-10-16
+
+### Added — `config-to-document`: column meanings
+
+- Every value-table column gets its business meaning: an ⓘ on the column header (tap on a phone) and a folded "column meanings" list above the table, with the SAP F1 text of the data element next to it.
+- The extractor reads the F1 documentation of every column's data element (`fieldDocs`); `--field-docs` adds it to an existing snapshot without reading the configuration again.
+- New `scripts/config/fields.mjs`: batches of 100 data elements (label, domain values, F1 text, where used, samples), written by the module consultant and corrected by `sap-critic` (prompt § 5, no web research), then kept in `~/.sc4sap/kb/fields/<lang>.json` — shared by every module, so a later module writes only the data elements it does not share.
+- `--full-tables "<T1>,<T2>"` reads the named tables up to the read cap instead of `--max-rows`; a capped table is split by its next key fields, and `config-checks.json` `reads` without a condition are read like activity tables (DDIC fields, customer transports).
+- BAdI customer implementations: an IMG activity that is a BAdI (`CUS_ACTEXT`) shows a card with the customer implementations of this system — classic (`SXC_EXIT` / `SXC_ATTR` / `SXC_CLASS`) and enhancement-based (`BADIIMPL_ENH`) — and an active implementation marks the activity customized; the overview lists every BAdI with customer implementations. `--badi` adds them to an existing snapshot.
+- Case flows and screen drawings open in a lightbox with zoom (−, +, fit, close).
+- SD: `configs/SD/config-checks.json` reads the SD condition tables the checks need; corrected SD pricing transactions (V/06, V/07, V/08, OVKK).
+
+### Fixed — `config-to-document`
+
+- View selection conditions on the same field are OR-ed and NUMC values compared as numbers, so views such as output-function or billing-plan variants no longer show 0 rows.
+- On a phone the top bar stays on one line (title shortened, system line hidden).
+- A browser that cannot unpack the page shows why instead of a blank page.
+- `extract-customizations.mjs` read no BAdIs at all: the catalog heading "BAdIs" was not recognised as the BAdI section. A tool reply flagged `isError` now counts as a failure (listed under `unavailable`), `GetEnhancementSpot` gets its correct argument name, and enhancement-based implementations are read once from `BADIIMPL_ENH` and merged.
+- `ZMCP_ADT_DISPATCH` (ECC) `TABLE_READ` allows the BAdI repository tables `SXS_ATTR`, `SXC_EXIT`, `SXC_ATTR`, `SXC_CLASS`, `ENHHEADER` — update the function module from `abap/zmcp_adt_dispatch_ecc.abap` to see classic BAdI implementations; until then they show as not readable.
+- An unknown option to `extract-config.mjs` stops the run instead of being ignored.
+- SAP documentation drops `<GL:…>` / `<LS:…>` link tags.
 
 ## [0.6.38] — 2026-10-15
 
