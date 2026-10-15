@@ -59,3 +59,13 @@ Writer (`sc4sap:sap-<m>-consultant`):
 
 Reviewer (`sc4sap:sap-critic`):
 > Check the meanings in `<base>/config-docs/<M>/fields/<fNNN>.draft.json` against `…/fields/_in/<fNNN>.json`. Wrong: contradicts the F1 text or domain values, describes another field, invents a mechanism. Empty: only restates the label. Also wrong: mentions this system's values, or is much longer than 160 characters. Write a corrected line ONLY for failing meanings: `ROLLNAME = <corrected meaning> | <short reason>` (writer rules apply). Save (an empty file when all pass): `node sc4sap/scripts/config/fields.mjs save --module <M> --batch <fNNN> --kind review --file <file>`. Final message: the printed JSON line and the number of corrections.
+
+## 6. BAdI implementations — writer, reviewer, one revision (no web research)
+
+Writer (`sc4sap:sap-<m>-consultant`):
+> Read `<base>/config-docs/<M>/badi/_in.json`: per customer implementation the BAdI, the IMG activities that name it, their SAP documentation, every method with code (source, size, called objects), the empty methods, and in `includes` the source of the Z includes the methods branch into (often one per company-code group). For EVERY implementation write in <lang>: `summary:` 2–3 sentences — the business step it runs in, what it checks or changes, the conditions (transaction, document type, company code …); say plainly when it does nothing in practice. Then one line per method with code: `- <METHOD>: <what it does>` (name after `~`): conditions, data read or changed, messages raised, effect on the document, per include / company-code group where the code branches. Every statement rests on the source; never guess a purpose the code does not show; a suspected defect is worded as an observation of what the code does, never as a verdict on intent; no pasted code. Save: `node sc4sap/scripts/config/badi-notes.mjs save --module <M> --kind draft --file <file>` (blocks `@@ <IMPLEMENTATION>` / `summary:` / `- <METHOD>:`) until `"ok":true`.
+
+Reviewer (`sc4sap:sap-critic`):
+> Check `<base>/config-docs/<M>/badi/draft.json` against the sources in `…/badi/_in.json`. `verdict: fix` when a statement is not backed by the code, a condition is misread (inverted check, CHECK / EXIT that ends the method, commented-out code read as active), a purpose is claimed the code does not show, or an important effect is missing (a blocking error message, a database update). Read called Z function modules / classes the writer could not see. Save `--kind review` with `@@ <IMPLEMENTATION>` / `verdict: ok|fix` / `- <problem and correction>`.
+
+Revision: the writer rewrites only the `fix` implementations, every method with code, and saves `--kind revised`.

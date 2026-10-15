@@ -5,9 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added — `config-to-document`
+
+- What the customer BAdI implementations do: the extraction reads every implementing class (and the Z includes it branches into, two levels deep) and splits it per method — code or empty, size, the function modules, tables read and changed, classes and includes it calls. The module consultant writes a summary and one line per method with code, `sap-critic` checks them against the source, one revision (`scripts/config/badi-notes.mjs`, prompt § 6). The BAdI card shows them under each implementation with the method table and the source (folded).
+- IMG activities that only open SE18 / SE19 name their BAdIs in the documentation, not in `CUS_ACTEXT`: those names count when the system knows them as a BAdI, so implementations such as invoice-verification BAdIs appear on their activity.
+- Value lists per column: the ⓘ popup and the column meanings list the values a column can take with SAP's text — the domain's fixed values, else the keys of its check table with the text of the table or its text table.
+
 ### Fixed — `config-to-document`
 
 - Tables with more rows than `--max-rows` are no longer cut at 1000 rows: on a system with many plants the per-plant tables (order type parameters, BOM application, move times …) lost most plants. Such a table is now read again up to the 5000-row read cap and split by its key fields when it reaches it; text tables keyed by language are read in the document language and English only, which keeps the snapshot small. `--no-full` keeps the old limit.
+- `notes-lint.mjs` no longer flags "N rows, customer changes M" sentences ("28행이며 고객 변경 행은 5건") as a wrong customer count: a customer word after a clause connector belongs to the next count.
+- Enhancement-based BAdI implementations show their creator, date and implementing class: the enhancement header keeps them in a serialized field, so they are read from the transport that first recorded the enhancement (E071/E070) and the class from that request.
+- The IMG link in the overview's BAdI table opens the activity instead of jumping back to the overview; the BAdI card's filter column has its own label (it showed the table search label) and dates read YYYY-MM-DD.
 
 ## [0.6.39] — 2026-10-16
 

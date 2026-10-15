@@ -408,3 +408,38 @@ describe('config-to-document — tables over the row limit are read in full', ()
     expect(fullReadPlan(plantTable, 1001, 1000, { ...o, autoFull: false })).toBeNull();
   });
 });
+
+describe('config-to-document — BAdI implementation source', () => {
+  it('splits a class into methods, tells empty ones apart and lists what they call', async () => {
+    const { parseClassMethods } = await import('../../scripts/config/extract-config.mjs');
+    const src = [
+      'CLASS ZCL_X IMPLEMENTATION.',
+      '  METHOD if_ex_a~check.',
+      '* comment only',
+      '    SELECT SINGLE * FROM zmmt0001 INTO ls_x WHERE a = 1.',
+      "    CALL FUNCTION 'Z_FM'.",
+      '    UPDATE zfit0002 SET b = 1.',
+      '    INCLUDE zmm_check_1xxx.',
+      '  ENDMETHOD.',
+      '  method IF_EX_A~POST.',
+      '  endmethod.',
+      'ENDCLASS.',
+    ].join('\r\n');
+    const [check, post] = parseClassMethods(src);
+    expect(check.name).toBe('IF_EX_A~CHECK');
+    expect(check.empty).toBe(false);
+    expect(check.lines).toBe(4);
+    expect(check.refs).toMatchObject({ fms: ['Z_FM'], reads: ['ZMMT0001'], writes: ['ZFIT0002'], includes: ['ZMM_CHECK_1XXX'] });
+    expect(post.empty).toBe(true);
+  });
+
+  it('reads implementation notes and reviews from marker text', async () => {
+    const { parseMarkers, methodKey } = await import('../../scripts/config/badi-notes.mjs');
+    const d = parseMarkers('@@ zmm_impl\nsummary: 송장 저장 시 점검\n- IF_EX_A~CHANGE_AT_SAVE: 금액 비교', 'draft');
+    expect(d.errors).toEqual([]);
+    expect(d.items.ZMM_IMPL).toEqual({ summary: '송장 저장 시 점검', methods: { CHANGE_AT_SAVE: '금액 비교' } });
+    const r = parseMarkers('@@ ZMM_IMPL\nverdict: fix\n- 조건이 반대', 'review');
+    expect(r.items.ZMM_IMPL).toEqual({ verdict: 'fix', problems: ['조건이 반대'] });
+    expect(methodKey('if_ex_a~post')).toBe('POST');
+  });
+});

@@ -165,6 +165,29 @@ async function addBadiNames(c, activities) {
   }
 }
 
+// IMG activities that only open SE18 / SE19 ("Maintain Business Add-Ins for Invoice
+// Verification") have no CUS_ACTEXT entry and name their BAdIs in the documentation
+// instead. Upper-case tokens of that text count when the system knows them as a BAdI:
+// a classic definition (SXS_ATTR) or a BAdI with enhancement implementations.
+export async function addDocBadis(c, activities, docs) {
+  const cand = {};
+  for (const [id, a] of Object.entries(activities)) {
+    if (a.badis?.length || !docs[a.docuId]) continue;
+    const toks = (JSON.stringify(docs[a.docuId].blocks).match(/\b[A-Z][A-Z0-9]*_[A-Z0-9_]{2,28}\b/g) || []);
+    if (toks.length) cand[id] = [...new Set(toks)];
+  }
+  const all = [...new Set(Object.values(cand).flat())];
+  if (!all.length) return;
+  const known = new Set([
+    ...(await readIn(c, 'SXS_ATTR', 'EXIT_NAME', all)).rows.map((r) => r.EXIT_NAME),
+    ...(await readIn(c, 'BADIIMPL_ENH', 'BADI_NAME', all)).rows.map((r) => r.BADI_NAME),
+  ]);
+  for (const [id, toks] of Object.entries(cand)) {
+    const b = toks.filter((t) => known.has(t));
+    if (b.length) activities[id].badis = b;
+  }
+}
+
 // Customer implementations (Z*/Y*) of the BAdIs the IMG names: classic ones from SXC_EXIT /
 // SXC_ATTR / SXC_CLASS, enhancement-framework ones from BADIIMPL_ENH. A table the read
 // cannot open (the dispatcher's allow list) is reported, never taken as "no implementation".
@@ -189,11 +212,101 @@ export async function readBadiImpls(c, names) {
   }
   const enh = await readIn(c, 'BADIIMPL_ENH', 'BADI_NAME', names);
   if (!enh.ok) errors.enh = String(enh.errors?.[0] || '').slice(0, 200);
-  for (const r of enh.rows.filter((x) => CUSTOMER.test(String(x.ENHNAME)))) {
+  const enhRows = enh.rows.filter((x) => CUSTOMER.test(String(x.ENHNAME)));
+  // The enhancement header keeps creator and implementing class in a serialized blob, so
+  // both come from the transports: the oldest request that recorded R3TR ENHO gives user
+  // and date; the implementing class is the CLAS of that request named like the
+  // enhancement, else the request's only CLAS (left empty when that is ambiguous).
+  const enhNames = [...new Set(enhRows.map((r) => r.ENHNAME))];
+  const objs = (await readIn(c, 'E071', 'OBJ_NAME', enhNames, { extra: { PGMID: 'R3TR', OBJECT: 'ENHO' } })).rows;
+  const reqs = byKey((await readIn(c, 'E070', 'TRKORR', [...new Set(objs.map((r) => r.TRKORR))])).rows, 'TRKORR');
+  const top = (tr) => reqs[tr]?.[0]?.STRKORR || tr;
+  const first = {};
+  for (const r of objs) {
+    const h = reqs[top(r.TRKORR)]?.[0] || reqs[r.TRKORR]?.[0];
+    if (!h) continue;
+    const d = String(h.AS4DATE || '').replace(/-/g, '');
+    if (!first[r.OBJ_NAME] || d < first[r.OBJ_NAME].date) first[r.OBJ_NAME] = { date: d, user: h.AS4USER || '', tr: h.TRKORR };
+  }
+  const trs = [...new Set(Object.values(first).map((f) => f.tr))];
+  const clas = (await readIn(c, 'E071', 'TRKORR', trs, { extra: { PGMID: 'R3TR', OBJECT: 'CLAS' } })).rows;
+  const classOf = (name) => {
+    const inTr = clas.filter((r) => r.TRKORR === first[name]?.tr).map((r) => r.OBJ_NAME);
+    return inTr.includes(name) ? name : inTr.length === 1 ? inTr[0] : '';
+  };
+  for (const r of enhRows) {
     if ((out[r.BADI_NAME] || []).some((x) => x.name === r.ENHNAME)) continue;
-    add(r.BADI_NAME, { name: r.ENHNAME, kind: 'enh', class: r.BADI_IMPL || '', active: r.ACTIVE === 'X' || r.ACTIVE === true, filters: [], user: '', date: '' });
+    add(r.BADI_NAME, { name: r.ENHNAME, kind: 'enh', class: classOf(r.ENHNAME), active: r.ACTIVE === 'X' || r.ACTIVE === true, filters: [], user: first[r.ENHNAME]?.user || '', date: first[r.ENHNAME]?.date || '' });
   }
   return { impls: out, errors };
+}
+
+// Source of the customer implementing classes, split per method: whether the method has
+// code (comments and blank lines do not count), its size, the objects it calls and the
+// code itself (capped), for the BAdI card and the implementation notes.
+const SRC_CAP = 2000;
+const uniq = (a) => [...new Set(a.map((x) => x.toUpperCase()))];
+const all = (s, re) => [...s.matchAll(re)].map((m) => m[1]);
+export function parseClassMethods(src) {
+  const out = [];
+  for (const m of String(src).matchAll(/^[ \t]*method[ \t]+([\w~/]+)[ \t]*\.([\s\S]*?)^[ \t]*endmethod[ \t]*\./gim)) {
+    const lines = m[2].replace(/^\r?\n/, '').replace(/\s+$/, '').split(/\r?\n/);
+    const code = lines.filter((l) => l.trim() && !/^\*/.test(l) && !/^\s*"/.test(l)).join('\n');
+    out.push({
+      name: m[1].toUpperCase(), lines: code ? code.split('\n').length : 0, empty: !code,
+      refs: {
+        fms: uniq(all(code, /call\s+function\s+'([^']+)'/gi)),
+        reads: uniq(all(code, /\bfrom\s+([a-z0-9_/]+)/gi)).filter((t) => !/^(TABLE|@)/.test(t)),
+        writes: uniq(all(code, /\b(?:update|modify|insert|delete)\s+(?:from\s+)?([zy][a-z0-9_]+)/gi)),
+        classes: uniq(all(code, /\b([zy]c[lx]_[a-z0-9_]+|[zy]if_[a-z0-9_]+)/gi)),
+        submits: uniq(all(code, /\bsubmit\s+([a-z0-9_/]+)/gi)),
+        includes: uniq(all(code, /^\s*include\s+([a-z0-9_/]+)/gim)),
+      },
+      source: lines.slice(0, SRC_CAP).join('\n'), truncated: lines.length > SRC_CAP,
+    });
+  }
+  return out;
+}
+
+// Customer code often branches into Z includes (one per company code group): their
+// source is read too, with the includes they include in turn, two levels deep.
+async function readIncludes(c, names, out, depth = 0) {
+  for (const n of names) {
+    if (out[n] || !/^[ZY]/.test(n) || Object.keys(out).length >= 80) continue;
+    try {
+      const r = await c.callTool({ name: 'GetInclude', arguments: { include_name: n } });
+      const t = r.content?.[0]?.text || '';
+      let src = '';
+      try { src = JSON.parse(t).source_code || ''; } catch { src = r.isError ? '' : t; }
+      if (!src) { out[n] = { error: t.slice(0, 200) }; continue; }
+      const [m] = parseClassMethods(`method INCLUDE.\n${src}\nendmethod.`);
+      out[n] = { lines: m.lines, refs: m.refs, source: m.source, truncated: m.truncated };
+      if (depth < 1) await readIncludes(c, m.refs.includes, out, depth + 1);
+    } catch (e) {
+      out[n] = { error: String(e.message || e).slice(0, 200) };
+    }
+  }
+}
+
+export async function readBadiSources(c, impls) {
+  const out = {};
+  for (const x of Object.values(impls).flat()) {
+    if (!x.class || out[x.class]) continue;
+    try {
+      const r = await c.callTool({ name: 'GetClass', arguments: { class_name: x.class } });
+      const j = JSON.parse(r.content?.[0]?.text || '{}');
+      if (r.isError || !j.source_code) out[x.class] = { error: String(r.content?.[0]?.text || 'no source').slice(0, 200), methods: [] };
+      else {
+        const methods = parseClassMethods(j.source_code);
+        const includes = {};
+        await readIncludes(c, [...new Set(methods.flatMap((m) => m.refs.includes))], includes);
+        out[x.class] = { methods, includes };
+      }
+    } catch (e) {
+      out[x.class] = { error: String(e.message || e).slice(0, 200), methods: [] };
+    }
+  }
+  return out;
 }
 
 async function readViews(c, o, viewNames, clusterNames) {
@@ -575,9 +688,11 @@ async function main() {
       if (o.fieldDocsOnly) snap.fieldDocs = await readFieldDocs(c, o, columnRolls(snap));
       if (o.badiOnly) {
         await addBadiNames(c, snap.activities);
+        await addDocBadis(c, snap.activities, snap.docs || {});
         const badi = await readBadiImpls(c, [...new Set(Object.values(snap.activities).flatMap((a) => a.badis || []))]);
         snap.badiImpls = badi.impls;
         snap.badiErrors = badi.errors;
+        snap.badiSources = await readBadiSources(c, badi.impls);
       }
       writeWithRetry(file, JSON.stringify(snap));
       process.stdout.write(JSON.stringify({ ok: true, file, fieldDocs: Object.keys(snap.fieldDocs || {}).length, badiActivities: Object.values(snap.activities).filter((a) => a.badis).length, badiWithImpls: Object.keys(snap.badiImpls || {}).length, badiErrors: snap.badiErrors || {} }) + '\n');
@@ -640,6 +755,7 @@ async function main() {
     const { labels, domains } = await readLabels(c, o, [...rolls], [...doms]);
     const docs = o.docs ? await readDocs(c, o, activities) : {};
     const fieldDocs = o.docs ? await readFieldDocs(c, o, columnRolls({ tables: tableData, views })) : {};
+    await addDocBadis(c, activities, docs);
     const badi = await readBadiImpls(c, [...new Set(Object.values(activities).flatMap((a) => a.badis || []))]);
     const env = readActiveSapEnv(cwd)?.env || {};
     const snapshot = {
@@ -649,7 +765,7 @@ async function main() {
         extractedAt: new Date().toISOString(), maxRows: o.maxRows,
         counts: { activities: actIds.length, views: Object.keys(views).length, tables: tables.length, transports: Object.keys(transports).length, docs: Object.keys(docs).length },
       },
-      tree, activities, views, clusters, clusterTitles, tables: tableData, numberRanges, transports, labels, domains, docs, fieldDocs, badiImpls: badi.impls, badiErrors: badi.errors,
+      tree, activities, views, clusters, clusterTitles, tables: tableData, numberRanges, transports, labels, domains, docs, fieldDocs, badiImpls: badi.impls, badiErrors: badi.errors, badiSources: await readBadiSources(c, badi.impls),
     };
     const file = join(outDir, 'snapshot.json');
     writeWithRetry(file, JSON.stringify(snapshot));

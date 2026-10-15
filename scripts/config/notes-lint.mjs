@@ -146,8 +146,12 @@ async function lint(o) {
       const after = around.slice(m[0].length);
       // "(customer 37행)" / "중 고객 7행" introduce the next count, not this one.
       const own = after.split(NEXT)[0].replace(/(\(|중)\s*(고객|customer)[^)]*$/i, '');
+      // "28행이며 고객 변경 행은 5건" / "2행만 있으며 고객 변경 행은 없습니다": a customer word after a
+      // clause connector starts the next statement and is not about this count.
+      // "19행, 고객 변경 없음": a customer word that says there are none is not a customer count.
+      const ownClause = own.split(/(?:이며|으며|이고|\s중)\s/)[0].replace(/(고객|customer)[^,.;]*?(없|no\b|none)/gi, '');
       const next = after.split(NEXT).slice(1).join(' ').split(NEXT)[0];
-      const aboutCustomer = /고객|customer/i.test(own) || (/^[^,(]*?(와|과|및)\s/.test(own) && /고객|customer/i.test(next));
+      const aboutCustomer = /고객|customer/i.test(ownClause) || (/^[^,(]*?(와|과|및)\s/.test(own) && /고객|customer/i.test(next));
       // Customer counts are taken from the table itself (customer transports only), never from the
       // input, so batches built before a rule change are checked by the current rule; a view
       // variant may cover fewer rows, so a smaller number passes. Counts on a truncated table are

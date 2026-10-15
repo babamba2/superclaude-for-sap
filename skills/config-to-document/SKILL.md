@@ -75,6 +75,7 @@ It prints progress (`tables n/N`) on stderr and one JSON line at the end: `{ ok,
 5. `node scripts/config/notes.mjs status --module <M>` must show draft + review for every batch of this run before Step 5 (skip this step with scope `none`).
 6. **Knowledge base.** `node scripts/config/notes.mjs kb --module <M>` copies the general part of every reviewed note (purpose, SAP documentation summary, cases without the verdicts, comparison, checklist, criteria, official sources) to `~/.sc4sap/kb/config/<M>/<lang>/`. Later runs — this system again or any other system — mark those activities `"mode": "system"` in their batches: the writer adds only impact, cautions and one verdict per case, with no web research, and the reviewer checks only that part. On MM this cuts a batch to a fraction of the first-run cost.
 7. **Column meanings.** `node scripts/config/fields.mjs batches --module <M>` → `fields/_in/fNNN.json` (100 data elements per batch: label, domain values, F1 text, where used, samples) for every column that shows values and has no meaning in `~/.sc4sap/kb/fields/<lang>.json` yet. Per batch the module consultant writes one business meaning per data element and `sap-critic` saves corrections only (prompt § 5, no web research; measured on SD: 24 batches, about 2 corrections per 100). `fields.mjs status` must show draft + review for every batch, then `fields.mjs kb --module <M>` adds them to the knowledge base, shared by every module — a later module writes only the data elements it does not share. Independent of the notes scope; skip it only when the user declines.
+8. **BAdI implementations.** The extraction reads every customer implementing class of the module's BAdIs (GetClass, then the Z includes it branches into, two levels deep): per method code or empty, size and the objects it calls. `node scripts/config/badi-notes.mjs batch --module <M>` → `badi/_in.json`; the module consultant writes a summary and one line per method with code, `sap-critic` checks them against the source (reading called Z function modules), the writer revises once (prompt § 6). System-specific: nothing goes to the knowledge base.
 
 **Step 5 — Build.**
 ```
@@ -110,6 +111,7 @@ Built-in: activities whose values could not be read. Module rules: `configs/<M>/
 - `scripts/config/notes-lint.mjs` — mechanical batch checks before review; t-code cache `~/.sc4sap/kb/tcodes/<system>.json`
 - `scripts/config/config-checks.mjs` — rule engine
 - `scripts/config/build-config-doc.mjs` + `config-doc-page.mjs` — model, screen drawings, page, `--import` of edits
+- `scripts/config/badi-notes.mjs` — BAdI implementation notes: input batch, save (draft / review / revised), status
 - `scripts/config/fields.mjs` — column-meaning batches per data element, save (draft / review corrections), status, knowledge base `~/.sc4sap/kb/fields/<lang>.json`
 - `scripts/config/config-doc-editor.mjs` — edit mode (styles, client script, labels)
 </Files>
