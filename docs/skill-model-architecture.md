@@ -43,6 +43,7 @@ Suggested session model per skill (guidance only — nothing enforces it):
 | `analyze-symptom` | Sonnet or above | Routes questions, composes narratives from debugger output |
 | `compare-programs` | Sonnet or above | Orchestrates multi-program analysis; matrix assembly |
 | `config-to-document` | Sonnet or above | Runs the extract / notes / build scripts, batches the consultant-note dispatches, reports counts |
+| `interface-mapping-spec` | Sonnet or above | Interview, runs the build / import / refresh scripts, optional field-proposal and translation dispatches |
 | `create-object` | Sonnet or above | Metadata validation + executor/writer orchestration |
 | `create-program` | Sonnet or above | 9-phase pipeline orchestration, resume logic, state.json |
 | `package-to-process` | Sonnet or above | Entry-point detection, progress, per-process assembly and render |
@@ -106,6 +107,11 @@ Steps 11/11b (SPRO / customization extraction) are intentionally LLM-free: `scri
 - Steps 2–3, 5 — no agent: `scripts/config/extract-config.mjs` (background Node) reads the IMG tree, table values, transports and IMG documentation; `build-config-doc.mjs` renders the HTML
 - Step 4 write / revise — `sap-{module}-consultant` × 1 per batch (Opus, frontmatter; ≤ 4 batches in parallel) — consultant notes per IMG activity
 - Step 4 review — `sap-critic` × 1 per batch (Opus, frontmatter) — `ok` / `fix` verdict per note; one revise round for `fix` items
+
+#### `interface-mapping-spec` — session-model main, 0–2 dispatches
+- Steps 1–2, 4, 6–8 — no agent: `scripts/interface/build-if-spec.mjs` reads DDIC / the FM signature through MCP, proposes the counterpart side and conversion rules, builds, imports and refreshes the page
+- Step 3 (new interface described in business terms) — `sap-{module}-consultant` × 1 (frontmatter model) — proposes `TABLE-FIELD` lines, each checked against DDIC
+- Step 5 (page language ≠ en) — `sap-writer` × 1 (Sonnet override) — translates only the texts not reused from earlier versions
 
 ### Creation cluster (session-model main)
 

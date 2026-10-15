@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.38] — 2026-10-15
+
+### Added — `interface-mapping-spec`: interface mapping specifications
+
+- New skill `/sc4sap:interface-mapping-spec`: one editable HTML page per interface in the classic mapping-specification layout — cover, revision history, header, systems, Source → Target field grid with conversion-rule (R) and MAPPING columns, an optional response block for synchronous interfaces, conversion rules, extraction condition, remarks and the field guide (ⓘ tooltips). Output: `interfaces/<IF_ID>/<IF_ID>-v<n>-<lang>.html` under the profile artifact base, with an English companion.
+- Built for new interfaces: four scenario presets (master data outbound, transaction outbound, inbound into SAP, query) fill the header and the response block; the SAP side comes from a `TABLE-FIELD` / data-element list, from the module consultant's proposal (checked against DDIC), from an Excel paste or an empty grid — or is read from an existing table, DB view, structure (proxy) or function module signature (TABLES parameters named as outputs go to the response block).
+- Fields are grouped by the unit they travel in: ▸ group rows per side with name, PARAMETER / STRUCTURE / TABLE and occurrence; a row's Table column holds only the source DDIC table, and the systems' Structure / occurrence is the summary of the groups. Source and target sides have their own colours.
+- Proposals: the counterpart side (same names, DB types, MAPPING 1:1), DDIC types shown as DB types (the DDIC type in the tooltip), conversion rules from the field types (dates, times, leading zeros / ALPHA, currency amounts, quantities and units), IF ID numbering from a project pattern. Proposals are marked until edited or confirmed.
+- In-page checks: empty required items, MAPPING to a missing row, unknown rule ids, size truncation, type-family and key mismatches, unmapped target fields.
+- Edit mode with nothing installed: code lists as drop-downs, rows and groups added / moved / deleted with MAPPING following the renumbering, Excel paste, undo, browser autosave; Save adds the revision row (author, change, approver) and raises the version. `import` takes the page back and fills hand-typed SAP fields from DDIC; `refresh` reads SAP again, keeps what the user wrote and marks added / changed / removed fields; `fields` hands the SAP-side field list to `/sc4sap:create-object`.
+- Cover, document-number pattern, ID pattern and code lists per project in `interfaces/project.json`.
+
 ## [0.6.37] — 2026-10-15
 
 ### Added — `config-to-document`: edit mode covers the views
