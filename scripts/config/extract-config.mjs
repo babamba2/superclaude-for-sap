@@ -9,7 +9,10 @@
 //
 // Usage:
 //   node scripts/config/extract-config.mjs --module MM [--areas "Purchasing,Inventory Management…"]
-//        [--lang ko] [--max-rows 1000] [--full-tables "T683S,T685A"] [--no-docs] [--list-areas] [--fresh]
+//        [--lang ko] [--max-rows 1000] [--no-full] [--full-tables "T683S,T685A"] [--no-docs] [--list-areas] [--fresh]
+//   A table with more rows than --max-rows is read again up to the TABLE_READ cap (5000), split by
+//   its key fields when it reaches the cap, text tables in the document language and English only;
+//   --no-full keeps such tables at --max-rows (--full-tables then names the ones read in full).
 //   node scripts/config/extract-config.mjs --module MM --field-docs | --badi   (adds column F1 docs / BAdI implementations to an existing snapshot)
 //
 // Output: <artifactBase>/config-docs/<MODULE>/snapshot.json (artifactBase = active profile).
@@ -36,7 +39,7 @@ const LANG_KEY = { ko: '3', en: 'E', ja: 'J', de: 'D', zh: '1' };
 const CUSTOMER_TR = /^(?!SAP)[A-Z][A-Z0-9]{2}K[A-Z0-9]{6}$/;
 
 function args(argv) {
-  const out = { module: '', areas: [], lang: 'ko', maxRows: 1000, fullTables: new Set(), docs: true, listAreas: false, fresh: false, rootText: '' };
+  const out = { module: '', areas: [], lang: 'ko', maxRows: 1000, fullTables: new Set(), autoFull: true, docs: true, listAreas: false, fresh: false, rootText: '' };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     const next = () => argv[++i];
@@ -46,6 +49,7 @@ function args(argv) {
     else if (a === '--max-rows') out.maxRows = Math.max(1, Math.min(5000, Number(next()) || 1000));
     // Tables read up to the TABLE_READ cap (5000) instead of --max-rows (pricing: T683S, T685A …).
     else if (a === '--full-tables') out.fullTables = new Set(String(next()).split(',').map((s) => s.trim().toUpperCase()).filter(Boolean));
+    else if (a === '--no-full') out.autoFull = false;
     else if (a === '--no-docs') out.docs = false;
     else if (a === '--list-areas') out.listAreas = true;
     else if (a === '--fresh') out.fresh = true;
@@ -264,8 +268,8 @@ function checkValue(row, name) {
  * is still capped at 5000; `truncated` stays true when one of them hits the cap
  * or when the first key has no fixed values to split on.
  */
-export async function readByFirstKey(c, table, fields, first, langs = []) {
-  const key = fields.find((f) => f.key && f.type !== 'CLNT');
+export async function readByFirstKey(c, table, fields, first, langs = [], base = {}) {
+  const key = fields.find((f) => f.key && f.type !== 'CLNT' && !(f.name in base));
   if (!key) return { ...first, truncated: true };
   // A text table keyed by language: only the document language and English are shown.
   if (key.type === 'LANG' && langs.length) {
@@ -296,10 +300,10 @@ export async function readByFirstKey(c, table, fields, first, langs = []) {
   // Values past the first 300 are not read, so the table stays incomplete.
   let truncated = ctCapped || all.length > values.length;
   for (const v of values) {
-    let part = await readTable(c, table, { where: { [key.name]: v } });
+    let part = await readTable(c, table, { where: { ...base, [key.name]: v } });
     if (!part.ok) continue;
     // A partition at the cap (T683S usage A) is split again by the following key fields.
-    if (part.rows.length >= 5000) part = await readByNextKey(c, table, fields, { [key.name]: v }, part);
+    if (part.rows.length >= 5000) part = await readByNextKey(c, table, fields, { ...base, [key.name]: v }, part);
     rows.push(...part.rows);
     if (part.truncated) truncated = true;
   }
@@ -337,6 +341,17 @@ async function readByNextKey(c, table, fields, where, capped, depth = 0) {
   return { ok: true, rows, truncated };
 }
 
+/**
+ * Whether a table read with more rows than --max-rows is read again in full: up to the
+ * TABLE_READ cap, restricted to the document languages when a key field is the language.
+ * Returns null when the first read stands (--no-full, already full, or within the limit).
+ */
+export function fullReadPlan(fields, rowCount, maxRows, o) {
+  if (!o.autoFull || maxRows >= 5000 || rowCount <= maxRows) return null;
+  const lang = fields.find((f) => f.key && f.type === 'LANG');
+  return { maxRows: 5000, base: lang ? { [lang.name]: o.langs } : {} };
+}
+
 async function readTables(c, o, tables) {
   const defs = byKey((await readIn(c, 'DD03L', 'TABNAME', tables, { extra: { AS4LOCAL: 'A' } })).rows, 'TABNAME');
   const desc = byKey((await readIn(c, 'DD02T', 'TABNAME', tables, { extra: { DDLANGUAGE: o.langs, AS4LOCAL: 'A' } })).rows, 'TABNAME');
@@ -348,11 +363,20 @@ async function readTables(c, o, tables) {
     const fields = (defs[t] || []).filter((f) => !String(f.FIELDNAME).startsWith('.'))
       .sort((a, b) => Number(a.POSITION) - Number(b.POSITION))
       .map((f) => ({ name: f.FIELDNAME, key: f.KEYFLAG === 'X' || f.KEYFLAG === true, rollname: f.ROLLNAME, domname: f.DOMNAME, checktable: f.CHECKTABLE && f.CHECKTABLE !== '*' ? f.CHECKTABLE : '', type: f.DATATYPE, leng: Number(f.LENG) || 0 }));
-    const maxRows = o.fullTables.has(t) ? 5000 : o.maxRows;
+    let maxRows = o.fullTables.has(t) ? 5000 : o.maxRows;
     let rows = await readTable(c, t, { maxRows: maxRows + 1 });
+    // More rows than --max-rows (per-plant tables on a system with many plants): read the
+    // whole table up to the TABLE_READ cap; a text table keyed by language only in the
+    // document language and English, wherever the language field sits in the key.
+    const plan = fullReadPlan(fields, (rows.rows || []).length, maxRows, o);
+    let base = {};
+    if (plan) {
+      ({ maxRows, base } = plan);
+      rows = await readTable(c, t, { where: Object.keys(base).length ? base : '', maxRows: 5001 });
+    }
     // At the TABLE_READ cap (5000) the rows are the first key values only (T683S:
     // pricing usage A, never output usage B) — read again per value of the first key.
-    if ((rows.rows || []).length >= 5000) rows = await readByFirstKey(c, t, fields, rows, o.langs);
+    if ((rows.rows || []).length >= 5000) rows = await readByFirstKey(c, t, fields, rows, o.langs, base);
     const hist = await readTable(c, 'E071K', { where: `OBJNAME = '${t}' AND TRKORR NOT LIKE 'SAP%'` });
     // TABKEY starts with the client the change was recorded in, which is often
     // not the client read here (customizing client vs. test client), so keys

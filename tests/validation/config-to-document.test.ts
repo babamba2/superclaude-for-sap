@@ -5,7 +5,7 @@ import { readIn } from '../../scripts/config/sap-reader.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { itfToBlocks, itfInline } from '../../scripts/config/itf.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { keyString, orderSiblings } from '../../scripts/config/extract-config.mjs';
+import { keyString, orderSiblings, fullReadPlan } from '../../scripts/config/extract-config.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { runChecks } from '../../scripts/config/config-checks.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -388,5 +388,23 @@ describe('config-to-document — screen drawing', () => {
     const svg = renderAlvScreenSVG({ columns: [{ name: 'c0', header: 'Class', width: 80 }, { name: 'c1', header: 'Text', width: 80 }], sampleRows: [{ c0: 'ZMM_PO_RELEASE_STRATEGY_CLASS', c1: 'STO Release(LE)' }] });
     expect(svg).not.toContain('ZMM_PO_RELEASE_STRATEGY_CLASS');
     expect(svg).toMatch(/ZMM_[A-Z_]*…/);
+  });
+});
+
+describe('config-to-document — tables over the row limit are read in full', () => {
+  const o = { autoFull: true, langs: ['3', 'E'] };
+  const plantTable = [{ name: 'MANDT', key: true, type: 'CLNT' }, { name: 'WERKS', key: true, type: 'CHAR' }, { name: 'AUFART', key: true, type: 'CHAR' }];
+  const textTable = [{ name: 'MANDT', key: true, type: 'CLNT' }, { name: 'SETCLASS', key: true, type: 'CHAR' }, { name: 'LANGU', key: true, type: 'LANG' }, { name: 'DESCRIPT', key: false, type: 'CHAR' }];
+
+  it('reads a capped table again up to the TABLE_READ cap', () => {
+    expect(fullReadPlan(plantTable, 1001, 1000, o)).toEqual({ maxRows: 5000, base: {} });
+  });
+  it('restricts a text table to the document languages wherever the language key sits', () => {
+    expect(fullReadPlan(textTable, 1001, 1000, o)).toEqual({ maxRows: 5000, base: { LANGU: ['3', 'E'] } });
+  });
+  it('keeps the first read within the limit, for --full-tables and with --no-full', () => {
+    expect(fullReadPlan(plantTable, 1000, 1000, o)).toBeNull();
+    expect(fullReadPlan(plantTable, 5001, 5000, o)).toBeNull();
+    expect(fullReadPlan(plantTable, 1001, 1000, { ...o, autoFull: false })).toBeNull();
   });
 });

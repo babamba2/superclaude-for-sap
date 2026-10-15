@@ -3,6 +3,12 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed — `config-to-document`
+
+- Tables with more rows than `--max-rows` are no longer cut at 1000 rows: on a system with many plants the per-plant tables (order type parameters, BOM application, move times …) lost most plants. Such a table is now read again up to the 5000-row read cap and split by its key fields when it reaches it; text tables keyed by language are read in the document language and English only, which keeps the snapshot small. `--no-full` keeps the old limit.
+
 ## [0.6.39] — 2026-10-16
 
 ### Added — `config-to-document`: column meanings
