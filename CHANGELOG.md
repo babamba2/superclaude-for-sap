@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.41] — 2026-10-16
+
 ### Added — `smartform-preview`
 
 - New skill `/sc4sap:smartform-preview`: the expected print of a SmartForm as a JPG plus the HTML it is drawn from, without a print program or test data. Windows at their mm positions, SmartStyle paragraph and character formats, template grids with borders and shading, loops and tables with sample rows, SE78 graphics (logos, signatures) at their printed size, `Page 1 of 1`.
