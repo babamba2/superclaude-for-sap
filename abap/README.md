@@ -66,3 +66,33 @@ It reads `STXFADM` and the Form Builder object model (`CL_SSF_FB_SMART_FORM->LOA
 4. Test with `GetSmartFormLayout` on a known form and on a name that does not exist (expect "not found").
 
 Until step 3 is done the tool answers with an install hint (`Unknown action: SSF_LAYOUT`).
+
+## ZMCP_SSF_CONTENT + dispatcher action SSF_CONTENT (GetSmartFormContent)
+
+Read-only content of one SmartForm for the MCP tool `GetSmartFormContent` and the skill `/sc4sap:smartform-preview`: the whole form as Form Builder XML, its SmartStyles as CSS, SE78 graphics as BMP and SO10 include texts. Works on BASIS 7.31 (SOAP RFC backend) and 7.40 (OData backend) through `ZMCP_ADT_DISPATCH`.
+
+**Sources:**
+- `zmcp_ssf_content.abap` — FM `ZMCP_SSF_CONTENT`, one source for 7.31 and 7.40 (JSON built in the FM). Uses `FORM ssf_layout_str` of `ZMCP_SSF_LAYOUT`, so install that FM first, in the same function group.
+- `zmcp_adt_dispatch_ssf_content_branch.abap` — snippet A (7.31 dispatcher) and B (ECC / 7.40 dispatcher): one `WHEN 'SSF_CONTENT'.` line plus a `FORM ssf_content` to append.
+
+**Interface of ZMCP_SSF_CONTENT:**
+| Parameter | Type | Direction | Description |
+|-----------|------|-----------|-------------|
+| IV_PART | STRING | Import | `FORM`, `STYLE`, `GRAPHIC` or `STDTEXT` |
+| IV_FORMNAME | TDSFNAME | Import (optional) | SmartForm name (`FORM`) |
+| IV_NAME | STRING | Import (optional) | Style, graphic or text name |
+| IV_OBJECT / IV_ID / IV_BTYPE | STRING | Import (optional) | Graphic key (defaults `GRAPHICS` / `BMAP` / `BCOL`) or text key (`TEXT` / `ST`) |
+| IV_LANGUAGE | SPRAS | Import (optional) | Include text language; empty → logon language |
+| EV_SUBRC | SYSUBRC | Export | 0 = ok, 4 = not found, 8 = other error |
+| EV_MESSAGE | STRING | Export | Error / info message |
+| EV_RESULT | STRING | Export | JSON; XML, CSS and BMP in base64 |
+
+`FORM` uses `FB_CONVERT_FORM_TO_XML` (active version, the same XML as SMARTFORMS > Utilities > Download), `STYLE` `SSF_CONVERT_STYLE_TO_CSS`, `GRAPHIC` `SAPSCRIPT_GET_GRAPHIC_BDS` + `SAPSCRIPT_CONVERT_BITMAP` with the size from `STXBITMAPS`, `STDTEXT` `READ_TEXT`. `CL_SSF_XSF_UTILITIES=>GET_BDS_GRAPHIC_AS_BMP` / `GET_SMART_STYLE_AS_CSS` are deliberately not used: they write the cache tables `SSFXSFBMP` / `SSFXSFCSS`. Program lines of the form are never returned by the MCP tool.
+
+**Install (per system, each step needs a transport and the user's OK):**
+1. `ZMCP_SSF_LAYOUT` installed (section above).
+2. Create FM `ZMCP_SSF_CONTENT` in function group `ZMCP_ADT_UTILS` — **not** remote-enabled — with the source of `zmcp_ssf_content.abap`; activate.
+3. Read and back up the **live** `ZMCP_ADT_DISPATCH`, add snippet A (7.31) or B (7.40), activate.
+4. Test with `GetSmartFormContent` (`summary: true`) on a form with a logo.
+
+Until step 3 is done the tool answers with an install hint (`Unknown action: SSF_CONTENT`).
