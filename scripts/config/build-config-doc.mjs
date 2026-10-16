@@ -24,6 +24,8 @@ import { loadRules, runChecks, attachActivities } from './config-checks.mjs';
 import { pageHtml } from './config-doc-page.mjs';
 import { loadNotes, loadTerms } from './notes.mjs';
 import { loadFieldMeanings } from './fields.mjs';
+import { loadValueMeanings } from './values.mjs';
+import { loadBadiNotes, methodKey } from './badi-notes.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MOCK_COLS = 8;
@@ -279,6 +281,13 @@ const EDITS_RE = /<script type="application\/json" id="config-edits">([\s\S]*?)<
 const stripSvg = (n) => (n?.cases ? { ...n, cases: { ...n.cases, list: n.cases.list.map(({ svg, ...c }) => c) } } : n);
 
 /** notes/edits.json: { system, module, edits: { activity: note }, views: { view: { rows, cols, cust, trOf, cardTitle, histList, shots, edited } }, log: [{ author, at, note, activities, views }] } */
+// Methods of the implementing classes keyed by their short name (after the interface ~).
+function badiSrcOf(src) {
+  const out = {};
+  for (const [cls, s] of Object.entries(src)) out[cls] = { error: s.error || '', methods: (s.methods || []).map((m) => ({ ...m, key: methodKey(m.name) })), includes: s.includes || {} };
+  return out;
+}
+
 export function readEdits(dir) {
   const f = join(dir, 'notes', 'edits.json');
   return existsSync(f) ? { views: {}, ...JSON.parse(readFileSync(f, 'utf8')) } : { edits: {}, views: {}, log: [] };
@@ -376,16 +385,57 @@ async function main() {
 
   // Column meanings (reviewed, or from the knowledge base) and SAP F1 text for the columns that show values.
   const meanings = loadFieldMeanings(dir, lang);
+  const valueMeanings = loadValueMeanings(dir, lang);
   const fields = {};
+  // The values a column can take, with SAP's text: the domain's fixed values, else the
+  // keys of its check table with the text of the table (or its text table) when the
+  // snapshot holds it — "BSTAR: 1 = unrestricted, 2 = quality inspection …".
+  const deInfo = {};
+  for (const t of Object.values(snap.tables)) for (const f of t.fields) if (f.rollname && !deInfo[f.rollname]) deInfo[f.rollname] = { dom: f.domname, check: f.checktable, name: f.name };
+  const textTables = {};
+  for (const [name, t] of Object.entries(snap.tables)) {
+    const keys = t.fields.filter((f) => f.key && f.type !== 'CLNT' && f.type !== 'LANG');
+    // The description column: a text-named field (VTEXT, BEZEI, KTEXT …), never a user
+    // name (ERNAM / AENAM hold "SAP" on delivered rows).
+    const chars = t.fields.filter((f) => !f.key && f.type === 'CHAR' && f.leng >= 10 && !/^(ERNAM|AENAM|USNAM|UNAME|CHANGED_BY|CREATED_BY)$/.test(f.name));
+    const txt = chars.find((f) => /^(VTEXT|BEZEI|BEZEICH|KTEXT|LTEXT|TEXT\d*|TXT\w*|\w*TEXT|\w*TXT)$/.test(f.name)) || (t.fields.some((f) => f.key && f.type === 'LANG') ? chars[0] : null);
+    if (keys.length === 1 && txt && t.rows.length) (textTables[keys[0].domname || keys[0].name] ??= []).push({ name, key: keys[0].name, txt: txt.name, lang: t.fields.find((f) => f.key && f.type === 'LANG')?.name });
+  }
+  const VALUE_CAP = 300;
+  const valueList = (de) => {
+    const i = deInfo[de];
+    if (!i) return null;
+    const fixed = i.dom && snap.domains?.[i.dom];
+    if (fixed && Object.keys(fixed).length) return Object.entries(fixed).slice(0, VALUE_CAP).map(([k, t]) => [k, t]);
+    if (!i.check) return null;
+    // A language-keyed text table of the check table (TVFK → TVFKT) first, then the check table itself.
+    const score = (t) => (t.lang ? 4 : 0) + (t.name.startsWith(i.check) ? 2 : 0) + (t.name === i.check ? 1 : 0);
+    const cands = [...(textTables[i.dom] || textTables[i.name] || [])].sort((a, b) => score(b) - score(a));
+    const tt = cands[0];
+    if (!tt) return null;
+    const out = new Map();
+    const rank = (r) => (!tt.lang ? 1 : r[tt.lang] === ({ ko: '3', en: 'E', ja: 'J', de: 'D', zh: '1' }[lang] || 'E') ? 3 : r[tt.lang] === 'E' ? 2 : 0);
+    const best = new Map();
+    for (const r of snap.tables[tt.name].rows) {
+      const k = show(r[tt.key]);
+      if (!rank(r) || (best.get(k) || 0) >= rank(r)) continue;
+      best.set(k, rank(r));
+      out.set(k, String(r[tt.txt] ?? ''));
+    }
+    return out.size ? [...out].sort((a, b) => a[0].localeCompare(b[0])).slice(0, VALUE_CAP) : null;
+  };
   for (const v of Object.values(views)) if (v.rows.length) for (const c of v.cols) {
     if (!c.de || fields[c.de]) continue;
     const m = meanings[c.de] || '', f1 = (snap.fieldDocs?.[c.de]?.text || '').slice(0, 600);
-    if (m || f1) fields[c.de] = { m, f1 };
+    const v = valueList(c.de);
+    // Business meaning per fixed value (reviewed, or from the knowledge base).
+    const vm = v && deInfo[c.de]?.dom && valueMeanings[deInfo[c.de].dom];
+    if (m || f1 || v) fields[c.de] = { m, f1, ...(v ? { v } : {}), ...(vm ? { vm } : {}) };
   }
   const data = {
     fields,
     meta: snap.meta, lang, tree: snap.tree, acts, views, checks,
-    transports: snap.transports, domains: snap.domains, docs: snap.docs, badiImpls: snap.badiImpls || {}, badiErrors: snap.badiErrors || {},
+    transports: snap.transports, domains: snap.domains, docs: snap.docs, badiImpls: snap.badiImpls || {}, badiErrors: snap.badiErrors || {}, badiSrc: badiSrcOf(snap.badiSources || {}), badiNotes: loadBadiNotes(dir),
     notes: withCaseDiagrams({ ...loadNotes(dir, { module, lang }), ...structuredClone(edits.edits) }, lang),
     edits,
   };

@@ -145,9 +145,21 @@ async function lint(o) {
       const NEXT = /\d[\d,]*\s*(?:개\s*)?(?:행|rows?|건)/;
       const after = around.slice(m[0].length);
       // "(customer 37행)" / "중 고객 7행" introduce the next count, not this one.
-      const own = after.split(NEXT)[0].replace(/(\(|중)\s*(고객|customer)[^)]*$/i, '');
-      const next = after.split(NEXT).slice(1).join(' ').split(NEXT)[0];
-      const aboutCustomer = /고객|customer/i.test(own) || (/^[^,(]*?(와|과|및)\s/.test(own) && /고객|customer/i.test(next));
+      // "105건, customer row 0건": a customer word right before the next count introduces it.
+      // "213행(customer 행 209)": a bracketed customer count is the next count, wherever it stands.
+      // "23건만 있고 고객 변경 행은 0건": a customer word leading into the next count introduces it.
+      const parts = after.split(NEXT);
+      let own = parts[0].replace(/\(\s*(고객|customer)[^)]*\)/gi, '').replace(/(\(|중)\s*(고객|customer)[^)]*$/i, '').replace(/[,;·/]\s*[^,;·/]*(고객|customer)[^,;·/]*$/i, '');
+      if (parts.length > 1) own = own.replace(/(고객|customer)[^,.;()]*$/i, '');
+      // "28행이며 고객 변경 행은 5건" / "2행만 있으며 고객 변경 행은 없습니다": a customer word after a
+      // clause connector starts the next statement and is not about this count.
+      // "19행, 고객 변경 없음": a customer word that says there are none is not a customer count.
+      // "1건, customerRows 0": a customer count of zero says there are none, too.
+      // "customer 행이 아닌" / "customer 행이 0" / "고객 transport 기록이 없는": none, not a count.
+      const noCustomer = (t) => t.replace(/(고객|customer)[^,.;]*?(없|아니|아닌|no\b|none)/gi, '').replace(/(고객|customer)\w*\s*(rows?|행)?\s*[이은는가]?\s*0(?![\d,])/gi, '');
+      const ownClause = noCustomer(own.split(/(?:이며|으며|이고|\s중)\s/)[0]);
+      const next = noCustomer(after.split(NEXT).slice(1).join(' ').split(NEXT)[0]);
+      const aboutCustomer = /고객|customer/i.test(ownClause) || (/^[^,(]*?(와|과|및)\s/.test(own) && /고객|customer/i.test(next));
       // Customer counts are taken from the table itself (customer transports only), never from the
       // input, so batches built before a rule change are checked by the current rule; a view
       // variant may cover fewer rows, so a smaller number passes. Counts on a truncated table are

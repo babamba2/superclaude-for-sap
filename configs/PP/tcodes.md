@@ -50,9 +50,11 @@
 ## Configuration
 | TCode | System | Description |
 |-------|--------|-------------|
-| OP43 | ECC/S4 | Define MRP Controller / MRP 담당자 정의 |
+| OP43 | ECC/S4 | Setup Group Categories / 셋업 그룹 범주 |
+| OMD0 | ECC/S4 | Define MRP Controller / MRP 담당자 정의 |
 | OPJN | ECC/S4 | Define Order Types (PP) / 주문 유형 정의 |
-| OPJ8 | ECC/S4 | Define Confirmation Parameters / 확인 매개변수 정의 |
+| OPJ8 | ECC/S4 | Maintain Operation Control Key / 공정 제어 키 유지 |
+| OPK4 | ECC/S4 | Define Confirmation Parameters / 확인 매개변수 정의 |
 | OPL8 | ECC/S4 | Plant Parameters for Orders / 주문에 대한 플랜트 매개변수 |
 | OPUZ | ECC/S4 | Control Key for Routing Operations / 라우팅 공정 관리 키 |
 
