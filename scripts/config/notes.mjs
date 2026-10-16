@@ -173,7 +173,11 @@ function batches(o) {
   const batched = new Set(existsSync(join(dir, 'notes', '_in')) ? readdirSync(join(dir, 'notes', '_in')).filter((f) => /^b\d{3}\.json$/.test(f))
     .flatMap((f) => JSON.parse(readFileSync(join(dir, 'notes', '_in', f), 'utf8')).items.map((x) => x.id)) : []);
   const ids = pick(o.scope).filter((id) => o.redo || !batched.has(id));
-  const docText = (id) => (snap.docs[acts[id].docuId]?.blocks || []).map((b) => b.text).join(' ').slice(0, 1000);
+  // 1000 characters cut 40% of the IMG docs (PP: Heijunka missing from the TSPP0 doc); 6000 covers 99%.
+  const docText = (id) => {
+    const t = (snap.docs[acts[id].docuId]?.blocks || []).map((b) => b.text).join(' ');
+    return t.length > 6000 ? `${t.slice(0, 6000)} … (cut; full text in snapshot.docs)` : t;
+  };
   // Activities whose general part (purpose, SAP documentation, cases, criteria,
   // sources) is already in the knowledge base get only the system part written.
   const kb = (id) => kbRead(o.module, lang, id);

@@ -145,7 +145,7 @@ function status(o) {
   return { implementations: (readJson(join(dir, '_in.json'), { items: [] }).items || []).length, draft: n('draft.json'), review: n('review.json'), revised: n('revised.json') };
 }
 
-if (import.meta.url === `file:///${process.argv[1].replace(/\\/g, '/')}` || process.argv[1]?.endsWith('badi-notes.mjs')) {
+if (import.meta.url === `file:///${process.argv[1]?.replace(/\\/g, '/')}` || process.argv[1]?.endsWith('badi-notes.mjs')) {
   const o = opts(process.argv.slice(2));
   const run = { batch, save, status }[o.cmd];
   if (!run) throw new Error('command: batch | save | status');

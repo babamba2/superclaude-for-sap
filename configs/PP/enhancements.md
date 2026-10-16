@@ -34,7 +34,7 @@ SAP PP는 릴리스 및 사용 사례에 따라 다양한 확장 메커니즘을
 | PLM_AUDIT | ECC/S4 | Audit management / 감사 관리 | PLM audit enhancements |
 | MDKP0001 | ECC/S4 | MRP result / MRP 결과 | Modify MRP run result |
 | MDPQ0001 | ECC/S4 | MRP list / MRP 목록 | Customize MRP list (MD04/MD05) |
-| M61X0001 | ECC/S4 | Forecast / 예측 | Forecasting logic |
+| M61X0001 | ECC/S4 | MRP material selection / MRP 자재 선택 | EXIT_SAPMM61X_001: exclude materials from the planning run by a user exit key (MD01/MDBT) |
 | MRP00001 – MRP00003 | ECC/S4 | MRP planning run / MRP 계획 실행 | Extend planning run |
 | PLAS0001 | ECC/S4 | Task list / 작업 목록 | Routing / task list logic |
 | PPPIPI01 – PPPIPI09 | ECC/S4 | Process industry / 프로세스 산업 | Process order enhancements |

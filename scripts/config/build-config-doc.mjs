@@ -24,6 +24,7 @@ import { loadRules, runChecks, attachActivities } from './config-checks.mjs';
 import { pageHtml } from './config-doc-page.mjs';
 import { loadNotes, loadTerms } from './notes.mjs';
 import { loadFieldMeanings } from './fields.mjs';
+import { loadValueMeanings } from './values.mjs';
 import { loadBadiNotes, methodKey } from './badi-notes.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -384,6 +385,7 @@ async function main() {
 
   // Column meanings (reviewed, or from the knowledge base) and SAP F1 text for the columns that show values.
   const meanings = loadFieldMeanings(dir, lang);
+  const valueMeanings = loadValueMeanings(dir, lang);
   const fields = {};
   // The values a column can take, with SAP's text: the domain's fixed values, else the
   // keys of its check table with the text of the table (or its text table) when the
@@ -426,7 +428,9 @@ async function main() {
     if (!c.de || fields[c.de]) continue;
     const m = meanings[c.de] || '', f1 = (snap.fieldDocs?.[c.de]?.text || '').slice(0, 600);
     const v = valueList(c.de);
-    if (m || f1 || v) fields[c.de] = { m, f1, ...(v ? { v } : {}) };
+    // Business meaning per fixed value (reviewed, or from the knowledge base).
+    const vm = v && deInfo[c.de]?.dom && valueMeanings[deInfo[c.de].dom];
+    if (m || f1 || v) fields[c.de] = { m, f1, ...(v ? { v } : {}), ...(vm ? { vm } : {}) };
   }
   const data = {
     fields,

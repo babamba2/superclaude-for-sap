@@ -18,10 +18,11 @@
 // Output: <artifactBase>/config-docs/<MODULE>/snapshot.json (artifactBase = active profile).
 // A read cache (_cache.json) next to it lets an interrupted run resume; --fresh clears it.
 
-import { existsSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync, rmSync, writeFileSync, openSync, readSync, writeSync, closeSync, renameSync, createReadStream } from 'fs';
+import { createInterface } from 'readline';
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { connect, readTable, readIn } from './sap-reader.mjs';
+import { connect, readTable, readIn, whereOf } from './sap-reader.mjs';
 import { itfToBlocks } from './itf.mjs';
 import { loadRules } from './config-checks.mjs';
 import { resolveArtifactBase, readActiveAlias, readActiveSapEnv } from '../lib/profile-resolve.mjs';
@@ -368,6 +369,12 @@ export function keyString(row, keyFields) {
 
 const PARTITION_TOTAL = 50000;
 
+// rows.push(...more) passes every row as an argument and overflows the stack on large reads
+// (a million transport keys of one per-plant table).
+function append(rows, more) {
+  for (const r of more) rows.push(r);
+}
+
 /** Key value of a check-table row: the same field name, else its first non-client column (TVCPF-FKARN → TVFK-FKART). */
 function checkValue(row, name) {
   if (name in row) return row[name];
@@ -382,6 +389,23 @@ function checkValue(row, name) {
  * or when the first key has no fixed values to split on.
  */
 export async function readByFirstKey(c, table, fields, first, langs = [], base = {}) {
+  // A base with several values (the document languages of a text table) is read one value at
+  // a time first: T156T in two languages passes the cap, each language alone does not.
+  const multi = Object.entries(base).find(([, v]) => Array.isArray(v) && v.length > 1);
+  if (multi) {
+    const rows = [];
+    let truncated = false;
+    for (const v of multi[1]) {
+      const b = { ...base, [multi[0]]: v };
+      let part = await readTable(c, table, { where: b });
+      if (!part.ok) continue;
+      if (part.rows.length >= 5000) part = await readByFirstKey(c, table, fields, part, langs, b);
+      append(rows, part.rows);
+      if (part.truncated) truncated = true;
+    }
+    log(`  ${table}: read by ${multi[0]} (${multi[1].join(', ')}) → ${rows.length} rows${truncated ? ', still capped' : ''}`);
+    return { ok: true, rows, partitioned: true, truncated: truncated || rows.length > PARTITION_TOTAL };
+  }
   const key = fields.find((f) => f.key && f.type !== 'CLNT' && !(f.name in base));
   if (!key) return { ...first, truncated: true };
   // A text table keyed by language: only the document language and English are shown.
@@ -390,7 +414,7 @@ export async function readByFirstKey(c, table, fields, first, langs = [], base =
     let truncated = false;
     for (const l of langs) {
       const part = await readTable(c, table, { where: { [key.name]: l } });
-      if (part.ok) rows.push(...part.rows);
+      if (part.ok) append(rows, part.rows);
       if (part.rows.length >= 5000) truncated = true;
     }
     log(`  ${table}: read by ${key.name} (${langs.join(', ')}) → ${rows.length} rows${truncated ? ', still capped' : ''}`);
@@ -405,10 +429,13 @@ export async function readByFirstKey(c, table, fields, first, langs = [], base =
     fixed = ct.rows.map((r) => checkValue(r, key.name)).filter((v) => v != null);
     ctCapped = ct.rows.length >= 1000;
   }
+  // No values to split on (TVRO-ROUTE, T100A-ARBGB), or only the first 1000 of the check
+  // table's (TVRAB → TVRO): page through the table in key order instead.
   const seen = (first.rows || []).map((r) => r[key.name]);
   const all = [...new Set([...fixed, ...seen].map((v) => (v == null ? '' : String(v))))];
+  // More values than are worth one read each (T156SC by movement type): pages instead.
+  if (!fixed.length || ctCapped || all.length > 300) return readByKeyPages(c, table, fields, key, base, first);
   const values = all.slice(0, 300);
-  if (!fixed.length) { log(`  ${table}: capped at 5000, no values to split ${key.name} on`); return { ...first, truncated: true }; }
   const rows = [];
   // Values past the first 300 are not read, so the table stays incomplete.
   let truncated = ctCapped || all.length > values.length;
@@ -417,10 +444,40 @@ export async function readByFirstKey(c, table, fields, first, langs = [], base =
     if (!part.ok) continue;
     // A partition at the cap (T683S usage A) is split again by the following key fields.
     if (part.rows.length >= 5000) part = await readByNextKey(c, table, fields, { ...base, [key.name]: v }, part);
-    rows.push(...part.rows);
+    append(rows, part.rows);
     if (part.truncated) truncated = true;
   }
   log(`  ${table}: read by ${key.name} (${values.length} values) → ${rows.length} rows${truncated ? ', still capped' : ''}`);
+  return { ok: true, rows, partitioned: true, truncated: truncated || rows.length > PARTITION_TOTAL };
+}
+
+/**
+ * Read a capped table in pages on one key field: rows come back in key order, so the values
+ * before the last one of a page are complete, the last value is read on its own (split by the
+ * next key when it alone passes the cap), and the next page starts after it.
+ */
+async function readByKeyPages(c, table, fields, key, base, first) {
+  const fixedWhere = whereOf(base);
+  const where = (cond) => [fixedWhere, cond].filter(Boolean).join(' AND ');
+  const q = (v) => `'${String(v).replace(/'/g, "''")}'`;
+  const capped = (r) => r.rows.length >= 5000 || r.truncated;
+  const rows = [];
+  let truncated = false;
+  let page = first;
+  for (let n = 0; ; n++) {
+    if (!capped(page)) { append(rows, page.rows); break; }
+    if (n >= 100 || rows.length > PARTITION_TOTAL) { truncated = true; break; }
+    const last = page.rows.at(-1)[key.name];
+    append(rows, page.rows.filter((r) => String(r[key.name]) < String(last)));
+    let one = await readTable(c, table, { where: where(`${key.name} = ${q(last)}`) });
+    if (one.ok && capped(one)) one = await readByNextKey(c, table, fields, { ...base, [key.name]: last }, one);
+    if (!one.ok) { truncated = true; break; }
+    append(rows, one.rows);
+    if (one.truncated) truncated = true;
+    page = await readTable(c, table, { where: where(`${key.name} > ${q(last)}`) });
+    if (!page.ok) { truncated = true; break; }
+  }
+  log(`  ${table}: read in pages on ${key.name} → ${rows.length} rows${truncated ? ', still capped' : ''}`);
   return { ok: true, rows, partitioned: true, truncated: truncated || rows.length > PARTITION_TOTAL };
 }
 
@@ -447,7 +504,7 @@ async function readByNextKey(c, table, fields, where, capped, depth = 0) {
     let part = await readTable(c, table, { where: w });
     if (!part.ok) continue;
     if (part.rows.length >= 5000) part = await readByNextKey(c, table, fields, w, part, depth + 1);
-    rows.push(...part.rows);
+    append(rows, part.rows);
     if (part.truncated) truncated = true;
   }
   log(`  ${table}: ${JSON.stringify(where)} split by ${key.name} (${values.length} values) → ${rows.length} rows${truncated ? ', still capped' : ''}`);
@@ -463,6 +520,60 @@ export function fullReadPlan(fields, rowCount, maxRows, o) {
   if (!o.autoFull || maxRows >= 5000 || rowCount <= maxRows) return null;
   const lang = fields.find((f) => f.key && f.type === 'LANG');
   return { maxRows: 5000, base: lang ? { [lang.name]: o.langs } : {} };
+}
+
+/**
+ * Customer transport keys of a table (E071K). A busy per-plant table has more than the
+ * 5000-row read cap (T001L, T399X …), which left customer rows unmarked. E071K comes back
+ * in key order (request number first), so such a read pages on the request number: the
+ * requests before the last one are complete, the last one is read on its own, the next page
+ * starts after it.
+ */
+/**
+ * The keys one request recorded for a table, past the read cap too (a mass upload of per-plant
+ * rows): per object type (TABU, VDAT, CDAT …), then in pages on the position in the request.
+ */
+async function readRequestKeys(c, where) {
+  const capped = (r) => r.rows.length >= 5000 || r.truncated;
+  const first = await readTable(c, 'E071K', { where });
+  if (!first.ok || !capped(first)) return first;
+  const rows = [];
+  let truncated = false;
+  for (const obj of ['TABU', 'VDAT', 'CDAT', 'TDAT']) {
+    const w = `${where} AND OBJECT = '${obj}'`;
+    let page = await readTable(c, 'E071K', { where: w });
+    for (let n = 0; page.ok; n++) {
+      append(rows, page.rows);
+      if (!capped(page)) break;
+      if (n >= 400) { truncated = true; break; }
+      const pos = page.rows.reduce((m, r) => (String(r.AS4POS) > m ? String(r.AS4POS) : m), '');
+      page = await readTable(c, 'E071K', { where: `${w} AND AS4POS > '${pos}'` });
+    }
+    if (!page.ok) truncated = true;
+  }
+  return { ok: true, rows, truncated };
+}
+
+async function readHistory(c, t) {
+  const base = `OBJNAME = '${t}' AND TRKORR NOT LIKE 'SAP%'`;
+  const capped = (r) => r.rows.length >= 5000 || r.truncated;
+  let page = await readTable(c, 'E071K', { where: base });
+  if (!page.ok || !capped(page)) return page;
+  const rows = [];
+  let truncated = false;
+  for (let n = 0; n < 200; n++) {
+    if (!capped(page)) { append(rows, page.rows); break; }
+    const last = page.rows.at(-1).TRKORR;
+    append(rows, page.rows.filter((r) => r.TRKORR < last));
+    const one = await readRequestKeys(c, `${base} AND TRKORR = '${last}'`);
+    if (!one.ok) return { ...page, rows, truncated: true };
+    append(rows, one.rows);
+    if (one.truncated) truncated = true;
+    page = await readTable(c, 'E071K', { where: `${base} AND TRKORR > '${last}'` });
+    if (!page.ok) return { ok: true, rows, truncated: true };
+  }
+  log(`  ${t}: transport keys read in pages → ${rows.length} rows${truncated ? ', still capped' : ''}`);
+  return { ok: true, rows, truncated };
 }
 
 async function readTables(c, o, tables) {
@@ -490,7 +601,7 @@ async function readTables(c, o, tables) {
     // At the TABLE_READ cap (5000) the rows are the first key values only (T683S:
     // pricing usage A, never output usage B) — read again per value of the first key.
     if ((rows.rows || []).length >= 5000) rows = await readByFirstKey(c, t, fields, rows, o.langs, base);
-    const hist = await readTable(c, 'E071K', { where: `OBJNAME = '${t}' AND TRKORR NOT LIKE 'SAP%'` });
+    const hist = await readHistory(c, t);
     // TABKEY starts with the client the change was recorded in, which is often
     // not the client read here (customizing client vs. test client), so keys
     // are compared without it.
@@ -587,11 +698,15 @@ async function readLabels(c, o, rollnames, domnames) {
   }
   const dd07 = (await readIn(c, 'DD07T', 'DOMNAME', domnames, { extra: { DDLANGUAGE: o.langs, AS4LOCAL: 'A' } })).rows;
   const domains = {};
+  // English texts kept beside the document language: value meanings are checked against both
+  // (a document-language text can be a mistranslation).
+  const domainsEn = {};
   for (const r of dd07) {
     const d = (domains[r.DOMNAME] ??= {});
     if (!(r.DOMVALUE_L in d) || r.DDLANGUAGE === o.langKey) d[r.DOMVALUE_L] = r.DDTEXT;
+    if (r.DDLANGUAGE === 'E' && o.langKey !== 'E') (domainsEn[r.DOMNAME] ??= {})[r.DOMVALUE_L] = r.DDTEXT;
   }
-  return { labels, domains };
+  return { labels, domains, domainsEn };
 }
 
 async function readDocs(c, o, activities) {
@@ -667,6 +782,32 @@ function writeWithRetry(file, content, tries = 3) {
   }
 }
 
+// The read cache holds every SELECT of a run; with transport keys read in full it passes the
+// longest string JSON.stringify can build, so it is kept one entry per line.
+async function loadCache(path) {
+  const cache = new Map();
+  if (!existsSync(path)) return cache;
+  const fd = openSync(path, 'r');
+  // One JSON array of entries (earlier versions) starts "[[", a line per entry starts '["'.
+  const head = Buffer.alloc(2);
+  readSync(fd, head, 0, 2, 0);
+  closeSync(fd);
+  if (head.toString() === '[[') {
+    for (const [k, v] of JSON.parse(readFileSync(path, 'utf8'))) cache.set(k, v);
+    return cache;
+  }
+  const lines = createInterface({ input: createReadStream(path, 'utf8'), crlfDelay: Infinity });
+  for await (const line of lines) if (line) { const [k, v] = JSON.parse(line); cache.set(k, v); }
+  return cache;
+}
+
+function writeCache(path, cache) {
+  const tmp = `${path}.tmp`;
+  const fd = openSync(tmp, 'w');
+  try { for (const e of cache) writeSync(fd, `${JSON.stringify(e)}\n`); } finally { closeSync(fd); }
+  renameSync(tmp, path);
+}
+
 // ── main ──────────────────────────────────────────────────────────────────────
 async function main() {
   const o = args(process.argv.slice(2));
@@ -676,8 +817,8 @@ async function main() {
   const cachePath = join(outDir, '_cache.json');
   if (o.fresh && existsSync(cachePath)) rmSync(cachePath);
   const c = await connect();
-  c.cache = new Map(existsSync(cachePath) ? JSON.parse(readFileSync(cachePath, 'utf8')) : []);
-  const saveCache = () => atomicWriteFileSync(cachePath, JSON.stringify([...c.cache]));
+  c.cache = await loadCache(cachePath);
+  const saveCache = () => writeCache(cachePath, c.cache);
   const timer = setInterval(saveCache, 30000);
   try {
     // --field-docs / --badi: add the column F1 documentation / the BAdIs of the IMG activities
@@ -752,7 +893,7 @@ async function main() {
     const rolls = new Set(), doms = new Set();
     for (const t of Object.values(tableData)) for (const f of t.fields) { if (f.rollname) rolls.add(f.rollname); if (f.domname) doms.add(f.domname); }
     for (const v of Object.values(views)) for (const f of v.fields) if (f.rollname) rolls.add(f.rollname);
-    const { labels, domains } = await readLabels(c, o, [...rolls], [...doms]);
+    const { labels, domains, domainsEn } = await readLabels(c, o, [...rolls], [...doms]);
     const docs = o.docs ? await readDocs(c, o, activities) : {};
     const fieldDocs = o.docs ? await readFieldDocs(c, o, columnRolls({ tables: tableData, views })) : {};
     await addDocBadis(c, activities, docs);
@@ -765,7 +906,7 @@ async function main() {
         extractedAt: new Date().toISOString(), maxRows: o.maxRows,
         counts: { activities: actIds.length, views: Object.keys(views).length, tables: tables.length, transports: Object.keys(transports).length, docs: Object.keys(docs).length },
       },
-      tree, activities, views, clusters, clusterTitles, tables: tableData, numberRanges, transports, labels, domains, docs, fieldDocs, badiImpls: badi.impls, badiErrors: badi.errors, badiSources: await readBadiSources(c, badi.impls),
+      tree, activities, views, clusters, clusterTitles, tables: tableData, numberRanges, transports, labels, domains, domainsEn, docs, fieldDocs, badiImpls: badi.impls, badiErrors: badi.errors, badiSources: await readBadiSources(c, badi.impls),
     };
     const file = join(outDir, 'snapshot.json');
     writeWithRetry(file, JSON.stringify(snapshot));
