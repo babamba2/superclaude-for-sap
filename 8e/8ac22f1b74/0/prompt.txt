@@ -1,0 +1,7 @@
+<pasted_content id="61b4">
+Tests: I added src/__tests__/unit/smartFormContent.test.ts, built on a test XML with the same structure and made-up names. All 8 tests pass, and the existing layout tests still pass. The project-wide test typecheck reports errors, but only in unrelated files that I didn't touch. I rebuilt the server and copied the new smartFormContent.js into the plugin cache folder that actually runs. I also updated PENDING_SMARTFORM_PREVIEW.md with the status and next steps.
+
+The running MCP server still has the old code loaded. That's why the first call found no graphics and didn't download any images.
+
+Please restart Claude Code. After that I'll call the tool again to fetch the two BMPs and their printed sizes. Then I'll draw the HTML preview at real mm positions and export it to JPG. Field values such as &HEADER-BUYER_NAME1& will show as placeholders. README, CHANGELOG and the commit still come after the JPG, as planned.
+</pasted_content id="61b4">
