@@ -1,0 +1,11 @@
+<pasted_content id="7993">
+활성 프로필은 HKT-DEV에서 ES-DEV(BXD, 7.31, soap)로 바꿔 두었습니다. 그런데 MCP 서버는 프로필을 시작할 때 한 번만 읽기 때문에, 재시작 전까지는 여전히 HKT-DEV에 연결되어 있습니다. /mcp 재연결이나 ReloadProfile로는 바뀌지 않고, Claude Code를 완전히 껐다 켜야 합니다.
+
+재시작한 뒤 **"BXD GetSmartFormLayout 비교"**라고 말씀해 주세요. 다음 순서로 진행합니다.
+1. 먼저 연결된 시스템이 BXD(560 클라이언트)인지 확인합니다.
+2. ZSD_ZSDM50060_01을 호출해서 %PAGE1의 좌표를 기준값(layout-result.txt)과 비교합니다. 이 결과가 SOAP 경로와 7.31 컴파일까지 함께 확인해 줍니다.
+3. 없는 폼 이름으로 호출해서 Form or text … does not exist가 나오는지 봅니다.
+4. 확인이 끝나면 프로필을 HKT-DEV로 되돌릴지 여쭤본 뒤, 커밋을 두 개로 나눠 진행합니다. 하나는 도구 변경, 다른 하나는 문서 재생성입니다.
+
+이 단계는 PENDING_GUI_SCRIPTING.md에도 적어 두었습니다.
+</pasted_content id="7993">
