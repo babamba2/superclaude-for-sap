@@ -39,3 +39,30 @@ The setup uses `CreateFunctionGroup` and `CreateFunctionModule` MCP tools follow
 - `/UI2/CL_JSON` must be available (standard in S/4HANA and ECC 7.40+)
 - Both function modules must be **RFC-enabled**
 - Package: `$TMP` (local) or transportable Z-package
+
+## ZMCP_SSF_LAYOUT + dispatcher action SSF_LAYOUT (GetSmartFormLayout)
+
+Read-only page / window layout of one SmartForm for the MCP tool `GetSmartFormLayout`. Works on BASIS 7.31 (SOAP RFC backend) and 7.40 (OData backend); the server reaches it through `ZMCP_ADT_DISPATCH`, so no new OData function import is needed.
+
+**Sources:**
+- `zmcp_ssf_layout.abap` — FM `ZMCP_SSF_LAYOUT`, one source for 7.31 and 7.40 (no inline declarations, no `/UI2/CL_JSON`, no `ZCL_MCP_JSON`; the JSON is built in the FM). The `SSF_LAYOUT_*` FORMs at the end of the file go into the same function group.
+- `zmcp_adt_dispatch_ssf_layout_branch.abap` — two snippets: A for the 7.31 dispatcher (`ZCL_MCP_JSON`), B for the ECC / 7.40 dispatcher (`/UI2/CL_JSON`). Each is one `WHEN 'SSF_LAYOUT'.` line for the `CASE` plus a `FORM ssf_layout` to append.
+
+**Interface of ZMCP_SSF_LAYOUT:**
+| Parameter | Type | Direction | Description |
+|-----------|------|-----------|-------------|
+| IV_FORMNAME | TDSFNAME | Import | SmartForm name |
+| IV_LANGUAGE | SPRAS | Import (optional) | Form language; empty → master language of the form |
+| EV_SUBRC | SYSUBRC | Export | 0 = ok, 4 = form not found, 8 = other error |
+| EV_MESSAGE | STRING | Export | Error / info message |
+| EV_RESULT | STRING | Export | JSON: variants → pages → windows, coordinates raw with their units |
+
+It reads `STXFADM` and the Form Builder object model (`CL_SSF_FB_SMART_FORM->LOAD` in display mode, page tree nodes, the window node's output attributes). Text contents, program lines, global data and the form interface are never returned.
+
+**Install (per system, each step needs a transport and the user's OK):**
+1. Create FM `ZMCP_SSF_LAYOUT` in function group `ZMCP_ADT_UTILS` — **not** remote-enabled — with the source of `zmcp_ssf_layout.abap`; activate. Where ADT source writes fail (some 7.31 systems), create it in SE37.
+2. On 7.31, check in SE24 that `CL_SSF_FB_NODE` (`OBJ`, `OUTATTR`, `SUCC`), `CL_SSF_FB_PAGE` (`NEXTPAGE`, `PAGEORTN`, `PRINTMODE`), `CL_SSF_FB_WINDOW` (`WTYPE`, `WLEVEL`) and `CL_SSF_FB_OUTATTR` (`WLEFT` … `U_WHEIGHT`, `WFRAME`, `WSHADING`, `WEMPTY`) have these public attributes.
+3. Read and back up the **live** `ZMCP_ADT_DISPATCH` (the repo copies can be older), then add the snippet that matches the release: A (7.31) or B (7.40). Activate.
+4. Test with `GetSmartFormLayout` on a known form and on a name that does not exist (expect "not found").
+
+Until step 3 is done the tool answers with an install hint (`Unknown action: SSF_LAYOUT`).
