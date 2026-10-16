@@ -63,6 +63,7 @@ Skills that read or produce project-local artifacts must adopt this pattern:
 - `/sc4sap:interface-mapping-spec` — writes `interfaces/<IF_ID>/<IF_ID>-v<n>-<lang>.{json,html}` + `_i18n/` (companion texts); reads / writes `interfaces/project.json` (cover, ID pattern, code lists) and `interfaces/_answers/`
 - `/sc4sap:package-to-process` — reads `cbo/<MODULE>/<PACKAGE>/inventory.json` (cross-view hit → refuse on a `sap_version` mismatch, else ask), writes `processes/<MODULE>/<PACKAGE>/{process-*, bpml-*, _state/}`
 - `/sc4sap:program-to-manual` — writes `manuals/<PROGRAM>-v<n>-<lang>.html` + `<PROGRAM>-<lang>.history.json` + `_src/` / `_draft/` manual.json
+- `/sc4sap:smartform-preview` — writes `smartforms/<FORM>/<FORM>-preview.{jpg,html}` + `values.json` (invented sample values)
 - `/sc4sap:analyze-symptom` — writes audit reports
 - `/sc4sap:create-object` — writes nothing long-term (transient state only)
 - Setup / sap-option — manage profile files themselves; outside this pattern

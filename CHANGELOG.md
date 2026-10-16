@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.41] — 2026-10-16
+
+### Added — `smartform-preview`
+
+- New skill `/sc4sap:smartform-preview`: the expected print of a SmartForm as a JPG plus the HTML it is drawn from, without a print program or test data. Windows at their mm positions, SmartStyle paragraph and character formats, template grids with borders and shading, loops and tables with sample rows, SE78 graphics (logos, signatures) at their printed size, `Page 1 of 1`.
+- Every `&field&` gets an invented sample value: `scripts/smartform/build-preview.mjs symbols` lists where each symbol prints (window, font size, cell width, inside a loop) with the type it is declared with; the skill reads the field types from the DDIC and writes `values.json` with values that fit them (one value per sample row inside loops). Business data is never read.
+- `build` writes the HTML, saves the JPG with headless Chrome / Edge / Chromium and reports cut-off cells and overflowing windows — drawn cut off, as SAP prints them — plus everything it could only approximate (field conditions, alternatives, address nodes, dynamic graphic keys).
+- ABAP: FM `ZMCP_SSF_CONTENT` and dispatcher action `SSF_CONTENT` (`abap/zmcp_ssf_content.abap`, `abap/zmcp_adt_dispatch_ssf_content_branch.abap`, install steps in `abap/README.md`). Read-only; needs MCP server with `GetSmartFormContent`.
+
 ## [0.6.40] — 2026-10-16
 
 ### Added — `config-to-document`
