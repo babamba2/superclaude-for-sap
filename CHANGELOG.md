@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.43] — 2026-10-19
+
 ### Added — `smartform-from-pdf`
 
 - New skill `/sc4sap:smartform-from-pdf`: a SmartForm built from a PDF of the printed form (or a screenshot, positions estimated). Ruled areas become templates, every text is placed where the source has it, in the paragraph / character format of an existing SmartStyle that prints its font, size and weight (no style is created; sizes no style has are reported). The main thread then decides with the user which texts are fields, which grid rows are item lines and which DDIC types carry the interface; the form is uploaded to the DEV system, printed there and the print is scored against the source page.
