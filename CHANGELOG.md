@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.43] — 2026-10-19
+
+### Added — `smartform-from-pdf`
+
+- New skill `/sc4sap:smartform-from-pdf`: a SmartForm built from a PDF of the printed form (or a screenshot, positions estimated). Ruled areas become templates, every text is placed where the source has it, in the paragraph / character format of an existing SmartStyle that prints its font, size and weight (no style is created; sizes no style has are reported). The main thread then decides with the user which texts are fields, which grid rows are item lines and which DDIC types carry the interface; the form is uploaded to the DEV system, printed there and the print is scored against the source page.
+- `scripts/smartform/read-pdf.mjs` — PDF page → texts (position, font, size, weight, SAP font name from RSTXPDF comments), rules, boxes and images in mm; no dependencies (Type1 / TrueType widths and encodings, CID fonts in EUC-KR / UTF-16 / UCS-2, ToUnicode, glyph-name differences, inline and XObject images, object streams). Checked against SAP's OTF of more than a hundred forms: 99.6 % of the text runs and 99.9 % of the rules at the same place.
+- `plan-form.mjs` (layout + style catalog → form spec), `shape-form.mjs` (fields, item loops, interface), `write-form.mjs` (spec → Form Builder XML: windows, templates with per-cell borders, loops, tables with header / main / footer events), `compare-layout.mjs` (print vs source score). Built and tuned by generating forms from more than a hundred printed forms and comparing SAP's print of each with its source: average 98 / 100, most at 99 or better.
+- What the generator follows, learned from SAP's prints: a text prints in the style of its output options; a cell prints a line only when the whole line height fits; a window frame prints only when the window prints something (lone rules are one-cell templates); a text line holds 132 characters (continued in `=` lines); CJK families are device fonts (a stand-in the printer lacks prints `#`); numbers are right-justified in their output length (`(C)` in narrow cells).
+- ABAP: `zmcp_ssf_upload.abap` (FM `ZMCP_SSF_UPLOAD`, SMARTFORMS-style XML upload with check, activation and regeneration) and `zmcp_ssf_delete.abap` (FM `ZMCP_SSF_DELETE`, local Z/Y forms only) with their dispatcher branches; install steps in `abap/README.md`. DEV systems only.
+
+Needs abap-mcp-adt-powerup with `CreateSmartForm` / `DeleteSmartForm`.
+
 ## [0.6.42] — 2026-10-19
 
 ### Changed — `smartform-preview` prints like SAP

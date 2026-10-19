@@ -8,7 +8,7 @@ const EXPECTED_SKILLS = [
   'analyze-cbo-obj', 'analyze-code', 'analyze-symptom', 'ask-consultant',
   'compare-programs', 'create-object', 'create-program', 'interface-mapping-spec',
   'mcp-setup', 'program-to-manual', 'program-to-spec', 'sap-doctor',
-  'sap-option', 'setup', 'smartform-preview', 'trust-session',
+  'sap-option', 'setup', 'smartform-from-pdf', 'smartform-preview', 'trust-session',
 ];
 
 describe('Skills Validation', () => {

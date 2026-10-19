@@ -54,6 +54,7 @@
 | `sc4sap:config-to-document` | One module's configuration documented from the live system (MM first) — single HTML along the IMG tree: real table values on SM30-style screens, customer-changed rows with transports, configuration checks, SAP IMG documentation, consultant notes reviewed by `sap-critic`, in-page edit mode for notes, values and change history (`--import` carries edits into the next version) |
 | `sc4sap:interface-mapping-spec` | Interface mapping specification — one editable HTML page in the template layout (cover, revision history, Source → Target grid with R / MAPPING, response block, conversion rules, extraction SQL, field guide); SAP side from DDIC / RFC signature or a field list / consultant proposal for new interfaces; proposed counterpart side and conversion rules; in-page checks; versioned, English companion |
 | `sc4sap:smartform-preview` | Expected print of a SmartForm as JPG + HTML — windows in mm, SmartStyle fonts, template grids, SE78 graphics, loops with sample rows; invented sample values sized to the DDIC types; cut-off cells and windows reported (read-only) |
+| `sc4sap:smartform-from-pdf` | SmartForm built from a PDF (or screenshot) of the printed form — templates from the rules, texts in existing SmartStyle formats, fields / item loops / interface decided with the user; uploaded to DEV, printed there and scored against the source page |
 | `sc4sap:analyze-code` | ABAP code analysis (Clean ABAP / performance / security) |
 | `sc4sap:analyze-cbo-obj` | Customer Business Object (CBO) inventory scanner with cross-module gap analysis |
 | `sc4sap:analyze-symptom` | Step-by-step SAP operational error/symptom analysis (dumps, logs, SAP Note candidates) |
@@ -119,6 +120,9 @@ Writes the manual a business user follows: one scenario per task ("send POs", "c
 
 ### `/sc4sap:smartform-preview`
 Draws the expected print of a SmartForm without running its print program: `GetSmartFormContent` reads the form, its SmartStyles and its SE78 graphics; the windows are drawn at their mm positions with template grids (borders, shading), loops with sample rows and the graphics at their printed size, then saved as JPG by headless Chrome / Edge. Every `&field&` gets an invented sample value sized to its DDIC type (no business data), so the picture shows the real cut-offs — the report lists the cells and windows whose content does not fit.
+
+### `/sc4sap:smartform-from-pdf`
+The reverse direction: builds a SmartForm from a PDF of the printed form (or a screenshot, positions estimated). `read-pdf.mjs` reads the page — every text with its position, font and size, the rules and the images — without dependencies; `plan-form.mjs` turns ruled areas into templates and puts each text in its cell or its own window, in the paragraph and character format of an **existing** SmartStyle that prints its font (no style is created); the main thread decides with the user which texts are fields, which grid rows are item lines (a loop over an internal table) and the DDIC types of the interface (`shape-form.mjs`); `write-form.mjs` writes the Form Builder XML. The form is uploaded to the DEV system (`CreateSmartForm`), printed there (`RenderSmartForm`) and the print is scored against the source page (`compare-layout.mjs`).
 
 ### `/sc4sap:sap-doctor`
 Plugin + MCP + SAP connectivity diagnostics. First thing to run when something's off.
