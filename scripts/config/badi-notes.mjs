@@ -52,7 +52,7 @@ function batch(o) {
     for (const x of list) {
       const src = snap.badiSources?.[x.class] || { methods: [] };
       items.push({
-        impl: x.name, badi, kind: x.kind, class: x.class, active: x.active, user: x.user, date: x.date,
+        impl: x.name, badi, kind: x.kind, class: x.class, ...(x.reason ? { classReason: x.reason } : {}), active: x.active, user: x.user, date: x.date,
         activities: acts.map((a) => ({ id: a.id, title: a.title, titleEn: a.titleEn })),
         sapDoc: acts.map((a) => snap.docs?.[a.docuId]?.blocks?.map((b) => b.text).join('\n') || '').find(Boolean)?.slice(0, 2500) || '',
         sourceError: src.error || '',

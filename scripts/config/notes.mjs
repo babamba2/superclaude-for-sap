@@ -6,6 +6,8 @@
 //        → activities and batches per scope (custom | values | all), reviewed ones left out
 //   node scripts/config/notes.mjs batches --module MM [--scope custom|values|all] [--size 12] [--redo]
 //        → notes/_in/bNNN.json per batch (activity context for the writer) + manifest on stdout
+//   node scripts/config/notes.mjs batches --module FI --ids SIMG_CFMENUORFBOB28,SIMG_CFMENUORFBOBBH
+//        → one new batch of exactly these activities, reviewed or not (after new data for them)
 //   node scripts/config/notes.mjs save --module MM --batch b001 --kind draft|review|revised  < text
 //        → notes/b001.<kind>.json (text in the marker format below, parsed and validated)
 //   node scripts/config/notes.mjs terms --module MM
@@ -35,7 +37,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const CONTEXT_ROWS = 15;
 
 function opts(argv) {
-  const o = { cmd: argv[0], module: '', scope: 'custom', size: 12, batch: '', kind: '', redo: false, file: '' };
+  const o = { cmd: argv[0], module: '', scope: 'custom', size: 12, batch: '', kind: '', redo: false, file: '', ids: [] };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--module') o.module = String(argv[++i]).toUpperCase();
@@ -45,6 +47,7 @@ function opts(argv) {
     else if (a === '--kind') o.kind = argv[++i];
     else if (a === '--redo') o.redo = true;
     else if (a === '--file') o.file = argv[++i];
+    else if (a === '--ids') o.ids = String(argv[++i]).split(',').map((x) => x.trim()).filter(Boolean);
   }
   if (!o.module) throw new Error('--module is required');
   return o;
@@ -172,7 +175,9 @@ function batches(o) {
   // Activities already in a batch input (written, under review or waiting) are not batched again.
   const batched = new Set(existsSync(join(dir, 'notes', '_in')) ? readdirSync(join(dir, 'notes', '_in')).filter((f) => /^b\d{3}\.json$/.test(f))
     .flatMap((f) => JSON.parse(readFileSync(join(dir, 'notes', '_in', f), 'utf8')).items.map((x) => x.id)) : []);
-  const ids = pick(o.scope).filter((id) => o.redo || !batched.has(id));
+  const unknown = o.ids.filter((id) => !acts[id]);
+  if (unknown.length) throw new Error(`unknown activities: ${unknown.join(', ')}`);
+  const ids = o.ids.length ? [...new Set(o.ids)] : pick(o.scope).filter((id) => o.redo || !batched.has(id));
   // 1000 characters cut 40% of the IMG docs (PP: Heijunka missing from the TSPP0 doc); 6000 covers 99%.
   const docText = (id) => {
     const t = (snap.docs[acts[id].docuId]?.blocks || []).map((b) => b.text).join(' ');
@@ -196,7 +201,11 @@ function batches(o) {
       const known = kb(id) ? [] : sourceHints(cache, id, a.viewKeys.map((k) => views[k].root));
       return {
         id, path: paths[id], title: a.title, titleEn: a.titleEn, tcode: a.tcode, status: a.status,
-        objects: a.viewKeys.map((k) => ({ key: k, title: views[k].title, table: views[k].root, rows: views[k].rows.length, customerRows: views[k].cust.length, columns: views[k].cols.map((c) => `${c.label} [${c.name}]`), sample: rowsFor(views[k], snap.domains || {}) })),
+        // Counts of a truncated read are partial; a view whose condition is not applied, or whose
+        // subset field SM30 asks for, shows rows of every value (all countries, all applications).
+        objects: a.viewKeys.map((k) => ({ key: k, title: views[k].title, table: views[k].root, rows: views[k].rows.length, customerRows: views[k].cust.length,
+          ...(views[k].truncated ? { truncated: true } : {}), ...(views[k].conditionNotApplied ? { conditionNotApplied: views[k].conditionNotApplied } : {}), ...(views[k].subset ? { subset: views[k].subset } : {}),
+          columns: views[k].cols.map((c) => `${c.label} [${c.name}]`), sample: rowsFor(views[k], snap.domains || {}) })),
         checks: checks.filter((c) => c.activities.includes(id)).map((c) => ({ severity: c.severity, title: c.title, items: c.items.slice(0, 10) })),
         ...(kb(id)
           ? { mode: 'system', kb: { purpose: kb(id).purpose, cases: (kb(id).cases?.list || []).map((c, n) => `CASE ${n + 1}: ${c.title} — ${c.desc}`) } }

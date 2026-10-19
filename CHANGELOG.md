@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.44] — 2026-10-19
+
+### Changed — `smartform-preview`
+
+- Glyph widths match SAP's print: SAP adds up its device type's font-metric widths per character, each rounded to whole twips. `scripts/smartform/glyph-widths.json` holds the widths SAP's own PDF converter used (PDFUC / SAPWIN per family and weight, KPPDF per size), and the preview corrects the browser's widths to them, so lines wrap where SAP wraps them.
+- Tables: sort-begin / sort-end events per group, and the WHERE / first-line / last-line output conditions.
+- A tab with nothing printed after it makes no room; a bar-code character format with no bar-code type prints plain text; a character format that only wraps other formats and is larger than their text no longer enlarges the line; the Thai family THVIJIT prints as ANDALE_J on PDFUC.
+- Tested on 40 more forms the preview had not seen before; 37 matched SAP's print exactly.
+
+### Changed — `config-to-document`
+
+- Reads validation / substitution rules (GGB) and CMOD projects into the configuration document; large tables are read in pages; customer rows are marked from the transport history.
+
 ## [0.6.43] — 2026-10-19
 
 ### Added — `smartform-from-pdf`

@@ -13,7 +13,8 @@
 //   A table with more rows than --max-rows is read again up to the TABLE_READ cap (5000), split by
 //   its key fields when it reaches the cap, text tables in the document language and English only;
 //   --no-full keeps such tables at --max-rows (--full-tables then names the ones read in full).
-//   node scripts/config/extract-config.mjs --module MM --field-docs | --badi   (adds column F1 docs / BAdI implementations to an existing snapshot)
+//   node scripts/config/extract-config.mjs --module MM --field-docs | --badi | --ggb | --cmod   (adds column F1 docs / BAdI implementations /
+//        FI-CO validations and substitutions with their customer exits / CMOD enhancements and customer code to an existing snapshot)
 //
 // Output: <artifactBase>/config-docs/<MODULE>/snapshot.json (artifactBase = active profile).
 // A read cache (_cache.json) next to it lets an interrupted run resume; --fresh clears it.
@@ -25,6 +26,8 @@ import { fileURLToPath } from 'url';
 import { connect, readTable, readIn, whereOf } from './sap-reader.mjs';
 import { itfToBlocks } from './itf.mjs';
 import { loadRules } from './config-checks.mjs';
+import { readGgb, GGB_AREAS } from './ggb.mjs';
+import { readCmod, addCmodProjectsActivity, addCmodDispatch, parseDispatchSpec } from './cmod.mjs';
 import { resolveArtifactBase, readActiveAlias, readActiveSapEnv } from '../lib/profile-resolve.mjs';
 import { atomicWriteFileSync, ensureDirSync } from '../lib/atomic-write.mjs';
 
@@ -56,12 +59,19 @@ function args(argv) {
     else if (a === '--fresh') out.fresh = true;
     else if (a === '--field-docs') out.fieldDocsOnly = true;
     else if (a === '--badi') out.badiOnly = true;
+    else if (a === '--ggb') out.ggbOnly = true;
+    else if (a === '--cmod') out.cmodOnly = true;
+    // Customer CMOD projects of the module when they are not named Z<module>… / Y<module>… (regex).
+    else if (a === '--cmod-projects') out.cmodProjects = String(next());
+    // Dispatch tables (function name per program and org unit) are detected with --cmod; --dispatch alone
+    // re-runs the detection on the snapshot, --dispatch TABLE:PROG:ORG:FNAME names one the detection misses.
+    else if (a === '--dispatch') { const v = argv[i + 1]; out.dispatch = v && !v.startsWith('--') ? [...(Array.isArray(out.dispatch) ? out.dispatch : []), parseDispatchSpec(argv[++i])] : (out.dispatch || true); }
     else if (a === '--root-text') out.rootText = String(next());
     else throw new Error(`unknown option ${a}`);
   }
   if (!out.module) throw new Error('--module is required (e.g. --module MM)');
   out.rootText ||= ROOT_TEXT[out.module] || '';
-  if (!out.rootText) throw new Error(`no IMG root text known for ${out.module}; pass --root-text "<English IMG node text>"`);
+  if (!out.rootText && !out.fieldDocsOnly && !out.badiOnly && !out.ggbOnly && !out.cmodOnly && !out.dispatch) throw new Error(`no IMG root text known for ${out.module}; pass --root-text "<English IMG node text>"`);
   out.langKey = LANG_KEY[out.lang] || 'E';
   out.langs = [...new Set([out.langKey, 'E'])];
   return out;
@@ -154,7 +164,20 @@ async function readActivities(c, o, ids) {
     };
   }
   await addBadiNames(c, out);
+  addTcodeTables(out);
   return out;
+}
+
+// Transactions whose settings live in tables no CUS_ACTOBJ entry names: FIBF keeps the
+// customer Business Transaction Events — products (TBE24, active flag), Publish/Subscribe
+// function modules (TBE34) and Process function modules (TPS34).
+const TCODE_TABLES = { FIBF: ['TBE24', 'TBE34', 'TPS34'] };
+function addTcodeTables(activities) {
+  for (const a of Object.values(activities)) {
+    const codes = new Set([a.tcode, ...a.objects.map((ob) => ob.tcode || (ob.type === 'T' ? ob.name : ''))]);
+    const add = [...codes].flatMap((t) => TCODE_TABLES[t] || []).filter((t) => !a.objects.some((ob) => ob.type === 'S' && ob.name === t));
+    for (const t of new Set(add)) a.objects.push({ type: 'S', name: t, tcode: '', sub: '', via: 'tcode' });
+  }
 }
 
 /** BAdI definitions behind the enhancement-type IMG activities (CUS_ACTEXT: activity → BAdI). */
@@ -208,17 +231,26 @@ export async function readBadiImpls(c, names) {
     const filters = rows.filter((r) => r.IMP_NAME === imp).map((r) => String(r.FLT_VAL || '').trim()).filter(Boolean);
     add(rows.find((r) => r.IMP_NAME === imp).EXIT_NAME, {
       name: imp, kind: 'classic', class: cls[imp]?.[0]?.IMP_CLASS || '', active: a.ACTIVE === 'X' || a.ACTIVE === true,
-      filters, user: a.UNAME || '', date: String(a.UDATE || '').replace(/-/g, ''),
+      filters, user: a.UNAME || '', date: String(a.UDATE || '').replace(/-/g, ''), ...(a.MIG_ENHNAME ? { enh: a.MIG_ENHNAME } : {}),
     });
   }
   const enh = await readIn(c, 'BADIIMPL_ENH', 'BADI_NAME', names);
   if (!enh.ok) errors.enh = String(enh.errors?.[0] || '').slice(0, 200);
-  const enhRows = enh.rows.filter((x) => CUSTOMER.test(String(x.ENHNAME)));
-  // The enhancement header keeps creator and implementing class in a serialized blob, so
-  // both come from the transports: the oldest request that recorded R3TR ENHO gives user
-  // and date; the implementing class is the CLAS of that request named like the
-  // enhancement, else the request's only CLAS (left empty when that is ambiguous).
+  // A classic implementation migrated to the enhancement framework is listed again as the
+  // enhancement that wraps it (BADIIMPL_ENH-BADI_IMPL = classic name, SXC_ATTR-MIG_ENHNAME =
+  // enhancement; CUSTOMER_ADD_DATA_CS: ZSD_CUST_ADD_DATA_CS in ZSD_CUSTOMER_ADD_DAT). It stays
+  // one entry: the classic one, which has its class.
+  const twin = (r) => (out[r.BADI_NAME] || []).find((x) => x.name === r.ENHNAME || (x.kind === 'classic' && (x.name === r.BADI_IMPL || x.enh === r.ENHNAME)));
+  const enhRows = enh.rows.filter((x) => CUSTOMER.test(String(x.ENHNAME)) && !twin(x));
+  // The enhancement header keeps creator and implementing class in a serialized blob. The
+  // class comes from the enhancement's object list (ENHOBJ, CLAS entries), else from the
+  // transports: the oldest request that recorded R3TR ENHO gives user and date; its CLAS named
+  // like the enhancement or the BAdI implementation, else the request's only CLAS. When none
+  // of that names one class, the implementation is kept with class null and the reason.
   const enhNames = [...new Set(enhRows.map((r) => r.ENHNAME))];
+  const eo = await readIn(c, 'ENHOBJ', 'ENHNAME', enhNames);
+  if (!eo.ok) errors.enhobj = String(eo.errors?.[0] || '').slice(0, 200);
+  const enhClasses = byKey(eo.rows.filter((r) => r.OBJ_TYPE === 'CLAS' && CUSTOMER.test(String(r.OBJ_NAME))), 'ENHNAME');
   const objs = (await readIn(c, 'E071', 'OBJ_NAME', enhNames, { extra: { PGMID: 'R3TR', OBJECT: 'ENHO' } })).rows;
   const reqs = byKey((await readIn(c, 'E070', 'TRKORR', [...new Set(objs.map((r) => r.TRKORR))])).rows, 'TRKORR');
   const top = (tr) => reqs[tr]?.[0]?.STRKORR || tr;
@@ -231,13 +263,24 @@ export async function readBadiImpls(c, names) {
   }
   const trs = [...new Set(Object.values(first).map((f) => f.tr))];
   const clas = (await readIn(c, 'E071', 'TRKORR', trs, { extra: { PGMID: 'R3TR', OBJECT: 'CLAS' } })).rows;
-  const classOf = (name) => {
-    const inTr = clas.filter((r) => r.TRKORR === first[name]?.tr).map((r) => r.OBJ_NAME);
-    return inTr.includes(name) ? name : inTr.length === 1 ? inTr[0] : '';
+  const pick = (list, r) => {
+    const names = [...new Set(list)];
+    return names.find((n) => n === r.BADI_IMPL || n === r.ENHNAME) || (names.length === 1 ? names[0] : '');
+  };
+  const classOf = (r) => {
+    const own = pick((enhClasses[r.ENHNAME] || []).map((x) => x.OBJ_NAME), r);
+    if (own) return { class: own };
+    const inTr = pick(clas.filter((x) => x.TRKORR === first[r.ENHNAME]?.tr).map((x) => x.OBJ_NAME), r);
+    if (inTr) return { class: inTr };
+    const why = [
+      errors.enhobj ? 'ENHOBJ not readable' : (enhClasses[r.ENHNAME] || []).length ? 'several classes in ENHOBJ' : 'no class in ENHOBJ',
+      first[r.ENHNAME] ? 'no single class in its first transport' : 'no transport of the enhancement',
+    ];
+    return { class: null, reason: why.join('; ') };
   };
   for (const r of enhRows) {
     if ((out[r.BADI_NAME] || []).some((x) => x.name === r.ENHNAME)) continue;
-    add(r.BADI_NAME, { name: r.ENHNAME, kind: 'enh', class: classOf(r.ENHNAME), active: r.ACTIVE === 'X' || r.ACTIVE === true, filters: [], user: first[r.ENHNAME]?.user || '', date: first[r.ENHNAME]?.date || '' });
+    add(r.BADI_NAME, { name: r.ENHNAME, kind: 'enh', ...classOf(r), active: r.ACTIVE === 'X' || r.ACTIVE === true, filters: [], user: first[r.ENHNAME]?.user || '', date: first[r.ENHNAME]?.date || '' });
   }
   return { impls: out, errors };
 }
@@ -310,6 +353,23 @@ export async function readBadiSources(c, impls) {
   return out;
 }
 
+/**
+ * DD28S lines of one view in their order: operator, negation and the link to the next line
+ * (`or`). A constant ('F', '') is kept as `value`; anything else (SY-LANGU, a field of another
+ * table) as `ref`, which the builder does not evaluate. Join conditions (JL / JR) are left out.
+ */
+export function viewConds(lines) {
+  return [...lines].filter((x) => !/^J[LR]$/.test(String(x.NEGATION || '')))
+    .sort((a, b) => Number(a.POSITION) - Number(b.POSITION))
+    .map((x) => {
+      const k = String(x.CONSTANTS ?? '').trim();
+      return {
+        table: x.TABNAME, field: x.FIELDNAME, op: x.OPERATOR || 'EQ', ...(/^'.*'$/.test(k) ? { value: k.slice(1, -1) } : { ref: k }),
+        ...(x.NEGATION === 'NOT' ? { not: true } : {}), ...(x.AND_OR === 'OR' ? { or: true } : {}),
+      };
+    });
+}
+
 async function readViews(c, o, viewNames, clusterNames) {
   const clusters = {};
   // Dialog structure of a view cluster: VCLSTRUC (order, level, parent), VCLSTRUCT
@@ -336,7 +396,7 @@ async function readViews(c, o, viewNames, clusterNames) {
     names.push(...todo);
   }
   const fields = byKey((await readIn(c, 'DD27S', 'VIEWNAME', names, { extra: { AS4LOCAL: 'A' } })).rows, 'VIEWNAME');
-  // Selection conditions (constants only: a variant such as BSTYP = 'F').
+  // Selection conditions (a variant such as BSTYP = 'F', PROGRAMM LIKE 'RFKORD%' OR …).
   const conds = byKey((await readIn(c, 'DD28S', 'CONDNAME', names, { extra: { AS4LOCAL: 'A' } })).rows, 'CONDNAME');
   const views = {};
   for (const v of names) {
@@ -344,8 +404,7 @@ async function readViews(c, o, viewNames, clusterNames) {
     if (!h) continue;
     views[v] = {
       name: v, root: h.ROOTTAB, rootIsView: !!head[h.ROOTTAB], title: Object.values(clusters).flat().find((m) => m.view === v)?.title || '',
-      conds: (conds[v] || []).filter((x) => /^'.*'$/.test(String(x.CONSTANTS ?? '').trim()) && (x.OPERATOR || 'EQ') === 'EQ' && !x.NEGATION)
-        .map((x) => ({ table: x.TABNAME, field: x.FIELDNAME, value: String(x.CONSTANTS).trim().slice(1, -1) })),
+      conds: viewConds(conds[v] || []),
       fields: (fields[v] || []).sort((a, b) => Number(a.OBJPOS) - Number(b.OBJPOS))
         .map((f) => ({ field: f.VIEWFIELD, table: f.TABNAME, tabField: f.FIELDNAME, key: f.KEYFLAG === 'X' || f.KEYFLAG === true, rollname: f.ROLLNAME, rdonly: f.RDONLY || '' })),
     };
@@ -367,7 +426,8 @@ export function keyString(row, keyFields) {
   }).join('');
 }
 
-const PARTITION_TOTAL = 50000;
+// Route and zone tables of a global shipping network pass 50,000 rows (TROLZ, TVRO).
+const PARTITION_TOTAL = 100000;
 
 // rows.push(...more) passes every row as an argument and overflows the stack on large reads
 // (a million transport keys of one per-plant table).
@@ -493,8 +553,12 @@ async function readByNextKey(c, table, fields, where, capped, depth = 0) {
   if (!values.length && key.checktable && /^[A-Z0-9_/]+$/.test(key.checktable)) {
     let ct = await readTable(c, key.checktable, { where });
     if (!ct.ok) ct = await readTable(c, key.checktable);
-    values = ct.rows.map((r) => checkValue(r, key.name)).filter((v) => v != null);
+    // A capped check table lists only its first keys, like the capped partition itself.
+    if (ct.rows.length < 5000) values = ct.rows.map((r) => checkValue(r, key.name)).filter((v) => v != null);
   }
+  // No complete list of values (TZONE KR by ZONE1): the keys seen in the capped read are only
+  // its first 5000, so page through the partition in key order instead.
+  if (!values.length) return readByKeyPages(c, table, fields, key, where, capped);
   values = [...new Set([...values, ...capped.rows.map((r) => r[key.name])].map((v) => (v == null ? '' : String(v))))];
   if (!values.length) return { ...capped, truncated: true };
   const rows = [];
@@ -641,6 +705,20 @@ const NRIV_KEY = [
   { name: 'OBJECT', type: 'CHAR', leng: 10 }, { name: 'SUBOBJECT', type: 'CHAR', leng: 6 },
   { name: 'NRRANGENR', type: 'CHAR', leng: 2 }, { name: 'TOYEAR', type: 'NUMC', leng: 4 },
 ];
+const NRIV_FIELDS = [{ name: 'CLIENT', key: true, type: 'CLNT', leng: 3 }, ...NRIV_KEY.map((f) => ({ ...f, key: true, domname: '', checktable: '' }))];
+
+/**
+ * Intervals of one number range object. An object with more intervals than the read cap
+ * (RF_BELEG: company code × range × year) is read again in pages on its subobject, like a
+ * capped value table; `truncated` stays only when one slice is still at the cap.
+ */
+export async function readNumberRangeObject(c, obj) {
+  const first = await readTable(c, 'NRIV', { where: { OBJECT: obj } });
+  if (!first.ok) return { ok: false, rows: [], truncated: false, error: first.error };
+  if (first.rows.length < 5000 && !first.truncated) return { ok: true, rows: first.rows, truncated: false };
+  const all = await readByFirstKey(c, 'NRIV', NRIV_FIELDS, first, [], { OBJECT: obj });
+  return { ok: true, rows: all.rows, truncated: !!all.truncated };
+}
 async function readNumberRanges(c, o, activities, trkorrs) {
   const tcodes = [...new Set(Object.values(activities).flatMap((a) => a.objects.filter((ob) => ob.type === 'T').map((ob) => ob.tcode || ob.name)))];
   const params = (await readIn(c, 'TSTCP', 'TCODE', tcodes)).rows;
@@ -651,9 +729,11 @@ async function readNumberRanges(c, o, activities, trkorrs) {
   }
   const objs = [...new Set(Object.values(activities).flatMap((a) => a.numberRanges || []))];
   if (!objs.length) return {};
-  const rows = byKey((await readIn(c, 'NRIV', 'OBJECT', objs, { chunk: 20 })).rows, 'OBJECT');
+  // One read per object: a shared read of 20 objects stopped at the cap (FI: RF_BELEG at 5000 rows).
+  const reads = {};
+  for (const obj of objs) reads[obj] = await readNumberRangeObject(c, obj);
   const texts = byKey((await readIn(c, 'TNROT', 'OBJECT', objs, { extra: { LANGU: o.langs } })).rows, 'OBJECT');
-  const hist = await readTable(c, 'E071K', { where: `OBJNAME = 'NRIV' AND TRKORR NOT LIKE 'SAP%'` });
+  const hist = await readHistory(c, 'NRIV');
   const custKeys = new Map();
   for (const k of hist.rows) {
     if (!CUSTOMER_TR.test(k.TRKORR)) continue;
@@ -662,15 +742,16 @@ async function readNumberRanges(c, o, activities, trkorrs) {
   }
   const out = {};
   for (const obj of objs) {
-    const list = (rows[obj] || []).map((r) => {
+    const list = reads[obj].rows.map((r) => {
       const trs = custKeys.get(keyString(r, NRIV_KEY));
       if (trs) trs.forEach((t) => trkorrs.push(t));
       return trs ? { ...r, _tr: [...trs] } : r;
     });
     out[obj] = { object: obj, title: pickText(texts[obj], o.langs, 'TXT') || pickText(texts[obj], o.langs, 'TXTSHORT'), rows: list,
-      transports: [...new Set(list.flatMap((r) => r._tr || []))] };
+      transports: [...new Set(list.flatMap((r) => r._tr || []))], truncated: reads[obj].truncated, historyTruncated: !!hist.truncated,
+      ...(reads[obj].error ? { error: reads[obj].error } : {}) };
   }
-  log(`[config] ${objs.length} number range objects`);
+  log(`[config] ${objs.length} number range objects${objs.some((x) => out[x].truncated) ? ` (still capped: ${objs.filter((x) => out[x].truncated).join(', ')})` : ''}`);
   return out;
 }
 
@@ -731,7 +812,8 @@ async function readDocs(c, o, activities) {
 
 // F1 documentation of the data elements behind the value-table columns (DOKTL, ID 'DE'):
 // the document language when SAP has it, else English; the latest version, as plain text.
-const FIELD_DOC_CHARS = 1500;
+// 1500 characters cut 3% of the FI texts (KZRBWB); a text still longer is marked `cut`.
+const FIELD_DOC_CHARS = 6000;
 export async function readFieldDocs(c, o, rolls) {
   const out = {};
   const take = (rows) => {
@@ -744,8 +826,8 @@ export async function readFieldDocs(c, o, rolls) {
       const lang = o.langs.find((l) => best[`${obj}|${l}`]);
       if (!lang) continue;
       const lines = rows.filter((r) => r.OBJECT === obj && r.LANGU === lang && Number(r.DOKVERSION) === best[`${obj}|${lang}`]);
-      const text = itfToBlocks(lines).filter((b) => b.t !== 'h').map((b) => b.text).join(' ').slice(0, FIELD_DOC_CHARS);
-      if (text) out[obj] = { lang, text };
+      const full = itfToBlocks(lines).filter((b) => b.t !== 'h').map((b) => b.text).join(' ');
+      if (full) out[obj] = { lang, text: full.slice(0, FIELD_DOC_CHARS), ...(full.length > FIELD_DOC_CHARS ? { cut: true } : {}) };
     }
   };
   const list = [...new Set(rolls)].filter(Boolean).sort();
@@ -823,7 +905,7 @@ async function main() {
   try {
     // --field-docs / --badi: add the column F1 documentation / the BAdIs of the IMG activities
     // with their customer implementations to an existing snapshot without reading it again.
-    if (o.fieldDocsOnly || o.badiOnly) {
+    if (o.fieldDocsOnly || o.badiOnly || o.ggbOnly || o.cmodOnly || o.dispatch) {
       const file = join(outDir, 'snapshot.json');
       const snap = JSON.parse(readFileSync(file, 'utf8'));
       if (o.fieldDocsOnly) snap.fieldDocs = await readFieldDocs(c, o, columnRolls(snap));
@@ -835,7 +917,25 @@ async function main() {
         snap.badiErrors = badi.errors;
         snap.badiSources = await readBadiSources(c, badi.impls);
       }
+      if (o.ggbOnly) snap.ggb = GGB_AREAS[o.module] ? await readGgb(c, o.module, snap.tables, o.langs) : undefined;
+      if (o.cmodOnly) {
+        snap.cmod = await readCmod(c, snap.activities, snap.docs || {}, o.langs, o.module, o.cmodProjects || snap.cmod?.projectsPattern || '');
+        addCmodProjectsActivity(snap, o.lang);
+      }
+      // The spec is kept in the snapshot so a later --cmod run reads the table again.
+      if (snap.cmod && (o.dispatch || o.cmodOnly)) await addCmodDispatch(c, snap.cmod, Array.isArray(o.dispatch) ? o.dispatch : null);
       writeWithRetry(file, JSON.stringify(snap));
+      if (o.cmodOnly || o.dispatch) {
+        const m = snap.cmod;
+        const E = Object.values(m.enh);
+        process.stdout.write(JSON.stringify({ ok: true, file, activities: Object.keys(m.byActivity).length, withEnhancement: Object.values(m.byActivity).filter((l) => l.length).length, enhancements: E.length, inProjects: E.filter((x) => x.projects.length).length, includesWithCode: E.flatMap((x) => x.comps).filter((x) => x.lines > 0).length, ...(m.dispatch ? { dispatchTables: m.dispatch.map((d) => `${d.table} (${d.rows})`), exitsWithDispatch: E.flatMap((x) => x.comps).filter((x) => x.dispatch).length } : {}), errors: m.errors }) + '\n');
+        return;
+      }
+      if (o.ggbOnly) {
+        const g = snap.ggb || { rules: {}, exits: {}, errors: {} };
+        process.stdout.write(JSON.stringify({ ok: true, file, validations: Object.keys(g.rules.VAL || {}).length, substitutions: Object.keys(g.rules.SUB || {}).length, exits: Object.keys(g.exits || {}).length, errors: g.errors }) + '\n');
+        return;
+      }
       process.stdout.write(JSON.stringify({ ok: true, file, fieldDocs: Object.keys(snap.fieldDocs || {}).length, badiActivities: Object.values(snap.activities).filter((a) => a.badis).length, badiWithImpls: Object.keys(snap.badiImpls || {}).length, badiErrors: snap.badiErrors || {} }) + '\n');
       return;
     }
@@ -898,6 +998,9 @@ async function main() {
     const fieldDocs = o.docs ? await readFieldDocs(c, o, columnRolls({ tables: tableData, views })) : {};
     await addDocBadis(c, activities, docs);
     const badi = await readBadiImpls(c, [...new Set(Object.values(activities).flatMap((a) => a.badis || []))]);
+    const ggb = GGB_AREAS[o.module] ? await readGgb(c, o.module, tableData, o.langs) : undefined;
+    const cmod = await readCmod(c, activities, docs, o.langs, o.module, o.cmodProjects || '');
+    await addCmodDispatch(c, cmod, Array.isArray(o.dispatch) ? o.dispatch : null);
     const env = readActiveSapEnv(cwd)?.env || {};
     const snapshot = {
       meta: {
@@ -906,8 +1009,9 @@ async function main() {
         extractedAt: new Date().toISOString(), maxRows: o.maxRows,
         counts: { activities: actIds.length, views: Object.keys(views).length, tables: tables.length, transports: Object.keys(transports).length, docs: Object.keys(docs).length },
       },
-      tree, activities, views, clusters, clusterTitles, tables: tableData, numberRanges, transports, labels, domains, domainsEn, docs, fieldDocs, badiImpls: badi.impls, badiErrors: badi.errors, badiSources: await readBadiSources(c, badi.impls),
+      tree, activities, views, clusters, clusterTitles, tables: tableData, numberRanges, transports, labels, domains, domainsEn, docs, fieldDocs, badiImpls: badi.impls, badiErrors: badi.errors, badiSources: await readBadiSources(c, badi.impls), ...(ggb ? { ggb } : {}), cmod,
     };
+    addCmodProjectsActivity(snapshot, o.lang);
     const file = join(outDir, 'snapshot.json');
     writeWithRetry(file, JSON.stringify(snapshot));
     saveCache();

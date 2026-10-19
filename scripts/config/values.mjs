@@ -20,8 +20,8 @@ import { fileURLToPath } from 'url';
 import { resolveArtifactBase, sc4sapHome } from '../lib/profile-resolve.mjs';
 import { atomicWriteFileSync, ensureDirSync } from '../lib/atomic-write.mjs';
 import { buildModel } from './build-config-doc.mjs';
+import { f1Text } from './fields.mjs';
 
-const F1_CHARS = 600;
 const VALUE_CAP = 60;
 
 function opts(argv) {
@@ -102,7 +102,7 @@ function batches(o) {
       domain: e.domain,
       dataElements: [...e.des].map(([d, label]) => `${d} (${label})`),
       values: Object.keys(t).slice(0, VALUE_CAP).map((k) => ({ v: k, text: t[k], en: en[k] || '', rowsHere: e.counts[k] || 0 })),
-      f1: de ? `${de}: ${snap.fieldDocs[de].text.slice(0, F1_CHARS)}` : '',
+      f1: de ? `${de}: ${f1Text(snap.fieldDocs[de])}` : '',
       usedIn: e.usedIn,
     };
   });
