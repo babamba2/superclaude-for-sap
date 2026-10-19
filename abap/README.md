@@ -78,11 +78,11 @@ Read-only content of one SmartForm for the MCP tool `GetSmartFormContent` and th
 **Interface of ZMCP_SSF_CONTENT:**
 | Parameter | Type | Direction | Description |
 |-----------|------|-----------|-------------|
-| IV_PART | STRING | Import | `FORM`, `STYLE`, `GRAPHIC` or `STDTEXT` |
+| IV_PART | STRING | Import | `FORM`, `STYLE`, `GRAPHIC`, `STDTEXT` or `FONTS` (device type and printer fonts for a comma list of families in IV_NAME, device in IV_OBJECT) |
 | IV_FORMNAME | TDSFNAME | Import (optional) | SmartForm name (`FORM`) |
 | IV_NAME | STRING | Import (optional) | Style, graphic or text name |
 | IV_OBJECT / IV_ID / IV_BTYPE | STRING | Import (optional) | Graphic key (defaults `GRAPHICS` / `BMAP` / `BCOL`) or text key (`TEXT` / `ST`) |
-| IV_LANGUAGE | SPRAS | Import (optional) | Include text language; empty → logon language |
+| IV_LANGUAGE | SPRAS | Import (optional) | `STDTEXT`: text language; `FORM`: texts of the XML in that language (`SET LOCALE LANGUAGE` around the export — the MCP asks for the form's master language when texts are missing in the logon language, as SAP prints them); empty → logon language |
 | EV_SUBRC | SYSUBRC | Export | 0 = ok, 4 = not found, 8 = other error |
 | EV_MESSAGE | STRING | Export | Error / info message |
 | EV_RESULT | STRING | Export | JSON; XML, CSS and BMP in base64 |
@@ -96,3 +96,30 @@ Read-only content of one SmartForm for the MCP tool `GetSmartFormContent` and th
 4. Test with `GetSmartFormContent` (`summary: true`) on a form with a logo.
 
 Until step 3 is done the tool answers with an install hint (`Unknown action: SSF_CONTENT`).
+
+## ZMCP_SSF_RENDER + dispatcher action SSF_RENDER (RenderSmartForm)
+
+The output of a SmartForm exactly as SAP prints it, for given interface values, without printing: the form's generated function module runs with `CONTROL_PARAMETERS-GETOTF = 'X'` / `NO_DIALOG = 'X'`, the OTF comes back and is converted to PDF. Nothing is printed, spooled or sent, and the FM itself never writes — but the form's own program lines run as in a real print and may read the database, so pass invented sample values only. ECC / BASIS 7.40 only (`/UI2/CL_JSON`).
+
+**Sources:**
+- `zmcp_ssf_render.abap` — FM `ZMCP_SSF_RENDER`.
+- `zmcp_adt_dispatch_ssf_render_branch.abap` — one `WHEN 'SSF_RENDER'.` line plus a `FORM ssf_render` to append to the ECC / 7.40 dispatcher.
+
+**Interface of ZMCP_SSF_RENDER:**
+| Parameter | Type | Direction | Description |
+|-----------|------|-----------|-------------|
+| IV_FORMNAME | TDSFNAME | Import | SmartForm name |
+| IV_PARAMS | STRING | Import (optional) | JSON array, one entry per interface parameter: `[{"name":"IS_HEADER","json":"{...}"}]` — internal values, a TABLES parameter or table type as an array; parameters not listed are passed initial |
+| IV_LANGUAGE | SPRAS | Import (optional) | Output language |
+| IV_DEVICE | RSPOPNAME | Import (optional) | Output device (its device type sets fonts and widths); default: the user's default device, else a SAPWIN / PDF device |
+| IV_FAMILIES | STRING | Import (optional) | Comma list of the form's font families: without IV_DEVICE, the device type with printer fonts for most of them is chosen (TFO03) |
+| EV_SUBRC | SYSUBRC | Export | 0 = ok, 4 = form not found, 8 = other error |
+| EV_MESSAGE | STRING | Export | Error / info message |
+| EV_RESULT | STRING | Export | JSON `{"form","fm","pages","otf","pdf"}`, OTF and PDF in base64 |
+
+**Install (per system, each step needs a transport and the user's OK):**
+1. Create FM `ZMCP_SSF_RENDER` in function group `ZMCP_ADT_UTILS` — **not** remote-enabled — with the source of `zmcp_ssf_render.abap`; activate.
+2. Read and back up the **live** `ZMCP_ADT_DISPATCH`, add the branch, activate.
+3. Test with `RenderSmartForm` on a form without program lines that read the database.
+
+Until step 2 is done the tool answers with an install hint (`Unknown action: SSF_RENDER`).
