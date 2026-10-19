@@ -24,7 +24,8 @@ FUNCTION zmcp_ssf_content
 *   FORM     whole form as Form Builder XML (FB_CONVERT_FORM_TO_XML: active
 *            version, texts in the logon language - the same XML as
 *            transaction SMARTFORMS > Utilities > Download).
-*            IV_FORMNAME. Result {"form","language","xml"} - xml in base64.
+*            IV_FORMNAME, IV_LANGUAGE (texts in that language, default logon).
+*            Result {"form","language","xml"} - xml in base64.
 *   STYLE    SmartStyle as CSS (SSF_CONVERT_STYLE_TO_CSS, UTF-8).
 *            IV_NAME = style. Result {"style","css"} - css in base64.
 *   GRAPHIC  SE78 graphic as BMP (SAPSCRIPT_GET_GRAPHIC_BDS +
@@ -71,8 +72,35 @@ FUNCTION zmcp_ssf_content
         lt_lines   TYPE STANDARD TABLE OF tline,
         ls_line    TYPE tline,
         lv_tlang   TYPE spras,
+        lv_flang   TYPE spras,
+        lv_xlang   TYPE spras,
+        lv_fsubrc  TYPE sysubrc,
         lv_sep     TYPE string,
-        lv_rows    TYPE string.
+        lv_rows    TYPE string,
+        ls_sthead  TYPE ssfcats,
+        lv_ssname  TYPE tdssname,
+        lv_fsize   TYPE i,
+        lv_fdev     TYPE rspopname,
+        lv_fspld    TYPE rspopname,
+        lv_fdevtype TYPE rspoptype,
+        lt_ffam     TYPE STANDARD TABLE OF tdfamily,
+        lv_ffam     TYPE tdfamily,
+        lv_fams     TYPE string,
+        lt_tfo01    TYPE STANDARD TABLE OF tfo01,
+        ls_tfo01    TYPE tfo01,
+        lt_tfo03    TYPE STANDARD TABLE OF tfo03,
+        ls_tfo03    TYPE tfo03,
+        lt_paras   TYPE STANDARD TABLE OF ssfparas,
+        ls_para    TYPE ssfparas,
+        lt_tabs    TYPE STANDARD TABLE OF stxstab,
+        ls_tab     TYPE stxstab,
+        lv_tabs    TYPE string,
+        lv_tsep    TYPE string,
+        lt_strs    TYPE STANDARD TABLE OF ssfstrings,
+        ls_str     TYPE ssfstrings,
+        ls_tfo05   TYPE tfo05,
+        lv_bcaux   TYPE string,
+        lv_chars   TYPE string.
 
   ev_subrc = 0.
   CLEAR: ev_message, ev_result.
@@ -92,6 +120,18 @@ FUNCTION zmcp_ssf_content
         ev_result = '{}'.
         RETURN.
       ENDIF.
+      " IV_LANGUAGE: texts in that language instead of the logon language
+      " (FB_CONVERT_FORM_TO_XML reads them in SY-LANGU). The caller asks
+      " for the form's master language when a text has no translation -
+      " SAP's print falls back to it per text.
+      lv_flang = sy-langu.
+      IF iv_language IS NOT INITIAL AND iv_language <> sy-langu.
+        TRY.
+            SET LOCALE LANGUAGE iv_language.
+          CATCH cx_sy_localization_error.
+            " language not usable here: texts stay in the logon language
+        ENDTRY.
+      ENDIF.
       CALL FUNCTION 'FB_CONVERT_FORM_TO_XML'
         EXPORTING
           i_formname       = lv_str
@@ -105,6 +145,15 @@ FUNCTION zmcp_ssf_content
           illegal_formtype = 5
           generation_error = 6
           OTHERS           = 7.
+      lv_fsubrc = sy-subrc.
+      lv_xlang = sy-langu.
+      IF sy-langu <> lv_flang.
+        TRY.
+            SET LOCALE LANGUAGE lv_flang.
+          CATCH cx_sy_localization_error.
+        ENDTRY.
+      ENDIF.
+      sy-subrc = lv_fsubrc.
       CASE sy-subrc.
         WHEN 0.
         WHEN 1 OR 2.
@@ -126,7 +175,7 @@ FUNCTION zmcp_ssf_content
       ENDCASE.
       lv_b64 = cl_http_utility=>encode_x_base64( lv_xml ).
       PERFORM ssf_layout_str USING lv_str    CHANGING lv_j1.
-      PERFORM ssf_layout_str USING sy-langu  CHANGING lv_j2.
+      PERFORM ssf_layout_str USING lv_xlang  CHANGING lv_j2.
       ev_result = |\{"form":{ lv_j1 },"language":{ lv_j2 },"xml":"{ lv_b64 }"\}|.
       lv_len = xstrlen( lv_xml ).
       ev_message = |SmartForm { lv_str }: { lv_len } bytes XML|.
@@ -172,7 +221,71 @@ FUNCTION zmcp_ssf_content
       ENDLOOP.
       lv_b64 = cl_http_utility=>encode_x_base64( lv_cssall ).
       PERFORM ssf_layout_str USING lv_str CHANGING lv_j1.
-      ev_result = |\{"style":{ lv_j1 },"css":"{ lv_b64 }"\}|.
+      " Header: standard paragraph ('*' lines) and the style's default font.
+      CLEAR ls_sthead.
+      lv_ssname = lv_str.
+      CALL FUNCTION 'SSF_READ_STYLE'
+        EXPORTING
+          i_style_name        = lv_ssname
+          i_style_active_flag = 'A'
+        IMPORTING
+          e_header            = ls_sthead
+        TABLES
+          e_paragraphs        = lt_paras
+          e_tabstops          = lt_tabs
+          e_strings           = lt_strs
+        EXCEPTIONS
+          OTHERS              = 1.
+      " Paragraphs as stored (value + unit), for a CSS of our own: the
+      " standard CSS conversion loses units such as CH / LN.
+      CLEAR: lv_rows, lv_sep.
+      LOOP AT lt_paras INTO ls_para.
+        PERFORM ssf_layout_str USING ls_para-tdpargraph CHANGING lv_j2.
+        PERFORM ssf_layout_str USING ls_para-tdfamily   CHANGING lv_j3.
+        lv_fsize = ls_para-tdheight.
+        " tab stops of the paragraph: ["12.00 CM","LEFT"], ...
+        CLEAR: lv_tabs, lv_tsep.
+        LOOP AT lt_tabs INTO ls_tab WHERE tdpargraph = ls_para-tdpargraph.
+          lv_tabs = |{ lv_tabs }{ lv_tsep }["{ ls_tab-tdtabpos } { ls_tab-tdtabposu }","{ ls_tab-tdtjustify }"]|.
+          lv_tsep = ','.
+        ENDLOOP.
+        lv_str = |\{"tabs":[{ lv_tabs }],"tag":{ lv_j2 },"align":"{ ls_para-tdpjustify }","lineSpacing":"{ ls_para-tdpldist } { ls_para-tdpldistu }",| &&
+                 |"before":"{ ls_para-tdptop } { ls_para-tdptopu }","after":"{ ls_para-tdpbot } { ls_para-tdpbotu }",| &&
+                 |"left":"{ ls_para-tdpleft } { ls_para-tdpleftu }","right":"{ ls_para-tdpright } { ls_para-tdprightu }",| &&
+                 |"indent":"{ ls_para-tdpentry } { ls_para-tdpentryu }","family":{ lv_j3 },"size":{ lv_fsize },| &&
+                 |"bold":"{ ls_para-tdbold }","italic":"{ ls_para-tditalic }","underline":"{ ls_para-tdunderlin }","noBlanks":"{ ls_para-tdnoblanks }"\}|.
+        CONCATENATE lv_rows lv_sep lv_str INTO lv_rows.
+        lv_sep = ','.
+      ENDLOOP.
+      " Character formats as stored - SAP's CSS garbles DBCS family names
+      CLEAR: lv_chars, lv_tsep.
+      LOOP AT lt_strs INTO ls_str.
+        PERFORM ssf_layout_str USING ls_str-tdstring CHANGING lv_j2.
+        PERFORM ssf_layout_str USING ls_str-tdfamily CHANGING lv_j3.
+        lv_fsize = ls_str-tdheight.
+        " SE73 bar code definition (TFO05): symbology, bar width and height
+        CLEAR lv_j4.
+        IF ls_str-tdbarcode IS NOT INITIAL.
+          CLEAR ls_tfo05.
+          SELECT SINGLE * FROM tfo05 INTO ls_tfo05 WHERE tdbarcode = ls_str-tdbarcode.
+          IF sy-subrc = 0.
+            PERFORM ssf_layout_str USING ls_tfo05-tdbarcaux CHANGING lv_bcaux.
+            lv_j4 = |,"barcodeDef":\{"type":"{ ls_tfo05-tdbarctype }","width":"{ ls_tfo05-tdbcsize } { ls_tfo05-tdbcsizeu }",| &&
+                    |"height":"{ ls_tfo05-tdbcheigt } { ls_tfo05-tdbcheigtu }","rotation":"{ ls_tfo05-tdbarcrot }",| &&
+                    |"checkDigit":"{ ls_tfo05-tdbarcchk }","aux":{ lv_bcaux }\}|.
+          ENDIF.
+        ENDIF.
+        lv_chars = |{ lv_chars }{ lv_tsep }\{"tag":{ lv_j2 },"family":{ lv_j3 },"size":{ lv_fsize },"bold":"{ ls_str-tdbold }",| &&
+                   |"italic":"{ ls_str-tditalic }","underline":"{ ls_str-tdunderlin }","superscript":"{ ls_str-tdsuper }","subscript":"{ ls_str-tdsub }",| &&
+                   |"barcode":"{ ls_str-tdbarcode }","hidden":"{ ls_str-tdhidden }"{ lv_j4 }\}|.
+        lv_tsep = ','.
+      ENDLOOP.
+      lv_str = lv_ssname.
+      PERFORM ssf_layout_str USING ls_sthead-tdfirstpar CHANGING lv_j2.
+      PERFORM ssf_layout_str USING ls_sthead-tdfamily   CHANGING lv_j3.
+      lv_fsize = ls_sthead-tdheight. " NUMC '000' is no JSON number
+      lv_j4 = |"firstParagraph":{ lv_j2 },"fontFamily":{ lv_j3 },"fontSize":{ lv_fsize },"bold":"{ ls_sthead-tdbold }","lpi":{ ls_sthead-lpi },"cpi":{ ls_sthead-cpi },"tabDistance":"{ ls_sthead-tdtabdist } { ls_sthead-tdtabdistu }"|.
+      ev_result = |\{"style":{ lv_j1 },{ lv_j4 },"paragraphs":[{ lv_rows }],"strings":[{ lv_chars }],"css":"{ lv_b64 }"\}|.
       ev_message = |SmartStyle { lv_str }: CSS|.
 
 *----------------------------------------------------------------------
@@ -327,9 +440,64 @@ FUNCTION zmcp_ssf_content
       ev_message = |Text { ls_thead-tdname }: { lv_len } line(s)|.
 
 *----------------------------------------------------------------------
+    WHEN 'FONTS'.
+      " Printer the form would go to and the fonts it has for the form's
+      " families: IV_NAME = comma list of families, IV_OBJECT = device
+      " (optional). Device choice: FORM ssf_choose_device (ZMCP_SSF_RENDER).
+      lv_fdev = iv_object.
+      TRANSLATE lv_fdev TO UPPER CASE.
+      lv_str = iv_name.
+      PERFORM ssf_choose_device USING lv_fdev lv_str CHANGING lv_fspld lv_fdevtype.
+      SPLIT iv_name AT ',' INTO TABLE lt_ffam.
+      LOOP AT lt_ffam INTO lv_ffam.
+        CONDENSE lv_ffam.
+        TRANSLATE lv_ffam TO UPPER CASE.
+        MODIFY lt_ffam FROM lv_ffam.
+      ENDLOOP.
+      DELETE lt_ffam WHERE table_line IS INITIAL.
+      " the families plus their substitutes (TFO01-TDFAMILY1..3) and COURIER
+      CLEAR: lv_rows, lv_sep.
+      IF lt_ffam IS NOT INITIAL.
+        SELECT * FROM tfo01 INTO TABLE lt_tfo01 FOR ALL ENTRIES IN lt_ffam
+          WHERE tdfamily = lt_ffam-table_line.
+      ENDIF.
+      LOOP AT lt_tfo01 INTO ls_tfo01.
+        PERFORM ssf_layout_str USING ls_tfo01-tdfamily  CHANGING lv_j1.
+        PERFORM ssf_layout_str USING ls_tfo01-tdfamily1 CHANGING lv_j2.
+        PERFORM ssf_layout_str USING ls_tfo01-tdfamily2 CHANGING lv_j3.
+        PERFORM ssf_layout_str USING ls_tfo01-tdfamily3 CHANGING lv_j4.
+        lv_str = |\{"family":{ lv_j1 },"proportional":"{ ls_tfo01-tdproport }","substitutes":[{ lv_j2 },{ lv_j3 },{ lv_j4 }]\}|.
+        CONCATENATE lv_rows lv_sep lv_str INTO lv_rows.
+        lv_sep = ','.
+        APPEND ls_tfo01-tdfamily1 TO lt_ffam.
+        APPEND ls_tfo01-tdfamily2 TO lt_ffam.
+        APPEND ls_tfo01-tdfamily3 TO lt_ffam.
+      ENDLOOP.
+      APPEND 'COURIER' TO lt_ffam.
+      DELETE lt_ffam WHERE table_line IS INITIAL.
+      SORT lt_ffam.
+      DELETE ADJACENT DUPLICATES FROM lt_ffam.
+      lv_fams = lv_rows.
+      CLEAR: lv_rows, lv_sep.
+      SELECT * FROM tfo03 INTO TABLE lt_tfo03 FOR ALL ENTRIES IN lt_ffam
+        WHERE tdprinter = lv_fdevtype AND tdfamily = lt_ffam-table_line.
+      SORT lt_tfo03 BY tdfamily tdfontsize tdbold tditalic.
+      LOOP AT lt_tfo03 INTO ls_tfo03.
+        lv_fsize = ls_tfo03-tdfontsize.
+        lv_str = |["{ ls_tfo03-tdfamily }",{ lv_fsize },"{ ls_tfo03-tdbold }","{ ls_tfo03-tditalic }"]|.
+        CONCATENATE lv_rows lv_sep lv_str INTO lv_rows.
+        lv_sep = ','.
+      ENDLOOP.
+      PERFORM ssf_layout_str USING lv_fspld    CHANGING lv_j1.
+      PERFORM ssf_layout_str USING lv_fdevtype CHANGING lv_j2.
+      ev_result = |\{"device":{ lv_j1 },"deviceType":{ lv_j2 },"families":[{ lv_fams }],"fonts":[{ lv_rows }]\}|.
+      lv_len = lines( lt_tfo03 ).
+      ev_message = |Printer { lv_fspld } ({ lv_fdevtype }): { lv_len } font(s)|.
+
+*----------------------------------------------------------------------
     WHEN OTHERS.
       ev_subrc = 8.
-      ev_message = |SSF_CONTENT: unknown part "{ iv_part }" (FORM, STYLE, GRAPHIC, STDTEXT)|.
+      ev_message = |SSF_CONTENT: unknown part "{ iv_part }" (FORM, STYLE, GRAPHIC, STDTEXT, FONTS)|.
       ev_result = '{}'.
   ENDCASE.
 

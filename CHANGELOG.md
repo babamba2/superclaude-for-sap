@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.42] — 2026-10-19
+
+### Changed — `smartform-preview` prints like SAP
+
+The preview was trained against SAP's own output: for well over a hundred customer forms, SAP rendered the form with invented values (new FM `ZMCP_SSF_RENDER`, MCP tool `RenderSmartForm`) and a metric compared every text run, line and bar code of SAP's OTF with the preview. Most forms now match exactly. What the renderer learned, among others:
+
+- **Fonts and widths:** printer families per device type (missing families and missing fixed sizes print in COURIER, TrueType families without bold print regular), blank widths from SAP's own metrics per device / family / size (`blank-widths.json`), hyphen rules rounded like SAP, no kerning, fixed-pitch DBCS fonts, legacy Korean / Chinese / Japanese bytes in Latin-1 texts printed as Hangul / CJK in a DBCS printer font.
+- **Styles:** a text prints in the style its output options or parents pass down, not the one stored with it; styles named only in output options are read too.
+- **Layout:** table patterns and outer frames, window boxes outside by their distance, hairline sides, templates at a fixed vertical position, LEFTMARGIN, line types that refer to another line's height, 4.6-style tables that flow by new line / new cell, folders and loops inside templates and tables, footer events on the last row, sort events, page breaks, cut rows in fixed-height cells and secondary windows.
+- **Text:** right / centre tab stops and default tab stops, append-directly text nodes, dynamic text nodes (text tables), hyphenated words, numbers right-justified with the sign position, page totals, texts in the form's master language when the logon language has none, bar codes (Code 128 module and height from SE73) with nested bar-code formats.
+- The skill documents the value conventions (sign position, node-scoped values, dynamic texts).
+
+### Added
+
+- `scripts/smartform/compare-otf.mjs` (preview vs SAP OTF metric) and `scripts/smartform/otf-draw.mjs` (OTF drawn as a reference image).
+- ABAP: `zmcp_ssf_render.abap` (FM `ZMCP_SSF_RENDER`) with its dispatcher branch `zmcp_adt_dispatch_ssf_render_branch.abap`; `ZMCP_SSF_CONTENT` returns style paragraphs / character formats with SE73 bar-code definitions, the device's printer fonts (`FONTS` part), and the form XML in a given language (`FORM` + `IV_LANGUAGE`). See `abap/README.md`.
+
+Needs abap-mcp-adt-powerup with `RenderSmartForm` and the extended `GetSmartFormContent` (main 14df46e).
+
 ## [0.6.41] — 2026-10-16
 
 ### Added — `smartform-preview`

@@ -69,6 +69,9 @@ node scripts/smartform/build-preview.mjs symbols "<content>"
               "GS_ITEM-MATNR": ["100234", "100235", "100512"] } }
 ```
 - Write values **as printed**: dates and numbers in the user's format (country file / `config.json` → `country`; KR / US style `1,250.000`, DE style `1.250,000`), currency amounts with their decimals, units as their external code.
+- Numbers (CURR / QUAN / DEC / INT / P) print **right-justified in their output length** — pad with leading blanks (QUAN 13,3 → 17 characters: `"           12.500"`) unless the symbol has a length or `(C)` option. Signed fields (CURR, signed DEC) end with the sign position: a blank when positive (`"       1,234.56 "`), `-` when negative. In a narrow cell the blanks wrap the number onto a second line that a fixed-height row cuts off — SAP prints the cell empty, and so must the preview.
+- A variable the form's code sets differently in one place (a footer total in a loop's last event) takes a value for that text node only: `"L_WRBTR@%TEXT59": "99,999.96"` wins over `"L_WRBTR": [...]`.
+- A dynamic text node (text type D, `REF_NAME &GV_TEXT&`) prints a text table: give its lines, `"GV_TEXT": ["First line", {"TDFORMAT": "", "TDLINE": "continued"}]` (a string = a `*` line; a blank `TDFORMAT` continues the paragraph). One text per loop row = an array of such arrays.
 - Realistic lengths: names and texts typically 50–90 % of the field length; keys at their usual length (`4500001234`, `0010004567`). A symbol inside a loop or table gets an array, one value per row; totals add up.
 - Values hang together: same buyer in buyer and ship-to when the form implies it, item amounts = quantity × price, a total that matches.
 - `defaultParagraph`: the paragraph for lines formatted `*` (the style's standard paragraph is not in the content). Take the paragraph of the neighbouring label of the same kind (e.g. the title cell next to it); say which one in the result. Keep the choice in `values.json` for later runs.
@@ -106,6 +109,7 @@ Reply in the user's language; show the JPG to the user when the client can displ
 <Limits>
 - One page is drawn (the first). Further pages, page breaks after MAIN overflows, and `NEXTPAGE` flows are listed, not drawn.
 - Field conditions (`condition` other than first / last page) and alternatives: the node is shown / the first branch is drawn; listed under `approximations`.
+- Text commands: `/*` comment lines are not printed; `/: IF … ELSE … ENDIF` is decided from the sample values (`&X& = 'v'`, `<>`), otherwise the first branch is drawn; other `/:` commands are skipped (listed). A SmartStyle a node names but the system lacks is replaced by the style its parents pass down (listed).
 - Address nodes and include texts with a key set at print time are drawn as labelled boxes.
 - Text in a template / table cell is clipped on one line; SAP's own wrapping inside a cell is not imitated. Window text wraps at the window width.
 - Page formats other than A4 are drawn as A4 (listed).
