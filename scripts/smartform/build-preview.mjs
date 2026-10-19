@@ -226,13 +226,30 @@ function printedFamily(family, printer, size10) {
   if (def.proportional === 'X' && !(def.substitutes || []).some((s) => String(s).trim())) return f;
   // the Unicode PDF device type prints a missing CJK family in its Unicode font
   // (ZSD_P_INVOICE: KPDODUM on PDFUC → ANDALE_J); elsewhere COURIER (EXP_CERT on KPPDF) A_SIMP / A_TRAN / A_TRAD (Chinese) too: ZFI_SMT_PARK_DOCUMENT_PRN2
-  if (printer.deviceType === 'PDFUC' && /^(KP|CN|TW|JP|DB|A_(SIMP|TRAN|TRAD))/.test(f)) return 'ANDALE_J';
+  // and the Thai families (THVIJIT, substitute THANGSAN that PDFUC has, still → ANDALE_J:
+  // ZSMARTFORM_UTQG C1, ZFI_SMT_PARK_DOCUMENT_PRN_JP B7)
+  if (printer.deviceType === 'PDFUC' && /^(KP|CN|TW|JP|DB|TH|A_(SIMP|TRAN|TRAD))/.test(f)) return 'ANDALE_J';
   return 'COURIER';
 }
 
 /** Blank widths (twips) SAP's OTF sent per device type, keyed "FAMILY|size×10|B" (bold) or
  *  "FAMILY|size×10|" — the widths of the device type's font metrics, which a browser font
  *  does not round alike (collected from the SW records of the learning-loop OTFs). */
+/** Glyph widths (1/1000 em, index = code − 32, WinAnsi) SAP's PDF converter uses per device type
+ *  and SAP family / bold, keyed "FAMILY|B" or "FAMILY|" — read from SAP's own PDFs
+ *  (glyph-widths.json). Only device types whose widths do not depend on the size (PDFUC,
+ *  SAPWIN); KPPDF stores per-size widths and is left to the browser. */
+let GLYPH_WIDTHS = null;
+function glyphWidths(deviceType) {
+  if (!GLYPH_WIDTHS) {
+    try { GLYPH_WIDTHS = JSON.parse(readFileSync(new URL('./glyph-widths.json', import.meta.url), 'utf8')).widths || {}; } catch { GLYPH_WIDTHS = {}; }
+  }
+  const dev = `${String(deviceType || '').trim().toUpperCase()}|`;
+  const out = {};
+  for (const [k, v] of Object.entries(GLYPH_WIDTHS)) if (k.startsWith(dev)) out[k.slice(dev.length)] = v;
+  return out;
+}
+
 let BLANK_WIDTHS = null;
 function blankWidths(deviceType) {
   if (!BLANK_WIDTHS) {
@@ -573,7 +590,8 @@ class Renderer {
   /** Character formats of a style that print as a bar code (SSFSTRINGS BARCODE). */
   barcodeTags(style) {
     const st = (this.c.styles || []).find((x) => x.name === style);
-    return new Map((st?.strings || []).filter((s) => String(s.barcode || '').trim())
+    // a bar code with no type (TFO05 TYPE empty) prints as plain text in SAP
+    return new Map((st?.strings || []).filter((s) => String(s.barcode || '').trim() && (!s.barcodeDef || String(s.barcodeDef.type || '').trim()))
       .map((s) => [s.tag, { name: String(s.barcode).trim(), size: barcodeSize(s.barcodeDef), type: s.barcodeDef?.type }]));
   }
 
@@ -1042,18 +1060,59 @@ class Renderer {
     const loose = kids.filter((c) => c.kind !== 'event');
     let html = ev('H').map((e) => rowsOf(e.children || [])).join('');
     const body = [...ev('B').flatMap((e) => e.children || []), ...loose];
-    const repeat = n.dataTable ? this.rowsOf(String(n.attrs?.TABHEADER || n.dataTable).toUpperCase()) : 1;
+    const wa = String(n.attrs?.TABHEADER || n.dataTable || '').toUpperCase();
+    // the rows the table prints: WHERE (WCOND) and the row range, as for loops (repeat)
+    const rowsHere = [];
+    const before = this.waRow[wa];
+    if (n.dataTable) {
+      // a WHERE line on a row field the values do not give cannot be decided: left out (the
+      // rows print, as before tables took WHERE — ZFI_SMT_PARK_DOCUMENT_PRN2 GJAHR / BELNR)
+      const where = (n.where || []).map((c) => ({ ...c, OP1: condRef(c.OP1) && !String(c.OP1).includes('-') ? `${wa}-${c.OP1}` : c.OP1 }))
+        .filter((c) => {
+          const ref = condRef(c.OP1);
+          if (!ref || this.values[ref.name] !== undefined) return true;
+          this.approx.push(`${n.name}: WHERE ${c.OP1} ${c.COP} ${c.OP2} not decided (no value) — all rows printed`);
+          return false;
+        });
+      const firstRow = Math.max(1, Number(n.attrs?.FIRSTLINE) || 1);
+      const lastRow = Number(n.attrs?.LASTLINE) || Infinity;
+      for (let j = firstRow - 1; j < Math.min(this.rowsOf(wa), lastRow); j++) {
+        this.waRow[wa] = j;
+        if (!where.length || this.printsHere({ COND: where })) rowsHere.push(j);
+      }
+    } else rowsHere.push(0);
+    // sort events (SFIELD): S rows before the first row of a group, E rows after its last row
+    // (ZSD_NA_SHIPING_NOTICE %EVENT4 "PO Qty." per BSTNK). A variable printed in a sort event
+    // takes one value per group (values.json: an array by group, V_POQTY ["30","5"])
+    const sortEv = (t) => kids.filter((c) => c.kind === 'event' && c.attrs?.EVTYPE === t && c.attrs?.SFIELD);
+    const key = (i, f) => { const v = this.values[`${wa}-${f}`]; return Array.isArray(v) ? v[i % v.length] : v; };
+    // group number per sort field: counts up where a group starts
+    const groups = {};
+    const groupRows = (e) => { this.row = groups[e.attrs.SFIELD] ?? 0; return rowsOf(e.children || []); };
     if (n.dataTable) this.loopDepth++;
-    for (let i = 0; i < repeat; i++) { this.row = i; html += rowsOf(body); }
+    rowsHere.forEach((i, k) => {
+      if (n.dataTable) this.waRow[wa] = i;
+      const prev = rowsHere[k - 1], next = rowsHere[k + 1];
+      const fields = [...new Set(sortEv('S').concat(sortEv('E')).map((e) => e.attrs.SFIELD))];
+      for (const f of fields) if (k === 0 || key(i, f) !== key(prev, f)) groups[f] = (groups[f] ?? -1) + 1;
+      for (const e of sortEv('S')) if (k === 0 || key(i, e.attrs.SFIELD) !== key(prev, e.attrs.SFIELD)) html += groupRows(e);
+      this.row = i;
+      html += rowsOf(body);
+      for (const e of sortEv('E')) if (k === rowsHere.length - 1 || key(i, e.attrs.SFIELD) !== key(next, e.attrs.SFIELD)) html += groupRows(e);
+      this.row = i;
+    });
     if (n.dataTable) this.loopDepth--;
     // the footer sees the work area the loop left: its last row (ZSDR54010_INVOICE %ROW3 tests
     // IT_ITEM-POSNR = 000000, the total row, last)
     const foot = ev('F');
-    if (foot.length && n.dataTable && repeat > 0) {
+    const last = rowsHere[rowsHere.length - 1];
+    if (foot.length && n.dataTable && last !== undefined) {
       this.loopDepth++;
-      this.row = repeat - 1;
+      this.row = last;
+      this.waRow[wa] = last;
       try { html += foot.map((e) => rowsOf(e.children || [])).join(''); } finally { this.loopDepth--; }
     } else html += foot.map((e) => rowsOf(e.children || [])).join('');
+    if (n.dataTable) { if (before === undefined) delete this.waRow[wa]; else this.waRow[wa] = before; }
     this.row = 0;
     return `<div class="tpl" data-node="${esc(n.name)}" style="width:${n.width?.mm ?? 0}mm;${tplPlace(n)}">${html}</div>`;
   }
@@ -1201,6 +1260,14 @@ html,body{margin:0;background:#fff}
 ${css}
 </style></head><body><div class="sheet" data-zoom="${ZOOM}">${body}</div>
 <script>(function(){
+// a character format that only wraps other character formats prints nothing of its own: it makes
+// no inline box when it is larger than all the text inside (a 48 pt outer format around 22 pt text grew
+// a 1 LN line by 1.2 mm — ZLE_CTR_PRINT_CN_SPLIT; an 18 pt wrapper of 18 pt text stays: ZMMR03040N title)
+document.querySelectorAll('.sheet .par span.char:not(.barcode)').forEach(function(e){
+ for(var n=e.firstChild;n;n=n.nextSibling)if(n.nodeType===3||!(n.classList&&n.classList.contains('char')))return;
+ var fs=parseFloat(getComputedStyle(e).fontSize),big=true,tw=document.createTreeWalker(e,NodeFilter.SHOW_TEXT),tn;
+ while((tn=tw.nextNode()))if(/\\S/.test(tn.nodeValue)&&parseFloat(getComputedStyle(tn.parentElement).fontSize)>=fs){big=false;break;}
+ if(big)e.style.display='contents';});
 // SAP advances a blank by the width its device type's font metrics give (SW in the OTF), in whole
 // twips: from the table of widths SAP sent (blank-widths.json, by device / family / size / bold),
 // else the browser's width rounded down (HELVE 12 pt bold 66.72 → 66); long runs of blanks drift
@@ -1225,7 +1292,28 @@ document.querySelectorAll('.sheet .par span.hy').forEach(function(e){var cs=getC
  // (DBCS fonts keep the old rule: their hyphen is the FC width, item 24 — ZMM_FORM_CRMIN KPDODUM)
  var em=parseFloat(cs.fontSize)*15,dbcs=/^(KP|CN|JP|TW|ANDALE)/.test(cs.getPropertyValue('--sapfam').trim());
  var want=DEV==='KPPDF'&&dbcs?Math.floor(tw+1e-6):DEV==='KPPDF'&&em?Math.round(Math.round(tw/em*100)/100*em):Math.round(tw);
- var d=want-tw;if(Math.abs(d)>0.001)e.style.letterSpacing=(d/15)+'px';});}
+ var d=want-tw;if(Math.abs(d)>0.001)e.style.letterSpacing=(d/15)+'px';});
+// words: SAP adds up the glyph widths of its device type's font metrics, each rounded to whole
+// twips (PDFUC HELVCYR 10 pt "P215/60R16 95H" = 1530 tw, fits a 1531 tw cell — the browser's
+// Arial is 1535 and wraps: ZSMARTFORM_UTQG). Widths from SAP's own PDFs (glyph-widths.json)
+var GW=${JSON.stringify(glyphWidths(this.c.printer?.deviceType))};
+if(Object.keys(GW).length){var tws=document.createTreeWalker(document.querySelector('.sheet'),NodeFilter.SHOW_TEXT),tn,list=[];
+ while((tn=tws.nextNode())){var pe=tn.parentElement;if(!pe||!pe.closest('.par')||pe.closest('.hy')||pe.closest('.gw')||!/\\S/.test(tn.nodeValue))continue;list.push(tn);}
+ list.forEach(function(tn){var pe=tn.parentElement,cs=getComputedStyle(pe);var fam=cs.getPropertyValue('--sapfam').trim(),p10=Number(cs.getPropertyValue('--sappt'))||0;
+  var gk=fam+'|'+(cs.getPropertyValue('--sapb').trim()==='B'?'B':'');var w=GW[gk+'|'+p10]||GW[gk];if(!w||!p10)return;
+  cv.font=cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;
+  // one wrapper per text node (the metric reads runs per node): letter-spacing = the average
+  // correction of its non-blank glyphs, word-spacing less by as much (blanks keep their SW width)
+  // measured on the page (a canvas does not see fallback font faces: ZSDR54080_DEBIT_CREDIT
+  // Angsana New → "SF Angsana fallback" drew 0.47 mm wider than the canvas measured)
+  var Zm=Number((document.querySelector('.sheet')||{}).dataset.zoom)||1,rg=document.createRange();
+  var want=0,have=0,n=0,re=/\\S+/g,m,v=tn.nodeValue;
+  while((m=re.exec(v))){var s=m[0],ws=0;for(var i=0;i<s.length;i++){var c=s.charCodeAt(i),g=c>=32&&c<=255?w[c-32]:null;if(g==null)return;ws+=Math.round(g*p10/500);}
+   rg.setStart(tn,m.index);rg.setEnd(tn,m.index+s.length);var px=0,rs=rg.getClientRects();for(var q=0;q<rs.length;q++)px+=rs[q].width;
+   want+=ws;have+=px/Zm*15;n+=s.length;}
+  if(!n)return;var ls=parseFloat(cs.letterSpacing)||0,d=(want-have)/n;if(Math.abs(d)<0.05)return;
+  var sp=document.createElement('span');sp.className='gw';sp.style.letterSpacing=(ls+d/15)+'px';sp.style.wordSpacing=((parseFloat(cs.wordSpacing)||0)-d/15)+'px';
+  pe.replaceChild(sp,tn);sp.appendChild(tn);});}}
 })();</script>
 <script>(function(){
 // a hyphenated word longer than a whole line breaks at its hyphens as SAP does
@@ -1278,6 +1366,10 @@ if(j==='R'||j==='C'){var tabs=Array.prototype.slice.call(p.querySelectorAll('.ta
    for(var k2=0;k2<pn.nodeValue.length;k2++){if(/\\s/.test(pn.nodeValue[k2]))continue;pr.setStart(pn,k2);pr.setEnd(pn,k2+1);var q2=pr.getClientRects()[0];if(q2&&Math.abs((q2.top+q2.bottom)/2-tm)<(q2.bottom-q2.top))lim=Math.max(lim,(q2.right-bl)/Z/PXMM);}}
   var pt=tabs[tabs.indexOf(t)-1];if(pt)lim=Math.max(lim,(pt.getBoundingClientRect().right-bl)/Z/PXMM);
   w=x+w>=lim?w:Math.max(0,lim-x);if(w>0)w=0;}}
+// a tab with no ink after it in the paragraph makes no room and no new line (ZSMARTFORM_UTQG
+// %TEXT3 lines ending ",,,,,," after ~85 mm of text: one line each in SAP)
+var ink=false,aw=document.createTreeWalker(p,NodeFilter.SHOW_TEXT),an;while((an=aw.nextNode())){if(t.compareDocumentPosition(an)&Node.DOCUMENT_POSITION_FOLLOWING&&/\\S/.test(an.nodeValue)){ink=true;break;}}
+if(!ink)w=0;
 if(w<0){t.style.display='inline-block';t.style.width='0';t.style.marginLeft=w+'mm';}
 else{t.style.display='inline-block';t.style.width=w+'mm';}});})();</script>
 <script>(function(){var c=document.createElement('canvas').getContext('2d');
