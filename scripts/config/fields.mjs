@@ -20,7 +20,11 @@ import { resolveArtifactBase, sc4sapHome } from '../lib/profile-resolve.mjs';
 import { atomicWriteFileSync, ensureDirSync } from '../lib/atomic-write.mjs';
 import { buildModel } from './build-config-doc.mjs';
 
-const F1_CHARS = 900;
+// F1 text per data element: 900 characters cut key sentences (KZRBWB lost its "new Asset
+// Accounting" paragraph); 6000, as for the IMG documentation in the notes input, fits nearly all.
+const F1_CHARS = 6000;
+// Domain fixed values listed per data element (12 dropped the rest of longer domains silently).
+const VALUE_CAP = 60;
 
 function opts(argv) {
   const o = { cmd: argv[0], module: '', size: 100, batch: '', kind: '', file: '' };
@@ -63,6 +67,28 @@ export function parseFields(text) {
   return out;
 }
 
+/**
+ * F1 text of a data element for a batch input, up to `cap` characters. A cut text says so:
+ * cut here (the snapshot has the rest) or already cut when it was extracted (snapshots read
+ * before the extraction cap was raised stop at 1500 characters, without the `cut` flag).
+ */
+export const F1_EXTRACT_CAP_OLD = 1500;
+export function f1Text(doc, cap = F1_CHARS) {
+  const t = String(doc?.text || '');
+  if (t.length > cap) return `${t.slice(0, cap)} … (cut; full text in snapshot.fieldDocs)`;
+  if (doc?.cut || t.length === F1_EXTRACT_CAP_OLD) return `${t} … (cut when extracted; extract-config --field-docs reads it in full)`;
+  return t;
+}
+
+/**
+ * Fixed values of a domain as `value=text`, up to `cap` of them; `more` counts the ones left
+ * out, so the writer knows the list is not complete.
+ */
+export function domainValues(dv = {}, cap = VALUE_CAP) {
+  const all = Object.entries(dv || {});
+  return { values: all.slice(0, cap).map(([k, t]) => `${k}=${t}`), more: Math.max(0, all.length - cap) };
+}
+
 function batches(o) {
   const dir = dirOf(o.module);
   const snap = JSON.parse(readFileSync(join(dir, 'snapshot.json'), 'utf8'));
@@ -86,9 +112,8 @@ function batches(o) {
     });
   }
   const items = [...by.values()].sort((a, b) => a.de.localeCompare(b.de)).map((e) => {
-    const dv = snap.domains?.[e.domain] || {};
-    const values = Object.entries(dv).slice(0, 12).map(([k, t]) => `${k}=${t}`);
-    return { de: e.de, label: e.label, domain: e.domain, values, f1: (snap.fieldDocs?.[e.de]?.text || '').slice(0, F1_CHARS), usedIn: e.usedIn, samples: [...e.samples] };
+    const { values, more } = domainValues(snap.domains?.[e.domain]);
+    return { de: e.de, label: e.label, domain: e.domain, values, ...(more ? { more } : {}), f1: f1Text(snap.fieldDocs?.[e.de]), usedIn: e.usedIn, samples: [...e.samples] };
   });
   const first = Math.max(0, ...readdirSync(fdir).map((f) => Number(/^f(\d{3})\.json$/.exec(f)?.[1] || 0)));
   const manifest = [];

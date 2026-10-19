@@ -26,6 +26,8 @@ import { loadNotes, loadTerms } from './notes.mjs';
 import { loadFieldMeanings } from './fields.mjs';
 import { loadValueMeanings } from './values.mjs';
 import { loadBadiNotes, methodKey } from './badi-notes.mjs';
+import { ggbKinds, ggbViews, loadGgbNotes, loadGgbReports, codeRefs, mdLite } from './ggb.mjs';
+import { cmodImplemented } from './cmod.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 const MOCK_COLS = 8;
@@ -58,6 +60,54 @@ const show = (v) => (v === true ? 'X' : v === false || v == null ? '' : String(v
 // files like P30A_C_SFC, /SPE/100_CUST) are not customer changes.
 export const isCustomerTr = (t) => /^[A-Z][A-Z0-9]{2}K[A-Z0-9]{6}$/.test(String(t)) && !String(t).startsWith('SAP');
 const custTr = (r) => (r._tr || []).filter(isCustomerTr);
+
+// SAP compares CHAR values without trailing blanks: INAKTIV = ' ' matches an empty field.
+// NUMC values arrive as numbers (REGGB 1 for '001').
+const num = (a, b) => /^\d+$/.test(a) && /^\d+$/.test(b);
+const likeRe = (p) => new RegExp(`^${p.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*').replace(/_/g, '.')}$`, 's');
+const OPS = {
+  EQ: (a, b) => (num(a, b) ? Number(a) === Number(b) : a === b), NE: (a, b) => !OPS.EQ(a, b),
+  GT: (a, b) => (num(a, b) ? Number(a) > Number(b) : a > b), GE: (a, b) => (num(a, b) ? Number(a) >= Number(b) : a >= b),
+  LT: (a, b) => (num(a, b) ? Number(a) < Number(b) : a < b), LE: (a, b) => (num(a, b) ? Number(a) <= Number(b) : a <= b),
+  LK: (a, b) => likeRe(b).test(a),
+};
+// A language condition on a joined text table (T685T-SPRAS = SY-LANGU) is met by the text
+// lookup, which takes the document language.
+const LANG_REF = /^(SY|SYST)-LANGU$|-(SPRAS|LANGU)$/;
+const condText = (c) => `${c.table}-${c.field} ${c.not ? 'NOT ' : ''}${c.op || 'EQ'} ${c.ref ?? `'${c.value}'`}`;
+
+/**
+ * Selection condition of a view (DD28S) as a row test on the root table. Lines linked by OR
+ * form one bracketed group (SAP allows OR only between conditions on one field), groups are
+ * AND-ed. Snapshots extracted before the operators were kept hold EQ constants only: there,
+ * conditions on one field are OR-ed (FOFUN = '02' OR '05'), different fields AND-ed.
+ * A condition on a joined table (T685-KAPPL = 'V3') is read on the joined row `joined` finds
+ * for a root row (null: no such row, so the inner join drops the root row; undefined: the
+ * table cannot be looked up). A group with anything this side cannot evaluate (a reference to
+ * another field, a joined table not in the snapshot) is not applied — dropping one OR branch
+ * would hide rows — and is returned in `notApplied`.
+ */
+export function viewCondition(conds, root, joined = () => undefined) {
+  const groups = [];
+  if (conds.some((c) => 'op' in c)) {
+    let cur = null;
+    for (const c of conds) { (cur ??= []).push(c); if (!c.or) { groups.push(cur); cur = null; } }
+    if (cur) groups.push(cur);
+  } else {
+    const byField = {};
+    for (const c of conds) (byField[`${c.table}-${c.field}`] ??= []).push(c);
+    groups.push(...Object.values(byField));
+  }
+  const tests = [];
+  const notApplied = [];
+  for (const g of groups) {
+    if (g.every((c) => c.table !== root && c.ref && LANG_REF.test(c.ref))) continue;
+    if (g.some((c) => c.ref != null || !OPS[c.op || 'EQ'] || (c.table !== root && joined(c.table) === undefined))) { notApplied.push(g.map(condText).join(' OR ')); continue; }
+    const on = (c, row) => (c.table === root ? row : joined(c.table, row));
+    tests.push((row) => g.some((c) => { const r = on(c, row); return !!r && OPS[c.op || 'EQ'](show(r[c.field]).trim(), String(c.value).trim()) !== !!c.not; }));
+  }
+  return { test: (row) => tests.every((t) => t(row)), notApplied };
+}
 
 export function buildModel(snap, lang, { drawScreens = true } = {}) {
   const L = T[lang] || T.en;
@@ -97,15 +147,18 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
   const addView = (key, title, root, cols, conds = []) => {
     const def = snap.tables[root];
     if (!def) return null;
-    // View variants restrict the root table (e.g. BSTYP = 'F'); keep the original row index for _tr.
-    // SAP compares CHAR values without trailing blanks: INAKTIV = ' ' matches an empty field.
-    // NUMC values arrive as numbers (REGGB 1 for '001'). Conditions on the same field are
-    // OR-ed (FOFUN = '02' OR '05' OR '06'), different fields AND-ed.
-    const same = (a, b) => (/^\d+$/.test(a) && /^\d+$/.test(b) ? Number(a) === Number(b) : a === b);
-    const groups = {};
-    for (const c of conds.filter((x) => x.table === root)) (groups[c.field] ??= []).push(String(c.value).trim());
-    const keep = def.rows.map((r, i) => i).filter((i) => Object.entries(groups).every(([f, vals]) => vals.some((v) => same(show(def.rows[i][f]).trim(), v))));
-    const src = keep.map((i) => def.rows[i]);
+    // View variants and maintenance views restrict the root table (BSTYP = 'F', LAND1 = 'AR');
+    // conditions that cannot be evaluated here are listed on the view instead. A joined table is
+    // looked up like a text table when the snapshot holds it in full and the root table has
+    // every key field of it (T685: KVEWE, KAPPL, KSCHL).
+    const joined = (table, row) => {
+      const t = snap.tables[table];
+      const keys = (t?.fields || []).filter((f) => f.key && f.type !== 'CLNT' && f.type !== 'LANG').map((f) => f.name);
+      if (!t || t.truncated || t.error || !keys.length || keys.some((k) => !def.fields.some((f) => f.name === k))) return undefined;
+      return row ? secondaryRow(table, row) : null;
+    };
+    const { test, notApplied } = viewCondition(conds, root, joined);
+    const src = def.rows.filter(test);
     const rows = src.map((r) => {
       const sec = {};
       return cols.map((c) => {
@@ -120,6 +173,7 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
       key, title, root, cols: cols.map((c) => ({ name: c.field, label: c.label, key: c.key, dom: c.dom, de: c.de || '' })),
       rows, cust, trOf, truncated: def.truncated, error: def.error || '', tableTitle: def.title,
       history: (def.transports || []).filter(isCustomerTr), historyTruncated: def.historyTruncated,
+      ...(notApplied.length ? { conditionNotApplied: notApplied } : {}),
     };
     return views[key];
   };
@@ -145,7 +199,12 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
       const de = snap.labels[f.rollname] ? f.rollname : d?.rollname || f.rollname;
       return { field: f.field, table: f.table, tabField: f.tabField, key: f.key, dom: d?.domname || '', de, label: label(de, f.field) };
     });
-    return addView(name, title || v.title, root, cols, conds);
+    const out = addView(name, title || v.title, root, cols, conds);
+    // Subset fields (DD27S maintenance flag S) without a condition are asked for when SM30 opens
+    // (V_T059Z_AR: the country): the rows here span every value of them.
+    const subset = v.fields.filter((f) => f.rdonly === 'S' && f.table === root && !conds.some((c) => c.table === root && c.field === f.tabField)).map((f) => f.tabField);
+    if (out && subset.length) out.subset = subset;
+    return out;
   };
   const tableModel = (name, title) => {
     const def = snap.tables[name];
@@ -171,7 +230,7 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
     views[key] = {
       key, title: nr.title || obj, root: 'NRIV', tableTitle: obj, nr: true,
       cols: NR_FIELDS.map((f, i) => ({ name: f, label: names[i], key: i < 3, dom: '' })),
-      rows, cust, trOf: Object.fromEntries(cust.map((i) => [i, custTr(nr.rows[i])])), truncated: false, error: '', history: (nr.transports || []).filter(isCustomerTr),
+      rows, cust, trOf: Object.fromEntries(cust.map((i) => [i, custTr(nr.rows[i])])), truncated: !!nr.truncated, error: nr.error || '', history: (nr.transports || []).filter(isCustomerTr), historyTruncated: !!nr.historyTruncated,
     };
     return views[key];
   };
@@ -180,9 +239,13 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
   const objectsOf = (a) => {
     const out = [];
     for (const obj of a.numberRanges || []) if (nrModel(obj)) out.push({ kind: 'view', key: `NR:${obj}` });
+    // Validations / substitutions the activity assigns (OB28, OBBH, OKC7, OKC9): rule steps and exits.
+    const kinds = snap.ggb ? ggbKinds(a) : [];
+    if (kinds.length) for (const [k, v] of Object.entries(ggbViews(snap.ggb, kinds, lang, snap.ggbNotes))) { views[k] ??= v; out.push({ kind: 'view', key: k }); }
     for (const ob of a.objects) {
       if (ob.type === 'V' && snap.views[ob.name]) { viewModel(ob.name, a.title); out.push({ kind: 'view', key: ob.name }); }
-      else if (ob.type === 'S' && snap.tables[ob.name]) { tableModel(ob.name, a.title); out.push({ kind: 'table', key: ob.name }); }
+      // Tables added for a transaction (FIBF → TBE34 …) are shared by several activities: titled by the table.
+      else if (ob.type === 'S' && snap.tables[ob.name]) { tableModel(ob.name, ob.via ? snap.tables[ob.name].title || ob.name : a.title); out.push({ kind: 'table', key: ob.name }); }
       else if (ob.type === 'C' && snap.clusters[ob.name]) {
         const members = snap.clusters[ob.name].map((m) => ({ ...m, ok: !!viewModel(m.view, m.title) }));
         out.push({ kind: 'cluster', key: ob.name, title: snap.clusterTitles[ob.name] || a.title, members });
@@ -201,7 +264,9 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
     const cust = vs.reduce((n, v) => n + v.cust.length, 0);
     const blocked = vs.some((v) => v.error);
     const status = blocked ? 'blocked' : !vs.length ? 'none' : cust ? 'custom' : rows ? 'standard' : 'empty';
-    acts[id] = { id, title: a.title || a.titleEn || id, titleEn: a.titleEn, tcode: a.tcode, objects: objs, viewKeys: keys, tables: [...new Set(tablesOf(objs))], rows, cust, status, docuId: a.docuId, ...(a.badis ? { badis: a.badis } : {}) };
+    acts[id] = { id, title: a.title || a.titleEn || id, titleEn: a.titleEn, tcode: a.tcode, objects: objs, viewKeys: keys, tables: [...new Set(tablesOf(objs))], rows, cust, status, docuId: a.docuId, ...(a.badis ? { badis: a.badis } : {}), ...(snap.ggb && ggbKinds(a).length ? { ggb: ggbKinds(a) } : {}), ...(snap.cmod?.byActivity?.[id] ? { cmod: snap.cmod.byActivity[id] } : {}) };
+    // A "Develop enhancements" activity whose enhancement is implemented in an active customer project counts as customer-changed.
+    if ((snap.cmod?.byActivity?.[id] || []).some((e) => snap.cmod.enh[e] && cmodImplemented(snap.cmod.enh[e])) && ['none', 'empty'].includes(status)) acts[id].status = 'custom';
     // An enhancement activity with an active customer implementation counts as customer-changed.
     if (a.badis?.some((b) => (snap.badiImpls?.[b] || []).some((x) => x.active)) && ['none', 'empty'].includes(status)) acts[id].status = 'custom';
   }
@@ -217,7 +282,8 @@ export function buildModel(snap, lang, { drawScreens = true } = {}) {
 export function drawView(v, lang, theme) {
   const L = T[lang] || T.en;
   const svgs = {};
-  if (!v.rows.length) return svgs;
+  // Validation / substitution rules are not an SM30 view: shown as the table only.
+  if (!v.rows.length || v.ggb) return svgs;
   const order = [...v.cust, ...v.rows.map((_, i) => i).filter((i) => !v.cust.includes(i))].slice(0, MOCK_ROWS);
   // Columns as wide as their longest shown value (ZMM_PO_RELEASE), within 80–240 px;
   // the renderer cuts anything longer with '…'.
@@ -348,6 +414,31 @@ function nextVersion(dir, base) {
   return Math.max(0, ...n) + 1;
 }
 
+// CMOD enhancements for the page: components with the objects their code uses, the reviewed meaning
+// of each customer include (<dir>/cmod/*.json { includes: { ZX…: text } }) and the reviewed reports (<dir>/cmod/*.md).
+function cmodData(cmod, dir) {
+  const cdir = join(dir, 'cmod');
+  const notes = {};
+  const reports = [];
+  if (existsSync(cdir)) {
+    for (const f of readdirSync(cdir).sort()) {
+      if (f.endsWith('.json')) { try { Object.assign(notes, JSON.parse(readFileSync(join(cdir, f), 'utf8')).includes || {}); } catch { /* left out */ } }
+      if (f.endsWith('.md')) reports.push({ id: f.replace(/\.md$/, ''), name: f.replace(/\.md$/, ''), html: mdLite(readFileSync(join(cdir, f), 'utf8')) });
+    }
+  }
+  const enh = Object.fromEntries(Object.entries(cmod.enh).map(([k, e]) => [k, { ...e, implemented: cmodImplemented(e), comps: e.comps.map((x) => {
+    // Code reached from the exit: Z sub-includes and called Z function modules (with their includes), listed under the exit.
+    const subs = [];
+    const addInc = (map, via) => { for (const [n, v] of Object.entries(map || {})) if (v.exists !== false) subs.push({ name: `INCLUDE ${n}`, via, lines: v.lines, source: v.source, truncated: v.truncated }); };
+    addInc(x.subIncludes, x.include);
+    for (const [f, v] of Object.entries(x.calledFms || {})) { if (v.source) subs.push({ name: `FUNCTION ${f}`, via: v.group, lines: v.lines, source: v.source, truncated: v.truncated }); addInc(v.subIncludes, f); }
+    const all = [x.source || '', ...subs.map((y) => y.source || '')].join('\n');
+    const { subIncludes, calledFms, ...rest } = x;
+    return { ...rest, ...(x.source ? { refs: codeRefs(all) } : {}), ...(subs.length ? { subs } : {}), ...(x.include && notes[x.include] ? { meaning: notes[x.include] } : {}) };
+  }) }]));
+  return { cmodEnh: enh, cmodErrors: cmod.errors || {}, cmodReports: reports, ...(cmod.dispatch?.length ? { cmodDispatch: cmod.dispatch.map(({ rows, ...d }) => d) } : {}) };
+}
+
 async function main() {
   const o = args(process.argv.slice(2));
   const cwd = process.cwd();
@@ -359,6 +450,7 @@ async function main() {
   applyTerms(snap, loadTerms(dir));
   snap.__theme = readScreenTheme(cwd) ?? undefined;
   snap.meta.client ||= readActiveSapEnv(cwd)?.env?.SAP_CLIENT || '';
+  if (snap.ggb) snap.ggbNotes = loadGgbNotes(dir);
   const { views, acts, svgs } = buildModel(snap, lang);
   const imported = o.import ? importEdits(resolve(o.import), dir, snap.meta) : null;
   // Edit mode: edited notes replace the generated ones; edited views replace their values,
@@ -435,7 +527,7 @@ async function main() {
   const data = {
     fields,
     meta: snap.meta, lang, tree: snap.tree, acts, views, checks,
-    transports: snap.transports, domains: snap.domains, docs: snap.docs, badiImpls: snap.badiImpls || {}, badiErrors: snap.badiErrors || {}, badiSrc: badiSrcOf(snap.badiSources || {}), badiNotes: loadBadiNotes(dir),
+    transports: snap.transports, domains: snap.domains, docs: snap.docs, badiImpls: snap.badiImpls || {}, badiErrors: snap.badiErrors || {}, badiSrc: badiSrcOf(snap.badiSources || {}), badiNotes: loadBadiNotes(dir), ggbReports: snap.ggb ? loadGgbReports(dir) : [], ...(snap.cmod ? cmodData(snap.cmod, dir) : {}),
     notes: withCaseDiagrams({ ...loadNotes(dir, { module, lang }), ...structuredClone(edits.edits) }, lang),
     edits,
   };
