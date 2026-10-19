@@ -64,6 +64,7 @@ Skills that read or produce project-local artifacts must adopt this pattern:
 - `/sc4sap:package-to-process` — reads `cbo/<MODULE>/<PACKAGE>/inventory.json` (cross-view hit → refuse on a `sap_version` mismatch, else ask), writes `processes/<MODULE>/<PACKAGE>/{process-*, bpml-*, _state/}`
 - `/sc4sap:program-to-manual` — writes `manuals/<PROGRAM>-v<n>-<lang>.html` + `<PROGRAM>-<lang>.history.json` + `_src/` / `_draft/` manual.json
 - `/sc4sap:smartform-preview` — writes `smartforms/<FORM>/<FORM>-preview.{jpg,html}` + `values.json` (invented sample values)
+- `/sc4sap:smartform-from-pdf` — writes `smartforms/<FORM>/` (`layout.json`, `styles.json`, `spec.json`, `shape.json`, `<FORM>.xml`, `<FORM>.printed.pdf`, `compare.json`)
 - `/sc4sap:analyze-symptom` — writes audit reports
 - `/sc4sap:create-object` — writes nothing long-term (transient state only)
 - Setup / sap-option — manage profile files themselves; outside this pattern

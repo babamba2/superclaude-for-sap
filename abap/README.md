@@ -123,3 +123,40 @@ The output of a SmartForm exactly as SAP prints it, for given interface values, 
 3. Test with `RenderSmartForm` on a form without program lines that read the database.
 
 Until step 2 is done the tool answers with an install hint (`Unknown action: SSF_RENDER`).
+
+## ZMCP_SSF_UPLOAD + dispatcher action SSF_UPLOAD_XML (CreateSmartForm)
+
+Creates (or, when asked, replaces) a Z/Y SmartForm from Form Builder XML — the format of SMARTFORMS > Utilities > Download and of `GetSmartFormContent`'s form XML — the way the SMARTFORMS upload does it: the XML is parsed with iXML and loaded with `CL_SSF_FB_SMART_FORM->XML_UPLOAD`, checked, and stored active (the function module is generated, also for a replaced form) when the check finds no error; otherwise it is stored inactive and the check messages are returned. **Writes to the repository — DEV systems only.** ECC / BASIS 7.40 only (`/UI2/CL_JSON`, `CL_ABAP_GZIP`).
+
+The OData `Dispatch` function import carries its parameters in the URL, so the MCP sends the XML raw-deflate compressed and base64-encoded in parts of 5000 characters; the dispatcher keeps parts 1..n-1 in `INDX` (area `ZM`, id `SSFUP<upload id><part>`) and joins them on the last part.
+
+**Sources:**
+- `zmcp_ssf_upload.abap` — FM `ZMCP_SSF_UPLOAD`.
+- `zmcp_adt_dispatch_ssf_upload_branch.abap` — one `WHEN 'SSF_UPLOAD_XML'.` line plus a `FORM ssf_upload_xml` for the ECC / 7.40 dispatcher.
+
+**Interface of ZMCP_SSF_UPLOAD:**
+| Parameter | Type | Direction | Description |
+|-----------|------|-----------|-------------|
+| IV_FORMNAME | TDSFNAME | Import | Target form, Z* or Y* |
+| IV_XML | STRING | Import | The XML in base64 |
+| IV_DEVCLASS | DEVCLASS | Import (default `$TMP`) | Package; another than a local one needs IV_TRANSPORT |
+| IV_TRANSPORT | TRKORR | Import (optional) | Request the form is recorded in (no dialog) |
+| IV_OVERWRITE | CHAR1 | Import (optional) | `X` = replace an existing form; without it an existing form is refused |
+| IV_ACTIVATE | CHAR1 | Import (default `X`) | Check and store active; space = store inactive without a check |
+| IV_GZIP | CHAR1 | Import (optional) | `X` = IV_XML is raw-deflate compressed before base64 |
+| EV_SUBRC | SYSUBRC | Export | 0 = stored (`active` false + `errors` when the check failed), 4 = refused, 8 = error |
+| EV_MESSAGE | STRING | Export | Error / info message |
+| EV_RESULT | STRING | Export | JSON `{"form","language","mode","active","fm","errors":[{"class","msg","fieldname"}],"warnings":[...]}` |
+
+## ZMCP_SSF_DELETE + dispatcher action SSF_DELETE_FORM (DeleteSmartForm)
+
+Deletes a Z/Y SmartForm of a **local** package (`$TMP`, `$…`) with its generated function module and TADIR entry — for forms created by `CreateSmartForm` and thrown away. A transportable form is refused (its deletion belongs on a transport: use SMARTFORMS). Without `confirm` nothing is deleted and the result says what would be. **Writes — DEV systems only.**
+
+**Sources:** `zmcp_ssf_delete.abap` (FM `ZMCP_SSF_DELETE`: IV_FORMNAME, IV_CONFIRM → EV_SUBRC / EV_MESSAGE / EV_RESULT `{"form","package","fm","deleted"}`), `zmcp_adt_dispatch_ssf_delete_branch.abap`.
+
+**Install (per DEV system, each step needs a transport and the user's OK):**
+1. Create FMs `ZMCP_SSF_UPLOAD` and `ZMCP_SSF_DELETE` in function group `ZMCP_ADT_UTILS` — **not** remote-enabled — with the sources above; activate.
+2. Read and back up the **live** `ZMCP_ADT_DISPATCH`, add both branches, activate.
+3. Test: `CreateSmartForm` with the XML of an existing form under a new Z name in `$TMP`, `RenderSmartForm` both and compare, then `DeleteSmartForm` the copy.
+
+Until step 2 is done the tools answer with an install hint (`Unknown action: SSF_UPLOAD_XML` / `SSF_DELETE_FORM`).
