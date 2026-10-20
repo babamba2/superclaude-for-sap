@@ -5,6 +5,17 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.45] — 2026-10-20
+
+### Changed — `smartform-from-pdf`
+
+- Item lines are always a loop. The planner reports item candidates: lines whose columns repeat at a fixed pitch, also items of several lines, a reference line above the line of numbers and a freight line that fills fewer columns. Over free texts (no ruled grid) the new `textItems` puts the column header, the loop and the totals below it into one MAIN window, so the totals move down with the items; cells follow each text's alignment and grow beyond the sample's width, rows never get thinner than their line spacing.
+- Shading: filled boxes shade the template cells they cover (a grey as black at its intensity, a colour as fill colour). Image areas become graphic windows that show an existing SE78 graphic the user names (resolution taken from the image).
+- Conditional texts (`conditions`, the text node's own condition), currency / quantity reference fields (`refFields`), Initialization code (`init`) and text modules (`modules`) for letterhead and footer blocks, named per company code at run time; a company code without a module leaves the block empty instead of stopping the print. A test text module can be uploaded with `CreateSmartForm`.
+- Placement: right-aligned columns (amounts, values under each other) get right-aligned paragraphs; a window whose text became a field grows the way its text is aligned; grid edges sit at rule positions, not at rule ends; white rules and zero-width window frames are no rules; texts on one line share a line spacing where the styles allow it; a line spacing equal to the font height no longer counts as too small.
+- Screenshots: font sizes are measured from line widths with SAP's glyph widths, and handwritten notes are asked about, not printed.
+- `compare-layout.mjs` also reports shading and images (not scored, so scores stay comparable).
+
 ## [0.6.44] — 2026-10-19
 
 ### Changed — `smartform-preview`
