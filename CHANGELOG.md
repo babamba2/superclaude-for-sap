@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.46] — 2026-10-20
+
+### Changed — MCP pin
+
+- `abap-mcp-adt-powerup` pin `1af0724` (4.8.12) → `c9461c6` (4.8.13). New installs get the SmartForm tools the `smartform-preview` and `smartform-from-pdf` skills call — `GetSmartFormLayout`, `GetSmartFormContent`, `RenderSmartForm`, `CreateSmartForm`, `DeleteSmartForm` — and the server's dependency updates (`@modelcontextprotocol/sdk` 1.32.1, `axios` 1.20, `fast-xml-parser` 5.11, `zod` 4.6, ...).
+
 ## [0.6.45] — 2026-10-20
 
 ### Changed — `smartform-from-pdf`
