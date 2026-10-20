@@ -11,13 +11,19 @@
 //   interface?: [{ name, typing?: "TYPE", type, optional? }],   // importing parameters
 //   tables?: [{ name, typing?: "LIKE", type }],                  // TABLES parameters
 //   globals?: [{ name, typing?: "TYPE", type }],
+//   refFields?: [{ value: "GS_ITEM-NETPR", unit: "IS_HEAD-WAERS", type?: "CURR" | "QUAN" }],
 //   windows: [{ name, caption?, type?: "T" (secondary) | "M" (main), x, y, w, h,
 //               border?: { th, sides?: "LTRB" },  style?,
 //               nodes: [ Text | Template ] }] }
-// Text:     { kind: "text", name?, lines: [{ f: "L1", t: "Label &GS_X-Y&" }], style? }
+// Text:     { kind: "text", name?, lines: [{ f: "L1", t: "Label &GS_X-Y&" }], style?,
+//             cond?: [{ op1: "IS_HEAD-CRDRF", cop?: "EQ", op2: "'C'" }] }   // printed only when all hold
+//           or a text module: { kind: "text", module: "&GV_TM_FOOTER&" | "ZNAME", moduleStyle?, ignore? }
+// Graphic:  { kind: "graphic", name?, graphic: "ZLOGO", id?: "BMAP", btype?: "BCOL", resolution?: 200 }
+// init?: { input: ["IS_HEAD"], output: ["GV_TM_FOOTER"], code: ["CONCATENATE ... INTO gv_tm_footer."] }
+//             (an existing SE78 graphic — nothing is uploaded)
 // Template: { kind: "template", name?, left?, top?, rows: [{ h, cols: [w...] }],
 //             cells?: [{ row, col, borders?: { l, t, r, b } (pt), shade? (0..100),
-//                        nodes: [Text] }] }   row / col from 1
+//                        fill?: { r, g, b } (shade colour, default black), nodes: [Text] }] }   row / col from 1
 import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
@@ -91,11 +97,33 @@ export function writeForm(spec) {
       tcap('OA', iname),
     ])]);
   };
-  const node = (type, obj, out, succ = []) => el('sf:NODE', [el('NODETYPE', type), el('sf:OBJ', [obj]), out || null, el('sf:SUCC', succ.map((s) => el('sf:item', [s])))]);
+  // a node's own conditions (its Conditions tab) come between its output options and its successors
+  const condOf = (cond) => {
+    if (!cond || !cond.length) return null;
+    const iname = auto('CONDITION');
+    return el('sf:COND', [el('sf:CONDITION', [
+      el('NAME', [el('INAME', iname)]),
+      el('COND', cond.map((c) => el('item', [el('COP', c.cop || 'EQ'), el('OP1', c.op1), el('OP2', c.op2)]))),
+      tcap('CD', iname),
+    ])]);
+  };
+  const node = (type, obj, out, succ = [], cond) => el('sf:NODE', [el('NODETYPE', type), el('sf:OBJ', [obj]), out || null, condOf(cond), el('sf:SUCC', succ.map((s) => el('sf:item', [s])))]);
 
   const textNode = (t, cellPos) => {
     const iname = t.name || auto('TEXT');
-    const obj = el('sf:TEXT', [
+    // a text module (TTYPE R): its name, or a field holding it — the whole name, &GV_X&
+    const obj = t.module ? el('sf:TEXT', [
+      el('NAME', [el('INAME', iname)]),
+      el('CAPTION', t.caption || iname),
+      el('APPMODE', 'P'),
+      el('TTYPE', 'R'),
+      el('REF_NAME', t.module),
+      t.moduleStyle ? el('REF_STYLE', 'X') : null, // print in the module's own style
+      t.style ? el('STYLE_NAME', t.style) : null,
+      el('TEXT_AREA', [el('ENABLED', 'F'), el('NCOLS', '0'), el('NROWS', '0')]),
+      t.ignore ? el('IGNORE', 'X') : null,
+      tcap('TI', iname, t.caption || iname),
+    ]) : el('sf:TEXT', [
       el('NAME', [el('INAME', iname)]),
       el('CAPTION', t.caption || iname),
       el('NOLANGUAGE', 'X'),
@@ -105,7 +133,22 @@ export function writeForm(spec) {
       el('TEXT_AREA', [el('ENABLED', 'F'), el('NCOLS', '0'), el('NROWS', '0')]),
       tcap('TI', iname, t.caption || iname),
     ]);
-    return node('TI', obj, outattr({ ...(cellPos || {}), style: t.style }));
+    return node('TI', obj, outattr({ ...(cellPos || {}), style: t.style }), [], t.cond);
+  };
+
+  const graphicNode = (g) => {
+    const iname = g.name || auto('GRAPHIC');
+    const obj = el('sf:GRAPHIC', [
+      el('NAME', [el('INAME', iname)]),
+      el('CAPTION', g.caption || g.graphic),
+      el('RESOLUTION', String(g.resolution || 200).padStart(4, '0')),
+      el('GTYPE', 'B'),
+      el('GKEYBDS', [el('OBJECT', 'GRAPHICS'), el('NAME', g.graphic), el('ID', g.id || 'BMAP'), el('BTYPE', g.btype || 'BCOL')]),
+      el('APPMODE', 'B'), el('U_SB', 'CM'), el('U_SA', 'CM'), el('RELMODE', 'W'), el('ALIGNMENT', 'L'), el('U_MARGIN', 'CM'),
+      el('BGR_EXT', [el('MARGINH', '0.00'), el('U_MARGINH', 'CM'), el('MARGINV', '0.00'), el('U_MARGINV', 'CM')]),
+      tcap('GR', iname, g.caption || g.graphic),
+    ]);
+    return node('GR', obj, null, [], g.cond);
   };
 
   // CELLS items of a template line (name LINEn) or a table line type: widths and borders
@@ -113,14 +156,16 @@ export function writeForm(spec) {
     const q = cellOf(j + 1) || {};
     const b = q.borders || {};
     const tw = (pt) => num((pt || 0) * 20); // border widths in twips
-    const color = (tag, used) => el(tag, [el('RED', '000'), el('GREEN', '000'), el('BLUE', '000'), used ? el('USED', 'X') : null]);
+    const color = (tag, used, rgb = {}) => el(tag, [el('RED', n3(rgb.r || 0)), el('GREEN', n3(rgb.g || 0)), el('BLUE', n3(rgb.b || 0)), used ? el('USED', 'X') : null]);
+    // shading: INTENSITY % of FILLCOLOR (black 20 = light grey; a colour of its own at 100)
+    const shade = q.shade ?? (q.fill ? 100 : 0);
     return el('item', [
-      el('NAME', lineName), el('COLUMNNR', n3(j + 1)), el('CWIDTH', num(w)), el('U_CWIDTH', 'MM'), el('SHADING', n3(q.shade || 0)),
+      el('NAME', lineName), el('COLUMNNR', n3(j + 1)), el('CWIDTH', num(w)), el('U_CWIDTH', 'MM'), el('SHADING', '000'),
       el('BORDERS', [el('item', [
-        el('IDX', '001'), el('INTENSITY', n3(q.shade || 0)),
+        el('IDX', '001'), el('INTENSITY', n3(shade)),
         el('LLEFT', tw(b.l)), el('LLEFT_U', 'TW'), el('LTOP', tw(b.t)), el('LTOP_U', 'TW'),
         el('LRIGHT', tw(b.r)), el('LRIGHT_U', 'TW'), el('LBOTTOM', tw(b.b)), el('LBOTTOM_U', 'TW'),
-        color('FILLCOLOR', !!q.shade), color('CLEFT', !!b.l), color('CTOP', !!b.t), color('CRIGHT', !!b.r), color('CBOTTOM', !!b.b),
+        color('FILLCOLOR', !!shade, q.fill), color('CLEFT', !!b.l), color('CTOP', !!b.t), color('CRIGHT', !!b.r), color('CBOTTOM', !!b.b),
       ])]),
     ]);
   });
@@ -194,7 +239,7 @@ export function writeForm(spec) {
     return section('L', iname, lp.caption || iname, loopData(lp), outattr({}), (lp.nodes || []).map(anyNode));
   };
 
-  const anyNode = (n) => (n.kind === 'template' ? templateNode(n) : n.kind === 'table' ? tableNode(n) : n.kind === 'loop' ? loopNode(n) : textNode(n));
+  const anyNode = (n) => (n.kind === 'template' ? templateNode(n) : n.kind === 'table' ? tableNode(n) : n.kind === 'loop' ? loopNode(n) : n.kind === 'graphic' ? graphicNode(n) : textNode(n));
 
   const windowNode = (w) => {
     const iname = w.name || auto('WINDOW');
@@ -224,6 +269,12 @@ export function writeForm(spec) {
     el('HEADER', [el('FORMNAME', form), el('CAPTION', spec.caption || form), el('MASTERLANG', lang1), el('LANGVECTOR', '*'), el('VERSION', '00001')]),
     el('INTERFACE', iface),
     gdata.length ? el('GDATA', gdata) : null,
+    // Global definitions > Initialization: input / output parameters and the code
+    spec.init ? el('GPLIST', [...(spec.init.input || []).map((p) => el('item', [el('OPD', p), el('OUTIN', 'I')])), ...(spec.init.output || []).map((p) => el('item', [el('OPD', p), el('OUTIN', 'O')]))]) : null,
+    spec.init ? el('GCODING', spec.init.code.map((l) => el('item', l || null))) : null,
+    // Global definitions > Currency/Quant. fields: the unit of a CURR / QUAN field whose
+    // DDIC reference field is not in the form (EKPO-NETPR → EKKO-WAERS)
+    (spec.refFields || []).length ? el('REFFIELDS', spec.refFields.map((r) => el('item', [el('ACTIVE', 'X'), el('DATATYPE', r.type || 'CURR'), el('VALUE', r.value), el('UNIT', r.unit)]))) : null,
     el('sf:VARHEADER', [el('sf:item', [el('PAGEFORMAT', spec.pageFormat || 'DINA4'), el('CPI', '10.00'), el('LPI', '6.00'), el('STDSTYLE', spec.style), pagetree])]),
   ];
   return '<?xml version="1.0" encoding="utf-8"?>' + el('sf:SMARTFORM', body, ` xmlns:sf="urn:sap-com:SmartForms:2000:internal-structure" xmlns="urn:sap-com:sdixml-ifr:2000" sf:language="${(spec.language || 'EN').toUpperCase()}"`);

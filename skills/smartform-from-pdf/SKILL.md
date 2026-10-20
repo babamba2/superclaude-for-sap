@@ -33,7 +33,8 @@ Re-implementing a legacy or external form layout (a PDF from another system, a s
 | Input | PDF (exact positions, fonts, rules); a screenshot / scan is transcribed by the main thread into the same layout JSON (positions estimated — say so) |
 | Pages | One page per run (the first, or `--page N`) |
 | Styles | **Existing SmartStyles only** — no style is created. Each text gets the closest paragraph (+ character format); sizes the styles lack are reported |
-| Graphics | Not uploaded — an image area gets an empty framed window or an existing SE78 graphic the user names |
+| Graphics | Not uploaded — each image area becomes a window `%GRAPHICn` (resolution from the image's pixels); it shows an existing SE78 graphic the user names (Step 5 `graphics`), else stays empty |
+| Shading | Filled boxes shade the template cells they cover — a grey as black at (1 − grey) %, a colour as itself |
 | Target | New form `Z*`/`Y*` (ask; default `Z<SOURCE>_COPY`), package `$TMP` unless the user gives a package + transport |
 | Check | The generated form's own print (RenderSmartForm, invented sample values) compared with the source page — not Form Painter |
 | Output | `<artifact-base>/smartforms/<FORM>/` — `layout.json`, `spec.json`, `shape.json`, `<FORM>.xml`, `<FORM>.printed.pdf`, `compare.json` |
@@ -53,7 +54,7 @@ Paths: `<out>` = `<artifact-base>/smartforms/<FORM>`, scripts in `scripts/smartf
 ```
 node scripts/smartform/read-pdf.mjs "<source.pdf>" --page 1 --out "<out>/layout.json"
 ```
-Report: page size, text runs, rules, images. A **screenshot / scan**: read the image and write `layout.json` yourself in the same shape (`page.widthMm/heightMm`, `runs[]` with `x`, `y` (baseline), `w`, `text`, `pt`, `bold`, `font`; `lines[]`; `images[]`) — scale pixels to mm from the page size (A4 unless the user says otherwise) and say that positions are estimates.
+Report: page size, text runs, rules, images. A **screenshot / scan**: read the image and write `layout.json` yourself in the same shape (`page.widthMm/heightMm`, `runs[]` with `x`, `y` (baseline), `w`, `text`, `pt`, `bold`, `font`; `lines[]`; `images[]`) — scale pixels to mm from the page size (A4 unless the user says otherwise) and say that positions are estimates. Never guess `pt` from letter height: read where a few long lines start and end, take `w` from SAP's glyph widths (`scripts/smartform/glyph-widths.json`, key `PDFUC|HELVE|B`, 1/1000 em) and set `pt = measured mm / width at 1 pt` — sizes come out within 0.1 pt, and a centred paragraph is placed by `w`. Handwritten notes / highlights are the user's remarks, not the form: leave them out and ask what they mean in Step 5.
 
 **Step 3 — Style catalog.** The SmartStyles the form may use: `GetSmartFormContent(summary: true)` of 1–3 forms of the same kind the user names (their `styles` — paragraphs and character formats) → `<out>/styles.json` (array of the `styles` entries). Ask for reference forms when the user names none; a catalog from earlier runs under `<artifact-base>/smartforms/*/` may be reused.
 
@@ -61,13 +62,19 @@ Report: page size, text runs, rules, images. A **screenshot / scan**: read the i
 ```
 node scripts/smartform/plan-form.mjs "<out>/layout.json" --styles "<out>/styles.json" --form <FORM> --out "<out>/spec.json"
 ```
-The report (stderr) lists templates, windows, texts placed in cells and the font mapping (`HELVE 9B → ZSTYLE/AB+C1 (HELVE 9B)`); a mapping to another size or weight is a difference the print will show — tell the user, with the style that would be needed.
+The report (stderr) lists templates, windows, texts placed in cells, shaded cells, image windows and the font mapping (`HELVE 9B → ZSTYLE/AB+C1 (HELVE 9B)`); a mapping to another size or weight is a difference the print will show — tell the user, with the style that would be needed.
 
 **Step 5 — Data (with the user).** Read `spec.json` and decide, then ask the user to confirm in one table:
 - which texts are **values** (document numbers, dates, names, amounts — anything that changes per document) → `fields: [{ text, to: "&IS_HEADER-VBELN&" }]`; labels stay fixed texts;
-- which grid rows are **item lines** (repeated rows with the same column cuts) → `items: [{ window, rows: [from, to], data: "IT_ITEMS", into: "GS_ITEM", cells: { "<col>": "&GS_ITEM-FIELD&" } }]` — the first item row becomes a one-row template in a loop over the table (fixed row height as in the source), the rows above / below stay templates, the window becomes MAIN;
+- **item lines are always a loop, never fixed texts** — every `itemCandidates` entry of the Step 4 report (`kind: items` = numbers in the line; `repeated` = judge: tax lines, partner lists) and anything else that looks like items. No item DDIC type at hand → ask for one, do not fall back to texts:
+  - over a ruled grid → `items: [{ window, rows: [from, to], data: "IT_ITEMS", into: "GS_ITEM", cells: { "<col>": "&GS_ITEM-FIELD&" } }]` — the first item row becomes a one-row template in a loop (fixed row height as in the source), the rows above / below stay templates, the window becomes MAIN;
+  - over free texts → `textItems: [{ header: [top, bottom], items: [top, bottom], count, footer: [top, bottom], data, into, cells: [{ text, x?, to }] }]` (mm from the candidate; `x` tells two equal sample texts apart; `to: ""` leaves a cell empty) — header (column titles), loop and footer (totals, payment terms) go into one MAIN window, so the totals move down with the items;
+  - a CURR / QUAN field whose DDIC reference is outside the form (EKPO-NETPR → EKKO-WAERS) needs `refFields: [{ value: "GS_ITEM-NETPR", unit: "IS_HEAD-WAERS" }]`, else the print stops ("reference field unknown");
+- **letterhead and footer blocks** (company address, managing directors, bank / IBAN, register, tax numbers): ask — recommend SAP's way, a text module per company code (`modules: [{ window, box: [x0, y0, x1, y1], module: "&GV_TM_FOOTER&", moduleStyle: true }]`, the name built in `init: { input, output, code }` from the company code — REF_NAME takes a whole field only; shape-form adds the guard: a name with no text module in STXFADM is cleared and the node prints only with a name, so a company code without a module leaves the block empty instead of stopping the print), else fixed texts. Print once with an empty / unknown company code too. A test module can be uploaded with `CreateSmartForm` (XML with `HEADER-FORMTYPE T` and one text node `%TEXT1`; its "is Text Module" generate error is expected); give the user the module content with tab positions and line spacing;
 - **numbers** (CURR / QUAN / DEC fields) print right-justified in their output length — in a cell the leading blanks wrap the value out of sight: give them `(C)` (`&GS_ITEM-NETWR(C)&`);
-- the **interface**: one structure for the header values, one table for the items — existing DDIC types (`GetStructure` / `GetDataElement` to check); propose names, never invent a DDIC object; globals for work areas (`globals: [{ name: "GS_ITEM", type: "<line type>" }]`).
+- the **interface**: one structure for the header values, one table for the items — existing DDIC types (`GetStructure` / `GetDataElement` to check); propose names, never invent a DDIC object; globals for work areas (`globals: [{ name: "GS_ITEM", type: "<line type>" }]`);
+- **graphics**: which existing SE78 graphic each `%GRAPHICn` window shows (the user names it, or a reference form's `graphics` list) → `graphics: [{ window: "%GRAPHIC1", name: "ZLOGO", btype: "BCOL" }]`;
+- **conditional texts** — a print shows one case only: ask which texts print only sometimes (a remark for credit notes, a line for one country; a reference form's conditions tell) → `conditions: [{ text: "<text after fields>", cond: [{ op1: "IS_HEAD-CRDRF", cop: "EQ", op2: "'C'" }] }]` (the text node's own condition; print both cases in Step 7).
 Write `<out>/shape.json`, then:
 ```
 node scripts/smartform/shape-form.mjs "<out>/spec.json" "<out>/shape.json" --out "<out>/spec.json"
@@ -83,7 +90,7 @@ node scripts/smartform/write-form.mjs "<out>/spec.json" --out "<out>/<FORM>.xml"
 ```
 node scripts/smartform/compare-layout.mjs "<out>/layout.json" "<out>/<FORM>.printed.pdf" --out "<out>/compare.json"
 ```
-Report the score and the differences (moved texts, other font sizes, missing / extra rules). A layout-only form (before Step 5) should reach 95+; fields and tables change the texts, so compare the layout-only form first when the user wants proof of the layout.
+Report the score and the differences (moved texts, other font sizes, missing / extra rules), and the unscored checks: `shading` (share of the source's shaded area printed in the same grey) and `images` (image areas printed in place). A layout-only form (before Step 5) should reach 95+; fields and tables change the texts, so compare the layout-only form first when the user wants proof of the layout.
 </Workflow>
 
 <Data_Rules>
