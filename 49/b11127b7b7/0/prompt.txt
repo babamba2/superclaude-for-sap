@@ -1,0 +1,1 @@
+typesafe api 적용이 되었니?
