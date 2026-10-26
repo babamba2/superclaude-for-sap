@@ -8,7 +8,7 @@ These tables contain personally identifiable information (PII), credentials, pay
 
 ## Scope Profiles
 
-Each section file carries a tier tag (`<!-- tier: minimal | standard | strict -->`) and optionally an action tag (`<!-- action: deny | warn -->`, default `deny`). The active profile is set in `.sc4sap/config.json` under `blocklistProfile`:
+Each section file carries a tier tag (`<!-- tier: minimal | standard | strict -->`) and optionally an action tag (`<!-- action: deny | warn -->`, default `deny`). The active profile is set under `blocklistProfile` in the active SAP profile's `~/.sc4sap/profiles/<alias>/config.json` (legacy single-profile installs: `<project>/.sc4sap/config.json`); setup Step 12 writes it with `sap-profile-cli.mjs set-blocklist`:
 
 - `minimal` — PII + credentials + pricing (Banking, Master PII, Addresses, Auth, HR, Tax, Pricing)
 - `standard` — minimal **+** Protected Business Data (transactional tables)

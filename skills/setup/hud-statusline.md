@@ -2,7 +2,7 @@
 
 Referenced by `SKILL.md` — this file holds the full HUD specification.
 
-The plugin ships a sc4sap-branded status line that renders **below the input box** on every prompt. It is declared both in `.claude-plugin/plugin.json` → `statusLine` *and* injected into the user's `~/.claude/settings.json` by the setup wizard, because some Claude Code versions do not render plugin-declared statusLines unless the user's own settings carry the same entry.
+The plugin ships a sc4sap-branded status line that renders **below the input box** on every prompt. It is installed only into the user's `~/.claude/settings.json` by the setup wizard — `.claude-plugin/plugin.json` carries no `statusLine` key (removed when the manifest was aligned with Claude Code 2.1.285).
 
 ## Activation (new installs)
 
@@ -20,16 +20,37 @@ Restart Claude Code after install for the status line to appear.
 
 ## Displayed segments
 
+The HUD prints two lines, plus an optional third.
+
+```
+sc4sap │ MCP● ENV● │ ✓ idle │ ctx 420K/1.00M 42% │ 5h 42% │ 7d 87% │ +12% extra │ ⏳ 2h 17m │ Opus 4.6
+KR-DEV [DEV] │ SID S4H │ client 100 │ user DEVUSER │ CTS S4HK900123
+```
+
+### Line 1 — session
+
 1. `sc4sap` — plugin brand
-2. `S4/756` — SAP version / ABAP release from `.sc4sap/config.json` (shows `not-configured` until setup runs)
-3. `MCP●  ENV●` — health dots: vendor MCP build, `sap.env` presence (green = OK, red = missing)
-4. `⚡ working` / `✓ idle` — agent activity indicator. Working when the session transcript was modified in the last 5 seconds, OR the last assistant message has tool_use blocks without matching tool_results (CC is waiting on a tool callback). Idle otherwise.
-5. `ctx 420K/1.00M 42%` — current context window usage from the latest assistant `usage` block. The window follows the subscription plan, not the model alone: `claudeAiOauth.subscriptionType` in `~/.claude/.credentials.json` = `max` / `team` / `enterprise` → 1M, `pro` / other → 200K. A `[1m]` model id or a window size in the statusLine payload wins over the plan; Haiku, Claude 3 and Opus/Sonnet 4.0–4.1 stay at 200K. No credentials file (API-key login) → 200K.
-6. `5h 42%` — rolling 5-hour block utilization from Anthropic's `/api/oauth/usage` endpoint (real utilization, not an estimate). Falls back to transcript-derived `$` cost vs `SC4SAP_5H_LIMIT_USD` when the API is unavailable.
-7. `⏳ 2h 17m` — time remaining in the 5h block, computed from `five_hour.resets_at` when the API is reachable.
-8. `7d 87%` — rolling 7-day utilization from the same OAuth endpoint (`seven_day.utilization`). Falls back to transcript-derived weekly cost when the API is down.
-9. `+12% extra` — **only shown when weekly utilization exceeds 100%.** Equals `seven_day.utilization − 100`. In fallback mode, represents weekly-cost overage vs `SC4SAP_WEEKLY_EXTRA_LIMIT_USD`.
-10. `Opus 4.6` — active model
+2. `MCP●  ENV●` — health dots. MCP: green = MCP server process alive and no SAP tool error in the transcript in the last 2 minutes; red = process missing, recent tool error, or launcher not installed; yellow = process probe indeterminate. ENV: active profile `sap.env` present (green) or missing (red).
+3. `⚡ working` / `✓ idle` — agent activity indicator. Working when the session transcript was modified in the last 5 seconds, OR the last assistant message has tool_use blocks without matching tool_results (CC is waiting on a tool callback). While working, the label names the pending tool or sub-agent (e.g. `⚡ sap-analyst`). Idle otherwise.
+4. `ctx 420K/1.00M 42%` — current context window usage from the latest assistant `usage` block. The window follows the subscription plan, not the model alone: `claudeAiOauth.subscriptionType` in `~/.claude/.credentials.json` = `max` / `team` / `enterprise` → 1M, `pro` / other → 200K. A `[1m]` model id or a window size in the statusLine payload wins over the plan; Haiku, Claude 3 and Opus/Sonnet 4.0–4.1 stay at 200K. No credentials file (API-key login) → 200K.
+5. `5h 42%` — rolling 5-hour block utilization from Anthropic's `/api/oauth/usage` endpoint (real utilization, not an estimate). Falls back to transcript-derived `$` cost vs `SC4SAP_5H_LIMIT_USD` when the API is unavailable.
+6. `7d 87%` — rolling 7-day utilization from the same OAuth endpoint (`seven_day.utilization`). Falls back to transcript-derived weekly cost when the API is down.
+7. `+12% extra` — **only shown when weekly utilization exceeds 100%.** Equals `seven_day.utilization − 100`. In fallback mode, represents weekly-cost overage vs `SC4SAP_WEEKLY_EXTRA_LIMIT_USD`.
+8. `⏳ 2h 17m` — time remaining in the 5h block, computed from `five_hour.resets_at` when the API is reachable.
+9. `Opus 4.6` — active model
+
+### Line 2 — SAP system
+
+- `KR-DEV [DEV]` — active profile alias and tier from `<project>/.sc4sap/active-profile.txt`; QA / PRD add `🔒` (read-only). A legacy single-profile install shows `(legacy) [<tier>] 🔒` only when read-only.
+- `SID` · `client` · `user` — from `systemInfo` in the profile `config.json` (written at setup Step 7).
+- `CTS` — `activeTransport.trkorr`, when a transport is pinned.
+- Nothing configured → `SAP not configured — run /sc4sap:setup`.
+
+SAP version / ABAP release are not shown; `/sc4sap:sap-option status` lists them.
+
+### Line 3 — context warning (optional)
+
+`⚠ …` appears when context usage reaches 70%, with stronger wording from 90%. The message follows the HUD language.
 
 ## Performance
 
@@ -57,6 +78,6 @@ Restart Claude Code after install for the status line to appear.
 - `scripts/hud/lib/pricing.mjs` — model-to-price table
 - `scripts/hud/lib/context-window.mjs` — context-window size from plan + model (see segment 5)
 - `scripts/hud/lib/transcript.mjs` — JSONL tail scanner + 5h/7d aggregation
-- `scripts/hud/lib/sc4sap-status.mjs` — reads `.sc4sap/config.json`, checks MCP/sap.env/SPRO
+- `scripts/hud/lib/sc4sap-status.mjs` — reads the active profile's `config.json` (legacy: `.sc4sap/config.json`), checks MCP/sap.env/SPRO
 - `scripts/hud/lib/cache.mjs` — 60s TTL disk cache for weekly roll-up
 - `scripts/hud/lib/format.mjs` — ANSI, humanized numbers, `NO_COLOR` support

@@ -97,7 +97,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 
 ## HUD Status Line
 
-The plugin ships a sc4sap-branded status line that activates automatically on install (declared in `.claude-plugin/plugin.json` → `statusLine`). **Read `hud-statusline.md`** for the full specification, including displayed segments, environment variables (`SC4SAP_WEEKLY_LIMIT_USD`, `NO_COLOR`), performance characteristics, and how to disable it.
+The plugin ships a sc4sap-branded status line that is installed into `~/.claude/settings.json` by setup Step 13 (`scripts/hud/install-statusline.mjs`); `plugin.json` does not declare it. **Read `hud-statusline.md`** for the full specification, including displayed segments, environment variables (`SC4SAP_WEEKLY_LIMIT_USD`, `NO_COLOR`), performance characteristics, and how to disable it.
 
 ## Notes
 

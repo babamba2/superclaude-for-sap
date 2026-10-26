@@ -20,6 +20,9 @@
  *                       username, password, description?, language?,
  *                       systemType?, version?, abapRelease?, industry?,
  *                       activeModules?, copyFrom?} → create profile dir
+ *   set-blocklist <strict|standard|minimal|custom> [<alias>]
+ *                     — set `blocklistProfile` (L3 PreToolUse hook) in the
+ *                       active (or given) profile's config.json
  *   remove <alias>    — archive to .trash (user must confirm alias in skill)
  *   purge [--all]     — permanently delete .trash entries > 7 days old
  *   migrate           — read JSON from stdin: {alias, tier} → convert
@@ -345,6 +348,31 @@ async function cmdAdd() {
   jsonOut({ ok: true, alias, tier, readonly: tier !== 'DEV' });
 }
 
+// L3 PreToolUse hook profile only — `MCP_BLOCKLIST_PROFILE` in sap.env (L4,
+// MCP server guard) is a separate setting managed by sap-option and does not
+// accept `custom`, so it is left untouched here.
+async function cmdSetBlocklist(cwd, value, aliasArg) {
+  const BLOCKLIST_VALID = ['strict', 'standard', 'minimal', 'custom'];
+  const blocklistProfile = String(value || '').trim().toLowerCase();
+  if (!BLOCKLIST_VALID.includes(blocklistProfile)) {
+    die(1, `set-blocklist: value must be one of: ${BLOCKLIST_VALID.join(' | ')}`);
+  }
+  const alias = aliasArg || readActiveAlias(cwd);
+  if (!alias) die(1, 'set-blocklist: no alias given and no active profile in cwd');
+  const configPath = join(profilesDir(), alias, 'config.json');
+  if (!existsSync(configPath)) die(3, `profile config not found: ${configPath}`);
+  let config;
+  try {
+    config = JSON.parse(readFileSync(configPath, 'utf8'));
+  } catch (e) {
+    die(2, `set-blocklist: cannot parse ${configPath}: ${e.message}`);
+  }
+  const previous = config.blocklistProfile ?? null;
+  config.blocklistProfile = blocklistProfile;
+  writeFileSync(configPath, `${JSON.stringify(config, null, 2)}\n`);
+  jsonOut({ ok: true, alias, blocklistProfile, previous, configPath });
+}
+
 async function cmdRemove(cwd, alias) {
   if (!alias) die(1, 'remove: alias required');
   const src = join(profilesDir(), alias);
@@ -554,6 +582,7 @@ async function main() {
       case 'show': return await cmdShow(cwd, rest[0]);
       case 'switch': return await cmdSwitch(cwd, rest[0]);
       case 'add': return await cmdAdd();
+      case 'set-blocklist': return await cmdSetBlocklist(cwd, rest[0], rest[1]);
       case 'remove': return await cmdRemove(cwd, rest[0]);
       case 'purge': return await cmdPurge(rest.includes('--all'));
       case 'migrate': return await cmdMigrate(cwd);
