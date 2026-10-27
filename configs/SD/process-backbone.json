@@ -1,0 +1,109 @@
+{
+  "schema": 1,
+  "module": "SD",
+  "note": "Standard SAP SD / LE process backbone (generic, no customer content). L1 mega process > L2 process chain > L3 process > L4 task. tcodes/bapis/tables are anchors used to attach CBO objects; ecc/s4 lists only differences.",
+  "tree": [
+    { "id": "SD", "label": { "en": "Sales and distribution", "ko": "영업/물류관리", "ja": "販売・出荷管理" }, "children": [
+      { "id": "SD.1", "label": { "en": "Master data", "ko": "판매 기준정보", "ja": "販売マスタ" }, "children": [
+        { "id": "SD.1.1", "label": { "en": "Customer master", "ko": "고객마스터", "ja": "得意先マスタ" }, "children": [
+          { "id": "SD.1.1.1", "label": { "en": "Create / change customer", "ko": "고객 생성/변경", "ja": "得意先登録・変更" },
+            "tcodes": ["XD01", "XD02", "VD01", "VD02", "BP"], "bapis": ["BAPI_CUSTOMER_CREATEFROMDATA1", "SD_CUSTOMER_MAINTAIN_ALL"],
+            "tables": ["KNA1", "KNVV", "KNB1", "KNVP", "BUT000"], "s4": "Business Partner (BP) replaces XD01/VD01; CVI keeps KNA1 in sync." },
+          { "id": "SD.1.1.2", "label": { "en": "Customer-material info", "ko": "고객-자재 정보", "ja": "得意先品目情報" },
+            "tcodes": ["VD51", "VD52"], "tables": ["KNMT", "KNMTK"] }
+        ] },
+        { "id": "SD.1.2", "label": { "en": "Pricing", "ko": "가격마스터", "ja": "価格マスタ" }, "children": [
+          { "id": "SD.1.2.1", "label": { "en": "Maintain price / discount conditions", "ko": "가격/할인 조건 관리", "ja": "価格・値引条件管理" },
+            "tcodes": ["VK11", "VK12", "VK13", "VK31"], "bapis": ["BAPI_PRICES_CONDITIONS"], "tables": ["KONH", "KONP"] },
+          { "id": "SD.1.2.2", "label": { "en": "Rebate agreements", "ko": "리베이트 계약", "ja": "リベート契約" },
+            "tcodes": ["VBO1", "VBO2", "VB(7"], "tables": ["KONA", "KONP"], "s4": "SD rebates are replaced by settlement management (condition contracts)." }
+        ] },
+        { "id": "SD.1.3", "label": { "en": "Credit management", "ko": "여신관리", "ja": "与信管理" }, "children": [
+          { "id": "SD.1.3.1", "label": { "en": "Maintain credit limit", "ko": "여신한도 관리", "ja": "与信限度額管理" },
+            "tcodes": ["FD32", "UKM_BP"], "tables": ["KNKK", "UKMBP_CMS_SGM"], "modules": ["FI"], "s4": "FD32 / KNKK are replaced by FSCM credit management (UKM_BP)." },
+          { "id": "SD.1.3.2", "label": { "en": "Release blocked documents", "ko": "여신 보류 해제", "ja": "与信保留解除" },
+            "tcodes": ["VKM1", "VKM3", "UKM_CASE"], "tables": ["VBUK", "VBAK"], "s4": "VBUK status fields moved into VBAK / LIKP." }
+        ] }
+      ] },
+      { "id": "SD.2", "label": { "en": "Pre-sales", "ko": "판매 전 활동", "ja": "販売前活動" }, "children": [
+        { "id": "SD.2.1", "label": { "en": "Inquiry and quotation", "ko": "문의/견적", "ja": "引合・見積" }, "children": [
+          { "id": "SD.2.1.1", "label": { "en": "Create inquiry", "ko": "문의 생성", "ja": "引合登録" },
+            "tcodes": ["VA11", "VA12"], "tables": ["VBAK", "VBAP"] },
+          { "id": "SD.2.1.2", "label": { "en": "Create quotation", "ko": "견적 생성", "ja": "見積登録" },
+            "tcodes": ["VA21", "VA22"], "bapis": ["BAPI_QUOTATION_CREATEFROMDATA2"], "tables": ["VBAK", "VBAP"] }
+        ] },
+        { "id": "SD.2.2", "label": { "en": "Contracts", "ko": "판매 계약", "ja": "販売契約" }, "children": [
+          { "id": "SD.2.2.1", "label": { "en": "Create sales contract / scheduling agreement", "ko": "판매계약/납품일정 생성", "ja": "販売契約・分納契約登録" },
+            "tcodes": ["VA41", "VA31"], "bapis": ["BAPI_CONTRACT_CREATEFROMDATA"], "tables": ["VBAK", "VBAP", "VEDA"] }
+        ] }
+      ] },
+      { "id": "SD.3", "label": { "en": "Sales order", "ko": "판매오더 관리", "ja": "受注管理" }, "children": [
+        { "id": "SD.3.1", "label": { "en": "Standard sales", "ko": "일반 판매", "ja": "通常販売" }, "children": [
+          { "id": "SD.3.1.1", "label": { "en": "Create / change sales order", "ko": "판매오더 생성/변경", "ja": "受注登録・変更" },
+            "tcodes": ["VA01", "VA02", "VA03"], "bapis": ["BAPI_SALESORDER_CREATEFROMDAT2", "BAPI_SALESORDER_CHANGE", "SD_SALESDOCUMENT_CREATE"],
+            "tables": ["VBAK", "VBAP", "VBEP", "VBKD", "VBPA", "KONV"], "s4": "KONV is replaced by PRCD_ELEMENTS; VBUK / VBUP fields moved into VBAK / VBAP." },
+          { "id": "SD.3.1.2", "label": { "en": "Availability check and backorders", "ko": "가용성 점검/재할당", "ja": "在庫確認・バックオーダ" },
+            "tcodes": ["CO09", "V_V2", "V_RA"], "tables": ["VBBE", "VBEP"], "s4": "Backorder processing moves to aATP (BOP)." },
+          { "id": "SD.3.1.3", "label": { "en": "Order output (confirmation)", "ko": "오더 확인서 출력", "ja": "受注確認出力" },
+            "tcodes": ["VA02", "V.21"], "tables": ["NAST"] }
+        ] },
+        { "id": "SD.3.2", "label": { "en": "Special sales", "ko": "특수 판매", "ja": "特殊販売" }, "children": [
+          { "id": "SD.3.2.1", "label": { "en": "Free-of-charge delivery", "ko": "무상 출하", "ja": "無償出荷" },
+            "tcodes": ["VA01"], "tables": ["VBAK", "VBAP"] },
+          { "id": "SD.3.2.2", "label": { "en": "Third-party order", "ko": "3자 판매", "ja": "第三者販売" },
+            "tcodes": ["VA01", "ME21N"], "tables": ["VBAK", "VBAP", "EBAN", "EKKO"], "modules": ["MM"] },
+          { "id": "SD.3.2.3", "label": { "en": "Intercompany sales", "ko": "법인간 판매", "ja": "会社間販売" },
+            "tcodes": ["VA01", "VF01"], "tables": ["VBAK", "VBRK"], "modules": ["MM", "FI"] },
+          { "id": "SD.3.2.4", "label": { "en": "Consignment", "ko": "위탁 판매", "ja": "委託販売" },
+            "tcodes": ["VA01"], "tables": ["VBAK", "MSKU"] }
+        ] },
+        { "id": "SD.3.3", "label": { "en": "Returns and complaints", "ko": "반품/클레임", "ja": "返品・クレーム" }, "children": [
+          { "id": "SD.3.3.1", "label": { "en": "Returns order", "ko": "반품 오더", "ja": "返品受注" },
+            "tcodes": ["VA01"], "tables": ["VBAK", "VBAP"] },
+          { "id": "SD.3.3.2", "label": { "en": "Credit / debit memo request", "ko": "대변/차변 요청", "ja": "クレジット・デビットメモ依頼" },
+            "tcodes": ["VA01"], "tables": ["VBAK", "VBAP"] }
+        ] }
+      ] },
+      { "id": "SD.4", "label": { "en": "Shipping and transportation", "ko": "출하/운송", "ja": "出荷・輸送" }, "children": [
+        { "id": "SD.4.1", "label": { "en": "Outbound delivery", "ko": "출하", "ja": "出荷" }, "children": [
+          { "id": "SD.4.1.1", "label": { "en": "Create outbound delivery", "ko": "출하문서 생성", "ja": "出荷伝票登録" },
+            "tcodes": ["VL01N", "VL10A", "VL10B"], "bapis": ["BAPI_OUTB_DELIVERY_CREATE_SLS", "BAPI_OUTB_DELIVERY_CREATE_STO", "SHP_VL10_DELIVERY_CREATE"], "tables": ["LIKP", "LIPS", "VBFA"] },
+          { "id": "SD.4.1.2", "label": { "en": "Picking and packing", "ko": "피킹/포장", "ja": "ピッキング・梱包" },
+            "tcodes": ["VL02N", "LT03", "VL06P"], "tables": ["LIPS", "VEKP", "VEPO", "LTAK"], "modules": ["WM"] },
+          { "id": "SD.4.1.3", "label": { "en": "Post goods issue", "ko": "출고 전기", "ja": "出庫転記" },
+            "tcodes": ["VL02N", "VL06G", "VL09"], "bapis": ["WS_DELIVERY_UPDATE", "BAPI_OUTB_DELIVERY_CONFIRM_DEC"], "tables": ["LIKP", "LIPS", "MKPF", "MSEG", "MATDOC"] }
+        ] },
+        { "id": "SD.4.2", "label": { "en": "Transportation", "ko": "운송", "ja": "輸送" }, "children": [
+          { "id": "SD.4.2.1", "label": { "en": "Create shipment", "ko": "운송문서 생성", "ja": "輸送伝票登録" },
+            "tcodes": ["VT01N", "VT02N", "VT04"], "bapis": ["BAPI_SHIPMENT_CREATE"], "tables": ["VTTK", "VTTP", "VTTS"], "modules": ["TM"] },
+          { "id": "SD.4.2.2", "label": { "en": "Shipment cost settlement", "ko": "운송비 정산", "ja": "輸送費精算" },
+            "tcodes": ["VI01", "VI02", "VI04"], "tables": ["VFKK", "VFKP"], "modules": ["MM", "FI"] }
+        ] },
+        { "id": "SD.4.3", "label": { "en": "Returns receipt", "ko": "반품 입고", "ja": "返品入庫" }, "children": [
+          { "id": "SD.4.3.1", "label": { "en": "Returns delivery and goods receipt", "ko": "반품 출하/입고", "ja": "返品出荷・入庫" },
+            "tcodes": ["VL01N", "VL02N"], "tables": ["LIKP", "LIPS", "MKPF", "MSEG", "MATDOC"] }
+        ] },
+        { "id": "SD.4.4", "label": { "en": "Foreign trade", "ko": "수출/통관", "ja": "貿易・通関" }, "children": [
+          { "id": "SD.4.4.1", "label": { "en": "Export documents and customs", "ko": "수출 서류/통관", "ja": "輸出書類・通関" },
+            "tcodes": ["VI10", "VX11N"], "tables": ["EIKP", "EIPO"], "s4": "SD foreign trade is replaced by SAP GTS." }
+        ] }
+      ] },
+      { "id": "SD.5", "label": { "en": "Billing", "ko": "대금청구", "ja": "請求" }, "children": [
+        { "id": "SD.5.1", "label": { "en": "Billing document", "ko": "청구문서", "ja": "請求伝票" }, "children": [
+          { "id": "SD.5.1.1", "label": { "en": "Create billing document", "ko": "청구문서 생성", "ja": "請求伝票登録" },
+            "tcodes": ["VF01", "VF04", "VF06"], "bapis": ["BAPI_BILLINGDOC_CREATEMULTIPLE", "RV_INVOICE_CREATE"], "tables": ["VBRK", "VBRP", "VBFA", "BKPF"], "modules": ["FI"] },
+          { "id": "SD.5.1.2", "label": { "en": "Cancel billing document", "ko": "청구 취소", "ja": "請求取消" },
+            "tcodes": ["VF11"], "bapis": ["BAPI_BILLINGDOC_CANCEL1"], "tables": ["VBRK", "VBRP"] },
+          { "id": "SD.5.1.3", "label": { "en": "Release billing to accounting", "ko": "회계 전송/오류 처리", "ja": "会計転送" },
+            "tcodes": ["VFX3", "VF02"], "tables": ["VBRK", "BKPF"], "modules": ["FI"] },
+          { "id": "SD.5.1.4", "label": { "en": "Invoice output / e-invoice", "ko": "세금계산서/송장 출력", "ja": "請求書出力" },
+            "tcodes": ["VF31", "VF02"], "tables": ["NAST", "VBRK"] }
+        ] },
+        { "id": "SD.5.2", "label": { "en": "Periodic billing", "ko": "정기 청구", "ja": "定期請求" }, "children": [
+          { "id": "SD.5.2.1", "label": { "en": "Billing plan / milestone billing", "ko": "청구계획/마일스톤 청구", "ja": "請求計画" },
+            "tcodes": ["VA42", "VF04"], "tables": ["FPLA", "FPLT"] }
+        ] }
+      ] }
+    ] }
+  ]
+}

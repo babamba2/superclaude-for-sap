@@ -5,6 +5,25 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.47] — 2026-10-27
+
+### Added — `module-to-process`
+
+- One editable HTML process map per module (or process area of several modules) for the consultant who starts a conversion or enhancement project. Replaces `package-to-process`.
+- Usage first: only TCodes users actually run are analysed — ST03N of the productive system (`SAP_USAGE_RFCDEST`), a submitted export or a usage list saved by an earlier run (`usage-scope.mjs --save-usage`). Unused TCodes are counted per package and never fetched.
+- Standard process backbone `configs/MM|SD/process-backbone.json` (L1 mega process > L2 process chain > L3 process > L4 task, standard TCodes / BAPIs / tables as anchors, S/4 notes). Entry points are scored against it (`backbone.mjs`); an Opus analyst places every used TCode on an L4 task, adds CBO-only tasks, variants (org-unit / document-type branches in the source), owner lanes and the systems the code talks to.
+- Task sheet per L4 in PDD form: definition, output, timing, business rules with source lines, steps by owner and system, decision flow, related standard / CBO objects, interfaces, links, S/4 conversion notes, items to confirm. Parallel Opus parts write their own files from one brief.
+- Optional module-consultant review (wording, owners, standard-task sheets, conversion notes, glossary, objections).
+- Page: BPH table (filter, collapse), L3 scenario swimlanes (lane = owner, fill = system, border = type), variant matrix, step swimlanes, appendix (cross-module, interfaces, conversion, standard processes without evidence, open questions, glossary).
+- Edit mode in the page: texts, list items, BPH rows, undo, autosave, Save with author and note; `build-process-doc.mjs --import` reads the page back into the next version.
+- Optional reconciliation with an existing BPH / BPML workbook (`bph-import.mjs`: header detection, forward-filled hierarchy, label matching) and an English companion page (`companion.mjs` + parallel translators).
+- Deterministic scripts in `scripts/process/` (`usage-scope`, `merge-graphs`, `backbone`, `assemble-model`, `build-process-doc`, `swimlane`, `process-editor`, `bph-import`, `companion`) with tests.
+
+### Changed
+
+- `package-to-process` redirects to `module-to-process` for one release.
+- `trust-session` accepts `module-to-process` as parent skill; `config-to-document` and `program-to-manual` point to `module-to-process`.
+
 ## [0.6.46] — 2026-10-20
 
 ### Changed — MCP pin

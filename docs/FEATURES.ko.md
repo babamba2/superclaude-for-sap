@@ -55,7 +55,7 @@
 | `sc4sap:analyze-cbo-obj` | CBO 인벤토리 스캐너 + 교차 모듈 갭 분석 |
 | `sc4sap:analyze-symptom` | SAP 운영 에러/증상 단계별 분석 (덤프, 로그, SAP Note 후보) |
 | `sc4sap:ask-consultant` | 모듈 컨설턴트 에이전트(SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC)에 직접 질의. 읽기 전용 — 설정된 SAP 환경에 맞추어 답변. |
-| `sc4sap:package-to-process` | CBO 패키지를 End-to-End 비즈니스 프로세스 문서 + BPML(Markdown / HTML / Excel, Mermaid 플로우차트 포함)로 역설계 |
+| `sc4sap:module-to-process` | 운영 ST03N에서 실제로 쓰는 TCode만으로 모듈별 편집 가능한 HTML 프로세스 맵을 만들어요: 표준 L1~L4 프로세스에 CBO Task·Variant·담당·시스템, L3 시나리오 swimlane, L4 PDD 형식 Task 시트(소스 근거 Business Rule, Step, 인터페이스, S/4 conversion 메모), 컨설턴트 검토·BPH 대조·영문판은 선택. `package-to-process`는 한 릴리스 동안 이 skill로 넘겨요 |
 | `sc4sap:trust-session` | INTERNAL-ONLY — 세션 전체 MCP 권한 부트스트랩 |
 
 ## 스킬 — 예시 & 워크플로우

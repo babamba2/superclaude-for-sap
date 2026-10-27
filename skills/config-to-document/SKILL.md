@@ -25,7 +25,7 @@ Consultants, key users and auditors need to know how a system is set up — not 
 <Do_Not_Use_When>
 - One program's behaviour → `/sc4sap:program-to-spec` or `/sc4sap:program-to-manual`
 - A question about one setting → `/sc4sap:ask-consultant` (answers in chat)
-- Business-process documentation of a custom package → `/sc4sap:package-to-process`
+- Business-process documentation of a module's custom development → `/sc4sap:module-to-process`
 </Do_Not_Use_When>
 
 <Decisions_Fixed>

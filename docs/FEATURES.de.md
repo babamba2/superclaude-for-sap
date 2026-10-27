@@ -55,7 +55,7 @@
 | `sc4sap:analyze-cbo-obj` | CBO-Inventarscanner + Cross-Module-Gap-Analyse |
 | `sc4sap:analyze-symptom` | Schritt-für-Schritt-Analyse von SAP-Betriebsfehlern/-symptomen (Dumps, Logs, SAP-Note-Kandidaten) |
 | `sc4sap:ask-consultant` | Direkte Q&A mit einem Modulberater-Agent (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC). Nur-Lese — Antwortet gegen die konfigurierte SAP-Umgebung. |
-| `sc4sap:package-to-process` | Reverse-Engineering eines CBO-Pakets in ein End-to-End-Geschäftsprozessdokument + BPML (Markdown / HTML / Excel, mit Mermaid-Flowcharts) |
+| `sc4sap:module-to-process` | Eine bearbeitbare HTML-Prozesslandkarte je Modul, nur aus den Transaktionen, die Anwender wirklich nutzen (produktives ST03N): Standard-Prozessgerüst L1–L4 mit CBO-Aufgaben, Varianten, Verantwortlichen und Systemen; Swimlanes je L3-Szenario; Aufgabenblatt je L4 im PDD-Format mit belegten Geschäftsregeln, Schritten, Schnittstellen und S/4-Konvertierungshinweisen; optional Berater-Review, BPH-Abgleich und englische Fassung. `package-to-process` leitet für ein Release hierher um |
 | `sc4sap:trust-session` | INTERNAL-ONLY — sessionweiter MCP-Berechtigungs-Bootstrap |
 
 ## Skills — Beispiele & Workflow

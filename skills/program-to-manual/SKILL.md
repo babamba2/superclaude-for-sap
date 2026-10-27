@@ -26,7 +26,7 @@ Key users and help desks need a task-oriented manual, not a specification. `prog
 
 <Do_Not_Use_When>
 - User wants a functional / technical specification → `/sc4sap:program-to-spec`
-- User wants a process document spanning a whole package → `/sc4sap:package-to-process`
+- User wants a process map of a module (many programs) → `/sc4sap:module-to-process`
 - The object has no user interface (class, FM, CDS, RAP without UI) — there is nothing to click through; suggest `program-to-spec`
 - The program does not exist yet
 </Do_Not_Use_When>
@@ -101,7 +101,7 @@ Same rule as `program-to-spec`: only source, DDIC metadata and screen definition
 
 <Related_Skills>
 - `/sc4sap:program-to-spec` — the specification of the same program (shares the screen renderer and schemas)
-- `/sc4sap:package-to-process` — process view across a package
+- `/sc4sap:module-to-process` — process map of the module the program belongs to
 - `/sc4sap:analyze-cbo-obj` — CBO inventory that enriches the business context
 </Related_Skills>
 
