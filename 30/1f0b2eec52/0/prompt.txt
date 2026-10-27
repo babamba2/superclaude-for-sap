@@ -1,0 +1,1 @@
+package-to-process 를 더 강화할거야. 1) package 의 경우 여러개가 존재해. 2) package-to-process 보다는 module 의 비지니스를 process 로 바꾸는 개념이 더 강해. ( 이름을 바꿔도 좋아 ) 3. C:\Users\psspㄷs\Documents\Projects\sc4sap_project\Global SCM Flow_v1.1_20190401.pptx 을 보면 담당의 영역과 process flow 가 잘 되어있어서 참고해봐. 그렇다면  보강할 부분들을 알려줄래 ?
