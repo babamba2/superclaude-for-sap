@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.50] — 2026-10-28
+
+### Added — ECC dump list older than 24 hours
+
+- `abap/zmcp_adt_dispatch_ecc.abap`: new dispatcher action `DUMP_LIST` — ST22 runtime error headers (SNAP, decoded like `RS_ST22_GET_DUMPS`: runtime error, program, include, line) for a date range, optional user / client filter, ST22 display authorization checked. The ECC ADT dump feed only covers the last 24 hours, so `analyze-symptom` used to end with "no dump" for anything older. Re-install the dispatcher (setup) on ECC systems to get it.
+
+### Changed — MCP pin
+
+- `abap-mcp-adt-powerup` pin `6e17e09` (4.8.14) → `c9265a1` (4.8.15). `RuntimeListDumps` (`date_from` / `date_to`) and `RuntimeListFeeds(dumps)` add the `st22` list from `DUMP_LIST` for ranges older than 24 hours; the ECC 404 for one dump says how to get the facts instead; the SOAP RFC backend (BASIS 7.31) decodes `&#34;` in results, so 7.31 helpers no longer return 0 rows.
+
 ## [0.6.49] — 2026-10-28
 
 ### Changed — MCP pin

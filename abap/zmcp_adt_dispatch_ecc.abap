@@ -18,7 +18,7 @@ FUNCTION zmcp_adt_dispatch
 *      `_tit` fails with "parameter TIT — types match, but not the length".
 *   3. Screen containers / fields declared using the FM's TABLES-parameter
 *      table types `DYCATT_TAB` / `DYFATC_TAB` directly, because the line
-*      type `RPY_DYFIELD` does not exist on ECC 7.40 (S/4HANA-only DDIC).
+*      type `RPY_DYFIELD` does not exist (not on S/4HANA either).
 *   4. DYNPRO_INSERT flow logic typed `RPY_DYFLOW` (LINE CHAR 72) instead
 *      of `SWBSE_MAX_LINE_TAB`; 7.40 exception list of RPY_DYNPRO_INSERT.
 *   5. CUA_WRITE passes the mandatory 7.40 parameter TR_KEY (TRKEY) to
@@ -62,6 +62,9 @@ FUNCTION zmcp_adt_dispatch
         WHEN 'TABLE_READ'.
           PERFORM table_read USING iv_params
                              CHANGING ev_subrc ev_message ev_result.
+        WHEN 'DUMP_LIST'.
+          PERFORM dump_list USING iv_params
+                            CHANGING ev_subrc ev_message ev_result.
         WHEN OTHERS.
           ev_subrc = 4.
           ev_message = |Unknown action: { iv_action }|.
@@ -685,4 +688,136 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
   CONCATENATE '{"rows":' lv_rows ',"count":' lv_cnt '}' INTO ev_result.
   ev_subrc = 0.
   ev_message = 'OK'.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form DUMP_LIST - ST22 runtime error headers for a date range
+*&---------------------------------------------------------------------*
+* The ADT dump feed (CL_SABP_RABAX_ADT_RES_DUMPS) only returns the last
+* 24 hours on this release, whatever "from" is sent. This action lists
+* older dumps the way RS_ST22_GET_DUMPS does: SNAP header rows (SEQNO 000)
+* with the runtime error, program, include and line decoded from FLIST.
+* Variable contents never leave SAP - only the header fields below.
+* Authority: same checks as ST22 (CL_ST22_TOOLS); without S_ADMI_FCD ST22
+* only the logon client is listed.
+* params: date_from, date_to (YYYYMMDD or YYYY-MM-DD; default last 7 days),
+*         user (optional), max_rows (default 200, max 1000)
+* result: COUNT, TRUNCATED, DUMPS = [{DATUM, UZEIT, AHOST, UNAME, MANDT,
+*         MODNO, RUNTIME_ERROR, PROGRAM, INCLUDE, LINE}]
+FORM dump_list USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message TYPE string ev_result TYPE string.
+  TYPES: BEGIN OF ty_dump,
+           datum         TYPE snap-datum,
+           uzeit         TYPE snap-uzeit,
+           ahost         TYPE snap-ahost,
+           uname         TYPE snap-uname,
+           mandt         TYPE snap-mandt,
+           modno         TYPE snap-modno,
+           runtime_error TYPE string,
+           program       TYPE string,
+           include       TYPE string,
+           line          TYPE string,
+         END OF ty_dump.
+  DATA: BEGIN OF ls_input,
+          date_from TYPE string,
+          date_to   TYPE string,
+          user      TYPE string,
+          max_rows  TYPE i,
+        END OF ls_input.
+  DATA: BEGIN OF ls_result,
+          count     TYPE i,
+          truncated TYPE abap_bool,
+          dumps     TYPE STANDARD TABLE OF ty_dump WITH DEFAULT KEY,
+        END OF ls_result.
+  DATA: ls_snap  TYPE snap,
+        ls_dump  TYPE ty_dump,
+        lv_from  TYPE d,
+        lv_to    TYPE d,
+        lv_max   TYPE i,
+        lv_fetch TYPE i,
+        lv_x     TYPE i,
+        lv_len   TYPE i,
+        lv_found TYPE i,
+        lv_tag   TYPE c LENGTH 2,
+        lv_value TYPE string,
+        lr_user  TYPE RANGE OF snap-uname,
+        lr_mandt TYPE RANGE OF snap-mandt.
+  FIELD-SYMBOLS <lv_buf> TYPE c.
+
+  /ui2/cl_json=>deserialize( EXPORTING json = iv_params CHANGING data = ls_input ).
+
+  IF cl_st22_tools=>check_user_authorization_st22( ) <> 'X'.
+    ev_subrc = 4.
+    ev_message = 'DUMP_LIST: no ST22 authorization (S_TCODE ST22, S_DEVELOP OBJTYPE ST22 or DEBUG, ACTVT 03)'.
+    ev_result = '{}'.
+    RETURN.
+  ENDIF.
+  IF cl_st22_tools=>check_user_authoriz_client( ) <> cl_st22_tools=>c_authorization_all_clients.
+    lr_mandt = VALUE #( ( sign = 'I' option = 'EQ' low = sy-mandt ) ).
+  ENDIF.
+
+  REPLACE ALL OCCURRENCES OF '-' IN ls_input-date_from WITH ''.
+  REPLACE ALL OCCURRENCES OF '-' IN ls_input-date_to WITH ''.
+  lv_from = ls_input-date_from.
+  lv_to   = ls_input-date_to.
+  IF lv_to IS INITIAL.
+    lv_to = sy-datum.
+  ENDIF.
+  IF lv_from IS INITIAL.
+    lv_from = lv_to - 7.
+  ENDIF.
+  lv_max = ls_input-max_rows.
+  IF lv_max <= 0 OR lv_max > 1000.
+    lv_max = 200.
+  ENDIF.
+  lv_fetch = lv_max + 1.
+  IF ls_input-user IS NOT INITIAL.
+    lr_user = VALUE #( ( sign = 'I' option = 'EQ' low = to_upper( condense( ls_input-user ) ) ) ).
+  ENDIF.
+
+  SELECT * FROM snap INTO ls_snap UP TO lv_fetch ROWS
+    WHERE datum BETWEEN lv_from AND lv_to
+      AND seqno = '000'
+      AND uname IN lr_user
+      AND mandt IN lr_mandt
+    ORDER BY datum DESCENDING uzeit DESCENDING.
+
+    CLEAR ls_dump.
+    MOVE-CORRESPONDING ls_snap TO ls_dump.
+
+    " FLIST: stream of <tag(2)><length(3)><value>, ended by '%'
+    " (same decoding as RS_ST22_GET_DUMPS: FC error, AP program, AI include, AL line)
+    ASSIGN ls_snap-flist(1600) TO <lv_buf> RANGE ls_snap.
+    CLEAR: lv_x, lv_found.
+    TRY.
+        WHILE lv_x < 1595 AND <lv_buf>+lv_x(1) <> '%' AND lv_found < 4.
+          lv_tag = <lv_buf>+lv_x(2).
+          lv_x = lv_x + 2.
+          lv_len = <lv_buf>+lv_x(3).
+          lv_x = lv_x + 3.
+          IF lv_len < 0 OR lv_x + lv_len > 1600.
+            EXIT.
+          ENDIF.
+          lv_value = <lv_buf>+lv_x(lv_len).
+          CASE lv_tag.
+            WHEN 'FC'. ls_dump-runtime_error = lv_value. lv_found = lv_found + 1.
+            WHEN 'AP'. ls_dump-program       = lv_value. lv_found = lv_found + 1.
+            WHEN 'AI'. ls_dump-include       = lv_value. lv_found = lv_found + 1.
+            WHEN 'AL'. ls_dump-line          = condense( lv_value ). lv_found = lv_found + 1.
+          ENDCASE.
+          lv_x = lv_x + lv_len.
+        ENDWHILE.
+      CATCH cx_sy_conversion_error cx_sy_data_access_error.
+        " inconsistent stream - keep the header fields
+    ENDTRY.
+
+    APPEND ls_dump TO ls_result-dumps.
+  ENDSELECT.
+
+  IF lines( ls_result-dumps ) > lv_max.
+    DELETE ls_result-dumps FROM lv_max + 1.
+    ls_result-truncated = abap_true.
+  ENDIF.
+  ls_result-count = lines( ls_result-dumps ).
+  ev_result = /ui2/cl_json=>serialize( data = ls_result ).
+  ev_message = |{ ls_result-count } dump(s) { lv_from }-{ lv_to }|.
 ENDFORM.
