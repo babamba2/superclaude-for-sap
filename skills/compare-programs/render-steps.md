@@ -48,6 +48,10 @@ Writes `<NAME>-v<ver>-<lang>.xlsx` from the same `.md`, with the spec xlsx toolc
 
 Show the completion block (`workflow.md` Step 5 output) and ask: *"OK to finalize, or change a verdict / section / wording?"* Apply changes to the `.md` with `Edit`, rebuild with `--editable --same-version` (the history keeps one entry per version). On confirm → Step 5.3.
 
+## Step 5.2a — Korean polish (report language `ko`, after the review is confirmed)
+
+Per [`../../common/humanize-korean.md`](../../common/humanize-korean.md), `<dir>` = `<base>/comparisons/_humanize/<NAME>`: texts = `node "<PLUGIN_ROOT>/scripts/lib/humanize.mjs" texts-md <base>/comparisons/<NAME>-v<ver>-ko.md --out <dir>/texts.json` (paragraph, list and quote lines; tables, headings and code are left out), apply = `node "<PLUGIN_ROOT>/scripts/lib/humanize.mjs" apply-md <dir>/texts.json <dir>/humanized.json` (or `fixed.json`), then rebuild the page with `--editable --same-version` (and the Excel copy when it was chosen).
+
 ## Step 5.3 — English companion (default when the report language ≠ `en`)
 
 ```

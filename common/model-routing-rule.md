@@ -44,7 +44,7 @@ Never use Haiku for: code generation, fixing, severity decisions, spec/plan writ
 
 Before every `Agent(...)` call:
 
-0. **Resolve the dispatch mode** once per skill run per [`model-dispatch-mode.md`](model-dispatch-mode.md) (`~/.sc4sap/preferences.json` → `modelDispatch`). `auto` (default) → steps 1–4 decide the model silently. `user-defined` → steps 1–4 produce the *recommendation*, then ask the user (Opus / Sonnet / Haiku) once per dispatch group.
+0. **Resolve the dispatch mode** once per skill run per [`model-dispatch-mode.md`](model-dispatch-mode.md) (`~/.sc4sap/preferences.json` → `modelDispatch`). `auto` (default) → steps 1–4 decide the model silently. `user-defined` → steps 1–4 produce the *recommendation*, then ask the user (Opus / Sonnet / Haiku) once per dispatch group. Also resolve the **cost mode** per [`cost-mode.md`](cost-mode.md); in `eco`, its lever-A table replaces the model below and adds a per-call `effort`.
 1. If the result is read or compared and a later Opus or Sonnet step (or the main thread) consumes it → **Haiku** (`sap-checker`).
 2. Else if the work writes novel code, reconciles files, or decides → **Opus**.
 3. Else if it is template / bulk-repetitive writing → **Sonnet**.
@@ -94,7 +94,7 @@ A Sonnet- or Haiku-dispatched agent that hits a hard blocker (spec ambiguity, cr
 
 ## Reasoning effort (agent frontmatter `effort:`)
 
-`effort:` is set once per agent — the `Agent(...)` call has no effort parameter — so it applies to every dispatch of that agent, including `model:` overrides. **Never rely on the default**: observed 2026-10-07/08 in subagent transcripts (`"effort"` field), `sap-code-reviewer` without `effort:` ran Opus 5.5 at `medium`, while Opus 4.7 ran `xhigh` in the 2026-09-28 measurement. Re-check the transcript field after every model or CLI update.
+`effort:` is set once per agent and applies to every dispatch of that agent, including `model:` overrides — unless the `Agent(...)` call passes its own `effort` (verified 2026-10-26; used only by eco cost mode, see `cost-mode.md`). **Never rely on the default**: observed 2026-10-07/08 in subagent transcripts (`"effort"` field), `sap-code-reviewer` without `effort:` ran Opus 5.5 at `medium`, while Opus 4.7 ran `xhigh` in the 2026-09-28 measurement. Re-check the transcript field after every model or CLI update.
 
 - `effort: xhigh` — `sap-planner` (the plan drives every later phase).
 - `effort: high` — analyst, architect, critic, code-reviewer, all module consultants + BC, executor, qa-tester, debugger.

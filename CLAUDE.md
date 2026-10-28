@@ -29,6 +29,8 @@ This file is the **index** of development rules — NOT a payload to preload. De
 | Context loading protocol (CLAUDE.md is an index; every dispatch declares its minimal context kit) | [`common/context-loading-protocol.md`](common/context-loading-protocol.md) |
 | Model routing (Opus for judgment / novel code; Sonnet for template + bulk writes; Haiku `sap-checker` fan-out for fetch / verify / detect) | [`common/model-routing-rule.md`](common/model-routing-rule.md) |
 | Model dispatch mode (`auto` default = route per rule; `user-defined` = ask Opus / Sonnet / Haiku before each dispatch group; set via `/sc4sap:sap-option`) | [`common/model-dispatch-mode.md`](common/model-dispatch-mode.md) |
+| Cost mode (`standard` default = current behavior; `eco` = cheaper sub-agent models and effort, low main-thread effort, same deliverable; set via `/sc4sap:sap-option` or one-off `/sc4sap:eco`) | [`common/cost-mode.md`](common/cost-mode.md) |
+| Korean prose polish (connective-comma fix always; long sentences / translationese through the optional humanize-korean plugin with Sonnet, flagged items only; before the English companion) | [`common/humanize-korean.md`](common/humanize-korean.md) |
 
 Before any work: verify `.sc4sap/config.json` exists and contains `sapVersion`, `abapRelease`, `industry`. Every recommendation, piece of generated code, and tool invocation must respect those fields.
 

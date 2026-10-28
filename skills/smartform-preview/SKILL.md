@@ -13,6 +13,7 @@ Consultants and key users need to see a form before test data exists, to review 
 </Purpose>
 
 <Response_Prefix>Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention. This skill dispatches no agents (`Dispatched: none`).</Response_Prefix>
+<Target_Object>The target object is looked up on the active profile's system only. Not found → stop and ask per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) § Target object not on the active system — never substitute a similar name, never switch profiles on your own.</Target_Object>
 
 <Team_Mode>**No teamMode integration.** Reading and drawing are scripted; the main thread writes the sample values.</Team_Mode>
 

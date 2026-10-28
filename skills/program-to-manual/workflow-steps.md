@@ -85,7 +85,11 @@ The first build uses the Step 1 `versionMode` (`major` → `--major`, `same` →
 
 - Show the Output_Format summary (SKILL.md) and the list of `intro.unverified` items.
 - Ask: "OK to finalize, or change a scenario / step / wording?" Apply changes to the draft `manual.json` and rebuild with `--same-version` (the revision history keeps one entry per version, the latest build wins).
-- On confirm, go to Step 8 (or finish when `lang` is `en`).
+- On confirm, go to Step 7a, then Step 8 (or finish when `lang` is `en`).
+
+## Step 7a — Korean polish (when `lang` is `ko`)
+
+Follow [`common/humanize-korean.md`](../../common/humanize-korean.md) with `<dir>` = `<base>/manuals/_work/<PROGRAM>/humanize`. Texts = `node scripts/lib/humanize.mjs texts-json <base>/manuals/_draft/<PROGRAM>-ko.manual.json --out <dir>/texts.json`; apply = `node scripts/lib/humanize.mjs apply-json <dir>/texts.json <dir>/humanized.json` (or `fixed.json`), then rebuild with `--same-version`. The `합니다` endings of the manual are its register; screen labels, field names and message texts are SAP's and too short to be picked.
 
 ## Step 8 — English companion (default, when `lang` ≠ `en`)
 

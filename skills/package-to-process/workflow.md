@@ -83,7 +83,7 @@ Main thread (session model). `AskUserQuestion` takes 2–4 options per question 
 2. Resolve `<INVENTORY_PATH>` per `paths-and-state.md` § Inventory resolution (own profile → cross-view → legacy). Cross-view → refuse or ask as defined there.
 3. **Branch A — inventory usable**: read `scanned_at`, print `(skipped — inventory found at <path> · scanned <N> days ago)` after the bar.
    - `scanned_at` older than 30 days (or missing) → ask (2 options): `Use as-is (Recommended)` / `Refresh (re-stock now)`. Refresh → Branch B.
-4. **Branch B — missing / refused / refresh**: run the stocking pass per [`dispatch-stocker.md`](dispatch-stocker.md) — walk (reused when a recent `walk.json` exists) → scout fan-out (≥ 30 objects) → finalize, with the `↳ 2.A / 2.C / 2.D` sub-progress lines and one banner per dispatch. Load the new `inventory.json`.
+4. **Branch B — missing / refused / refresh**: run the stocking pass per [`dispatch-stocker.md`](dispatch-stocker.md) — walk (reused when a recent `walk.json` exists) → scout fan-out (≥ 30 objects; cost mode `eco`: ≥ 15 and mandatory — every Z class / function group / program source is read by a scout) → finalize, with the `↳ 2.A / 2.C / 2.D` sub-progress lines and one banner per dispatch. Load the new `inventory.json`.
 5. Stocker `BLOCKED` → one Opus re-dispatch (`paths-and-state.md` § Escalation); still blocked → STOP and surface (cannot continue without inventory).
 6. Update `<STATE_DIR>/intake.json` → `inventory: {path, from, scanned_at}` (Edit).
 

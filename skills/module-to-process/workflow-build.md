@@ -22,6 +22,7 @@ Continues [`workflow.md`](workflow.md). Path variables, checkpoints and escalati
 
 ## Step 8 — Build HTML (main thread)
 
+0. **Korean polish (8a)** — `<lang>` is `ko` (the comma fix always; the model rewrite when humanize-korean is installed): follow [`common/humanize-korean.md`](../../common/humanize-korean.md) with `<dir>` = `<STATE_DIR>/humanize`. Texts = `node "<PLUGIN_ROOT>/scripts/process/companion.mjs" texts "<STATE_DIR>/process-model.json" --out "<STATE_DIR>/humanize/texts.json"`; apply = `node "<PLUGIN_ROOT>/scripts/process/companion.mjs" apply "<STATE_DIR>/process-model.json" "<STATE_DIR>/humanize/humanized.json" --lang ko --partial --out "<STATE_DIR>/process-model.json"` (`fixed.json` instead when the model step did not run) (copy the model to `process-model.json.bak-humanize` first; do not edit the model between texts and apply — the ids are positional). Integration pages (`build-integration-doc.mjs`) are not polished: their prose is the scenario file the analyst wrote, read as is.
 1. Print the Step 8 line.
 2. `node "<PLUGIN_ROOT>/scripts/process/build-process-doc.mjs" "<STATE_DIR>/process-model.json" --out-dir "<PROC_DIR>"` (`--same-version` to rebuild the current version, `--major` for a new major version; a review run after a skipped one is a new minor version).
 3. Relay the builder's warnings grouped by kind (≤ 10 lines), then the JSON result (`html`, `version`, `warnings`). Errors → fix and rebuild once; still failing → STOP and report.

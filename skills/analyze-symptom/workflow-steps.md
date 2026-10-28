@@ -57,6 +57,12 @@ Agent({
             reported time (default: today), user=<affected user> when known,
             max_results <= 5) — about 1 KB per dump. Do NOT use RuntimeListDumps:
             it returns an empty list on some systems (verified on S/4HANA).
+            ECC (BASIS 7.40): the ADT feed only covers the last 24 hours. For an
+            older dump use RuntimeListFeeds with from/to on that day (or
+            RuntimeListDumps date_from/date_to): the hits come back under `st22`
+            (runtime error, program, include, line — no dump body). There is no
+            single-dump endpoint on ECC: skip steps 2 and 4 for an `st22` hit and
+            go to step 3 with its include + line.
          2. RuntimeGetDumpById(dump_id) with the default view and
             response_mode "payload" — about 7 KB: error, exception, terminated
             program, termination link (program + line) and the chapter index.

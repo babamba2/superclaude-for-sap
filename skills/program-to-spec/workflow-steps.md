@@ -111,7 +111,7 @@ For objects without UI (pure class, FM, CDS, RAP without screens), skip the imag
 - Show a table of contents + first section inline.
 - Ask: "OK to finalize, or trim/expand a section?"
 - Each change edits the same `{OBJECT}-v{ver}-{lang}.md` and rebuilds the page in place: `node scripts/spec/md-to-html.mjs .sc4sap/specs/{OBJECT}-v{ver}-{lang}.md --editable --same-version` (the review loop never adds a version).
-- On confirm → write one file per selected format (`.md` / `.html` / `.xlsx`) → go to Step 6 (or print every absolute path and finish when `lang` is `en`).
+- On confirm → Korean polish when `lang` is `ko` (per [`../../common/humanize-korean.md`](../../common/humanize-korean.md), `<dir>` = `.sc4sap/specs/_humanize/{OBJECT}`: `node scripts/lib/humanize.mjs texts-md .sc4sap/specs/{OBJECT}-v{ver}-ko.md --out <dir>/texts.json`, apply with `apply-md <dir>/texts.json <dir>/humanized.json` (or `fixed.json`), rebuild the page `--same-version`) → write one file per selected format (`.md` / `.html` / `.xlsx`) → go to Step 6 (or print every absolute path and finish when `lang` is `en`).
 
 **Step 6 — English companion** (default, when `lang` ≠ `en`)
 

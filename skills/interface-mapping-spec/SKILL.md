@@ -13,6 +13,7 @@ Most mapping specifications are written for **new** interfaces, before any SAP o
 </Purpose>
 
 <Response_Prefix>Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.</Response_Prefix>
+<Target_Object>The target object is looked up on the active profile's system only. Not found → stop and ask per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) § Target object not on the active system — never substitute a similar name, never switch profiles on your own.</Target_Object>
 
 <Phase_Banner>Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus|Sonnet|Haiku>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention. Resolve the dispatch mode first per [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md).</Phase_Banner>
 
@@ -47,6 +48,7 @@ Settled with the user when the skill was designed — do not ask again:
 | Versions | v0.1 → +0.1 per saved / imported edit, per refresh with changes; the revision-history table fills itself (author, change, optional approver) |
 | Language | Page language from `.sc4sap/config.json` (`language`, else `ko`); English companion always built unless the user opts out |
 | Settings | `<base>/interfaces/project.json`: cover (project name, title, document-number pattern `IF-MAP-{ifId}`, copyright), `idPattern` for IF ID numbering, code-list overrides (`codes`) |
+| File name | Page: `<IF_ID>_<OBJECT>_<interface name>-v<ver>-<lang>.html` (SAP object of the SAP side, else the object typed in the system block; empty parts left out). The model json stays `<IF_ID>-v<ver>-<lang>.json` |
 | Location | `<base>/interfaces/<IF_ID>/` — `<base>` per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) (`.sc4sap/work/<alias>/` with an active profile) |
 | Template content | Generic: never put customer, vendor or people names into the skill or into public docs; real names belong only in the user's `project.json` and documents |
 </Decisions_Fixed>
@@ -64,6 +66,8 @@ Settled with the user when the skill was designed — do not ask again:
 
 **Step 4 — Build v0.1.** `Write` the answers to `<base>/interfaces/_answers/<IF_ID>.json` (shape in `interview.md` § Answers), then `<B> init --answers <file>`. Report `problems` (fields SAP does not have, unreadable parameter types — for those offer `--line PARAM=STRUCTURE` and `refresh`).
 
+**Step 4a — Korean polish (page language `ko`).** Per [`common/humanize-korean.md`](../../common/humanize-korean.md), `<dir>` = `<base>/interfaces/<IF_ID>/_humanize`: texts = `node scripts/lib/humanize.mjs texts-json <base>/interfaces/<IF_ID>/<IF_ID>-v<ver>-ko.json --skip desc,ddic,dom --out <dir>/texts.json` (latest version; `desc` / `ddic` are SAP's DDIC texts), apply = `node scripts/lib/humanize.mjs apply-json <dir>/texts.json <dir>/humanized.json` (or `fixed.json`), then `<B> build --if <IF_ID>`. Runs again after an import or refresh that adds prose.
+
 **Step 5 — English companion.** Skip when the page language is `en` or the user opted out. `<B> texts --if <ID> --to en` → when `todo` > 0, dispatch `sc4sap:sap-writer` with [`dispatch-prompts.md`](dispatch-prompts.md) § 2 to write `outFile`; then `<B> companion --if <ID> --to en`. `missing` must be empty.
 
 **Step 6 — Import an edited page.** `<B> import <file>` → new version with the reader's revision row; hand-typed SAP fields (`EKPO-MATNR`, data elements) are filled from DDIC at the same time (`resolved`, `problems`). Refusals: version already imported; the page was edited from an older version (`--force` only when the user says to overwrite); an English companion page (edits go into the primary-language page, the companion is rebuilt from it); a page whose ID / version / language was changed outside edit mode. Then Step 5 again.
@@ -76,7 +80,7 @@ Settled with the user when the skill was designed — do not ask again:
 </Workflow>
 
 <Page>
-Top bar: Checks (count; panel lists every finding, click jumps to the cell), Edit, Undo, Save, Print, link to the companion. Edit mode needs nothing installed: click a cell, pick code items from lists, paste a block of cells from Excel into the grid, add / insert / move / delete rows (No renumbered, MAPPING follows), ✓ confirms a proposal, add rules / SQL lines / revision rows, add or drop the response block, autosave in the browser. Save asks author, change and approver and downloads `<IF_ID>-v<next>-<lang>-edited.html`. Print: A4 landscape, one sheet per page.
+Top bar: Checks (count; panel lists every finding, click jumps to the cell), Edit, Undo, Save, Print, link to the companion. Edit mode needs nothing installed: click a cell, pick code items from lists, paste a block of cells from Excel into the grid, add / insert / move / delete rows (No renumbered, MAPPING follows), ✓ confirms a proposal, add rules / SQL lines / revision rows, add or drop the response block, autosave in the browser. Save asks author, change and approver and downloads `<IF_ID>_<OBJECT>_<name>-v<ver>-<lang>-edited.html`. Print: A4 landscape, one sheet per page.
 </Page>
 
 <Files>

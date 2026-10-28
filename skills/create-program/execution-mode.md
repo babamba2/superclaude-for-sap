@@ -30,9 +30,24 @@ Display this verbatim to the user:
 Choice: 1 / 2 / 3  (default: 2)
 ```
 
+### Step 1b — Live consultant review in Phase 4 (opt-in)
+
+Ask only when `plan.md` has `module_set.length ≥ 2` (otherwise store `false` silently). Cost mode `eco` and unattended runs → `false`, no question.
+
+```
+Live consultant review while coding (Phase 4 Wave 2/3)?
+  The <modules> consultants review each novel business-logic draft before activation.
+  Phase 6 code review runs either way. Adds N consultant dispatches per wave — expensive.
+
+  [n] off  (default)
+  [y] on
+```
+
+`y` → Type B per [`team-mode-b.md`](team-mode-b.md); `n` / Enter → Type B never runs in this program.
+
 ### Step 2 — Persist Selection
 
-Write the selection to `.sc4sap/program/{PROG}/state.json` under `execution_mode`. Also log phase timestamps here (see C-2 schema below).
+Write the selection to `.sc4sap/program/{PROG}/state.json` under `execution_mode`, and the Step 1b answer under `consultant_live_review` (`true` | `false`). Also log phase timestamps here (see C-2 schema below).
 
 ### Step 3 — Mode Semantics
 
@@ -65,6 +80,7 @@ Proceed to Phase {N}?
 {
   "prog": "ZFI_...",
   "execution_mode": "auto | manual | hybrid",
+  "consultant_live_review": false,
   "phases": {
     "0_preflight":   { "status": "completed", "ts": "2026-04-18T10:00:00Z" },
     "1a_interview":  { "status": "completed", "ts": "..." },

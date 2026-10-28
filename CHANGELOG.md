@@ -5,6 +5,38 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.51] — 2026-10-28
+
+### Added — eco cost mode
+
+- `common/cost-mode.md`: cost mode `standard` (default, unchanged behavior) or `eco` — cheaper sub-agent models and effort, low main-thread effort, fewer calls and smaller context, same deliverable; safety rules never change. Set it in `/sc4sap:sap-option` (cost mode flow) or run one skill with `/sc4sap:eco <skill> <args>` without changing the preference. config-to-document notes run on Sonnet · low in eco; analyze-cbo-obj stocking fans out from 15 objects.
+
+### Changed — dispatch
+
+- The SAP object a skill works on is looked up on the active profile's system only; not found → the skill stops and asks (switch profile, or a different object) instead of guessing (`common/multi-profile-artifact-resolution.md`, all object skills).
+- teamMode is opt-in: analyze-code Type B runs with the `team` argument or when the user accepts the offer after Step 3; create-program's live consultant review in Phase 4 is asked at Phase 3.5 Step 1b (default off; never in eco or unattended runs).
+- A dispatch whose result the next step needs runs in the foreground (`common/model-dispatch-mode.md`).
+
+### Changed — interface-mapping-spec
+
+- Page file name `<IF_ID>_<SAP object>_<interface name>-v<ver>-<lang>.html` (empty parts left out); the model json keeps `<IF_ID>-v<ver>-<lang>.json`.
+
+### Fixed
+
+- analyze-symptom: on ECC the dump feed covers the last 24 hours — older dumps are read through the `st22` list (MCP 4.8.15 + dispatcher `DUMP_LIST`) instead of ending with "no dump".
+- `abap/zmcp_adt_dispatch.abap` (S/4HANA dispatcher): source as reinstalled on S/4 — `TR_KEY`, `TITT`, `DYFATC` types. The write path is not yet verified on S/4.
+- Korean README in 해요체.
+
+### Added — Korean prose polish
+
+- Every Korean document (module-to-process, program-to-manual, interface-mapping-spec, config-to-document consultant notes, compare-programs, program-to-spec) now gets a polish step after its review and before the English companion. Rules in `common/humanize-korean.md`; tool `scripts/lib/humanize.mjs`.
+  - Always, no model: connective commas after verb stems are removed (`입력하고, …` → `입력하고 …`; nouns such as 입고 / 출고 / 재고 and the copula 이고 are left alone).
+  - When the [humanize-korean](https://github.com/epoko77-ai/im-not-ai) plugin (MIT) is installed: rule-based detection picks only the items with a tell left (long sentences, translationese such as `~에 의해` / `~에 있어` / `~을 바탕으로`, double passive, summary lexicon, emoji, heavy bold); they go to its `humanize-monolith` agent with Sonnet and a diagnosis header naming each item's pattern IDs. A rewrite is kept only when every identifier, code, number, region tag, backtick span and `**` survives, at most half the item changed and no connective comma was added; otherwise the item keeps its fixed text.
+  - On the MM process map (6,504 texts): 125 items fixed in code, 20 sent to the model in one call, 7 split into one fact per sentence. Sending all prose would have been ~58 calls — and in a test the agent left dense comma-only chunks unchanged, which is why the comma fix moved into code.
+- `scripts/process/companion.mjs apply --partial`: a same-language rewrite of some items; the others keep their text.
+- `humanize.mjs texts-json` / `apply-json` and `texts-md` / `apply-md` for skills whose source is JSON (manual, interface model, config notes) or Markdown (comparison, spec).
+- Setup Step 14 offers to install humanize-korean when documents are Korean.
+
 ## [0.6.50] — 2026-10-28
 
 ### Added — ECC dump list older than 24 hours

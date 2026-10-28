@@ -2,7 +2,7 @@
 //
 // Files, per interface, under <artifactBase>/interfaces/<IF_ID>/:
 //   <IF_ID>-v<ver>-<lang>.json    the model of that version (source of the page)
-//   <IF_ID>-v<ver>-<lang>.html    the editable page
+//   <IF_ID>_<SAP object>_<name>-v<ver>-<lang>.html    the editable page (empty parts left out)
 //   _i18n/                        texts handed to the translator for the English companion
 // and <artifactBase>/interfaces/project.json — cover settings and code-list overrides
 // shared by every interface of the project:
@@ -68,6 +68,18 @@ export function primaryLang(dir, ifId) {
 
 const file = (dir, ifId, ver, lang, ext) => join(dir, `${safeId(ifId)}-v${ver}-${lang}.${ext}`);
 
+/** File name base of a page: <IF_ID>_<SAP object>_<interface name> (parts that are empty are left out). */
+export function pageBase(model) {
+  const side = model.sap?.side === 'target' ? 'target' : 'source';
+  const sd = side === 'target' ? 't' : 's';
+  const obj = model.sap?.[side]?.object || (model.sap?.side === 'both' && model.sap?.target?.object) || model.request?.[sd]?.object || '';
+  const name = String(model.header?.name || '').replace(/[\\/:*?"<>|\x00-\x1f]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 80);
+  return [safeId(model.ifId), obj ? safeId(obj) : '', name].filter(Boolean).join('_');
+}
+
+// The page carries the readable name; the model json stays keyed by IF ID (versions are found by it).
+const pageFile = (dir, model) => join(dir, `${pageBase(model)}-v${model.version}-${model.lang}.html`);
+
 /** Cover settings of the project in one language. */
 export function projectFor(project, lang, model) {
   const pick = (x) => (x && typeof x === 'object' && !Array.isArray(x) ? x[lang] ?? x.ko ?? x.en : x);
@@ -95,9 +107,10 @@ export function writeVersion(root, model, { companion = true } = {}) {
   ensureDirSync(dir);
   const project = readJson(join(root, 'project.json'), {});
   const others = languagesOf(dir, model.ifId).filter((l) => l !== model.lang && versionsOf(dir, model.ifId, l).includes(model.version));
-  const other = companion && others[0] ? basename(file(dir, model.ifId, model.version, others[0], 'html')) : '';
+  const otherModel = companion && others[0] ? readJson(file(dir, model.ifId, model.version, others[0], 'json')) : null;
+  const other = otherModel ? basename(pageFile(dir, otherModel)) : '';
   writeJson(file(dir, model.ifId, model.version, model.lang, 'json'), model);
-  const html = file(dir, model.ifId, model.version, model.lang, 'html');
+  const html = pageFile(dir, model);
   atomicWriteFileSync(html, pageHtml({ model, project: projectFor(project, model.lang, model), codes: project.codes || {}, companion: other }));
   return { html, model: file(dir, model.ifId, model.version, model.lang, 'json'), version: model.version, lang: model.lang, ...summary(model) };
 }

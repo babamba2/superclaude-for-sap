@@ -82,7 +82,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 
 ## Companion files (MUST read when relevant)
 
-- `wizard-steps.md` — the 14-step setup wizard **index** (Step 0–13). Read before running the full wizard. Heavy steps are split out (see below).
+- `wizard-steps.md` — the 15-step setup wizard **index** (Step 0–14; Step 14 offers the optional humanize-korean plugin). Read before running the full wizard. Heavy steps are split out (see below).
 - `wizard-step-02-system-identification.md` — Step 2 detail (SAP version, ABAP release, Industry).
 - `wizard-step-04-profile-creation.md` — Step 4 detail (alias + `SAP_TIER` + connection fields → `sap-profile-cli.mjs add`). Read before Step 4.
 - `wizard-step-09-abap-objects.md` — Step 9 detail, including the **DEV-only tier gate** (QA/PRD REFUSE → CTS import guidance).

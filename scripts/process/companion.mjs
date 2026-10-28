@@ -2,6 +2,7 @@
 //
 //   node companion.mjs texts <process-model.json> --out <texts.json> [--chunks N]   (N files <texts>.<k>.json for parallel translators)
 //   node companion.mjs apply <process-model.json> <translated.json> [<translated.2.json> …] --lang en --out <process-model.en.json>
+//   node companion.mjs apply <process-model.json> <humanized.json> --lang ko --partial --out <process-model.json>   (same-language rewrite of some items)
 //
 // texts: every prose string of the model, de-duplicated, as
 //   { from: "ko", to: "", items: [{ i, text }], paths: { "<i>": ["row:1.2|label", "m|glossary.0.term", …] } }
@@ -138,8 +139,10 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
       }
       const { model: m, missing } = applyTexts(model, texts, { items: loose }, get('--lang') || 'en', translationsByText(pairs));
       writeFileSync(get('--out'), `${JSON.stringify(m, null, 2)}\n`, 'utf8');
-      console.log(JSON.stringify({ out: resolve(get('--out')), lang: m.lang, missing: missing.length }));
-      if (missing.length) process.exitCode = 3;
+      // --partial: a same-language rewrite of some items (humanize) — the others keep their text, not an error.
+      const partial = args.includes('--partial');
+      console.log(JSON.stringify({ out: resolve(get('--out')), lang: m.lang, missing: missing.length, ...(partial ? { applied: texts.items.length - missing.length } : {}) }));
+      if (missing.length && !partial) process.exitCode = 3;
     } else {
       console.error('Usage: node companion.mjs texts <model> --out <texts.json> | apply <model> <translated.json> --lang en --out <model.en.json>');
       process.exit(2);
