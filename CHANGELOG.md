@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.51] — 2026-10-28
+
+### Added — eco cost mode
+
+- `common/cost-mode.md`: cost mode `standard` (default, unchanged behavior) or `eco` — cheaper sub-agent models and effort, low main-thread effort, fewer calls and smaller context, same deliverable; safety rules never change. Set it in `/sc4sap:sap-option` (cost mode flow) or run one skill with `/sc4sap:eco <skill> <args>` without changing the preference. config-to-document notes run on Sonnet · low in eco; analyze-cbo-obj stocking fans out from 15 objects.
+
+### Changed — dispatch
+
+- The SAP object a skill works on is looked up on the active profile's system only; not found → the skill stops and asks (switch profile, or a different object) instead of guessing (`common/multi-profile-artifact-resolution.md`, all object skills).
+- teamMode is opt-in: analyze-code Type B runs with the `team` argument or when the user accepts the offer after Step 3; create-program's live consultant review in Phase 4 is asked at Phase 3.5 Step 1b (default off; never in eco or unattended runs).
+- A dispatch whose result the next step needs runs in the foreground (`common/model-dispatch-mode.md`).
+
+### Changed — interface-mapping-spec
+
+- Page file name `<IF_ID>_<SAP object>_<interface name>-v<ver>-<lang>.html` (empty parts left out); the model json keeps `<IF_ID>-v<ver>-<lang>.json`.
+
+### Fixed
+
+- analyze-symptom: on ECC the dump feed covers the last 24 hours — older dumps are read through the `st22` list (MCP 4.8.15 + dispatcher `DUMP_LIST`) instead of ending with "no dump".
+- `abap/zmcp_adt_dispatch.abap` (S/4HANA dispatcher): source as reinstalled on S/4 — `TR_KEY`, `TITT`, `DYFATC` types. The write path is not yet verified on S/4.
+- Korean README in 해요체.
+
 ### Added — Korean prose polish
 
 - Every Korean document (module-to-process, program-to-manual, interface-mapping-spec, config-to-document consultant notes, compare-programs, program-to-spec) now gets a polish step after its review and before the English companion. Rules in `common/humanize-korean.md`; tool `scripts/lib/humanize.mjs`.
