@@ -1,0 +1,169 @@
+{
+  "schema": 1,
+  "module": "FI",
+  "note": "Standard SAP FI process backbone (generic, no customer content). L1 mega process > L2 process chain > L3 process > L4 task. tcodes/bapis/tables are anchors used to attach CBO objects; ecc/s4 lists only differences.",
+  "tree": [
+    { "id": "FI", "label": { "en": "Financial accounting", "ko": "재무회계", "ja": "財務会計" }, "children": [
+      { "id": "FI.1", "label": { "en": "Master data", "ko": "재무 기준정보", "ja": "財務マスタ" }, "children": [
+        { "id": "FI.1.1", "label": { "en": "G/L account master", "ko": "G/L 계정마스터", "ja": "G/L勘定マスタ" }, "children": [
+          { "id": "FI.1.1.1", "label": { "en": "Create / change G/L account", "ko": "G/L 계정 생성/변경", "ja": "G/L勘定登録・変更" },
+            "tcodes": ["FS00", "FSP0", "FSS0"], "bapis": ["GL_ACCT_MASTER_SAVE", "BAPI_GL_ACC_GETDETAIL"], "tables": ["SKA1", "SKAT", "SKB1"],
+            "s4": "Cost elements are G/L accounts with a G/L account type and cost element category (FS00)." }
+        ] },
+        { "id": "FI.1.2", "label": { "en": "Vendor and customer accounting data", "ko": "거래처 회계 정보", "ja": "取引先会計データ" }, "children": [
+          { "id": "FI.1.2.1", "label": { "en": "Create / change vendor (company code)", "ko": "구매처 회사코드 정보 생성/변경", "ja": "仕入先会社コードデータ登録・変更" },
+            "tcodes": ["FK01", "FK02", "XK01", "XK02", "BP"], "bapis": ["VENDOR_INSERT", "BAPI_BUPA_CREATE_FROM_DATA"], "tables": ["LFA1", "LFB1", "LFBK", "BUT000"],
+            "s4": "Business Partner (BP) replaces FK01 / XK01; CVI keeps LFA1 / LFB1 in sync." },
+          { "id": "FI.1.2.2", "label": { "en": "Create / change customer (company code)", "ko": "고객 회사코드 정보 생성/변경", "ja": "得意先会社コードデータ登録・変更" },
+            "tcodes": ["FD01", "FD02", "XD01", "XD02", "BP"], "bapis": ["BAPI_BUPA_CREATE_FROM_DATA"], "tables": ["KNA1", "KNB1", "KNBK", "BUT000"],
+            "s4": "Business Partner (BP) replaces FD01 / XD01; CVI keeps KNA1 / KNB1 in sync." }
+        ] },
+        { "id": "FI.1.3", "label": { "en": "Bank master", "ko": "은행마스터", "ja": "銀行マスタ" }, "children": [
+          { "id": "FI.1.3.1", "label": { "en": "Maintain banks and house bank accounts", "ko": "은행/거래은행 계좌 관리", "ja": "銀行・取引銀行口座管理" },
+            "tcodes": ["FI01", "FI02", "FI12"], "bapis": ["BAPI_BANK_CREATE"], "tables": ["BNKA", "T012", "T012K"],
+            "s4": "House bank accounts are managed in Bank Account Management (NWBC / Fiori Manage Bank Accounts, FCLM_BAM)." }
+        ] }
+      ] },
+      { "id": "FI.2", "label": { "en": "General ledger accounting", "ko": "총계정원장 회계", "ja": "総勘定元帳会計" }, "children": [
+        { "id": "FI.2.1", "label": { "en": "G/L posting", "ko": "G/L 전기", "ja": "G/L転記" }, "children": [
+          { "id": "FI.2.1.1", "label": { "en": "Enter G/L account document", "ko": "G/L 전표 입력", "ja": "G/L伝票入力" },
+            "tcodes": ["FB50", "F-02", "FB01", "FB50L"], "bapis": ["BAPI_ACC_DOCUMENT_POST", "BAPI_ACC_GL_POSTING_POST", "POSTING_INTERFACE_DOCUMENT"],
+            "tables": ["BKPF", "BSEG", "BSIS", "FAGLFLEXA"], "s4": "Line items are written to ACDOCA (universal journal); BSIS / FAGLFLEXA become compatibility views." },
+          { "id": "FI.2.1.2", "label": { "en": "Park / hold and post parked document", "ko": "전표 임시저장/전기", "ja": "伝票保留・一時保存・転記" },
+            "tcodes": ["FV50", "F-65", "FBV0", "FBV2", "FBV4"], "bapis": ["PRELIMINARY_POSTING_FB01"], "tables": ["VBKPF", "VBSEGS", "BKPF"] },
+          { "id": "FI.2.1.3", "label": { "en": "Reverse / change document", "ko": "전표 역분개/변경", "ja": "伝票反対仕訳・変更" },
+            "tcodes": ["FB08", "F.80", "FB02", "FB09", "FBD1", "F.14"], "bapis": ["BAPI_ACC_DOCUMENT_REV_POST", "CALL_FB08"], "tables": ["BKPF", "BSEG", "BKDF"] }
+        ] },
+        { "id": "FI.2.2", "label": { "en": "G/L open items and display", "ko": "G/L 미결/조회", "ja": "G/L未決・照会" }, "children": [
+          { "id": "FI.2.2.1", "label": { "en": "Clear G/L open items", "ko": "G/L 미결 반제", "ja": "G/L未決消込" },
+            "tcodes": ["F-03", "F.13", "F-04"], "bapis": ["POSTING_INTERFACE_CLEARING"], "tables": ["BSIS", "BSAS", "BSEG"],
+            "s4": "BSIS / BSAS are compatibility views on ACDOCA / BSEG." },
+          { "id": "FI.2.2.2", "label": { "en": "G/L line items and balances", "ko": "G/L 라인아이템/잔액 조회", "ja": "G/L明細・残高照会" },
+            "tcodes": ["FBL3N", "FAGLL03", "FS10N", "FAGLB03"], "bapis": ["BAPI_GL_GETGLACCBALANCE", "BAPI_GL_ACC_GETPERIODBALANCES"], "tables": ["BSIS", "BSAS", "GLT0", "FAGLFLEXT"],
+            "s4": "Totals tables GLT0 / FAGLFLEXT are replaced by ACDOCA; FAGLL03H / Fiori apps for line items." }
+        ] }
+      ] },
+      { "id": "FI.3", "label": { "en": "Accounts payable", "ko": "매입채무", "ja": "買掛金管理" }, "children": [
+        { "id": "FI.3.1", "label": { "en": "Vendor invoice", "ko": "매입 송장", "ja": "仕入先請求書" }, "children": [
+          { "id": "FI.3.1.1", "label": { "en": "Enter vendor invoice / credit memo (FI)", "ko": "매입 송장/대변메모 입력(FI)", "ja": "仕入先請求書・貸方票入力(FI)" },
+            "tcodes": ["FB60", "FB65", "F-43", "F-41", "FV60"], "bapis": ["BAPI_ACC_DOCUMENT_POST", "BAPI_INCOMINGINVOICE_CREATE"], "tables": ["BKPF", "BSEG", "BSIK"],
+            "s4": "Vendor open items BSIK are a compatibility view on BSEG / ACDOCA." },
+          { "id": "FI.3.1.2", "label": { "en": "Logistics invoice posting to FI", "ko": "구매 송장 회계 반영", "ja": "購買請求書の会計転記" },
+            "tcodes": ["MIRO", "MIR7", "MRBR"], "bapis": ["BAPI_INCOMINGINVOICE_CREATE", "BAPI_INCOMINGINVOICE_POST"], "tables": ["RBKP", "RSEG", "BKPF", "BSEG", "BSIK"], "modules": ["MM"] }
+        ] },
+        { "id": "FI.3.2", "label": { "en": "Outgoing payment", "ko": "지급", "ja": "支払" }, "children": [
+          { "id": "FI.3.2.1", "label": { "en": "Automatic payment run", "ko": "자동 지급 실행", "ja": "自動支払実行" },
+            "tcodes": ["F110", "FBZP"], "tables": ["REGUH", "REGUP", "PAYR", "BSIK", "BSAK"],
+            "s4": "Bank Communication Management and Fiori Manage Automatic Payments; payment media via DMEE / PMW." },
+          { "id": "FI.3.2.2", "label": { "en": "Manual outgoing payment and check management", "ko": "수동 지급/수표 관리", "ja": "手動支払・小切手管理" },
+            "tcodes": ["F-53", "F-58", "FCH1", "FCH5", "FCH8"], "bapis": ["POSTING_INTERFACE_CLEARING"], "tables": ["BKPF", "BSEG", "BSAK", "PAYR"] },
+          { "id": "FI.3.2.3", "label": { "en": "Clear vendor open items", "ko": "구매처 미결 반제", "ja": "仕入先未決消込" },
+            "tcodes": ["F-44", "F.13"], "tables": ["BSIK", "BSAK", "BSEG"] }
+        ] },
+        { "id": "FI.3.3", "label": { "en": "Vendor reporting", "ko": "구매처 조회/보고", "ja": "仕入先照会・レポート" }, "children": [
+          { "id": "FI.3.3.1", "label": { "en": "Vendor line items and balances", "ko": "구매처 라인아이템/잔액", "ja": "仕入先明細・残高" },
+            "tcodes": ["FBL1N", "FK10N", "S_ALR_87012082", "S_ALR_87012078"], "bapis": ["BAPI_AP_ACC_GETOPENITEMS", "BAPI_AP_ACC_GETBALANCEDITEMS"], "tables": ["BSIK", "BSAK", "LFC1"],
+            "s4": "LFC1 totals are calculated from ACDOCA; FBL1H / Fiori Manage Supplier Line Items." }
+        ] }
+      ] },
+      { "id": "FI.4", "label": { "en": "Accounts receivable", "ko": "매출채권", "ja": "売掛金管理" }, "children": [
+        { "id": "FI.4.1", "label": { "en": "Customer invoice", "ko": "매출 송장", "ja": "得意先請求書" }, "children": [
+          { "id": "FI.4.1.1", "label": { "en": "Enter customer invoice / credit memo (FI)", "ko": "매출 송장/대변메모 입력(FI)", "ja": "得意先請求書・貸方票入力(FI)" },
+            "tcodes": ["FB70", "FB75", "F-22", "F-27", "FV70"], "bapis": ["BAPI_ACC_DOCUMENT_POST"], "tables": ["BKPF", "BSEG", "BSID"] },
+          { "id": "FI.4.1.2", "label": { "en": "Billing transfer to accounting", "ko": "청구 회계 전송", "ja": "請求の会計転送" },
+            "tcodes": ["VFX3", "VF02"], "bapis": ["BAPI_ACC_BILLING_POST"], "tables": ["VBRK", "BKPF", "BSEG", "BSID"], "modules": ["SD"] }
+        ] },
+        { "id": "FI.4.2", "label": { "en": "Incoming payment", "ko": "입금", "ja": "入金" }, "children": [
+          { "id": "FI.4.2.1", "label": { "en": "Post incoming payment and clear", "ko": "입금 전기/반제", "ja": "入金転記・消込" },
+            "tcodes": ["F-28", "F-32", "F-26", "FB05"], "bapis": ["POSTING_INTERFACE_CLEARING", "BAPI_AR_ACC_GETOPENITEMS"], "tables": ["BSID", "BSAD", "BKPF", "BSEG"],
+            "s4": "Fiori Clear Incoming Payments; cash application can use SAP Cash Application (machine learning)." },
+          { "id": "FI.4.2.2", "label": { "en": "Lockbox / payment advice processing", "ko": "락박스/입금통지 처리", "ja": "ロックボックス・支払通知処理" },
+            "tcodes": ["FLB2", "FLBP", "FBE1", "FBE2"], "tables": ["AVIK", "AVIP", "FEBKO", "FEBEP"] }
+        ] },
+        { "id": "FI.4.3", "label": { "en": "Collections and dunning", "ko": "채권 회수/독촉", "ja": "債権回収・督促" }, "children": [
+          { "id": "FI.4.3.1", "label": { "en": "Dunning run", "ko": "독촉 실행", "ja": "督促実行" },
+            "tcodes": ["F150", "FBMP"], "tables": ["MHNK", "MHND", "KNB5"],
+            "s4": "Collections and dispute management (FSCM) complements F150; credit management in UKM_BP." },
+          { "id": "FI.4.3.2", "label": { "en": "Customer line items and balances", "ko": "고객 라인아이템/잔액", "ja": "得意先明細・残高" },
+            "tcodes": ["FBL5N", "FD10N", "S_ALR_87012168", "S_ALR_87012172"], "bapis": ["BAPI_AR_ACC_GETOPENITEMS", "BAPI_AR_ACC_GETBALANCEDITEMS", "BAPI_AR_ACC_GETKEYDATEBALANCE"], "tables": ["BSID", "BSAD", "KNC1"],
+            "s4": "KNC1 totals are calculated from ACDOCA; FBL5H / Fiori Manage Customer Line Items." }
+        ] }
+      ] },
+      { "id": "FI.5", "label": { "en": "Asset accounting", "ko": "고정자산 회계", "ja": "固定資産会計" }, "children": [
+        { "id": "FI.5.1", "label": { "en": "Asset master", "ko": "자산마스터", "ja": "資産マスタ" }, "children": [
+          { "id": "FI.5.1.1", "label": { "en": "Create / change asset", "ko": "자산 생성/변경", "ja": "資産登録・変更" },
+            "tcodes": ["AS01", "AS02", "AS11", "AS21"], "bapis": ["BAPI_FIXEDASSET_CREATE1", "BAPI_FIXEDASSET_CHANGE"], "tables": ["ANLA", "ANLZ", "ANLB"] }
+        ] },
+        { "id": "FI.5.2", "label": { "en": "Asset transactions", "ko": "자산 거래", "ja": "資産取引" }, "children": [
+          { "id": "FI.5.2.1", "label": { "en": "Asset acquisition", "ko": "자산 취득", "ja": "資産取得" },
+            "tcodes": ["ABZON", "F-90", "MIGO", "AB01"], "bapis": ["BAPI_ASSET_ACQUISITION_POST", "BAPI_ACC_DOCUMENT_POST"], "tables": ["ANEK", "ANEP", "ANLC", "BKPF"],
+            "s4": "New asset accounting: postings in ACDOCA, ANEP / ANLC become compatibility views; Fiori Post Acquisition." },
+          { "id": "FI.5.2.2", "label": { "en": "Asset retirement / scrapping", "ko": "자산 매각/폐기", "ja": "資産除却・廃棄" },
+            "tcodes": ["ABAON", "F-92", "ABAVN"], "bapis": ["BAPI_ASSET_RETIREMENT_POST"], "tables": ["ANEK", "ANEP", "ANLC"] },
+          { "id": "FI.5.2.3", "label": { "en": "Asset transfer and settlement of AuC", "ko": "자산 이전/건설중자산 정산", "ja": "資産振替・建設仮勘定決済" },
+            "tcodes": ["ABUMN", "ABT1N", "AIAB", "AIBU"], "bapis": ["BAPI_ASSET_TRANSFER_POST"], "tables": ["ANEK", "ANEP", "ANLA"] }
+        ] },
+        { "id": "FI.5.3", "label": { "en": "Asset period-end", "ko": "자산 기말 처리", "ja": "資産期末処理" }, "children": [
+          { "id": "FI.5.3.1", "label": { "en": "Depreciation run", "ko": "감가상각 실행", "ja": "減価償却実行" },
+            "tcodes": ["AFAB", "AFBP"], "tables": ["ANLP", "ANLC", "TABA"], "s4": "AFAB posts directly to ACDOCA per ledger / depreciation area." },
+          { "id": "FI.5.3.2", "label": { "en": "Fiscal year change and year-end closing", "ko": "자산 회계연도 변경/연말 마감", "ja": "資産会計年度変更・年度末締め" },
+            "tcodes": ["AJRW", "AJAB", "OAAQ"], "tables": ["ANLC", "T093D"], "s4": "AJRW is replaced by FAA_CMP / balance carryforward." }
+        ] }
+      ] },
+      { "id": "FI.6", "label": { "en": "Bank and cash accounting", "ko": "은행/현금 회계", "ja": "銀行・現金会計" }, "children": [
+        { "id": "FI.6.1", "label": { "en": "Bank statement", "ko": "은행 거래내역", "ja": "銀行取引明細" }, "children": [
+          { "id": "FI.6.1.1", "label": { "en": "Import electronic bank statement", "ko": "전자 은행 거래내역 업로드", "ja": "電子銀行取引明細取込" },
+            "tcodes": ["FF_5", "FEBA_BANK_STATEMENT", "FEBAN"], "tables": ["FEBKO", "FEBEP", "FEBRE", "T028G"],
+            "s4": "Fiori Manage Bank Statements / Bank Statement Monitor; Bank Account Management for accounts." },
+          { "id": "FI.6.1.2", "label": { "en": "Manual bank statement and post-processing", "ko": "수기 은행 거래내역/후속처리", "ja": "手動銀行取引明細・後処理" },
+            "tcodes": ["FF67", "FEBAN", "FEBA"], "tables": ["FEBKO", "FEBEP", "BKPF"] }
+        ] },
+        { "id": "FI.6.2", "label": { "en": "Cash journal and cash position", "ko": "현금출납/자금현황", "ja": "現金出納帳・資金ポジション" }, "children": [
+          { "id": "FI.6.2.1", "label": { "en": "Cash journal", "ko": "현금출납장", "ja": "現金出納帳" },
+            "tcodes": ["FBCJ"], "bapis": ["BAPI_CASHJOURNALDOC_CREATE"], "tables": ["TCJ_DOCUMENTS", "TCJ_POSITIONS", "BKPF"] },
+          { "id": "FI.6.2.2", "label": { "en": "Cash position and liquidity forecast", "ko": "자금현황/유동성 예측", "ja": "資金ポジション・流動性予測" },
+            "tcodes": ["FF7A", "FF7B", "FF63"], "tables": ["FDES", "FDSB", "FDSR"], "modules": ["TR"],
+            "s4": "Cash management moves to SAP Cash Management (One Exposure, FQM_FLOW); FF7A / FF7B replaced by Fiori apps." }
+        ] }
+      ] },
+      { "id": "FI.7", "label": { "en": "Tax", "ko": "세무", "ja": "税務" }, "children": [
+        { "id": "FI.7.1", "label": { "en": "Indirect tax", "ko": "간접세(부가세)", "ja": "間接税(消費税)" }, "children": [
+          { "id": "FI.7.1.1", "label": { "en": "Tax calculation in postings", "ko": "전기 시 세금 계산", "ja": "転記時の税計算" },
+            "tcodes": ["FB60", "FB70", "FTXP"], "bapis": ["CALCULATE_TAX_FROM_NET_AMOUNT", "CALCULATE_TAX_FROM_GROSSAMOUNT"], "tables": ["BSET", "T007A", "A003", "KONP"] },
+          { "id": "FI.7.1.2", "label": { "en": "Tax return / advance return", "ko": "부가세 신고", "ja": "税申告" },
+            "tcodes": ["S_ALR_87012357", "F.12", "FB41"], "tables": ["BSET", "BKPF"],
+            "s4": "Advanced Compliance Reporting (ACR) replaces country tax reports and RFUMSV00." }
+        ] },
+        { "id": "FI.7.2", "label": { "en": "Withholding tax", "ko": "원천세", "ja": "源泉税" }, "children": [
+          { "id": "FI.7.2.1", "label": { "en": "Withholding tax reporting", "ko": "원천세 보고", "ja": "源泉税レポート" },
+            "tcodes": ["S_P00_07000134", "FWTH"], "tables": ["WITH_ITEM", "LFBW", "T059P"] }
+        ] }
+      ] },
+      { "id": "FI.8", "label": { "en": "Closing and reporting", "ko": "결산/보고", "ja": "決算・レポート" }, "children": [
+        { "id": "FI.8.1", "label": { "en": "Period-end closing", "ko": "월마감", "ja": "月次締め" }, "children": [
+          { "id": "FI.8.1.1", "label": { "en": "Open / close posting periods", "ko": "전기기간 오픈/마감", "ja": "転記期間オープン・クローズ" },
+            "tcodes": ["OB52", "S_ALR_87003642"], "tables": ["T001B", "T001"] },
+          { "id": "FI.8.1.2", "label": { "en": "Foreign currency valuation", "ko": "외화 평가", "ja": "外貨評価" },
+            "tcodes": ["FAGL_FC_VAL", "F.05", "FAGL_FCV"], "tables": ["BSIS", "BSIK", "BSID", "FAGL_BSBW_HISTRY", "TCURR"],
+            "s4": "FAGL_FCV replaces F.05 / FAGL_FC_VAL; valuation results written to ACDOCA per ledger." },
+          { "id": "FI.8.1.3", "label": { "en": "Accruals / deferrals", "ko": "발생주의 이연/미지급 처리", "ja": "未払・前払計上" },
+            "tcodes": ["FBS1", "F.81", "ACACTREE01", "ACACPSITEM"], "tables": ["BKPF", "BSEG", "ACEPSOI"],
+            "s4": "Accrual Engine and Fiori Manage Accrual Objects." },
+          { "id": "FI.8.1.4", "label": { "en": "GR/IR clearing regrouping and reclassification", "ko": "GR/IR 재분류/채권채무 재분류", "ja": "GR/IR再分類・債権債務組替" },
+            "tcodes": ["F.19", "FAGLGVTR", "F101", "FAGL_GRIR"], "tables": ["BSIS", "BSIK", "BSID"], "modules": ["MM"],
+            "s4": "F.19 replaced by FAGL_GRIR / Fiori GR/IR monitor." }
+        ] },
+        { "id": "FI.8.2", "label": { "en": "Year-end closing", "ko": "연마감", "ja": "年次締め" }, "children": [
+          { "id": "FI.8.2.1", "label": { "en": "Balance carryforward", "ko": "잔액 이월", "ja": "残高繰越" },
+            "tcodes": ["FAGLGVTR", "F.16", "F.07"], "tables": ["GLT0", "FAGLFLEXT", "KNC1", "LFC1"],
+            "s4": "Balance carryforward writes period 000 in ACDOCA; F.07 / F.16 superseded by FAGLGVTR." }
+        ] },
+        { "id": "FI.8.3", "label": { "en": "Financial statements", "ko": "재무제표", "ja": "財務諸表" }, "children": [
+          { "id": "FI.8.3.1", "label": { "en": "Balance sheet / P&L and trial balance", "ko": "재무상태표/손익계산서/시산표", "ja": "貸借対照表・損益計算書・試算表" },
+            "tcodes": ["F.01", "S_ALR_87012284", "S_ALR_87012277", "FSE2", "OB58"], "bapis": ["BAPI_GL_GETGLACCBALANCE"], "tables": ["FAGLFLEXT", "GLT0", "T011", "FAGL_011ZC"],
+            "s4": "Financial statement versions on ACDOCA; Fiori Display Financial Statement / Trial Balance; Group Reporting for consolidation." }
+        ] }
+      ] }
+    ] }
+  ]
+}

@@ -6,7 +6,7 @@ Referenced by [`wizard-steps.md`](wizard-steps.md). **MANDATORY — not skippabl
 2. **`tier-readonly-guard.mjs`** — blocks mutations (`Create*` / `Update*` / `Delete*`) + code execution (`RunUnitTest`, `RuntimeRun*WithProfiling`) when the active profile is `QA` or `PRD`. Layer 1 of the two-layer tier defense (MCP server guard = Layer 2).
 
 > **Defense-in-depth model — do not conflate:**
-> - **L1 (this step, row-extraction)** = Claude Code PreToolUse hook, config in `.sc4sap/config.json` → `blocklistProfile`. Values: `strict` | `standard` | `minimal` | `custom`. Fires regardless of MCP server.
+> - **L1 (this step, row-extraction)** = Claude Code PreToolUse hook, config in the active profile's `~/.sc4sap/profiles/<alias>/config.json` → `blocklistProfile` (legacy single-profile installs: `<project>/.sc4sap/config.json`). Values: `strict` | `standard` | `minimal` | `custom`. Fires regardless of MCP server.
 > - **L1 (this step, tier)** = Claude Code PreToolUse hook, reads `SAP_TIER` from the active profile's `sap.env` every call (stateless).
 > - **L2 (MCP server)** = `abap-mcp-adt-powerup` internal guard. For row extraction: `sap.env` → `MCP_BLOCKLIST_PROFILE`. For tier: `@readonly(tier)` decorator set at `ReloadProfile` time. Uncircumventable.
 >
@@ -36,7 +36,14 @@ Any profile merges in extra entries from .sc4sap/blocklist-extend.txt if present
 ```
 
 - Accept: `strict` / `standard` / `minimal` / `custom` (or 1/2/3/4)
-- Write the chosen value to `.sc4sap/config.json` as `blocklistProfile`
+- Write the chosen value to the active profile's `config.json` (`profile add` at Step 4 seeded it with `standard`; this step overwrites it):
+
+  ```bash
+  node "$CLAUDE_PLUGIN_ROOT/scripts/sap-profile-cli.mjs" set-blocklist <strict|standard|minimal|custom>
+  ```
+
+  Never write it to `<project>/.sc4sap/config.json` — that file does not exist in multi-profile mode, and the hook reads the profile's `config.json` first, so a value written there is ignored.
+- This sets L1 only. `MCP_BLOCKLIST_PROFILE` (L2, profile `sap.env`) keeps the value from Step 4; it has no `custom` value and is changed via `/sc4sap:sap-option`.
 - If `custom`: prompt user to create `.sc4sap/blocklist-custom.txt` now (one table name or pattern per line) or after setup; warn that an empty custom list means no enforcement at L3
 
 ## Step B — Install BOTH hooks (mandatory)
@@ -85,7 +92,7 @@ If either smoke test fails, halt setup and surface the error.
 
 - Print: blocklist profile, extend file path (exists? y/n), custom file path (for custom mode), and the `.claude/settings.json` hook entries for BOTH hooks.
 - Remind the user:
-  - The **row-extraction L1 hook** can be re-tuned by re-running `/sc4sap:setup` or editing `.sc4sap/config.json` → `blocklistProfile`.
+  - The **row-extraction L1 hook** can be re-tuned by re-running `/sc4sap:setup` or running `sap-profile-cli.mjs set-blocklist <value>`.
   - The **tier guard L1 hook** reads `SAP_TIER` from the active profile every call — no setting to tune; changing tier requires profile remove+add via `/sc4sap:sap-option`.
   - The **L2 MCP-server profile** (`MCP_BLOCKLIST_PROFILE` in the profile's `sap.env`) is managed via `/sc4sap:sap-option`.
 

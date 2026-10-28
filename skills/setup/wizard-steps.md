@@ -112,7 +112,7 @@ Write the remaining plugin-side fields into `~/.sc4sap/profiles/<alias>/config.j
 - `sapVersion`, `abapRelease`, `industry`, `activeModules` — from Step 2 (`abapSp` too, when the release is 740)
 - `alvFramework` — `s4sap-cm` when 9b installed or found the handlers, otherwise leave unset (= `none`); a customer framework is set later via `/sc4sap:sap-option` (`custom` + `alvBaseClass`). Rules: `common/oop-pattern.md` § ALV Framework
 - `namingConvention` — either migrated from the legacy project `config.json` at Step 0 or freshly emitted defaults
-- `blocklistProfile` — from Step 12 (L3 hook profile; written back here for HUD + sap-option display)
+- `blocklistProfile` — keep the value `profile add` wrote at Step 4 (default `standard`). Step 12 runs later and overwrites it with the user's choice via `sap-profile-cli.mjs set-blocklist`; do not write it here.
 - `systemInfo` — already written at Step 7 (merge, don't overwrite)
 - `activeTransport` — migrated from the legacy project `config.json` at Step 0, if any
 

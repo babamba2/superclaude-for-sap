@@ -59,7 +59,7 @@
 | `sc4sap:analyze-cbo-obj` | Customer Business Object (CBO) inventory scanner with cross-module gap analysis |
 | `sc4sap:analyze-symptom` | Step-by-step SAP operational error/symptom analysis (dumps, logs, SAP Note candidates) |
 | `sc4sap:ask-consultant` | Direct user-facing Q&A with a module consultant agent (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC). Read-only — honors the configured SAP environment. |
-| `sc4sap:package-to-process` | Reverse-engineer a CBO package into an end-to-end business process document + BPML (Markdown / HTML / Excel) with Mermaid flowcharts |
+| `sc4sap:module-to-process` | One editable HTML process map per module from the TCodes users actually run (productive ST03N): standard L1–L4 backbone with CBO tasks, variants, owners, systems; L3 scenario swimlanes; PDD-style task sheet per L4 with sourced business rules, steps, interfaces and S/4 conversion notes; optional consultant review, BPH reconciliation, English companion. `package-to-process` redirects here for one release |
 | `sc4sap:trust-session` | INTERNAL-ONLY — session-wide MCP permission bootstrap |
 
 ## Skills — Examples & Workflow

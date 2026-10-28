@@ -11,16 +11,16 @@ CRITICAL (1)
   Line 45: SELECT * used on large table VBAP — specify explicit field list
   Fix: SELECT vbeln matnr kwmeng FROM vbap INTO TABLE @lt_items WHERE ...
 
-MAJOR (3)
+HIGH (3)
   Line 67: SELECT inside LOOP — moves DB call outside loop
   Line 112: sy-subrc not checked after MODIFY db_table
   Line 189: CONCATENATE used — replace with string template |...|
 
-MINOR (2)
+MEDIUM (2)
   Line 23: Variable lv_x has non-descriptive name
   Line 78: RAISE EXCEPTION TYPE cx_sy_... — prefer structured exception message
 
-INFO (1)
+LOW (1)
   Line 1: CREATE OBJECT — prefer NEW (7.40+)
 
 Quality Score: 6.2/10
@@ -29,6 +29,8 @@ Top fix: Eliminate SELECT inside LOOP (line 67) — highest performance impact
 UNVERIFIED (1) — cited line did not contain the quoted code; not scored
   Line 140: "READ TABLE lt_vbap WITH KEY vbeln" — checker: line 140 is "ENDLOOP."
 ```
+
+Severity groups use the reviewer's labels as-is — `CRITICAL` / `HIGH` / `MEDIUM` / `LOW` (same set as `workflow.md` Step 2 and the `FINDING sev=` line in `detect-judge.md`); never rename them to MAJOR / MINOR / INFO. Omit empty groups.
 
 The UNVERIFIED block appears only when Step 2d failed at least one finding.
 

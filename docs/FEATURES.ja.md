@@ -55,7 +55,7 @@
 | `sc4sap:analyze-cbo-obj` | CBO インベントリスキャナー + クロスモジュールギャップ解析 |
 | `sc4sap:analyze-symptom` | SAP 運用エラー/症状のステップバイステップ解析 (ダンプ、ログ、SAP Note 候補) |
 | `sc4sap:ask-consultant` | モジュールコンサルタントエージェント (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC) に直接質問。読み取り専用 — 設定された SAP 環境に沿って回答。 |
-| `sc4sap:package-to-process` | CBO パッケージを End-to-End ビジネスプロセス文書 + BPML (Markdown / HTML / Excel、Mermaid フローチャート付き) にリバースエンジニアリング |
+| `sc4sap:module-to-process` | 本番 ST03N で実際に使われている TCode だけからモジュールごとの編集可能な HTML プロセスマップを作成: 標準 L1–L4 プロセスに CBO タスク・バリアント・担当・システム、L3 シナリオのスイムレーン、L4 ごとの PDD 形式タスクシート (根拠付き業務ルール、ステップ、インターフェース、S/4 コンバージョンメモ)。コンサルタントレビュー・BPH 照合・英語版は任意。`package-to-process` は 1 リリースの間ここへ転送 |
 | `sc4sap:trust-session` | INTERNAL-ONLY — セッション全体 MCP パーミッションブートストラップ |
 
 ## スキル — 例 & ワークフロー

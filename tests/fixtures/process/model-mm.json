@@ -1,0 +1,61 @@
+{
+  "schema": 1,
+  "module": "MM",
+  "lang": "ko",
+  "title": "MM 프로세스 맵 (테스트)",
+  "system": "DEV",
+  "sapVersion": "ECC",
+  "changeNote": "최초 작성",
+  "scope": {
+    "packages": [{ "name": "ZPT_MM_A", "tcodes": 10, "used": 4 }, { "name": "ZPT_MM_B" }],
+    "tcodes": ["ZPT01", "ZPT02"],
+    "systems": [
+      { "id": "sap", "kind": "sap", "label": "SAP" },
+      { "id": "portal", "kind": "external", "label": "구매포털" },
+      { "id": "manual", "kind": "manual", "label": "수작업" }
+    ]
+  },
+  "lanes": [
+    { "id": "req", "label": "현업 부서", "estimated": true },
+    { "id": "buyer", "label": "구매담당" },
+    { "id": "batch", "label": "배치" }
+  ],
+  "overview": {
+    "summary": "구매요청부터 입고까지의 흐름을 다룬다.",
+    "scopeNote": "최근 3개월 사용 TCode 4/10",
+    "handoffs": [{ "from": "ZPT_MM_A", "to": "ZPT_MM_B", "via": "ZPT_LOG", "count": 2 }]
+  },
+  "rows": [
+    { "code": "1", "level": 1, "label": "구매/자재관리" },
+    { "code": "1.1", "level": 2, "label": "구매조달", "desc": "요청과 발주" },
+    { "code": "1.1.1", "level": 3, "label": "구매요청" },
+    { "code": "1.1.1.1", "level": 4, "label": "구매요청 생성", "system": "sap", "kind": "std", "tcodes": ["ME51N"], "owner": "req", "usage": "used",
+      "task": { "definition": "필요한 자재를 요청한다.", "output": "구매요청 번호", "rules": [{ "text": "승인 전에는 발주할 수 없다.", "estimated": true }],
+        "links": ["1.1.2.1"] } },
+    { "code": "1.1.1.2", "level": 4, "label": "구매요청 일괄 생성", "system": "sap", "kind": "cbo", "tcodes": ["ZPT01"], "objects": ["ZPT_PR_BATCH"],
+      "owner": "batch", "usage": "used",
+      "variants": [{ "id": "a", "label": "회사 1000", "kind": "cbo", "objects": ["ZPT_PR_BATCH"] }, { "id": "b", "label": "회사 2000", "kind": "enh" }],
+      "task": {
+        "definition": "소요량 결과를 읽어 구매요청을 한 번에 만든다.",
+        "output": "구매요청 번호", "timing": "매일 06:00",
+        "rules": [{ "text": "플랜트가 없으면 건너뛴다.", "source": { "object": "ZPT_PR_BATCH", "unit": "ZPT_PR_BATCH_F01", "line": 120 } }],
+        "steps": [
+          { "name": "조회", "method": "소요량 결과 선택", "timing": "매일", "owner": "batch", "system": "sap" },
+          { "name": "생성", "method": "BAPI로 구매요청 생성", "owner": "batch", "system": "sap" },
+          { "name": "확인", "method": "오류 목록 확인", "owner": "buyer", "system": "sap" }
+        ],
+        "flow": { "nodes": [{ "id": "S", "type": "start", "label": "시작" }, { "id": "P", "type": "process", "label": "PR 생성" }, { "id": "E", "type": "end", "label": "끝" }],
+          "edges": [{ "from": "S", "to": "P" }, { "from": "P", "to": "E" }] },
+        "objects": [{ "name": "ZPT_PR_BATCH", "usage": "used" }, { "name": "BAPI_PR_CREATE" }],
+        "interfaces": [{ "system": "portal", "direction": "out", "object": "ZPT_IF_PR", "desc": "요청 내역 전송" }],
+        "conversion": ["EBAN 구조는 S/4에서도 유지돼요."],
+        "tbd": ["담당 부서 확인"]
+      } },
+    { "code": "1.1.2", "level": 3, "label": "구매발주" },
+    { "code": "1.1.2.1", "level": 4, "label": "구매오더 생성", "system": "sap", "kind": "std", "tcodes": ["ME21N"], "owner": "buyer", "usage": "unknown",
+      "task": { "definition": "승인된 요청으로 발주한다." } }
+  ],
+  "crossModule": [{ "from": "MM", "to": "FI", "object": "BAPI_ACC_DOCUMENT_POST", "desc": "입고 시 회계 전표" }],
+  "openQuestions": ["ZPT02 사용 여부"],
+  "glossary": [{ "term": "PR", "description": "구매요청" }]
+}

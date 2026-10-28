@@ -1,0 +1,131 @@
+{
+  "schema": 1,
+  "module": "CO",
+  "note": "Standard SAP CO process backbone (generic, no customer content). L1 mega process > L2 process chain > L3 process > L4 task. tcodes/bapis/tables are anchors used to attach CBO objects; ecc/s4 lists only differences. CE1xxxx / CE4xxxx stand for the operating-concern tables (xxxx = operating concern).",
+  "tree": [
+    { "id": "CO", "label": { "en": "Controlling", "ko": "관리회계", "ja": "管理会計" }, "children": [
+      { "id": "CO.1", "label": { "en": "Master data", "ko": "관리회계 기준정보", "ja": "管理会計マスタ" }, "children": [
+        { "id": "CO.1.1", "label": { "en": "Cost element accounting", "ko": "원가요소 회계", "ja": "原価要素会計" }, "children": [
+          { "id": "CO.1.1.1", "label": { "en": "Create / change cost element", "ko": "원가요소 생성/변경", "ja": "原価要素登録・変更" },
+            "tcodes": ["KA01", "KA02", "KA06", "FS00"], "bapis": ["BAPI_COSTELEM_CREATEMULTIPLE", "K_COSTELEM_BAPI_CREATE"], "tables": ["CSKA", "CSKB", "CSKU", "SKA1"],
+            "s4": "Cost elements are G/L accounts (FS00, G/L account type + cost element category); CSKA / CSKB are compatibility views." },
+          { "id": "CO.1.1.2", "label": { "en": "Cost element groups", "ko": "원가요소 그룹", "ja": "原価要素グループ" },
+            "tcodes": ["KAH1", "KAH2"], "tables": ["SETHEADER", "SETNODE", "SETLEAF"] }
+        ] },
+        { "id": "CO.1.2", "label": { "en": "Cost center and activity type", "ko": "코스트센터/활동유형", "ja": "原価センタ・活動タイプ" }, "children": [
+          { "id": "CO.1.2.1", "label": { "en": "Create / change cost center", "ko": "코스트센터 생성/변경", "ja": "原価センタ登録・変更" },
+            "tcodes": ["KS01", "KS02", "KS12", "KCH1", "OKEON"], "bapis": ["BAPI_COSTCENTER_CREATEMULTIPLE", "BAPI_COSTCENTER_CHANGEMULTIPLE"], "tables": ["CSKS", "CSKT", "SETHEADER"] },
+          { "id": "CO.1.2.2", "label": { "en": "Activity types and statistical key figures", "ko": "활동유형/통계지표", "ja": "活動タイプ・統計キー数値" },
+            "tcodes": ["KL01", "KL02", "KK01"], "bapis": ["BAPI_ACTTYPE_CREATEMULTIPLE"], "tables": ["CSLA", "CSLT", "TKA03"] }
+        ] },
+        { "id": "CO.1.3", "label": { "en": "Profit center", "ko": "손익센터", "ja": "利益センタ" }, "children": [
+          { "id": "CO.1.3.1", "label": { "en": "Create / change profit center", "ko": "손익센터 생성/변경", "ja": "利益センタ登録・変更" },
+            "tcodes": ["KE51", "KE52", "KCH1", "KE56"], "bapis": ["BAPI_PROFITCENTER_CREATE", "BAPI_PROFITCENTER_CHANGE"], "tables": ["CEPC", "CEPCT", "CEPC_BUKRS"],
+            "s4": "Profit center accounting is part of the universal journal (PRCTR in ACDOCA); classic EC-PCA tables GLPCA / GLPCT are not updated." }
+        ] }
+      ] },
+      { "id": "CO.2", "label": { "en": "Overhead cost planning", "ko": "간접비 계획", "ja": "間接費計画" }, "children": [
+        { "id": "CO.2.1", "label": { "en": "Cost center planning", "ko": "코스트센터 계획", "ja": "原価センタ計画" }, "children": [
+          { "id": "CO.2.1.1", "label": { "en": "Plan costs and activity quantities", "ko": "원가/활동량 계획", "ja": "原価・活動数量計画" },
+            "tcodes": ["KP06", "KP26", "KP46", "KPF6"], "bapis": ["BAPI_COSTACTPLN_POSTPRIMCOST", "BAPI_COSTACTPLN_POSTACTOUTPUT"], "tables": ["COSP", "COSS", "COST", "COKP"],
+            "s4": "Planning moves to SAP Analytics Cloud / BPC optimized for S/4HANA (ACDOCP); classic KP06 remains as an option." },
+          { "id": "CO.2.1.2", "label": { "en": "Plan activity price calculation", "ko": "활동단가 계획 계산", "ja": "活動単価計画計算" },
+            "tcodes": ["KSPI", "KP26"], "tables": ["COST", "CSSL"] }
+        ] }
+      ] },
+      { "id": "CO.3", "label": { "en": "Cost center accounting actuals", "ko": "코스트센터 실적", "ja": "原価センタ実績" }, "children": [
+        { "id": "CO.3.1", "label": { "en": "Actual postings", "ko": "실적 전기", "ja": "実績転記" }, "children": [
+          { "id": "CO.3.1.1", "label": { "en": "Manual cost reposting", "ko": "원가 수기 재전기", "ja": "原価手動振替" },
+            "tcodes": ["KB11N", "KB41N", "KB15N"], "bapis": ["BAPI_ACC_MANUAL_ALLOC_POST"], "tables": ["COBK", "COEP"],
+            "s4": "CO line items are written to ACDOCA; COEP keeps only non-ledger value types (e.g. statistical)." },
+          { "id": "CO.3.1.2", "label": { "en": "Direct activity allocation", "ko": "직접 활동배부", "ja": "直接活動配分" },
+            "tcodes": ["KB21N", "KB23N"], "bapis": ["BAPI_ACC_ACTIVITY_ALLOC_POST"], "tables": ["COBK", "COEP", "COSS"] },
+          { "id": "CO.3.1.3", "label": { "en": "Statistical key figures entry", "ko": "통계지표 입력", "ja": "統計キー数値入力" },
+            "tcodes": ["KB31N", "KB33N"], "bapis": ["BAPI_ACC_STAT_KEY_FIG_POST"], "tables": ["COBK", "COEP", "COSR"] }
+        ] },
+        { "id": "CO.3.2", "label": { "en": "Cost center reporting", "ko": "코스트센터 보고", "ja": "原価センタレポート" }, "children": [
+          { "id": "CO.3.2.1", "label": { "en": "Cost center actual / plan reports", "ko": "코스트센터 계획/실적 보고서", "ja": "原価センタ計画・実績レポート" },
+            "tcodes": ["KSB1", "S_ALR_87013611", "S_ALR_87013612", "KSBP"], "bapis": ["BAPI_COSTCENTER_GETLIST1"], "tables": ["COEP", "COSP", "COSS", "CSKS"],
+            "s4": "Fiori Cost Centers – Actuals / Plan/Actual on ACDOCA and ACDOCP." }
+        ] }
+      ] },
+      { "id": "CO.4", "label": { "en": "Internal orders", "ko": "내부오더", "ja": "内部指図" }, "children": [
+        { "id": "CO.4.1", "label": { "en": "Order master and budget", "ko": "오더 마스터/예산", "ja": "指図マスタ・予算" }, "children": [
+          { "id": "CO.4.1.1", "label": { "en": "Create / change internal order", "ko": "내부오더 생성/변경", "ja": "内部指図登録・変更" },
+            "tcodes": ["KO01", "KO02", "KOK2"], "bapis": ["BAPI_INTERNALORDER_CREATE", "BAPI_INTERNALORDER_CHANGE"], "tables": ["AUFK", "COAS", "JEST", "COBRA", "COBRB"] },
+          { "id": "CO.4.1.2", "label": { "en": "Order planning and budgeting", "ko": "오더 계획/예산", "ja": "指図計画・予算" },
+            "tcodes": ["KO12", "KO22", "KO24", "KO26"], "tables": ["COSP", "COSS", "BPGE", "BPJA", "BPEG"] }
+        ] },
+        { "id": "CO.4.2", "label": { "en": "Order actuals and settlement", "ko": "오더 실적/정산", "ja": "指図実績・決済" }, "children": [
+          { "id": "CO.4.2.1", "label": { "en": "Internal order settlement", "ko": "내부오더 정산", "ja": "内部指図決済" },
+            "tcodes": ["KO88", "KO8G", "KO7N"], "bapis": ["K_ORDER_SETTLE"], "tables": ["AUAK", "AUAA", "COBRB", "COEP"] },
+          { "id": "CO.4.2.2", "label": { "en": "Internal order reports", "ko": "내부오더 보고서", "ja": "内部指図レポート" },
+            "tcodes": ["KOB1", "S_ALR_87012993", "KO03"], "tables": ["AUFK", "COEP", "COSP", "COSS"] }
+        ] }
+      ] },
+      { "id": "CO.5", "label": { "en": "Product cost controlling", "ko": "제품원가 관리", "ja": "製品原価管理" }, "children": [
+        { "id": "CO.5.1", "label": { "en": "Product cost planning", "ko": "제품원가 계획", "ja": "製品原価計画" }, "children": [
+          { "id": "CO.5.1.1", "label": { "en": "Single material cost estimate", "ko": "개별 자재 원가 산정", "ja": "個別品目原価見積" },
+            "tcodes": ["CK11N", "CK13N", "CK24", "CK86_99"], "bapis": ["BAPI_COSTESTIMATE_CREATE", "CK_F_COSTING_DISPLAY"], "tables": ["KEKO", "KEPH", "CKIS", "MBEW"], "modules": ["PP", "MM"] },
+          { "id": "CO.5.1.2", "label": { "en": "Costing run, mark and release", "ko": "원가 계산 실행/마크/릴리즈", "ja": "原価計算実行・マーク・リリース" },
+            "tcodes": ["CK40N", "CK24", "CKR1"], "tables": ["CKHS", "KEKO", "MBEW", "CKMLCR"] },
+          { "id": "CO.5.1.3", "label": { "en": "Additive costs and base planning object", "ko": "부가원가/기준계획오브젝트", "ja": "追加原価・基本計画オブジェクト" },
+            "tcodes": ["CK74N", "KKE1"], "tables": ["CKIS", "KEKO"] }
+        ] },
+        { "id": "CO.5.2", "label": { "en": "Cost object controlling", "ko": "원가대상 관리", "ja": "原価対象管理" }, "children": [
+          { "id": "CO.5.2.1", "label": { "en": "Overhead calculation on orders", "ko": "오더 간접비 계산", "ja": "指図間接費計算" },
+            "tcodes": ["KGI2", "CO42", "KKAX"], "tables": ["COEP", "COSS", "T683"] },
+          { "id": "CO.5.2.2", "label": { "en": "WIP calculation", "ko": "재공품 계산", "ja": "仕掛品計算" },
+            "tcodes": ["KKAX", "KKAO"], "tables": ["COSB", "COEP"] },
+          { "id": "CO.5.2.3", "label": { "en": "Variance calculation", "ko": "차이 계산", "ja": "差異計算" },
+            "tcodes": ["KKS1", "KKS2", "KKS6"], "tables": ["COSB", "KKBV"], "s4": "Event-based WIP and variance posting available for production orders." },
+          { "id": "CO.5.2.4", "label": { "en": "Production order settlement", "ko": "생산오더 정산", "ja": "製造指図決済" },
+            "tcodes": ["CO88", "KO88", "CO8B"], "tables": ["AUFK", "AUAK", "COBRB", "COEP"], "modules": ["PP"] }
+        ] },
+        { "id": "CO.5.3", "label": { "en": "Actual costing / material ledger", "ko": "실제원가/자재원장", "ja": "実際原価計算・品目元帳" }, "children": [
+          { "id": "CO.5.3.1", "label": { "en": "Material ledger closing (actual costing run)", "ko": "자재원장 마감(실제원가 계산)", "ja": "品目元帳締め(実際原価計算)" },
+            "tcodes": ["CKMLCP", "CKMLCPAVR", "CKMLQS"], "tables": ["CKMLHD", "CKMLPP", "CKMLCR", "CKMLKEPH", "MLDOC"],
+            "s4": "Material ledger is mandatory; actual costing writes MLDOC / ACDOCA; CKMLCPAVR for alternative valuation runs." },
+          { "id": "CO.5.3.2", "label": { "en": "Material price analysis", "ko": "자재 가격 분석", "ja": "品目価格分析" },
+            "tcodes": ["CKM3N", "CKM3"], "tables": ["CKMLHD", "CKMLPP", "CKMLCR", "MLDOC"] }
+        ] }
+      ] },
+      { "id": "CO.6", "label": { "en": "Profitability analysis", "ko": "수익성 분석", "ja": "収益性分析" }, "children": [
+        { "id": "CO.6.1", "label": { "en": "CO-PA actuals", "ko": "CO-PA 실적", "ja": "CO-PA実績" }, "children": [
+          { "id": "CO.6.1.1", "label": { "en": "Line item posting and transfer from SD / FI", "ko": "SD/FI 실적 전송", "ja": "SD・FI実績転送" },
+            "tcodes": ["KE21N", "KE4S", "KE27"], "bapis": ["BAPI_COPAACTUALS_POSTCOSTDATA", "BAPI_COPAACTUALS_POSTSALESDATA"], "tables": ["CE1XXXX", "CE4XXXX", "CE3XXXX"], "modules": ["SD", "FI"],
+            "s4": "Account-based CO-PA (margin analysis) on ACDOCA is the default; costing-based CE1xxxx is optional." },
+          { "id": "CO.6.1.2", "label": { "en": "Top-down distribution and periodic valuation", "ko": "탑다운 배분/기간 평가", "ja": "トップダウン配分・期間評価" },
+            "tcodes": ["KE28", "KE40"], "tables": ["CE1XXXX", "CE3XXXX"] }
+        ] },
+        { "id": "CO.6.2", "label": { "en": "CO-PA planning and reporting", "ko": "CO-PA 계획/보고", "ja": "CO-PA計画・レポート" }, "children": [
+          { "id": "CO.6.2.1", "label": { "en": "Sales and profit planning", "ko": "판매/이익 계획", "ja": "販売・利益計画" },
+            "tcodes": ["KEPM", "KE1F"], "bapis": ["BAPI_COPAPLANNING_POSTDATA"], "tables": ["CE1XXXX", "CE3XXXX"],
+            "s4": "Planning moves to SAP Analytics Cloud / ACDOCP." },
+          { "id": "CO.6.2.2", "label": { "en": "Profitability reports", "ko": "수익성 보고서", "ja": "収益性レポート" },
+            "tcodes": ["KE30", "KE24", "KE80"], "bapis": ["BAPI_COPAQUERY_GETCOST_ACTDATA"], "tables": ["CE1XXXX", "CE4XXXX", "ACDOCA"],
+            "s4": "Fiori Product / Market Segment Profitability on ACDOCA." }
+        ] }
+      ] },
+      { "id": "CO.7", "label": { "en": "Period-end closing", "ko": "관리회계 마감", "ja": "管理会計締め" }, "children": [
+        { "id": "CO.7.1", "label": { "en": "Allocations", "ko": "배부", "ja": "配賦" }, "children": [
+          { "id": "CO.7.1.1", "label": { "en": "Assessment and distribution cycles", "ko": "배부/분배 사이클", "ja": "配賦・配分サイクル" },
+            "tcodes": ["KSU5", "KSV5", "KSU1", "KSV1", "KEU5"], "tables": ["T811C", "T811S", "COEP", "COSS"],
+            "s4": "Fiori Manage Allocations; distribution and assessment post to ACDOCA." },
+          { "id": "CO.7.1.2", "label": { "en": "Periodic reposting and indirect activity allocation", "ko": "주기적 재전기/간접 활동배부", "ja": "定期振替・間接活動配分" },
+            "tcodes": ["KSW5", "KSC5", "KSII"], "tables": ["T811C", "COEP", "COST"] }
+        ] },
+        { "id": "CO.7.2", "label": { "en": "Closing activities", "ko": "마감 작업", "ja": "締め作業" }, "children": [
+          { "id": "CO.7.2.1", "label": { "en": "Open / close CO periods", "ko": "CO 기간 오픈/마감", "ja": "CO期間オープン・クローズ" },
+            "tcodes": ["OKP1", "KP90"], "tables": ["TKA01", "COPE"] },
+          { "id": "CO.7.2.2", "label": { "en": "Reconciliation ledger and FI-CO reconciliation", "ko": "FI-CO 대사", "ja": "FI-CO照合" },
+            "tcodes": ["KALC", "KAL1"], "tables": ["COFIS", "COEP", "BSEG"], "modules": ["FI"],
+            "s4": "Real-time FI-CO integration in ACDOCA; the reconciliation ledger (KALC) is obsolete." },
+          { "id": "CO.7.2.3", "label": { "en": "Profit center closing and balance transfer", "ko": "손익센터 마감/잔액 이전", "ja": "利益センタ締め・残高転送" },
+            "tcodes": ["1KEK", "1KEI", "2KES", "KE5T"], "tables": ["GLPCA", "GLPCT", "CEPC"], "modules": ["FI"],
+            "s4": "1KEK / 1KEI obsolete; balance sheet items carry profit center from document splitting in ACDOCA." }
+        ] }
+      ] }
+    ] }
+  ]
+}

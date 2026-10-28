@@ -4,7 +4,8 @@
  *
  * Intercepts MCP tool calls that would read row data from SAP and checks the
  * target table(s) against `exceptions/table_exception.md`, filtered by the
- * active profile in `.sc4sap/config.json` (`blocklistProfile`).
+ * `blocklistProfile` in the active profile's config.json
+ * (`~/.sc4sap/profiles/<alias>/config.json`; legacy: `<project>/.sc4sap/config.json`).
  *
  * Profiles (accumulative):
  *   - minimal  — PII + credentials only

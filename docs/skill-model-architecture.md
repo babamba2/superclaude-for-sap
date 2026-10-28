@@ -46,7 +46,8 @@ Suggested session model per skill (guidance only — nothing enforces it):
 | `interface-mapping-spec` | Sonnet or above | Interview, runs the build / import / refresh scripts, optional field-proposal and translation dispatches |
 | `create-object` | Sonnet or above | Metadata validation + executor/writer orchestration |
 | `create-program` | Sonnet or above | 9-phase pipeline orchestration, resume logic, state.json |
-| `package-to-process` | Sonnet or above | Entry-point detection, progress, per-process assembly and render |
+| `module-to-process` | Sonnet or above | Usage scope, gates, assemble + build (no writer agent); Opus analyst for hierarchy and task sheets, optional module consultant, Sonnet translators for the English companion |
+| `package-to-process` | — | Redirect to `module-to-process` (one release) |
 | `program-to-spec` | Sonnet or above | Socratic interview → structural inventory → analyst+writer delegation → render; depth / format / language state across turns |
 
 A Haiku session still works for the orchestration skills — the dispatched agents keep their own tiers — but multi-round state reconciliation and edge-case handling on the main thread are shallower.
