@@ -32,7 +32,7 @@ FUNCTION zmcp_adt_dispatch
 *   CUA_WRITE      — write GUI status (RS_CUA_INTERNAL_WRITE)
 *   CUA_DELETE     — delete GUI status (RS_CUA_DELETE)
 *   TABLE_READ     — read-only SELECT on a customizing / system table
-*                    (delivery class C, G, E, S) or a listed repository
+*                    (delivery class C, G, E, S, W) or a listed repository
 *                    table (CMOD, TSTC, DDIC metadata, transport keys); the
 *                    MCP server's GetSqlQuery / GetTableContents fallback, as
 *                    ECC has no ADT data preview
@@ -591,14 +591,23 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
   lv_tab = to_upper( condense( ls_input-table_name ) ).
 
   " Allow rule: customizing and system tables only - never business data.
-  " Delivery class C/G (customizing), E/S (control / system) pass, plus a
-  " fixed list of repository tables (class W): CMOD, transaction codes, BAdI
+  " Delivery class C/G (customizing), E/S (control / system) and W (system
+  " tables maintained by the system: repository directory TADIR / TDEVC /
+  " TRDIR, inactive objects DWINACTV) pass, plus a fixed list of tables the
+  " older dispatchers already accepted: CMOD, transaction codes, BAdI
   " definitions / implementations (SXS_*, SXC_*, ENHHEADER),
   " DDIC metadata and the transport key tables for change history.
   " Application (A) and temporary (L) data stay closed, and so do tables
   " that hold credentials or user master data whatever their class.
+  " Of the PFCG tables only the role design (definition, texts, flags,
+  " composite contents, menu T-codes, authorization values, org levels)
+  " and the role-user assignment (user ID and validity) are readable -
+  " for role-matrix documents.
   IF lv_tab = 'RFCDES' OR lv_tab = 'RSECTAB' OR lv_tab = 'RSECACTB'
-     OR lv_tab CP 'USR*' OR lv_tab CP 'UST*' OR lv_tab CP 'AGR_*'
+     OR lv_tab CP 'USR*' OR lv_tab CP 'UST*'
+     OR ( lv_tab CP 'AGR_*' AND lv_tab <> 'AGR_DEFINE' AND lv_tab <> 'AGR_TEXTS'
+          AND lv_tab <> 'AGR_FLAGS' AND lv_tab <> 'AGR_AGRS' AND lv_tab <> 'AGR_TCODES'
+          AND lv_tab <> 'AGR_1251' AND lv_tab <> 'AGR_1252' AND lv_tab <> 'AGR_USERS' )
      OR lv_tab CP 'SSF_PSE*' OR lv_tab CP 'STRUST*' OR lv_tab CP 'SNC*'
      OR lv_tab CP 'TRUSTED*' OR lv_tab CP 'RSAU*'.
     ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
@@ -617,7 +626,8 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
       WHERE tabname = lv_tab AND as4local = 'A' AND as4vers = '0000'
         AND tabclass IN ('TRANSP','POOL','CLUSTER').
     IF sy-subrc <> 0 OR ( lv_class <> 'C' AND lv_class <> 'G'
-                          AND lv_class <> 'E' AND lv_class <> 'S' ).
+                          AND lv_class <> 'E' AND lv_class <> 'S'
+                          AND lv_class <> 'W' ).
       ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
       RETURN.
     ENDIF.

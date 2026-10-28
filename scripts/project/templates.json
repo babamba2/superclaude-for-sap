@@ -1,0 +1,248 @@
+{
+  "_doc": "Project templates for sc4sap:project-dashboard. weight = share of start..goLive; afterWeeks = phase after go-live; span = [from, to] share of the phase; ws '{module}' = one item per project module, the label's {module} replaced; owner 'fn' / 'dev' = which consultant side owns it.",
+  "workstreams": [
+    { "code": "PMO", "label": { "ko": "PMO·프로젝트 관리", "en": "PMO / project management" } },
+    { "code": "DM", "label": { "ko": "데이터 이관", "en": "Data migration" } },
+    { "code": "INT", "label": { "ko": "인터페이스", "en": "Interfaces" } },
+    { "code": "BAS", "label": { "ko": "Basis·인프라", "en": "Basis / infrastructure" } },
+    { "code": "SEC", "label": { "ko": "권한", "en": "Authorizations" } },
+    { "code": "TST", "label": { "ko": "테스트", "en": "Testing" } },
+    { "code": "OCM", "label": { "ko": "교육·변화관리", "en": "Training / change management" } },
+    { "code": "CUT", "label": { "ko": "컷오버", "en": "Cutover" } }
+  ],
+  "kpis": {
+    "common": [
+      { "key": "BUDGET", "group": "cost", "unit": "%", "target": 100, "dir": "down", "label": { "ko": "예산 집행률 (계획 대비)", "en": "Budget spent vs plan" } },
+      { "key": "DEFECT12", "group": "quality", "unit": "", "target": 0, "dir": "down", "label": { "ko": "미해결 결함 (Sev 1·2)", "en": "Open defects (sev 1-2)" } },
+      { "key": "TESTPASS", "group": "quality", "unit": "%", "target": 95, "dir": "up", "label": { "ko": "테스트 케이스 통과율", "en": "Test cases passed" } }
+    ],
+    "implementation": [
+      { "key": "MIGREC", "group": "data", "unit": "%", "target": 99.5, "dir": "up", "label": { "ko": "이관 리허설 정합률", "en": "Migration mock reconciliation" } },
+      { "key": "TRAIN", "group": "ocm", "unit": "%", "target": 95, "dir": "up", "label": { "ko": "최종 사용자 교육 이수율", "en": "End users trained" } },
+      { "key": "FTSGAP", "group": "quality", "unit": "", "target": 0, "dir": "down", "label": { "ko": "미결 Fit-Gap 항목", "en": "Open fit-gap items" } }
+    ],
+    "conversion": [
+      { "key": "SIMPL", "group": "quality", "unit": "%", "target": 100, "dir": "up", "label": { "ko": "Simplification Item 조치율", "en": "Simplification items resolved" } },
+      { "key": "ATC", "group": "quality", "unit": "", "target": 0, "dir": "down", "label": { "ko": "남은 ATC 우선순위 1 결과", "en": "ATC priority 1 findings left" } },
+      { "key": "DOWNTIME", "group": "data", "unit": "h", "target": 48, "dir": "down", "label": { "ko": "Mock 전환 다운타임", "en": "Mock conversion downtime" } }
+    ],
+    "rollout": [
+      { "key": "LOCREQ", "group": "quality", "unit": "%", "target": 100, "dir": "up", "label": { "ko": "현지화 요건 구현률", "en": "Localisation requirements done" } },
+      { "key": "TRAIN", "group": "ocm", "unit": "%", "target": 95, "dir": "up", "label": { "ko": "현지 사용자 교육 이수율", "en": "Local users trained" } }
+    ],
+    "ams": [
+      { "key": "SLA", "group": "quality", "unit": "%", "target": 95, "dir": "up", "label": { "ko": "SLA 준수율", "en": "SLA met" } },
+      { "key": "BACKLOG", "group": "quality", "unit": "", "target": 20, "dir": "down", "label": { "ko": "미처리 요청 (백로그)", "en": "Open requests (backlog)" } },
+      { "key": "REOPEN", "group": "quality", "unit": "%", "target": 5, "dir": "down", "label": { "ko": "재오픈 비율", "en": "Reopened" } }
+    ],
+    "task": [
+      { "key": "REQCHG", "group": "quality", "unit": "", "target": 2, "dir": "down", "label": { "ko": "요건 변경 횟수", "en": "Requirement changes" } }
+    ]
+  },
+  "types": {
+    "implementation": {
+      "label": { "ko": "신규 구축 (SAP Activate)", "en": "New implementation (SAP Activate)" },
+      "phases": [
+        { "key": "PRE", "label": { "ko": "Prepare — 준비", "en": "Prepare" }, "weight": 0.08,
+          "gate": { "kind": "qgate", "label": { "ko": "Q-gate 1 — Prepare 완료", "en": "Q-gate 1 — Prepare complete" } },
+          "items": [
+            { "key": "CHARTER", "ws": "PMO", "label": { "ko": "프로젝트 헌장·킥오프", "en": "Project charter and kick-off" }, "span": [0, 0.4] },
+            { "key": "STD", "ws": "PMO", "label": { "ko": "프로젝트 표준·도구·보고 체계", "en": "Project standards, tools, reporting" }, "span": [0.2, 0.8] },
+            { "key": "SBX", "ws": "BAS", "label": { "ko": "샌드박스·개발 시스템 준비", "en": "Sandbox and development system ready" }, "span": [0, 1] },
+            { "key": "ONB", "ws": "OCM", "label": { "ko": "프로젝트 팀 온보딩·교육", "en": "Project team onboarding and training" }, "span": [0.4, 1] }
+          ] },
+        { "key": "EXP", "label": { "ko": "Explore — 설계", "en": "Explore" }, "weight": 0.22,
+          "gate": { "kind": "qgate", "label": { "ko": "Q-gate 2 — 설계 승인", "en": "Q-gate 2 — design sign-off" } },
+          "items": [
+            { "key": "FTS", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} Fit-to-Standard 워크숍", "en": "{module} fit-to-standard workshops" }, "span": [0, 0.5] },
+            { "key": "BPD", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} 솔루션 설계서·Delta 요구사항", "en": "{module} solution design and delta requirements" }, "span": [0.4, 0.95] },
+            { "key": "WRL", "ws": "PMO", "label": { "ko": "WRICEF 목록 확정·담당 배정 (모듈·개발)", "en": "WRICEF list and owners (functional / development)" }, "span": [0.6, 1] },
+            { "key": "DMS", "ws": "DM", "label": { "ko": "데이터 이관 전략·대상 정의", "en": "Data migration strategy and objects" }, "span": [0.3, 1] },
+            { "key": "IFD", "ws": "INT", "label": { "ko": "인터페이스 목록·설계", "en": "Interface inventory and design" }, "span": [0.3, 1] },
+            { "key": "SECD", "ws": "SEC", "label": { "ko": "권한 역할 설계", "en": "Role design" }, "span": [0.5, 1] },
+            { "key": "TSTS", "ws": "TST", "label": { "ko": "테스트 전략·시나리오", "en": "Test strategy and scenarios" }, "span": [0.6, 1] },
+            { "key": "OCMI", "ws": "OCM", "label": { "ko": "변화 영향 분석", "en": "Change impact analysis" }, "span": [0.5, 1] }
+          ] },
+        { "key": "REA", "label": { "ko": "Realize — 구축", "en": "Realize" }, "weight": 0.45,
+          "gate": { "kind": "qgate", "label": { "ko": "Q-gate 3 — 구축·통합 테스트 완료", "en": "Q-gate 3 — build and integration test complete" } },
+          "items": [
+            { "key": "CFG", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} 설정(Configuration)·단위 테스트", "en": "{module} configuration and unit test" }, "span": [0, 0.6] },
+            { "key": "DEV", "ws": "{module}", "owner": "dev", "label": { "ko": "{module} WRICEF 개발", "en": "{module} WRICEF development" }, "span": [0.05, 0.75], "wricef": true },
+            { "key": "IFB", "ws": "INT", "owner": "dev", "label": { "ko": "인터페이스 개발·연동 테스트", "en": "Interface build and connectivity test" }, "span": [0.1, 0.75] },
+            { "key": "MOCK1", "ws": "DM", "label": { "ko": "데이터 이관 리허설 1차", "en": "Data migration mock 1" }, "span": [0.45, 0.6] },
+            { "key": "SIT1", "ws": "TST", "label": { "ko": "통합 테스트 1차 (SIT1)", "en": "Integration test 1 (SIT1)" }, "span": [0.62, 0.8] },
+            { "key": "MOCK2", "ws": "DM", "label": { "ko": "데이터 이관 리허설 2차", "en": "Data migration mock 2" }, "span": [0.78, 0.9] },
+            { "key": "SIT2", "ws": "TST", "label": { "ko": "통합 테스트 2차 (SIT2)", "en": "Integration test 2 (SIT2)" }, "span": [0.82, 1] },
+            { "key": "SECB", "ws": "SEC", "label": { "ko": "권한 역할 구축·테스트", "en": "Role build and test" }, "span": [0.4, 0.95] },
+            { "key": "MAN", "ws": "OCM", "label": { "ko": "사용자 매뉴얼·교육 자료", "en": "User manuals and training material" }, "span": [0.6, 1] }
+          ] },
+        { "key": "DEP", "label": { "ko": "Deploy — 전개", "en": "Deploy" }, "weight": 0.25,
+          "gate": { "kind": "golive", "label": { "ko": "Go-Live", "en": "Go-live" } },
+          "items": [
+            { "key": "UAT", "ws": "TST", "label": { "ko": "사용자 인수 테스트 (UAT)", "en": "User acceptance test (UAT)" }, "span": [0, 0.45] },
+            { "key": "EUT", "ws": "OCM", "label": { "ko": "최종 사용자 교육", "en": "End-user training" }, "span": [0.35, 0.85] },
+            { "key": "CUTP", "ws": "CUT", "label": { "ko": "컷오버 계획·리허설", "en": "Cutover plan and rehearsal" }, "span": [0.2, 0.8] },
+            { "key": "PRD", "ws": "BAS", "label": { "ko": "운영 시스템 준비·이관", "en": "Production system ready, transports" }, "span": [0.5, 0.9] },
+            { "key": "FMIG", "ws": "DM", "label": { "ko": "최종 데이터 이관", "en": "Final data migration" }, "span": [0.88, 0.98] },
+            { "key": "GOD", "ws": "PMO", "label": { "ko": "Go/No-Go 결정", "en": "Go / no-go decision" }, "span": [0.85, 0.9], "gate": { "kind": "qgate", "label": { "ko": "Q-gate 4 — Go/No-Go", "en": "Q-gate 4 — go / no-go" } } }
+          ] },
+        { "key": "RUN", "label": { "ko": "Run — 안정화", "en": "Run" }, "afterWeeks": 6,
+          "gate": { "kind": "signoff", "label": { "ko": "Q-gate 5 — 프로젝트 종료", "en": "Q-gate 5 — project close" } },
+          "items": [
+            { "key": "HYP", "ws": "PMO", "label": { "ko": "하이퍼케어 (덤프·사용률 모니터링)", "en": "Hypercare (dumps, usage monitoring)" }, "span": [0, 1] },
+            { "key": "AMS", "ws": "PMO", "label": { "ko": "운영(AMS) 인수인계", "en": "Hand-over to support (AMS)" }, "span": [0.5, 1] }
+          ] }
+      ]
+    },
+    "conversion": {
+      "label": { "ko": "S/4HANA 전환 (Brownfield)", "en": "S/4HANA conversion (brownfield)" },
+      "phases": [
+        { "key": "PRE", "label": { "ko": "Prepare — 전환 준비", "en": "Prepare" }, "weight": 0.12,
+          "gate": { "kind": "qgate", "label": { "ko": "Q-gate 1 — 전환 범위 확정", "en": "Q-gate 1 — conversion scope" } },
+          "items": [
+            { "key": "RC", "ws": "BAS", "label": { "ko": "Readiness Check·Simplification Item 분석", "en": "Readiness check and simplification items" }, "span": [0, 0.6] },
+            { "key": "CCA", "ws": "PMO", "owner": "dev", "label": { "ko": "커스텀 코드 분석 (ATC·사용 실적)", "en": "Custom code analysis (ATC, usage)" }, "span": [0.2, 1] },
+            { "key": "SBXC", "ws": "BAS", "label": { "ko": "샌드박스 전환", "en": "Sandbox conversion" }, "span": [0.5, 1] }
+          ] },
+        { "key": "EXP", "label": { "ko": "Explore — 영향 분석", "en": "Explore" }, "weight": 0.2,
+          "gate": { "kind": "qgate", "label": { "ko": "Q-gate 2 — 조정 계획 승인", "en": "Q-gate 2 — adaptation plan" } },
+          "items": [
+            { "key": "IMP", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} 기능 영향 분석·조정 결정", "en": "{module} functional impact and decisions" }, "span": [0, 0.8] },
+            { "key": "CVI", "ws": "DM", "label": { "ko": "BP 전환(CVI)·마스터 정합성 정리", "en": "Business partner (CVI) and master data cleansing" }, "span": [0.2, 1] },
+            { "key": "FIN", "ws": "DM", "label": { "ko": "재무 데이터 사전 점검 (원장·자산·미결)", "en": "Finance data pre-checks" }, "span": [0.3, 1] },
+            { "key": "CCP", "ws": "PMO", "owner": "dev", "label": { "ko": "커스텀 코드 조정 계획 (유지·폐기·대체)", "en": "Custom code plan (keep / retire / replace)" }, "span": [0.4, 1] }
+          ] },
+        { "key": "REA", "label": { "ko": "Realize — 전환·조정", "en": "Realize" }, "weight": 0.43,
+          "gate": { "kind": "qgate", "label": { "ko": "Q-gate 3 — Mock 전환·회귀 테스트 완료", "en": "Q-gate 3 — mocks and regression test complete" } },
+          "items": [
+            { "key": "DEVC", "ws": "BAS", "label": { "ko": "개발 시스템 전환 (SUM/DMO)", "en": "Development system conversion (SUM / DMO)" }, "span": [0, 0.15] },
+            { "key": "ADJ", "ws": "{module}", "owner": "dev", "label": { "ko": "{module} 커스텀 코드 조정", "en": "{module} custom code adaptation" }, "span": [0.1, 0.7], "wricef": true },
+            { "key": "CFGA", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} 설정 조정·단위 테스트", "en": "{module} configuration adjustment and unit test" }, "span": [0.1, 0.6] },
+            { "key": "MOCK1", "ws": "BAS", "label": { "ko": "Mock 전환 1차 (운영 사본)", "en": "Mock conversion 1 (production copy)" }, "span": [0.35, 0.5] },
+            { "key": "MOCK2", "ws": "BAS", "label": { "ko": "Mock 전환 2차", "en": "Mock conversion 2" }, "span": [0.6, 0.75] },
+            { "key": "REG", "ws": "TST", "label": { "ko": "회귀·통합 테스트", "en": "Regression and integration test" }, "span": [0.5, 1] },
+            { "key": "MOCK3", "ws": "BAS", "label": { "ko": "Mock 전환 3차 (다운타임 측정)", "en": "Mock conversion 3 (downtime)" }, "span": [0.85, 1] }
+          ] },
+        { "key": "DEP", "label": { "ko": "Deploy — 운영 전환", "en": "Deploy" }, "weight": 0.25,
+          "gate": { "kind": "golive", "label": { "ko": "운영 전환 완료 (Go-Live)", "en": "Production conversion (go-live)" } },
+          "items": [
+            { "key": "UAT", "ws": "TST", "label": { "ko": "사용자 인수 테스트", "en": "User acceptance test" }, "span": [0, 0.5] },
+            { "key": "DRESS", "ws": "CUT", "label": { "ko": "운영 전환 리허설·컷오버 계획", "en": "Dress rehearsal and cutover plan" }, "span": [0.3, 0.85] },
+            { "key": "EUT", "ws": "OCM", "label": { "ko": "변경 기능 사용자 교육", "en": "Training on changed functions" }, "span": [0.4, 0.9] },
+            { "key": "PRDC", "ws": "BAS", "label": { "ko": "운영 전환 (다운타임)", "en": "Production conversion (downtime)" }, "span": [0.93, 1] }
+          ] },
+        { "key": "RUN", "label": { "ko": "Run — 안정화", "en": "Run" }, "afterWeeks": 4,
+          "gate": { "kind": "signoff", "label": { "ko": "프로젝트 종료", "en": "Project close" } },
+          "items": [
+            { "key": "HYP", "ws": "PMO", "label": { "ko": "하이퍼케어 (덤프·성능·사용률)", "en": "Hypercare (dumps, performance, usage)" }, "span": [0, 1] }
+          ] }
+      ]
+    },
+    "rollout": {
+      "label": { "ko": "롤아웃 (국가·법인·공장)", "en": "Rollout (country / company / plant)" },
+      "phases": [
+        { "key": "PRE", "label": { "ko": "Prepare — 준비", "en": "Prepare" }, "weight": 0.1,
+          "gate": { "kind": "qgate", "label": { "ko": "Q-gate 1 — 롤아웃 범위 확정", "en": "Q-gate 1 — rollout scope" } },
+          "items": [
+            { "key": "TPL", "ws": "PMO", "label": { "ko": "글로벌 템플릿·범위 확인", "en": "Global template and scope" }, "span": [0, 0.7] },
+            { "key": "ORG", "ws": "PMO", "label": { "ko": "현지 조직·키유저 구성", "en": "Local organisation and key users" }, "span": [0.3, 1] }
+          ] },
+        { "key": "EXP", "label": { "ko": "Explore — 로컬 Fit-Gap", "en": "Explore — local fit-gap" }, "weight": 0.2,
+          "gate": { "kind": "qgate", "label": { "ko": "Q-gate 2 — 로컬 요건 승인", "en": "Q-gate 2 — local requirements" } },
+          "items": [
+            { "key": "FG", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} 템플릿 대비 Fit-Gap", "en": "{module} fit-gap against the template" }, "span": [0, 0.7] },
+            { "key": "LOC", "ws": "PMO", "owner": "fn", "label": { "ko": "현지화 요건 (세금·전자세금계산서·법정 보고)", "en": "Localisation (tax, e-invoicing, statutory reporting)" }, "span": [0.2, 1] },
+            { "key": "DMS", "ws": "DM", "label": { "ko": "로컬 데이터 이관 대상", "en": "Local data migration objects" }, "span": [0.4, 1] }
+          ] },
+        { "key": "REA", "label": { "ko": "Realize — 구축", "en": "Realize" }, "weight": 0.45,
+          "gate": { "kind": "qgate", "label": { "ko": "Q-gate 3 — 통합 테스트 완료", "en": "Q-gate 3 — integration test complete" } },
+          "items": [
+            { "key": "CFG", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} 로컬 설정", "en": "{module} local configuration" }, "span": [0, 0.55] },
+            { "key": "DEV", "ws": "{module}", "owner": "dev", "label": { "ko": "{module} 로컬 개발 (WRICEF)", "en": "{module} local development (WRICEF)" }, "span": [0.05, 0.7], "wricef": true },
+            { "key": "MOCK", "ws": "DM", "label": { "ko": "데이터 이관 리허설", "en": "Data migration mock" }, "span": [0.5, 0.75] },
+            { "key": "SIT", "ws": "TST", "label": { "ko": "통합 테스트 (글로벌 회귀 포함)", "en": "Integration test incl. global regression" }, "span": [0.65, 1] }
+          ] },
+        { "key": "DEP", "label": { "ko": "Deploy — 전개", "en": "Deploy" }, "weight": 0.25,
+          "gate": { "kind": "golive", "label": { "ko": "Go-Live", "en": "Go-live" } },
+          "items": [
+            { "key": "UAT", "ws": "TST", "label": { "ko": "사용자 인수 테스트", "en": "User acceptance test" }, "span": [0, 0.45] },
+            { "key": "EUT", "ws": "OCM", "label": { "ko": "현지 사용자 교육", "en": "Local end-user training" }, "span": [0.35, 0.85] },
+            { "key": "CUTP", "ws": "CUT", "label": { "ko": "컷오버·최종 이관", "en": "Cutover and final migration" }, "span": [0.6, 1] }
+          ] },
+        { "key": "RUN", "label": { "ko": "Run — 안정화", "en": "Run" }, "afterWeeks": 4,
+          "gate": { "kind": "signoff", "label": { "ko": "롤아웃 종료", "en": "Rollout close" } },
+          "items": [
+            { "key": "HYP", "ws": "PMO", "label": { "ko": "하이퍼케어", "en": "Hypercare" }, "span": [0, 1] }
+          ] }
+      ]
+    },
+    "ams": {
+      "label": { "ko": "운영·개선 (AMS 릴리스)", "en": "Support and improvements (AMS release)" },
+      "phases": [
+        { "key": "INT", "label": { "ko": "요청 접수·우선순위", "en": "Intake and prioritisation" }, "weight": 0.1,
+          "gate": { "kind": "signoff", "label": { "ko": "릴리스 범위 확정", "en": "Release scope agreed" } },
+          "items": [
+            { "key": "BACK", "ws": "PMO", "label": { "ko": "요청 목록 정리·영향도·우선순위", "en": "Backlog, impact, priority" }, "span": [0, 1] }
+          ] },
+        { "key": "SPEC", "label": { "ko": "분석·명세", "en": "Analysis and specification" }, "weight": 0.25,
+          "items": [
+            { "key": "FS", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} 요건 분석·기능 명세(FS)", "en": "{module} analysis and functional spec" }, "span": [0, 1] }
+          ] },
+        { "key": "BUILD", "label": { "ko": "개발·설정", "en": "Build and configuration" }, "weight": 0.35,
+          "items": [
+            { "key": "DEV", "ws": "{module}", "owner": "dev", "label": { "ko": "{module} 개발·설정 (WRICEF)", "en": "{module} build and configuration (WRICEF)" }, "span": [0, 1], "wricef": true }
+          ] },
+        { "key": "TEST", "label": { "ko": "테스트", "en": "Test" }, "weight": 0.2,
+          "gate": { "kind": "qgate", "label": { "ko": "테스트 완료·이관 승인", "en": "Test complete, transport approval" } },
+          "items": [
+            { "key": "FUT", "ws": "TST", "label": { "ko": "기능 테스트·회귀 테스트", "en": "Functional and regression test" }, "span": [0, 0.7] },
+            { "key": "UAT", "ws": "TST", "label": { "ko": "현업 확인 (UAT)", "en": "Business acceptance (UAT)" }, "span": [0.5, 1] }
+          ] },
+        { "key": "REL", "label": { "ko": "이관·배포", "en": "Release" }, "weight": 0.1,
+          "gate": { "kind": "golive", "label": { "ko": "운영 이관 (릴리스)", "en": "Release to production" } },
+          "items": [
+            { "key": "TRP", "ws": "BAS", "label": { "ko": "운영 이관요청 반영", "en": "Transports to production" }, "span": [0.5, 1] }
+          ] },
+        { "key": "STB", "label": { "ko": "안정화", "en": "Stabilisation" }, "afterWeeks": 2,
+          "items": [
+            { "key": "MON", "ws": "PMO", "label": { "ko": "반영 후 모니터링 (덤프·문의)", "en": "Post-release monitoring (dumps, tickets)" }, "span": [0, 1] }
+          ] }
+      ]
+    },
+    "task": {
+      "label": { "ko": "과제성 프로젝트", "en": "Small project / assignment" },
+      "phases": [
+        { "key": "REQ", "label": { "ko": "요건 정의", "en": "Requirements" }, "weight": 0.15,
+          "gate": { "kind": "signoff", "label": { "ko": "요건 확정", "en": "Requirements agreed" } },
+          "items": [
+            { "key": "REQ", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} 요건 정의·현업 인터뷰", "en": "{module} requirements and interviews" }, "span": [0, 1] }
+          ] },
+        { "key": "DES", "label": { "ko": "설계", "en": "Design" }, "weight": 0.2,
+          "items": [
+            { "key": "FS", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} 기능 명세(FS)", "en": "{module} functional spec" }, "span": [0, 0.7] },
+            { "key": "TS", "ws": "{module}", "owner": "dev", "label": { "ko": "{module} 기술 명세(TS)", "en": "{module} technical spec" }, "span": [0.5, 1] }
+          ] },
+        { "key": "BLD", "label": { "ko": "개발", "en": "Build" }, "weight": 0.35,
+          "items": [
+            { "key": "DEV", "ws": "{module}", "owner": "dev", "label": { "ko": "{module} 개발·단위 테스트 (WRICEF)", "en": "{module} build and unit test (WRICEF)" }, "span": [0, 1], "wricef": true }
+          ] },
+        { "key": "TST", "label": { "ko": "테스트", "en": "Test" }, "weight": 0.2,
+          "gate": { "kind": "qgate", "label": { "ko": "테스트 완료", "en": "Test complete" } },
+          "items": [
+            { "key": "FUT", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} 기능 단위 테스트(FUT)", "en": "{module} functional unit test" }, "span": [0, 0.5] },
+            { "key": "UAT", "ws": "TST", "label": { "ko": "현업 확인 (UAT)", "en": "Business acceptance (UAT)" }, "span": [0.4, 1] }
+          ] },
+        { "key": "TRN", "label": { "ko": "이관", "en": "Transport" }, "weight": 0.1,
+          "gate": { "kind": "golive", "label": { "ko": "운영 반영", "en": "In production" } },
+          "items": [
+            { "key": "TRP", "ws": "BAS", "label": { "ko": "운영 이관·사용자 안내", "en": "Transport and user notice" }, "span": [0.3, 1] }
+          ] },
+        { "key": "STB", "label": { "ko": "안정화", "en": "Stabilisation" }, "afterWeeks": 2,
+          "gate": { "kind": "signoff", "label": { "ko": "과제 종료", "en": "Close" } },
+          "items": [
+            { "key": "MON", "ws": "{module}", "owner": "fn", "label": { "ko": "{module} 반영 후 확인", "en": "{module} post go-live check" }, "span": [0, 1] }
+          ] }
+      ]
+    }
+  }
+}

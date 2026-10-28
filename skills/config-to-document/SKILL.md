@@ -32,7 +32,7 @@ Consultants, key users and auditors need to know how a system is set up — not 
 <Decisions_Fixed>
 Settled when the skill was designed — do not ask again:
 - **Real values, as they are.** The document shows the table values exactly as read (organisation names included). It is an internal document; say so once in the closing message.
-- **Read-only.** Only customizing / system tables (delivery class C, G, E, S), DDIC metadata and the transport key tables are read — on ECC through `ZMCP_ADT_DISPATCH` `TABLE_READ`, which refuses everything else. The MCP blocklist still applies; a refused table shows as "Not readable" in the document, never as a failure.
+- **Read-only.** Only customizing / system tables (delivery class C, G, E, S, W), DDIC metadata and the transport key tables are read — on ECC through `ZMCP_ADT_DISPATCH` `TABLE_READ`, which refuses everything else. The MCP blocklist still applies; a refused table shows as "Not readable" in the document, never as a failure.
 - **Customer change = customer transport.** A row counts as customer-changed when a non-SAP transport (`E071K`, `TRKORR NOT LIKE 'SAP%'`) recorded its key, in any client.
 - **Language.** Texts (IMG titles, field labels, value texts) in the document language when the system has them, else English. SAP documentation is mostly English.
 - **One file.** HTML with data and drawings embedded; works offline; prints.

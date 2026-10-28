@@ -3,7 +3,7 @@
 // Talks to the sc4sap MCP server (bridge/mcp-server.cjs) over stdio and reads
 // customizing tables with GetSqlQuery. On BASIS < 7.50 the server answers
 // through ZMCP_ADT_DISPATCH TABLE_READ, which only reads customizing / system
-// tables (delivery class C, G, E, S) and the transport key tables, so this
+// tables (delivery class C, G, E, S, W) and the transport key tables, so this
 // reader never touches business data.
 //
 // Reads always use SELECT * and drop columns on this side: the dispatcher
@@ -12,7 +12,7 @@
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
-import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
+import { StdioClientTransport, getDefaultEnvironment } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, '..', '..');
@@ -25,8 +25,11 @@ const BRIDGE = process.env.SC4SAP_MCP_BRIDGE || resolve(ROOT, 'bridge', 'mcp-ser
 export const TABLE_NAME_RE = /^(?=.{2,30}$)(\/[A-Z0-9_]+\/)?[A-Z][A-Z0-9_]*$/;
 const MAX_ROWS = 5000;
 
-export async function connect(name = 'config-to-document') {
-  const transport = new StdioClientTransport({ command: 'node', args: [BRIDGE], stderr: 'ignore' });
+// allowTables: audited one-off blocklist bypass for this server only. The SDK
+// starts the server with a minimal environment, so it goes in explicitly.
+export async function connect(name = 'config-to-document', { allowTables = [] } = {}) {
+  const env = { ...getDefaultEnvironment(), ...(allowTables.length ? { MCP_ALLOW_TABLE: allowTables.join(',') } : {}) };
+  const transport = new StdioClientTransport({ command: 'node', args: [BRIDGE], stderr: 'ignore', env });
   const client = new Client({ name, version: '1.0.0' });
   await client.connect(transport);
   return client;
@@ -103,12 +106,21 @@ export async function readIn(client, table, field, values, { extra = {}, fields 
     if (r.ok) out.push(...r.rows.filter((row) => String(row[field]) === String(v)));
     else errors.push(r.error);
   }
-  for (let i = 0; i < uniq.length; i += chunk) {
-    const r = await readTable(client, table, { where: { ...extra, [field]: uniq.slice(i, i + chunk) }, fields });
-    if (r.ok) out.push(...r.rows);
-    else errors.push(r.error);
-  }
-  return { ok: errors.length === 0, rows: out, errors };
+  // A chunk that hits the row limit is read again in halves; a single value that still hits it is reported.
+  const truncated = [];
+  const grab = async (vals) => {
+    const r = await readTable(client, table, { where: { ...extra, [field]: vals }, fields });
+    if (!r.ok) { errors.push(r.error); return; }
+    if (r.truncated && vals.length > 1) {
+      const h = Math.ceil(vals.length / 2);
+      await grab(vals.slice(0, h)); await grab(vals.slice(h));
+      return;
+    }
+    if (r.truncated) truncated.push(vals[0]);
+    out.push(...r.rows);
+  };
+  for (let i = 0; i < uniq.length; i += chunk) await grab(uniq.slice(i, i + chunk));
+  return { ok: errors.length === 0, rows: out, errors, truncated };
 }
 
 /** DDIC definition of a table (fields with descriptions, delivery class). */

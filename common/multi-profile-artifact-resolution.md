@@ -74,6 +74,8 @@ Skills that read or produce project-local artifacts must adopt this pattern:
 - `/sc4sap:program-to-manual` — writes `manuals/<PROGRAM>-v<n>-<lang>.html` + `<PROGRAM>-<lang>.history.json` + `_src/` / `_draft/` manual.json
 - `/sc4sap:smartform-preview` — writes `smartforms/<FORM>/<FORM>-preview.{jpg,html}` + `values.json` (invented sample values)
 - `/sc4sap:smartform-from-pdf` — writes `smartforms/<FORM>/` (`layout.json`, `styles.json`, `spec.json`, `shape.json`, `<FORM>.xml`, `<FORM>.printed.pdf`, `compare.json`)
+- `/sc4sap:project-dashboard` — writes `projects/<CODE>/` (`<CODE>-project.json`, `<CODE>-dashboard-v<ver>-<lang>.html`, history, `_src/`, `_i18n/`) + `projects/portfolio-<lang>.html`
+- `/sc4sap:role-matrix` — writes `roles/<CODE>/` (`<CODE>-roles.json`, `<CODE>-role-matrix-v<ver>-<lang>.html`, `_src/`)
 - `/sc4sap:analyze-symptom` — writes audit reports
 - `/sc4sap:create-object` — writes nothing long-term (transient state only)
 - Setup / sap-option — manage profile files themselves; outside this pattern
