@@ -1,16 +1,23 @@
-FUNCTION zmcp_adt_dispatch.
-*"----------------------------------------------------------------------
-*"*"Local Interface:
-*"  IMPORTING
-*"     VALUE(IV_ACTION) TYPE  STRING
-*"     VALUE(IV_PARAMS) TYPE  STRING
-*"  EXPORTING
-*"     VALUE(EV_SUBRC) TYPE  I
-*"     VALUE(EV_MESSAGE) TYPE  STRING
-*"     VALUE(EV_RESULT) TYPE  STRING
-*"----------------------------------------------------------------------
+FUNCTION zmcp_adt_dispatch
+  IMPORTING
+    VALUE(iv_action) TYPE string
+    VALUE(iv_params) TYPE string
+  EXPORTING
+    VALUE(ev_subrc)   TYPE i
+    VALUE(ev_message) TYPE string
+    VALUE(ev_result)  TYPE string.
+
 * ZMCP_ADT_DISPATCH - JSON-based dispatcher for Screen/GUI Status operations
 * Called via SOAP RFC from mcp-abap-adt MCP server.
+*
+* Inline FUNCTION signature: the ADT REST API used by the installer
+* rejects the `*"Local Interface:` comment block.
+* Screen and GUI status FM interfaces are the same as on ECC 7.40:
+*   RPY_DYNPRO_INSERT / READ - CONTAINERS TYPE DYCATT_TAB,
+*     FIELDS_TO_CONTAINERS TYPE DYFATC_TAB, FLOW_LOGIC TYPE RPY_DYFLOW
+*     (RPY_DYFIELD does not exist).
+*   RS_CUA_INTERNAL_FETCH / WRITE - TIT typed RSMPE_TITT; WRITE needs
+*     the mandatory TR_KEY (TRKEY).
 *
 * Supported actions:
 *   DYNPRO_INSERT  - Create screen (RPY_DYNPRO_INSERT)
@@ -18,52 +25,34 @@ FUNCTION zmcp_adt_dispatch.
 *   DYNPRO_DELETE  - Delete screen (RPY_DYNPRO_DELETE)
 *   CUA_FETCH      - Read GUI status (RS_CUA_INTERNAL_FETCH)
 *   CUA_WRITE      - Write GUI status (RS_CUA_INTERNAL_WRITE)
-*   CUA_DELETE      - Delete GUI status (RS_CUA_DELETE)
-*----------------------------------------------------------------------
-
-  DATA: lv_json    TYPE string,
-        lv_program TYPE syrepid,
-        lv_dynpro  TYPE sydynnr.
-
-* Parse common params from JSON
-  DATA(lo_params) = /ui2/cl_json=>generate( json = iv_params ).
+*   CUA_DELETE     - Delete GUI status (RS_CUA_DELETE)
 
   CLEAR: ev_subrc, ev_message, ev_result.
 
   TRY.
       CASE iv_action.
-
-*------ DYNPRO (Screen) operations ------
         WHEN 'DYNPRO_INSERT'.
           PERFORM dynpro_insert USING iv_params
                                 CHANGING ev_subrc ev_message ev_result.
-
         WHEN 'DYNPRO_READ'.
           PERFORM dynpro_read USING iv_params
                               CHANGING ev_subrc ev_message ev_result.
-
         WHEN 'DYNPRO_DELETE'.
           PERFORM dynpro_delete USING iv_params
                                 CHANGING ev_subrc ev_message ev_result.
-
-*------ CUA (GUI Status) operations ------
         WHEN 'CUA_FETCH'.
           PERFORM cua_fetch USING iv_params
                             CHANGING ev_subrc ev_message ev_result.
-
         WHEN 'CUA_WRITE'.
           PERFORM cua_write USING iv_params
                             CHANGING ev_subrc ev_message ev_result.
-
         WHEN 'CUA_DELETE'.
           PERFORM cua_delete USING iv_params
                              CHANGING ev_subrc ev_message ev_result.
-
         WHEN OTHERS.
           ev_subrc = 4.
           ev_message = |Unknown action: { iv_action }|.
       ENDCASE.
-
     CATCH cx_root INTO DATA(lx_root).
       ev_subrc = 8.
       ev_message = lx_root->get_text( ).
@@ -75,37 +64,25 @@ ENDFUNCTION.
 *&---------------------------------------------------------------------*
 *& Form DYNPRO_INSERT
 *&---------------------------------------------------------------------*
+* params: program, dynpro, dynpro_data (JSON string, the shape
+*         DYNPRO_READ returns: HEADER / CONTAINERS / FIELDS_TO_CONTAINERS /
+*         FLOW_LOGIC = [{LINE}]).
+* RPY_DYNPRO_INSERT interface (ECC 7.40 and S/4HANA):
+*   HEADER LIKE RPY_DYHEAD, CONTAINERS TYPE DYCATT_TAB,
+*   FIELDS_TO_CONTAINERS TYPE DYFATC_TAB, FLOW_LOGIC LIKE RPY_DYFLOW
+*   (one component LINE CHAR 72) - all mandatory; PARAMS optional.
+* SUPPRESS_EXIST_CHECKS = 'X', so an existing
+* screen is overwritten (UpdateScreen deletes it first anyway). Because
+* that flag also skips the TRDIR check, the program is checked here.
 FORM dynpro_insert USING iv_params TYPE string
-                   CHANGING ev_subrc TYPE i
+                   CHANGING ev_subrc   TYPE i
                             ev_message TYPE string
-                            ev_result TYPE string.
+                            ev_result  TYPE string.
 
-  TYPES: BEGIN OF ty_flow_line,
+  TYPES: BEGIN OF ty_flow_in,
            line TYPE string,
-         END OF ty_flow_line.
-
-  DATA: ls_header     TYPE rpy_dyhead,
-        lt_containers TYPE TABLE OF rpy_dycatt,
-        lt_fields     TYPE TABLE OF rpy_dyfield,
-        lt_flow_src   TYPE swbse_max_line_tab,
-        lt_params     TYPE abap_trans_srcbind_tab.
-
-* Deserialize JSON to get dynpro_data
-  DATA: lv_program    TYPE string,
-        lv_dynpro     TYPE string,
-        lv_dynpro_data TYPE string.
-
-  /ui2/cl_json=>deserialize(
-    EXPORTING json = iv_params
-    CHANGING  data = DATA(ls_params_raw) ).
-
-* Extract parameters from JSON
-  DATA(lo_json) = /ui2/cl_json=>generate( json = iv_params ).
-  DATA(lo_map) = CAST /ui2/cl_abap_json_stringer( lo_json ).
-
-  FIELD-SYMBOLS: <program> TYPE any,
-                 <dynpro>  TYPE any,
-                 <data>    TYPE any.
+         END OF ty_flow_in,
+         ty_flow_in_tab TYPE STANDARD TABLE OF ty_flow_in WITH DEFAULT KEY.
 
   DATA: BEGIN OF ls_input,
           program     TYPE string,
@@ -113,64 +90,97 @@ FORM dynpro_insert USING iv_params TYPE string
           dynpro_data TYPE string,
         END OF ls_input.
 
+  DATA: BEGIN OF ls_dynpro,
+          header               TYPE rpy_dyhead,
+          containers           TYPE dycatt_tab,
+          fields_to_containers TYPE dyfatc_tab,
+          flow_logic           TYPE ty_flow_in_tab,
+        END OF ls_dynpro.
+
+  DATA: lt_flow    TYPE STANDARD TABLE OF rpy_dyflow WITH DEFAULT KEY,
+        ls_flow    TYPE rpy_dyflow,
+        ls_flow_in TYPE ty_flow_in,
+        lv_lineno  TYPE i,
+        lv_name    TYPE trdir-name,
+        lv_sap_msg TYPE string.
+
   /ui2/cl_json=>deserialize(
     EXPORTING json = iv_params
     CHANGING  data = ls_input ).
 
-  lv_program = to_upper( ls_input-program ).
-  lv_dynpro  = ls_input-dynpro.
-
-* Parse dynpro_data JSON into ABAP structures
-  DATA: BEGIN OF ls_dynpro,
-          header              TYPE rpy_dyhead,
-          containers          TYPE TABLE OF rpy_dycatt WITH DEFAULT KEY,
-          fields_to_containers TYPE TABLE OF rpy_dyfield WITH DEFAULT KEY,
-        END OF ls_dynpro.
-
-  DATA: lt_flow_logic TYPE TABLE OF ty_flow_line WITH DEFAULT KEY.
-
-  DATA: BEGIN OF ls_dynpro_full,
-          header              TYPE rpy_dyhead,
-          containers          TYPE TABLE OF rpy_dycatt WITH DEFAULT KEY,
-          fields_to_containers TYPE TABLE OF rpy_dyfield WITH DEFAULT KEY,
-          flow_logic          TYPE TABLE OF ty_flow_line WITH DEFAULT KEY,
-        END OF ls_dynpro_full.
-
   /ui2/cl_json=>deserialize(
     EXPORTING json = ls_input-dynpro_data
-    CHANGING  data = ls_dynpro_full ).
+    CHANGING  data = ls_dynpro ).
 
-  ls_header = ls_dynpro_full-header.
-  lt_containers = ls_dynpro_full-containers.
-  lt_fields = ls_dynpro_full-fields_to_containers.
+  " Screen key: fall back to the call parameters, program in upper case.
+  IF ls_dynpro-header-program IS INITIAL.
+    ls_dynpro-header-program = ls_input-program.
+  ENDIF.
+  IF ls_dynpro-header-screen IS INITIAL.
+    ls_dynpro-header-screen = ls_input-dynpro.
+  ENDIF.
+  TRANSLATE ls_dynpro-header-program TO UPPER CASE.
 
-* Build flow logic source
-  DATA(lt_flow) = VALUE swbse_max_line_tab(
-    FOR ls_fl IN ls_dynpro_full-flow_logic
-    ( ls_fl-line ) ).
+  SELECT SINGLE name FROM trdir INTO lv_name
+    WHERE name = ls_dynpro-header-program.
+  IF sy-subrc <> 0.
+    ev_subrc   = 4.
+    ev_message = |Program { ls_dynpro-header-program } does not exist|.
+    RETURN.
+  ENDIF.
+
+  " Flow logic: text lines -> RPY_DYFLOW (LINE CHAR 72). Trailing blanks
+  " and CR (CRLF input) are dropped; a longer line is rejected, not cut.
+  LOOP AT ls_dynpro-flow_logic INTO ls_flow_in.
+    lv_lineno = sy-tabix.
+    ls_flow_in-line = replace( val = ls_flow_in-line regex = `\s+$` with = `` ).
+    IF strlen( ls_flow_in-line ) > 72.
+      ev_subrc   = 4.
+      ev_message = |Flow logic line { lv_lineno } is longer than 72 characters|.
+      RETURN.
+    ENDIF.
+    ls_flow-line = ls_flow_in-line.
+    APPEND ls_flow TO lt_flow.
+  ENDLOOP.
 
   CALL FUNCTION 'RPY_DYNPRO_INSERT'
     EXPORTING
-      header                 = ls_header
+      header                 = ls_dynpro-header
       suppress_exist_checks  = abap_true
     TABLES
-      containers             = lt_containers
-      fields_to_containers   = lt_fields
+      containers             = ls_dynpro-containers
+      fields_to_containers   = ls_dynpro-fields_to_containers
       flow_logic             = lt_flow
     EXCEPTIONS
-      already_exists         = 1
-      cancelled              = 2
-      permission_error       = 3
-      name_not_allowed       = 4
-      not_found              = 5
-      OTHERS                 = 6.
+      cancelled              = 1
+      already_exists         = 2
+      program_not_exists     = 3
+      not_executed           = 4
+      missing_required_field = 5
+      illegal_field_value    = 6
+      field_not_allowed      = 7
+      not_generated          = 8
+      illegal_field_position = 9
+      OTHERS                 = 10.
 
   ev_subrc = sy-subrc.
-  IF sy-subrc <> 0.
-    ev_message = |RPY_DYNPRO_INSERT failed (sy-subrc={ sy-subrc })|.
+  IF ev_subrc <> 0.
+    IF sy-msgid IS NOT INITIAL.
+      MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_sap_msg.
+    ENDIF.
+    IF ev_subrc = 8.
+      " The screen is already stored; only GENERATE DYNPRO failed.
+      ev_message = |Screen { ls_dynpro-header-program }/{ ls_dynpro-header-screen } saved but not generated (sy-subrc=8)|.
+    ELSE.
+      ev_message = |RPY_DYNPRO_INSERT failed (sy-subrc={ ev_subrc })|.
+    ENDIF.
+    IF lv_sap_msg IS NOT INITIAL.
+      ev_message = |{ ev_message }: { lv_sap_msg }|.
+    ENDIF.
   ELSE.
-    ev_message = |Screen { lv_program }/{ lv_dynpro } created|.
-    ev_result = '{}'.
+    ev_message = |Screen { ls_dynpro-header-program }/{ ls_dynpro-header-screen } created|.
+    ev_result  = '{}'.
   ENDIF.
 
 ENDFORM.
@@ -180,9 +190,9 @@ ENDFORM.
 *& Form DYNPRO_READ
 *&---------------------------------------------------------------------*
 FORM dynpro_read USING iv_params TYPE string
-                 CHANGING ev_subrc TYPE i
+                 CHANGING ev_subrc   TYPE i
                           ev_message TYPE string
-                          ev_result TYPE string.
+                          ev_result  TYPE string.
 
   DATA: BEGIN OF ls_input,
           program TYPE string,
@@ -193,10 +203,10 @@ FORM dynpro_read USING iv_params TYPE string
     EXPORTING json = iv_params
     CHANGING  data = ls_input ).
 
-  DATA: ls_header   TYPE rpy_dyhead,
-        lt_cont     TYPE TABLE OF rpy_dycatt,
-        lt_fields   TYPE TABLE OF rpy_dyfield,
-        lt_flow     TYPE swbse_max_line_tab.
+  DATA: ls_header TYPE rpy_dyhead,
+        lt_cont   TYPE dycatt_tab,
+        lt_fields TYPE dyfatc_tab,
+        lt_flow   TYPE STANDARD TABLE OF rpy_dyflow WITH DEFAULT KEY.
 
   CALL FUNCTION 'RPY_DYNPRO_READ'
     EXPORTING
@@ -219,16 +229,16 @@ FORM dynpro_read USING iv_params TYPE string
     ev_message = |RPY_DYNPRO_READ failed (sy-subrc={ sy-subrc })|.
   ELSE.
     DATA: BEGIN OF ls_result,
-            header              TYPE rpy_dyhead,
-            containers          TYPE TABLE OF rpy_dycatt WITH DEFAULT KEY,
-            fields_to_containers TYPE TABLE OF rpy_dyfield WITH DEFAULT KEY,
-            flow_logic          TYPE swbse_max_line_tab,
+            header               TYPE rpy_dyhead,
+            containers           TYPE dycatt_tab,
+            fields_to_containers TYPE dyfatc_tab,
+            flow_logic           TYPE STANDARD TABLE OF rpy_dyflow WITH DEFAULT KEY,
           END OF ls_result.
-    ls_result-header = ls_header.
-    ls_result-containers = lt_cont.
+    ls_result-header               = ls_header.
+    ls_result-containers           = lt_cont.
     ls_result-fields_to_containers = lt_fields.
-    ls_result-flow_logic = lt_flow.
-    ev_result = /ui2/cl_json=>serialize( data = ls_result ).
+    ls_result-flow_logic           = lt_flow.
+    ev_result  = /ui2/cl_json=>serialize( data = ls_result ).
     ev_message = 'OK'.
   ENDIF.
 
@@ -239,9 +249,9 @@ ENDFORM.
 *& Form DYNPRO_DELETE
 *&---------------------------------------------------------------------*
 FORM dynpro_delete USING iv_params TYPE string
-                   CHANGING ev_subrc TYPE i
+                   CHANGING ev_subrc   TYPE i
                             ev_message TYPE string
-                            ev_result TYPE string.
+                            ev_result  TYPE string.
 
   DATA: BEGIN OF ls_input,
           program TYPE string,
@@ -254,20 +264,20 @@ FORM dynpro_delete USING iv_params TYPE string
 
   CALL FUNCTION 'RPY_DYNPRO_DELETE'
     EXPORTING
-      progname       = CONV syrepid( to_upper( ls_input-program ) )
-      dynnr          = CONV sydynnr( ls_input-dynpro )
+      progname         = CONV syrepid( to_upper( ls_input-program ) )
+      dynnr            = CONV sydynnr( ls_input-dynpro )
     EXCEPTIONS
-      cancelled      = 1
-      not_found      = 2
+      cancelled        = 1
+      not_found        = 2
       permission_error = 3
-      OTHERS         = 4.
+      OTHERS           = 4.
 
   ev_subrc = sy-subrc.
   IF sy-subrc <> 0.
     ev_message = |RPY_DYNPRO_DELETE failed (sy-subrc={ sy-subrc })|.
   ELSE.
     ev_message = |Screen { ls_input-program }/{ ls_input-dynpro } deleted|.
-    ev_result = '{}'.
+    ev_result  = '{}'.
   ENDIF.
 
 ENDFORM.
@@ -300,7 +310,7 @@ FORM cua_fetch USING iv_params TYPE string
         lt_pfk    TYPE TABLE OF rsmpe_pfk,
         lt_set    TYPE TABLE OF rsmpe_staf,
         lt_doc    TYPE TABLE OF rsmpe_atrt,
-        lt_tit    TYPE TABLE OF rsmpe_tit,
+        lt_tit    TYPE TABLE OF rsmpe_titt,
         lt_biv    TYPE TABLE OF rsmpe_buts.
 
   DATA: lv_lang TYPE sy-langu.
@@ -349,7 +359,7 @@ FORM cua_fetch USING iv_params TYPE string
             pfk TYPE TABLE OF rsmpe_pfk WITH DEFAULT KEY,
             set TYPE TABLE OF rsmpe_staf WITH DEFAULT KEY,
             doc TYPE TABLE OF rsmpe_atrt WITH DEFAULT KEY,
-            tit TYPE TABLE OF rsmpe_tit WITH DEFAULT KEY,
+            tit TYPE TABLE OF rsmpe_titt WITH DEFAULT KEY,
             biv TYPE TABLE OF rsmpe_buts WITH DEFAULT KEY,
           END OF ls_result.
     ls_result-adm = ls_adm.
@@ -401,7 +411,7 @@ FORM cua_write USING iv_params TYPE string
           pfk TYPE TABLE OF rsmpe_pfk WITH DEFAULT KEY,
           set TYPE TABLE OF rsmpe_staf WITH DEFAULT KEY,
           doc TYPE TABLE OF rsmpe_atrt WITH DEFAULT KEY,
-          tit TYPE TABLE OF rsmpe_tit WITH DEFAULT KEY,
+          tit TYPE TABLE OF rsmpe_titt WITH DEFAULT KEY,
           biv TYPE TABLE OF rsmpe_buts WITH DEFAULT KEY,
         END OF ls_cua.
 
@@ -416,10 +426,43 @@ FORM cua_write USING iv_params TYPE string
     lv_lang = sy-langu.
   ENDIF.
 
+  " TR_KEY (LIKE TRKEY) is a mandatory IMPORTING parameter of
+  " RS_CUA_INTERNAL_WRITE (omitting it -> CX_SY_DYN_CALL_PARAM_MISSING).
+  " OBJ_TYPE must fit the program type (PROG for 1/M, FUGR for F) or the
+  " FM raises INVALID_DATA; SUB_NAME drives the tree / TCODE index.
+  DATA: ls_tr_key  TYPE trkey,
+        lv_prog    TYPE trdir-name,
+        lv_subc    TYPE trdir-subc,
+        lv_ns      TYPE string,
+        lv_rest    TYPE string,
+        lv_sap_msg TYPE string.
+
+  lv_prog = to_upper( ls_input-program ).
+  SELECT SINGLE subc FROM trdir INTO lv_subc WHERE name = lv_prog.
+  IF lv_subc = 'F'.
+    ls_tr_key-obj_type = 'FUGR'.
+    IF lv_prog(1) = '/'.
+      FIND REGEX '^(/[^/]+/)SAPL(.+)$' IN lv_prog SUBMATCHES lv_ns lv_rest.
+      ls_tr_key-obj_name = lv_ns && lv_rest.
+    ELSE.
+      ls_tr_key-obj_name = lv_prog+4.
+    ENDIF.
+  ELSE.
+    ls_tr_key-obj_type = 'PROG'.
+    ls_tr_key-obj_name = lv_prog.
+  ENDIF.
+  ls_tr_key-sub_type = 'CUAD'.
+  ls_tr_key-sub_name = lv_prog.
+  SELECT SINGLE devclass FROM tadir INTO ls_tr_key-devclass
+    WHERE pgmid    = 'R3TR'
+      AND object   = ls_tr_key-obj_type
+      AND obj_name = ls_tr_key-obj_name.
+
   CALL FUNCTION 'RS_CUA_INTERNAL_WRITE'
     EXPORTING
-      program   = CONV syrepid( to_upper( ls_input-program ) )
+      program   = lv_prog
       language  = lv_lang
+      tr_key    = ls_tr_key
       adm       = ls_cua-adm
       state     = 'A'
     TABLES
@@ -436,12 +479,17 @@ FORM cua_write USING iv_params TYPE string
       biv       = ls_cua-biv
     EXCEPTIONS
       not_found       = 1
-      unknown_version = 2
+      invalid_data    = 2
       OTHERS          = 3.
 
   ev_subrc = sy-subrc.
-  IF sy-subrc <> 0.
-    ev_message = |RS_CUA_INTERNAL_WRITE failed (sy-subrc={ sy-subrc })|.
+  IF ev_subrc <> 0.
+    ev_message = |RS_CUA_INTERNAL_WRITE failed (sy-subrc={ ev_subrc })|.
+    IF sy-msgid IS NOT INITIAL.
+      MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_sap_msg.
+      ev_message = |{ ev_message }: { lv_sap_msg }|.
+    ENDIF.
   ELSE.
     ev_message = |CUA written for { ls_input-program }|.
     ev_result = '{"written":true}'.
