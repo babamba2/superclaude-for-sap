@@ -36,6 +36,7 @@ Settled with the user (2026-10-28) — do not ask again:
 | Topic | Decision |
 |---|---|
 | Layout | The classic workbook: cover (document info, sheet guide, legend, computed summary, checks), 1 business roles, 2 technical roles, 3 business role × T-code (F/C/D), 4 user × business role (X), 5 authorization objects, 6 SoD, 7 change history |
+| Company form | Forms differ by company. The workbook above is the default; on request a **company layout** ([`layout.md`](layout.md)) read from the company's own form (.html / .docx) sets sheet titles and order, columns and headers, own columns, level codes, cover fields, colours, font and logo — editing, CSV, checks and SoD stay the same |
 | Output | ONE self-contained HTML page per document with spreadsheet-style editing (range select, F/C/D/X typed over a range, Excel copy / paste, fill down, undo, rename an ID everywhere) and CSV per sheet. No xlsx |
 | Mode | Always ask: **new design** or **read from SAP** |
 | SAP reads | Role design tables (AGR_DEFINE, AGR_TEXTS, AGR_FLAGS, AGR_AGRS, AGR_TCODES, AGR_1251, AGR_1252) and the assignment table AGR_USERS (**user ID and validity only**). Names, departments and positions of users are typed in the page. USR* tables are never read |
@@ -58,6 +59,6 @@ Role matrix <CODE> · <project> · v<ver> · <new design | read from SAP <SID> (
 Business roles <n> · technical roles <n> · T-codes <n> · users <n> · auth rows <n> · SoD rules <n> (broken <n>)
 Checks: <err> errors · <warn> warnings — <top 3>
 Page: <html>
-Next: edit in the browser → Save → "import <file>", "SoD 규칙 추가 (MM, FI)", "SAP에서 다시 읽기"
+Next: edit in the browser → Save → "import <file>", "SoD 규칙 추가 (MM, FI)", "SAP에서 다시 읽기", "회사 양식 적용 (<form>.docx)"
 ```
 </Output_Format>

@@ -51,7 +51,7 @@ One `AskUserQuestion` (2 options): **새로 설계 (new design)** / **SAP 권한
 
 ## Step 5 — Report
 
-Print the Output_Format block (SKILL.md). Tell the user how to edit: open the page, **편집**, type F/C/D over a selected range, paste from Excel, **저장** → hand the saved file back for `import`.
+Print the Output_Format block (SKILL.md). Tell the user how to edit: open the page, **편집**, type F/C/D over a selected range or click a matrix cell and pick the value, filter a column with ▾ in its header, insert a row above the picked cell (button or right-click), paste from Excel, **저장** → hand the saved file back for `import`.
 
 ## Operations (existing document)
 
@@ -62,6 +62,9 @@ Print the Output_Format block (SKILL.md). Tell the user how to edit: open the pa
 | Add SoD rules of a module | `<B> sod --code <CODE> --modules <M>` |
 | Changes by chat (rename a role, move T-codes, add users) | `Edit` the model, `<B> check`, `<B> build --code <CODE> --note "<what>"` |
 | Final version | `<B> build --code <CODE> --major --note "<what>"` |
+| "use our company form", company form handed over (.html / .docx) | Company layout per [`layout.md`](layout.md): `template` → `columns` → mapping table confirmed by the user → `Write` `<RM>/_layouts/<name>.json` → `layout --code <CODE> --file …` |
+| Back to the default form | `<B> layout --code <CODE> --file none` |
+| A filled-in company workbook (.xlsx) to take over as the document | Layout with `form` blocks per [`layout.md`](layout.md) step 7 → `<B> import-form <file> --code <CODE> --layout …` |
 
 ## Rules
 
