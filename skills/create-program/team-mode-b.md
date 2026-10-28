@@ -6,6 +6,7 @@ Companion to `team-mode.md` (Type A — Phase 1A/2) + `phase4-parallel.md`. Appl
 
 Activates within Wave 2 (G2 Classes, G3 Function Modules) or Wave 3 (G5 Main + Includes) when ALL:
 
+0. **The user opted in** at Phase 3.5 Step 1b — `state.json` → `consultant_live_review: true` ([`execution-mode.md`](execution-mode.md)). Default is off; missing key = off.
 1. `module_set.length ≥ 2` in `plan.md` (multi-module program).
 2. The in-progress code draft references tables/FMs/BAdIs belonging to **≥ 2 distinct modules** (detect via table prefix — `EKKO/EKPO` = MM, `VBAK/VBAP` = SD, `BKPF/BSEG` = FI, `AUFK/CSKS` = CO, etc.).
 3. The code is **novel business logic** (not template fill — skip for text elements, boilerplate screens, standard CRUD).

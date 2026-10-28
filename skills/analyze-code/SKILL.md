@@ -16,13 +16,14 @@ sc4sap:analyze-code provides a comprehensive, severity-rated ABAP code review ba
 <Response_Prefix>
 Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.
 </Response_Prefix>
+<Target_Object>The target object is looked up on the active profile's system only. Not found → stop and ask per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) § Target object not on the active system — never substitute a similar name, never switch profiles on your own.</Target_Object>
 
 <Phase_Banner>
 Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus|Sonnet|Haiku>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention. Resolve the dispatch mode first per [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md): `auto` (default) uses the model below/in the rule; `user-defined` asks the user Opus / Sonnet / Haiku (recommended one first) before each dispatch group.
 </Phase_Banner>
 
 <Team_Mode>
-Type B (Coder ↔ Consultant) teamMode activates between Step 2d (evidence verify) and Step 3 (report) when the verified findings include a **business-alignment** finding (business purpose, business-rule faithfulness, cross-module side-effects — judged by content, not dimension number) AND the object touches 2+ modules. Reviewer becomes Worker, module consultants become Peers; consultants live-validate the reviewer's business-alignment findings. See [`team-mode.md`](team-mode.md). Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Type B.
+Type B (Coder ↔ Consultant) teamMode — **Opt-in, not automatic.** It runs only when (a) the arguments contain `team` (e.g. `/sc4sap:analyze-code ZSDR21500 team`), or (b) the user accepts the offer at the end of Step 3. The offer is made only when the gate below holds: after the report, one `AskUserQuestion` — "Have the <modules> consultants review the N business-alignment findings? (about +$4, +10 min)" — options `Skip (Recommended)` / `Run consultant review`. Business-alignment findings in the report carry a `consultant review recommended` tag either way. Unattended runs never offer it. Gate for the offer: the verified findings include a **business-alignment** finding (business purpose, business-rule faithfulness, cross-module side-effects — judged by content, not dimension number) AND the object touches 2+ modules. Reviewer becomes Worker, module consultants become Peers; consultants live-validate the reviewer's business-alignment findings. See [`team-mode.md`](team-mode.md). Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Type B.
 </Team_Mode>
 
 <Use_When>

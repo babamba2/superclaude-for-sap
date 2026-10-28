@@ -57,6 +57,12 @@ Before each **dispatch group**, ask the user which model to use, then dispatch w
 - Skills with no `Agent(...)` dispatch (e.g. `/sc4sap:sap-option`, `/sc4sap:trust-session`) are unaffected.
 - Team mode (teamMode rounds per `team-consultation-protocol.md`) follows the same rule: each round's parallel member dispatch is one group → one question before that round is dispatched.
 
+## Foreground dispatch — pipeline steps
+
+An `Agent(...)` whose result the next step needs (analyst → writer, reviewer → report, stocker → analyst) is dispatched in the **foreground** (`run_in_background` omitted or `false`). Parallel fan-outs go in ONE message as several foreground calls — they still run concurrently. Use `run_in_background: true` only for work nothing in this run waits on.
+
+Never end a turn while a dispatched agent's result is still pending. In headless runs (`claude -p`, Agent SDK) the run ends with the turn and background agents are stopped (observed 2026-10-26: program-to-spec ended with "the analyst is still running" and no spec).
+
 ## Response prefix
 
 When the mode is `user-defined`, append `· Dispatch: user-defined` to the `[Model: ...]` prefix line so the user can see the mode is active, e.g. `[Model: Opus 5.5 · Dispatched: Sonnet×4 (user) · Dispatch: user-defined]`.

@@ -22,6 +22,15 @@ Legacy (no active-profile.txt): writes go to `<project>/.sc4sap/<category>/<rest
 
 Cross-view reads let a QA-active session open a Dev-produced spec without copying it. The annotation is important: the skill must NEVER silently write back to a file it found through cross-view — that would corrupt the source profile. Treat cross-view reads as immutable.
 
+## Target object not on the active system
+
+The SAP object a skill works on (program, FM, package, table, form) is looked up on the **active profile's system only**.
+
+- Not found → stop and tell the user. Never substitute a similarly named object (e.g. `ZSDM2010` → `ZSDM20100`) and never switch profiles on your own.
+- If a cross-view artifact or another profile suggests where it lives, say so: `ZSDM2010 is not on HKT-DEV. An earlier manual exists under ES-DEV.` Then ask with `AskUserQuestion`: `Switch to <alias> and continue` / `Stop`. Switching follows `/sc4sap:sap-option switch` (pointer + `ReloadProfile`) and is announced in the report.
+- Unattended runs (no user to answer) → stop with that message; do not switch.
+- A similar name is only offered as an option in the question (`Did you mean ZSDM20100?`), never used without an answer.
+
 ## Skill implementation pattern
 
 Before any `Read` of an artifact path, walk the rules above. Pseudocode:

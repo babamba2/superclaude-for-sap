@@ -4,12 +4,12 @@ Companion to `SKILL.md` + `workflow.md`. Applies Type B (Coder ↔ Consultant, a
 
 ## Gating — when teamMode activates
 
-teamMode runs AFTER Step 2 (single reviewer, or detectors + judge) and Step 2d (evidence verify) when ALL:
+teamMode is **opt-in** (`team` argument, or the user accepts the offer after Step 3 — see `SKILL.md` `<Team_Mode>`). It runs AFTER Step 2 (single reviewer, or detectors + judge) and Step 2d (evidence verify). The offer is made only when ALL:
 
 1. The **verified** findings include ≥ 1 **business-alignment** finding — business purpose, business-rule faithfulness, or cross-module side-effects. The reviewer / judge decides this from the finding's content; the dimension numbers in [`analysis-dimensions.md`](analysis-dimensions.md) (§1 Syntax, §2 Naming, §13 Security) are not the trigger.
 2. The analyzed object touches **2+ modules** (imports from FI tables AND MM FM, or similar).
 
-When not satisfied → skip teamMode, proceed to Step 3 legacy report.
+When not satisfied → no offer. With the `team` argument and an unmet gate, say so in one line and skip. When the user accepts after Step 3, run the rounds and then re-issue the Step 3 report with the team annotations (replaces the earlier one).
 
 ## Asymmetric roles
 

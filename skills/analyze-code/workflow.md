@@ -57,7 +57,7 @@ On `BLOCKED` from the reviewer (or the judge in 2c), surface the reason verbatim
 
 After Step 2d, the report in Step 3 counts only verified findings; failed ones go to a closing **Unverified** section with the checker's evidence line.
 
-**teamMode variant (Type B)** — after the reviewer (or judge) returns and Step 2d has run, if its **verified** findings include ≥ 1 business-alignment finding (business purpose, business-rule faithfulness, or cross-module side-effects — judged by the reviewer, not by dimension number) AND the object touches 2+ modules, activate Type B teamMode per [`team-mode.md`](team-mode.md) BEFORE Step 3. Consultants live-validate the reviewer's interpretation; the final report in Step 3 then carries "peer-validated" / "peer-refined" / "residual-divergence" annotations.
+**teamMode variant (Type B)** — after the reviewer (or judge) returns and Step 2d has run, if its **verified** findings include ≥ 1 business-alignment finding (business purpose, business-rule faithfulness, or cross-module side-effects — judged by the reviewer, not by dimension number) AND the object touches 2+ modules: with the `team` argument, run Type B teamMode per [`team-mode.md`](team-mode.md) BEFORE Step 3; otherwise write the Step 3 report first (business-alignment findings tagged `consultant review recommended`) and then offer the review (opt-in, see `SKILL.md` `<Team_Mode>`). Consultants live-validate the reviewer's interpretation; the final report in Step 3 then carries "peer-validated" / "peer-refined" / "residual-divergence" annotations.
 
 ## Step 3 — Report (branching on verified counts)
 
