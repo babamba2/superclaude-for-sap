@@ -12,6 +12,11 @@
 //   node build-role-doc.mjs build --code <CODE> [--same-version | --major] [--note "<text>"]
 //   node build-role-doc.mjs import <saved.html>
 //   node build-role-doc.mjs check --code <CODE>
+//   node build-role-doc.mjs layout --code <CODE> --file <layout.json | none>   company layout on (none = default workbook)
+//   node build-role-doc.mjs columns [--lang ko]                         sheets / columns / cover fields a layout can name
+//   node build-role-doc.mjs template <form.html | .docx | .xlsx> [--out <dir>] tables, headings, colours, fonts, images of a company form
+//   node build-role-doc.mjs import-form <filled.xlsx> --code <CODE> --layout <layout.json> [--project ..] [--force]
+//                                                                       the content of a filled-in company workbook → a new document
 //   common: [--dir <roles folder>] (default <artifactBase>/roles)
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -20,6 +25,7 @@ import { fileURLToPath } from 'node:url';
 import { resolveArtifactBase } from '../lib/profile-resolve.mjs';
 import { normalizeModel, deriveView, nextVersion, arr } from './role-model.mjs';
 import { renderPage } from './role-page.mjs';
+import { checkLayout, columnCatalog, loadLayout } from './role-layout.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const readJson = (f, d) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : d);
@@ -78,11 +84,11 @@ export async function cmdSync({ root, code, patterns, module = '', withUsers = t
   const model = normalizeModel({
     ...old,
     doc: { ...old.doc, ...Object.fromEntries(Object.entries(doc).filter(([, x]) => x)), code, mode: 'sap' },
-    broles: keep(old.broles, 'id', got.broles, ['name', 'nameEn', 'desc', 'tasks', 'org', 'note']),
-    troles: keep(old.troles, 'id', got.troles, ['owner', 'note', 'status']),
-    tcodes: keep(old.tcodes, 'tcode', got.tcodes, ['area', 'note', 'module']),
-    users: keep(old.users, 'uid', got.users, ['empNo', 'name', 'dept', 'pos', 'plant', 'note', 'approval']),
-    auths: got.auths.map((a) => { const o = replace ? null : old.auths.find((y) => y.trole === a.trole && y.object === a.object && y.field === a.field); return o?.note ? { ...a, note: o.note } : a; }),
+    broles: keep(old.broles, 'id', got.broles, ['name', 'nameEn', 'desc', 'tasks', 'org', 'note', 'ext']),
+    troles: keep(old.troles, 'id', got.troles, ['owner', 'note', 'status', 'ext']),
+    tcodes: keep(old.tcodes, 'tcode', got.tcodes, ['area', 'note', 'module', 'ext']),
+    users: keepShared(old.users, keep(old.users, 'uid', got.users, ['empNo', 'name', 'dept', 'pos', 'plant', 'note', 'approval', 'ext'])),
+    auths: got.auths.map((a) => { const o = replace ? null : old.auths.find((y) => y.trole === a.trole && y.object === a.object && y.field === a.field); return o ? { ...a, note: o.note, ext: o.ext } : a; }),
     sod: old.sod,
     source: { system: process.env.SAP_SID || '', readAt: today(), patterns, users: withUsers, roles: rows.define.length },
   });
@@ -90,6 +96,20 @@ export async function cmdSync({ root, code, patterns, module = '', withUsers = t
   writeJson(f.model, model);
   const r = buildDoc({ root, code, note: model.lang === 'en' ? `Read from SAP (${patterns.join(', ')})` : `SAP 역할 읽기 (${patterns.join(', ')})` });
   return { ...r, roles: rows.define.length, readErrors: errors };
+}
+
+/**
+ * A shared user ID (several people on one ID in the workbook) is one user in SAP: keep() fills the first of those
+ * rows; the other rows stay, with what people wrote, and take the roles SAP gives that ID.
+ */
+function keepShared(old, fresh) {
+  if (!old.length) return fresh;
+  const out = [];
+  for (const x of fresh) {
+    out.push(x);
+    for (const o of old.filter((y) => y.uid && y.uid === x.uid).slice(1)) out.push({ ...o, roles: { ...x.roles }, valid: x.valid });
+  }
+  return out;
 }
 
 /** Adds the library SoD rules of the given modules (skips rules already there by kind). */
@@ -108,6 +128,49 @@ export function cmdSod({ root, code, modules }) {
   }
   writeJson(f.model, model);
   return { ...buildDoc({ root, code, sameVersion: true }), added: n };
+}
+
+/** Puts a company layout on the document (or takes it off with "none") and redraws the current version. */
+export function cmdLayout({ root, code, file }) {
+  const f = files(root, code);
+  if (!existsSync(f.model)) throw new Error(`${f.model} not found — init or sync first`);
+  const model = normalizeModel(readJson(f.model));
+  let warnings = [];
+  if (!file) throw new Error('--file <layout.json> or --file none is required');
+  if (file === 'none') model.layout = null;
+  else {
+    const layout = loadLayout(file);
+    const c = checkLayout(layout);
+    if (c.errors.length) throw new Error(`layout ${file}: ${c.errors.join(' | ')}`);
+    warnings = c.warnings;
+    model.layout = layout;
+  }
+  writeJson(f.model, model);
+  return { ...buildDoc({ root, code, sameVersion: true }), layout: model.layout?.name || (model.layout ? file : 'default'), warnings };
+}
+
+/**
+ * A filled-in company workbook → a new document in that company's layout (the layout's `form` blocks say where each
+ * value sits). An existing document is only replaced with --force (the old model is kept as .bak).
+ */
+export async function cmdImportForm({ root, code, file, layoutFile, doc = {}, lang = 'ko', force = false }) {
+  const f = files(root, code);
+  if (existsSync(f.model) && !force) throw new Error(`${f.model} exists — --force replaces it (a .bak copy is kept)`);
+  if (!layoutFile) throw new Error('--layout <layout.json> is required: its `form` blocks say where the values sit');
+  const layout = loadLayout(layoutFile);
+  const c = checkLayout(layout);
+  if (c.errors.length) throw new Error(`layout ${layoutFile}: ${c.errors.join(' | ')}`);
+  const { importForm } = await import('./import-form.mjs');
+  const got = importForm(file, layout, { lang });
+  if (!Object.values(got.counts).some(Boolean)) throw new Error(`nothing read from ${file} — ${got.warnings.join(' | ')}`);
+  mkdirSync(f.dir, { recursive: true });
+  if (existsSync(f.model)) writeFileSync(`${f.model}.bak`, readFileSync(f.model));
+  const model = normalizeModel({ ...got.model, lang, layout, doc: { mode: 'new', ...Object.fromEntries(Object.entries(doc).filter(([, x]) => x)), code } });
+  model.revisions = [];
+  writeJson(f.model, model);
+  const name = file.split(/[\\/]/).pop();
+  const r = buildDoc({ root, code, note: lang === 'en' ? `Taken from the company workbook (${name})` : `회사 양식 파일에서 가져옴 (${name})` });
+  return { ...r, read: got.counts, warnings: [...c.warnings, ...got.warnings] };
 }
 
 /** Page saved in edit mode → model, rebuilt as the version it was saved as. */
@@ -140,8 +203,12 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
     else if (cmd === 'sod') r = cmdSod({ root, code: need(), modules: String(get('--modules') || '').split(/[,\s]+/).filter(Boolean) });
     else if (cmd === 'build') r = buildDoc({ root, code: need(), sameVersion: args.includes('--same-version'), major: args.includes('--major'), note: get('--note') || '' });
     else if (cmd === 'import') r = cmdImport({ html: resolve(args[0]), root });
+    else if (cmd === 'layout') r = cmdLayout({ root, code: need(), file: get('--file') === 'none' ? 'none' : get('--file') ? resolve(get('--file')) : '' });
+    else if (cmd === 'import-form') r = await cmdImportForm({ root, code: need(), file: resolve(args[0]), layoutFile: get('--layout') ? resolve(get('--layout')) : '', doc, lang: get('--lang') || 'ko', force: args.includes('--force') });
+    else if (cmd === 'columns') r = columnCatalog(get('--lang') || 'ko');
+    else if (cmd === 'template') r = (await import('./read-template.mjs')).readTemplate(resolve(args[0]), { out: get('--out') ? resolve(get('--out')) : '' });
     else if (cmd === 'check') { const v = deriveView(readJson(files(root, need()).model)); r = { totals: v.totals, checks: v.checks }; }
-    else { console.error('Usage: node build-role-doc.mjs init|sync|sod|build|import|check … (see the header)'); process.exit(2); }
+    else { console.error('Usage: node build-role-doc.mjs init|sync|sod|build|import|import-form|check|layout|columns|template … (see the header)'); process.exit(2); }
     console.log(JSON.stringify(r));
   })().catch((e) => { console.error(`build-role-doc: ${e.message}`); process.exit(1); });
 }

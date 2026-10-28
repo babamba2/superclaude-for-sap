@@ -14,6 +14,7 @@ export const LABELS = {
     status: { notstarted: '시작 전', inprogress: '진행 중', done: '완료', blocked: '막힘', onhold: '보류' },
     msStatus: { planned: '예정', passed: '통과', conditional: '조건부', failed: '실패' },
     msKind: { qgate: 'Q-gate', golive: 'Go-Live', cutover: '컷오버', signoff: '승인', other: '기타' },
+    tl: { today: '오늘', done: '완료', base: '기준선 날짜', days: '일', months: ['1월', '2월', '3월', '4월', '5월', '6월', '7월', '8월', '9월', '10월', '11월', '12월'] },
     type: { phase: '단계', deliverable: '산출물', task: '작업', wricef: 'WRICEF' },
     stage: { req: '요건', fs: 'FS', ts: 'TS', build: '개발', ut: '단위 테스트', fut: 'FUT', sit: 'SIT', done: '완료' },
     side: { F: '모듈', D: '개발' },
@@ -42,6 +43,7 @@ export const LABELS = {
     status: { notstarted: 'Not started', inprogress: 'In progress', done: 'Done', blocked: 'Blocked', onhold: 'On hold' },
     msStatus: { planned: 'Planned', passed: 'Passed', conditional: 'Conditional', failed: 'Failed' },
     msKind: { qgate: 'Q-gate', golive: 'Go-live', cutover: 'Cutover', signoff: 'Sign-off', other: 'Other' },
+    tl: { today: 'Today', done: 'done', base: 'baseline date', days: 'd', months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'] },
     type: { phase: 'Phase', deliverable: 'Deliverable', task: 'Task', wricef: 'WRICEF' },
     stage: { req: 'Req.', fs: 'FS', ts: 'TS', build: 'Build', ut: 'Unit test', fut: 'FUT', sit: 'SIT', done: 'Done' },
     side: { F: 'Functional', D: 'Development' },
@@ -150,18 +152,64 @@ export function renderKpi(v, L) {
 }
 
 /** Milestones tab: timeline + editable table. */
+// The timeline is drawn at least TL_PX wide (it scrolls on a phone); label widths are estimated on that width so
+// labels on one lane never overlap.
+const TL_PX = 1000;
+const textPx = (s, fs) => [...String(s)].reduce((n, ch) => n + (/[ᄀ-￿]/.test(ch) ? fs : fs * 0.58), 0);
+function monthTicks(s, e, T) {
+  const out = [], [y0, m0] = s.split('-').map(Number), n = (Number(e.slice(0, 4)) - y0) * 12 + Number(e.slice(5, 7)) - m0;
+  const step = n > 36 ? 6 : n > 18 ? 3 : 1;
+  for (let i = 1; i <= n; i++) {
+    const y = y0 + Math.floor((m0 - 1 + i) / 12), m = ((m0 - 1 + i) % 12) + 1;
+    if ((m - 1) % step) continue;
+    out.push({ d: `${y}-${String(m).padStart(2, '0')}-01`, t: T.months[m - 1], y: m === 1 || !out.length ? String(y) : '' });
+  }
+  return out;
+}
 export function renderMilestones(v, L) {
-  const s = v.span.start, e = v.span.end, tot = Math.max(1, days(s, e));
+  const s = v.span.start, e = v.span.end, tot = Math.max(1, days(s, e)), T = L.tl;
   const pos = (d) => Math.max(0, Math.min(100, (days(s, d) / tot) * 100));
-  // A label covers ~20% of the axis (right of its diamond, or left of it near the end): a label that would
-  // overlap the last label of a lane goes to the next lane.
-  const lanes = [], ms = [...v.milestones].sort((a, b) => (a.date < b.date ? -1 : 1)).map(x => {
-    const p = pos(x.date), from = p > 85 ? p - 17 : p - 5, to = p > 85 ? p + 3 : p + 15;
-    let k = lanes.findIndex(end => from >= end); if (k < 0) { k = lanes.length; lanes.push(to); } else lanes[k] = to;
-    return { x, p, k };
+  const done = (x) => !!x.actual || x.status === 'passed';
+  const sub = (x) => (done(x) ? `✓ ${x.actual || x.date}` : `${x.date}${x.slip ? ` (${x.slip > 0 ? '+' : ''}${x.slip}${T.days})` : ''}`);
+  const LANE0 = 90, LANE = 42;
+  // a label takes the first lane where it overlaps no label, its leader line crosses no label above it, and it
+  // covers no leader line coming down from a marker to a lower lane
+  // placed latest first: labels run to the right, so a later marker's label sits in a higher lane and the
+  // leaders of the earlier ones pass under it
+  const placed = [], ms = [...v.milestones].sort((a, b) => (a.date < b.date ? 1 : -1)).map(x => {
+    const p = pos(x.date), px = (p / 100) * TL_PX, w = Math.max(textPx(x.label, 13), textPx(sub(x), 12)) + 14;
+    const top = placed.reduce((n, q) => Math.max(n, q.k + 1), 0);
+    // the label runs right of its marker, or left of it (near the end, or when that gives a higher lane)
+    const lane = (right) => {
+      const from = right ? px - w + 10 : px - 10, to = right ? px + 10 : px - 10 + w;
+      const free = (k) => placed.every(q => q.k !== k || from >= q.to + 6 || to <= q.from - 6);
+      const clear = (k) => placed.every(q => (q.k < k ? px < q.from - 4 || px > q.to + 4 : q.k > k ? q.px < from - 4 || q.px > to + 4 : true));
+      let k = 0; while (k <= top && !(free(k) && clear(k))) k++;
+      // a marker right under an earlier label cannot keep its leader clear: then the first free lane
+      let crossed = false; if (k > top) { k = 0; while (!free(k)) k++; crossed = true; }
+      return { k, from, to, right, crossed };
+    };
+    const opts = [px + w <= TL_PX + 30 && lane(false), px - w >= -40 && lane(true)].filter(Boolean);
+    const best = opts.sort((a, b) => a.crossed - b.crossed || a.k - b.k)[0] || lane(true), k = best.k, right = best.right;
+    const from = best.from, to = best.to;
+    placed.push({ k, from, to, px });
+    return { x, p, k, right };
   });
-  const tl = `<div class="tl-w"><div class="timeline" style="height:${50 + Math.max(1, lanes.length) * 46}px"><div class="tl-axis"></div><div class="tl-today" style="left:${pos(v.today)}%"></div>${ms.map(({ x, p, k }) =>
-    `<div class="tl-ms rag-b-${x.rag}${p > 85 ? ' tl-r' : ''}" style="left:${p}%" title="${esc(x.label)} · ${x.date}"><i></i><span style="top:${22 + k * 46}px">${esc(x.label)}<small>${x.date}</small></span></div>`).join('')}</div></div>`;
+  const lanes = { length: placed.reduce((n, q) => Math.max(n, q.k + 1), 0) };
+  const ticks = monthTicks(s, e, T).map(t => `<div class="tl-tick${t.y ? ' y' : ''}" style="left:${pos(t.d)}%"><span>${esc(t.t)}${t.y ? `<b>${t.y}</b>` : ''}</span></div>`).join('');
+  const today = pos(v.today);
+  const ghosts = ms.filter(({ x }) => !done(x) && x.slip && x.base).map(({ x, p }) => {
+    const b = pos(x.base);
+    return `<div class="tl-slip" style="left:${Math.min(b, p)}%;width:${Math.abs(p - b)}%"></div><div class="tl-base" style="left:${b}%" title="${esc(T.base)} ${x.base}"></div>`;
+  }).join('');
+  const marks = ms.map(({ x, p, k, right }) => {
+    const top = LANE0 + k * LANE;
+    return `<div class="tl-ms k-${esc(x.kind)} rag-b-${x.rag}${done(x) ? ' done' : ''}${right ? ' tl-r' : ''}" style="left:${p}%" title="${esc(x.label)} · ${x.date}"><i></i><span style="top:${top - 28}px;--lead:${top - 40}px">${esc(x.label)}<small>${esc(sub(x))}</small></span></div>`;
+  }).join('');
+  const legend = `<div class="tl-legend"><span><i class="lg k-qgate"></i>${esc(L.msKind.qgate)}</span><span><i class="lg k-golive"></i>${esc(L.msKind.golive)}</span><span><i class="lg k-signoff"></i>${esc(L.msKind.signoff)} · ${esc(L.msKind.other)}</span>`
+    + `<span class="sep"></span>${['red', 'amber', 'green'].map(r => `<span><i class="lg c rag-b-${r}"></i>${esc(L.rag[r])}</span>`).join('')}<span>✓ ${esc(T.done)}</span><span><i class="lg base"></i>${esc(T.base)}</span><span><i class="lg now"></i>${esc(T.today)}</span></div>`;
+  const tl = `<div class="tl-w"><div class="timeline" style="height:${LANE0 + Math.max(1, lanes.length) * LANE + 4}px"><div class="tl-track"><div class="tl-past" style="width:${today}%"></div></div>${ticks}`
+    + `<div class="tl-today" style="left:${today}%"><b>${esc(T.today)} ${esc(String(v.today).slice(5))}</b></div>${ghosts}${marks}</div></div>${legend}`;
   const rows = v.milestones.map(x => [
     ed('m', x.id, 'label', 'text', esc(x.label)), esc(L.msKind[x.kind]), ed('m', x.id, 'base', 'date', x.base),
     ed('m', x.id, 'forecast', 'date', x.forecast || ''), ed('m', x.id, 'actual', 'date', x.actual || ''), slip(x.slip, L),

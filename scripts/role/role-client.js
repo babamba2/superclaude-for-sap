@@ -12,10 +12,10 @@ var $ = function (s, r) { return (r || document).querySelector(s); };
 var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 var DATA = JSON.parse($('#role-model').textContent);
 var model = normalizeModel(DATA.model), version = DATA.version || '0.1', built = JSON.stringify(model);
-var view = null, L = labelsFor(model.lang), cur = 'cover', editing = false, undoS = [], redoS = [], dirty = 0, fileHandle = null;
+var view = null, L = labelsFor(model.lang, model.layout), VS = sheetsOf(L), cur = 'cover', editing = false, undoS = [], redoS = [], dirty = 0, fileHandle = null;
 var sel = null; // { s: sheet, r0, c0, r1, c1 } — indexes into the visible rows / columns of the sheet's table
 var ed = null;  // the open cell editor { input, s, i, k }
-var queries = {};
+var queries = {}, filters = {}; // filters[sheet][column key] = { vals: [...] } | { q: 'text' }
 var DRAFT = 'sc4sap-role-' + model.doc.code + '-' + version;
 var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
@@ -27,14 +27,14 @@ function fmt(s, o) { return String(s).replace(/\{(\w+)\}/g, function (_, k) { re
 // ---------- drawing ----------
 // Only the open sheet is drawn; the others are redrawn when they are opened (a synced matrix is large).
 var pages = {}, cpages = {}, stale = {}, viewOf = null;
-function viewOpts() { var vw = {}; SHEETS.forEach(function (x) { vw[x] = { q: queries[x] || '', page: pages[x] || 0, cpage: cpages[x] || 0 }; }); return vw; }
+function viewOpts() { var vw = {}; VS.forEach(function (x) { vw[x] = { q: queries[x] || '', page: pages[x] || 0, cpage: cpages[x] || 0, f: filters[x] || null }; }); return vw; }
 function draw() {
   var s = sheetNow(), g0 = s && $('#tab-' + s + ' .gw'), keep = g0 ? [g0.scrollLeft, g0.scrollTop] : null;
   // the counts, totals and checks are worked out again only when the model changed (not on a page turn)
   if (!view || viewOf !== model) { view = deriveView(model); viewOf = model; }
   var a = renderAll(model, { version: version, date: model.doc.date, only: s ? [s] : [], view: viewOpts(), v: view });
   $('#tab-cover .body').innerHTML = a.cover;
-  SHEETS.forEach(function (x) { stale[x] = x !== s; });
+  VS.forEach(function (x) { stale[x] = x !== s; });
   if (s) {
     $('#tab-' + s + ' .body').innerHTML = a[s];
     var g = $('#tab-' + s + ' .gw'); if (g && keep) { g.scrollLeft = keep[0]; g.scrollTop = keep[1]; }
@@ -43,19 +43,22 @@ function draw() {
 }
 // Rows of a sheet after the search, the page size and the page shown (clamped like renderSheet).
 function pageInfo(s) {
-  var hits = sheetRows(s, view, L, queries[s] || ''), size = pageSize(shownColumns(s, view, L, cpages[s] || 0).cols), n = Math.max(1, Math.ceil(hits.length / size));
+  var hits = sheetRows(s, view, L, queries[s] || '', filters[s] || null), size = pageSize(shownColumns(s, view, L, cpages[s] || 0).cols), n = Math.max(1, Math.ceil(hits.length / size));
   var pg = Math.min(Math.max(0, pages[s] || 0), n - 1);
   return { hits: hits, size: size, pg: pg, pages: n, start: pg * size };
 }
 // Turns to the page that holds model row i of sheet s; returns its index among the visible rows.
 function showIdx(s, i) {
   var p = pageInfo(s), at = p.hits.indexOf(i);
-  if (at < 0) { queries[s] = ''; var inp = $('.stools input[data-s="' + s + '"]'); if (inp) inp.value = ''; p = pageInfo(s); at = p.hits.indexOf(i); }
+  var cleared = at < 0 && (queries[s] || Object.keys(filters[s] || {}).length);
+  if (cleared) toast(E.fCleared);
+  if (at < 0) { queries[s] = ''; filters[s] = {}; var inp = $('.stools input[data-s="' + s + '"]'); if (inp) inp.value = ''; p = pageInfo(s); at = p.hits.indexOf(i); }
   if (at < 0) return -1;
-  var pg = Math.floor(at / p.size); if (pg !== p.pg || stale[s]) { pages[s] = pg; draw(); }
+  var pg = Math.floor(at / p.size); if (pg !== p.pg || stale[s] || cleared) { pages[s] = pg; draw(); }
   return at - pg * p.size;
 }
 document.addEventListener('click', function (ev) {
+  var fc = ev.target.closest('.pager button[data-fclear]'); if (fc) { filters[fc.dataset.fclear] = {}; pages[fc.dataset.fclear] = 0; sel = null; draw(); return; }
   var b = ev.target.closest('.pager button[data-pg], .pager button[data-cpg]'); if (!b || b.disabled) return;
   var s = b.closest('.pager').dataset.s, col = b.dataset.cpg != null; closeEditor(); sel = null;
   if (col) cpages[s] = +b.dataset.cpg; else pages[s] = +b.dataset.pg;
@@ -64,12 +67,14 @@ document.addEventListener('click', function (ev) {
 // The number column and the key column (plus the T-code text on wide screens) stay on the left while scrolling.
 function stick() {
   $$('section.tab.on table.grid').forEach(function (t) {
-    var ths = $$('thead th', t), left = 0, wide = window.innerWidth > 760;
+    // header rows stack: each row sticks below the ones above it
+    var y = 0; $$('thead tr', t).forEach(function (tr) { $$('th', tr).forEach(function (th) { th.style.top = y + 'px'; }); y += tr.offsetHeight; });
+    var ths = $$('thead tr.hd th', t), left = 0, wide = window.innerWidth > 760;
     ths.forEach(function (th, j) {
       var c = th.dataset.c, on = j === 0 || th.classList.contains('key') || (wide && t.dataset.s === 'tcodes' && c === 'text') || (wide && t.dataset.s === 'users' && c === 'name');
       if (!on) return;
       var x = left; left += th.offsetWidth;
-      $$('tr > :nth-child(' + (j + 1) + ')', t).forEach(function (td) { if (td.colSpan > 1) return; td.classList.add('stk'); td.style.left = x + 'px'; });
+      $$('tr:not(.grp) > :nth-child(' + (j + 1) + ')', t).forEach(function (td) { if (td.colSpan > 1) return; td.classList.add('stk'); td.style.left = x + 'px'; });
     });
   });
 }
@@ -113,8 +118,9 @@ function cols(s) { return sheetColumns(s, view, L); }
 function colOf(s, k) { return cols(s).filter(function (c) { return c.k === k; })[0]; }
 function raw(s, i, k) {
   var r = list(s)[i]; if (!r) return '';
-  if (k.indexOf('L:') === 0) return (r.levels || {})[k.slice(2)] || '';
+  if (k.indexOf('L:') === 0) { var lx = (r.levels || {})[k.slice(2)] || ''; return (lx && L.lvOut && L.lvOut[lx]) || lx; }
   if (k.indexOf('X:') === 0) return (r.roles || {})[k.slice(2)] ? 'X' : '';
+  if (k.indexOf('e:') === 0) return (r.ext || {})[k.slice(2)] || '';
   var v = r[k]; return Array.isArray(v) ? v.join(', ') : v == null ? '' : String(v);
 }
 function blank(s) {
@@ -132,8 +138,10 @@ function setVal(s, i, k, v) {
   var c = colOf(s, k); if (!c || c.type === 'ro') return false;
   var rows = list(s); while (rows.length <= i) rows.push(blank(s));
   var r = rows[i]; v = v == null ? '' : String(v).trim();
-  if (c.type === 'level') { var u = v.toUpperCase(); r.levels = r.levels || {}; if (LEVELS.indexOf(u) >= 0) r.levels[c.role] = u; else delete r.levels[c.role]; r.guess = false; return true; }
+  // a company layout shows its own level codes and mark; the model keeps F / C / D and X
+  if (c.type === 'level') { var u = L.lvIn ? L.lvIn[v.toUpperCase()] || '' : v.toUpperCase(); r.levels = r.levels || {}; if (LEVELS.indexOf(u) >= 0) r.levels[c.role] = u; else if (!v) delete r.levels[c.role]; else return false; r.guess = false; return true; }
   if (c.type === 'x') { r.roles = r.roles || {}; if (v && v !== '0' && v.toUpperCase() !== 'N') r.roles[c.role] = 'X'; else delete r.roles[c.role]; return true; }
+  if (c.ext) { r.ext = r.ext || {}; if (c.type === 'num') v = v === '' ? '' : String(Number(v.replace(/,/g, '')) || 0); if (v) r.ext[k.slice(2)] = v; else delete r.ext[k.slice(2)]; return true; }
   if (c.type === 'list') { r[k] = v.split(/[,;\s]+/).map(function (x) { return x.trim().toUpperCase(); }).filter(Boolean); return true; }
   if (c.type === 'num') { r[k] = v === '' ? '' : Number(v.replace(/,/g, '')) || 0; return true; }
   if (c.type === 'enum' && c.lab) { for (var key in c.lab) if (c.lab[key] === v) v = key; if (c.opts.indexOf(v) < 0 && v) return false; }
@@ -155,7 +163,7 @@ $('#undo').onclick = undo;
 // ---------- selection ----------
 function grid(s) { return $('table[data-s="' + (s || cur) + '"]'); }
 function vrows(s) { var t = grid(s); return t ? $$('tbody tr', t).filter(function (tr) { return tr.style.display !== 'none'; }) : []; }
-function vcols(s) { var t = grid(s); return t ? $$('thead th', t).slice(1).map(function (th) { return th.dataset.c; }) : []; }
+function vcols(s) { var t = grid(s); return t ? $$('thead tr.hd th', t).slice(1).map(function (th) { return th.dataset.c; }) : []; }
 function td(s, ri, ci) { var tr = vrows(s)[ri], k = vcols(s)[ci]; return tr && k ? $('td[data-c="' + cssq(k) + '"]', tr) : null; }
 function cssq(s) { return String(s).replace(/["\\]/g, '\\$&'); }
 function pos(cell) { var tr = cell.closest('tr'), s = cell.closest('table').dataset.s; return { s: s, r: vrows(s).indexOf(tr), c: vcols(s).indexOf(cell.dataset.c) }; }
@@ -171,7 +179,7 @@ function paintSel() {
 function select(s, r, c, extend) {
   var R = vrows(s).length - 1, C = vcols(s).length - 1;
   // moving past the first / last row of a page turns the page (Ctrl+arrow: to the first / last page)
-  if (!extend && SHEETS.indexOf(s) >= 0 && (r > R || r < 0)) {
+  if (!extend && VS.indexOf(s) >= 0 && (r > R || r < 0)) {
     var p = pageInfo(s), down = r > R, jump = down ? r > R + 1 : r < -1;
     var np = jump ? (down ? p.pages - 1 : 0) : p.pg + (down ? 1 : -1);
     if (np !== p.pg && np >= 0 && np < p.pages) {
@@ -203,7 +211,7 @@ document.addEventListener('mousedown', function (ev) {
 document.addEventListener('mouseover', function (ev) { if (!drag) return; var cell = ev.target.closest('.grid tbody td'); if (!cell || cell === drag.cell) return; var p = pos(cell); if (p.c >= 0 && p.s === sel.s) { drag.moved = true; select(p.s, p.r, p.c, true); } });
 document.addEventListener('mouseup', function () {
   var d = drag; drag = null; if (!d || d.moved || !editing || d.cell.closest('tr').classList.contains('ft')) return;
-  if (d.cell.classList.contains('lv') || d.cell.classList.contains('xx')) cycle(d.cell);
+  if (d.cell.classList.contains('lv')) openLevels(d.cell); else if (d.cell.classList.contains('xx')) cycle(d.cell);
 });
 document.addEventListener('dblclick', function (ev) { var cell = ev.target.closest('.grid tbody td'); if (cell && !cell.classList.contains('lv') && !cell.classList.contains('xx')) startEdit(''); });
 // Touch: a tap selects; a tap on the selected cell edits (a level / X cell cycles in edit mode).
@@ -217,12 +225,14 @@ document.addEventListener('touchend', function (ev) {
   var p = pos(cell); if (p.c < 0) return;
   var again = sel && sel.s === p.s && sel.r1 === p.r && sel.c1 === p.c && sel.r0 === p.r && sel.c0 === p.c;
   closeEditor(true); select(p.s, p.r, p.c, false);
-  if (cell.classList.contains('lv') || cell.classList.contains('xx')) { if (editing) cycle(cell); else if (again) needEdit(function () { cycle(td(p.s, p.r, p.c)); }); }
+  var pick = function (x) { if (x.classList.contains('lv')) openLevels(x); else cycle(x); };
+  if (cell.classList.contains('lv') || cell.classList.contains('xx')) { if (editing) pick(cell); else if (again) needEdit(function () { pick(td(p.s, p.r, p.c)); }); }
   else if (again) startEdit('');
 }, { passive: false });
 
 // Header of a role column (matrix sheets): rename the business role in place.
 document.addEventListener('click', function (ev) {
+  if (ev.target.closest('.flt')) return;
   var th = ev.target.closest('.grid thead th.mx'); if (!th || !editing) return;
   var id = th.dataset.c.slice(2), i = model.broles.map(function (b) { return b.id; }).indexOf(id);
   if (i >= 0) { tab('broles'); setTimeout(function () { var r = showIdx('broles', i); if (r >= 0) { select('broles', r, 0); startEdit(''); } }, 0); }
@@ -231,7 +241,8 @@ document.addEventListener('click', function (ev) {
 function needEdit(then) { if (editing) { then(); return; } setEditing(true); toast(E.editOn); then(); }
 function cycle(cell) {
   var p = pos(cell), i = rowIdx(p.s, p.r), k = vcols(p.s)[p.c], v = raw(p.s, i, k);
-  var nv = cell.classList.contains('xx') ? (v ? '' : 'X') : ({ F: 'C', C: 'D', D: '' })[v] != null ? ({ F: 'C', C: 'D', D: '' })[v] : 'F';
+  var iv = L.lvIn ? L.lvIn[String(v).toUpperCase()] || '' : v, nx = ({ F: 'C', C: 'D', D: '' })[iv] != null ? ({ F: 'C', C: 'D', D: '' })[iv] : 'F';
+  var nv = cell.classList.contains('xx') ? (v ? '' : 'X') : L.single ? (v ? '' : 'F') : (nx && L.lvOut && L.lvOut[nx]) || nx;
   snap(); setVal(p.s, i, k, nv); changed(); select(p.s, p.r, p.c);
 }
 // Writes one value to every cell of the selection (skips computed cells).
@@ -280,6 +291,7 @@ function addRows(where) {
   needEdit(function () {
     var s = sheetNow(); if (!s) return; snap();
     var rows = list(s), at = rows.length;
+    if (where === 'above' && !sel) { toast(E.needSel); return; }
     if (sel && where !== 'end') { var g = range(); at = (where === 'above' ? rowIdx(s, g.r0) : rowIdx(s, g.r1) + 1); }
     rows.splice(at, 0, blank(s)); changed();
     var r = showIdx(s, at); if (r >= 0) select(s, r, 0);
@@ -302,7 +314,7 @@ function moveRows(d) {
     sel.r0 += d; sel.r1 += d; paintSel();
   });
 }
-function sheetNow() { return SHEETS.indexOf(cur) >= 0 ? cur : null; }
+function sheetNow() { return VS.indexOf(cur) >= 0 ? cur : null; }
 $$('[data-act]').forEach(function (b) {
   b.onclick = function () {
     var a = b.dataset.act;
@@ -310,6 +322,101 @@ $$('[data-act]').forEach(function (b) {
     else if (a === 'csv') csv(); else if (a === 'role') needEdit(function () { snap(); model.broles.push(blank('broles')); changed(); toast(fmt(E.roleAdded, { x: model.broles[model.broles.length - 1].id })); });
     else if (a === 'fill') { var v = b.dataset.v; needEdit(function () { fill(v); }); }
   };
+});
+
+// ---------- pop-ups: value choice, column filter, row menu ----------
+var pop = null;
+function closePop() { if (pop) { pop.remove(); pop = null; } }
+// Opens a pop-up under el (or at the point pt), kept inside the window.
+function popAt(el, html, pt) {
+  closePop(); pop = document.createElement('div'); pop.className = 'pop'; pop.innerHTML = html; document.body.appendChild(pop);
+  var b = el.getBoundingClientRect(), w = pop.offsetWidth, h = pop.offsetHeight, x = pt ? pt.x : b.left, y = pt ? pt.y : b.bottom + 2;
+  if (y + h > window.innerHeight - 8) y = Math.max(8, (pt ? pt.y : b.top) - h - 2);
+  pop.style.left = Math.max(8, Math.min(x, window.innerWidth - w - 8)) + 'px'; pop.style.top = y + 'px';
+  return pop;
+}
+['mousedown', 'touchstart'].forEach(function (t) { document.addEventListener(t, function (ev) { if (pop && !pop.contains(ev.target)) closePop(); }, { capture: true, passive: true }); });
+document.addEventListener('scroll', function (ev) { if (pop && !pop.contains(ev.target)) closePop(); }, true);
+window.addEventListener('resize', closePop);
+
+// A matrix cell: the levels to choose from (the company's codes when a layout sets them), for the whole selection.
+function legendText(k) { var r = L.cover.legendRows.filter(function (x) { return (x[2] || x[0]) === k; })[0]; return r ? r[1] : ''; }
+function openLevels(cell) {
+  var p0 = pos(cell), i = rowIdx(p0.s, p0.r), k = vcols(p0.s)[p0.c], r = list(p0.s)[i] || {}, now = (r.levels || {})[k.slice(2)] || '';
+  var opts = (L.single ? ['F'] : LEVELS).map(function (x) { return [x, (L.lvOut && L.lvOut[x]) || x, legendText(x)]; }).concat([['', '∅', E.pickBlank]]);
+  var p = popAt(cell, '<div class="lvm">' + opts.map(function (o) {
+    var on = L.single ? (o[0] ? !!now : !now) : o[0] === now;
+    return '<button data-lv="' + o[0] + '"' + (on ? ' class="cur"' : '') + '><b class="' + (o[0] ? 'lv lv-' + o[0] : '') + '">' + esc(o[1]) + '</b>' + esc(o[2]) + '</button>';
+  }).join('') + '</div>');
+  ($('.lvm button.cur', p) || $('.lvm button', p)).focus();
+  p.onclick = function (ev) { var b = ev.target.closest('[data-lv]'); if (!b) return; closePop(); fill(b.dataset.lv); };
+}
+
+// Column filter: the values the column shows (with their row counts) to tick, or a text the value contains.
+document.addEventListener('click', function (ev) {
+  var btn = ev.target.closest('.grid th .flt'); if (!btn) return;
+  ev.preventDefault(); ev.stopPropagation(); closeEditor();
+  if (pop && pop.dataset.f === btn.dataset.f) { closePop(); return; }
+  openFilter(btn);
+});
+function openFilter(btn) {
+  var s = btn.closest('table').dataset.s, k = btn.dataset.f, col = colOf(s, k); if (!col) return;
+  var now = (filters[s] || {})[k] || {}, vals = columnValues(s, view, L, k), MAX = 300;
+  var chosen = {}; vals.forEach(function (v) { chosen[v[0]] = !now.vals || now.vals.indexOf(v[0]) >= 0; });
+  var p = popAt(btn, '<div class="ph">' + esc(col.h) + '</div><input type="search" class="fq" placeholder="' + esc(E.fHas) + '">'
+    + '<label class="fa"><input type="checkbox"> ' + esc(E.fAll) + '</label><div class="fl"></div>'
+    + '<div class="pb"><button class="fno">' + esc(E.fClear) + '</button><button class="fok">' + esc(E.fApply) + '</button></div>');
+  p.dataset.f = k;
+  var q = $('.fq', p); q.value = now.q || '';
+  var shown = function () { var t = q.value.trim().toLowerCase(); return vals.filter(function (v) { return !t || v[0].toLowerCase().indexOf(t) >= 0; }); };
+  function paint() {
+    var sh = shown();
+    $('.fl', p).innerHTML = sh.slice(0, MAX).map(function (v) { return '<label><input type="checkbox" data-v="' + esc(v[0]) + '"' + (chosen[v[0]] ? ' checked' : '') + '> ' + esc(v[0] || E.fBlank) + '<small>' + v[1] + '</small></label>'; }).join('')
+      + (sh.length > MAX ? '<p class="muted">' + esc(fmt(E.fMore, { n: sh.length - MAX })) + '</p>' : '');
+    $('.fa input', p).checked = sh.length > 0 && sh.every(function (v) { return chosen[v[0]]; });
+  }
+  paint();
+  q.oninput = paint;
+  q.onkeydown = function (e) { if (e.key === 'Enter') { e.preventDefault(); $('.fok', p).click(); } };
+  $('.fa input', p).onchange = function () { var on = this.checked; shown().forEach(function (v) { chosen[v[0]] = on; }); paint(); };
+  $('.fl', p).onchange = function (e) { var c = e.target.closest('input[data-v]'); if (c) { chosen[c.dataset.v] = c.checked; paint(); } };
+  var apply = function (f) { filters[s] = filters[s] || {}; if (f) filters[s][k] = f; else delete filters[s][k]; pages[s] = 0; sel = null; closePop(); draw(); };
+  $('.fno', p).onclick = function () { apply(null); };
+  $('.fok', p).onclick = function () {
+    // a search text keeps the ticked values among those it finds; no text = the ticked values; everything ticked = no filter
+    var sh = shown(), keep = (q.value.trim() ? sh : vals).filter(function (v) { return chosen[v[0]]; }).map(function (v) { return v[0]; });
+    apply(keep.length === vals.length ? null : { vals: keep });
+  };
+  q.focus();
+}
+
+// The filter row: typing filters as you type (the box keeps its focus across the redraw); a matrix column's choice
+// filters at once.
+function setFilter(s, k, f) { filters[s] = filters[s] || {}; if (f) filters[s][k] = f; else delete filters[s][k]; pages[s] = 0; sel = null; }
+document.addEventListener('input', function (ev) {
+  var inp = ev.target.closest('input.fin'); if (!inp) return;
+  var s = inp.closest('table').dataset.s, k = inp.dataset.f;
+  clearTimeout(inp.t);
+  inp.t = setTimeout(function () {
+    var at = inp.selectionStart; setFilter(s, k, inp.value.trim() ? { q: inp.value } : null); draw();
+    var again = $('table[data-s="' + s + '"] input.fin[data-f="' + cssq(k) + '"]'); if (again) { again.focus(); try { again.setSelectionRange(at, at); } catch (e) { /* not a text box */ } }
+  }, 220);
+});
+document.addEventListener('change', function (ev) {
+  var sl = ev.target.closest('select.fin'); if (!sl) return;
+  var s = sl.closest('table').dataset.s, k = sl.dataset.f, v = sl.value;
+  setFilter(s, k, v === '1' ? { has: true } : v === '0' ? { has: false } : v.indexOf('v:') === 0 ? { vals: [v.slice(2)] } : null); draw();
+});
+
+// Right-click on a cell: insert a row above / below it, delete the selected rows.
+document.addEventListener('contextmenu', function (ev) {
+  var cell = ev.target.closest('.grid tbody td'); if (!cell || cell.closest('tr').classList.contains('ft')) return;
+  var p0 = pos(cell); if (p0.c < 0) return;
+  ev.preventDefault(); closeEditor();
+  var g = range(); if (!(sel && sel.s === p0.s && g && p0.r >= g.r0 && p0.r <= g.r1)) select(p0.s, p0.r, p0.c);
+  var p = popAt(cell, '<div class="lvm"><button data-m="above">' + esc(E.insAbove) + '</button><button data-m="below">' + esc(E.insBelow) + '</button><button data-m="del">' + esc(E.del) + '</button></div>', { x: ev.clientX, y: ev.clientY });
+  $('.lvm button', p).focus();
+  p.onclick = function (e) { var b = e.target.closest('[data-m]'); if (!b) return; closePop(); if (b.dataset.m === 'del') delRows(); else addRows(b.dataset.m); };
 });
 
 // ---------- clipboard ----------
@@ -344,6 +451,13 @@ document.addEventListener('keydown', function (ev) {
   if ($('#save-dlg').open) return;
   var k = ev.key, mod = ev.ctrlKey || ev.metaKey;
   if (mod && k.toLowerCase() === 's') { ev.preventDefault(); save(); return; }
+  if (pop) {
+    if (k === 'Escape') { ev.preventDefault(); closePop(); return; }
+    var bs = $$('.lvm button', pop), at = bs.indexOf(document.activeElement);
+    if (bs.length && (k === 'ArrowDown' || k === 'ArrowUp')) { ev.preventDefault(); bs[(at + (k === 'ArrowDown' ? 1 : bs.length - 1)) % bs.length].focus(); return; }
+    if (pop.contains(ev.target)) return;
+    closePop();
+  }
   if (ed || isField(ev.target)) return;
   if (k === '?' ) { $('#help').classList.add('on'); return; }
   if (k === 'Escape') { $('#help').classList.remove('on'); sel = null; paintSel(); return; }
@@ -363,9 +477,10 @@ document.addEventListener('keydown', function (ev) {
   var cell = td(sel.s, sel.r1, sel.c1);
   if (cell && (cell.classList.contains('lv') || cell.classList.contains('xx')) && !mod && k.length === 1) {
     var u = k.toUpperCase(); ev.preventDefault();
-    if (k === ' ') { needEdit(function () { cycle(cell); }); return; }
-    if (cell.classList.contains('lv') && LEVELS.indexOf(u) >= 0) { needEdit(function () { fill(u); }); return; }
-    if (cell.classList.contains('xx') && (u === 'X' || u === 'O' || u === '1')) { needEdit(function () { fill('X'); }); return; }
+    if (k === ' ') { needEdit(function () { if (cell.classList.contains('lv')) openLevels(cell); else cycle(cell); }); return; }
+    var lv = L.lvIn ? L.lvIn[u] : LEVELS.indexOf(u) >= 0 ? u : '';
+    if (cell.classList.contains('lv') && lv) { needEdit(function () { fill(L.single ? lv : (L.lvOut && L.lvOut[lv]) || lv); }); return; }
+    if (cell.classList.contains('xx') && (u === 'X' || u === 'O' || u === '1' || (L.mark && u === L.mark.toUpperCase()))) { needEdit(function () { fill('X'); }); return; }
     return;
   }
   if (!mod && !ev.altKey && k.length === 1) { ev.preventDefault(); startEdit(k); }
@@ -431,8 +546,8 @@ function pageHtml(from) {
   var data = JSON.stringify({ model: model, version: version, builtFrom: DATA.builtFrom || from, savedFrom: from }).replace(/</g, '\\u003c');
   doc.querySelector('#role-model').textContent = data;
   // sheets not opened since the last change still hold old tables; the saved file gets every sheet as it is now
-  var a = renderAll(model, { version: version, date: model.doc.date, only: SHEETS.filter(function (x) { return stale[x]; }), view: viewOpts(), v: view });
-  SHEETS.forEach(function (x) { if (stale[x]) doc.querySelector('#tab-' + x + ' .body').innerHTML = a[x]; });
+  var a = renderAll(model, { version: version, date: model.doc.date, only: VS.filter(function (x) { return stale[x]; }), view: viewOpts(), v: view });
+  VS.forEach(function (x) { if (stale[x]) doc.querySelector('#tab-' + x + ' .body').innerHTML = a[x]; });
   var b = doc.querySelector('body'); b.classList.remove('editing'); b.removeAttribute('style');
   $$('.cell-ed, .cover-ed', doc).forEach(function (x) { x.remove(); });
   $$('.sel, .cur', doc).forEach(function (x) { x.classList.remove('sel', 'cur'); });

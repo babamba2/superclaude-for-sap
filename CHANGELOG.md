@@ -5,6 +5,26 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.53] — 2026-10-29
+
+### Added — role-matrix company forms
+
+- A company layout over the default workbook (`<RM>/_layouts/<name>.json`, kept on the customer side): sheet titles and order, columns and the company's own columns, level codes or one access mark for every level (`levelMark`), the assignment mark, header bands over several columns (`groups`), cover fields, colours, font and logo. Editing, paging, search, CSV, checks and SoD work the same on every layout.
+- `template` reads a company form (`.xlsx`, `.docx`, `.html`): tables, merged cells, fills, fonts, pictures; an `.xlsx` gives row numbers and column letters.
+- `import-form`: a filled-in company workbook becomes an editable document through the layout's `form` blocks (column letter → key, the row of role IDs over the marks); menu levels written once per block are filled down.
+- `layout --file none` returns to the default workbook.
+
+### Changed — role-matrix editor
+
+- A filter row under every sheet header: contains-text per column, any / blank (and the level codes) per role column; ▾ in a header picks values from a list. CSV exports the filtered rows.
+- A matrix cell offers its values to pick instead of cycling F → C → D → blank.
+- "Insert row" puts the row above the picked cell; right-click on a cell: insert above / below, delete.
+- A user ID on several rows (a shared ID) is a warning, and `sync` keeps those rows.
+
+### Changed — project-dashboard
+
+- Milestone timeline: month ticks, a today tag, labels on one line that never overlap or get crossed by leader lines, shapes per milestone kind, done check mark, baseline and slip, legend; opens at today on a phone.
+
 ## [0.6.52] — 2026-10-29
 
 ### Added — project-dashboard

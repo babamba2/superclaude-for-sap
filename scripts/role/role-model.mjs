@@ -24,27 +24,31 @@ export const ORG_LEVELS = ['Company Code', 'Plant', 'Planning Plant', 'Sales Org
 const str = (v) => (v == null ? '' : String(v).trim());
 const up = (v) => str(v).toUpperCase();
 const pick = (v, list, d) => (list.includes(v) ? v : d);
+// Values of the company layout's own columns (layout column `e:<name>`), per row.
+const ext = (v) => Object.fromEntries(Object.entries(v && typeof v === 'object' && !Array.isArray(v) ? v : {}).map(([k, x]) => [k, str(x)]).filter(([, x]) => x));
 
 /** Fills defaults so every sheet can be drawn from a partial model (new drafts, SAP reads, edited pages). */
 export function normalizeModel(m = {}) {
   const doc = { project: '', system: '', module: '', author: '', org: '', date: '', reviewer: '', code: 'ROLES', mode: 'new', ...(m.doc || {}) };
   doc.code = str(doc.code) || 'ROLES';
   const broles = arr(m.broles).map((b, i) => ({ id: str(b.id) || `R-${String(i + 1).padStart(2, '0')}`, name: str(b.name), nameEn: str(b.nameEn), module: str(b.module),
-    desc: str(b.desc), tasks: str(b.tasks), org: str(b.org), troles: arr(b.troles).map(up).filter(Boolean), users: b.users === '' || b.users == null ? '' : Number(b.users) || 0, note: str(b.note) }));
+    desc: str(b.desc), tasks: str(b.tasks), org: str(b.org), troles: arr(b.troles).map(up).filter(Boolean), users: b.users === '' || b.users == null ? '' : Number(b.users) || 0, note: str(b.note), ext: ext(b.ext) }));
   const troles = arr(m.troles).map((t) => ({ id: up(t.id), desc: str(t.desc), type: pick(t.type, ROLE_TYPES, 'Single'), parent: up(t.parent), module: str(t.module),
     brole: str(t.brole), orgLevel: str(t.orgLevel), orgValue: str(t.orgValue), owner: str(t.owner), status: pick(t.status, TROLE_STATUS, 'design'),
-    children: arr(t.children).map(up).filter(Boolean), note: str(t.note), sap: t.sap || null }));
+    children: arr(t.children).map(up).filter(Boolean), note: str(t.note), sap: t.sap || null, ext: ext(t.ext) }));
   const tcodes = arr(m.tcodes).map((c) => ({ tcode: up(c.tcode), module: str(c.module), area: str(c.area), text: str(c.text),
-    levels: Object.fromEntries(Object.entries(c.levels || {}).map(([k, v]) => [k, up(v)]).filter(([, v]) => LEVELS.includes(v))), note: str(c.note), guess: !!c.guess }));
+    levels: Object.fromEntries(Object.entries(c.levels || {}).map(([k, v]) => [k, up(v)]).filter(([, v]) => LEVELS.includes(v))), note: str(c.note), guess: !!c.guess, ext: ext(c.ext) }));
   const users = arr(m.users).map((u) => ({ empNo: str(u.empNo), uid: up(u.uid), name: str(u.name), dept: str(u.dept), pos: str(u.pos), plant: str(u.plant),
     roles: Object.fromEntries(Object.entries(u.roles || {}).filter(([, v]) => v === true || up(v) === 'X').map(([k]) => [k, 'X'])),
-    approval: pick(u.approval, APPROVAL, 'pending'), note: str(u.note), valid: str(u.valid) }));
-  const auths = arr(m.auths).map((a) => ({ trole: up(a.trole), object: up(a.object), objText: str(a.objText), field: up(a.field), fieldText: str(a.fieldText), value: str(a.value), note: str(a.note) }));
+    approval: pick(u.approval, APPROVAL, 'pending'), note: str(u.note), valid: str(u.valid), ext: ext(u.ext) }));
+  const auths = arr(m.auths).map((a) => ({ trole: up(a.trole), object: up(a.object), objText: str(a.objText), field: up(a.field), fieldText: str(a.fieldText), value: str(a.value), note: str(a.note), ext: ext(a.ext) }));
   const sod = arr(m.sod).map((s, i) => ({ id: str(s.id) || `SOD-${String(i + 1).padStart(2, '0')}`, a: str(s.a), b: str(s.b), kind: str(s.kind), risk: str(s.risk),
     level: pick(up(s.level), RISK, 'M'), mitigation: str(s.mitigation), approver: str(s.approver), status: pick(s.status, SOD_STATUS, 'open'), note: str(s.note),
-    tcodesA: arr(s.tcodesA).map(up), tcodesB: arr(s.tcodesB).map(up) }));
-  const revisions = arr(m.revisions).map((r) => ({ ver: str(r.ver), date: str(r.date), author: str(r.author), change: str(r.change), approver: str(r.approver), note: str(r.note) }));
-  return { lang: m.lang === 'en' ? 'en' : 'ko', doc, broles, troles, tcodes, users, auths, sod, revisions, source: m.source || null };
+    tcodesA: arr(s.tcodesA).map(up), tcodesB: arr(s.tcodesB).map(up), ext: ext(s.ext) }));
+  const revisions = arr(m.revisions).map((r) => ({ ver: str(r.ver), date: str(r.date), author: str(r.author), change: str(r.change), approver: str(r.approver), note: str(r.note), ext: ext(r.ext) }));
+  return { lang: m.lang === 'en' ? 'en' : 'ko', doc, broles, troles, tcodes, users, auths, sod, revisions, source: m.source || null,
+    // company layout (sheets, columns, level codes, cover, theme) — see skills/role-matrix/layout.md; null = the default workbook
+    layout: m.layout && typeof m.layout === 'object' ? m.layout : null };
 }
 
 /** Business roles a T-code row gives, and the highest level among them. */
@@ -102,7 +106,8 @@ export function deriveView(model) {
   }
   for (const c of m.tcodes) if (c.tcode && !Object.keys(c.levels).some((k) => idSet.has(k))) add('tcodes', 'info', 'tcodeNoRole', c.tcode);
   for (const u of m.users) if (!Object.keys(u.roles).some((k) => idSet.has(k))) add('users', 'info', 'userNoRole', u.uid || u.name);
-  for (const d of new Set(dup(m.users.map((u) => u.uid)))) add('users', 'err', 'dupUser', d);
+  // one ID on several rows: a shared (team / position) ID in a planning workbook — allowed, but flagged
+  for (const d of new Set(dup(m.users.map((u) => u.uid)))) add('users', 'warn', 'dupUser', d);
   for (const a of m.auths) if (a.trole && !trIds.has(a.trole)) add('auths', 'warn', 'authUnknownTrole', `${a.trole} · ${a.object}`);
   for (const s of m.sod) {
     const h = hitById.get(s.id);
