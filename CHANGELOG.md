@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.49] — 2026-10-28
+
+### Changed — MCP pin
+
+- `abap-mcp-adt-powerup` pin `c9461c6` (4.8.13) → `6e17e09` (4.8.14). `GetGuiStatus` now narrows every CUA table to `status_name` (before only the status list was narrowed, so a large program interface came back whole), takes `function_codes` to keep only some functions, and `format: "compact"` returns one line per function (code, text, icon, function key, toolbar). Captions of a few buttons now cost a few hundred tokens instead of 15K+.
+
 ## [0.6.48] — 2026-10-28
 
 ### Added — `module-to-process` large scopes
