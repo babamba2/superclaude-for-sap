@@ -11,6 +11,8 @@ import { mapTransports, throughput, wricefEvidence, weekOf } from '../../scripts
 // @ts-expect-error — plain .mjs script, no type declarations
 import { renderPage } from '../../scripts/project/project-page.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
+import { renderMilestones, labelsFor } from '../../scripts/project/project-render.mjs';
+// @ts-expect-error — plain .mjs script, no type declarations
 import { cmdInit, cmdImport, cmdPortfolio } from '../../scripts/project/build-project-doc.mjs';
 
 const TEAM = [
@@ -131,5 +133,21 @@ describe('project-dashboard — page, import, portfolio', () => {
       expect(pf.sharedPeople).toBe(1);
       expect(existsSync(pf.html)).toBe(true);
     } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+});
+
+describe('project-dashboard — milestone timeline', () => {
+  it('draws month ticks, today, a legend, and keeps labels and leader lines apart', () => {
+    const m = base();
+    // a crowded run: many milestones a few days apart
+    for (let i = 0; i < 12; i++) m.milestones.push({ ...m.milestones[0], id: `X${i}`, label: `Extra milestone number ${i}`, base: `2026-08-${String(1 + i * 2).padStart(2, '0')}` });
+    const v = viewModel(m, '2026-06-15');
+    const html = renderMilestones(v, labelsFor('en'));
+    expect(html).toContain('class="tl-today"');
+    expect((html.match(/class="tl-tick/g) || []).length).toBeGreaterThan(6);
+    expect(html).toContain('class="tl-legend"');
+    const spans = [...html.matchAll(/class="tl-ms[^"]*" style="left:([\d.]+)%"[^>]*><i><\/i><span style="top:(\d+)px/g)].map((x) => [Number(x[1]), Number(x[2])]);
+    expect(spans.length).toBe(v.milestones.length);
+    expect(new Set(spans.map((x) => x[1])).size).toBeGreaterThan(1);
   });
 });

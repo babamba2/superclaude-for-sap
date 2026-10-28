@@ -42,7 +42,11 @@ function draw(after) {
 function tab(t) {
   $$('.tabs button').forEach(function (b) { b.setAttribute('aria-selected', b.dataset.t === t); });
   $$('section.tab').forEach(function (s) { s.classList.toggle('on', s.id === 'tab-' + t); });
-  store('sc4sap-pd-tab', t); if (t === 'wbs') setTimeout(function () { fitPane(true); drawArrows(); if (narrow() && !tab.done) { tab.done = 1; toToday(); } }, 0);
+  store('sc4sap-pd-tab', t); if (t === 'ms') setTimeout(tlToday, 0); if (t === 'wbs') setTimeout(function () { fitPane(true); drawArrows(); if (narrow() && !tab.done) { tab.done = 1; toToday(); } }, 0);
+}
+// A milestone timeline wider than the screen (a phone) opens scrolled to today.
+function tlToday() {
+  $$('.tl-w').forEach(function (w) { var t = $('.tl-today', w); if (t && w.scrollWidth > w.clientWidth && w.offsetParent) w.scrollLeft = Math.max(0, t.offsetLeft - w.clientWidth / 2); });
 }
 // Phone: the Gantt pane fills the screen below the top bar and the WBS tools, so its header row stays fixed
 // (it is sticky inside the pane; a pane taller than the screen let the page scroll the header away).
