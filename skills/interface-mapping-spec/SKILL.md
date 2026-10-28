@@ -13,6 +13,7 @@ Most mapping specifications are written for **new** interfaces, before any SAP o
 </Purpose>
 
 <Response_Prefix>Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.</Response_Prefix>
+<Target_Object>The target object is looked up on the active profile's system only. Not found → stop and ask per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) § Target object not on the active system — never substitute a similar name, never switch profiles on your own.</Target_Object>
 
 <Phase_Banner>Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<label>) · agent=<name> · model=<Opus|Sonnet|Haiku>` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Phase Banner Convention. Resolve the dispatch mode first per [`../../common/model-dispatch-mode.md`](../../common/model-dispatch-mode.md).</Phase_Banner>
 
@@ -47,6 +48,7 @@ Settled with the user when the skill was designed — do not ask again:
 | Versions | v0.1 → +0.1 per saved / imported edit, per refresh with changes; the revision-history table fills itself (author, change, optional approver) |
 | Language | Page language from `.sc4sap/config.json` (`language`, else `ko`); English companion always built unless the user opts out |
 | Settings | `<base>/interfaces/project.json`: cover (project name, title, document-number pattern `IF-MAP-{ifId}`, copyright), `idPattern` for IF ID numbering, code-list overrides (`codes`) |
+| File name | Page: `<IF_ID>_<OBJECT>_<interface name>-v<ver>-<lang>.html` (SAP object of the SAP side, else the object typed in the system block; empty parts left out). The model json stays `<IF_ID>-v<ver>-<lang>.json` |
 | Location | `<base>/interfaces/<IF_ID>/` — `<base>` per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) (`.sc4sap/work/<alias>/` with an active profile) |
 | Template content | Generic: never put customer, vendor or people names into the skill or into public docs; real names belong only in the user's `project.json` and documents |
 </Decisions_Fixed>
@@ -78,7 +80,7 @@ Settled with the user when the skill was designed — do not ask again:
 </Workflow>
 
 <Page>
-Top bar: Checks (count; panel lists every finding, click jumps to the cell), Edit, Undo, Save, Print, link to the companion. Edit mode needs nothing installed: click a cell, pick code items from lists, paste a block of cells from Excel into the grid, add / insert / move / delete rows (No renumbered, MAPPING follows), ✓ confirms a proposal, add rules / SQL lines / revision rows, add or drop the response block, autosave in the browser. Save asks author, change and approver and downloads `<IF_ID>-v<next>-<lang>-edited.html`. Print: A4 landscape, one sheet per page.
+Top bar: Checks (count; panel lists every finding, click jumps to the cell), Edit, Undo, Save, Print, link to the companion. Edit mode needs nothing installed: click a cell, pick code items from lists, paste a block of cells from Excel into the grid, add / insert / move / delete rows (No renumbered, MAPPING follows), ✓ confirms a proposal, add rules / SQL lines / revision rows, add or drop the response block, autosave in the browser. Save asks author, change and approver and downloads `<IF_ID>_<OBJECT>_<name>-v<ver>-<lang>-edited.html`. Print: A4 landscape, one sheet per page.
 </Page>
 
 <Files>

@@ -13,7 +13,7 @@ import { ifValidate, VALIDATE_SRC } from '../../scripts/interface/if-validate.mj
 // @ts-expect-error — plain .mjs script, no type declarations
 import { pageHtml, modelFromPage } from '../../scripts/interface/if-spec-page.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { cmdInit, cmdImport, cmdRefresh, cmdNextId, cmdTexts, cmdCompanion, cmdFields, versionsOf } from '../../scripts/interface/build-if-spec.mjs';
+import { cmdInit, cmdImport, cmdRefresh, cmdNextId, cmdTexts, cmdCompanion, cmdFields, versionsOf, pageBase } from '../../scripts/interface/build-if-spec.mjs';
 
 const FM_SRC = `FUNCTION Z_RFC_DEMO\r
   IMPORTING\r
@@ -234,7 +234,7 @@ describe('interface-mapping-spec — CLI flow (SAP stubbed)', () => {
     expect(cmdNextId(root, 'sd').ifId).toBe('SD00008');
     const out = await cmdInit(root, { module: 'SD', lang: 'ko', preset: 'txn-out', header: { name: 'n', author: 'a' }, fields: { source: ['LIKP-VBELN', 'LIKP-ERDAT'] } }, { read });
     expect(out).toMatchObject({ version: '0.1' });
-    expect(existsSync(join(root, 'SD00008', 'SD00008-v0.1-ko.html'))).toBe(true);
+    expect(existsSync(join(root, 'SD00008', 'SD00008_n-v0.1-ko.html'))).toBe(true);
     await expect(cmdInit(root, { ifId: 'SD00008', lang: 'ko' }, { read })).rejects.toThrow(/already/);
 
     // a page saved in edit mode: version raised, revision added, base recorded
@@ -269,10 +269,19 @@ describe('interface-mapping-spec — CLI flow (SAP stubbed)', () => {
     writeFileSync(t.outFile, JSON.stringify(Object.fromEntries(Object.keys(JSON.parse(readFileSync(t.todoFile, 'utf8'))).map((k) => [k, 'EN']))));
     const c = cmdCompanion(root, 'SD00008', 'en');
     expect(c).toMatchObject({ lang: 'en', version: '0.2', missing: [] });
-    expect(readFileSync(c.primary, 'utf8')).toContain('href="SD00008-v0.2-en.html"');
+    expect(readFileSync(c.primary, 'utf8')).toContain('href="SD00008_n-v0.2-en.html"');
     const comp = modelFromPage(readFileSync(c.html, 'utf8'));
     comp.baseVersion = comp.version; comp.version = '0.3';
     writeFileSync(edited, pageHtml({ model: comp }));
     await expect(cmdImport(root, edited, { resolve })).rejects.toThrow(/companion/);
+  });
+});
+
+describe('interface-mapping-spec — page file name', () => {
+  it('is <IF_ID>_<SAP object>_<name>, empty parts left out', () => {
+    const sap = { side: 'target', target: { object: 'Z_RFC_DEMO', kind: 'FUNCTION' } };
+    expect(pageBase({ ifId: 'SD00001', sap, header: { name: '고객 여신 한도 조회' } })).toBe('SD00001_Z_RFC_DEMO_고객 여신 한도 조회');
+    expect(pageBase({ ifId: 'SD00002', sap: { side: 'source' }, request: { s: { object: '/ABC/T001' } }, header: { name: 'a/b: c?' } })).toBe('SD00002__ABC_T001_a b c');
+    expect(pageBase({ ifId: 'SD00003', header: {} })).toBe('SD00003');
   });
 });
