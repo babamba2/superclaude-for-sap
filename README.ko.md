@@ -20,29 +20,29 @@
 
 ## sc4sap이란?
 
-SuperClaude for SAP은 Claude Code를 풀스택 SAP 개발 어시스턴트로 변환합니다. [MCP ABAP ADT 서버](https://github.com/babamba2/abap-mcp-adt-powerup) (150+ 툴)를 통해 SAP 시스템에 연결하여 클래스/함수모듈/리포트/CDS 뷰/Dynpro/GUI 스테이터스 등 ABAP 객체를 직접 생성·조회·수정·삭제합니다.
+SuperClaude for SAP은 Claude Code를 풀스택 SAP 개발 어시스턴트로 바꿔 줘요. [MCP ABAP ADT 서버](https://github.com/babamba2/abap-mcp-adt-powerup) (150+ 툴)로 SAP 시스템에 연결해요. 그리고 클래스/함수모듈/리포트/CDS 뷰/Dynpro/GUI 스테이터스 등 ABAP 객체를 직접 생성·조회·수정·삭제해요.
 
 ## 핵심 기능
 
 | 기능 | 설명 |
 |------|------|
-| 🔌 **자동 MCP 설치** | `/sc4sap:setup` 중 `abap-mcp-adt-powerup` 자동 설치/설정/연결테스트. 수동 MCP 배선 불필요. |
-| 🌐 **다중 환경 프로파일 (Dev / QA / Prod)** | 회사별·티어별로 여러 SAP 시스템(`KR-DEV`, `KR-QA`, `KR-PRD`, `US-DEV` 등)을 등록하고 `/sc4sap:sap-option` 으로 세션 중에 즉시 전환. **QA / Prod 프로파일은 자동 읽기전용 보호**: PreToolUse 훅과 MCP 서버 가드 2계층이 `Create*/Update*/Delete*`, `CreateTransport`, 코드 실행 도구를 차단 — 훅을 우회해도 서버 단에서 여전히 거부됨. 비밀번호는 **OS 자격 증명 저장소** (`@napi-rs/keyring` — Windows Credential Manager / macOS Keychain / libsecret) 에 보관되어 `.sc4sap/` 가 git 에 시크릿을 누출할 위험이 없음. 산출물(스펙, CBO 카탈로그, 감사)은 프로파일별로 격리되며 읽기전용 크로스뷰를 지원 — QA 세션이 Dev 에서 만든 스펙을 오염시키지 않고 참조 가능. |
-| 🏗️ **자동 프로그램 생성기** | ABAP 프로그램 엔드-투-엔드 생성: Main + Include 컨벤션, OOP/Procedural, 풀 ALV + Docking, Dynpro + GUI 스테이터스, Text Elements, ABAP Unit — 플랫폼 인식(ECC / S4 On-Prem / Cloud). |
-| 🔍 **프로그램 분석** | MCP로 ABAP 객체 읽기 → Clean ABAP / 성능 / 보안 리뷰, 또는 Functional/Technical Spec 역공학 (Markdown/Excel). |
-| 🧪 **코드 분석** | `/sc4sap:analyze-code` — `sap-code-reviewer` 전용 정적 리뷰: Clean ABAP / 성능 / 보안 / SAP 표준 준수. 심각도별 이슈와 구체적 수정 제안. |
-| 🔀 **프로그램 비교** | `/sc4sap:compare-programs` — 같은 비즈니스 시나리오를 공유하지만 모듈(MM/CO)·국가(KR/EU)·Persona(컨트롤러/창고)로 분화된 2~5개 ABAP 프로그램을 컨설턴트 관점에서 10개 차원으로 비교 → 편집 가능한 HTML 리포트(색상 판정 매트릭스·차이만 보기, 필드 차이표, 화면 나란히 비교, 의사결정 가이드, 버전 관리 + 영어판). |
-| ⚙️ **설정 → 문서** | `/sc4sap:config-to-document` — 연결된 시스템에 실제로 설정된 모듈 구성을 문서화 (MM 우선). IMG 트리를 따르는 오프라인 HTML 파일 하나: IMG 액티비티별 실제 테이블 값을 SM30 스타일 화면으로 그림, 고객 트랜스포트로 변경된 행과 트랜스포트 이력, 설정 점검, SAP IMG 문서, 모듈 컨설턴트 에이전트가 쓰고 `sap-critic`이 검토한 컨설턴트 노트. SAP에는 읽기 전용이며, 페이지 안 편집 모드로 컨설턴트가 노트 · 설정값 표 · 변경 이력을 고쳐 다음 버전에 반영할 수 있음. |
-| 🖨️ **스마트폼 미리보기** | `/sc4sap:smartform-preview` — 출력 프로그램이나 테스트 데이터 없이 SmartForm의 예상 출력물을 JPG로 그립니다. 윈도우는 실제 mm 위치에, SmartStyle 글꼴, 테두리·음영이 있는 템플릿, SE78 그래픽(로고, 서명), 예시 행이 들어간 루프까지 표시합니다. `&필드&`에는 DDIC 타입 길이에 맞춘 가상의 예시 값이 들어가고, 내용이 잘리는 셀과 윈도우를 보고서로 알려 줍니다. 읽기 전용. → `smartforms/<FORM>/<FORM>-preview.{jpg,html}` |
-| 📄 **PDF로 스마트폼 만들기** | `/sc4sap:smartform-from-pdf` — 출력된 서식의 PDF(또는 스크린샷)로 SmartForm을 만듭니다. 괘선 영역은 템플릿이 되고, 모든 글자는 원본과 같은 위치에 기존 SmartStyle의 가장 가까운 서식으로 배치됩니다. 이어서 값은 `&필드&`로, 품목 줄은 내부 테이블 루프로 바꾸고 인터페이스를 추가합니다(사용자와 함께 결정). DEV 시스템에 올려 실제로 출력한 뒤 원본 페이지와 점수로 비교합니다. → `smartforms/<FORM>/` |
+| 🔌 **자동 MCP 설치** | `/sc4sap:setup` 중에 `abap-mcp-adt-powerup`을 자동 설치/설정/연결테스트해요. 수동 MCP 배선은 필요 없어요. |
+| 🌐 **다중 환경 프로파일 (Dev / QA / Prod)** | 회사별·티어별로 여러 SAP 시스템(`KR-DEV`, `KR-QA`, `KR-PRD`, `US-DEV` 등)을 등록해요. `/sc4sap:sap-option` 으로 세션 중에 즉시 전환해요. **QA / Prod 프로파일은 자동 읽기전용 보호**: PreToolUse 훅과 MCP 서버 가드 2계층이 `Create*/Update*/Delete*`, `CreateTransport`, 코드 실행 도구를 차단해요. 훅을 우회해도 서버 단에서 여전히 거부돼요. 비밀번호는 **OS 자격 증명 저장소** (`@napi-rs/keyring` — Windows Credential Manager / macOS Keychain / libsecret) 에 보관돼요. 그래서 `.sc4sap/` 가 git 에 시크릿을 누출할 위험이 없어요. 산출물(스펙, CBO 카탈로그, 감사)은 프로파일별로 격리돼요. 읽기전용 크로스뷰도 지원해서 QA 세션이 Dev 에서 만든 스펙을 오염시키지 않고 참조할 수 있어요. |
+| 🏗️ **자동 프로그램 생성기** | ABAP 프로그램을 엔드-투-엔드로 생성해요. Main + Include 컨벤션, OOP/Procedural, 풀 ALV + Docking, Dynpro + GUI 스테이터스, Text Elements, ABAP Unit. 플랫폼 인식(ECC / S4 On-Prem / Cloud). |
+| 🔍 **프로그램 분석** | MCP로 ABAP 객체를 읽은 뒤 Clean ABAP / 성능 / 보안 리뷰를 하거나 Functional/Technical Spec을 역공학해요 (Markdown/Excel). |
+| 🧪 **코드 분석** | `/sc4sap:analyze-code` — `sap-code-reviewer` 전용 정적 리뷰예요. Clean ABAP / 성능 / 보안 / SAP 표준 준수를 검토해요. 이슈를 심각도별로 정리하고 구체적인 수정을 제안해요. |
+| 🔀 **프로그램 비교** | `/sc4sap:compare-programs` — 2~5개 ABAP 프로그램을 컨설턴트 관점에서 10개 차원으로 비교해요. 대상은 같은 비즈니스 시나리오를 공유하지만 모듈(MM/CO)·국가(KR/EU)·Persona(컨트롤러/창고)로 분화된 프로그램이에요. 결과는 편집 가능한 HTML 리포트(색상 판정 매트릭스·차이만 보기, 필드 차이표, 화면 나란히 비교, 의사결정 가이드, 버전 관리 + 영어판)로 나와요. |
+| ⚙️ **설정 → 문서** | `/sc4sap:config-to-document` — 연결된 시스템에 실제로 설정된 모듈 구성을 문서화해요(MM 우선). 결과물은 IMG 트리를 따르는 오프라인 HTML 파일 하나예요. IMG 액티비티별 실제 테이블 값을 SM30 스타일 화면으로 그려요. 고객 트랜스포트로 변경된 행과 트랜스포트 이력, 설정 점검, SAP IMG 문서도 담아요. 모듈 컨설턴트 에이전트가 쓰고 `sap-critic`이 검토한 컨설턴트 노트도 들어가요. SAP에는 읽기 전용이에요. 페이지 안 편집 모드로 컨설턴트가 노트 · 설정값 표 · 변경 이력을 고쳐 다음 버전에 반영할 수 있어요. |
+| 🖨️ **스마트폼 미리보기** | `/sc4sap:smartform-preview` — 출력 프로그램이나 테스트 데이터 없이 SmartForm의 예상 출력물을 JPG로 그려요. 윈도우는 실제 mm 위치에 표시해요. SmartStyle 글꼴, 테두리·음영이 있는 템플릿, SE78 그래픽(로고 서명), 예시 행이 들어간 루프까지 보여 줘요. `&필드&`에는 DDIC 타입 길이에 맞춘 가상의 예시 값이 들어가요. 내용이 잘리는 셀과 윈도우는 보고서로 알려 줘요. 읽기 전용이에요. → `smartforms/<FORM>/<FORM>-preview.{jpg,html}` |
+| 📄 **PDF로 스마트폼 만들기** | `/sc4sap:smartform-from-pdf` — 출력된 서식의 PDF(또는 스크린샷)로 SmartForm을 만들어요. 괘선 영역은 템플릿이 돼요. 모든 글자는 원본과 같은 위치에 기존 SmartStyle의 가장 가까운 서식으로 배치돼요. 이어서 값은 `&필드&`로, 품목 줄은 내부 테이블 루프로 바꾸고 인터페이스를 추가해요(사용자와 함께 결정). DEV 시스템에 올려 실제로 출력한 뒤 원본 페이지와 점수로 비교해요. → `smartforms/<FORM>/` |
 | 🗺️ **모듈 → 프로세스** | `/sc4sap:module-to-process` — 모듈마다 **편집 가능한 HTML 프로세스 맵** 하나를 만들어요. 운영 시스템(ST03N)에서 실제로 쓰는 TCode만 분석하고, 모듈의 여러 패키지 CBO 프로그램을 표준 L1~L4 프로세스에 배치해요(Variant·담당·시스템 포함). L3마다 시나리오 swimlane, L4마다 PDD 형식 Task 시트(소스 근거가 붙은 Business Rule, Step, 관련 객체, 인터페이스, S/4 conversion 메모)를 넣어요. 모듈 컨설턴트 검토, 기존 BPH 대조, 영문판은 선택이에요. `package-to-process`를 대체해요(한 릴리스 동안 redirect) |
-| 🩺 **운영 진단** | 운영 트리아지 루프: ST22 덤프, SM02, /IWFND/ERROR_LOG, 프로파일러 트레이스, 로그, where-used — 모두 Claude에서. |
-| ♻️ **CBO 재사용** | Z-패키지 1회 인벤토리 → `create-program` / `program-to-spec`이 기존 CBO 자산 우선 재사용. 브라운필드에 필수. |
-| 🧷 **CBO Extension 인식 (CMOD / GGB0·1 / BTE / VOFM / BAdI / APPEND)** | 사용자 익스짓(CMOD), 검증·치환(GGB0/GGB1), BTE 펑션 모듈, VOFM 루틴(조건 / 공식 / 데이터 전송), BAdI 구현, APPEND Structure 인벤토리. `create-program` / BAPI 호출 시 기존 Extension 필드(예: BAPI `EXTENSIONIN` / 테이블 append) 우선 재사용; 덤프·장애 대응 시 Extension 포인트를 1순위 용의자로 검토. |
+| 🩺 **운영 진단** | 운영 트리아지 루프: ST22 덤프, SM02, /IWFND/ERROR_LOG, 프로파일러 트레이스, 로그, where-used — 모두 Claude에서 처리해요. |
+| ♻️ **CBO 재사용** | Z-패키지 1회 인벤토리 → `create-program` / `program-to-spec`이 기존 CBO 자산을 우선 재사용해요. 브라운필드에서는 필수예요. |
+| 🧷 **CBO Extension 인식 (CMOD / GGB0·1 / BTE / VOFM / BAdI / APPEND)** | 사용자 익스짓(CMOD), 검증·치환(GGB0/GGB1), BTE 펑션 모듈, VOFM 루틴(조건 / 공식 / 데이터 전송), BAdI 구현, APPEND Structure를 인벤토리해요. `create-program` / BAPI 호출 시에는 기존 Extension 필드(예: BAPI `EXTENSIONIN` / 테이블 append)를 우선 재사용해요. 덤프·장애 대응 시에는 Extension 포인트를 1순위 용의자로 검토해요. |
 | 🏭 **산업 컨텍스트** | 14개 산업 레퍼런스 (retail, fashion, cosmetics, tire, automotive, pharma, F&B, chemical, electronics, construction, steel, utilities, banking, public-sector). |
 | 🌏 **국가/로컬라이제이션** | 15개 국가 + EU-common (KR/JP/CN/US/DE/GB/FR/IT/ES/NL/BR/MX/IN/AU/SG). e-인보이스, 뱅킹, 페이롤, 세제. |
-| 🧩 **활성 모듈 인식** | 교차 모듈 통합 힌트: MM + PS 활성 → MM CBO에 WBS 필드 자동 제안; SD + CO 활성 → CO-PA 파생. [상세 →](common/active-modules.md) |
-| 🤝 **모듈 컨설테이션** | `sap-analyst` / `sap-critic` / `sap-planner` / `sap-architect`가 업무 판단 필요 시 14개 모듈 컨설턴트 + 1개 BC 컨설턴트에 위임. 사용자가 직접 질의할 때는 `/sc4sap:ask-consultant` — 키워드로 SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC 자동 라우팅, 프로젝트에 설정된 SAP 환경(버전·산업·국가·활성 모듈)에 맞추어 답변, 읽기 전용. |
+| 🧩 **활성 모듈 인식** | 교차 모듈 통합 힌트를 줘요. MM + PS가 활성이면 MM CBO에 WBS 필드를 자동 제안해요. SD + CO가 활성이면 CO-PA를 파생해요. [상세 →](common/active-modules.md) |
+| 🤝 **모듈 컨설테이션** | `sap-analyst` / `sap-critic` / `sap-planner` / `sap-architect`가 업무 판단이 필요할 때 14개 모듈 컨설턴트 + 1개 BC 컨설턴트에 위임해요. 사용자가 직접 질의할 때는 `/sc4sap:ask-consultant`를 써요. 키워드로 SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC에 자동 라우팅해요. 답변은 프로젝트에 설정된 SAP 환경(버전·산업·국가·활성 모듈)에 맞춰요. 읽기 전용이에요. |
 
 ## 문서
 
@@ -68,9 +68,9 @@ SuperClaude for SAP은 Claude Code를 풀스택 SAP 개발 어시스턴트로 �
 
 ## 감사의 말
 
-이 프로젝트는 **허예찬**님의 [**oh-my-claudecode**](https://github.com/huryechan/oh-my-claudecode)에서 영감을 받았습니다. 멀티 에이전트 오케스트레이션 패턴, Socratic 딥 인터뷰 게이팅, 지속적 루프 개념, 전체적인 플러그인 철학이 모두 그 작업에서 유래합니다.
+이 프로젝트는 **허예찬**님의 [**oh-my-claudecode**](https://github.com/huryechan/oh-my-claudecode)에서 영감을 받았어요. 멀티 에이전트 오케스트레이션 패턴, Socratic 딥 인터뷰 게이팅, 지속적 루프 개념, 전체적인 플러그인 철학이 모두 그 작업에서 유래해요.
 
-**fr0ster**님의 [**mcp-abap-adt**](https://github.com/fr0ster/mcp-abap-adt)는 저희 커스터마이즈된 MCP 서버(`abap-mcp-adt-powerup`)를 구축하는 데 크게 기여했습니다. 선구적인 ADT-over-MCP 작업 — 요청 쉐이핑, 엔드포인트 커버리지, 객체 I/O — 이 저희가 자체 서버를 설계·확장할 때 의존한 개념적 토대가 되었습니다.
+**fr0ster**님의 [**mcp-abap-adt**](https://github.com/fr0ster/mcp-abap-adt)는 저희 커스터마이즈된 MCP 서버(`abap-mcp-adt-powerup`)를 구축하는 데 크게 기여했어요. 선구적인 ADT-over-MCP 작업 — 요청 쉐이핑, 엔드포인트 커버리지, 객체 I/O — 이 개념적 토대가 됐어요. 저희는 자체 서버를 설계·확장할 때 이 토대에 의존했어요.
 
 ## 라이선스
 
