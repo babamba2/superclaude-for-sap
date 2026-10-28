@@ -1,0 +1,9 @@
+<pasted_content id="73c1">
+푸시했어요. origin/active가 accf695에서 3d995e5로 올라갔어요. entire 체크포인트도 함께 올라갔어요.
+
+이제 Claude Code를 완전히 종료한 뒤 다시 켜 주세요. 켜고 나서 "이어서"라고 말씀해 주시면 남은 일을 이 순서로 할게요.
+
+1. 새 GetGuiStatus를 실제 프로그램으로 확인해요.
+2. MM 버튼 문구 182개를 채우고 MM 페이지를 다시 빌드해요.
+3. MCP 변경을 커밋할지 물어볼게요.
+</pasted_content id="73c1">
