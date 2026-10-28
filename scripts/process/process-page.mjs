@@ -16,10 +16,10 @@ export const LABELS = {
     step: 'Step', method: '수행 방법', related: '관련 객체', standard: '표준', exits: 'Enhancement', interfaces: '인터페이스',
     links: '연관 Task', conversion: 'Conversion 메모', direction: '방향', desc: '설명', crossModule: '모듈 간 접점',
     from: '출발', to: '도착', via: '연결 객체', openQuestions: '확인필요 항목', glossary: '용어집', term: '용어', meaning: '설명',
-    filter: '검색', all: '전체', expand: '모두 펼치기', collapse: 'L2까지 접기', print: '인쇄', theme: '테마', none: '없음',
+    filter: '검색', xScen: '모듈 간 E2E 시나리오', xLead: '통합 맵에서 이 모듈이 참여하는 시나리오입니다. 이 모듈 단계는 진하게, 상대 모듈 단계는 흐리게 그립니다. 상자를 누르면 해당 Task로 갑니다.', xMap: '통합 맵', xBasis: '기준', xOpen: '통합 맵에서 보기', xStubs: '아직 맵이 없는 모듈과의 접점', xLinks: '모듈 간 연결', xStepOf: '시나리오 {n} · {k}단계', xTask: 'Task', xfAll: '(모두 선택)', xfBlank: '(비어 있음)', xfOk: '확인', xfCancel: '취소', xfClear: '이 열 필터 해제', xfClearAll: '모든 필터 해제', xfFind: '값 검색', xfTitle: '필터', all: '전체', expand: '모두 펼치기', collapse: 'L2까지 접기', print: '인쇄', theme: '테마', none: '없음',
     k_std: '표준', k_cbo: 'CBO', k_enh: 'Enh', k_manual: '수작업', k_ext: '외부',
     u_used: '사용', u_unused: '미사용', u_unknown: '실적 없음', source: '근거', endOfDoc: 'End of Document',
-    handoffs: '패키지 간 연결', count: '건수', scenarioMap: '시나리오 맵 (레인 = 담당, 색 = 시스템, 테두리 = 구분)', stepLanes: '담당별 수행 흐름', variantMatrix: 'Variant 매트릭스', lgIface: '이중 테두리 = 인터페이스', s_sap: 'SAP', s_legacy: 'Legacy', s_external: '외부', s_manual: '수작업', notEvidenced: '이 시스템에서 근거가 없는 표준 프로세스', reconcile: '기존 BPH 대조', reconcileLead: '고객 BPH의 L4와 이 문서의 L4를 라벨로 대조한 제안입니다. 점수가 낮은 매칭은 확인이 필요합니다.', rcMatched: '매칭 제안', rcBphOnly: 'BPH에만 있음 (이 시스템에서 사용 근거 없음)', rcModelOnly: '이 문서에만 있음 (BPH에 없는 업무)', bphId: 'BPH ID', bphLabel: 'BPH 프로세스', score: '점수', reason: '사유', backbone: '표준 ID',
+    handoffs: '패키지 간 연결', count: '건수', scenarioMap: '시나리오 맵 (레인 = 담당, 색 = 시스템, 테두리 = 구분)', stepLanes: '담당별 수행 흐름', where: '수행 위치', altCount: '프로그램 {n}개', more: '외 {n}건', altCaption: '경우별 프로그램', altWhen: '어떤 경우', action: '동작', variantMatrix: 'Variant 매트릭스', lgIface: '이중 테두리 = 인터페이스', s_sap: 'SAP', s_legacy: 'Legacy', s_external: '외부', s_manual: '수작업', notEvidenced: '이 시스템에서 근거가 없는 표준 프로세스', reconcile: '기존 BPH 대조', reconcileLead: '고객 BPH의 L4와 이 문서의 L4를 라벨로 대조한 제안입니다. 점수가 낮은 매칭은 확인이 필요합니다.', rcMatched: '매칭 제안', rcBphOnly: 'BPH에만 있음 (이 시스템에서 사용 근거 없음)', rcModelOnly: '이 문서에만 있음 (BPH에 없는 업무)', bphId: 'BPH ID', bphLabel: 'BPH 프로세스', score: '점수', reason: '사유', backbone: '표준 ID',
   },
   en: {
     doc: 'Process Map', contents: 'Contents', revision: 'Revision History', version: 'Version', date: 'Date', author: 'Author', change: 'Changes',
@@ -31,10 +31,10 @@ export const LABELS = {
     step: 'Step', method: 'Method', related: 'Related Objects', standard: 'Standard', exits: 'Enhancements', interfaces: 'Interfaces',
     links: 'Related Tasks', conversion: 'Conversion Notes', direction: 'Direction', desc: 'Description', crossModule: 'Cross-Module Touch Points',
     from: 'From', to: 'To', via: 'Via', openQuestions: 'Open Questions', glossary: 'Glossary', term: 'Term', meaning: 'Meaning',
-    filter: 'Search', all: 'All', expand: 'Expand all', collapse: 'Collapse to L2', print: 'Print', theme: 'Theme', none: 'None',
+    filter: 'Search', xScen: 'Cross-module E2E scenarios', xLead: 'Scenarios of the integration maps this module takes part in. Steps of this module are drawn in full colour, steps of the other module greyed. Click a box to open the task.', xMap: 'integration map', xBasis: 'Basis', xOpen: 'open in the integration map', xStubs: 'Touchpoints with modules that have no map yet', xLinks: 'Cross-module links', xStepOf: 'Scenario {n} · step {k}', xTask: 'Task', xfAll: '(Select all)', xfBlank: '(Blanks)', xfOk: 'OK', xfCancel: 'Cancel', xfClear: 'Clear this filter', xfClearAll: 'Clear all filters', xfFind: 'Search values', xfTitle: 'Filter', all: 'All', expand: 'Expand all', collapse: 'Collapse to L2', print: 'Print', theme: 'Theme', none: 'None',
     k_std: 'Std', k_cbo: 'CBO', k_enh: 'Enh', k_manual: 'Manual', k_ext: 'Ext',
     u_used: 'Used', u_unused: 'Unused', u_unknown: 'No data', source: 'Source', endOfDoc: 'End of Document',
-    handoffs: 'Package hand-offs', count: 'Count', scenarioMap: 'Scenario map (lane = owner, fill = system, border = type)', stepLanes: 'Steps by owner', variantMatrix: 'Variant matrix', lgIface: 'double border = interface', s_sap: 'SAP', s_legacy: 'Legacy', s_external: 'External', s_manual: 'Manual', notEvidenced: 'Standard processes without evidence in this system', reconcile: 'Existing BPH reconciliation', reconcileLead: 'Proposed matches between the customer BPH L4 rows and the L4 tasks of this document, by label. Low scores need confirmation.', rcMatched: 'Proposed matches', rcBphOnly: 'Only in the BPH (no usage evidence in this system)', rcModelOnly: 'Only in this document (not in the BPH)', bphId: 'BPH ID', bphLabel: 'BPH process', score: 'Score', reason: 'Reason', backbone: 'Standard ID',
+    handoffs: 'Package hand-offs', count: 'Count', scenarioMap: 'Scenario map (lane = owner, fill = system, border = type)', stepLanes: 'Steps by owner', where: 'Where', altCount: '{n} programs', more: '+{n} more', altCaption: 'program by case', altWhen: 'When', action: 'Action', variantMatrix: 'Variant matrix', lgIface: 'double border = interface', s_sap: 'SAP', s_legacy: 'Legacy', s_external: 'External', s_manual: 'Manual', notEvidenced: 'Standard processes without evidence in this system', reconcile: 'Existing BPH reconciliation', reconcileLead: 'Proposed matches between the customer BPH L4 rows and the L4 tasks of this document, by label. Low scores need confirmation.', rcMatched: 'Proposed matches', rcBphOnly: 'Only in the BPH (no usage evidence in this system)', rcModelOnly: 'Only in this document (not in the BPH)', bphId: 'BPH ID', bphLabel: 'BPH process', score: 'Score', reason: 'Reason', backbone: 'Standard ID',
   },
   ja: {
     doc: 'プロセスマップ', contents: '目次', revision: '改訂履歴', version: '版', date: '日付', author: '作成者', change: '変更内容',
@@ -46,10 +46,10 @@ export const LABELS = {
     step: 'ステップ', method: '実施方法', related: '関連オブジェクト', standard: '標準', exits: '拡張', interfaces: 'インターフェース',
     links: '関連タスク', conversion: 'コンバージョンメモ', direction: '方向', desc: '説明', crossModule: 'モジュール間接点',
     from: '発', to: '着', via: '経由', openQuestions: '要確認事項', glossary: '用語集', term: '用語', meaning: '説明',
-    filter: '検索', all: 'すべて', expand: 'すべて展開', collapse: 'L2まで折りたたむ', print: '印刷', theme: 'テーマ', none: 'なし',
+    filter: '検索', xScen: 'モジュール間 E2E シナリオ', xLead: '統合マップのうち、このモジュールが参加するシナリオです。このモジュールのステップは濃く、相手モジュールは淡く描きます。', xMap: '統合マップ', xBasis: '基準', xOpen: '統合マップで見る', xStubs: 'マップ未作成のモジュールとの接点', xLinks: 'モジュール間の連携', xStepOf: 'シナリオ {n} · ステップ {k}', xTask: 'タスク', xfAll: '(すべて選択)', xfBlank: '(空白)', xfOk: 'OK', xfCancel: 'キャンセル', xfClear: 'この列のフィルターを解除', xfClearAll: 'すべてのフィルターを解除', xfFind: '値を検索', xfTitle: 'フィルター', all: 'すべて', expand: 'すべて展開', collapse: 'L2まで折りたたむ', print: '印刷', theme: 'テーマ', none: 'なし',
     k_std: '標準', k_cbo: 'CBO', k_enh: '拡張', k_manual: '手作業', k_ext: '外部',
     u_used: '利用', u_unused: '未使用', u_unknown: '実績なし', source: '根拠', endOfDoc: 'End of Document',
-    handoffs: 'パッケージ間連携', count: '件数', scenarioMap: 'シナリオマップ (レーン = 担当, 色 = システム, 枠 = 区分)', stepLanes: '担当別の実施フロー', variantMatrix: 'バリアント一覧', lgIface: '二重枠 = インターフェース', s_sap: 'SAP', s_legacy: 'レガシー', s_external: '外部', s_manual: '手作業', notEvidenced: 'このシステムで根拠のない標準プロセス', reconcile: '既存 BPH との照合', reconcileLead: '顧客 BPH の L4 と本書の L4 をラベルで照合した提案です。低スコアは確認が必要です。', rcMatched: '照合候補', rcBphOnly: 'BPH のみ (本システムで利用根拠なし)', rcModelOnly: '本書のみ (BPH にない業務)', bphId: 'BPH ID', bphLabel: 'BPH プロセス', score: 'スコア', reason: '理由', backbone: '標準ID',
+    handoffs: 'パッケージ間連携', count: '件数', scenarioMap: 'シナリオマップ (レーン = 担当, 色 = システム, 枠 = 区分)', stepLanes: '担当別の実施フロー', where: '実施場所', altCount: 'プログラム {n}本', more: '他 {n}件', altCaption: 'ケース別プログラム', altWhen: 'どの場合', action: '操作', variantMatrix: 'バリアント一覧', lgIface: '二重枠 = インターフェース', s_sap: 'SAP', s_legacy: 'レガシー', s_external: '外部', s_manual: '手作業', notEvidenced: 'このシステムで根拠のない標準プロセス', reconcile: '既存 BPH との照合', reconcileLead: '顧客 BPH の L4 と本書の L4 をラベルで照合した提案です。低スコアは確認が必要です。', rcMatched: '照合候補', rcBphOnly: 'BPH のみ (本システムで利用根拠なし)', rcModelOnly: '本書のみ (BPH にない業務)', bphId: 'BPH ID', bphLabel: 'BPH プロセス', score: 'スコア', reason: '理由', backbone: '標準ID',
   },
 };
 
@@ -123,6 +123,18 @@ table.bph tr.lv2 td{background:var(--l2);font-weight:600}
 table.bph tr.var td{color:var(--muted);font-size:13.5px}
 table.bph .ind{display:inline-block}
 table.bph .tg{cursor:pointer;border:0;background:none;color:var(--muted);padding:0 4px 0 0;font:inherit}
+table.bph th .xf-btn{margin-left:6px;padding:0 4px;font-size:11px;line-height:16px;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--muted);cursor:pointer;vertical-align:1px}
+table.bph th .xf-btn.on{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.xf-pop{position:absolute;z-index:50;width:260px;max-width:calc(100vw - 24px);background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:10px;font-size:13.5px;font-weight:400}
+.xf-pop input[type=search]{width:100%;box-sizing:border-box;font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
+.xf-pop .xf-list{max-height:260px;overflow:auto;margin:8px 0;border:1px solid var(--line);border-radius:6px;padding:4px 6px}
+.xf-pop label{display:flex;gap:6px;align-items:baseline;padding:2px 0;cursor:pointer;white-space:normal;word-break:break-all}
+.xf-pop label .n{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;padding-left:6px}
+.xf-pop .xf-row{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
+.xf-pop .xf-row button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);cursor:pointer}
+.xf-pop .xf-row button.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.xf-pop .xf-clear{display:block;width:100%;text-align:left;margin:0 0 8px;font:inherit;font-size:13px;border:0;background:none;color:var(--link);cursor:pointer;padding:0}
+.xf-pop .xf-clear:disabled{color:var(--muted);cursor:default}
 .task{border:1px solid var(--line);border-radius:10px;padding:16px;margin:18px 0}
 .task-head{margin:0 0 12px}
 .task-head th{width:140px;background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
@@ -147,7 +159,7 @@ h5{font-size:14px;margin:14px 0 6px}
   :root,:root:not([data-theme=light]),:root[data-theme=dark]{${LIGHT};color-scheme:light}
   *{print-color-adjust:exact;-webkit-print-color-adjust:exact}
   body{font-size:10.5pt}
-  .topbar,.toc,.bph-tools{display:none!important}
+  .topbar,.toc,.bph-tools,.xf-btn,.xf-pop{display:none!important}
   .layout{display:block;max-width:none;padding:0}
   .page-break,.task{break-before:page}
   .task{border:0;padding:0;margin:0}
@@ -172,17 +184,103 @@ export const SCRIPT = String.raw`
   var tbl = function(){ return document.querySelector('table.bph'); };
   if (!tbl()) return;
   var rowsNow = function(){ return Array.prototype.slice.call(tbl().tBodies[0].rows); };
-  var kinds = {}, closed = {};
+  var closed = {}, xf = {};
+  var XL = {};
+  try { XL = JSON.parse((document.querySelector('.bph-tools') || {}).getAttribute('data-xf') || '{}'); } catch (e) {}
+  // Excel-style column filters: per column the set of values to keep (absent = no filter).
+  // A cell's values are its <code> items when it has any (TCodes, objects), else its text; empty = blank.
+  function cellValues(td){
+    if (!td) return [''];
+    var cs = td.querySelectorAll('code');
+    if (cs.length) return Array.prototype.map.call(cs, function(c){ return c.textContent.trim(); });
+    var t = td.textContent.replace(/\s+/g, ' ').trim();
+    return [t];
+  }
+  function colMatch(r){
+    return Object.keys(xf).every(function(ci){
+      var keepSet = xf[ci];
+      return cellValues(r.cells[ci]).some(function(v){ return keepSet[v]; });
+    });
+  }
+  function ensureButtons(){
+    var t = tbl(); if (!t || !t.tHead) return;
+    Array.prototype.forEach.call(t.tHead.rows[0].cells, function(th, ci){
+      var b = th.querySelector('.xf-btn');
+      if (!b) { b = document.createElement('button'); b.type = 'button'; b.className = 'xf-btn'; b.textContent = '▼'; b.setAttribute('data-col', ci); b.title = XL.title || 'Filter'; th.appendChild(b); }
+      b.classList.toggle('on', !!xf[ci]);
+    });
+  }
+  var pop = null;
+  function closePop(){ if (pop) { pop.remove(); pop = null; } }
+  function openPop(btn){
+    closePop();
+    var ci = +btn.getAttribute('data-col');
+    var counts = {}, order = [];
+    rowsNow().forEach(function(r){
+      cellValues(r.cells[ci]).forEach(function(v){ if (!(v in counts)) { counts[v] = 0; order.push(v); } counts[v]++; });
+    });
+    order.sort(function(a, b){ return a === '' ? 1 : b === '' ? -1 : a.localeCompare(b, undefined, { numeric: true }); });
+    var cur = xf[ci];
+    pop = document.createElement('div');
+    pop.className = 'xf-pop';
+    var esc = function(s){ return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
+    pop.innerHTML = '<button type="button" class="xf-clear"' + (cur ? '' : ' disabled') + '>' + esc(XL.clear || 'Clear') + '</button>'
+      + '<input type="search" placeholder="' + esc(XL.find || '') + '" aria-label="' + esc(XL.find || '') + '">'
+      + '<div class="xf-list"><label><input type="checkbox" class="xf-all"> ' + esc(XL.all || '(Select all)') + '</label>'
+      + order.map(function(v, i){
+          return '<label data-v="' + i + '"><input type="checkbox" value="' + i + '"' + (!cur || cur[v] ? ' checked' : '') + '> <span>' + esc(v === '' ? (XL.blank || '(Blanks)') : v) + '</span><span class="n">' + counts[v] + '</span></label>';
+        }).join('')
+      + '</div><div class="xf-row"><button type="button" class="xf-cancel">' + esc(XL.cancel || 'Cancel') + '</button><button type="button" class="pri xf-ok">' + esc(XL.ok || 'OK') + '</button></div>';
+    document.body.appendChild(pop);
+    var rc = btn.getBoundingClientRect();
+    pop.style.top = (window.scrollY + rc.bottom + 4) + 'px';
+    pop.style.left = Math.max(12, Math.min(window.scrollX + rc.left - 8, window.scrollX + document.documentElement.clientWidth - pop.offsetWidth - 12)) + 'px';
+    var boxes = function(){ return Array.prototype.filter.call(pop.querySelectorAll('.xf-list label[data-v]'), function(l){ return !l.hidden; }).map(function(l){ return l.querySelector('input'); }); };
+    var all = pop.querySelector('.xf-all');
+    var sync = function(){ var bs = boxes(), on = bs.filter(function(b){ return b.checked; }).length; all.checked = bs.length > 0 && on === bs.length; all.indeterminate = on > 0 && on < bs.length; };
+    sync();
+    all.addEventListener('change', function(){ boxes().forEach(function(b){ b.checked = all.checked; }); sync(); });
+    pop.querySelector('.xf-list').addEventListener('change', function(e){ if (e.target !== all) sync(); });
+    var find = pop.querySelector('input[type=search]');
+    // typing narrows the list and, as in Excel, keeps only the shown values checked
+    find.addEventListener('input', function(){
+      var s = find.value.trim().toLowerCase();
+      pop.querySelectorAll('.xf-list label[data-v]').forEach(function(l){
+        var show = !s || l.textContent.toLowerCase().indexOf(s) >= 0;
+        l.hidden = !show;
+        l.querySelector('input').checked = show && (s ? true : (!cur || !!cur[order[+l.getAttribute('data-v')]]));
+      });
+      sync();
+    });
+    pop.querySelector('.xf-cancel').addEventListener('click', closePop);
+    pop.querySelector('.xf-clear').addEventListener('click', function(){ delete xf[ci]; closePop(); apply(); });
+    pop.querySelector('.xf-ok').addEventListener('click', function(){
+      var keepSet = {}, n = 0;
+      pop.querySelectorAll('.xf-list label[data-v] input').forEach(function(b){ if (b.checked && !b.closest('label').hidden) { keepSet[order[+b.value]] = true; n++; } });
+      if (n === order.length) delete xf[ci]; else xf[ci] = keepSet;
+      closePop(); apply();
+    });
+    find.focus();
+  }
+  document.addEventListener('click', function(e){
+    var b = e.target.closest && e.target.closest('table.bph th .xf-btn');
+    if (b) { e.stopPropagation(); if (pop && pop.getAttribute('data-col') === b.getAttribute('data-col')) closePop(); else { openPop(b); pop.setAttribute('data-col', b.getAttribute('data-col')); } return; }
+    if (pop && !pop.contains(e.target)) closePop();
+  });
+  document.addEventListener('keydown', function(e){ if (e.key === 'Escape') closePop(); });
+  var ca = document.getElementById('bph-clear');
+  if (ca) ca.addEventListener('click', function(){ xf = {}; if (q) q.value = ''; apply(); });
   var q = document.getElementById('bph-q');
   function under(code, other){ return other !== code && other.indexOf(code + '.') === 0; }
   function apply(){
     var rows = rowsNow(), table = tbl();
     var text = (q && q.value || '').trim().toLowerCase();
-    var anyKind = Object.keys(kinds).some(function(k){ return kinds[k]; });
+    var anyCol = Object.keys(xf).length > 0;
     var keep = {};
+    ensureButtons();
     rows.forEach(function(r){
-      var ok = (!text || r.textContent.toLowerCase().indexOf(text) >= 0) && (!anyKind || kinds[r.getAttribute('data-kind')]);
-      if (ok && (text || anyKind)) {
+      var ok = (!text || r.textContent.toLowerCase().indexOf(text) >= 0) && (!anyCol || colMatch(r));
+      if (ok && (text || anyCol)) {
         var c = r.getAttribute('data-code');
         keep[c] = true;
         var seg = c.split('.');
@@ -192,20 +290,13 @@ export const SCRIPT = String.raw`
     rows.forEach(function(r){
       var c = r.getAttribute('data-code');
       var hiddenByTree = Object.keys(closed).some(function(k){ return closed[k] && (under(k, c) || (r.classList.contains('var') && c === k)); });
-      var hiddenByFilter = (text || anyKind) && !keep[c];
+      var hiddenByFilter = (text || anyCol) && !keep[c];
       r.hidden = !!(hiddenByTree || hiddenByFilter);
     });
     table.querySelectorAll('.tg').forEach(function(b){ b.textContent = closed[b.getAttribute('data-code')] ? '▸' : '▾'; });
   }
   if (q) q.addEventListener('input', apply);
-  document.querySelectorAll('.bph-tools [data-kind]').forEach(function(b){
-    b.addEventListener('click', function(){
-      var k = b.getAttribute('data-kind');
-      kinds[k] = !kinds[k];
-      b.setAttribute('aria-pressed', kinds[k] ? 'true' : 'false');
-      apply();
-    });
-  });
+  ensureButtons();
   document.addEventListener('click', function(e){
     var b = e.target.closest && e.target.closest('table.bph .tg');
     if (!b) return;

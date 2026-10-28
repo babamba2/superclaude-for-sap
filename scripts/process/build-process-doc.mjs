@@ -23,7 +23,8 @@ import {
 } from './process-model.mjs';
 import { labelsFor, SCRIPT, STYLE } from './process-page.mjs';
 import { EDITOR_SCRIPT, EDITOR_STYLE, editorLabels } from './process-editor.mjs';
-import { l3Map, stepLanes } from './swimlane.mjs';
+import { caseMap, l3Map, stepLanes } from './swimlane.mjs';
+import { loadIntegrations, moduleSection, taskLinks, XSTYLE } from './integration-view.mjs';
 
 const arr = (v) => (Array.isArray(v) ? v : []);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -99,7 +100,7 @@ function variantMatrix(m, T, code) {
     inline(v.desc || ''), kindBadge(T, v.kind), codes(v.objects)])))}`;
 }
 
-function taskSheet(m, T, E, row) {
+function taskSheet(m, T, E, row, views = []) {
   const t = row.task || {};
   const c = row.code;
   const head = [
@@ -117,16 +118,28 @@ function taskSheet(m, T, E, row) {
       `<code>${esc(v.id)}</code> ${inline(v.label)}`, inline(v.desc || ''), kindBadge(T, v.kind), codes(v.objects)]))}`);
   }
   parts.push(`<div${arr(t.rules).length ? '' : ' class="ed-empty"'}><h4>${esc(T.rules)}</h4>${edList(E, P(c, 'task.rules'), 'rule', arr(t.rules), (r, i) => ruleHtml(T, r, strPath(P(c, 'task.rules'), r, i)), { cls: 'rules' })}</div>`);
-  const lanesSvg = stepLanes(m, row);
-  if (lanesSvg) parts.push(`<h4>${esc(T.stepLanes)}</h4><figure class="flowfig swim">${lanesSvg}${legend(m, T, [row.kind].filter(Boolean))}</figure>`);
+  const caseId = (i) => `${anchorId(row.code)}-s${i + 1}`;
+  const lanesSvg = stepLanes(m, row, { altHref: (i) => `#${caseId(i)}`, altWord: (n) => T.altCount.replace('{n}', n) });
+  if (lanesSvg) parts.push(`<h4 id="${anchorId(row.code)}-lanes">${esc(T.stepLanes)}</h4><figure class="flowfig swim">${lanesSvg}${legend(m, T, [row.kind].filter(Boolean))}</figure>`);
+  // a step done by several programs: one case figure each (reached from the ▸ box), condition → program → business action
+  arr(t.steps).forEach((s, i) => {
+    if (arr(s.alts).length < 2) return;
+    const ap = `${P(c, 'task.steps')}.${i}.alts`;
+    parts.push(`<div class="cases" id="${caseId(i)}"><h4>${esc(T.step)} ${i + 1} · ${inline(s.name || '')} — ${esc(T.altCaption)} <a class="go" href="#${anchorId(row.code)}-lanes" title="${esc(T.stepLanes)}">↑</a></h4>`
+      + `<figure class="flowfig swim">${caseMap(m, s, row)}</figure>`
+      + table([T.altWhen, T.where, T.action, T.step, T.method], arr(s.alts).map((a, k) => [ed(`${ap}.${k}.when`, a.when), `<code>${esc(a.where || '')}</code>`, ed(`${ap}.${k}.action`, a.action || ''), ed(`${ap}.${k}.label`, a.label), ed(`${ap}.${k}.method`, a.method || '')])) + '</div>');
+  });
   if (t.flow && arr(t.flow.nodes).length) {
-    parts.push(`<h4>${esc(T.flow)}</h4><figure class="flowfig">${stripProlog(renderFlowchartSVG(t.flow, { lang: m.lang, heading: row.label }))}</figure>`);
+    // a node's `where` (TCode / program / RFC FM / job) is drawn as the second line of the box
+    const flow = { ...t.flow, nodes: arr(t.flow.nodes).map(n => (n.where || n.action ? { ...n, label: `${n.label}
+${[n.where, n.action].filter(Boolean).join(' · ')}` } : n)) };
+    parts.push(`<h4>${esc(T.flow)}</h4><figure class="flowfig">${stripProlog(renderFlowchartSVG(flow, { lang: m.lang, heading: row.label, groups: true }))}</figure>`);
   }
   {
     const sp = P(c, 'task.steps');
-    const body = edList(E, sp, 'step', arr(t.steps), (s, i) => `<td>${ed(`${sp}.${i}.name`, s.name)}</td><td>${ed(`${sp}.${i}.method`, s.method)}</td>`
+    const body = edList(E, sp, 'step', arr(t.steps), (s, i) => `<td>${ed(`${sp}.${i}.name`, s.name)}</td><td>${ed(`${sp}.${i}.where`, s.where)}</td><td>${ed(`${sp}.${i}.action`, s.action || '')}</td><td>${ed(`${sp}.${i}.method`, s.method)}</td>`
       + `<td>${ed(`${sp}.${i}.timing`, s.timing)}</td><td>${ownerTag(m, T, s.owner, s.ownerEstimated)}</td><td>${sysTag(m, s.system)}</td>`, { tag: 'tbody', row: 'tr' });
-    parts.push(`<div${arr(t.steps).length ? '' : ' class="ed-empty"'}><h4>${esc(T.steps)}</h4><div class="tw"><table class="steps"><thead><tr>${[T.step, T.method, T.timing, T.owner, T.system]
+    parts.push(`<div${arr(t.steps).length ? '' : ' class="ed-empty"'}><h4>${esc(T.steps)}</h4><div class="tw"><table class="steps"><thead><tr>${[T.step, T.where, T.action, T.method, T.timing, T.owner, T.system]
       .map(h => `<th>${esc(h)}</th>`).join('')}<th class="ed-only-cell"></th></tr></thead>${body}</table></div><button type="button" class="edadd ed-only" data-add="${esc(sp)}">${esc(E.add)}</button></div>`);
   }
   const rel = [];
@@ -146,6 +159,8 @@ function taskSheet(m, T, E, row) {
       return `<li><a href="#${anchorId(code)}">${esc(code)} ${esc(to?.label || '')}</a>${l.note ? ` — ${inline(l.note)}` : ''}</li>`;
     }).join('')}</ul>`);
   }
+  // read-only: the steps of the integration maps' E2E scenarios this task takes part in
+  if (views.length) { const x = taskLinks(views, m, c, T); if (x) parts.push(x); }
   const cp = P(c, 'task.conversion'), tp = P(c, 'task.tbd');
   parts.push(`<div${arr(t.conversion).length ? '' : ' class="ed-empty"'}><h4>${esc(T.conversion)}</h4>${edList(E, cp, 'text', arr(t.conversion), (x, i) => ed(strPath(cp, x, i), strText(x)))}</div>`);
   parts.push(`<aside class="tbd${arr(t.tbd).length ? '' : ' ed-empty'}"><strong>${esc(T.tbd)}</strong>${edList(E, tp, 'text', arr(t.tbd), (x, i) => ed(strPath(tp, x, i), strText(x)))}</aside>`);
@@ -170,15 +185,16 @@ function bphTable(m, T) {
         + `<td>${v.owner ? ownerTag(m, T, v.owner, v.ownerEstimated) : ''}</td><td>${usageMark(T, v.usage)}</td><td>${inline(v.remark || '')}</td></tr>`);
     }
   }
-  const present = [...new Set(m.rows.map(r => r.kind).filter(Boolean))];
-  const tools = `<div class="bph-tools"><input id="bph-q" type="search" placeholder="${esc(T.filter)}" aria-label="${esc(T.filter)}">`
-    + present.map(k => `<button type="button" data-kind="${esc(k)}" aria-pressed="false">${esc(T[`k_${k}`] || k)}</button>`).join('')
+  // column filters (Excel-like ▼ per header) are added by the page script; their labels ride on the tool bar
+  const xf = { all: T.xfAll, blank: T.xfBlank, ok: T.xfOk, cancel: T.xfCancel, clear: T.xfClear, find: T.xfFind, title: T.xfTitle };
+  const tools = `<div class="bph-tools" data-xf="${esc(JSON.stringify(xf))}"><input id="bph-q" type="search" placeholder="${esc(T.filter)}" aria-label="${esc(T.filter)}">`
+    + `<button type="button" id="bph-clear">${esc(T.xfClearAll)}</button>`
     + `<button type="button" id="bph-collapse">${esc(T.collapse)}</button><button type="button" id="bph-expand">${esc(T.expand)}</button></div>`;
   return tools + `<div class="tw"><table class="bph"><thead><tr>${[T.code, T.process, T.system, T.kind, T.tcodes, T.objects, T.owner, T.usage, T.remark]
     .map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></div>`;
 }
 
-export function renderProcessHtml(model, { version, date, history = [] }) {
+export function renderProcessHtml(model, { version, date, history = [], integrations = [] }) {
   const m = normalizeModel(model);
   const T = labelsFor(m.lang);
   const E = editorLabels(m.lang);
@@ -237,11 +253,11 @@ export function renderProcessHtml(model, { version, date, history = [] }) {
       det.push(`<h3 id="${anchorId(b.code)}" class="page-break">${esc(b.code)} ${ed(P(b.code, 'label'), b.label)}</h3><p class="lead${b.desc ? '' : ' ed-empty'}">${ed(P(b.code, 'desc'), b.desc)}</p>`);
       for (const c of childrenOf(m, b.code)) {
         det.push(`<h4 id="${anchorId(c.code)}">${esc(c.code)} ${ed(P(c.code, 'label'), c.label)}</h4><p class="lead${c.desc ? '' : ' ed-empty'}">${ed(P(c.code, 'desc'), c.desc)}</p>`);
-        const map = l3Map(m, c.code, { variantWord: T.variant });
+        const map = l3Map(m, c.code, { variantWord: T.variant, moreWord: (n) => T.more.replace('{n}', n) });
         const kinds = [...new Set(childrenOf(m, c.code).map(r => r.kind).filter(Boolean))];
         if (map) det.push(`<figure class="flowfig swim scenario"><div class="cap">${esc(T.scenarioMap)}</div>${map}${legend(m, T, kinds)}</figure>`);
         det.push(variantMatrix(m, T, c.code));
-        for (const d of childrenOf(m, c.code)) det.push(taskSheet(m, T, E, d));
+        for (const d of childrenOf(m, c.code)) det.push(taskSheet(m, T, E, d, integrations));
       }
     }
   }
@@ -273,15 +289,18 @@ export function renderProcessHtml(model, { version, date, history = [] }) {
     + `${edList(E, 'm|glossary', 'term', m.glossary, (g, i) => `<td>${ed(`m|glossary.${i}.term`, g.term)}</td><td>${ed(`m|glossary.${i}.description`, g.description)}</td>`, { tag: 'tbody', row: 'tr' })}</table></div>`
     + `<button type="button" class="edadd ed-only" data-add="m|glossary">${esc(E.add)}</button></div>`);
   {
-    toc.push(['appendix', `4. ${T.appendix}`]);
-    sec.push(`<section id="appendix" class="page-break"><h2>4. ${esc(T.appendix)}</h2>${app.join('')}</section>`);
+    const xs = moduleSection(integrations, m, T, 4);
+    if (xs) { toc.push(['xmodule', `4. ${T.xScen}`]); sec.push(xs); }
+    const an = xs ? 5 : 4;
+    toc.push(['appendix', `${an}. ${T.appendix}`]);
+    sec.push(`<section id="appendix" class="page-break"><h2>${an}. ${esc(T.appendix)}</h2>${app.join('')}</section>`);
   }
 
   const tocHtml = `<ol>${toc.map(([id, label, kids]) => `<li><a href="#${id}">${esc(label)}</a>${kids?.length ? `<ol>${kids.map(([k, l]) => `<li><a href="#${k}">${esc(l)}</a></li>`).join('')}</ol>` : ''}</li>`).join('')}</ol>`;
   return `<!doctype html>
 <html lang="${esc(m.lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} v${esc(version)}</title>
-<style>${STYLE}${EDITOR_STYLE}</style></head>
+<style>${STYLE}${EDITOR_STYLE}${XSTYLE}</style></head>
 <body>
 <header class="topbar"><span class="t">${esc(title)} · v${esc(version)}</span><button id="ed-undo" type="button">${esc(E.undo)}</button><button id="ed-save" type="button">${esc(E.save)}</button><button id="ed-edit" type="button">${esc(E.edit)}</button><button id="print-btn" type="button">${esc(T.print)}</button><button id="theme-btn" type="button">${esc(T.theme)}</button></header>
 <div class="ed-bar">${esc(E.hint)}</div>
@@ -326,7 +345,9 @@ export function buildProcessDoc({ modelPath, outDir, sameVersion = false, major 
   if (versions.at(-1)?.version === version) versions[versions.length - 1] = { ...versions.at(-1), ...entry };
   else versions.push(entry);
   history.versions = versions;
-  const html = renderProcessHtml(model, { version, date: entry.date, history: versions });
+  // the integration maps that name this module (processes/_integration/*), shown read-only
+  const integrations = loadIntegrations({ processesDir: resolve(dir, '..'), module: model.module, lang, pageDir: dir });
+  const html = renderProcessHtml(model, { version, date: entry.date, history: versions, integrations });
   const htmlPath = join(dir, `${key}-process-v${version}-${lang}.html`);
   const srcPath = join(dir, '_src', `${key}-process-v${version}-${lang}.process.json`);
   writeFileSync(htmlPath, html, 'utf8');

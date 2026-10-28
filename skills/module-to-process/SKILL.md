@@ -72,6 +72,8 @@ Settled at design time (2026-10-27) — do not ask the user again:
 | [`dispatch-analyst.md`](dispatch-analyst.md) | Step 4 hierarchy + Step 5 task-sheet prompts (`sap-analyst`) |
 | [`dispatch-review.md`](dispatch-review.md) | Step 6 optional consultant review prompt + Step 7 assemble command |
 | [`model-schema.md`](model-schema.md) | `process-model.json` shape, values, checks |
+| [`workflow-scale.md`](workflow-scale.md) | Scopes with more than 300 used entries: G1 batches, Step 4 placement parts + consolidation + `merge-placements.mjs`, Step 6 review slices, companion after edits |
+| [`workflow-integration.md`](workflow-integration.md) | Cross-module integration map (asked at Step 1): boundary stubs, `cross-module.mjs` touchpoints, E2E scenarios (`sap-analyst`), `build-integration-doc.mjs` page |
 </Companion_Files>
 
 <Agent_Composition>

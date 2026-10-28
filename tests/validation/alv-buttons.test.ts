@@ -284,10 +284,11 @@ describe('ALV screen buttons', () => {
     });
 
     it('gives the second left-lane edge its own horizontal row', () => {
-      const rows = [...svg.matchAll(/<polyline points="([^"]+)"/g)]
-        .map((m) => m[1].split(' ').map((p) => p.split(',').map(Number)))
-        .filter((pts) => pts.length === 6);
+      // the second sibling (CANCEL): the polyline drawn right before its label chip
+      const rows = [...svg.matchAll(/<polyline points="([^"]+)"[^>]*\/><rect[^>]*\/><text[^>]*>CANCEL</g)]
+        .map((m) => m[1].split(' ').map((p) => p.split(',').map(Number)));
       expect(rows.length).toBe(1);
+      expect(rows[0].length).toBe(6);
       const [w0, jog, down] = rows[0];
       expect(jog[1]).toBe(w0[1]);
       expect(down[1] - w0[1]).toBe(20);

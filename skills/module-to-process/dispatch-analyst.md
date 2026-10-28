@@ -85,8 +85,13 @@ Only used TCodes are in scope (<SID>, last <coverage> months).
 - S/4 notes: <PLUGIN_ROOT>/common/sap-version-reference.md + the `s4` fields of <PLUGIN_ROOT>/configs/<M>/process-backbone.json
 ## Per task
 Read the entry program(s) of the row and what they reach — not the whole package. Write definition, output, timing;
-2–6 rules each with source {object, unit, line} or estimated: true; 2–8 steps (owner = lane id, system = system id);
-flow only with a real decision (≤ 12 nodes); objects / exits / interfaces; links; conversion (S/4 impact of this task only); tbd.
+2–6 rules each with source {object, unit, line} or estimated: true; 2–8 steps (owner = lane id, system = system id;
+name = the business action in consultant / operator words, where = the TCode / program / RFC FM / job / external screen
+it runs in, method = how in one phrase; several programs for one step → `alts[{when, where, label}]`, one per program
+with the business case that selects it, never a joined list in `where`; `action` = the user action in that program that triggers the step: F8, a named
+button with its function code, a row selection + button, batch, automatic exit); flow only with a real decision (≤ 12 nodes, labels in business words, `where` on
+process / io nodes; never a node that is only an FM, table or job name); objects / exits / interfaces; links;
+conversion (S/4 impact of this task only); tbd. Readers are module consultants and operators, not developers.
 row_patch when the source contradicts the row — any of kind, owner, ownerEstimated, usage, tcodes, objects, variants, desc.
 ## Output — write a FILE, return a SHORT summary
 Write <STATE_DIR>/step5.part-<k>.json (UTF-8, node or Bash):

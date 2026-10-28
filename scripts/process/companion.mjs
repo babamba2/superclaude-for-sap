@@ -6,10 +6,12 @@
 // texts: every prose string of the model, de-duplicated, as
 //   { from: "ko", to: "", items: [{ i, text }], paths: { "<i>": ["row:1.2|label", "m|glossary.0.term", …] } }
 // The translator fills `to` and returns { items: [{ i, text }] } with the same i — nothing else changes.
-// apply: writes each translated text back at all its paths and sets lang. SAP identifiers, codes,
+// apply: writes each translated text back at all its paths and sets lang. A translated chunk whose
+// source chunk sits next to it (<texts>.<k>.json + <texts>.<k>.en.json) is matched by source text, so
+// chunks translated before a model edit still apply after it. SAP identifiers, codes,
 // TCodes, object names, ids and numbers are not prose and are never extracted.
 
-import { readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -38,15 +40,17 @@ export function prosePaths(model) {
     const t = r.task; if (!t) continue;
     for (const k of ['definition', 'output', 'timing']) add(R(`task.${k}`), t[k]);
     list(R('task.rules'), t.rules, ['text']);
-    list(R('task.steps'), t.steps, ['name', 'method', 'timing']);
-    list(R('task.objects'), t.objects, ['desc']);
-    list(R('task.interfaces'), t.interfaces, ['desc']);
+    list(R('task.steps'), t.steps, ['name', 'method', 'timing', 'where', 'action']);
+    arr(t.steps).forEach((st, i) => list(R(`task.steps.${i}.alts`), st?.alts, ['when', 'label', 'method', 'where', 'action']));
+    list(R('task.objects'), t.objects, ['name', 'desc']);
+    list(R('task.exits'), t.exits, ['name', 'desc']);
+    list(R('task.interfaces'), t.interfaces, ['object', 'desc']);
     list(R('task.links'), t.links, ['note']);
     list(R('task.conversion'), t.conversion, ['text']);
     list(R('task.tbd'), t.tbd, ['text']);
-    if (t.flow) { list(R('task.flow.nodes'), t.flow.nodes, ['label']); list(R('task.flow.edges'), t.flow.edges, ['label']); }
+    if (t.flow) { list(R('task.flow.nodes'), t.flow.nodes, ['label', 'where', 'action']); list(R('task.flow.edges'), t.flow.edges, ['label']); }
   }
-  list('m|crossModule', model.crossModule, ['desc']);
+  list('m|crossModule', model.crossModule, ['object', 'desc']);
   list('m|notEvidenced', model.notEvidenced, ['label', 'reason']);
   list('m|openQuestions', model.openQuestions, ['text']);
   list('m|glossary', model.glossary, ['term', 'description']);
@@ -72,13 +76,25 @@ function setPath(model, p, v) {
   return true;
 }
 
-/** Translated items back into a copy of the model; returns { model, missing } (untranslated ids). */
-export function applyTexts(model, texts, translated, lang) {
+/** Source text → translation from chunk pairs [{ source: {items}, translated: {items} }]. Keyed by text,
+ *  so a translation stays valid when the model changed and the ids of a new extraction shifted. */
+export function translationsByText(pairs) {
+  const m = new Map();
+  for (const { source, translated } of arr(pairs)) {
+    const byI = new Map(arr(translated?.items).map(x => [Number(x.i), x.text]));
+    for (const it of arr(source?.items)) { const v = byI.get(Number(it.i)); if (typeof v === 'string' && v.trim()) m.set(it.text, v); }
+  }
+  return m;
+}
+
+/** Translated items back into a copy of the model; returns { model, missing } (untranslated ids).
+ *  `byText` (from translationsByText) wins over the id match of `translated`. */
+export function applyTexts(model, texts, translated, lang, byText) {
   const out = JSON.parse(JSON.stringify(model));
-  const byI = new Map(arr(translated.items).map(x => [Number(x.i), x.text]));
+  const byI = new Map(arr(translated?.items).map(x => [Number(x.i), x.text]));
   const missing = [];
   for (const it of texts.items) {
-    const v = byI.get(it.i);
+    const v = byText?.get(it.text) ?? byI.get(it.i);
     if (typeof v !== 'string' || !v.trim()) { missing.push(it.i); continue; }
     for (const p of texts.paths[it.i] || []) setPath(out, p, v);
   }
@@ -111,8 +127,16 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
     } else if (cmd === 'apply') {
       const texts = extractTexts(model);
       const inputs = args.filter((x, i) => x && !x.startsWith('--') && !['--lang', '--out'].includes(args[i - 1]));
-      const merged = { items: inputs.flatMap(f => arr(JSON.parse(readFileSync(f, 'utf8')).items)) };
-      const { model: m, missing } = applyTexts(model, texts, merged, get('--lang') || 'en');
+      // <chunk>.en.json next to its source <chunk>.json → match by source text (ids may have shifted
+      // since the chunks were extracted); a translated file without its source falls back to the ids.
+      const pairs = [], loose = [];
+      for (const f of inputs) {
+        const translated = JSON.parse(readFileSync(f, 'utf8'));
+        const src = f.replace(/\.[a-z]{2}\.json$/i, '.json');
+        if (src !== f && existsSync(src)) pairs.push({ source: JSON.parse(readFileSync(src, 'utf8')), translated });
+        else loose.push(...arr(translated.items));
+      }
+      const { model: m, missing } = applyTexts(model, texts, { items: loose }, get('--lang') || 'en', translationsByText(pairs));
       writeFileSync(get('--out'), `${JSON.stringify(m, null, 2)}\n`, 'utf8');
       console.log(JSON.stringify({ out: resolve(get('--out')), lang: m.lang, missing: missing.length }));
       if (missing.length) process.exitCode = 3;

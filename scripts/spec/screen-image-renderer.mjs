@@ -1274,9 +1274,9 @@ function fcChip(x, y, text, color) {
     + `<text x="${x}" y="${y + 1}" text-anchor="middle" font-size="11" font-weight="700" fill="${color}">${xml(text)}</text>`;
 }
 
-function fcEdgeSvg(e, L, lang, i) {
+function fcEdgeRoute(e, L, lang, i) {
   const a = L.pos[e.from], b = L.pos[e.to];
-  if (!a || !b) return '';
+  if (!a || !b) return null;
   const aSide = L.byId[e.from]?.lane === 'right';
   const bSide = L.byId[e.to]?.lane === 'right';
   const south = p => ({ x: p.x, y: p.yTop + p.h });
@@ -1328,8 +1328,60 @@ function fcEdgeSvg(e, L, lang, i) {
     lx = a.x + 12; ly = south(a).y + 17;
     if (label === legendFor(lang).fc_yes || /yes|예|はい/i.test(label || '')) lcol = '#1E7A46';
   }
-  const poly = `<polyline points="${pts.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="${FC_EDGE}" stroke-width="1.7" marker-end="url(#fcarrow)"/>`;
-  return poly + (label ? fcChip(lx, ly, label, lcol) : '');
+  return { from: e.from, to: e.to, pts, label, lx, ly, lcol };
+}
+
+/**
+ * Arrows that meet at one point of a node (an arrow in and an arrow out on the same side, or two arrows in; arrows that only leave are left alone)
+ * would run on top of each other. Each one keeps its own row (or column) up to a short diagonal into the
+ * shared point, so the meeting point reads as a chevron and every arrow can be followed. `routes`:
+ * [{ pts: [{x, y}, …] }] — first and last point sit on a node. Changes the routes in place.
+ */
+export function fanSharedPorts(routes, { gap = 11, stub = 16 } = {}) {
+  const at = new Map();
+  routes.forEach((r, ri) => {
+    if (!r || r.pts.length < 2) return;
+    for (const end of ['start', 'end']) {
+      const p = end === 'start' ? r.pts[0] : r.pts.at(-1);
+      const key = `${Math.round(p.x)},${Math.round(p.y)}`;
+      if (!at.has(key)) at.set(key, []);
+      at.get(key).push({ ri, end });
+    }
+  });
+  for (const list of at.values()) {
+    if (list.length < 2) continue;
+    const info = list.map(({ ri, end }) => {
+      const pts = routes[ri].pts, n = pts.length;
+      const port = end === 'start' ? pts[0] : pts[n - 1];
+      const next = end === 'start' ? pts[1] : pts[n - 2];
+      const far = (end === 'start' ? pts[2] : pts[n - 3]) || next;
+      return { ri, end, port, next, far, horiz: Math.abs(next.y - port.y) < 0.5 };
+    });
+    // only arrows that leave the point the same way can overlap
+    for (const horiz of [true, false]) {
+      const grp = info.filter(x => x.horiz === horiz);
+      // arrows that only leave the point are a fork (a decision's branches): they may share it
+      if (grp.length < 2 || grp.filter(x => x.end === 'end').length === 0) continue;
+      grp.sort((p, q) => (horiz ? p.far.y - q.far.y : p.far.x - q.far.x));
+      grp.forEach((g, k) => {
+        const o = (k - (grp.length - 1) / 2) * gap;
+        if (!o) return;
+        const pts = routes[g.ri].pts, n = pts.length;
+        const dir = horiz ? Math.sign(g.next.x - g.port.x) || -1 : Math.sign(g.next.y - g.port.y) || 1;
+        const q = horiz ? { x: g.port.x + dir * stub, y: g.port.y + o } : { x: g.port.x + o, y: g.port.y + dir * stub };
+        // a bend point moves onto the arrow's own row; a straight two-point arrow only gets the diagonal stub
+        if (n > 2) { const ni = g.end === 'start' ? 1 : n - 2; if (horiz) pts[ni].y = g.port.y + o; else pts[ni].x = g.port.x + o; }
+        pts.splice(g.end === 'start' ? 1 : n - 1, 0, q);
+      });
+    }
+  }
+  return routes;
+}
+
+function fcEdgeSvg(r) {
+  if (!r) return '';
+  const poly = `<polyline points="${r.pts.map(p => `${p.x},${p.y}`).join(' ')}" fill="none" stroke="${FC_EDGE}" stroke-width="1.7" marker-end="url(#fcarrow)"/>`;
+  return poly + (r.label ? fcChip(r.lx, r.ly, r.label, r.lcol) : '');
 }
 
 function fcLegendSvg(lang, y, width) {
@@ -1411,7 +1463,85 @@ export function toFreeFlow(flow) {
   return null;
 }
 
-export function renderFlowchartSVG(graph = {}, { lang = 'ko', heading = null } = {}) {
+/** Program frames for a laid-out flow. Every node belongs to the program / TCode / RFC it runs in: its `group`,
+ *  else the first one named in its `where` (not for io nodes — their `where` names a table or message), else the
+ *  program of the node before it (a decision, a save or the end runs where the step before it ran), else of the
+ *  node after it. Nodes of one program share a frame; a node of another program in between splits it. Each
+ *  program gets its own tint and a tab on the frame's top-left corner ("TCode · ZXX01"). Returns { svg, tabs, extraW }. */
+const FC_GROUP_RE = /\b(Z[A-Z0-9_]{2,}|SAPM[A-Z0-9]+|BAPI_[A-Z0-9_]+|[A-Z]{2,4}\d{1,3}[A-Z]?N?)\b/;
+const FC_GROUP_TINTS = [
+  { fill: '#EAF3FB', stroke: '#3B6E99' }, { fill: '#EDF6EE', stroke: '#4A7D52' },
+  { fill: '#F4EFFA', stroke: '#76589A' }, { fill: '#FCF4E7', stroke: '#9C6B25' },
+];
+function fcGroupKind(where, key) {
+  if (/RFC|BAPI_|^Z_/i.test(`${where} ${key}`)) return 'RFC';
+  if (/배치|batch|job|ジョブ|SM36/i.test(where)) return 'Job';
+  if (/프로그램|program|プログラム|SE38|SA38/i.test(where)) return 'Program';
+  return 'TCode';
+}
+export function flowGroupFrames(L) {
+  const nodes = (L.nodes || []).filter(n => L.pos[n.id]);
+  const own = (n) => n.group || (n.type === 'io' ? '' : (FC_GROUP_RE.exec(n.where || '') || [])[1]) || '';
+  const key = new Map(nodes.map(n => [n.id, own(n)]));
+  const where = new Map(nodes.filter(n => own(n)).map(n => [own(n), n.where || '']));
+  // inherit along the edges, the nodes before first, then the nodes after; repeat until nothing changes
+  // (a dead end after a decision that only learnt its program from the node after it)
+  for (let round = 0, any = true; any && round <= nodes.length; round++) {
+    any = false;
+    for (const dir of ['from', 'to']) {
+      for (let pass = 0, changed = true; changed && pass < nodes.length; pass++) {
+        changed = false;
+        for (const e of L.edges || []) {
+          const [src, dst] = dir === 'from' ? [e.from, e.to] : [e.to, e.from];
+          if (key.has(dst) && !key.get(dst) && key.get(src)) { key.set(dst, key.get(src)); changed = any = true; }
+        }
+        if (changed && dir === 'to') break; // back to the nodes-before pass first
+      }
+    }
+  }
+  const items = nodes.filter(n => key.get(n.id)).map(n => ({ n, k: key.get(n.id), p: L.pos[n.id] }));
+  if (!items.length) return { svg: '', tabs: '', extraW: 0 };
+  const box = (p) => ({ x0: p.x - p.w / 2, x1: p.x + p.w / 2, y0: p.yTop, y1: p.yTop + p.h });
+  const frames = [];
+  for (const k of [...new Set(items.map(i => i.k))]) {
+    const mine = items.filter(i => i.k === k).sort((a, b) => a.p.yTop - b.p.yTop);
+    let cur = null;
+    for (const it of mine) {
+      const b = box(it.p);
+      if (cur) {
+        const u = { x0: Math.min(cur.x0, b.x0), x1: Math.max(cur.x1, b.x1), y0: cur.y0, y1: Math.max(cur.y1, b.y1) };
+        const blocked = nodes.some(o => { if (key.get(o.id) === k) return false; const ob = box(L.pos[o.id]); return ob.x1 > u.x0 && ob.x0 < u.x1 && ob.y1 > u.y0 && ob.y0 < u.y1; });
+        if (!blocked) { Object.assign(cur, u); continue; }
+        frames.push(cur);
+      }
+      cur = { k, ...b };
+    }
+    if (cur) frames.push(cur);
+  }
+  // frames in the centre column share one width, so the column reads as one band of program blocks
+  const spine = items.filter(i => i.n.lane !== 'right').map(i => box(i.p));
+  const sx0 = Math.min(...spine.map(b => b.x0)), sx1 = Math.max(...spine.map(b => b.x1));
+  for (const f of frames) { f.x0 = Math.min(f.x0, sx0); f.x1 = Math.max(f.x1, sx1); }
+  const keys = [...new Set(frames.map(f => f.k))];
+  const PADX = 24, PADTOP = 20, PADBOT = 11;
+  const body = [], tabs = [];
+  for (const f of frames) {
+    const t = FC_GROUP_TINTS[keys.indexOf(f.k) % FC_GROUP_TINTS.length];
+    const kind = fcGroupKind(where.get(f.k) || '', f.k);
+    const x = f.x0 - PADX, y = f.y0 - PADTOP, w = f.x1 - f.x0 + PADX * 2, h = f.y1 - f.y0 + PADTOP + PADBOT;
+    const kw = approxTextWidthPx(kind) * 0.95 + 12, nw = approxTextWidthPx(f.k) * 1.32 + 16;
+    body.push(`<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="8" fill="${t.fill}" fill-opacity="0.7" stroke="${t.stroke}" stroke-width="1.3"/>`);
+    tabs.push(`<rect x="${x + 10}" y="${y - 10}" width="${kw + nw}" height="20" rx="4" fill="${t.stroke}"/>`
+      + `<rect x="${x + 11}" y="${y - 9}" width="${kw - 1}" height="18" rx="3" fill="#FFFFFF" fill-opacity="0.9"/>`
+      + `<text x="${x + 10 + kw / 2}" y="${y + 4}" text-anchor="middle" font-size="10" font-weight="700" fill="${t.stroke}">${xml(kind)}</text>`
+      + `<text x="${x + 10 + kw + nw / 2}" y="${y + 4.5}" text-anchor="middle" font-size="12.5" font-weight="700" fill="#FFFFFF">${xml(f.k)}</text>`);
+  }
+  const right = Math.max(...frames.map(f => f.x1 + PADX + 6));
+  // the tabs are drawn over the arrows: an arrow into the first node of a frame runs under its tab
+  return { svg: body.join('\n'), tabs: tabs.join('\n'), extraW: Math.max(0, right - L.width) };
+}
+
+export function renderFlowchartSVG(graph = {}, { lang = 'ko', heading = null, groups = false } = {}) {
   if (isFreeGraph(graph)) {
     return `<?xml version="1.0" encoding="UTF-8"?>\n${drawFreeFlow(graph, { ...freeFlowOptions(lang, heading), scale: RENDER_SCALE }).svg}`;
   }
@@ -1421,15 +1551,19 @@ export function renderFlowchartSVG(graph = {}, { lang = 'ko', heading = null } =
     + `<marker id="fcarrow" markerWidth="11" markerHeight="11" refX="8.5" refY="3.2" orient="auto" markerUnits="userSpaceOnUse"><path d="M0,0 L9.5,3.2 L0,6.4 Z" fill="${FC_EDGE}"/></marker>`
     + `<filter id="fcsh" x="-12%" y="-25%" width="124%" height="150%"><feDropShadow dx="0" dy="1.4" stdDeviation="1.5" flood-color="#8C9BAA" flood-opacity="0.45"/></filter>`
     + `</defs>`;
-  const edgeSvg = (L.edges || []).map((e, i) => fcEdgeSvg(e, L, lang, i)).join('\n');
+  const edgeSvg = fanSharedPorts((L.edges || []).map((e, i) => fcEdgeRoute(e, L, lang, i))).map(fcEdgeSvg).join('\n');
   const nodeSvg = (L.nodes || []).map(n => fcNodeSvg(L.pos[n.id], n)).join('\n');
   const legendSvg = fcLegendSvg(lang, L.height - 22, L.width);
+  const G = groups ? flowGroupFrames(L) : { svg: '', tabs: '', extraW: 0 };
+  const W = L.width + G.extraW;
   return `<?xml version="1.0" encoding="UTF-8"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(L.width * RENDER_SCALE)}" height="${Math.round(L.height * RENDER_SCALE)}" viewBox="0 0 ${L.width} ${L.height}" font-family="Arial,sans-serif" font-size="12">
+<svg xmlns="http://www.w3.org/2000/svg" width="${Math.round(W * RENDER_SCALE)}" height="${Math.round(L.height * RENDER_SCALE)}" viewBox="0 0 ${W} ${L.height}" font-family="Arial,sans-serif" font-size="12">
 ${defs}
-<rect width="${L.width}" height="${L.height}" fill="#FFF"/>
+<rect width="${W}" height="${L.height}" fill="#FFF"/>
 <text x="${L.width / 2}" y="34" text-anchor="middle" font-size="16" font-weight="700" fill="#0A4F8C">${xml(heading)}</text>
+${G.svg}
 ${edgeSvg}
+${G.tabs}
 ${nodeSvg}
 ${legendSvg}
 </svg>`;

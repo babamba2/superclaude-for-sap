@@ -40,6 +40,8 @@ Agent({
 })
 ```
 
+Large scopes (more than 300 used entries): review slices per [`workflow-scale.md`](workflow-scale.md) § Step 6.
+
 Main thread: verify each file parses. Non-empty `objections` → print them as a table (`Code · Issue · Fix`) and ask (2 options): `Apply the fixes (Recommended)` / `Keep as is`. Apply = Edit `step4.json` / the part files (no re-dispatch).
 
 ## Step 8b — Translate brief (template of `<STATE_DIR>/translate-brief.md`)

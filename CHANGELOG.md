@@ -5,6 +5,42 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.48] — 2026-10-28
+
+### Added — `module-to-process` large scopes
+
+- Scale mode for scopes with more than 300 used entry points (`skills/module-to-process/workflow-scale.md`): source fetching in batches of 40 programs per checker with an on-disk check, a second round for called customer function groups (function group read from the search URI), Step 4 as parallel placement parts plus one consolidation pass, Step 6 review in slices of L2 codes.
+- `scripts/process/merge-placements.mjs` — merges the placement parts (`summary` → input of the consolidation pass, `build` → `step4.json` in backbone order with merged keys, owners, systems, variants, `not_evidenced` and `step4-ext.json` with the external systems per task). Several modules in one run.
+- Standard process backbones for FI (`configs/FI/process-backbone.json`) and CO (`configs/CO/process-backbone.json`).
+
+### Added — `module-to-process` integration map (cross-module)
+
+- Step 1 asks whether to build an integration map with modules that already have a process map; a module run never analyses other modules. Objects of other modules its programs reach stay boundary stubs (`skills/module-to-process/workflow-integration.md`).
+- `scripts/process/cross-module.mjs` — touchpoints between module maps from their reference graphs: per L4 the tables read / written and functions called through customer code, the owning module by customer prefix or `configs/<M>/tables.md` / `bapi.md`, writer ↔ reader pairs across modules, master data and shared utilities as hubs, boundary stubs for modules without a map, the analysts' cross-module notes attached by object.
+- E2E scenarios across the modules written by one `sap-analyst` from a pair digest.
+- Module pages show the integration maps of their module, read-only (`scripts/process/integration-view.mjs`): a section with the cross-module E2E scenarios (own steps in full colour, the other module's greyed, where each step runs) and, per task sheet, the steps before / after it and the key pair notes, with links into the other module's page and the integration map.
+- Scenario steps show where they run: the program of the task that touches the handed-over object (graph evidence), else the one the step note names, else the task's TCodes.
+- `scripts/process/build-integration-doc.mjs` — one page per module pair: overview, E2E scenario swimlanes (module lanes, boxes link to the task in the module page), touchpoint matrix (L4 × L2), touchpoints per object with evidence, hubs, boundary stubs.
+
+### Changed — `module-to-process` page, written for consultants and operators
+
+- Every step says where it runs (`where`: TCode / program / RFC / job) and what starts it (`action`: button with its function code, F8, batch job, exit); both appear in the step table, the step swimlane and the decision flow.
+- A step done by several programs lists one case per program (`alts`: when, where, action); its swimlane box links to a case figure.
+- Program frames: every decision-flow node sits in the frame of the TCode / RFC / job it runs in. A node without a program of its own (decision, save, start, end) belongs to the program of the node before it. Nodes of one program share one frame, each program has its own tint, and a tab on the frame names it ("TCode · ZXX01", "RFC · Z_…"). Tables of io nodes never name a frame. Consecutive steps of one program share a dashed frame in the step swimlane.
+- BPH table: Excel-like column filters. A ▼ on each header opens a value list with counts, a value search, (select all), OK / Cancel and "clear this filter"; TCode / object cells count each code. Filters on several columns combine, matching rows keep their parent rows, and "clear all filters" resets them. The type buttons are gone (the type column has its own filter).
+- Swimlane boxes wrap between words and grow to their text; nothing is cut off with "…".
+
+### Changed — flowcharts in every skill
+
+- Arrows that meet at one point of a node (an arrow in and an arrow out, or several in) no longer run on top of each other. Each keeps its own row up to a short diagonal into the point, so the meeting point reads as a chevron. Arrows that only leave a point (the branches of a decision) still share it. Applies to auto-laid-out flowcharts (`renderFlowchartSVG`) and to free-layout flows drawn or edited in a page (`flow-draw.mjs`).
+
+### Fixed
+
+- `companion.mjs apply` matches each translated chunk to its source chunk by text, so translations made before a later model edit still land on the right fields (the item ids of a new extraction shift).
+- `assemble-model.mjs` applies only known `row_patch` fields; `tcodes_add` / `tcodes_remove` / `objects_add` / `objects_remove` move entries between tasks (row and variants); other keys are reported as open questions instead of being copied onto the row.
+- `assemble-model.mjs`: a `row_patch.variants` given as `{ "<variant id>": { …patch } }` changes those variants in place instead of replacing the list.
+- `merge-placements.mjs`: a placement whose `system` is not SAP also counts as an external link of its task (`step4-ext.json`).
+
 ## [0.6.47] — 2026-10-27
 
 ### Added — `module-to-process`

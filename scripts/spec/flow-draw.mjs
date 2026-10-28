@@ -182,12 +182,51 @@ export function flowKit() {
   }
   /** Each edge's sides and path: [{ i, e, s1, s2, pts }] (edges to a missing node are left out). */
   function edgePaths(graph, boxes) {
-    return (graph.edges || []).map(function (e, i) {
+    var list = (graph.edges || []).map(function (e, i) {
       var a = boxes[e.from], b = boxes[e.to];
       if (!a || !b) return null;
       var auto = autoSides(a, b), s1 = e.fromSide || auto[0], s2 = e.toSide || auto[1];
       return { i: i, e: e, s1: s1, s2: s2, pts: route(a, s1, b, s2) };
     }).filter(Boolean);
+    return fanPorts(list);
+  }
+  /** Arrows meeting at one node point (an arrow in and one out, or two in) keep their own row up to a
+   *  short diagonal into the point, so it reads as a chevron; arrows that only leave (a fork) share it.
+   *  Same rule as fanSharedPorts in screen-image-renderer.mjs. */
+  function fanPorts(list) {
+    var at = {}, GAP = 11;
+    list.forEach(function (ep, ri) {
+      if (ep.pts.length < 2) return;
+      ['start', 'end'].forEach(function (end) {
+        var p = end === 'start' ? ep.pts[0] : ep.pts[ep.pts.length - 1];
+        var k = Math.round(p.x) + ',' + Math.round(p.y);
+        (at[k] = at[k] || []).push({ ri: ri, end: end });
+      });
+    });
+    Object.keys(at).forEach(function (k) {
+      var info = at[k].map(function (x) {
+        var pts = list[x.ri].pts, n = pts.length;
+        var port = x.end === 'start' ? pts[0] : pts[n - 1];
+        var next = x.end === 'start' ? pts[1] : pts[n - 2];
+        var far = (x.end === 'start' ? pts[2] : pts[n - 3]) || next;
+        return { ri: x.ri, end: x.end, port: port, next: next, far: far, horiz: Math.abs(next.y - port.y) < 0.5 };
+      });
+      [true, false].forEach(function (horiz) {
+        var grp = info.filter(function (x) { return x.horiz === horiz; });
+        if (grp.length < 2 || !grp.some(function (x) { return x.end === 'end'; })) return;
+        grp.sort(function (p, q) { return horiz ? p.far.y - q.far.y : p.far.x - q.far.x; });
+        grp.forEach(function (g, j) {
+          var o = (j - (grp.length - 1) / 2) * GAP;
+          if (!o) return;
+          var pts = list[g.ri].pts, n = pts.length;
+          var dir = horiz ? (Math.sign(g.next.x - g.port.x) || -1) : (Math.sign(g.next.y - g.port.y) || 1);
+          var q = horiz ? { x: g.port.x + dir * STUB, y: g.port.y + o } : { x: g.port.x + o, y: g.port.y + dir * STUB };
+          if (n > 2) { var ni = g.end === 'start' ? 1 : n - 2; pts[ni] = horiz ? { x: pts[ni].x, y: g.port.y + o } : { x: g.port.x + o, y: pts[ni].y }; }
+          pts.splice(g.end === 'start' ? 1 : n - 1, 0, q);
+        });
+      });
+    });
+    return list;
   }
   /** Content bounds: nodes and edge paths. */
   function bounds(graph) {

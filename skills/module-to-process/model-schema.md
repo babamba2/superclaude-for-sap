@@ -55,8 +55,8 @@ Written by `scripts/process/assemble-model.mjs` (Step 7) from the state files, r
   "definition": "…", "output": "Purchase order number", "timing": "Daily batch 06:00",
   "rules": [{ "text": "…", "source": { "object": "ZXX_PO_UPLOAD", "unit": "ZXX_PO_UPLOAD_F01", "line": 120 } },
             { "text": "…", "estimated": true }],
-  "steps": [{ "name": "…", "method": "…", "timing": "…", "owner": "buyer", "system": "sap" }],
-  "flow": { "nodes": [{ "id": "S", "type": "start", "label": "…" }], "edges": [{ "from": "S", "to": "P", "label": "" }] },
+  "steps": [{ "name": "…", "where": "ZXX_PO_UPLOAD", "method": "…", "timing": "…", "owner": "buyer", "system": "sap" }],
+  "flow": { "nodes": [{ "id": "S", "type": "start", "label": "…" }, { "id": "P", "type": "process", "label": "…", "where": "ME21N" }], "edges": [{ "from": "S", "to": "P", "label": "" }] },
   "objects": [{ "name": "ZXX_PO_UPLOAD", "usage": "used", "desc": "…" }, { "name": "BAPI_PO_CREATE1" }],
   "exits": ["MM06E005"],
   "interfaces": [{ "system": "wms", "direction": "out", "object": "ZXX_IF_PO", "desc": "…" }],
@@ -67,8 +67,8 @@ Written by `scripts/process/assemble-model.mjs` (Step 7) from the state files, r
 ```
 
 - `rules[]` — each rule cites `source` (object, unit = include / FM, line) or carries `estimated: true`. Never a rule without either.
-- `steps[]` — 2–8 steps; `owner` / `system` reference `lanes` / `scope.systems`.
-- `flow` — optional decision flow, node types `start` / `end` / `process` / `decision` / `io`; ≤ 12 nodes. Drawn by the flowchart renderer.
+- `steps[]` — 2–8 steps; `owner` / `system` reference `lanes` / `scope.systems`. `name` says the business action in the reader's words ("Release the purchase order"), never a bare FM / table / job name; `where` names where it runs — TCode, program, RFC FM (with the calling system), batch job or external system screen — and is shown on the step box; `method` adds how (BDC, BAPI, file upload, proxy) in one short phrase. A step done by **several programs / TCodes** never lists them in `where`: it carries `alts: [{ when, where, label, method? }]` — one entry per program, `when` = the business case that picks it (org unit, document type, upload vs screen, display vs change …, read from the source), `where` = that one program, `label` = what it does in that case. `action` (steps, `alts`, process / io flow nodes) says what the user does in that program to make it happen — "Execute (F8)", "'Create PO' button (function code CRPO)", "select rows in the ALV, then 'Save'", "runs as batch job (P_BATCH)", "automatic on save (user exit)" — read from `sy-ucomm` / OK-code `CASE`, ALV toolbar handlers and the GUI status texts. The step box then reads "N programs ▸" and links to a case figure (step → condition on each arrow → program box).
+- `flow` — optional decision flow, node types `start` / `end` / `process` / `decision` / `io`; ≤ 12 nodes. Node `label` is business wording ("Save the price condition", "Credit limit exceeded?"), never only an object name such as `BAPI_…` or `ZXXT… 저장`; the optional `where` (TCode / program / RFC FM / job) is drawn as the second line of the box. Drawn by the flowchart renderer.
 - `objects[]` — Std TCodes stay in the row's `tcodes`; this list holds programs, FMs, BAPIs, classes with their usage.
 - `interfaces[]` — `direction` `in` / `out` / `both`; `system` an id of `scope.systems` (add the system there first).
 - `conversion[]` — S/4HANA conversion notes for this task (from `common/sap-version-reference.md` and the backbone `s4` notes); ECC→S/4 only, empty when nothing changes.

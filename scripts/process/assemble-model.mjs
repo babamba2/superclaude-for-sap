@@ -30,6 +30,34 @@ const NOTE = {
 const MISSING = { ko: 'Task 시트가 생성되지 않았어요', en: 'Task sheet not generated', ja: 'タスクシート未作成' };
 const TITLE = { ko: '프로세스 맵', en: 'Process Map', ja: 'プロセスマップ' };
 
+// row_patch of a task sheet: only these row fields are replaced; list fields also take
+// `<field>_add` / `<field>_remove` (values merged into / removed from the row and its variants).
+const PATCH_FIELDS = ['label', 'desc', 'remark', 'kind', 'system', 'owner', 'ownerEstimated', 'usage', 'tcodes', 'objects', 'variants'];
+const PATCH_LISTS = ['tcodes', 'objects'];
+
+export function applyRowPatch(row, patch, open = []) {
+  for (const [k, v] of Object.entries(patch || {})) {
+    const m = /^(\w+)_(add|remove)$/.exec(k);
+    if (m && PATCH_LISTS.includes(m[1])) {
+      const vals = arr(v);
+      if (m[2] === 'add') row[m[1]] = uniq([...arr(row[m[1]]), ...vals]);
+      else {
+        row[m[1]] = arr(row[m[1]]).filter(x => !vals.includes(x));
+        for (const vr of arr(row.variants)) vr[m[1]] = arr(vr[m[1]]).filter(x => !vals.includes(x));
+      }
+    } else if (k === 'variants' && v && !Array.isArray(v) && typeof v === 'object') {
+      // { "<variant id>": { <field>: …, tcodes_add: […], … } } patches single variants in place
+      for (const [id, vp] of Object.entries(v)) {
+        const vr = arr(row.variants).find(x => x.id === id);
+        if (vr) applyRowPatch(vr, vp, open); else open.push(`row_patch ${row.code}: variant "${id}" not found`);
+      }
+    } else if (PATCH_FIELDS.includes(k)) {
+      if (k === 'variants' && !arr(v).length) delete row.variants; else row[k] = v;
+    } else if (!['reason', 'note'].includes(k)) open.push(`row_patch ${row.code ?? row.id}: field "${k}" ignored`);
+  }
+  return row;
+}
+
 export function assembleModel({ intake, step4, parts = [], reviews = [], scope = null, system = '', title = '' }) {
   const lang = intake.language || intake.lang || 'ko';
   const L = lang.slice(0, 2);
@@ -52,7 +80,7 @@ export function assembleModel({ intake, step4, parts = [], reviews = [], scope =
     for (const t of arr(p.tasks)) {
       const row = byCode.get(t.code);
       if (!row) { open.push(`Task sheet for unknown code ${t.code} ignored`); continue; }
-      if (t.row_patch) Object.assign(row, t.row_patch);
+      if (t.row_patch) applyRowPatch(row, t.row_patch, open);
       row.task = t.task || {};
       sheeted.add(t.code);
     }
