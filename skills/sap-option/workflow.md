@@ -25,6 +25,7 @@
    - "industry" — shortcut into industry-selection.md flow
    - "modules" — edit `SAP_ACTIVE_MODULES` (comma-separated from `FI,CO,MM,SD,PP,PM,QM,WM,HCM,PS,TR,TM,BW,Ariba`). Show checkbox-style list with current active set highlighted; accept multi-select add/remove. Cross-module implications listed in `common/active-modules.md` are hinted per change (e.g., "activating PS will add WBS integration hints to MM/SD CBOs").
    - "dispatch" / "model" — shortcut into the model-dispatch.md flow (edits `~/.sc4sap/preferences.json`, not `sap.env`)
+   - "cost" / "eco" — shortcut into the cost-mode.md flow (edits `~/.sc4sap/preferences.json`, not `sap.env`)
    - "status" / "hud" — return to the status snapshot only (re-render step 3)
 
 6. **For each key to change:**

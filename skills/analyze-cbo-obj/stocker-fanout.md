@@ -23,7 +23,7 @@ The stocker returns one line: `WALKED objects=<n> batches=<b> path=<absolute pat
 ## Step B — Gate
 
 - `objects < 30` → skip Step C. Dispatch Step D without a facts file; the stocker runs step 3 (graph) itself as before (ECC mode: no graph — see Step D).
-- `objects ≥ 30` → main reads `walk.json → batches[]` (`NAME:TYPE` strings only) and runs Step C.
+- `objects ≥ 30` (when called by `package-to-process` in cost mode `eco`: ≥ 15) → main reads `walk.json → batches[]` (`NAME:TYPE` strings only) and runs Step C.
 
 ## Step C — Scout fan-out (`sc4sap:sap-checker` × `batches`, `MODE: scout`)
 
