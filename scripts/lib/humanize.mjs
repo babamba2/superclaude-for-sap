@@ -186,14 +186,14 @@ export function unpack(dir, base) {
 // Keys whose values are never prose (codes, ids, links) — skipped by texts-json.
 const SKIP_KEYS = new Set(['id', 'ids', 'code', 'key', 'tcode', 'tcodes', 'program', 'programs', 'table', 'tables', 'field', 'fields', 'object', 'objects', 'url', 'href', 'src', 'path', 'file', 'lang', 'anchor', 'type', 'kind']);
 
-/** Prose string values (≥ 20 Hangul, one line) of several JSON documents → { items, paths, files }.
+/** Prose string values (≥ `min` Hangul, default 20, one line) of several JSON documents → { items, paths, files }.
  *  A path is "<file index>|key.key.0.key"; the same text in two places is one item with two paths. */
-export function jsonTexts(docs, skip = []) {
+export function jsonTexts(docs, skip = [], min = 20) {
   const skipKeys = new Set([...SKIP_KEYS, ...skip]);
   const byText = new Map(), items = [], paths = {};
   const walk = (v, p, f) => {
     if (typeof v === 'string') {
-      if (hangul(v) < 20 || /\n/.test(v)) return;
+      if (hangul(v) < min || /\n/.test(v)) return;
       let i = byText.get(v);
       if (i === undefined) { i = items.length + 1; byText.set(v, i); items.push({ i, text: v }); paths[i] = []; }
       paths[i].push(`${f}|${p.join('.')}`);

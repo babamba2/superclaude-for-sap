@@ -5,6 +5,36 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.52] — 2026-10-29
+
+### Added — project-dashboard
+
+- `/sc4sap:project-dashboard`: one editable HTML page per SAP project for the PM and the PMO — summary, KPIs, milestones with Q-gates, WBS with Gantt, team, history — and `projects/portfolio-<lang>.html` over every project (load of people on several projects).
+  - Templates per project type: new implementation (SAP Activate), S/4 conversion, rollout, AMS release, small project (`scripts/project/templates.json`).
+  - Every WRICEF item moves through its stages with a module consultant and a development consultant; the hand-off queue between them is shown.
+  - Actuals read from the connected system (read-only): transport requests split into customizing vs workbench, package objects, inactive objects, dumps after go-live.
+  - Team members join and leave by date; open items of leavers are flagged for reassignment.
+  - Spreadsheet-style edit mode with a fixed header row, also on mobile; saved page handed back for `import`.
+
+### Added — role-matrix
+
+- `/sc4sap:role-matrix`: the project's role & authorization document as one editable HTML workbook — cover with checks, business roles, PFCG roles, business role × T-code matrix (F / C / D), user × role assignment, authorization objects, SoD rules with an automatic conflict check (per user and inside a role), change history; CSV per sheet, versioned.
+  - New design: the module consultant proposes roles, T-codes, authorization objects and SoD rules, narrowed to the T-codes users run when ST03N usage is available.
+  - From SAP (`build-role-doc.mjs sync`): AGR_DEFINE / TEXTS / FLAGS / AGRS / TCODES / 1251 / 1252 and AGR_USERS (user ID and validity only). USR* is never read; names and departments are typed by hand. Levels are estimated from ACTVT and marked "?".
+  - Large systems: role names are read in name ranges past the 5,000-row limit of one read; a chunk that comes back truncated is read again in halves. A single role with more than 5,000 T-codes or authorization values (all-access roles) is partly read and named in `readErrors`.
+  - Long sheets are paged (up to 300 rows, 50 role columns at a time); only the open sheet is drawn; search, CSV and paste cover the whole sheet. Measured on 8,500+ roles: page turn ~0.6 s, page ~20 MB.
+  - SoD rule library per module and cross-module pairs (`scripts/role/sod-library.json`).
+
+### Changed — dispatcher (ECC)
+
+- `abap/zmcp_adt_dispatch_ecc.abap` `TABLE_READ`: delivery class W tables (repository directory, inactive objects) are readable. Of the PFCG tables only the role design (AGR_DEFINE, AGR_TEXTS, AGR_FLAGS, AGR_AGRS, AGR_TCODES, AGR_1251, AGR_1252) and AGR_USERS are readable; every other AGR_* table, USR*, UST* and the credential tables stay closed. Update the dispatcher on a system before running role-matrix `sync` there.
+
+### Fixed
+
+- `scripts/config/sap-reader.mjs`: `connect(name, { allowTables })` passes `MCP_ALLOW_TABLE` to the spawned server explicitly — the MCP SDK stdio transport hands the child only a minimal environment, so the bypass never arrived.
+- MCP pin `c9265a1` → `85619ab` (4.8.16): the launcher's `MCP_ALLOW_TABLE` is kept when the active profile is applied.
+- `humanize.mjs jsonTexts`: minimum Hangul length is a parameter (default 20).
+
 ## [0.6.51] — 2026-10-28
 
 ### Added — eco cost mode

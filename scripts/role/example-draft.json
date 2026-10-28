@@ -1,0 +1,62 @@
+{
+  "lang": "ko",
+  "doc": { "project": "○○ SAP EAM 구축", "system": "PRD / PM(EAM)", "module": "PM", "author": "홍길동 / 시스템운영팀", "reviewer": "보안담당 / IT팀장" },
+  "broles": [
+    { "id": "PM-01", "name": "설비마스터 관리자", "nameEn": "PM Master Data Manager", "module": "PM", "desc": "기능위치·설비·BOM·작업장 등 PM 마스터데이터 생성/변경 책임", "tasks": "기능위치/설비 등록·변경, 설비 BOM 관리, 작업장 관리", "org": "설비기술팀 / 설비담당", "troles": ["Z_PM_MASTER_1000"], "users": 3 },
+    { "id": "PM-02", "name": "정비계획자", "nameEn": "Maintenance Planner", "module": "PM", "desc": "정비알림 접수부터 작업오더 생성·계획·자재 소요까지 정비 계획 전반 수행", "tasks": "알림 처리, 오더 생성/계획, 예방정비 계획 수립", "org": "설비기술팀 / 정비계획", "troles": ["Z_PM_PLANNER_1000"], "users": 5 },
+    { "id": "PM-03", "name": "정비작업자", "nameEn": "Maintenance Technician", "module": "PM", "desc": "현장에서 알림을 등록하고 배정된 오더의 작업 결과를 확인(Confirmation)", "tasks": "알림 등록, 작업 확인, 측정문서 입력", "org": "정비1~3팀 / 정비기사", "troles": ["Z_PM_TECH_1000"], "users": 40 },
+    { "id": "PM-04", "name": "정비관리자", "nameEn": "Maintenance Supervisor", "module": "PM", "desc": "오더 릴리즈·승인 및 정비 실적 관리, 부서 단위 조회", "tasks": "오더 릴리즈/승인, 실적 모니터링", "org": "정비팀 / 팀장", "troles": ["Z_PM_SUPV_1000"], "users": 4, "note": "SoD 점검 대상(PM-02 겸직 금지)" },
+    { "id": "PM-05", "name": "PM 조회전용", "nameEn": "PM Display Only", "module": "PM", "desc": "PM 모듈 전체 조회 권한만 보유(생산·품질 등 유관부서용)", "tasks": "마스터/알림/오더/리포트 조회", "org": "생산·품질·경영지원 / 전직원", "troles": ["Z_PM_DISPLAY_ALL"], "users": 100 },
+    { "id": "PM-06", "name": "예방정비 담당자", "nameEn": "Preventive Maintenance Specialist", "module": "PM", "desc": "정비계획·전략·측정점 관리 및 예방정비 스케줄링 수행", "tasks": "정비계획 생성/스케줄링, 정비전략 관리, 측정문서", "org": "설비기술팀 / 예방정비", "troles": ["Z_PM_PREV_1000"], "users": 2 }
+  ],
+  "troles": [
+    { "id": "Z_PM_MASTER", "desc": "PM 마스터데이터 관리 (Master)", "type": "Master", "module": "PM", "brole": "PM-01", "orgLevel": "Planning Plant", "orgValue": "$IWERK", "owner": "BC 권한담당", "status": "design", "note": "조직값 변수" },
+    { "id": "Z_PM_MASTER_1000", "desc": "PM 마스터데이터 관리 – 1000공장", "type": "Derived", "parent": "Z_PM_MASTER", "module": "PM", "brole": "PM-01", "orgLevel": "Planning Plant", "orgValue": "1000", "owner": "BC 권한담당", "status": "design" },
+    { "id": "Z_PM_PLANNER", "desc": "PM 정비계획 (Master)", "type": "Master", "module": "PM", "brole": "PM-02", "orgLevel": "Planning Plant", "orgValue": "$IWERK", "owner": "BC 권한담당", "status": "design" },
+    { "id": "Z_PM_PLANNER_1000", "desc": "PM 정비계획 – 1000공장", "type": "Derived", "parent": "Z_PM_PLANNER", "module": "PM", "brole": "PM-02", "orgLevel": "Planning Plant", "orgValue": "1000", "owner": "BC 권한담당", "status": "design" },
+    { "id": "Z_PM_TECH_1000", "desc": "PM 정비작업(확인) – 1000공장", "type": "Derived", "parent": "Z_PM_TECH", "module": "PM", "brole": "PM-03", "orgLevel": "Planning Plant", "orgValue": "1000", "owner": "BC 권한담당", "status": "design" },
+    { "id": "Z_PM_SUPV_1000", "desc": "PM 정비관리(릴리즈/승인) – 1000공장", "type": "Derived", "parent": "Z_PM_SUPV", "module": "PM", "brole": "PM-04", "orgLevel": "Planning Plant", "orgValue": "1000", "owner": "BC 권한담당", "status": "design" },
+    { "id": "Z_PM_DISPLAY_ALL", "desc": "PM 전체 조회", "type": "Single", "module": "PM", "brole": "PM-05", "orgLevel": "none", "orgValue": "*", "owner": "BC 권한담당", "status": "design", "note": "전 공장 조회" },
+    { "id": "Z_PM_PREV_1000", "desc": "PM 예방정비 – 1000공장", "type": "Derived", "parent": "Z_PM_PREV", "module": "PM", "brole": "PM-06", "orgLevel": "Planning Plant", "orgValue": "1000", "owner": "BC 권한담당", "status": "design" },
+    { "id": "Z_C_PM_PLANNER_1000", "desc": "정비계획자 Composite (PLANNER+DISPLAY)", "type": "Composite", "module": "PM", "brole": "PM-02", "orgLevel": "none", "children": ["Z_PM_PLANNER_1000", "Z_PM_DISPLAY_ALL"], "owner": "BC 권한담당", "status": "design" }
+  ],
+  "tcodes": [
+    { "module": "PM", "area": "마스터데이터", "tcode": "IL01", "text": "기능위치 생성", "levels": { "PM-01": "F", "PM-02": "D" } },
+    { "module": "PM", "area": "마스터데이터", "tcode": "IL02", "text": "기능위치 변경", "levels": { "PM-01": "F", "PM-02": "D" } },
+    { "module": "PM", "area": "마스터데이터", "tcode": "IL03", "text": "기능위치 조회", "levels": { "PM-01": "F", "PM-02": "D", "PM-03": "D", "PM-04": "D", "PM-05": "D", "PM-06": "D" } },
+    { "module": "PM", "area": "마스터데이터", "tcode": "IE01", "text": "설비 생성", "levels": { "PM-01": "F", "PM-02": "D" } },
+    { "module": "PM", "area": "마스터데이터", "tcode": "IE02", "text": "설비 변경", "levels": { "PM-01": "F", "PM-02": "D" } },
+    { "module": "PM", "area": "마스터데이터", "tcode": "IE03", "text": "설비 조회", "levels": { "PM-01": "F", "PM-02": "D", "PM-03": "D", "PM-04": "D", "PM-05": "D", "PM-06": "D" } },
+    { "module": "PM", "area": "알림", "tcode": "IW21", "text": "알림 생성", "levels": { "PM-02": "F", "PM-03": "F" } },
+    { "module": "PM", "area": "알림", "tcode": "IW22", "text": "알림 변경", "levels": { "PM-02": "F", "PM-03": "C" } },
+    { "module": "PM", "area": "알림", "tcode": "IW23", "text": "알림 조회", "levels": { "PM-02": "D", "PM-03": "D", "PM-04": "D", "PM-05": "D" } },
+    { "module": "PM", "area": "오더", "tcode": "IW31", "text": "오더 생성", "levels": { "PM-02": "F" } },
+    { "module": "PM", "area": "오더", "tcode": "IW32", "text": "오더 변경", "levels": { "PM-02": "C", "PM-04": "C" } },
+    { "module": "PM", "area": "오더", "tcode": "IW33", "text": "오더 조회", "levels": { "PM-02": "D", "PM-03": "D", "PM-04": "D", "PM-05": "D" } },
+    { "module": "PM", "area": "확인", "tcode": "IW41", "text": "작업 확인", "levels": { "PM-03": "F" } },
+    { "module": "PM", "area": "예방정비", "tcode": "IP01", "text": "정비계획 생성", "levels": { "PM-06": "F", "PM-02": "D" } },
+    { "module": "PM", "area": "예방정비", "tcode": "IP10", "text": "정비계획 스케줄링", "levels": { "PM-06": "F" } },
+    { "module": "PM", "area": "리포트", "tcode": "IW39", "text": "오더 리스트 조회", "levels": { "PM-02": "D", "PM-04": "D", "PM-05": "D" } }
+  ],
+  "users": [
+    { "empNo": "10001", "uid": "PM_HONG", "name": "홍길동", "dept": "설비기술팀", "pos": "정비계획", "plant": "1000", "roles": { "PM-02": "X" }, "approval": "approved" },
+    { "empNo": "10002", "uid": "PM_KIM", "name": "김철수", "dept": "정비1팀", "pos": "정비기사", "plant": "1000", "roles": { "PM-03": "X" }, "approval": "approved" },
+    { "empNo": "10003", "uid": "PM_LEE", "name": "이영희", "dept": "정비1팀", "pos": "팀장", "plant": "1000", "roles": { "PM-04": "X" }, "approval": "approved" },
+    { "empNo": "10004", "uid": "PM_PARK", "name": "박민수", "dept": "설비기술팀", "pos": "설비담당", "plant": "1000", "roles": { "PM-01": "X", "PM-06": "X" }, "approval": "approved", "note": "예방정비 겸임" },
+    { "empNo": "10005", "uid": "PP_CHOI", "name": "최지훈", "dept": "생산1팀", "pos": "생산관리", "plant": "1000", "roles": { "PM-05": "X" }, "approval": "pending" }
+  ],
+  "auths": [
+    { "trole": "Z_PM_PLANNER_1000", "object": "S_TCODE", "objText": "트랜잭션 코드 체크", "field": "TCD", "fieldText": "트랜잭션 코드", "value": "IW21,IW22,IW23,IW28,IW29,IW31,IW32,IW33,IW38,IW39,IP01,IP02,IP03,IP10,IP30,IK11,IK17", "note": "3.역할-TCode 시트 PM-02 기준" },
+    { "trole": "Z_PM_PLANNER_1000", "object": "I_IWERK", "objText": "PM: 정비계획공장", "field": "IWERK", "fieldText": "정비계획공장", "value": "1000", "note": "Derived 조직값" },
+    { "trole": "Z_PM_PLANNER_1000", "object": "I_SWERK", "objText": "PM: 정비공장", "field": "SWERK", "fieldText": "정비공장", "value": "1000", "note": "Derived 조직값" },
+    { "trole": "Z_PM_PLANNER_1000", "object": "I_AUART", "objText": "PM: 오더유형", "field": "AUART", "fieldText": "오더유형", "value": "PM01,PM02,PM03", "note": "긴급/일반/예방" },
+    { "trole": "Z_PM_PLANNER_1000", "object": "I_VORG_ORD", "objText": "PM: 오더 업무처리", "field": "BETRVORG", "fieldText": "업무처리", "value": "BFRE,BUCH,RMKL 제외 전체", "note": "릴리즈(BFRE)는 PM-04 전용 시 제외" },
+    { "trole": "Z_PM_SUPV_1000", "object": "I_VORG_ORD", "objText": "PM: 오더 업무처리", "field": "BETRVORG", "fieldText": "업무처리", "value": "BFRE", "note": "오더 릴리즈 권한" },
+    { "trole": "Z_PM_DISPLAY_ALL", "object": "I_IWERK", "objText": "PM: 정비계획공장", "field": "IWERK", "fieldText": "정비계획공장", "value": "*", "note": "조회전용: 조회 T-Code만 S_TCODE에 포함" }
+  ],
+  "sod": [
+    { "id": "SOD-01", "a": "PM-02", "b": "PM-04", "kind": "생성 vs 승인", "risk": "오더 생성자가 스스로 릴리즈/승인 가능 → 통제 우회", "level": "H", "mitigation": "겸직 금지. 불가피 시 월 1회 릴리즈 오더 리스트(IW39) 부서장 사후 검토", "approver": "IT팀장", "status": "open" },
+    { "id": "SOD-02", "a": "PM-01", "b": "PM-02", "kind": "마스터 vs 거래", "risk": "설비 마스터 변경자와 오더 처리자 동일 시 원가 귀속 조작 가능", "level": "M", "mitigation": "변경이력(IE02 변경문서) 분기 점검", "approver": "설비기술팀장", "status": "accepted", "note": "소규모 조직 특성상 수용" },
+    { "id": "SOD-03", "a": "PM-03", "b": "PM-04", "kind": "실행 vs 승인", "risk": "작업 확인(IW41) 입력자가 오더 승인 가능", "level": "M", "mitigation": "겸직 금지", "approver": "정비팀장", "status": "resolved" }
+  ]
+}
