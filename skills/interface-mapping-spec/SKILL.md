@@ -64,6 +64,8 @@ Settled with the user when the skill was designed — do not ask again:
 
 **Step 4 — Build v0.1.** `Write` the answers to `<base>/interfaces/_answers/<IF_ID>.json` (shape in `interview.md` § Answers), then `<B> init --answers <file>`. Report `problems` (fields SAP does not have, unreadable parameter types — for those offer `--line PARAM=STRUCTURE` and `refresh`).
 
+**Step 4a — Korean polish (page language `ko`).** Per [`common/humanize-korean.md`](../../common/humanize-korean.md), `<dir>` = `<base>/interfaces/<IF_ID>/_humanize`: texts = `node scripts/lib/humanize.mjs texts-json <base>/interfaces/<IF_ID>/<IF_ID>-v<ver>-ko.json --skip desc,ddic,dom --out <dir>/texts.json` (latest version; `desc` / `ddic` are SAP's DDIC texts), apply = `node scripts/lib/humanize.mjs apply-json <dir>/texts.json <dir>/humanized.json` (or `fixed.json`), then `<B> build --if <IF_ID>`. Runs again after an import or refresh that adds prose.
+
 **Step 5 — English companion.** Skip when the page language is `en` or the user opted out. `<B> texts --if <ID> --to en` → when `todo` > 0, dispatch `sc4sap:sap-writer` with [`dispatch-prompts.md`](dispatch-prompts.md) § 2 to write `outFile`; then `<B> companion --if <ID> --to en`. `missing` must be empty.
 
 **Step 6 — Import an edited page.** `<B> import <file>` → new version with the reader's revision row; hand-typed SAP fields (`EKPO-MATNR`, data elements) are filled from DDIC at the same time (`resolved`, `problems`). Refusals: version already imported; the page was edited from an older version (`--force` only when the user says to overwrite); an English companion page (edits go into the primary-language page, the companion is rebuilt from it); a page whose ID / version / language was changed outside edit mode. Then Step 5 again.

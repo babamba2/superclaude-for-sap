@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added — Korean prose polish
+
+- Every Korean document (module-to-process, program-to-manual, interface-mapping-spec, config-to-document consultant notes, compare-programs, program-to-spec) now gets a polish step after its review and before the English companion. Rules in `common/humanize-korean.md`; tool `scripts/lib/humanize.mjs`.
+  - Always, no model: connective commas after verb stems are removed (`입력하고, …` → `입력하고 …`; nouns such as 입고 / 출고 / 재고 and the copula 이고 are left alone).
+  - When the [humanize-korean](https://github.com/epoko77-ai/im-not-ai) plugin (MIT) is installed: rule-based detection picks only the items with a tell left (long sentences, translationese such as `~에 의해` / `~에 있어` / `~을 바탕으로`, double passive, summary lexicon, emoji, heavy bold); they go to its `humanize-monolith` agent with Sonnet and a diagnosis header naming each item's pattern IDs. A rewrite is kept only when every identifier, code, number, region tag, backtick span and `**` survives, at most half the item changed and no connective comma was added; otherwise the item keeps its fixed text.
+  - On the MM process map (6,504 texts): 125 items fixed in code, 20 sent to the model in one call, 7 split into one fact per sentence. Sending all prose would have been ~58 calls — and in a test the agent left dense comma-only chunks unchanged, which is why the comma fix moved into code.
+- `scripts/process/companion.mjs apply --partial`: a same-language rewrite of some items; the others keep their text.
+- `humanize.mjs texts-json` / `apply-json` and `texts-md` / `apply-md` for skills whose source is JSON (manual, interface model, config notes) or Markdown (comparison, spec).
+- Setup Step 14 offers to install humanize-korean when documents are Korean.
+
 ## [0.6.50] — 2026-10-28
 
 ### Added — ECC dump list older than 24 hours

@@ -143,6 +143,19 @@ The installer is idempotent:
 
 After success, tell the user: "Restart Claude Code to see the HUD render below the input box." See `hud-statusline.md` for the full spec. The HUD reads `<project>/.sc4sap/active-profile.txt` + the profile env to render `{alias} [{tier}] {🔒 if readonly}`.
 
+## Step 14 — Korean prose polish plugin (optional)
+
+Only when the documents will be Korean (`config.json` → `language` is `ko`, or the user writes in Korean). `node "<PLUGIN_ROOT>/scripts/lib/humanize.mjs" locate` → `"available": true` → print `humanize-korean <version> ✓` and finish.
+
+Otherwise ask once (`AskUserQuestion`, 2 options): **Install humanize-korean (Recommended)** — Korean documents (manual, process map, configuration document, interface spec, comparison, spec) get their long sentences and translationese rewritten before the build, about one Sonnet call per document; **Skip** — only the built-in comma fix runs. Say in the question that it is a third-party plugin ([epoko77-ai/im-not-ai](https://github.com/epoko77-ai/im-not-ai), MIT) with its own skills and agents. On install:
+
+```bash
+claude plugin marketplace add epoko77-ai/im-not-ai
+claude plugin install humanize-korean@im-not-ai
+```
+
+Then `locate` again (must be `available`) and tell the user to restart Claude Code so its agents load. Rules: [`../../common/humanize-korean.md`](../../common/humanize-korean.md).
+
 <SAP_Version_Reference>
 When you need to explain ECC vs S/4HANA differences (tables, TCodes, BAPIs, development patterns) during setup or when routing follow-up questions, **read `common/sap-version-reference.md`** and apply the rules there. Do not duplicate the comparison table inline — the file is the single source of truth.
 </SAP_Version_Reference>
