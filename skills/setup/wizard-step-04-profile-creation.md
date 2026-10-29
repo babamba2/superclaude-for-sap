@@ -51,9 +51,11 @@ Connection fields (host/client/user/password) are ALWAYS entered fresh. Default:
 | `SAP_CLIENT` | Exactly 3 digits | |
 | `SAP_AUTH_TYPE` | `basic` \| `xsuaa` | If `xsuaa` → also collect `XSUAA_URL / XSUAA_CLIENT_ID / XSUAA_CLIENT_SECRET / XSUAA_TOKEN_URL` |
 | `SAP_USERNAME` | Non-empty | |
-| `SAP_PASSWORD` | Non-empty; NEVER echo | Captured in memory only; piped into CLI via stdin JSON |
+| `SAP_PASSWORD` | NEVER ask in chat | Not collected by the wizard. §4.6 sends `passwordPrompt: true`; the CLI opens a masked password window and stores the value in the OS keychain |
 | `SAP_LANGUAGE` | 2-letter uppercase, default `EN` | |
 | `SAP_SYSTEM_TYPE` | `onprem` \| `cloud`, default `onprem` | Deployment only: `onprem` = on-premise (S/4HANA or ECC) · `cloud` = S/4HANA Cloud. ECC vs S/4HANA goes in `SAP_VERSION` (§4.4b). Any other value hides the on-prem-only tools |
+
+**Password — never in the chat.** Do not ask for the password with `AskUserQuestion` or free text. If the user types a password in the chat anyway, do not repeat it, do not put it in a payload; tell them to change it later via `set-password` if they worry about the transcript. Before §4.6 tell the user one line: "A password window will open — type the SAP password there."
 
 Go to §4.4b for the identity fields (`SAP_VERSION`, `ABAP_RELEASE`, `SAP_INDUSTRY`). Do NOT silently inherit from Step 2.
 
@@ -78,12 +80,16 @@ Free-form short label, stored in `sap.env`. Used by HUD + `sap-option list`. Exa
 Compose the JSON payload and pipe it on stdin:
 
 ```bash
-echo '{"alias":"KR-DEV","tier":"DEV","host":"https://<host>:<port>","client":"<client>","username":"<user>","password":"<captured>","language":"EN","systemType":"onprem","version":"S4","abapRelease":"816","industry":"other","activeModules":"MM,SD,FI,CO,PP","description":"...","copyFrom":"KR-DEV"}' \
+echo '{"alias":"KR-DEV","tier":"DEV","host":"https://<host>:<port>","client":"<client>","username":"<user>","passwordPrompt":true,"language":"EN","systemType":"onprem","version":"S4","abapRelease":"816","industry":"other","activeModules":"MM,SD,FI,CO,PP","description":"...","copyFrom":"KR-DEV"}' \
   | node "$CLAUDE_PLUGIN_ROOT/scripts/sap-profile-cli.mjs" add
 ```
 
 Expected JSON: `{ ok, alias, tier, profileDir, passwordStored: "keychain"|"plaintext-fallback"|"none" }`.
 
+`passwordPrompt: true` opens a native window (Windows: a PowerShell console window with hidden input; macOS: osascript; Linux: zenity / kdialog). The CLI waits up to 5 minutes. The secret reaches the CLI over a pipe and goes straight to the keychain; it is never printed.
+
+- Exit 2 `password entry cancelled` → ask whether to retry (re-run the same command) or abort.
+- Exit 5 `password prompt unavailable` (headless / SSH / no GUI tool) → create the profile without the password (drop `passwordPrompt`), then tell the user to run `node "$CLAUDE_PLUGIN_ROOT/scripts/sap-profile-cli.mjs" set-password <alias>` in a desktop session. Do NOT fall back to asking in the chat.
 - `passwordStored: "plaintext-fallback"` → warn user explicitly (OS keychain unavailable; password sits plaintext in profile env; re-run once `@napi-rs/keyring` is installable).
 
 ## 4.7 — Write active-profile pointer

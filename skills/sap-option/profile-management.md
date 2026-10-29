@@ -65,7 +65,7 @@ Multi-step. Use `AskUserQuestion` where the answer is a small enum; otherwise us
    - `SAP_URL`: `^https?://`, no trailing slash.
    - `SAP_CLIENT`: exactly 3 digits.
    - `SAP_USERNAME`: non-empty.
-5. **password** — free-form, NEVER display. After capture, invoke the bundled node helper to store in OS keychain under service `sc4sap` and account `<alias>/<username>`. Write `SAP_PASSWORD=keychain:sc4sap/<alias>/<username>` in the env file. If keychain is unavailable (headless / Docker), offer plaintext fallback with an explicit warning and write the plaintext value.
+5. **password** — NEVER ask in the chat. Send `passwordPrompt: true` in the `sap-profile-cli.mjs add` payload; the CLI opens a masked password window, stores the value in the OS keychain under service `sc4sap` / account `<alias>/<username>` and writes `SAP_PASSWORD=keychain:sc4sap/<alias>/<username>`. To change the password of an existing profile run `sap-profile-cli.mjs set-password <alias>` (same window). No dialog possible (headless) → tell the user to run `set-password` from a desktop terminal. Keychain unavailable → CLI writes plaintext with a warning; tell the user.
 6. **description** (optional) — free-form short label, stored as `SAP_DESCRIPTION`.
 7. Write files:
    - `~/.sc4sap/profiles/<alias>/sap.env` (0600 if platform supports)

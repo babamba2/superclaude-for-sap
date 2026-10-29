@@ -7,8 +7,10 @@
  *
  * Contracts:
  *   - JSON in / JSON out on stdin and stdout. Errors go to stderr and exit != 0.
- *   - Passwords are never accepted on the command line; pass them via stdin
- *     payload field `password`.
+ *   - Passwords are never accepted on the command line. Preferred: stdin
+ *     payload field `passwordPrompt: true` — the CLI opens a masked dialog
+ *     window (scripts/lib/password-prompt.mjs) so the secret never enters the
+ *     chat. Legacy: stdin payload field `password`.
  *   - Exit codes: 0 ok, 1 usage, 2 validation, 3 not-found, 4 conflict,
  *     5 keychain, 9 unknown.
  *
@@ -19,7 +21,10 @@
  *   add               — read JSON from stdin: {alias, tier, host, client,
  *                       username, password, description?, language?,
  *                       systemType?, version?, abapRelease?, industry?,
- *                       activeModules?, copyFrom?} → create profile dir
+ *                       activeModules?, copyFrom?, passwordPrompt?}
+ *                       → create profile dir
+ *   set-password <alias> — open the masked dialog, store the new password in
+ *                       the OS keychain, point SAP_PASSWORD at it
  *   set-blocklist <strict|standard|minimal|custom> [<alias>]
  *                     — set `blocklistProfile` (L3 PreToolUse hook) in the
  *                       active (or given) profile's config.json
@@ -52,6 +57,7 @@ import { createRequire } from 'node:module';
 import { homedir } from 'node:os';
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { promptPassword } from './lib/password-prompt.mjs';
 
 // Polyfill `require` for ESM so CJS modules load without breaking pure-ESM
 // execution paths. Used by non-keyring imports; keyring uses a dedicated
@@ -309,7 +315,10 @@ async function cmdAdd() {
 
   const service = String(payload.keychainService || KEYCHAIN_SERVICE_DEFAULT);
   const username = String(payload.username || '');
-  const password = payload.password;
+  let password = payload.password;
+  if (!password && payload.passwordPrompt) {
+    password = askPassword(alias, username);
+  }
   let passwordRef = '';
   if (password) {
     const account = `${alias}/${username}`;
@@ -355,7 +364,50 @@ async function cmdAdd() {
     createdAt: new Date().toISOString(),
   };
   writeFileSync(join(targetDir, 'config.json'), `${JSON.stringify(configJson, null, 2)}\n`);
-  jsonOut({ ok: true, alias, tier, readonly: tier !== 'DEV' });
+  jsonOut({ ok: true, alias, tier, readonly: tier !== 'DEV', passwordStored: passwordStoredKind(passwordRef) });
+}
+
+function passwordStoredKind(ref) {
+  if (!ref) return 'none';
+  return ref.startsWith('keychain:') ? 'keychain' : 'plaintext-fallback';
+}
+
+// Open the masked dialog; exit 2 on cancel, 5 when no dialog can open.
+function askPassword(alias, username) {
+  let pw;
+  try {
+    pw = promptPassword({
+      title: `sc4sap — ${alias}`,
+      message: `SAP password for ${username || '(user)'} on profile ${alias}`,
+    });
+  } catch (e) {
+    die(5, `${e.message}. Run \`node scripts/sap-profile-cli.mjs set-password ${alias}\` from a desktop terminal.`);
+  }
+  if (!pw) die(2, 'password entry cancelled');
+  return pw;
+}
+
+async function cmdSetPassword(alias) {
+  if (!alias) die(1, 'set-password: alias required');
+  const envPath = join(profilesDir(), alias, 'sap.env');
+  if (!existsSync(envPath)) die(3, `profile not found: ${alias}`);
+  const env = parseDotenv(readFileSync(envPath, 'utf8'));
+  const username = env.SAP_USERNAME || '';
+  const password = askPassword(alias, username);
+  const service = KEYCHAIN_SERVICE_DEFAULT;
+  const account = `${alias}/${username}`;
+  let passwordRef;
+  try {
+    keychainWrite(service, account, password);
+    passwordRef = `keychain:${service}/${account}`;
+  } catch (e) {
+    process.stderr.write(
+      `[set-password] WARNING: keychain unavailable (${e.message}); storing password as plaintext in profile env.\n`,
+    );
+    passwordRef = password;
+  }
+  writeFileSync(envPath, formatDotenv({ ...env, SAP_PASSWORD: passwordRef }));
+  jsonOut({ ok: true, alias, passwordStored: passwordStoredKind(passwordRef) });
 }
 
 // L3 PreToolUse hook profile only — `MCP_BLOCKLIST_PROFILE` in sap.env (L4,
@@ -597,6 +649,7 @@ async function main() {
       case 'purge': return await cmdPurge(rest.includes('--all'));
       case 'migrate': return await cmdMigrate(cwd);
       case 'detect-legacy': return await cmdDetectLegacy(cwd);
+      case 'set-password': return await cmdSetPassword(rest[0]);
       case 'keychain-set': return await cmdKeychainSet();
       case 'keychain-delete': return await cmdKeychainDelete();
       case 'validate': return await cmdValidate(rest[0]);
