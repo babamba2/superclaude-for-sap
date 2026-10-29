@@ -13,7 +13,7 @@ Each section file carries a tier tag (`<!-- tier: minimal | standard | strict --
 - `minimal` — PII + credentials + pricing (Banking, Master PII, Addresses, Auth, HR, Tax, Pricing)
 - `standard` — minimal **+** Protected Business Data (transactional tables)
 - `strict` — standard **+** Audit/Security Logs, Workflow/Communication (recommended default)
-- `custom` — ignore built-in entries; use only `.sc4sap/blocklist-custom.txt`
+- `custom` — minimal **+** `.sc4sap/blocklist-custom.txt` (the minimal tier always applies)
 
 Any profile additionally respects `.sc4sap/blocklist-extend.txt` (one table name or pattern per line) if present.
 

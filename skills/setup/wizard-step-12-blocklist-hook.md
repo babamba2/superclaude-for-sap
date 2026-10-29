@@ -29,7 +29,7 @@ Ask the user to choose a blocklist scope:
   3) minimal  — block only PII + credentials + HR + Tax
                 general business transaction tables allowed
 
-  4) custom   — ignore built-in list; apply only the tables listed in
+  4) custom   — minimal (PII + credentials) plus the tables listed in
                 .sc4sap/blocklist-custom.txt
 
 Any profile merges in extra entries from .sc4sap/blocklist-extend.txt if present.
@@ -44,7 +44,7 @@ Any profile merges in extra entries from .sc4sap/blocklist-extend.txt if present
 
   Never write it to `<project>/.sc4sap/config.json` — that file does not exist in multi-profile mode, and the hook reads the profile's `config.json` first, so a value written there is ignored.
 - This sets L1 only. `MCP_BLOCKLIST_PROFILE` (L2, profile `sap.env`) keeps the value from Step 4; it has no `custom` value and is changed via `/sc4sap:sap-option`.
-- If `custom`: prompt user to create `.sc4sap/blocklist-custom.txt` now (one table name or pattern per line) or after setup; warn that an empty custom list means no enforcement at L3
+- If `custom`: prompt user to create `.sc4sap/blocklist-custom.txt` now (one table name or pattern per line) or after setup; an empty custom list leaves only the minimal tier at L3
 
 ## Step B — Install BOTH hooks (mandatory)
 

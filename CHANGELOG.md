@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Fixed
+
+- `SAP_SYSTEM_TYPE` is written and accepted as `onprem` | `cloud` only. The MCP server reads any other value as `cloud` and hides the on-prem-only tools; setup and `/sc4sap:sap-option` used to offer `s4hana` / `ecc`. `sap-profile-cli.mjs` now maps `s4hana`, `ecc`, an empty value and typos to `onprem` (`legacy` is kept for old profiles). ECC vs S/4HANA stays in `SAP_VERSION`.
+- Row blocklist hook: the `custom` profile keeps the built-in `minimal` tier (PII, credentials) and adds `.sc4sap/blocklist-custom.txt` on top. It used to drop every built-in entry, so tables such as USR02 were readable.
+- Skill docs: `SearchObject` calls use `object_type` / `object_name`, `GetInactiveObjects` takes no arguments, `UpdateScreen` / `UpdateGuiStatus` take `dynpro_data` / `cua_data`; a reference to a smoke-test source that does not exist was removed, and the client-configuration guide is named as part of the MCP server repository.
+
 ### Removed
 
 - `/sc4sap:s4-conversion-readiness` and its scripts, knowledge base and tests are no longer part of this repository; the dispatcher no longer opens EDP13, EDP21 and SWETYPECOU for it.

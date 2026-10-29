@@ -44,7 +44,7 @@ Installed at: `${CLAUDE_PLUGIN_ROOT}/vendor/abap-mcp-adt/` (internal directory n
 
 2. **Configure SAP connection (multi-profile)**
    Connection settings live in a per-system profile, not in a hand-written file:
-   - `~/.sc4sap/profiles/<alias>/sap.env` — MCP-server env (`SAP_URL`, `SAP_CLIENT`, `SAP_AUTH_TYPE`, `SAP_USERNAME`, `SAP_LANGUAGE`, `SAP_SYSTEM_TYPE` = `s4hana` | `cloud` | `ecc`, `SAP_TIER`, blocklist keys). The password is stored in the OS keychain and referenced as `SAP_PASSWORD=keychain:sc4sap/<alias>/<user>`.
+   - `~/.sc4sap/profiles/<alias>/sap.env` — MCP-server env (`SAP_URL`, `SAP_CLIENT`, `SAP_AUTH_TYPE`, `SAP_USERNAME`, `SAP_LANGUAGE`, `SAP_SYSTEM_TYPE` = `onprem` | `cloud`, `SAP_TIER`, blocklist keys). The password is stored in the OS keychain and referenced as `SAP_PASSWORD=keychain:sc4sap/<alias>/<user>`.
    - `<project>/.sc4sap/active-profile.txt` — alias of the active profile.
 
    Create a profile with `/sc4sap:setup` (wizard Step 4) or `/sc4sap:sap-option add`; edit it with `/sc4sap:sap-option`. Do not hand-write `sap.env`. Key reference and validation rules: `../sap-option/SKILL.md` → `<Managed_Keys>` / `<Validation>`. Blocklist keys (`MCP_BLOCKLIST_PROFILE` = `minimal` | `standard` (default) | `strict` | `off`, `MCP_BLOCKLIST_EXTEND`, `MCP_ALLOW_TABLE`) are documented in `../sap-option/SKILL.md` → `<Managed_Keys>` (policy: `../../common/data-extraction-policy.md`).

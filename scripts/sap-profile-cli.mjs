@@ -129,6 +129,16 @@ function normalizeTier(v) {
   return null;
 }
 
+// SAP_SYSTEM_TYPE is the MCP server's deployment axis: `onprem` | `cloud` (`legacy` kept for old
+// profiles). The server reads any other value as `cloud` and hides the on-prem-only tools, so the
+// older `s4hana` / `ecc` values, an empty value and typos become `onprem`. ECC vs S/4HANA is
+// SAP_VERSION / ABAP_RELEASE, not this key.
+function normalizeSystemType(v) {
+  const s = String(v || '').trim().toLowerCase();
+  if (s === 'onprem' || s === 'cloud' || s === 'legacy') return s;
+  return 'onprem';
+}
+
 function loadKeyring() {
   try {
     return KEYRING_REQUIRE('@napi-rs/keyring').Entry;
@@ -248,7 +258,7 @@ async function cmdAdd() {
     if (!src) die(3, `copyFrom profile not found: ${payload.copyFrom}`);
     base = {
       SAP_LANGUAGE: src.language,
-      SAP_SYSTEM_TYPE: src.systemType,
+      SAP_SYSTEM_TYPE: normalizeSystemType(src.systemType),
       SAP_VERSION: src.version,
       ABAP_RELEASE: src.abapRelease,
       SAP_INDUSTRY: src.industry,
@@ -323,7 +333,7 @@ async function cmdAdd() {
     SAP_USERNAME: username,
     SAP_PASSWORD: passwordRef,
     SAP_LANGUAGE: payload.language || base.SAP_LANGUAGE || 'EN',
-    SAP_SYSTEM_TYPE: payload.systemType || base.SAP_SYSTEM_TYPE || 's4hana',
+    SAP_SYSTEM_TYPE: normalizeSystemType(payload.systemType || base.SAP_SYSTEM_TYPE),
     SAP_VERSION: payload.version || base.SAP_VERSION || '',
     ABAP_RELEASE: payload.abapRelease || base.ABAP_RELEASE || '',
     SAP_INDUSTRY: payload.industry || base.SAP_INDUSTRY || '',

@@ -22,7 +22,7 @@ Pick RFC backend for Screen / GUI Status / Text Element ops:
 
 Default changed 2026-04-22: OData is now the default because hardened SAP installs increasingly disable the legacy `/sap/bc/soap/rfc` ICF node, while OData Gateway is almost always reachable and routes through standard Gateway authorization (S_SERVICE) instead of S_RFC. Existing profiles that already pinned `SAP_RFC_BACKEND=soap` keep working unchanged.
 
-Full detail on soap/native/gateway/odata is in `docs/user-guide/CLIENT_CONFIGURATION.md`. The condensed option summary above is what you present to the user.
+Full detail on soap/native/gateway/odata is in `docs/user-guide/CLIENT_CONFIGURATION.md` of the `abap-mcp-adt-powerup` repository. The condensed option summary above is what you present to the user.
 
 - Accept `odata` / `soap` / `native` / `gateway` / `zrfc` (or 1/2/3/4/5). Default `odata` if the user presses Enter.
 - Write the choice to the **active profile's** env (`~/.sc4sap/profiles/<alias>/sap.env`, resolved from `<project>/.sc4sap/active-profile.txt`) as `SAP_RFC_BACKEND=soap|native|gateway|odata|zrfc`. Never write it to `<project>/.sc4sap/sap.env` — that file does not exist in multi-profile mode (decision §4.3 of the setup gap plan).

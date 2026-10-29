@@ -21,7 +21,7 @@ Needs the main program. **Each screen and each GUI Status MUST follow the 3-step
 
 **Per screen (executor, parallel across screens):**
 1. `CreateScreen(program, screen_number, ...)` — shell + field list.
-2. `UpdateScreen(program, screen_number, flow_logic=..., fields_to_containers=...)` — flow logic MUST include uncommented `MODULE STATUS_xxxx.` and `MODULE USER_COMMAND_xxxx.` lines (PBO / PAI). Every field the screen needs must be in the field list. **OK_CODE field binding is mandatory per [`../../common/ok-code-pattern.md`](../../common/ok-code-pattern.md)**: the `fields_to_containers[]` entry with `TYPE=OKCODE` MUST have `NAME` = the OK_CODE variable declared in the TOP include, in upper case (e.g. `OK_CODE` or `GV_OKCODE` — not the placeholder underscores).
+2. `UpdateScreen(program_name, screen_number, dynpro_data=...)` — `dynpro_data` is the screen as JSON (header, containers, `fields_to_containers`, `flow_logic`) — flow logic MUST include uncommented `MODULE STATUS_xxxx.` and `MODULE USER_COMMAND_xxxx.` lines (PBO / PAI). Every field the screen needs must be in the field list. **OK_CODE field binding is mandatory per [`../../common/ok-code-pattern.md`](../../common/ok-code-pattern.md)**: the `fields_to_containers[]` entry with `TYPE=OKCODE` MUST have `NAME` = the OK_CODE variable declared in the TOP include, in upper case (e.g. `OK_CODE` or `GV_OKCODE` — not the placeholder underscores).
 
 **Screen assertions (checker, `GetScreen(program, screen_number)`):**
 - `a1` — in `flow_logic`, the section after `PROCESS BEFORE OUTPUT.` has a `MODULE <name>.` line that does not start with `*` or `"` (flow logic never writes `OUTPUT` / `INPUT` on MODULE lines — that suffix belongs to the ABAP module definition in the `{PROG}o` / `{PROG}i` include).
@@ -37,7 +37,7 @@ Needs the main program. **Each screen and each GUI Status MUST follow the 3-step
 
 **Per GUI Status (executor, parallel across statuses):**
 1. `CreateGuiStatus(program, status_name, ...)` — shell.
-2. `UpdateGuiStatus(program, status_name, pfkeys=..., menu=..., toolbar=..., title=...)` — populate PFKEYS (BACK/EXIT/CANC at minimum), application toolbar entries for SAVE/REFRESH/etc., and the status title. **A separate title row per status code must also be emitted (CUAD `TIT` entry).**
+2. `UpdateGuiStatus(program_name, cua_data=...)` — `cua_data` is the program's GUI status definition as JSON — populate PFKEYS (BACK/EXIT/CANC at minimum), application toolbar entries for SAVE/REFRESH/etc., and the status title. **A separate title row per status code must also be emitted (CUAD `TIT` entry).**
 
 **GUI status assertions (checker, `GetGuiStatus(program, status_name)`):**
 - `a1` — `definition.STA[*].CODE` contains the requested status name.
@@ -51,7 +51,7 @@ Needs the main program. **Each screen and each GUI Status MUST follow the 3-step
 - **Context kit**: (none — mechanical activation + verify)
 - **Model**: main thread (or the leader executor in a split run) activates; Haiku `sap-checker` verifies
 
-1. `GetInactiveObjects(transport=...)` → list inactive objects from this session.
+1. `GetInactiveObjects` (no arguments; lists every inactive object of the user) → keep the objects created in this session.
 2. Single `ActivateObjects` call against the full list.
 3. **Mandatory post-activation verification** — dispatch one `sap-checker` (`MODE: verify`) with the object list from `plan.md` (`{PROG}*` plus every created FG / CLAS / TABL) and assertion `a1` — "`GetInactiveObjects` returns 0 entries whose name is in this list". The checker returns the leftover names as evidence. Any leftover means activation partially failed (common case: an include references an identifier that was never activated, so the include stays inactive while the main program activates).
 4. If step 3 FAILs: do NOT report "활성화 완료" / "completed". Re-run steps 1–2 targeting the remaining items; on persistent failure (2 attempts) escalate to Phase 7 and surface the exact list of still-inactive objects to the user. Past regression: reviewer reported "5/5 프로그램 활성화 OK" while 30+ sub-includes remained in inactive state — step 3 blocks that class of false positive.

@@ -96,8 +96,7 @@ Required by the MCP server for Screen, GUI Status, and Text Element operations.
 5. **FORM naming invariant** — each FM defines its TADIR helper with a FM-specific suffix: `register_tadir_tabl` / `_dtel` / `_doma`. Do NOT rename to a shared `register_tadir` — ADT's FG-wide precheck treats duplicate FORMs across sibling FMs as compile errors.
 6. **FM object name invariant** — installed names must be exactly `ZMCP_ADT_DDIC_TABL` / `_DTEL` / `_DOMA` / `_ACTIVATE`. The MCP client calls those names directly; the `FUNCTION <name>` identifier inside every ECC variant file matches (no `_ecc` suffix). Release-specific variants exist only as sibling source files, never at the installed-object layer — same pattern as 9a.
 7. These FMs MUST be set as **RFC-enabled** (same manual SE37 step as dispatch/textpool — `TFDIR.FMODE` is not writable via ADT REST).
-8. Test (optional, requires SE38 access): the plugin ships `abap/Z_TEST_DDIC_ROUNDTRIP.abap` as a one-shot smoke test. Running it in SE38 executes CREATE + ACTIVATE for a domain → data element → table chain and prints the subrc/message/result of each step. All six steps should return `subrc=0`.
-9. After install: re-verify via `SearchObject` for each of the four FM names.
+8. After install: re-verify via `SearchObject` for each of the four FM names.
 
 **S/4HANA note:** if `SAP_VERSION=S4`, these four ECC-only files are NOT installed. S/4HANA's `sc4sap` MCP server handles DDIC writes directly via ADT endpoints (`CreateTable` / `CreateDataElement` / `CreateDomain`). Do not port these FMs to the S/4 primary layer.
 

@@ -59,7 +59,7 @@ Main thread (session model). `AskUserQuestion` takes 2–4 options per question 
 1. Print: `Step 1/7 · Intake (package + module + context)   [██░░░░░░░░░░░░░░░░░░]  14%`
 2. **If `ARGUMENTS` did not supply a package** → ask exactly one question:
    > "Which CBO package should I analyze for end-to-end business process? (e.g., `ZSD_MAIN`, `ZMM_CORE`). Prefix patterns OK (e.g., `ZMM*`)."
-3. If prefix → `SearchObject(objectType='DEVC', query=<prefix>)` → print the hits as a numbered table, ask for the number or name (free text), re-ask.
+3. If prefix → `SearchObject(object_type='DEVC', object_name=<prefix>)` → print the hits as a numbered table, ask for the number or name (free text), re-ask.
 4. Verify with `GetPackage(<name>)`. Not found → STOP and report.
 5. **Resume check** — per `paths-and-state.md` § Resume. Resume → skip to the offered Step.
 6. **Module** — infer candidates, then ONE question with the top 3 + Other:
@@ -96,7 +96,7 @@ Main thread (session model). (Detection logic below is unchanged; a later refere
 1. Print: `Step 3/7 · Entry-point detection   [████████░░░░░░░░░░░░]  42%`
 2. From `inventory.json` → collect all PROG objects.
 3. For each PROG, look up TCode mapping:
-   - `SearchObject(objectType='TRAN', query='<prog_name>')` — TCodes that launch this program
+   - `SearchObject(object_type='TRAN', object_name='<prog_name>')` — TCodes that launch this program
    - Cross-reference with `<PLUGIN_ROOT>/configs/<MODULE>/tcodes.md` for documented Z-TCodes
 4. Build candidate entry-point list: `{prog, tcodes[], short_text}`. Programs without a TCode are still considered as candidates if they appear as flagship in `inventory.json → key_programs[]`.
 5. Confirm with the user:
