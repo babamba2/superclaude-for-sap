@@ -53,7 +53,7 @@ Connection fields (host/client/user/password) are ALWAYS entered fresh. Default:
 | `SAP_USERNAME` | Non-empty | |
 | `SAP_PASSWORD` | Non-empty; NEVER echo | Captured in memory only; piped into CLI via stdin JSON |
 | `SAP_LANGUAGE` | 2-letter uppercase, default `EN` | |
-| `SAP_SYSTEM_TYPE` | `s4hana` \| `cloud` \| `ecc` | `s4hana` = S/4HANA on-prem · `cloud` = S/4HANA Cloud · `ecc` = ECC |
+| `SAP_SYSTEM_TYPE` | `onprem` \| `cloud`, default `onprem` | Deployment only: `onprem` = on-premise (S/4HANA or ECC) · `cloud` = S/4HANA Cloud. ECC vs S/4HANA goes in `SAP_VERSION` (§4.4b). Any other value hides the on-prem-only tools |
 
 Go to §4.4b for the identity fields (`SAP_VERSION`, `ABAP_RELEASE`, `SAP_INDUSTRY`). Do NOT silently inherit from Step 2.
 
@@ -78,7 +78,7 @@ Free-form short label, stored in `sap.env`. Used by HUD + `sap-option list`. Exa
 Compose the JSON payload and pipe it on stdin:
 
 ```bash
-echo '{"alias":"KR-DEV","tier":"DEV","host":"http://crown.sapvista.com:50000","client":"100","username":"SV5_000030","password":"<captured>","language":"EN","systemType":"s4hana","version":"S4","abapRelease":"816","industry":"other","activeModules":"MM,SD,FI,CO,PP","description":"...","copyFrom":"KR-DEV"}' \
+echo '{"alias":"KR-DEV","tier":"DEV","host":"https://<host>:<port>","client":"<client>","username":"<user>","password":"<captured>","language":"EN","systemType":"onprem","version":"S4","abapRelease":"816","industry":"other","activeModules":"MM,SD,FI,CO,PP","description":"...","copyFrom":"KR-DEV"}' \
   | node "$CLAUDE_PLUGIN_ROOT/scripts/sap-profile-cli.mjs" add
 ```
 

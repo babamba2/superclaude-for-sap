@@ -602,9 +602,7 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
   " Of the PFCG tables only the role design (definition, texts, flags,
   " composite contents, menu T-codes, authorization values, org levels)
   " and the role-user assignment (user ID and validity) are readable -
-  " for role-matrix documents. IDoc partner profiles (EDP13 / EDP21) and
-  " event type linkages (SWETYPECOU) are readable for the S/4HANA conversion
-  " readiness report.
+  " for role-matrix documents.
   IF lv_tab = 'RFCDES' OR lv_tab = 'RSECTAB' OR lv_tab = 'RSECACTB'
      OR lv_tab CP 'USR*' OR lv_tab CP 'UST*'
      OR ( lv_tab CP 'AGR_*' AND lv_tab <> 'AGR_DEFINE' AND lv_tab <> 'AGR_TEXTS'
@@ -623,8 +621,7 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
      AND lv_tab <> 'TVDIR' AND lv_tab <> 'OBJH' AND lv_tab <> 'OBJS' AND lv_tab <> 'OBJT'
      AND lv_tab <> 'E070' AND lv_tab <> 'E07T' AND lv_tab <> 'E071' AND lv_tab <> 'E071K'
      AND lv_tab <> 'SXS_ATTR' AND lv_tab <> 'SXC_EXIT' AND lv_tab <> 'SXC_ATTR'
-     AND lv_tab <> 'SXC_CLASS' AND lv_tab <> 'ENHHEADER'
-     AND lv_tab <> 'EDP13' AND lv_tab <> 'EDP21' AND lv_tab <> 'SWETYPECOU'.
+     AND lv_tab <> 'SXC_CLASS' AND lv_tab <> 'ENHHEADER'.
     SELECT SINGLE contflag FROM dd02l INTO lv_class
       WHERE tabname = lv_tab AND as4local = 'A' AND as4vers = '0000'
         AND tabclass IN ('TRANSP','POOL','CLUSTER').

@@ -7,7 +7,7 @@ Referenced by `SKILL.md`. The orchestration is **3 main-thread Socratic steps** 
 **Step 1 — Ask for the CBO package name** (exactly one question)
 > "Which CBO package do you want to analyze? (e.g., `ZSD_MAIN`, `ZMM_CORE`). If you only know a prefix like `ZSD*`, tell me the prefix and I will search for packages."
 
-- If the user gives a prefix pattern: call `SearchObject(objectType='DEVC', query=<prefix>)` and list matches, then re-ask.
+- If the user gives a prefix pattern: call `SearchObject(object_type='DEVC', object_name=<prefix>)` and list matches, then re-ask.
 - Verify the final package with `GetPackage(<name>)`. If it does not exist, report and stop.
 
 **Step 1.5 — Ask about flagship programs in this package** (exactly one question, optional)

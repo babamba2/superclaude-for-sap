@@ -11,7 +11,7 @@
  *   - minimal  — PII + credentials only
  *   - standard — minimal + Protected Business Data
  *   - strict   — everything (default)
- *   - custom   — ignore built-in; use `.sc4sap/blocklist-custom.txt` only
+ *   - custom   — minimal + `.sc4sap/blocklist-custom.txt` (minimal always applies)
  *
  * Any profile additionally honors `.sc4sap/blocklist-extend.txt` (one
  * table name / pattern per line) if present.
@@ -187,9 +187,9 @@ function loadTextList(path, { category, tier, action = 'deny' }) {
   return { exact, patterns };
 }
 
+// `custom` keeps the minimal tier (PII, credentials); the custom list is merged on top by the caller.
 function filterByProfile(builtin, profile) {
-  if (profile === 'custom') return { exact: new Map(), patterns: [] };
-  const maxTier = TIER_ORDER[profile] || TIER_ORDER[DEFAULT_PROFILE];
+  const maxTier = profile === 'custom' ? TIER_ORDER.minimal : (TIER_ORDER[profile] || TIER_ORDER[DEFAULT_PROFILE]);
   const exact = new Map();
   const patterns = [];
   for (const [k, meta] of builtin.exact) {
