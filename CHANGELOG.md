@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Removed
+
+- `/sc4sap:s4-conversion-readiness` and its scripts, knowledge base and tests are no longer part of this repository; the dispatcher no longer opens EDP13, EDP21 and SWETYPECOU for it.
+
 ## [0.6.54] — 2026-10-29
 
 ### Added — s4-conversion-readiness
