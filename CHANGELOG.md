@@ -5,6 +5,21 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.54] — 2026-10-29
+
+### Added — s4-conversion-readiness
+
+- `/sc4sap:s4-conversion-readiness`: what to prepare before converting ECC to S/4HANA, as one HTML report (summary, target, simplification items, CBO objects, code locations, exits · BAdIs, table extensions · CDS, integration · events, T-codes in use, extensions, checklist, method and limits). Filter row, sort and CSV on every table.
+  - Asks the target first (S/4HANA 2023, 2025, public cloud, or compare); after reading the system asks which extensions to evaluate, each with the evidence found (EWM, RAP / Fiori elements, Fiori launchpad, output management, Integration Suite, Event Mesh; TM, GTS, settlement management, BTP).
+  - Deterministic matching of the CBO reference graphs (with source lines), saved source, exits / BAdIs / VOFM, appends and measured usage against `configs/conversion/simplification.json`: changed tables (KONV, VBUK / VBUP, MKPF / MSEG, stock fields, BSEG index and totals tables, credit management, LIS …), removed transactions and BAPIs, Business Partner, WM / LE-TRA, rebates, revenue recognition, PI / PO proxies (by the proxy runtime), IDoc and workflow events, native SQL, other-database hints, sort order on HANA, 40-character MATNR.
+  - Customer fields of every affected table are read from the DDIC (DD03L) and sorted by what they need: data to move to the new table (MATDOC, ACDOCA, PRCD_ELEMENTS, VBAK …), proxy CDS views to extend (MM-IM hybrid tables such as MARC and their history tables, MBEW …, BSIS …, FAGLFLEXT, COSP, ANLC), BP screens and CVI mapping, standard CDS views for Fiori.
+  - Includes fold into their program and function modules into their function group; per object the worst severity, rough effort, clean-core level (2025) and cloud approach (public cloud).
+  - It does not replace SAP Readiness Check, the SI-Check or ATC and lists them as to-dos.
+
+### Changed — dispatcher (ECC)
+
+- `abap/zmcp_adt_dispatch_ecc.abap` `TABLE_READ`: the IDoc partner profiles (EDP13, EDP21) and the event type linkages (SWETYPECOU) are readable, for the integration part of the readiness report.
+
 ## [0.6.53] — 2026-10-29
 
 ### Added — role-matrix company forms
