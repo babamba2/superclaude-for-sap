@@ -73,7 +73,7 @@ The main thread's model cannot be changed by a skill (SKILL.md `model:` is ignor
 |---|---|
 | `program-to-manual`, `package-to-process`, `compare-programs`, `config-to-document`, `create-program` | eco variant (levers A, B, D). `create-program`: novel business-logic code stays on Opus (medium). |
 | `setup`, `sap-option`, `sap-doctor`, `mcp-setup`, `trust-session` | No eco variant — run as standard. |
-| `program-to-spec`, `ask-consultant`, `analyze-symptom`, `analyze-code`, `interface-mapping-spec`, `smartform-preview`, `smartform-from-pdf`, `project-dashboard`, `role-matrix`, `analyze-cbo-obj`, `create-object` | **No eco variant — run as standard** (measured 2026-10-26: saving below ~20%, or a large quality loss — fewer review findings, wrong environment, thinner inventory, a spec at one third of the content with no screens; `create-object` / `smartform-from-pdf` dispatch little or no sub-agent work). |
+| `program-to-spec`, `ask-consultant`, `analyze-symptom`, `analyze-code`, `interface-mapping-spec`, `smartform-preview`, `smartform-from-pdf`, `project-dashboard`, `role-matrix`, `s4-conversion-readiness`, `analyze-cbo-obj`, `create-object` | **No eco variant — run as standard** (measured 2026-10-26: saving below ~20%, or a large quality loss — fewer review findings, wrong environment, thinner inventory, a spec at one third of the content with no screens; `create-object` / `smartform-from-pdf` dispatch little or no sub-agent work). |
 
 ## eco — lever D: context size
 
