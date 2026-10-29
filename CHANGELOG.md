@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.55] — 2026-10-29
+
 ### Fixed
 
 - `SAP_SYSTEM_TYPE` is written and accepted as `onprem` | `cloud` only. The MCP server reads any other value as `cloud` and hides the on-prem-only tools; setup and `/sc4sap:sap-option` used to offer `s4hana` / `ecc`. `sap-profile-cli.mjs` now maps `s4hana`, `ecc`, an empty value and typos to `onprem` (`legacy` is kept for old profiles). ECC vs S/4HANA stays in `SAP_VERSION`.
