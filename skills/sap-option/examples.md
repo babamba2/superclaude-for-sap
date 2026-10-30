@@ -16,7 +16,7 @@ User: "What's the current industry set to?"
 → render status snapshot only (Industry line), stop.
 
 User: "Change SAP_PASSWORD"
-→ prompt for new password (do not echo), validate non-empty, diff shows `*** → ***`, confirm, write backup, remind to reconnect.
+→ never ask for it in the chat; say "A password window will open", run `sap-profile-cli.mjs set-password <active alias>` (masked window → OS keychain), report `passwordStored`, remind to reconnect.
 
 User: "Change the HUD weekly limit to $200"
 → route to hud-limits.md flow, edit `~/.claude/settings.json` → `env.SC4SAP_WEEKLY_LIMIT_USD = 200`, preview diff, confirm, write, remind user to **restart Claude Code** (not just `/mcp`).

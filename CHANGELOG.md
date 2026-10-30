@@ -5,6 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.56] — 2026-10-30
+
+### Changed
+
+- Setup and `/sc4sap:sap-option` no longer ask for the SAP password in the conversation. `sap-profile-cli.mjs add` with `passwordPrompt: true`, and the new `set-password <alias>`, open a masked password window outside Claude Code (Windows: PowerShell console; macOS: osascript; Linux: zenity / kdialog) and store the value straight in the OS keychain. With no window available the profile is created without a password and `set-password` is run later from a desktop terminal; the password never goes through the chat.
+
 ## [0.6.55] — 2026-10-29
 
 ### Fixed
