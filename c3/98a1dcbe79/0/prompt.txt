@@ -1,0 +1,8 @@
+<pasted_content id="cdbf">
+
+재시작 후에는 MCP로 이렇게 진행할게요.
+1. MCP 연결과 HKT-DEV ZSC4SAP_TXT_TEST의 텍스트를 다시 확인해요.
+2. S4-DEV에서 같은 쓰기 시험을 해요. $TMP에 생성 → 선택 텍스트 쓰기 → merge → 읽기 순서예요.
+3. 두 시스템 모두 SE38에서 직접 확인해 주세요.
+4. 확인이 끝나면 MCP 4.8.17을 배포하고 sc4sap 고정 버전을 올려요.
+</pasted_content id="cdbf">
