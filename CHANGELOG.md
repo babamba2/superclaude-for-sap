@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.57] — 2026-10-30
+
+### Changed
+
+- MCP pin `85619ab` → `257f0a1` (4.8.17):
+  - Selection texts on S/4HANA are read and merged without losing or shifting the label (`ReadTextElementsBulk` / `WriteTextElementsBulk`). `WriteTextElementsBulk` writes the text pool active by default.
+  - `SearchObject` shows each program's own title (from TRDIRT, logon language first).
+  - `ReadProgram` also reads includes and returns an error for an unknown name.
+
 ## [0.6.56] — 2026-10-30
 
 ### Changed
