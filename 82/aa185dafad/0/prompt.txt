@@ -1,0 +1,13 @@
+<pasted_content id="df90">
+일반판 vendor는 GitHub의 abap-mcp-adt-powerup에서
+    받습니다. 그래서 텍스트 결함 수정은 **powerup에
+    커밋하고 배포해야** 일반판에 들어갑니다. 아직
+    커밋하지 않았습니다., haicode에서 hanta CLI를 쓸
+    때는 경로가 바뀌었습니다. 이전 경로
+    `cache\sc4sap\sc4sap\0.6.53`은 삭제됐습니다. 이제
+    `cache\sc4sap-hanta\sc4sap\0.6.53\bin\sc4sap-cli.c
+    js`나 원본 `sc4sap_hanta\bin\sc4sap-cli.cjs`를
+    씁니다.
+</pasted_content id="df90">
+
+ -> 여기는 MCP 로 접속되어야함 확인. sub-agent 호출 방식도 cli-haicode 기준으로  변경되었을 수 있으니 그런게 있으면 여기 sc4sap 에는 기존 버젼으로 돌려야함
