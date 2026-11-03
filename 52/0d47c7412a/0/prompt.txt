@@ -1,0 +1,1 @@
+create-program 스킬 작동시, "procedural 절차 진입시" ABAP Harness referenece 좀 고쳐야겠어. 현재 procedural-sample 의 경우 main-program.abap 만 있어. 메인 프로그램의 양식과 field-catalogue 생성규칙(field-catalog-guide.abap)은  유지해. 나머지 include 는 zsdm21390 을 참고했으면 좋겠어. 그렇게 작성해줄 수 있니 ?
