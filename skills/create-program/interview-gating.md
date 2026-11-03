@@ -75,6 +75,7 @@ Phase 1 runs as **two sequential sub-phases** (1A then 1B) on every `sc4sap:crea
 **Dimensions** (one question per turn, pre-filtered by resolved platform — see the global One-Question-Per-Turn Rule above; bulk-proposing all 7 dimensions at once is a protocol violation):
 1. **Purpose-type** — Report / CRUD / ALV List / Batch / Interface
 2. **Paradigm** — OOP (two-class) vs Procedural (PERFORM)
+   - **2a. Code template** — sc4sap default (recommended) / a saved template / a new template from a named program / a mix per include. Options, extraction, storage and rule precedence: [`code-template.md`](code-template.md).
 3. **Display mode** — None / SALV popup / Full CL_GUI_ALV_GRID
 4. **Screen/GUI** — required? screen numbers? Docking Container vs Splitter vs TOP_OF_PAGE layout?
 5. **Data source** — standard tables / Z-tables / BAPI / CDS view (consistent with Phase 1A reference assets)

@@ -10,7 +10,7 @@ When multi-profile mode is active (`<project>/.sc4sap/active-profile.txt` exists
 <project>/.sc4sap/work/{activeAlias}/<category>/<rest>
 ```
 
-Categories: `program/`, `cbo/`, `customizations/`, `audit/`, `comparisons/`, `processes/`, `config-docs/`, `manuals/`, `interfaces/`. Writes NEVER fall back to another profile or to the project root.
+Categories: `program/`, `cbo/`, `customizations/`, `audit/`, `comparisons/`, `processes/`, `config-docs/`, `manuals/`, `interfaces/`, `templates/`. Writes NEVER fall back to another profile or to the project root.
 
 Legacy (no active-profile.txt): writes go to `<project>/.sc4sap/<category>/<rest>` exactly as before.
 
