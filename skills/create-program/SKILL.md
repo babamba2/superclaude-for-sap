@@ -51,6 +51,7 @@ The following rules are **shared across sc4sap skills** and live in `sc4sap/comm
 | Clean ABAP — **Procedural paradigm** | `../../common/clean-code-procedural.md` | Executor, Reviewer — **only when Phase 1B `paradigm = Procedural`** |
 | **Mandatory main-program template (OOP)** | `../../common/oop-sample/zrsc4sap_oop_ex.prog.abap` (+ companion includes / screens in same folder) | Executor Wave 3 (starting skeleton) + Reviewer B3 bucket (structural match) — OOP paradigm |
 | **Mandatory main-program template (Procedural)** | `../../common/procedural-sample/main-program.abap` (+ include samples `zsdr90010*.abap` and `README.md` in same folder) | Executor Wave 3 + Reviewer B3 bucket — Procedural paradigm |
+| **Code template (optional, Phase 1B dim 2a)** | [`code-template.md`](code-template.md) — saved templates in `templates/<NAME>/` (`profile.md` + `skeleton/`) | Interview, writer (`Code template` section of spec.md), executor + reviewer B3 for the roles mapped to a template; replaces the two rows above for those roles only |
 
 Paths are relative to this skill's directory (`sc4sap/skills/create-program/`).
 
@@ -158,7 +159,7 @@ Do not inline or paraphrase phase logic here — update `agent-pipeline.md` inst
 <State_Files>
 - `.sc4sap/program/{PROG}/platform.md` — Phase 0 preflight output
 - `.sc4sap/program/{PROG}/module-interview.md` — Phase 1A business interview (consultant-led: purpose / reason / company-specific rules / reference assets / standard-SAP alternatives)
-- `.sc4sap/program/{PROG}/interview.md` — Phase 1B technical interview (analyst+architect-led: 7 dimensions Q&A log)
+- `.sc4sap/program/{PROG}/interview.md` — Phase 1B technical interview (analyst+architect-led: 7 dimensions + 2a code template Q&A log)
 - `.sc4sap/program/{PROG}/cbo-context.md` — CBO reuse candidates (written by `<Inventory_Lookups>` / [`inventory-lookups.md`](inventory-lookups.md))
 - `.sc4sap/program/{PROG}/customization-context.md` — Z*/Y* BAdI impl / CMOD / form-exit / append reuse candidates (written by `<Inventory_Lookups>` / [`inventory-lookups.md`](inventory-lookups.md))
 - `.sc4sap/program/{PROG}/ddic-brief.md` — Haiku `sap-checker` scout facts for objects named in Phase 1A (read before any `Get*` by 1B / consultants / planner)

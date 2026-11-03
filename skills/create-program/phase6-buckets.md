@@ -14,9 +14,9 @@ The 12 convention items in `phase6-review.md` are split into 4 buckets. Each buc
 
 | Bucket | Items (from phase6-review.md) | Scope |
 |--------|-------------------------------|-------|
-| **B1 — ALV + UI** | #1 alv-rules, #2 text-element-rule | ALV field catalog, Docking vs Custom Control, text-Txx, MESSAGE literals |
+| **B1 — ALV + UI** | #1 alv-rules, #2 text-element-rule | ALV field catalog, Docking vs Custom Control, text-Txx, MESSAGE literals; for ALV roles mapped to a code template, the template's DDIC / metadata-based field catalog method and container type are compliant (`alv-rules.md` § Code template exception) |
 | **B2 — Logic Hygiene** | #3 constant-rule, #8 clean-code (shared baseline + paradigm-specific file) | Magic literals, SY-SUBRC, SELECT *, inline decl, commented code. B2 reviewer reads `interview.md` Paradigm dimension first, then loads `clean-code.md` + either `clean-code-oop.md` OR `clean-code-procedural.md` accordingly — never both. |
-| **B3 — Structure + Naming** | #4 procedural-form-naming, #5 oop-pattern, #6 include-structure, #7 naming-conventions | Include suffix, class split, Z prefix, `_{screen_no}` FORM |
+| **B3 — Structure + Naming** | #4 procedural-form-naming, #5 oop-pattern, #6 include-structure, #7 naming-conventions | Include suffix, class split, Z prefix, `_{screen_no}` FORM; for roles mapped to a code template, structure is checked against `templates/<NAME>/` instead ([`code-template.md`](code-template.md)) |
 | **B4 — Platform + Config** | #9 abap-release-reference, #10 sap-version-reference, #11 spro-lookup, #12 activation-state | Release-allowed syntax, ECC vs S/4, SPRO tables, inactive objects |
 
 ## Parallel Dispatch

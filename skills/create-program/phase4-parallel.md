@@ -103,6 +103,8 @@ Local source generation (executor, no MCP) happens first — `sap-executor` read
 - `paradigm = OOP` → executor MUST start from `../../common/oop-sample/zrsc4sap_oop_ex.prog.abap` (with companion includes / screens in the same folder) and adapt identifiers. See `common/clean-code-oop.md` § Mandatory Main Program Template.
 - `paradigm = Procedural` → executor MUST start from `../../common/procedural-sample/main-program.abap` and adapt identifiers. Each include body starts from its sibling sample (`zsdr90010t/c/s/o/i/a/f.abap` + `zsdr90010.screen_0100.abap`; file map and ALV pattern in `../../common/procedural-sample/README.md`). See `common/clean-code-procedural.md` § Mandatory Main Program Template.
 
+**Code template** (`state.json → code_template`, see [`code-template.md`](code-template.md)): for every role mapped to a template, the executor starts from `templates/<NAME>/skeleton/<role>.abap` + `profile.md` instead of the sc4sap sample for that role, and applies the `Template deviations` listed in `spec.md`. Roles mapped to `default` keep the sample.
+
 Any structural deviation (event block reordering, include-suffix rename, bootstrap shortcut) requires a written justification in `spec.md`. Without it, Phase 6 B3 (Structure + Naming) bucket flags the deviation as MAJOR and escalates to Opus.
 
 Then:

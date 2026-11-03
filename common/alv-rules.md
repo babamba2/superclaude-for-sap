@@ -48,3 +48,7 @@ Adjust per-field properties (examples: `coltext`, `qfieldname`, `cfieldname`, `d
 - Step 1 may come from the ALV framework base class (`GET_FIELDCAT( it_data = … )`, SALV-metadata based) when `alvFramework` ≠ `none` — that counts as compliant. With `alvFramework = none`, call `cl_salv_controller_metadata=>get_lvc_fieldcatalog` directly.
 - Step 2 lives in a method named `REFINE_FCAT` (`CASE fieldname`, optionally nested in `CASE` on the screen number for multi-screen programs).
 - Never `APPEND … TO lt_fcat` per column — the most-often violated rule.
+
+### Code template exception
+
+For an ALV role mapped to a code template (`state.json -> code_template`, see `../skills/create-program/code-template.md`), Step 1 follows the template's method when that method is itself DDIC / metadata based (e.g. `LVC_FIELDCATALOG_MERGE` with a DDIC structure, or `REUSE_ALV_FIELDCATALOG_MERGE`). The DDIC structure it needs is a planned object. Step 2 (`CASE` on `FIELDNAME`) still applies, and per-column `APPEND` construction stays a violation even when the template does it.

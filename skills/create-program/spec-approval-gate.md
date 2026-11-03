@@ -9,6 +9,7 @@ After `<Interview_Gating>` closes (ambiguity ≤ 5%) and Phase 2 (Planning) prod
 ## Required steps
 
 1. Invoke `sap-writer` (Phase 3) to produce `.sc4sap/program/{PROG}/spec.md` — a **human-readable Markdown functional + technical specification**.
+   When `state.json → code_template.mode` is not `default`, `spec.md` MUST contain a `## Code template` section (include map, template names, `Template deviations`) per [`code-template.md`](code-template.md) § Downstream.
 2. **Display the spec.md contents in the chat** (or surface the file path prominently) so the user can read it end-to-end.
 3. **Block all further progress** — no `CreateProgram`, `CreateClass`, `CreateInclude`, or any other `Create*` / `Update*` MCP call may happen — until the user provides an **explicit affirmative acknowledgement** of the spec.
    - Acceptable approval keywords: `승인`, `approve`, `approved`, `ok`, `proceed`, `go ahead`, `confirmed`
