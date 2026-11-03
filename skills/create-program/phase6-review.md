@@ -136,7 +136,7 @@ Paradigm = OOP → load `clean-code-oop.md` and check:
 - [ ] Tests: given-when-then naming, test publics only, inject doubles via constructor, `LOCAL FRIENDS` only for constructor access
 
 Paradigm = Procedural → load `clean-code-procedural.md` and check:
-- [ ] **Main program structure matches `../../common/procedural-sample/main-program.abap`** — REPORT statement, INCLUDE order (t/c/s/o/i/a/f — `c` / `a` only when declared), event block layout, PBO/PAI modules as one-line `PERFORM` delegators. Any structural deviation must be justified in `spec.md`; otherwise MAJOR finding.
+- [ ] **Main program structure matches `../../common/procedural-sample/main-program.abap`** — REPORT statement, INCLUDE order (t/c/s/o/i/a/f — `c` / `a` only when declared), event block layout, PBO/PAI modules as one-line `PERFORM` delegators; include contents follow the sibling samples `zsdr90010*.abap` (TOP order, `TY_ALV` bundle per grid, `LCL_EVENT_HANDLER` delegating to FORMs, docking + splitter, single PAI dispatcher). Any structural deviation must be justified in `spec.md`; otherwise MAJOR finding.
 - [ ] All globals declared in TOP include only; no program-level `DATA` in PBO/PAI/FORM/EVENT includes (FORM-local `DATA` is required, not forbidden)
 - [ ] Global / local variables visually distinguishable (`g*` vs `l*` prefix); no local shadows a global
 - [ ] FORM parameters typed (`USING p_a TYPE ...`); `USING` for inputs, `CHANGING` for in/out; no boolean `USING`

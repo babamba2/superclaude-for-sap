@@ -94,14 +94,14 @@ All three groups launch in a single multi-tool-use message as **two** `Agent(...
 
 > **teamMode variant (Type B, opt-in)** — only when `consultant_live_review: true`; same pattern as Wave 2 for novel cross-module business logic in event blocks / FORM routines. See [`team-mode-b.md`](team-mode-b.md). Skip for pure-structural includes (TOP decl, selection screen, PBO/PAI boilerplate).
 
-- **Context kit**: `../../common/include-structure.md`, `../../common/procedural-sample/main-program.abap` OR `../../common/oop-sample/zrsc4sap_oop_ex.prog.abap` (per paradigm), `../../common/clean-code-procedural.md` OR `../../common/clean-code-oop.md`, `../../common/ok-code-pattern.md` (if `CALL SCREEN` present)
+- **Context kit**: `../../common/include-structure.md`, `../../common/procedural-sample/` (main + include samples + README) OR `../../common/oop-sample/zrsc4sap_oop_ex.prog.abap` (per paradigm), `../../common/clean-code-procedural.md` OR `../../common/clean-code-oop.md`, `../../common/ok-code-pattern.md` (if `CALL SCREEN` present)
 - **Model**: Opus — `model: "opus"` override; code layout + cross-include reference resolution
 
 Local source generation (executor, no MCP) happens first — `sap-executor` reads `spec.md` + `plan.md` and builds every include body + main program body in memory, referencing G1/G2/G3 artifacts by name.
 
 **Mandatory main-program template (gated on paradigm)**:
 - `paradigm = OOP` → executor MUST start from `../../common/oop-sample/zrsc4sap_oop_ex.prog.abap` (with companion includes / screens in the same folder) and adapt identifiers. See `common/clean-code-oop.md` § Mandatory Main Program Template.
-- `paradigm = Procedural` → executor MUST start from `../../common/procedural-sample/main-program.abap` and adapt identifiers. See `common/clean-code-procedural.md` § Mandatory Main Program Template.
+- `paradigm = Procedural` → executor MUST start from `../../common/procedural-sample/main-program.abap` and adapt identifiers. Each include body starts from its sibling sample (`zsdr90010t/c/s/o/i/a/f.abap` + `zsdr90010.screen_0100.abap`; file map and ALV pattern in `../../common/procedural-sample/README.md`). See `common/clean-code-procedural.md` § Mandatory Main Program Template.
 
 Any structural deviation (event block reordering, include-suffix rename, bootstrap shortcut) requires a written justification in `spec.md`. Without it, Phase 6 B3 (Structure + Naming) bucket flags the deviation as MAJOR and escalates to Opus.
 
