@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.58] — 2026-11-03
+
+### Added
+
+- `/sc4sap:create-program` can build a program in a company's own layout (code template). Phase 1B offers the default sc4sap sample, a saved template, a new template learned from an existing program, or a mix per include. A template sets the style (include names and order, header, naming, TOP layout, container, field catalog method); the sc4sap rules still apply (OK_CODE binding, text elements, release gates, `sy-subrc`, typed FORM parameters). Templates are saved per profile under `.sc4sap/work/<profile>/templates/`.
+
+### Changed
+
+- MCP pin `257f0a1` → `6930bf5` (4.8.18): `CreateStructure` creates and activates DDIC structures on ECC over RFC, with `reference_table` / `reference_field` for CURR / QUAN fields. A template whose field catalog comes from a DDIC structure no longer needs a helper report on ECC.
+
 ## [0.6.57] — 2026-10-30
 
 ### Changed
