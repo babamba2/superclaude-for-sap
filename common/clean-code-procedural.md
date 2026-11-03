@@ -8,7 +8,7 @@ Clean ABAP rules specific to the **Procedural paradigm** — `REPORT` programs b
 
 When generating a Procedural program's main `REPORT` source, the executor MUST start from and conform to the canonical sample:
 
-**Source of truth**: [`procedural-sample/main-program.abap`](procedural-sample/main-program.abap).
+**Source of truth**: [`procedural-sample/main-program.abap`](procedural-sample/main-program.abap) for the main program, and the include samples in the same folder (`zsdr90010t/c/s/o/i/a/f.abap`, screen flow `zsdr90010.screen_0100.abap`) for each include body. File map, ALV pattern and smaller-program variants: [`procedural-sample/README.md`](procedural-sample/README.md).
 
 - **Do**: copy the skeleton (REPORT statement, INCLUDE order t → c → s → o → i → a → f per `include-structure.md` (`c` / `a` only when declared), INITIALIZATION / AT SELECTION-SCREEN / START-OF-SELECTION / END-OF-SELECTION block layout, PBO/PAI module stubs delegating to FORMs), then adapt identifiers.
 - **Do not**: inline FORM logic into events, declare globals outside the TOP include, declare global `DATA` at the top level of PBO/PAI/FORM includes (FORM-local `DATA` inside FORM … ENDFORM is required, not forbidden), or deviate from the paired `procedural-form-naming.md` suffix rule.

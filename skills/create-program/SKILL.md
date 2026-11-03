@@ -50,7 +50,7 @@ The following rules are **shared across sc4sap skills** and live in `sc4sap/comm
 | Clean ABAP — **OOP paradigm** | `../../common/clean-code-oop.md` | Executor, Reviewer — **only when Phase 1B `paradigm = OOP`** |
 | Clean ABAP — **Procedural paradigm** | `../../common/clean-code-procedural.md` | Executor, Reviewer — **only when Phase 1B `paradigm = Procedural`** |
 | **Mandatory main-program template (OOP)** | `../../common/oop-sample/zrsc4sap_oop_ex.prog.abap` (+ companion includes / screens in same folder) | Executor Wave 3 (starting skeleton) + Reviewer B3 bucket (structural match) — OOP paradigm |
-| **Mandatory main-program template (Procedural)** | `../../common/procedural-sample/main-program.abap` | Executor Wave 3 + Reviewer B3 bucket — Procedural paradigm |
+| **Mandatory main-program template (Procedural)** | `../../common/procedural-sample/main-program.abap` (+ include samples `zsdr90010*.abap` and `README.md` in same folder) | Executor Wave 3 + Reviewer B3 bucket — Procedural paradigm |
 
 Paths are relative to this skill's directory (`sc4sap/skills/create-program/`).
 

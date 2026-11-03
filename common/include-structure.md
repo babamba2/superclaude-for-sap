@@ -1,6 +1,6 @@
 # Include Structure Convention
 
-Shared convention for sc4sap ABAP programs that wrap logic in a Main Program + conditional Includes. **Source of truth for Procedural programs: [`procedural-sample/main-program.abap`](procedural-sample/main-program.abap)**. OOP programs follow [`oop-sample/zrsc4sap_oop_ex.prog.abap`](oop-sample/zrsc4sap_oop_ex.prog.abap) and [`oop-pattern.md`](oop-pattern.md).
+Shared convention for sc4sap ABAP programs that wrap logic in a Main Program + conditional Includes. **Source of truth for Procedural programs: [`procedural-sample/main-program.abap`](procedural-sample/main-program.abap) + the include samples beside it (`zsdr90010t/c/s/o/i/a/f.abap`, see [`procedural-sample/README.md`](procedural-sample/README.md))**. OOP programs follow [`oop-sample/zrsc4sap_oop_ex.prog.abap`](oop-sample/zrsc4sap_oop_ex.prog.abap) and [`oop-pattern.md`](oop-pattern.md).
 
 Include name = `{PROG}` + suffix letter(s), **no underscore** (`ZSDR00010T`, `ZSDR00010CT`). Keep the program name ≤ 38 characters so `{PROG}CT` stays within the 40-character limit.
 
