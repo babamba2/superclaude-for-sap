@@ -50,6 +50,8 @@ Settled at design time (2026-10-28) — do not ask again:
 </Decisions_Fixed>
 
 <Paths>
+`<PLUGIN_ROOT>` = `${CLAUDE_PLUGIN_ROOT}` (plugin root, forward slashes; use it literally in commands)
+
 `<PRJ>` = `<artifactBase>/projects` ([`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md)). Per project `<PRJ>/<CODE>/`: `<CODE>-project.json` (model), `<CODE>-project.en.json`, `<CODE>-<lang>.history.json`, `<CODE>-dashboard-v<ver>-<lang>.html`, `_src/`, `_i18n/`, `_answers.json`. Tool: `node "<PLUGIN_ROOT>/scripts/project/build-project-doc.mjs" <cmd> … --dir <PRJ>` (header of that file lists every command).
 </Paths>
 
