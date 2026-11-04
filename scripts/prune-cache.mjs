@@ -37,7 +37,30 @@
 
 import { existsSync, readFileSync, readdirSync, rmSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * Marketplace name this copy was installed from, read off its own install path
+ * (…/plugins/marketplaces/<name>/ or …/plugins/cache/<name>/). A source checkout
+ * falls back to the name in .claude-plugin/marketplace.json. Pruning is scoped
+ * to this one marketplace so a sibling sc4sap build (another marketplace name)
+ * is never treated as stale.
+ */
+function ownMarketplaceName() {
+  const m = HERE.replace(/\\/g, '/').match(/\/plugins\/(?:marketplaces|cache)\/([^/]+)\//);
+  if (m) return m[1];
+  try {
+    const manifest = join(HERE, '..', '.claude-plugin', 'marketplace.json');
+    return JSON.parse(readFileSync(manifest, 'utf8')).name || 'sc4sap';
+  } catch {
+    return 'sc4sap';
+  }
+}
+
+const MARKETPLACE = ownMarketplaceName();
 
 const args = new Set(process.argv.slice(2));
 const doDelete = args.has('--yes');
@@ -83,7 +106,7 @@ function fmtMB(bytes) {
 }
 
 function findActiveVersion() {
-  const marketplacePlugin = join(MARKETPLACES_ROOT, 'sc4sap');
+  const marketplacePlugin = join(MARKETPLACES_ROOT, MARKETPLACE);
   if (!existsSync(marketplacePlugin)) {
     return { error: `marketplace path missing: ${marketplacePlugin}` };
   }
@@ -99,23 +122,19 @@ function findActiveVersion() {
 }
 
 // Cache layout: ~/.claude/plugins/cache/<marketplace-name>/sc4sap/<version>/
-// We match by plugin name "sc4sap" (directory 2) to stay agnostic of how the
-// marketplace was registered.
+// Only this copy's own marketplace is walked: a sibling build registered under
+// another marketplace name has its own active version and must not be pruned.
 function findCacheVersions() {
-  if (!existsSync(CACHE_ROOT)) return [];
+  const pluginRoot = join(CACHE_ROOT, MARKETPLACE, 'sc4sap');
+  if (!existsSync(pluginRoot)) return [];
   const results = [];
-  for (const marketplace of readdirSync(CACHE_ROOT, { withFileTypes: true })) {
-    if (!marketplace.isDirectory()) continue;
-    const pluginRoot = join(CACHE_ROOT, marketplace.name, 'sc4sap');
-    if (!existsSync(pluginRoot)) continue;
-    for (const ver of readdirSync(pluginRoot, { withFileTypes: true })) {
-      if (!ver.isDirectory()) continue;
-      results.push({
-        marketplace: marketplace.name,
-        version: ver.name,
-        path: join(pluginRoot, ver.name),
-      });
-    }
+  for (const ver of readdirSync(pluginRoot, { withFileTypes: true })) {
+    if (!ver.isDirectory()) continue;
+    results.push({
+      marketplace: MARKETPLACE,
+      version: ver.name,
+      path: join(pluginRoot, ver.name),
+    });
   }
   return results;
 }
