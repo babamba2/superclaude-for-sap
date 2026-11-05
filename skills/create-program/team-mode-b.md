@@ -63,7 +63,7 @@ Phase banner per consultant:
 
 ### R2 — WORKER_REFINEMENT
 
-Re-dispatch executor (`member=sap-executor-tm`, `round=2`) with peer CHALLENGEs inline. Executor performs the `UpdateClass` / `UpdateFunctionModule` / `UpdateInclude` MCP calls to revise the code, then returns a WORKER_REFINEMENT block documenting WHICH peer challenges drove WHICH code changes; the lead writes it to `30-sap-executor-tm-refinement.md`.
+Re-dispatch executor (`member=sap-executor-tm`, `round=2`) with peer CHALLENGEs inline. Executor performs the `UpdateClass` / `UpdateFunctionModule` / `UpdateInclude` MCP calls to revise the code, then returns a WORKER_REFINEMENT block documenting WHICH peer challenges drove WHICH code changes; the lead writes it to `30-sap-executor-tm-refinement.md` and appends each change's rationale as one line to `decisions.md` (see `agent-pipeline.md` § Phase 4 Decisions log).
 
 ### R3 — Peer final
 

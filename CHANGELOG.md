@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.59] — 2026-11-05
+
+### Added
+
+- `common/verification-evidence.md` — finished work shows what the agent decided on its own, what was run to prove it, and what that proof does not cover. Applied to `/sc4sap:create-program` and `/sc4sap:analyze-symptom`. No extra MCP calls or agents.
+- `/sc4sap:create-program`: the spec gets a *Done Criteria* section (tool + pass result), approved with the spec. Agents that write code return a `## Decisions` section, collected in `decisions.md`. The Phase 8 report starts with the returned check results (PASS / FAIL / NOT RUN, each with what it does not prove), then the summary, *Decisions & Assumptions* and one thing to check by hand.
+- `/sc4sap:analyze-symptom`: in `full` mode the skill first asks whether the user already suspects a cause (optional) and gives that guess its own verdict — CONFIRMED / REFUTED / NOT TESTABLE. Findings quote the returned values; the final report lists its scope decisions and the limits of the evidence.
+
+### Fixed
+
+- `prune-cache` only prunes the cache of its own marketplace. Before, a build of the plugin registered under another marketplace name could be deleted as stale.
+- `project-dashboard`: `<PLUGIN_ROOT>` is defined, so the `build-project-doc.mjs` command resolves from the plugin root.
+- `package.json`: removed the `bin` entry that pointed to a file that never existed (`bridge/cli.cjs`).
+
 ## [0.6.58] — 2026-11-03
 
 ### Added

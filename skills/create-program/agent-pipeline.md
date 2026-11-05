@@ -106,6 +106,7 @@ Persist to `.sc4sap/program/{PROG}/state.json` → `phase1b.execution_style`. Ph
 - **CBO reuse (mandatory when `cbo-context.md` exists)**: every spec section that references an existing CBO asset must name it explicitly (e.g., "writes to existing table `ZSD_ORDER_LOG`") and include a one-line reason for reuse.
 - **Customization reuse (mandatory when `customization-context.md` exists)**: when the spec extends a BAdI / SMOD / form-based exit / append, it MUST reference the existing `Z*`/`Y*` implementation class, CMOD project, include, or append structure by name (e.g., "add new method to existing BAdI impl `ZCL_SD_ORDER_IMPL`"; "extend existing append `CI_VBAK_ZZ` with field `ZZ_DELIVERY_PRIORITY`"). Never silently introduce a parallel Z-object when a reuse target exists in `customization-context.md`.
 - **MANDATORY before writing**: open and read every shared convention file applicable to the program type (`alv-rules.md`, `text-element-rule.md`, `constant-rule.md`, `oop-pattern.md` if OOP, `procedural-form-naming.md` if Procedural, `naming-conventions.md`, `include-structure.md`). The spec must NOT contain instructions that contradict these conventions (e.g., "build LVC_T_FCAT manually" contradicts `alv-rules.md`'s SALV-factory rule). Exception: for roles mapped to a code template (`state.json → code_template`), the template's style wins per [`code-template.md`](code-template.md) § What a template may change — describe the template's technique, and list rule conflicts under `Template deviations`. When the spec describes a technique, paraphrase the convention's prescribed approach — never invent a shortcut.
+- **Done Criteria (mandatory section)**: spec.md § *9. Done Criteria*, just before `## Approval` (template in [`spec-approval-gate.md`](spec-approval-gate.md)) — the factual checks (tool + pass result) that will count as verified, per [`../../common/verification-evidence.md`](../../common/verification-evidence.md) § Rule 2. Fixed at approval: any change is a spec change and needs re-approval.
 - File: `.sc4sap/program/{PROG}/spec.md`
 - **Spec Approval Gate (MANDATORY) — enforced per `SKILL.md` → `<Spec_Approval_Gate>`**:
   - Display spec.md contents in chat (or surface the path prominently)
@@ -133,6 +134,8 @@ Full procedure — `trust-session` invocation, auto/manual/hybrid mode prompt, s
 - Screens / GUI status / text elements run AFTER main activation (see phase4-parallel.md Step G)
 - Syntax failures → fix-and-retry loop (max 3 iterations on the main program, NOT per include)
 - In `manual`/`hybrid` mode: prompt user before starting Phase 4; do NOT prompt mid-flow once started
+- **Decisions log**: every agent that writes production code returns a `## Decisions` section (choices not dictated by spec.md / plan.md) — Phase 4 executors (single, split, teamMode), Phase 5 QA fixes, Phase 6 fix rounds, Phase 7 debugger fixes (ask for the section in the dispatch prompt when the agent's own output format lacks it). Main appends those lines, unedited, to `.sc4sap/program/{PROG}/decisions.md` as each returns (teamMode: the lead appends the WORKER_REFINEMENT rationale).
+- **Check results log**: main appends each `GetAbapSemanticAnalysis(<main>)` / `ActivateObjects` result line from the executor's `## Verification` (returned excerpt, not pass/fail) to `verify-phase4.md`, next to the inactive-list CHECKER blocks. After a later fix round, the newest result for a check wins.
 
 ## Phase 5 — QA (conditional): `sap-qa-tester` (dispatch with `model: "opus"`)
 
@@ -175,6 +178,9 @@ Dispatch input (writer receives, does NOT re-fetch via MCP):
 - Reference to `review.md` (Phase 6 verdicts)
 - **Timing summary** — per-phase `timing` / `sec` fields from `state.json` so the writer can render the total-duration table (Phase 4 parallel gains, Phase 6 bucket gains, Opus escalation ratio)
 - User conversation language (so the report localizes — Korean / English / Japanese / etc.)
+- spec.md § *9. Done Criteria* and the files holding their results — the writer reads these, it does not re-fetch: `verify-phase4.md` (semantic-analysis / activation lines + inactive-list CHECKER blocks, newest wins), Phase 5 `GetUnitTestResult` output, `review.md` § 12 Activation State; plus `decisions.md` and plan.md § *Conflict Resolutions*
+
+**Report rules** — [`../../common/verification-evidence.md`](../../common/verification-evidence.md): Evidence block first (one line per Done Criteria check, PASS / FAIL / NOT RUN with the returned value, plus its "does not prove" line), then the summary, then *Decisions & Assumptions* (from `decisions.md` + conflict resolutions + interview defaults the agent proposed and the user only acknowledged with ok / yes), then one *Still check by hand* line. A check with no result in those files is NOT RUN. A FAIL or NOT RUN is reported as such — never folded into "done".
 
 Output:
 - File: `.sc4sap/program/{PROG}/report.md` (written by the writer agent)

@@ -124,8 +124,13 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
     ## ABAP Objects Created/Modified
     - [Object type] [Object name] - [description]
 
+    ## Decisions
+    - [choice the spec/plan did not dictate — default value, edge-case handling, skipped item] — why: [reason]
+    - (write "None" when every choice came from spec/plan)
+
     ## Verification
-    - Syntax check: [pass/fail]
+    - GetAbapSemanticAnalysis(<main>) → [returned result, short excerpt — not just pass/fail]
+    - ActivateObjects → [returned messages, or "no messages"]
     - Authorization checks: [present for all sensitive operations]
     - Performance patterns: [no SELECT *, no SELECT in LOOP]
 

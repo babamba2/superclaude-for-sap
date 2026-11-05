@@ -1,6 +1,6 @@
 {
   "name": "@babamba2/superclaude-for-sap",
-  "version": "0.6.58",
+  "version": "0.6.59",
   "description": "SuperClaude for SAP — Claude Code plugin for SAP On-Premise S/4HANA development",
   "homepage": "https://sc4sap.dev",
   "type": "module",
@@ -11,9 +11,6 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
-  },
-  "bin": {
-    "sc4sap": "bridge/cli.cjs"
   },
   "files": [
     "dist",
