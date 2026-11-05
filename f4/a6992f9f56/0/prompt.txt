@@ -1,0 +1,1 @@
+sc4sap 소개 페이지를 만들었는데, cli 방식을 설명하는게 들어갔어. CLI 방식은 hanta 전용(sc4sap_hanta)이라서 들어가면 안되었어. 즉, sc4sap 혹은 abap_mcp_powerup 이 두 개에서 cli 방식으로 들어가는게 섞였거나, readme 가 cli 를 추가했거나 등등을 고려해봐야할거같아. sc4sap_hanta 의 경우 연결 백엔드(cli) 파트는 해당 폴더 내에 내장되어있다는점 참조해
