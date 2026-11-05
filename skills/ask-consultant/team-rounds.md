@@ -45,7 +45,7 @@ Replaces `SKILL.md` Step 4. The lead:
      """
    })
    ```
-5. Wait for all N completion notifications. Extract each POSITION block and write it to `10-<member>-position.md`; keep each full answer for Step 6's per-module subsections. Malformed block → re-dispatch that member once (protocol § Transport → Parsing).
+5. Wait for all N completion notifications. Extract each POSITION block and write it to `10-<member>-position.md`; keep each full answer for Step 6's per-module subsections. Malformed block → repair once (protocol § Transport → Parsing, `common/structured-return-repair.md`).
 
 ### Divergence check (between rounds, lead-side, no agent call)
 

@@ -72,7 +72,7 @@ Transport is return-based ([`../../common/team-consultation-protocol.md`](../../
    ▶ phase=2.R1.resolve (position-<MODULE>) · agent=sap-<module>-consultant · model=Opus
    ```
    Spawn shape (same skeleton as `ask-consultant/team-rounds.md` § Round 1: `teamMode=true`, `round=1`, `member=<name>`, charter inlined, "do NOT write any file"). Each consultant returns a POSITION block.
-5. After all completion notifications, write each block to `10-<member>-position.md` (malformed → re-dispatch once).
+5. After all completion notifications, write each block to `10-<member>-position.md` (malformed → repair once, per `common/structured-return-repair.md`).
 
 ### POSITION field expectations
 

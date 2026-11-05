@@ -6,7 +6,7 @@ Companion file split from [`phase4-parallel.md`](./phase4-parallel.md) (200-line
 
 1. After the writing step, the main thread dispatches one `sap-checker` per object **in a single message** (one screen, one GUI status, one text pool language, or the inactive list).
 2. Each prompt starts with `MODE: verify`, names one object, and lists the assertions with ids (`a1`, `a2`, …) copied from the sections below. No rule files are needed.
-3. Main collects the `CHECKER … END` blocks into `.sc4sap/program/{PROG}/verify-phase4.md` (append; keep one block per object per attempt).
+3. Main collects the `CHECKER … END` blocks into `.sc4sap/program/{PROG}/verify-phase4.md` (append; keep one block per object per attempt). A malformed block (missing `END`, `END count` ≠ line count) → repair once per `../../common/structured-return-repair.md`.
 4. Any `result=FAIL` or `status=BLOCKED` → main re-dispatches the **writer** (`sap-executor`, same model as the writing step) for that object only, with the failing `ASSERT` lines as context; then verify again. Max 2 rewrite attempts per object, then escalate to Phase 7 with the evidence.
 5. Banner: one line per fan-out — `▶ phase=4.W4.verify · agent=sap-checker×N · model=Haiku`.
 

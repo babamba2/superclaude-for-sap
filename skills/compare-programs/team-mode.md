@@ -69,7 +69,7 @@ Transport is return-based ([`../../common/team-consultation-protocol.md`](../../
      """
    })
    ```
-5. Wait for completion notifications from all N members. Write each returned POSITION to `10-<member>-position.md` (malformed → re-dispatch once, per protocol § Transport → Parsing).
+5. Wait for completion notifications from all N members. Write each returned POSITION to `10-<member>-position.md` (malformed → repair once, per protocol § Transport → Parsing).
 
 ### Divergence check — ownership conflict detection
 

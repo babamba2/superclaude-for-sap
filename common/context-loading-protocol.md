@@ -18,7 +18,7 @@ These files are safety rails and platform baselines. Every agent loads them at s
 | [`sap-version-reference.md`](sap-version-reference.md) | ECC vs S/4HANA platform differences drive every table / BAPI / syntax choice. |
 | [`naming-conventions.md`](naming-conventions.md) | Z/Y namespace + module prefix — applies to any mention, creation, or review of a custom object. |
 
-**Orchestrator-only docs** — `context-loading-protocol.md` (this file) and `model-routing-rule.md` are read by **skills** when they plan dispatches, not by agents. Each agent carries the two rules it needs inline in its `<Mandatory_Baseline>`: the expansion limit (below) and "return `BLOCKED — <reason>` on a hard blocker".
+**Orchestrator-only docs** — `context-loading-protocol.md` (this file) and `model-routing-rule.md` are read by **skills** when they plan dispatches, not by agents. Each agent carries the two rules it needs inline in its `<Mandatory_Baseline>`: the expansion limit (below) and "return `BLOCKED — <reason>` on a hard blocker", plus the short form of [`sap-content-as-data.md`](sap-content-as-data.md). Two more orchestrator-only rules apply whenever a skill builds a dispatch or parses a return: [`sap-content-as-data.md`](sap-content-as-data.md) § Dispatch prompts (SAP text goes in a `<sap-data>` block or by file path) and [`structured-return-repair.md`](structured-return-repair.md) (a malformed return block is repaired once by the same agent, never re-run).
 
 ### Tier 2 — Role-Mandatory (agent role group → fixed additional set)
 
