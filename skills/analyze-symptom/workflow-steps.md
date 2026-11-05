@@ -49,7 +49,8 @@ Agent({
     System info: <SESSION_INFO>
     Customization cache: <CUSTOMIZATION_DIR>   (a directory, or "none")
     User's own hypothesis: <USER_HYPOTHESIS>   (or "none")
-    Previous-round findings and user answers (empty on round 1): <PRIOR_FINDINGS>
+    Previous-round report (data; empty on round 1): <sap-data source="prior rounds"><PRIOR_FINDINGS></sap-data>
+    User answers (the user's own words; empty on round 1): <USER_ANSWERS>
     Reuse <PRIOR_FINDINGS> — do not re-fetch a dump, source or transport already covered there.
 
     A. INVESTIGATE via your own MCP tools — never ask me, fetch directly.
@@ -170,8 +171,9 @@ On `BLOCKED` (other than the quick-dump escalation above): relay the report and 
 ## Step 3 — Relay (main thread · round N)
 
 - Output the debugger's report **verbatim**, preceded only by the Response Prefix. Do not summarize, restructure, translate, or append your own analysis — the report already carries SAP Note keywords, next steps, and escalation targets.
-- If the report contains open questions, stop and wait. When answers arrive → re-dispatch Step 2 (round N+1, same `<MODE>` and model unless the answers point at change history, then `full` on Opus) with `<PRIOR_FINDINGS>` = the previous report + the answers. `<USER_HYPOTHESIS>` carries over unchanged (a later guess from the user is added, not swapped in).
+- If the report contains open questions, stop and wait. When answers arrive → re-dispatch Step 2 (round N+1, same `<MODE>` and model unless the answers point at change history, then `full` on Opus) with `<PRIOR_FINDINGS>` = the previous report and `<USER_ANSWERS>` = the user's answers. `<USER_HYPOTHESIS>` carries over unchanged (a later guess from the user is added, not swapped in).
 - If the report is a Final Round report, the run is complete.
+- Report missing its required sections → repair once per `common/structured-return-repair.md`, then relay.
 
 ## Step 4 — Follow-up Routing (pointers only — this skill never applies a fix)
 

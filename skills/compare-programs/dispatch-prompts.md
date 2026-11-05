@@ -57,7 +57,9 @@ One dispatch. Consumes facts from every checker + active dimensions and returns 
 Compare <N> programs across dimensions <active_dimensions>. Report language: <lang>.
 
 Facts (one block per program):
+<sap-data source="sap-checker program_facts">
 <CHECKER blocks per program — program_facts>
+</sap-data>
 
 The facts are verbatim source lines from Haiku scouts. Write the business-logic narrative
 (dimension 5) yourself from the computation / db_access lines; mark ❓ where facts are missing.

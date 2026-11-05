@@ -21,7 +21,7 @@ Detector groups cover the **mechanical** checklist items — the ones answerable
 Dispatch rules (main thread, ONE message):
 - One checker per **(group × object batch)**. Batch objects so one checker sees ≤ ~3,000 source lines; never mix groups in one checker. Cap: 16 checkers per fan-out — above that, widen the batches.
 - Each prompt: `MODE: detect`, the group id, the object list, the rule file path(s) as absolute paths (resolved from the plugin root), and the checklist item text copied from `phase6-review.md` for those items (so the checker does not open the checklist). Add `paradigm` and `abapRelease` / `sapVersion` from `interview.md` / `config.json`.
-- Main concatenates every `CHECKER … END` block into `.sc4sap/program/{PROG}/review-candidates.md`, unchanged. `status=BLOCKED` on a scope → split it and re-dispatch once; still blocked → give that scope to the judge as "unscanned".
+- Main concatenates every `CHECKER … END` block into `.sc4sap/program/{PROG}/review-candidates.md`, unchanged (malformed block → repair once per `../../common/structured-return-repair.md`). `status=BLOCKED` on a scope → split it and re-dispatch once; still blocked → give that scope to the judge as "unscanned".
 - Banner: `▶ phase=6.detect · agent=sap-checker×N · model=Haiku`.
 
 ## Step 2 — Opus judge (`sc4sap:sap-code-reviewer`, `model: "opus"`)

@@ -38,7 +38,7 @@ Detector groups cover the dimensions answerable by pattern + count ([`analysis-d
 Dispatch rules (main thread, ONE message):
 - One checker per **(group × unit batch)**: batch units from Step 2a so one checker sees ≤ ~3,000 lines; never mix groups. Cap 16 checkers — above that, widen the batches, but never past ~6,000 lines per checker (beyond that, run G4 and G5 first and the other groups in a second message).
 - Each prompt: `MODE: detect`, group id, the unit list, the rule file paths, and the dimension bullets copied from `analysis-dimensions.md` for that group (the checker does not open that file). `CAND` line numbers are unit-relative.
-- Main writes every `CHECKER … END` block unchanged to `.sc4sap/analysis/<OBJECT>-candidates.md`. A `BLOCKED` scope → split once and re-dispatch; still blocked → hand it to the judge as "unscanned".
+- Main writes every `CHECKER … END` block unchanged to `.sc4sap/analysis/<OBJECT>-candidates.md` (malformed block → repair once per `../../common/structured-return-repair.md`). A `BLOCKED` scope → split once and re-dispatch; still blocked → hand it to the judge as "unscanned".
 - Banner: `▶ phase=2b (detect) · agent=sap-checker×N · model=Haiku`.
 
 ## Step 2c — Opus judge (`sc4sap:sap-code-reviewer`, frontmatter model)
