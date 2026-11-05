@@ -85,6 +85,15 @@ per `multi-executor-split.md`:
 - split_recommendation: "single" | "2-way" | "3-way"
 - split_strategy: "A (by program range)" | "B (by object class)" | "C (within single program)"
 
+## 9. Done Criteria
+| Check (tool + target) | Pass |
+|---|---|
+| `GetAbapSemanticAnalysis(<main program>)` | no errors |
+| `ActivateObjects` (Final Step batch) | no error messages |
+| `GetInactiveObjects` (program namespace) | 0 of this run's objects |
+| `GetUnitTestResult` (only when Phase 5 runs) | all green, count > 0 |
+(Rules: `../../common/verification-evidence.md` § Rule 2. Fixed at approval — a change is a spec change and needs re-approval.)
+
 ## Approval
 (Auto-appended when the user provides an explicit approval keyword.)
 - **Approved by**: <user input>

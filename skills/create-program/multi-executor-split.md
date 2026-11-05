@@ -56,7 +56,7 @@ Use only when one program's Wave 4 generates > 15 text elements + 5 screens + 2 
 
 ## Return format (skill aggregates)
 
-Each executor returns a per-object status table and a count summary (created / updated / deleted / activated). The skill:
+Each executor returns a per-object status table, a count summary (created / updated / deleted / activated) and its `## Decisions` section (appended to `decisions.md` — see `agent-pipeline.md` § Phase 4). The skill:
 
 1. Concatenates the tables in dispatch order.
 2. Verifies scope disjointness one more time (no object appears in two executor reports).

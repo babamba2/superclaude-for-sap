@@ -6,11 +6,11 @@ model: inherit
 
 # SC4SAP Analyze Symptom
 
-Performs structured root cause analysis for SAP operational incidents by connecting to the live SAP system through MCP. Auto-collects evidence from dumps, system state, recent transports, and code call graphs before asking the user any question.
+Performs structured root cause analysis for SAP operational incidents by connecting to the live SAP system through MCP. Auto-collects evidence from dumps, system state, recent transports, and code call graphs before asking the user any question — the one exception is an optional "do you already suspect a cause?" question in `full` mode, asked before evidence is read.
 
 
 <Purpose>
-sc4sap:analyze-symptom is the first-line triage skill for SAP production incidents. Rather than bombarding the user with questions, it **directly investigates the SAP system through MCP** to gather evidence it can collect on its own. It then asks the user only about gaps that MCP cannot fill, narrows hypotheses to 2–3 categories, and produces SAP Note search keywords plus recommended next actions.
+sc4sap:analyze-symptom is the first-line triage skill for SAP production incidents. Rather than bombarding the user with questions, it **directly investigates the SAP system through MCP** to gather evidence it can collect on its own. It then asks the user only about gaps that MCP cannot fill (plus that one optional hypothesis question), narrows hypotheses to 2–3 categories, and produces SAP Note search keywords plus recommended next actions.
 </Purpose>
 
 <Response_Prefix>
@@ -55,6 +55,8 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 - **Minimal questions**: At most 3 questions per round. Skip any question whose answer is already known via MCP.
 - **Hypothesis narrowing**: Reduce candidate causes to 2–3 from the 8-category framework; each must carry a confidence level and a confirmation path.
 - **Actionable output**: Every hypothesis must include the next evidence step (another MCP call, a TCode, or an escalation target).
+- **User's hypothesis first**: the user's own guess is recorded before evidence is read (asked only when Step 1 itself picks `full` — never in `quick-dump`, on an escalation, or in a later round) and tested explicitly — CONFIRMED / REFUTED / NOT TESTABLE, as a separate verdict line not counted among the 2–3 hypotheses. See `workflow-steps.md` § Step 1.
+- **Evidence before claims**: findings quote what the tool returned; the final report lists its own scope decisions and what the evidence does not prove, per [`../../common/verification-evidence.md`](../../common/verification-evidence.md).
 - **Customization cache first (local, before live MCP) when a Z*/Y* object or customized SAP include appears in the trace**: read `<CUSTOMIZATION_DIR>/<MODULE>/{enhancements,extensions}.json` (the path Step 1 resolves once — never search for it) and correlate — a `Z*` class in a dump may be a known BAdI impl, a customized `MV45AFZZ`/`ZXRSRU01` may be a recorded form-based exit, a failing field may be a recorded append. Follow `common/customization-lookup.md`. If the cache is absent, suggest `/sc4sap:setup customizations` but do not block the current analysis.
 </Core_Principles>
 
@@ -110,7 +112,7 @@ Per-step model allocation (the main thread follows the session model — `model:
 | Step | Owner | Model | Role |
 |------|-------|-------|------|
 | 0 Trust | skill-to-skill | Sonnet | permission bootstrap — skipped on a headless host |
-| 1 Initial Triage | main | **Sonnet** | clue parsing (a screenshot counts) + `GetSession` + MODE (`quick-dump` \| `full`, and `quick-dump` is the default — see `workflow-steps.md` § Step 1) + customization path |
+| 1 Initial Triage | main | **Sonnet** | clue parsing (a screenshot counts) + `GetSession` + MODE (`quick-dump` \| `full`, and `quick-dump` is the default — see `workflow-steps.md` § Step 1) + customization path + user's hypothesis |
 | **2 Investigate + Narrow + Report** | **`sap-debugger`** — `model: "sonnet"` for `quick-dump`, `model: "opus"` for `full` | **Sonnet / Opus** | Read-only. `quick-dump`: dump summary → failing source; returns `BLOCKED — needs full` when the dump alone is not enough, and main re-dispatches the round as `full` on Opus. `full`: dump / scoped transports / code / enhancement / customization; web lookup only for standard-code failures. Writes the user-facing report per `output-format.md` (hypotheses, questions, Note keywords, next steps). One dispatch per round. |
 | 3 Relay | main | **Sonnet** | output the report verbatim; wait for answers → repeat Step 2 |
 | 4 Follow-up Routing | main | **Sonnet** | pointers only when the user asks for the fix (apply the proposal in SE38/ADT outside this skill, /sc4sap:analyze-code, module consultant) — never a write call |

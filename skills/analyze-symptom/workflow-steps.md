@@ -21,7 +21,9 @@ Referenced from `SKILL.md` → `<Workflow_Steps>`. The main thread stays thin; t
 
 **Why the default leans cheap.** `quick-dump` has an escape hatch and `full` does not: a Sonnet round that cannot establish the cause returns `BLOCKED — needs full` and Step 2 re-dispatches it on Opus with the findings already in hand, so nothing is fetched twice. Guessing low costs one extra round in the cases it gets wrong; guessing high costs 2.5× the model price on every run it gets wrong, and it gets it wrong silently. Measured on a headless web host, 2026-09-23: the same ST22 screenshot, submitted twice with no other input, was routed to Opus once and Sonnet once — the rule as written left it to chance, and chance is the one thing a cost decision should not be.
 
-Exit condition: `<CLUES>` + `<SESSION_INFO>` + `<MODE>` + `<CUSTOMIZATION_DIR>` resolved.
+- Resolve `<USER_HYPOTHESIS>` — the user's own guess at the cause, written down before any evidence is read so the report cannot quietly replace it. If the request already states one ("since TR X", "looks like authorization"), record it verbatim. Otherwise, **only when this Step 1 picks `full`** (never in `quick-dump`, on a `BLOCKED — needs full` escalation, or in a later round), ask one question before dispatching: *"Do you already suspect a cause? A rough guess is fine — answer 'none' to start right away."* (user's language), then end the turn and wait for the reply — headless host included. Reply "none" or no guess in the reply → `none`. `quick-dump` never asks: the dump answers faster than the wait.
+
+Exit condition: `<CLUES>` + `<SESSION_INFO>` + `<MODE>` + `<CUSTOMIZATION_DIR>` + `<USER_HYPOTHESIS>` resolved.
 
 ## Step 2 — Investigate + Narrow + Report (one `sap-debugger` dispatch per round)
 
@@ -46,6 +48,7 @@ Agent({
     Known clues: <CLUES>
     System info: <SESSION_INFO>
     Customization cache: <CUSTOMIZATION_DIR>   (a directory, or "none")
+    User's own hypothesis: <USER_HYPOTHESIS>   (or "none")
     Previous-round findings and user answers (empty on round 1): <PRIOR_FINDINGS>
     Reuse <PRIOR_FINDINGS> — do not re-fetch a dump, source or transport already covered there.
 
@@ -125,6 +128,9 @@ Agent({
        8-category framework in skills/analyze-symptom/SKILL.md § Analysis_Framework.
        Each carries: category, confidence (High | Medium | Low), evidence
        (MCP facts), confirmation path (next MCP call, TCode, or user question).
+       If <USER_HYPOTHESIS> is not "none", give it a separate verdict line (not
+       counted in the 1–3): CONFIRMED | REFUTED | NOT TESTABLE, with the evidence
+       line that decides it. Never drop it silently or adopt it without evidence.
 
     D. REPORT — your final message IS the user-facing report. Write it in the
        user's language, following skills/analyze-symptom/output-format.md:
@@ -134,7 +140,10 @@ Agent({
        cannot fill. A code fix may appear only as a proposal, in a block
        headed "Proposed fix — not applied". When a business-process question
        is left open, add one line suggesting `/sc4sap:ask-consultant` with the
-       exact question. No JSON, no preamble, no notes addressed to the orchestrator.
+       exact question. Apply common/verification-evidence.md: each finding
+       cites tool + target + returned value; Final Round adds "Decisions &
+       Assumptions" (mode, time window, paths skipped) and "does not prove"
+       lines. No JSON, no preamble, no notes addressed to the orchestrator.
 
     Rules:
     - READ-ONLY. Never call a tool that changes the SAP system: any Create*,
@@ -161,7 +170,7 @@ On `BLOCKED` (other than the quick-dump escalation above): relay the report and 
 ## Step 3 — Relay (main thread · round N)
 
 - Output the debugger's report **verbatim**, preceded only by the Response Prefix. Do not summarize, restructure, translate, or append your own analysis — the report already carries SAP Note keywords, next steps, and escalation targets.
-- If the report contains open questions, stop and wait. When answers arrive → re-dispatch Step 2 (round N+1, same `<MODE>` and model unless the answers point at change history, then `full` on Opus) with `<PRIOR_FINDINGS>` = the previous report + the answers.
+- If the report contains open questions, stop and wait. When answers arrive → re-dispatch Step 2 (round N+1, same `<MODE>` and model unless the answers point at change history, then `full` on Opus) with `<PRIOR_FINDINGS>` = the previous report + the answers. `<USER_HYPOTHESIS>` carries over unchanged (a later guess from the user is added, not swapped in).
 - If the report is a Final Round report, the run is complete.
 
 ## Step 4 — Follow-up Routing (pointers only — this skill never applies a fix)

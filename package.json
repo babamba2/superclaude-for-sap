@@ -12,9 +12,6 @@
       "types": "./dist/index.d.ts"
     }
   },
-  "bin": {
-    "sc4sap": "bridge/cli.cjs"
-  },
   "files": [
     "dist",
     "agents",
