@@ -39,6 +39,7 @@ SuperClaude for SAP은 Claude Code를 풀스택 SAP 개발 어시스턴트로 �
 | 🔐 **권한 매트릭스** | `/sc4sap:role-matrix` — 프로젝트 권한 설계서를 편집 가능한 HTML 워크북 하나로 만들어요. 점검 결과가 있는 표지, 업무 역할, PFCG 역할, 업무 역할 × T-code 매트릭스(F/C/D), 사용자 × 역할 배정, 권한 오브젝트, SoD 규칙과 자동 충돌 점검, 변경 이력이 들어가요. 새로 설계할 때는 모듈 컨설턴트가 제안해요(ST03N 사용 실적이 있으면 실제 쓰는 T-code로 좁혀요). SAP에서 읽을 때는 역할, T-code, 권한 값, 조직 레벨, 사용자 배정을 가져와요. 사용자는 ID만 읽고 사용자 마스터는 읽지 않아요. 큰 시스템은 페이지로 나눠 보여 줘요. 검색·CSV·붙여넣기는 시트 전체에 적용돼요. SAP에는 쓰지 않아요. → `roles/<CODE>/` |
 | 🗺️ **모듈 → 프로세스** | `/sc4sap:module-to-process` — 모듈마다 **편집 가능한 HTML 프로세스 맵** 하나를 만들어요. 운영 시스템(ST03N)에서 실제로 쓰는 TCode만 분석하고, 모듈의 여러 패키지 CBO 프로그램을 표준 L1~L4 프로세스에 배치해요(Variant·담당·시스템 포함). L3마다 시나리오 swimlane, L4마다 PDD 형식 Task 시트(소스 근거가 붙은 Business Rule, Step, 관련 객체, 인터페이스, S/4 conversion 메모)를 넣어요. 모듈 컨설턴트 검토, 기존 BPH 대조, 영문판은 선택이에요. `package-to-process`를 대체해요(한 릴리스 동안 redirect) |
 | 🩺 **운영 진단** | 운영 트리아지 루프: ST22 덤프, SM02, /IWFND/ERROR_LOG, 프로파일러 트레이스, 로그, where-used — 모두 Claude에서 처리해요. |
+| 🕸️ **CBO 관계도** | `/sc4sap:cbo-relation-map` — 패키지의 고객 객체가 어떻게 이어지는지 HTML 한 장으로 보여 줘요. `analyze-cbo-obj`가 만든 그래프를 쓰고 SAP는 호출하지 않아요. 테이블 → 데이터 요소 → 도메인, 검사 테이블, 서치헬프, 뷰 기준 테이블, 그리고 테이블을 읽고 쓰는 프로그램·함수를 그려요. 연결이 가장 많은 객체, 서로 묶이는 그룹, 거르기가 되는 주변 보기, 두 객체 사이 최단 경로를 볼 수 있어요. 연결마다 DDIC 행이나 소스 줄을 근거로 붙여요. 표준 객체는 빼요. → `cbo/<MODULE>/<PACKAGE>/<PACKAGE>-relation-map-{ko,en}.html` |
 | ♻️ **CBO 재사용** | Z-패키지 1회 인벤토리 → `create-program` / `program-to-spec`이 기존 CBO 자산을 우선 재사용해요. 브라운필드에서는 필수예요. |
 | 🧷 **CBO Extension 인식 (CMOD / GGB0·1 / BTE / VOFM / BAdI / APPEND)** | 사용자 익스짓(CMOD), 검증·치환(GGB0/GGB1), BTE 펑션 모듈, VOFM 루틴(조건 / 공식 / 데이터 전송), BAdI 구현, APPEND Structure를 인벤토리해요. `create-program` / BAPI 호출 시에는 기존 Extension 필드(예: BAPI `EXTENSIONIN` / 테이블 append)를 우선 재사용해요. 덤프·장애 대응 시에는 Extension 포인트를 1순위 용의자로 검토해요. |
 | 🏭 **산업 컨텍스트** | 14개 산업 레퍼런스 (retail, fashion, cosmetics, tire, automotive, pharma, F&B, chemical, electronics, construction, steel, utilities, banking, public-sector). |
@@ -48,6 +49,7 @@ SuperClaude for SAP은 Claude Code를 풀스택 SAP 개발 어시스턴트로 �
 
 ## 문서
 
+- 🚀 **[처음 설치 가이드 →](docs/GETTING-STARTED.ko.md)** — Windows 기준 단계별 안내: PowerShell 실행 권한, Git, Node.js, Claude Code, 로그인, 플러그인 설치, SAP 연결, 동작 확인, 문제 해결
 - 📦 **[설치 및 설정 →](docs/INSTALLATION.ko.md)** — 요구사항, 설치 옵션, 위저드 단계, 블록리스트 설정
 - 🎯 **[기능 상세 →](docs/FEATURES.ko.md)** — 26개 에이전트, 14개 스킬, MCP 툴, RFC 백엔드, 훅, 데이터 추출 정책
 - 📜 **[변경 이력 →](docs/CHANGELOG.ko.md)** — 버전 히스토리와 breaking changes

@@ -1,6 +1,6 @@
 # CBO Stocking — Step G: Reference Graph + Usage
 
-Runs between Step C (scouts) and Step D (finalize) of [`stocker-fanout.md`](stocker-fanout.md), for both callers (`analyze-cbo-obj`, `package-to-process`). It builds `graph.json` (who calls / includes / submits / reads / writes / types what, from source and DDIC) and, on ECC, `usage-result.json` (which members are actually used). Finalize then ranks from the graph instead of `GetWhereUsed`, which returns 404 on ECC.
+Runs between Step C (scouts) and Step D (finalize) of [`stocker-fanout.md`](stocker-fanout.md), for both callers (`analyze-cbo-obj`, `package-to-process`). It builds `graph.json` (who calls / includes / submits / reads / writes / types what, from source; how the DDIC objects relate — typing, check tables, search helps, value tables, row types, view bases — from DDIC) and, on ECC, `usage-result.json` (which members are actually used). Finalize then ranks from the graph instead of `GetWhereUsed`, which returns 404 on ECC.
 
 `<DIR>` = the inventory directory from the `WALKED` line. `<PLUGIN_ROOT>` = the folder that holds `skills/`, `scripts/`, `common/` (two levels above this skill's `SKILL.md`, or `$CLAUDE_PLUGIN_ROOT`); quote it in shell commands. `<SAPV>` = `ECC` or `S4` as in `stocker-fanout.md`.
 
@@ -25,21 +25,58 @@ For each object return exactly one line:
 
 TRAN members → one `GetTransaction` call with `transaction_names: [...]` (batches of 100). Save the JSON result unchanged as `<DIR>/tcodes.json`. It maps report / dialog TCodes to their program and parameter TCodes (SM30) to their view. A failed call → write `[]` and add `TCode mapping unavailable: <message>` to the finalize prompt.
 
-## G3 — DDIC typing (`sc4sap:sap-checker` × n, `MODE: scout`)
+## G3 — DDIC relations
 
-DDIC metadata only (`GetTable` / `GetStructure` / `GetDataElement`). This skill never calls `GetSqlQuery` / `GetTableContents`. Scope = every `TABL`, `STRU` and `DTEL` member, 20 per checker, at most 8 checkers per message. It can share a message with G1.
+Two ways in. G3a reads the DD repository tables once per table kind. G3b is the per-object checker read: it is the fallback for what G3a could not read, and the only way for callers that do not allow `GetSqlQuery` (`module-to-process`). Edge kinds: `types` (field → DTEL, `.INCLUDE` / `.APPEND` → STRU, DTEL → DOMA), `checks` (field → check table, with cardinality), `searchHelp`, `valueTable`, `rowType`, `basedOn` (view → base table), `selects` (search help → selection method), `contains` (collective search help). Only customer (Z / Y / namespace) targets and members become nodes.
+
+### G3a — DD reads (`sc4sap:sap-checker` × n, `MODE: dd-read`, analyze-cbo-obj only)
+
+The one exception to "no `GetSqlQuery`" in this skill: **DD\* repository tables only** — the statements in the plan file, nothing else, never `acknowledge_risk`. They are metadata about the package's DDIC objects, never business rows. The `permission-approver` hook auto-approves these statements (`output: "file"` is part of the match — never drop it); any other form prompts. Neither the SQL text nor the results pass through the main thread.
+
+```bash
+node "<PLUGIN_ROOT>/scripts/graph/ddic-queries.mjs" --dir "<DIR>" --sap-version <SAPV> --out "<DIR>/ddic-plan.json"
+```
+
+It writes the plan (DD03L, DD08L, DD05S, DD35L, DD04L, DD01L, DD40L, DD26S, DD30L, DD31S — single-table `SELECT … WHERE … IN (…)`; S4 packs 200 names per statement, ECC 50 because the `TABLE_READ` condition travels in a URL) and prints `{ plan, statements, slices: [{ from, to }] }`. `statements` = 0 → no DDIC members; skip G3. One checker per slice, at most 8 per message (banner `▶ phase=graph-dd · agent=sap-checker×<n> · model=Haiku`):
+
+```
+MODE: dd-read
+Plan file: <DIR>/ddic-plan.json — run entries <from>–<to> (1-based, in order).
+For each entry call GetSqlQuery { sql_query: <entry.sql>, row_number: <entry.row_number>, output: "file" }.
+```
+
+Then (main thread, one Bash call; `<SQLDIR>` = the `sql` folder of the MCP output directory, next to `<SRC>` — `<PROJECT>/.sc4sap/work/<alias>/mcp-output/sql`):
+
+```bash
+node "<PLUGIN_ROOT>/scripts/graph/collect-ddic-reads.mjs" --dir "<DIR>" --sql-dir "<SQLDIR>"
+```
+
+It matches each plan entry to its result file by exact SQL text and writes `<DIR>/ddic-reads.json` (`{ id, table, path, rows, truncated }` or `{ id, table, error }`), printing `{ reads, ok, errors, truncated }`. Checker `RUN … result=error` lines are only for the progress line.
+
+G3b then covers the gaps: a `dd03l-*` read failed or truncated → the tables of that statement; a `DD04L` / `DD01L` / `DD40L` / `DD26S` read failed → the DTEL / DOMA / TTYP / VIEW members of that statement. A failed `DD08L` / `DD05S` / `DD35L` / `DD30L` / `DD31S` read only loses cardinality or search help detail — no G3b for it. A checker returns `result=inline` (MCP server older than 4.8.19 ignores `output`) → G3b for the whole scope; same when every read failed with the same error — print `↳ G3a DD reads unavailable: <error>`. On ECC an `is not allowed` error means the system's `ZMCP_ADT_DISPATCH` predates the DD allow list (reinstall via `/sc4sap:setup`).
+
+### G3b — Per-object reads (`sc4sap:sap-checker` × n, `MODE: scout`)
+
+DDIC metadata only (`GetTable` / `GetStructure` / `GetDataElement` / `GetDomain` / `GetTypeInfo`) — never `GetSqlQuery` / `GetTableContents`. Scope = the members G3a did not cover, 20 per checker, at most 8 checkers per message. It can share a message with G1.
 
 ```
 MODE: scout
-Objects (your whole scope): <NAME:TABL, NAME:STRU, NAME:DTEL, …>
-For each object:
-- TABL / STRU: GetTable (TABL) or GetStructure (STRU) once. One line per field whose rollname OR domname
-  starts with Z or Y (or a /namespace/):  key="types" value="<FIELDNAME>=<ROLLNAME>/<DOMNAME>"
-  (no domname → value="<FIELDNAME>=<ROLLNAME>"). No line for other fields. No custom field → no line.
-- DTEL: GetDataElement once → key="domain" value="<DOMNAME or ->".
+Objects (your whole scope): <NAME:TABL, NAME:STRU, NAME:DTEL, NAME:DOMA, NAME:TTYP, …>
+For each object, one read; lines only for customer targets (name starts with Z or Y, or a /namespace/):
+- TABL / STRU: GetTable (TABL) or GetStructure (STRU). Per field with a customer rollname or domname:
+  key="types" value="<FIELDNAME>=<ROLLNAME>/<DOMNAME>" (no domname → "<FIELDNAME>=<ROLLNAME>").
+  Per customer check table (field checktable, or DDL "with foreign key <TAB>"): key="check" value="<FIELDNAME>=<TAB>".
+  Per included structure (.INCLUDE / .APPEND row precfield, or DDL "include <STRU>"): key="include" value="<STRU>".
+  Per field search help (field shlpname, or DDL "with value help <SHLP>"): key="shlp" value="<FIELDNAME>=<SHLP>".
+- DTEL: GetDataElement → key="domain" value="<DOMNAME or ->"; search help set → key="shlp" value="<SHLP>".
+- DOMA: GetDomain → value table set → key="valtab" value="<TAB>".
+- TTYP: S/4 only — GetTypeInfo → row type → key="rowtype" value="<ROWTYPE>". On ECC no line.
+A field the answer does not have (older ECC bridge) gives no line — never guess.
 ```
 
-Main writes every `CHECKER … END` block unchanged to `<DIR>/ddic-facts.md`. `build-package-graph` turns it into `types` edges: TABL / STRU → DTEL → DOMA. `.INCLUDE` structures carry no name in these reads, so they get no edge. A `BLOCKED` batch is not retried. Its tables then have no typing edges, and their DTEL / DOMA show `no-evidence`.
+Main writes every `CHECKER … END` block unchanged to `<DIR>/ddic-facts.md` (malformed block → repair once per `../../common/structured-return-repair.md`). A `BLOCKED` batch is not retried. Its objects then have no DDIC edges, and their DTEL / DOMA show `no-evidence`.
+
+`build-package-graph` (G5) merges `ddic-reads.json`, `ddic.json` and `ddic-facts.md`. Its summary line names G3a reads that failed or were truncated (`ddicReads`).
 
 ## G4 — Usage (main thread, ECC only)
 
@@ -94,4 +131,4 @@ Spec: [`../../agents/sap-stocker.md`](../../agents/sap-stocker.md) § Dispatch_M
 - `inventory.json → objects[].usage` = `direct` / `indirect` / `unused` / `no-evidence` from `usage-result.json`. `inventory.json → usage` = `{ window, counts, caveats }`.
 - `index.md` gets a **Usage** section: counts, the window caveats verbatim, and direct + unused lists. `no-evidence` is never called unused.
 
-Resume: `tcodes.json` / `ddic-facts.md` / `usage.json` in `<DIR>` that are ≤ 7 days old are reused (skip G2 / G3 / G4). G5 always reruns — it takes seconds.
+Resume: `tcodes.json` / `ddic-reads.json` + `ddic-facts.md` / `usage.json` in `<DIR>` that are ≤ 7 days old are reused (skip G2 / G3 / G4). G5 always reruns — it takes seconds.

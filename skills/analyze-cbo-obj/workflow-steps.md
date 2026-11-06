@@ -40,7 +40,7 @@ Across the walk and finalize dispatches the stocker executes the full inventory 
 - **Frequently-used tier**: package-size thresholds (small <30 ≥2 · medium 30–150 ≥3 · large >150 ≥5); flagship-referenced → always pinned.
 - **Business purpose inference** (DDIC signals): role classification — `header / line / log / mapping / classification / config / util / service / event / dto` — plus 1–2 sentence purpose.
 - **Cross-module gap** (read `SAP_ACTIVE_MODULES` from `sap.env`/`config.json`): per `common/active-modules.md` matrix, flag expected-but-missing integration fields (e.g., MM CBO without `PS_POSID` when PS is active) → `inventory.json → crossModuleGaps[]`.
-- **Sensitive-name check** against `exceptions/custom-patterns.md` (PII / HR / CUST / BANK / PRICE / ...). Never calls `GetTableContents` or `GetSqlQuery`.
+- **Sensitive-name check** against `exceptions/custom-patterns.md` (PII / HR / CUST / BANK / PRICE / ...). Never calls `GetTableContents`; `GetSqlQuery` only for the Step G3a DD* reads ([`graph-usage.md`](graph-usage.md)).
 - **Persist** `.sc4sap/cbo/<MODULE>/<PACKAGE>/{index.md, inventory.json}` (+ optional `raw-walk.md` if the package has <200 objects).
 
 `inventory.json` schema example (authoritative — also referenced by `create-program`, `create-object`):

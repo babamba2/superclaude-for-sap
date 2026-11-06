@@ -21,12 +21,23 @@
  *     fall through to normal prompting + the block-forbidden-tables safeguard:
  *       · GetTableContents
  *       · GetSqlQuery
+ *     One narrow exception: a GetSqlQuery that is a DD* repository metadata read
+ *     in the shape analyze-cbo-obj Step G3a uses (lib/dd-metadata-query.mjs) is allowed.
  *   - Every other tool → no decision (normal permission flow preserved).
  *
  * Kill switch: DISABLE_SC4SAP=1 disables auto-approval.
  */
 
 import { readStdin } from './lib/stdin.mjs';
+import { isDdMetadataQuery } from './lib/dd-metadata-query.mjs';
+
+function extractToolInput(input) {
+  try {
+    return JSON.parse(input).tool_input;
+  } catch {
+    return undefined;
+  }
+}
 
 const SAP_NAMESPACES = ['mcp__plugin_sc4sap_sap__', 'mcp__mcp-abap-adt__'];
 
@@ -66,6 +77,21 @@ async function main() {
     }
 
     const handler = toolName.slice(namespace.length);
+    if (handler === 'GetSqlQuery' && isDdMetadataQuery(extractToolInput(input))) {
+      // analyze-cbo-obj G3a: one DD* repository table, explicit columns, output "file".
+      console.log(
+        JSON.stringify({
+          continue: true,
+          hookSpecificOutput: {
+            hookEventName: 'PreToolUse',
+            permissionDecision: 'allow',
+            permissionDecisionReason:
+              'sc4sap: DD* metadata read (analyze-cbo-obj G3a) auto-approved; other GetSqlQuery calls stay prompt-gated.',
+          },
+        })
+      );
+      return;
+    }
     if (GATED_TOOLS.includes(handler)) {
       // Never auto-approve row-data extraction — leave to normal prompt + safeguard.
       passthrough();

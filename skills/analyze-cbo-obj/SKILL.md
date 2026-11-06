@@ -77,7 +77,8 @@ Main thread NEVER calls `GetPackageContents` / `GetWhereUsed` itself for the inv
 - Discovery: `GetPackage`, `GetPackageContents`, `GetPackageTree`, `SearchObject`, `GetObjectsByType`
 - Object detail: `GetTable`, `GetStructure`, `GetDataElement`, `GetDomain`, `GetView`, `GetClass`, `GetInterface`, `GetFunctionGroup`, `GetFunctionModule`, `GetProgram`, `GetObjectInfo`
 - Usage graph: `GetWhereUsed`
-- NEVER used by this skill: `GetTableContents`, `GetSqlQuery` (no row data — DDIC metadata only)
+- DDIC relations (Step G3a only): `GetSqlQuery` on **DD* repository tables only** — the statements of the plan `scripts/graph/ddic-queries.mjs` writes, run by `sap-checker` `MODE: dd-read` with `output: "file"`, never `acknowledge_risk`
+- NEVER used by this skill: `GetTableContents`; `GetSqlQuery` on any non-DD table (no row data — DDIC metadata only)
 </MCP_Tools_Used>
 
 <Related_Skills>
@@ -88,7 +89,7 @@ Main thread NEVER calls `GetPackageContents` / `GetWhereUsed` itself for the inv
 </Related_Skills>
 
 <Data_Extraction_Safety>
-This skill only reads DDIC metadata and where-used relations. It MUST NOT call `GetTableContents` or `GetSqlQuery`. Row-level access stays behind the standard blocklist + `acknowledge_risk` gate. See `common/data-extraction-policy.md`.
+This skill only reads DDIC metadata and where-used relations. It MUST NOT call `GetTableContents`. `GetSqlQuery` is allowed for one purpose only: Step G3a reads of DD* repository tables (DD01L, DD03L, DD04L, DD05S, DD08L, DD26S, DD30L, DD31S, DD35L, DD40L) with the statements `ddic-queries.mjs` prints — never another table, never `acknowledge_risk`. Row-level access stays behind the standard blocklist + `acknowledge_risk` gate. See `common/data-extraction-policy.md`.
 </Data_Extraction_Safety>
 
 Task: $ARGUMENTS

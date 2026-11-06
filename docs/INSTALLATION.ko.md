@@ -2,6 +2,8 @@
 
 ← [README로 돌아가기](../README.ko.md)
 
+> Claude Code를 처음 쓰나요? 먼저 단계별 **[처음 설치 가이드](GETTING-STARTED.ko.md)**를 따라 하세요.
+
 ## 요구사항
 
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D%2020.0.0-339933?logo=node.js&logoColor=white)

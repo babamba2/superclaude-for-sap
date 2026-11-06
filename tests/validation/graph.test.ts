@@ -267,7 +267,7 @@ describe('graph-query', () => {
     expect(g2.edges.some((e) => e.to === 'DTEL:MANDT' && e.evidence[0]?.unit === 'DD03L')).toBe(false);
     expect(g2.edges.some((e) => e.from === 'TABL:MARA')).toBe(false);
     expect(edge(g2, 'TRAN:ZGT9', 'launches', 'VIEW:ZGT_V_LOG')).toMatchObject({ via: 'SM30' });
-    expect(g2.coverage.ddic).toEqual({ fields: 2, dtels: 1 });
+    expect(g2.coverage.ddic).toMatchObject({ fields: 2, dtels: 1, checks: 0 });
     const u = usage(loadGraph(g2), { tcodes: { result: { ZGT1: true } } });
     const st = (id: string) => u.objects.find((o: { id: string }) => o.id === id);
     expect(st('TABL:ZGT_LOG').status).toBe('indirect');

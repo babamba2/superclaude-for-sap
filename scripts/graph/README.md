@@ -6,7 +6,9 @@ Turns ABAP source already saved on disk into `graph.json`: objects as nodes, typ
 |---|---|
 | `abap-lexer.mjs` | statements, not a parser: drops `*` / `"` comments, lifts literals (`'…'`, `` `…` ``, `|…|`) into placeholders, joins lines up to the period, splits `A: b, c.` chains, keeps each statement's unit-relative start line |
 | `extract-edges.mjs` | units → nodes + edges + unresolved + coverage |
-| `ddic-edges.mjs` | repository facts as edges: TCodes (GetTransaction / TSTC·TSTCP → TRAN launches PROG or SM30 view), DDIC typing (DD03L / DD04L rows or Step G3 checker FACT lines → TABL/STRU types DTEL types DOMA, customer objects only) |
+| `ddic-edges.mjs` | repository facts as edges: TCodes (GetTransaction / TSTC·TSTCP → TRAN launches PROG or SM30 view), DDIC relations from DD* rows (Step G3a `ddic-reads.json`) or Step G3b checker FACT lines — typing, check tables, search helps, value tables, row types, view bases (customer objects only) |
+| `ddic-queries.mjs` | Step G3a plan: the single-table `GetSqlQuery` statements on DD01L / DD03L / DD04L / DD05S / DD08L / DD26S / DD30L / DD31S / DD35L / DD40L for a package's members (`--dir`, chunked `IN` lists — ECC 50 / S4 200 names via `--sap-version`, row_number 5000 = ECC `TABLE_READ` cap; `--out` writes the plan + checker slices) |
+| `collect-ddic-reads.mjs` | Step G3a collector: matches the `sap-checker` `dd-read` result files (MCP output `sql/`) to the plan by exact SQL text → `ddic-reads.json` |
 | `build-package-graph.mjs` | one call for the stocker flow's Step G: member PROG / FUGR folders from the MCP output dir + tcodes / DDIC / usage files in the inventory dir → `graph.json`, `usage-result.json`, `usage.md` |
 | `graph-query.mjs` | callers / reach / impact / flow / components / stats / usage over a graph.json |
 | `import-usage.mjs` | user-submitted usage from another system (ST03N / SM37 export as .xlsx or text, or a pasted list) → the `tcodes` / `jobs` side of `usage.json`, members only, with `source` |
@@ -23,7 +25,7 @@ Turns ABAP source already saved on disk into `graph.json`: objects as nodes, typ
   "coverage": { "members": 214, "parsed": 61, "units": 300, "statements": 41000, "skipped": ["PROG:ZY"], "whereUsed": "unavailable (ECC 404)" } }
 ```
 
-- **id** = `TYPE:NAME`. Types: PROG INCL FUGR FUNC CLAS INTF TABL VIEW STRU DTEL TTYP TRAN DYN.
+- **id** = `TYPE:NAME`. Types: PROG INCL FUGR FUNC CLAS INTF TABL VIEW STRU DTEL DOMA TTYP SHLP TRAN DYN.
 - **scope**: `member` (in the walk.json member list; parsed units inherit their owner's scope unless the list names includes), `custom` (Z*/Y*/customer namespace), `standard`, `dynamic` (DYN placeholders). Only parsed members have outgoing edges; the rest are leaves.
 - **FUNC inside a FUGR**: statements between `FUNCTION` and `ENDFUNCTION` belong to `FUNC:<name>` (`parent` = the FUGR); FORMs and TOP code belong to the FUGR. `reach` follows a FUNC's parent edges and adds the parent node.
 - **DDIC node type** is inferred: name in SQL → TABL; `x-comp`, `TABLE OF x`, `INCLUDE STRUCTURE/TYPE x`, `TABLES x` → STRU; plain `TYPE x` → DTEL with `guess: true`. A type given in the member list wins. P2 enrich corrects TABL/VIEW/DDLS and STRU/TTYP/DTEL.
@@ -42,7 +44,13 @@ Turns ABAP source already saved on disk into `graph.json`: objects as nodes, typ
 | writes | `INSERT x FROM` · `INSERT INTO x VALUES` · `UPDATE x` · `MODIFY x FROM` · `DELETE FROM x` · `DELETE x FROM` · `EXPORT … TO DATABASE` | `ops[]`. Internal tables excluded by: `TABLE` keyword, `INDEX` / `TRANSPORTING` / `WHERE` without FROM, declared data objects (DATA, inline `DATA(x)`, signatures), `->` / `-` / `<fs>`, and LT_/GT_/MT_-style prefixes. A target neither declared nor seen in SQL / TABLES → `confidence: "low"` |
 | uses | `TYPE REF TO c` · `NEW c( )` · `c=>` · `CREATE OBJECT … TYPE c` · `INHERITING FROM` · `INTERFACES` · `CATCH cx` · `RAISING cx` | local classes and self skipped; `REF TO` a non-class-looking name → low; `NEW x( )` only for class-looking names |
 | types | `TYPE` / `LIKE` / `TABLE OF` / `RANGE OF` / `INCLUDE STRUCTURE` / `TABLES` / `SELECT-OPTIONS … FOR` in declarations only | local TYPES, built-ins, `ABAP_*`, SY/SYST skipped; `LIKE x` only for TABLES names or `x-comp` |
-| types (DDIC) | `--ddic` (DD03L / DD04L rows) or `ddic-facts.md` (Step G3) | TABL/STRU → DTEL, DTEL → DOMA; customer names only; evidence unit `DD03L` / `DD04L` |
+| types (DDIC) | DD03L / DD04L rows (`ddic-reads.json`, `ddic.json`) or `ddic-facts.md` (Step G3b) | TABL/STRU → DTEL, TABL/STRU → STRU (`.INCLUDE` / `.APPEND` PRECFIELD), DTEL → DOMA; customer names only; evidence unit `DD03L` / `DD04L` |
+| checks | DD03L CHECKTABLE + DD08L (`card` = CARDLEFT:CARD, `frkart`) + DD05S (field map in the evidence text) | TABL → check table; `*` (generic) and standard check tables skipped |
+| searchHelp | DD04L SHLPNAME (DTEL → SHLP), DD35L (TABL field → SHLP) | |
+| valueTable | DD01L ENTITYTAB | DOMA → TABL |
+| rowType | DD40L ROWTYPE / ROWKIND | TTYP → STRU / TABL (ROWKIND S) or DTEL (E); counts for usage |
+| basedOn | DD26S | VIEW → base TABL (database / projection / maintenance views; CDS not covered); counts for usage |
+| selects / contains | DD30L SELMETHOD / DD31S SUBSHLP | SHLP → selection TABL / VIEW; collective SHLP → included SHLP |
 | dynamic | `CALL FUNCTION lv` · `SUBMIT (lv)` · `CALL TRANSACTION lv` · `FROM (lv)` · `INSERT/UPDATE/MODIFY/DELETE (lv)` · `PERFORM … IN PROGRAM (lv)` · `CREATE OBJECT … TYPE (lv)` | → `DYN:<VIA>:<TOKEN>` node + `unresolved[]`. A token that is a `CONSTANTS … VALUE 'X'` of the same object resolves to X with `confidence: "low"`, `constant: <name>` |
 
 Not caught (by design or regex limit): calls inside macros (`DEFINE`), SQL assembled in strings / `EXEC SQL`, `CALL METHOD (lv)`, `CALL CUSTOMER-FUNCTION`, BAdI / enhancement calls, workflow / RFC metadata, CDS sources, string templates spanning lines, `NEW x( )` for data types, type-pool types (typed as DTEL guesses). Incoming edges from other packages are invisible to source parsing — `coverage.whereUsed` states it.
