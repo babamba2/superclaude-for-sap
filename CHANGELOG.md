@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.61] — 2026-11-06
+
+### Added
+
+- `/sc4sap:cbo-relation-map` — how the customer objects of one or more packages relate, as one self-contained HTML page (Korean plus English companion) drawn from the `analyze-cbo-obj` graph. Customer objects only; standard check tables appear as panel text, never as nodes. Includes are folded into their program or function group. Overview with hubs by business relations, usage and auto-named groups; an explore view drawn like Obsidian's graph (relation presets; filters by kind, type, basis, usage and package, each with select all / clear all and a [?] tip); a detail card per node with *Show its graph*; back / forward through the views; impact up to the TCodes; shortest paths with alternatives; a table CRUD tab; ±10-line source snippets; PNG / CSV export. Several packages merge into one page. When the graph is missing the skill collects it: whole package (standard: full `analyze-cbo-obj`; eco: Haiku walk + Step G only) or the TCodes users actually run.
+- DDIC relation edges in the `analyze-cbo-obj` graph: check tables with cardinality and field map, search helps, value tables, row types, view base tables, search-help selection methods and collective search helps, and `.INCLUDE` / `.APPEND` typing. Read set-based from the DD* tables by `sap-checker` `MODE: dd-read` (G3a, results matched to the plan by exact SQL text), with per-object checker reads as fallback (G3b). The `permission-approver` hook approves only single-table DD* metadata reads with `output: "file"`.
+- `docs/GETTING-STARTED.md` (+ `.ko.md`) — step-by-step first install on Windows, linked from the READMEs and the installation docs.
+
+### Changed
+
+- ECC bridge: TABL read returns reference fields, foreign keys and their field map, and view base tables; DTEL read returns the search help; the dispatcher's `TABLE_READ` allow list gains the DD* tables the graph reads. Reinstall the ABAP helpers with `/sc4sap:setup` on ECC to use G3a.
+- MCP server pinned to 4.8.19 (`19eccf7`): `GetSqlQuery` `output: "file"`, and `GetProgFullCode` file answers stay under the tool-result limit on large function groups (full listing in `_index.json`).
+
 ## [0.6.60] — 2026-11-06
 
 ### Added

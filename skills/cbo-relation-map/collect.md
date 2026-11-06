@@ -34,10 +34,10 @@ Eco map-only collection:
 4. **Build** — `node "<PLUGIN_ROOT>/scripts/graph/build-package-graph.mjs" --dir "<UDIR>" --src "<AB>/mcp-output/src" --system <SID> --sap-version <SAPV>`. It writes `graph.json` and `usage-result.json` (used / unused per object).
 5. **Map** — SKILL.md Step 3 with `--dir <AB>/cbo/<MODULE>/<PACKAGE>` (when that whole-package graph exists — it brings the DDIC relations) **and** `--dir "<UDIR>"`. The two graphs of one package merge into one; the page counts them as one package.
 
-## Note — measured eco run (2026-11-06, ZSD200, ECC, 8,171 objects)
+## Note — measured eco run (2026-11-06, a customer ECC 7.40 package of about 8,000 objects)
 
-Walk on Haiku 58k tokens · G1 358 sources by 18 checkers 1.12M · G3a 205 statements by 4 checkers 535k · G2 345 TCodes on the main thread (4 calls) · usage reused from the saved HKP list. Result: 7,928 objects, 19,428 relations, 205 / 205 DDIC reads. 13 FUGR answers overflowed the tool-result limit; all folders were on disk.
+Walk on Haiku 58k tokens · G1 358 sources by 18 checkers 1.12M · G3a 205 statements by 4 checkers 535k · G2 345 TCodes on the main thread (4 calls) · usage reused from a saved productive usage list. Result: 7,928 objects, 19,428 relations, 205 / 205 DDIC reads. 13 FUGR answers overflowed the tool-result limit; all folders were on disk.
 
-## Note — G3a slice size (measured 2026-11-06, ZSD000 plan entries 1–120, ECC)
+## Note — G3a slice size (measured 2026-11-06, plan entries 1–120 of a large customer ECC package)
 
 60 statements per checker: 2 checkers, 239k tokens. 30 per checker: 4 checkers, 311k tokens (+30 %). Each checker starts with a fixed context (agent prompt + tool definitions), so more, smaller slices cost more; keep 60. One 30-slice checker ran 2 statements past its range — harmless for DD reads (the collector matches by SQL text), but it is why slices are given as explicit entry ranges.

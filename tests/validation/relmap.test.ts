@@ -61,7 +61,7 @@ describe('cbo-relation-map model (includes kept)', () => {
   });
 
   it('customer include names', () => {
-    expect(isCustomerName('LZSD40000TOP')).toBe(true);
+    expect(isCustomerName('LZXY40000TOP')).toBe(true);
     expect(isCustomerName('L/ABC/FG01TOP')).toBe(true);
     expect(isCustomerName('ZINC')).toBe(true);
     expect(isCustomerName('LSVIMFXX')).toBe(false);
