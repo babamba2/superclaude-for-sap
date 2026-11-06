@@ -67,6 +67,7 @@ Skills that read or produce project-local artifacts must adopt this pattern:
 - `/sc4sap:program-to-spec` — reads existing programs, writes spec.md / spec.xlsx
 - `/sc4sap:analyze-code` — writes review report
 - `/sc4sap:analyze-cbo-obj` — writes `cbo/<MODULE>/<PACKAGE>/{index,inventory}.md`
+- `/sc4sap:cbo-relation-map` — reads `cbo/<MODULE>/<PACKAGE>/graph.json` (active profile only), writes `<PACKAGE>-relation-map-{ko,en}.html` next to it
 - `/sc4sap:compare-programs` — writes `comparisons/<NAME>-v<n>-<lang>.html` + `.md` source + `<NAME>-<lang>.history.json` + `_img/` / `_assets/` screen pictures
 - `/sc4sap:config-to-document` — writes `config-docs/<MODULE>/<MODULE>-config-v<n>-<lang>.html` + `snapshot.json` + `_cache.json` (read cache) + `notes/` (consultant notes, review)
 - `/sc4sap:interface-mapping-spec` — writes `interfaces/<IF_ID>/<IF_ID>-v<n>-<lang>.{json,html}` + `_i18n/` (companion texts); reads / writes `interfaces/project.json` (cover, ID pattern, code lists) and `interfaces/_answers/`

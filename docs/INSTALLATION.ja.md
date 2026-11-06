@@ -2,6 +2,8 @@
 
 ← [README に戻る](../README.ja.md)
 
+> Claude Code が初めての方は、先に **[Getting Started ガイド](GETTING-STARTED.md)**(英語)をご覧ください。
+
 ## 要件
 
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D%2020.0.0-339933?logo=node.js&logoColor=white)

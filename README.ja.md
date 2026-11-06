@@ -38,6 +38,7 @@ SuperClaude for SAP は Claude Code をフルスタック SAP 開発アシスタ
 | 📊 **プロジェクトダッシュボード** | `/sc4sap:project-dashboard` — SAP プロジェクトごとに PM と PMO が編集する HTML ページ（サマリー、KPI、Q ゲート付きマイルストーン、ガント付き WBS、チーム、履歴）と、全プロジェクトのポートフォリオページを作成します。新規導入（SAP Activate）、S/4 コンバージョン、ロールアウト、AMS リリース、小規模プロジェクトのテンプレート付き。モジュールコンサルタントと開発コンサルタントを分けて追跡します（WRICEF ステージ、引き継ぎキュー）。実績は接続中のシステムから読み取ります（カスタマイズ／ワークベンチ移送、パッケージオブジェクト、非有効オブジェクト、稼働後のダンプ）。メンバーは日付で参加・離脱し、離脱者の未完了項目を表示します。モバイルでも編集できます。→ `projects/<CODE>/` |
 | 🔐 **ロールマトリクス** | `/sc4sap:role-matrix` — プロジェクトの権限設計書を編集可能な HTML ワークブック 1 つで作成します：チェック付き表紙、業務ロール、PFCG ロール、業務ロール × T-code マトリクス（F/C/D）、ユーザー × ロール割当、権限オブジェクト、SoD ルールと自動競合チェック、変更履歴。新規設計はモジュールコンサルタントの提案から（ST03N 利用実績があれば実際に使う T-code に絞り込み）、または SAP から読み取り（ロール、T-code、権限値、組織レベル、ユーザー割当はユーザー ID のみ — ユーザーマスタは読みません）。大きなシステムはページ分割し、検索・CSV・貼り付けはシート全体に適用されます。SAP には書き込みません。→ `roles/<CODE>/` |
 | 🩺 **運用診断** | 運用トリアージ:ST22 ダンプ、SM02、/IWFND/ERROR_LOG、プロファイラトレース、ログ、where-used — すべて Claude から。 |
+| 🕸️ **CBO 関連図** | `/sc4sap:cbo-relation-map` — パッケージの顧客オブジェクトのつながりを HTML 1 枚で表示。`analyze-cbo-obj` のグラフを使い、SAP は呼び出さない:テーブル → データエレメント → ドメイン、チェックテーブル、検索ヘルプ、ビューの基底テーブル、テーブルを読み書きするプログラム / 汎用モジュール。接続の多いオブジェクト、関連グループ、フィルタ付き周辺ビュー、2 オブジェクト間の最短経路、各関連の DDIC 行・ソース行。標準オブジェクトは除外。→ `cbo/<MODULE>/<PACKAGE>/<PACKAGE>-relation-map-{ko,en}.html` |
 | ♻️ **CBO 再利用** | Z パッケージを一度棚卸し → `create-program` / `program-to-spec` が既存 CBO 資産を優先再利用。ブラウンフィールドに必須。 |
 | 🧷 **CBO 拡張認識 (CMOD / GGB0·1 / BTE / VOFM / BAdI / APPEND)** | ユーザーエグジット (CMOD)、検証/置換 (GGB0/GGB1)、BTE ファンクションモジュール、VOFM ルーチン (要件 / 計算式 / データ転送)、BAdI 実装、APPEND ストラクチャを棚卸し。`create-program` / BAPI 呼び出しでは既存の拡張フィールド(例:BAPI `EXTENSIONIN` / テーブル append)を新規 CBO より優先;ダンプ・障害対応では拡張ポイントを第一容疑者として検査。 |
 | 🏭 **業界コンテキスト** | 14 業界リファレンス (retail, fashion, cosmetics, tire, automotive, pharma, F&B, chemical, electronics, construction, steel, utilities, banking, public-sector)。 |
@@ -47,6 +48,7 @@ SuperClaude for SAP は Claude Code をフルスタック SAP 開発アシスタ
 
 ## ドキュメント
 
+- 🚀 **[はじめての方へ (英語 / 韓国語) →](docs/GETTING-STARTED.md)** — Windows での手順:PowerShell 実行ポリシー、Git、Node.js、Claude Code、サインイン、プラグイン導入、SAP 接続、動作確認、トラブルシューティング
 - 📦 **[インストール & セットアップ →](docs/INSTALLATION.ja.md)** — 要件、インストールオプション、ウィザードステップ、ブロックリスト設定
 - 🎯 **[機能詳細 →](docs/FEATURES.ja.md)** — 26 エージェント、14 スキル、MCP ツール、RFC バックエンド、フック、データ抽出ポリシー
 - 📜 **[変更履歴 →](docs/CHANGELOG.ja.md)** — バージョン履歴と破壊的変更

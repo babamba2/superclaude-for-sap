@@ -2,6 +2,8 @@
 
 ← [Zurück zur README](../README.de.md)
 
+> Zum ersten Mal mit Claude Code? Folgen Sie zuerst der Schritt-für-Schritt-Anleitung **[Getting Started](GETTING-STARTED.md)** (Englisch).
+
 ## Anforderungen
 
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D%2020.0.0-339933?logo=node.js&logoColor=white)
