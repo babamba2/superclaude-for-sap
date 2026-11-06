@@ -24,14 +24,14 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSy
 import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { lexAbap, litValue, statementText } from './abap-lexer.mjs';
-import { addDdicEdges, addTcodeEdges } from './ddic-edges.mjs';
+import { addDdicEdges, addTcodeEdges, DDIC_EDGE_KINDS } from './ddic-edges.mjs';
 
 export const EXTRACTOR = 'extract-edges@1';
-export const EDGE_KINDS = ['include', 'calls', 'submits', 'starts', 'launches', 'reads', 'writes', 'uses', 'types', 'dynamic'];
+export const EDGE_KINDS = ['include', 'calls', 'submits', 'starts', 'launches', 'reads', 'writes', 'uses', 'types', ...DDIC_EDGE_KINDS, 'dynamic'];
 const EVIDENCE_CAP = 5;
 const SOURCE_TYPES = new Set(['PROG', 'INCL', 'FUGR', 'FUNC', 'CLAS', 'INTF']);
 const NAME_ONLY_TYPES = new Set(['TRAN', 'PARA']);
-const DDIC_TYPES = new Set(['TABL', 'VIEW', 'DDLS', 'STRU', 'TTYP', 'DTEL', 'DOMA']);
+const DDIC_TYPES = new Set(['TABL', 'VIEW', 'DDLS', 'STRU', 'TTYP', 'DTEL', 'DOMA', 'SHLP']);
 
 const NAME = '[A-Z0-9_/][A-Z0-9_/]*';
 const BUILTIN = new Set(
@@ -552,7 +552,7 @@ export function extractGraph(units, opts = {}) {
   // FUNC nodes inside a parsed FUGR inherit its scope
   for (const n of g.nodes.values()) if (n.parent && !n.scope) n.scope = g.nodes.get(n.parent)?.scope;
 
-  // TCode entry points (TSTC / TSTCP) and DDIC typing (DD03L / DD04L)
+  // TCode entry points (TSTC / TSTCP) and DDIC relations (DD* tables, see ddic-edges.mjs)
   addTcodeEdges(g, opts.tcodes, members, idOf);
   const ddicStats = addDdicEdges(g, opts.ddic, members, idOf);
 

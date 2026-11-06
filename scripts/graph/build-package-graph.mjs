@@ -3,7 +3,9 @@
 //   node build-package-graph.mjs --dir <inventory dir> --src <MCP output src dir> [--system S] [--sap-version ECC|S4]
 //
 // <inventory dir> holds walk.json (required) and, when collected, tcodes.json (GetTransaction result),
-// ddic.json ({ fields: DD03L rows, dtels: DD04L rows }) or ddic-facts.md (Step G3 checker FACT lines),
+// ddic-reads.json (Step G3 DD reads: [{ id, table, path, rows, truncated } | { id, table, error }], each path a
+// GetSqlQuery output:"file" result), ddic.json (the ddic shape of ddic-edges.mjs), ddic-facts.md (Step G3 checker
+// FACT lines, the fallback) — all three are merged,
 // and usage.json ({ tcodes, jobs }).
 // <MCP output src dir> is where GetProgFullCode output:"file" saved the sources (<name>.prog/, <name>.fugr/).
 // Only folders of PROG / FUGR members are read — other programs in the shared output dir are ignored.
@@ -12,7 +14,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseDdicFacts } from './ddic-edges.mjs';
+import { loadDdicReads, mergeDdic, parseDdicFacts } from './ddic-edges.mjs';
 import { discoverUnits, extractGraph } from './extract-edges.mjs';
 import { loadGraph, toMarkdown, usage } from './graph-query.mjs';
 
@@ -30,6 +32,12 @@ export function buildPackageGraph({ dir, src, system, sapVersion, builtAt }) {
     if (existsSync(folder)) units.push(...discoverUnits(folder));
     else missing.push(`${type}:${String(o.name).toUpperCase()}`);
   }
+  const reads = loadDdicReads(readJson(join(dir, 'ddic-reads.json')), (p) => JSON.parse(readFileSync(p, 'utf8')));
+  const ddic = mergeDdic(
+    reads.ddic,
+    readJson(join(dir, 'ddic.json')),
+    existsSync(join(dir, 'ddic-facts.md')) ? parseDdicFacts(readFileSync(join(dir, 'ddic-facts.md'), 'utf8')) : null,
+  );
   const graph = extractGraph(units, {
     members: walk,
     package: walk.package,
@@ -37,11 +45,12 @@ export function buildPackageGraph({ dir, src, system, sapVersion, builtAt }) {
     system,
     sapVersion,
     tcodes: readJson(join(dir, 'tcodes.json')),
-    ddic: readJson(join(dir, 'ddic.json')) ?? (existsSync(join(dir, 'ddic-facts.md')) ? parseDdicFacts(readFileSync(join(dir, 'ddic-facts.md'), 'utf8')) : null),
+    ddic,
     builtAt,
   });
   writeFileSync(join(dir, 'graph.json'), `${JSON.stringify(graph, null, 1)}\n`);
   const summary = { graph: join(dir, 'graph.json'), nodes: graph.nodes.length, edges: graph.edges.length, unresolved: graph.unresolved.length, sourcesMissing: missing };
+  if (reads.truncated.length || reads.failed.length) summary.ddicReads = { truncated: reads.truncated, failed: reads.failed };
   const usageIn = readJson(join(dir, 'usage.json'));
   if (usageIn) {
     const res = usage(loadGraph(graph), usageIn);

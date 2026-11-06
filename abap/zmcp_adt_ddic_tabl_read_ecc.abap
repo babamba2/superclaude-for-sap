@@ -21,6 +21,12 @@ FUNCTION zmcp_adt_ddic_tabl_read
 *         ROLLNAME, CHECKTABLE, INTTYPE, INTLEN, NOTNULL,
 *         DATATYPE, LENG, DECIMALS, DOMNAME, COMPTYPE, ...)    - fields
 *   DD04T(ROLLNAME, DDLANGUAGE, AS4LOCAL, DDTEXT, ...)         - DTEL labels
+*   DD08L(TABNAME, FIELDNAME, CHECKTABLE, FRKART, CARD, CARDLEFT) - foreign keys
+*   DD05S(TABNAME, FIELDNAME, PRIMPOS, FORTABLE, FORKEY)        - FK field map
+*         (no CHECKTABLE / CHECKFIELD on 7.31 or 7.40: the check table comes
+*         from DD08L, the check field is its PRIMPOS-th key field)
+*   DD35L(TABNAME, FIELDNAME, SHLPNAME)                         - field search helps
+*   DD26S(VIEWNAME, TABNAME, TABPOS, FORTABNAME, FORFIELD)      - view base tables
 *   TADIR                                                       - package
 *
 * Version: 'A' active (AS4LOCAL='A'), 'I' inactive (AS4LOCAL='N').
@@ -38,9 +44,36 @@ FUNCTION zmcp_adt_ddic_tabl_read
            decimals    TYPE i,
            domname     TYPE c LENGTH 30,
            comptype    TYPE c LENGTH 1,
+           precfield   TYPE c LENGTH 30,
+           reftable    TYPE c LENGTH 30,
+           reffield    TYPE c LENGTH 30,
+           shlpname    TYPE c LENGTH 30,
            notnull     TYPE abap_bool,
            description TYPE string,
          END OF ty_field.
+
+  TYPES: BEGIN OF ty_fk,
+           fieldname  TYPE c LENGTH 30,
+           checktable TYPE c LENGTH 30,
+           frkart     TYPE c LENGTH 10,
+           card       TYPE c LENGTH 2,
+           cardleft   TYPE c LENGTH 2,
+         END OF ty_fk.
+
+  TYPES: BEGIN OF ty_fkf,
+           fieldname  TYPE c LENGTH 30,
+           primpos    TYPE i,
+           checkfield TYPE c LENGTH 30,
+           fortable   TYPE c LENGTH 30,
+           forkey     TYPE c LENGTH 30,
+         END OF ty_fkf.
+
+  TYPES: BEGIN OF ty_base,
+           tabname    TYPE c LENGTH 30,
+           tabpos     TYPE i,
+           fortabname TYPE c LENGTH 30,
+           forfield   TYPE c LENGTH 30,
+         END OF ty_base.
 
   TYPES: BEGIN OF ty_result,
            name           TYPE string,
@@ -51,6 +84,9 @@ FUNCTION zmcp_adt_ddic_tabl_read
            description    TYPE string,
            package        TYPE devclass,
            fields         TYPE STANDARD TABLE OF ty_field WITH DEFAULT KEY,
+           foreign_keys       TYPE STANDARD TABLE OF ty_fk WITH DEFAULT KEY,
+           foreign_key_fields TYPE STANDARD TABLE OF ty_fkf WITH DEFAULT KEY,
+           base_tables        TYPE STANDARD TABLE OF ty_base WITH DEFAULT KEY,
          END OF ty_result.
 
   DATA: lv_name     TYPE c LENGTH 30,
@@ -62,8 +98,21 @@ FUNCTION zmcp_adt_ddic_tabl_read
         lt_dd04t    TYPE STANDARD TABLE OF dd04t WITH DEFAULT KEY,
         ls_dd04t    TYPE dd04t,
         ls_field    TYPE ty_field,
+        lt_dd08l    TYPE STANDARD TABLE OF dd08l WITH DEFAULT KEY,
+        ls_dd08l    TYPE dd08l,
+        lt_dd05s    TYPE STANDARD TABLE OF dd05s WITH DEFAULT KEY,
+        ls_dd05s    TYPE dd05s,
+        lt_dd35l    TYPE STANDARD TABLE OF dd35l WITH DEFAULT KEY,
+        ls_dd35l    TYPE dd35l,
+        lt_dd26s    TYPE STANDARD TABLE OF dd26s WITH DEFAULT KEY,
+        ls_dd26s    TYPE dd26s,
+        ls_fk       TYPE ty_fk,
+        ls_fkf      TYPE ty_fkf,
+        ls_base     TYPE ty_base,
         ls_result   TYPE ty_result,
         lv_devclass TYPE devclass.
+
+  FIELD-SYMBOLS <lv_comp> TYPE any.
 
   CLEAR: ev_subrc, ev_message, ev_result.
 
@@ -141,6 +190,11 @@ FUNCTION zmcp_adt_ddic_tabl_read
           AND as4local = lv_as4local
         ORDER BY position.
 
+*     === Step 4b: field search helps (DD35L) ===
+      SELECT * FROM dd35l INTO TABLE lt_dd35l
+        WHERE tabname  = lv_name
+          AND as4local = lv_as4local.
+
 *     === Step 5: batch DTEL labels in logon language ===
       IF lt_dd03l IS NOT INITIAL.
         SELECT * FROM dd04t INTO TABLE lt_dd04t
@@ -161,6 +215,14 @@ FUNCTION zmcp_adt_ddic_tabl_read
         ls_field-decimals   = ls_dd03l-decimals.
         ls_field-domname    = ls_dd03l-domname.
         ls_field-comptype   = ls_dd03l-comptype.
+        ls_field-precfield  = ls_dd03l-precfield.
+        ls_field-reftable   = ls_dd03l-reftable.
+        ls_field-reffield   = ls_dd03l-reffield.
+        READ TABLE lt_dd35l INTO ls_dd35l
+          WITH KEY fieldname = ls_dd03l-fieldname.
+        IF sy-subrc = 0.
+          ls_field-shlpname = ls_dd35l-shlpname.
+        ENDIF.
         IF ls_dd03l-keyflag = 'X'.
           ls_field-key = abap_true.
         ENDIF.
@@ -188,6 +250,78 @@ FUNCTION zmcp_adt_ddic_tabl_read
 
         APPEND ls_field TO ls_result-fields.
       ENDLOOP.
+
+*     === Step 6: foreign keys (DD08L header, DD05S field map) ===
+      SELECT * FROM dd08l INTO TABLE lt_dd08l
+        WHERE tabname  = lv_name
+          AND as4local = lv_as4local
+          AND as4vers  = '0000'.
+      LOOP AT lt_dd08l INTO ls_dd08l.
+        CLEAR ls_fk.
+        ls_fk-fieldname  = ls_dd08l-fieldname.
+        ls_fk-checktable = ls_dd08l-checktable.
+        ASSIGN COMPONENT 'FRKART' OF STRUCTURE ls_dd08l TO <lv_comp>.
+        IF sy-subrc = 0.
+          ls_fk-frkart = <lv_comp>.
+        ENDIF.
+        ASSIGN COMPONENT 'CARD' OF STRUCTURE ls_dd08l TO <lv_comp>.
+        IF sy-subrc = 0.
+          ls_fk-card = <lv_comp>.
+        ENDIF.
+        ASSIGN COMPONENT 'CARDLEFT' OF STRUCTURE ls_dd08l TO <lv_comp>.
+        IF sy-subrc = 0.
+          ls_fk-cardleft = <lv_comp>.
+        ENDIF.
+        APPEND ls_fk TO ls_result-foreign_keys.
+      ENDLOOP.
+      IF lt_dd08l IS NOT INITIAL.
+        SELECT * FROM dd05s INTO TABLE lt_dd05s
+          WHERE tabname  = lv_name
+            AND as4local = lv_as4local
+            AND as4vers  = '0000'.
+        SORT lt_dd05s BY fieldname primpos.
+        LOOP AT lt_dd05s INTO ls_dd05s.
+          CLEAR ls_fkf.
+          ls_fkf-fieldname  = ls_dd05s-fieldname.
+          ls_fkf-primpos    = ls_dd05s-primpos.
+          ASSIGN COMPONENT 'CHECKFIELD' OF STRUCTURE ls_dd05s TO <lv_comp>.
+          IF sy-subrc = 0.
+            ls_fkf-checkfield = <lv_comp>.
+          ENDIF.
+          ASSIGN COMPONENT 'FORTABLE' OF STRUCTURE ls_dd05s TO <lv_comp>.
+          IF sy-subrc = 0.
+            ls_fkf-fortable = <lv_comp>.
+          ENDIF.
+          ASSIGN COMPONENT 'FORKEY' OF STRUCTURE ls_dd05s TO <lv_comp>.
+          IF sy-subrc = 0.
+            ls_fkf-forkey = <lv_comp>.
+          ENDIF.
+          APPEND ls_fkf TO ls_result-foreign_key_fields.
+        ENDLOOP.
+      ENDIF.
+
+*     === Step 7: view base tables (DD26S, database / projection views) ===
+      IF ls_dd02l-tabclass = 'VIEW'.
+        SELECT * FROM dd26s INTO TABLE lt_dd26s
+          WHERE viewname = lv_name
+            AND as4local = lv_as4local
+            AND as4vers  = '0000'.
+        SORT lt_dd26s BY tabpos.
+        LOOP AT lt_dd26s INTO ls_dd26s.
+          CLEAR ls_base.
+          ls_base-tabname    = ls_dd26s-tabname.
+          ls_base-tabpos     = ls_dd26s-tabpos.
+          ASSIGN COMPONENT 'FORTABNAME' OF STRUCTURE ls_dd26s TO <lv_comp>.
+          IF sy-subrc = 0.
+            ls_base-fortabname = <lv_comp>.
+          ENDIF.
+          ASSIGN COMPONENT 'FORFIELD' OF STRUCTURE ls_dd26s TO <lv_comp>.
+          IF sy-subrc = 0.
+            ls_base-forfield = <lv_comp>.
+          ENDIF.
+          APPEND ls_base TO ls_result-base_tables.
+        ENDLOOP.
+      ENDIF.
 
       ev_result = /ui2/cl_json=>serialize(
         data        = ls_result

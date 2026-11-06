@@ -25,6 +25,8 @@ FUNCTION zmcp_adt_ddic_dtel_read
   TYPES: BEGIN OF ty_result,
            name         TYPE string,
            domname      TYPE string,
+           shlpname     TYPE string,
+           shlpfield    TYPE string,
            datatype     TYPE string,
            leng         TYPE i,
            decimals     TYPE i,
@@ -81,6 +83,8 @@ FUNCTION zmcp_adt_ddic_dtel_read
       ENDIF.
 
       ls_result-domname   = ls_dd04l-domname.
+      ls_result-shlpname  = ls_dd04l-shlpname.
+      ls_result-shlpfield = ls_dd04l-shlpfield.
       ls_result-datatype  = ls_dd04l-datatype.
       ls_result-leng      = ls_dd04l-leng.
       ls_result-decimals  = ls_dd04l-decimals.

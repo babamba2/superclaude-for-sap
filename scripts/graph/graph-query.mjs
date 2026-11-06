@@ -282,7 +282,7 @@ export function stats(G) {
 
 // ---------------------------------------------------------------- usage
 
-export const USAGE_KINDS = [...FLOW_KINDS, 'uses', 'reads', 'writes', 'types'];
+export const USAGE_KINDS = [...FLOW_KINDS, 'uses', 'reads', 'writes', 'types', 'rowType', 'basedOn'];
 
 /** { tcodes?: GetTcodeUsage response, jobs?: GetJobUsage response } — `result` maps NAME → bool */
 function normalizeUsage(u) {
