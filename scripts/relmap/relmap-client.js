@@ -68,7 +68,7 @@
     if (g) { ev.preventDefault(); focusGroup(Number(g.dataset.g)); return; }
     const p = ev.target.closest('[data-path]');
     if (p) { ev.preventDefault(); S.pathIx = Number(p.dataset.path); S.path = S.paths[S.pathIx]; draw(); return; }
-    if (ev.target.closest('#impact-show')) { ev.preventDefault(); S.mode = 'impact'; draw(); }
+    if (ev.target.closest('#impact-show')) { ev.preventDefault(); S.mode = 'impact'; record(true); draw(); }
   });
 
   // ---------- overview ----------
@@ -160,19 +160,42 @@
   function controls() {
     const kc = new Map(); M.edges.forEach((e) => kc.set(e[2], (kc.get(e[2]) || 0) + 1));
     const tc = new Map(); M.nodes.forEach((n) => tc.set(n[1], (tc.get(n[1]) || 0) + 1));
-    const chk = (cls, i, label, count, on) => `<label class="ck"><input type="checkbox" data-${cls}="${i}" ${on ? 'checked' : ''}>${label} <small>${fmt(count)}</small></label>`;
-    const kindBoxes = () => { $('#f-kinds').innerHTML = M.kinds.map((k, i) => chk('k', i, `<span class="ln k-${esc(k)}"></span>${esc(k)}`, kc.get(i) || 0, S.kinds.has(i))).join(''); };
+    // every option carries a small [?] at its upper right; hovering or focusing it shows what the option means
+    const qm = (title, text) => (text ? `<span class="qm" tabindex="0" data-tip="${esc(text)}" data-tip-title="${esc(title)}">?</span>` : '');
+    const chk = (cls, i, label, count, on, title, tip) => `<label class="ck"><input type="checkbox" data-${cls}="${i}" ${on ? 'checked' : ''}>${label}${qm(title, tip)} <small>${fmt(count)}</small></label>`;
+    const kindBoxes = () => { $('#f-kinds').innerHTML = M.kinds.map((k, i) => chk('k', i, `<span class="ln k-${esc(k)}"></span>${esc(k)}`, kc.get(i) || 0, S.kinds.has(i), k, T.kindDesc[k] || T.kindName[k])).join(''); };
     kindBoxes();
-    $('#f-types').innerHTML = M.types.map((t, i) => chk('t', i, `<span class="dot t-${esc(t)}"></span>${esc(t)}`, tc.get(i) || 0, true)).join('');
-    $('#f-bases').innerHTML = M.bases.map((b, i) => chk('b', i, esc(T.basis[b]), M.stats.byBasis[b] || 0, true)).join('');
-    if (M.meta.hasUsage) {
-      const uc = new Map(); M.nodes.forEach((n) => uc.set(n[8], (uc.get(n[8]) || 0) + 1));
-      $('#f-usage').innerHTML = [0, 1, 2, 3, -1].map((u) => chk('u', u, u >= 0 ? `<span class="u u${u}">${esc(T.usageShort[M.usage[u]])}</span> ${esc(T.usageName[M.usage[u]])}` : esc(T.usageNone), uc.get(u) || 0, true)).join('');
-    } else $('#f-usage-row').hidden = true;
-    if (multi) {
-      const pc = new Map(); M.nodes.forEach((n) => pc.set(n[11], (pc.get(n[11]) || 0) + 1));
-      $('#f-pkgs').innerHTML = [...M.pkgs.map((p, i) => [i, p]), [-1, T.scopeCustom]].map(([i, p]) => chk('p', i, `<span class="dot" style="--c:${pkgColour(i)}"></span>${esc(p)}`, pc.get(i) || 0, true)).join('');
-    } else { $('#f-pkgs-row').hidden = true; $('#color-by').hidden = true; }
+    const typeBoxes = () => { $('#f-types').innerHTML = M.types.map((t, i) => chk('t', i, `<span class="dot t-${esc(t)}"></span>${esc(t)}`, tc.get(i) || 0, S.types.has(i), `${t} — ${T.typeName[t] || ''}`, T.typeDesc[t] || T.typeName[t])).join(''); };
+    typeBoxes();
+    const baseBoxes = () => { $('#f-bases').innerHTML = M.bases.map((b, i) => chk('b', i, esc(T.basis[b]), M.stats.byBasis[b] || 0, S.bases.has(i), T.basis[b], T.basisDesc[b])).join(''); };
+    baseBoxes();
+    const uc = new Map(); M.nodes.forEach((n) => uc.set(n[8], (uc.get(n[8]) || 0) + 1));
+    const usageBoxes = () => { $('#f-usage').innerHTML = [0, 1, 2, 3, -1].map((u) => chk('u', u, u >= 0 ? `<span class="u u${u}">${esc(T.usageShort[M.usage[u]])}</span> ${esc(T.usageName[M.usage[u]])}` : esc(T.usageNone), uc.get(u) || 0, S.usage.has(u), u >= 0 ? T.usageName[M.usage[u]] : T.usageNone, T.usageDesc[u >= 0 ? M.usage[u] : 'none'])).join(''); };
+    if (M.meta.hasUsage) usageBoxes(); else $('#f-usage-row').hidden = true;
+    const pc = new Map(); M.nodes.forEach((n) => pc.set(n[11], (pc.get(n[11]) || 0) + 1));
+    const pkgBoxes = () => { $('#f-pkgs').innerHTML = [...M.pkgs.map((p, i) => [i, p]), [-1, T.scopeCustom]].map(([i, p]) => chk('p', i, `<span class="dot" style="--c:${pkgColour(i)}"></span>${esc(p)}`, pc.get(i) || 0, S.pkgs.has(i), p, i >= 0 ? T.pkgDesc.replace('{p}', p) : T.pkgOutside)).join(''); };
+    if (multi) pkgBoxes(); else { $('#f-pkgs-row').hidden = true; $('#color-by').hidden = true; }
+
+    // select all / clear all per group
+    const GROUPS = {
+      k: [() => S.kinds, (v) => { S.kinds = v; }, M.kinds.map((_, i) => i), kindBoxes],
+      t: [() => S.types, (v) => { S.types = v; }, M.types.map((_, i) => i), typeBoxes],
+      b: [() => S.bases, (v) => { S.bases = v; }, M.bases.map((_, i) => i), baseBoxes],
+      u: [() => S.usage, (v) => { S.usage = v; }, [-1, 0, 1, 2, 3], usageBoxes],
+      p: [() => S.pkgs, (v) => { S.pkgs = v; }, [-1, ...M.pkgs.map((_, i) => i)], pkgBoxes],
+    };
+    document.querySelectorAll('#filters .an').forEach((el) => {
+      el.innerHTML = `<button type="button" data-an="1">${esc(T.allOn)}</button><button type="button" data-an="0">${esc(T.allOff)}</button>`;
+    });
+    $('#filters').addEventListener('click', (ev) => {
+      if (ev.target.closest('.qm')) { ev.preventDefault(); return; } // the [?] explains, it does not toggle
+      const b = ev.target.closest('[data-an]'); if (!b) return;
+      ev.preventDefault();
+      const [, set, all, redraw] = GROUPS[b.closest('.an').dataset.grp];
+      set(new Set(b.dataset.an === '1' ? all : []));
+      if (b.closest('.an').dataset.grp === 'k') { S.preset = ''; presetBar.querySelectorAll('button').forEach((y) => y.classList.remove('on')); }
+      redraw(); refresh();
+    });
     const presetBar = $('#presets');
     presetBar.innerHTML = ['business', 'ddic', 'code', 'all'].filter((p) => PRESETS[p].length)
       .map((p) => `<button data-preset="${p}" class="${p === S.preset ? 'on' : ''}" title="${esc(T.presetHelp[p])}">${esc(T.preset[p])}</button>`).join('');
@@ -195,13 +218,31 @@
       $(id).addEventListener('change', (ev) => { S[key] = num ? Number(ev.target.value) : ev.target.value; if (key === 'pathDir') findPath(); else refresh(); });
     }
     suggest($('#q'), $('#q-list'), (i) => focusNode(i));
-    suggest($('#q2'), $('#q2-list'), (i) => { S.target = i; $('#q2').value = nName(i); findPath(); });
-    $('#path-go').addEventListener('click', () => { const i = resolveName($('#q2').value); if (i >= 0) { S.target = i; findPath(); } });
-    $('#path-clear').addEventListener('click', () => { S.path = null; S.paths = []; S.target = -1; $('#q2').value = ''; if (S.center >= 0) S.mode = 'ego'; draw(); });
+    suggest($('#q2'), $('#q2-list'), (i) => { S.target = i; $('#q2').value = nName(i); findPath(true); });
+    $('#path-go').addEventListener('click', () => { const i = resolveName($('#q2').value); if (i >= 0) { S.target = i; findPath(true); } });
+    $('#path-clear').addEventListener('click', () => { S.path = null; S.paths = []; S.target = -1; $('#q2').value = ''; if (S.center >= 0) S.mode = 'ego'; record(true); draw(); });
+    $('#nav-back').addEventListener('click', () => { if (history.state && history.state.d > 0) history.back(); });
     $('#x-png').addEventListener('click', exportPng);
     $('#x-csv').addEventListener('click', exportCsv);
   }
   const toggle = (set, v, on) => (on ? set.add(v) : set.delete(v));
+  (function tips() {
+    const box = $('#qtip');
+    const show = (el) => {
+      box.innerHTML = `${el.dataset.tipTitle ? `<b>${esc(el.dataset.tipTitle)}</b>` : ''}${esc(el.dataset.tip)}`;
+      box.hidden = false;
+      const r = el.getBoundingClientRect(), w = box.offsetWidth, h = box.offsetHeight;
+      let x = r.right + 6, y = r.top - h - 4;
+      if (x + w > innerWidth - 8) x = Math.max(8, r.left - w - 6);
+      if (y < 8) y = r.bottom + 4;
+      box.style.left = x + 'px'; box.style.top = y + 'px';
+    };
+    const hide = () => { box.hidden = true; };
+    document.addEventListener('mouseover', (ev) => { const el = ev.target.closest('[data-tip]'); if (el) show(el); });
+    document.addEventListener('mouseout', (ev) => { if (ev.target.closest('[data-tip]')) hide(); });
+    document.addEventListener('focusin', (ev) => { const el = ev.target.closest('[data-tip]'); if (el) show(el); });
+    document.addEventListener('focusout', hide);
+  })();
   // a filter change keeps the current view: recompute the path / impact on the new filters
   function refresh() { if (S.mode === 'path') findPath(); else { if (S.mode === 'impact') S.impact = impactOf(S.center); draw(); } }
 
@@ -236,16 +277,63 @@
     input.addEventListener('blur', () => setTimeout(close, 150));
   }
 
-  function focusNode(i) {
+  // ---------- view history: every move to another object / group / path is a browser history entry, so the
+  // in-page Back button and the browser's back / forward both return to the earlier view ----------
+  function viewOf() {
+    return { m: S.mode, c: S.center >= 0 ? nId(S.center) : '', g: S.group, t: S.target >= 0 ? nId(S.target) : '', pd: S.pathDir };
+  }
+  function viewLabel(v) {
+    if (!v) return '';
+    if (v.m === 'group') return groupName(v.g);
+    if (v.m === 'path') return `${(v.c || '').split(':')[1] || ''} → ${(v.t || '').split(':')[1] || ''}`;
+    return (v.c || '').split(':')[1] || T.tOverview;
+  }
+  function hashOf(v) {
+    if (v.m === 'group') return '#g=' + (v.g + 1);
+    if (v.m === 'path') return '#n=' + encodeURIComponent(v.c) + '&to=' + encodeURIComponent(v.t) + (v.pd === 'out' ? '&dir=out' : '');
+    if (v.m === 'impact') return '#n=' + encodeURIComponent(v.c) + '&impact=1';
+    return v.c ? '#n=' + encodeURIComponent(v.c) : '#';
+  }
+  const sameView = (a, b) => a && b && a.m === b.m && a.c === b.c && a.g === b.g && a.t === b.t && (a.m !== 'path' || a.pd === b.pd);
+  function record(push) {
+    const v = viewOf(), cur = history.state;
+    if (push && cur && cur.v && !sameView(cur.v, v)) history.pushState({ v, d: (cur.d || 0) + 1, back: viewLabel(cur.v) }, '', hashOf(v));
+    else history.replaceState({ v, d: cur ? cur.d || 0 : 0, back: cur ? cur.back : '' }, '', hashOf(v));
+    navUI();
+  }
+  function navUI() {
+    const b = $('#nav-back'), st = history.state;
+    if (!b) return;
+    const can = Boolean(st && st.d > 0);
+    b.disabled = !can;
+    b.title = can ? T.navBackTo.replace('{v}', st.back || '') : T.navBackNone;
+    b.querySelector('span').textContent = can && st.back ? st.back : '';
+  }
+  function restore(st) {
+    const v = st && st.v;
+    if (!v || v.m === 'none') { S.mode = 'none'; S.center = -1; navUI(); showTab('overview'); return; }
+    const c = v.c ? byId.get(v.c) : -1, t = v.t ? byId.get(v.t) : -1;
+    S.path = null; S.paths = []; S.pathDir = v.pd || 'any'; $('#path-dir').value = S.pathDir;
+    if (v.m === 'group') { S.mode = 'group'; S.group = v.g; S.center = -1; navUI(); showTab('explore'); return; }
+    if (c === undefined || c < 0) { navUI(); showTab('overview'); return; }
+    S.center = c; S.impact = impactOf(c); $('#q').value = nName(c);
+    if (v.m === 'path' && t >= 0) { S.target = t; $('#q2').value = nName(t); showTab('explore'); findPath(false); navUI(); return; }
+    S.target = -1; $('#q2').value = '';
+    S.mode = v.m === 'impact' ? 'impact' : 'ego';
+    navUI(); showTab('explore');
+  }
+  addEventListener('popstate', (ev) => restore(ev.state));
+
+  function focusNode(i, push = true) {
     S.mode = 'ego'; S.center = i; S.path = null; S.paths = []; S.target = -1; $('#q2').value = '';
     S.impact = impactOf(i);
     $('#q').value = nName(i);
-    history.replaceState(null, '', '#n=' + encodeURIComponent(nId(i)));
+    record(push);
     showTab('explore');
   }
-  function focusGroup(g) {
+  function focusGroup(g, push = true) {
     S.mode = 'group'; S.group = g; S.center = -1; S.path = null; S.paths = [];
-    history.replaceState(null, '', '#g=' + (g + 1));
+    record(push);
     showTab('explore');
   }
 
@@ -307,7 +395,7 @@
     }
     return null;
   }
-  function findPath() {
+  function findPath(push = false) {
     if (S.center < 0 || S.target < 0) return;
     let from = S.center, to = S.target;
     let first = from === to ? { nodes: [from], edges: [] } : bfsPath(from, to, new Set());
@@ -323,7 +411,7 @@
     }
     found.sort((a, b) => a.edges.length - b.edges.length);
     S.paths = found; S.path = found[0];
-    history.replaceState(null, '', '#n=' + encodeURIComponent(nId(S.center)) + '&to=' + encodeURIComponent(nId(S.target)) + (S.pathDir === 'out' ? '&dir=out' : ''));
+    record(push);
     draw();
   }
 
@@ -385,7 +473,7 @@
   const G = {
     canvas: null, ctx: null, w: 800, h: 520, bodies: new Map(), ids: [], links: [], mid: -1, mid2: -1,
     cam: { x: 0, y: 0, k: 1, tx: 0, ty: 0, tk: 1, e: 0.12 }, energy: 0, hover: -1, drag: null, raf: null,
-    col: {}, top: new Set(), moved: false, autoFit: false, lastStep: 0, lastFrame: 0, midAt: 0, reduced: false, deg: new Map(),
+    col: {}, top: new Set(), sel: -1, moved: false, autoFit: false, lastStep: 0, lastFrame: 0, midAt: 0, reduced: false, deg: new Map(),
   };
   const COLORS = JSON.parse(document.getElementById('relmap-colors').textContent), TYPE_COLOR = COLORS.types, KIND_COLOR = COLORS.kinds;
 
@@ -397,6 +485,7 @@
   const kick = () => { if (G.raf === null) G.raf = requestAnimationFrame(frame); };
 
   function setGraph(ids, links, mid, mid2) {
+    closeCard();
     const map = G.bodies;
     if (mid >= 0 && mid !== G.mid) {
       G.midAt = performance.now();
@@ -580,6 +669,10 @@
         ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1, rr - 0.8), 0, Math.PI * 2); ctx.stroke();
         if (!ext) { ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(p.x, p.y, Math.max(1.6, rr * 0.38), 0, Math.PI * 2); ctx.fill(); }
       }
+      if (i === G.sel) {
+        ctx.globalAlpha = b.a; ctx.strokeStyle = col.ink; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
+        ctx.beginPath(); ctx.arc(p.x, p.y, rr + 7, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      }
       const la = main || lit.has(i) ? 1 : (G.top.has(i) ? 1 : labelAlpha) * (hv >= 0 ? 0.2 : 1);
       if (la > 0.02) {
         const pr = main ? 0 : i === hv ? 1 : lit.has(i) ? 2 : G.top.has(i) ? 3 : 4;
@@ -642,7 +735,7 @@
     new ResizeObserver(resize).observe(wrap); resize(); readColours();
     new MutationObserver(readColours).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] });
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', readColours);
-    canvas.addEventListener('wheel', (ev) => { ev.preventDefault(); const r = canvas.getBoundingClientRect(); zoom(ev.deltaY > 0 ? 1 / 1.15 : 1.15, ev.clientX - r.left, ev.clientY - r.top); }, { passive: false });
+    canvas.addEventListener('wheel', (ev) => { ev.preventDefault(); closeCard(); const r = canvas.getBoundingClientRect(); zoom(ev.deltaY > 0 ? 1 / 1.15 : 1.15, ev.clientX - r.left, ev.clientY - r.top); }, { passive: false });
     const local = (ev) => { const r = canvas.getBoundingClientRect(); return { x: ev.clientX - r.left, y: ev.clientY - r.top }; };
     canvas.addEventListener('pointerdown', (ev) => {
       if (ev.button !== 0) return;
@@ -665,6 +758,7 @@
         return;
       }
       if (!d.moved && Math.hypot(p.x - d.x, p.y - d.y) < 4) return;
+      if (!d.moved) closeCard();
       d.moved = true; G.autoFit = false; G.moved = true;
       if (d.id >= 0) {
         const b = G.bodies.get(d.id);
@@ -679,16 +773,68 @@
       if (!d) return;
       if (d.id >= 0) {
         const b = G.bodies.get(d.id); if (b) b.pinned = false;
-        if (!d.moved && d.id !== S.center) { tip.hidden = true; G.hover = -1; focusNode(d.id); }
-      }
+        if (!d.moved) { tip.hidden = true; G.hover = -1; openCard(d.id); }
+      } else if (!d.moved) closeCard();
       kick();
     });
     canvas.addEventListener('pointerleave', () => { if (G.hover >= 0) { G.hover = -1; tip.hidden = true; kick(); } });
     canvas.addEventListener('dblclick', () => fit(false));
-    $('#z-in').addEventListener('click', () => zoom(1.25));
-    $('#z-out').addEventListener('click', () => zoom(1 / 1.25));
+    $('#z-in').addEventListener('click', () => { closeCard(); zoom(1.25); });
+    $('#z-out').addEventListener('click', () => { closeCard(); zoom(1 / 1.25); });
     $('#z-fit').addEventListener('click', () => fit(false));
   })();
+
+
+  // ---------- node card: details of a clicked node, with the actions as buttons ----------
+  function openCard(i) {
+    const card = $('#card'), b = G.bodies.get(i);
+    if (!b) return;
+    G.sel = i;
+    const outK = new Map(), inK = new Map();
+    for (const k of out[i]) outK.set(M.edges[k][2], (outK.get(M.edges[k][2]) || 0) + 1);
+    for (const k of inn[i]) inK.set(M.edges[k][2], (inK.get(M.edges[k][2]) || 0) + 1);
+    const kinds = [...new Set([...outK.keys(), ...inK.keys()])].sort((a, z) => ((outK.get(z) || 0) + (inK.get(z) || 0)) - ((outK.get(a) || 0) + (inK.get(a) || 0)));
+    const rel = kinds.slice(0, 8).map((kd) => `<span class="cr"><span class="ln k-${esc(M.kinds[kd])}"></span>${esc(M.kinds[kd])}${outK.get(kd) ? ` <b title="${esc(T.outgoing)}">→${fmt(outK.get(kd))}</b>` : ''}${inK.get(kd) ? ` <b title="${esc(T.incoming)}">←${fmt(inK.get(kd))}</b>` : ''}</span>`).join('');
+    const im = impactOf(i);
+    const facts = [
+      `${esc(T.typeName[nType(i)] || nType(i))}${multi && nPkg(i) ? ' · ' + esc(nPkg(i)) : nScope(i) ? ' · ' + esc(T.scopeCustom) : ''}`,
+      `${esc(T.colDegree)} ${fmt(nBiz(i))}${nComm(i) >= 0 ? ` · <a href="#" data-g="${nComm(i)}">${esc(groupName(nComm(i)))}</a>` : ''}`,
+    ];
+    if (im.tcodes.length || im.progs.length) facts.push(`${esc(T.impact)}: ${esc(T.impactCount.replace('{t}', fmt(im.tcodes.length)).replace('{p}', fmt(im.progs.length)))}`);
+    if (nInc(i).length) facts.push(`${esc(T.includes)} ${fmt(nInc(i).length)}`);
+    if (nStd(i).length) facts.push(`${esc(T.stdChecks)} ${fmt(nStd(i).length)}`);
+    const isCenter = i === S.center;
+    card.innerHTML = `<div class="ch"><span class="dot t-${esc(nType(i))}"></span><b>${esc(nName(i))}</b> <small>${esc(nType(i))}</small>${usageBadge(i)}<button type="button" class="cx" data-card="close" aria-label="${esc(T.cardClose)}">×</button></div>
+      ${nDesc(i) ? `<p class="desc big">${esc(nDesc(i))}</p>` : ''}
+      <p class="cf">${facts.join('<br>')}</p>
+      ${rel ? `<div class="crs">${rel}</div>` : `<p class="muted">${esc(T.cardNoRel)}</p>`}
+      <div class="cb">
+        ${isCenter ? `<span class="muted">${esc(T.cardIsCenter)}</span>` : `<button type="button" class="pri" data-card="focus">${esc(T.cardFocus)}</button>`}
+      </div>`;
+    card.hidden = false;
+    const p = toScreen(b), w = card.offsetWidth, h = card.offsetHeight;
+    let x = p.x + 18, y = p.y - 20;
+    if (x + w > G.w - 8) x = Math.max(8, p.x - w - 18);
+    if (y + h > G.h - 8) y = Math.max(8, G.h - h - 8);
+    if (y < 8) y = 8;
+    card.style.left = x + 'px'; card.style.top = y + 'px';
+    card.dataset.n = '';
+    card.dataset.node = i;
+    kick();
+  }
+  function closeCard() {
+    const card = document.getElementById('card');
+    if (card && !card.hidden) card.hidden = true;
+    if (G && G.sel >= 0) { G.sel = -1; kick(); }
+  }
+  document.getElementById('card').addEventListener('click', (ev) => {
+    const btn = ev.target.closest('[data-card]'); if (!btn) return;
+    ev.preventDefault(); ev.stopPropagation();
+    const i = Number(document.getElementById('card').dataset.node);
+    if (btn.dataset.card === 'close') closeCard();
+    else if (btn.dataset.card === 'focus') { closeCard(); focusNode(i); }
+  });
+  addEventListener('keydown', (ev) => { if (ev.key === 'Escape') closeCard(); });
 
   function draw() {
     const info = $('#vinfo');
@@ -786,9 +932,11 @@
   const h = new URLSearchParams(location.hash.slice(1));
   if (h.get('dir') === 'out') { S.pathDir = 'out'; $('#path-dir').value = 'out'; }
   const hn = h.get('n') ? resolveName(h.get('n')) : -1, ht = h.get('to') ? resolveName(h.get('to')) : -1;
-  if (hn >= 0) {
-    focusNode(hn);
-    if (ht >= 0) { S.target = ht; $('#q2').value = nName(ht); findPath(); }
-  } else if (h.get('g')) focusGroup(Number(h.get('g')) - 1);
-  else showTab(['groups', 'crud'].includes(h.get('tab')) ? h.get('tab') : 'overview');
+  if (history.state && history.state.v) restore(history.state); // a reload keeps the history entries
+  else if (hn >= 0) {
+    focusNode(hn, false);
+    if (ht >= 0) { S.target = ht; $('#q2').value = nName(ht); findPath(false); }
+    else if (h.get('impact')) { S.mode = 'impact'; record(false); draw(); }
+  } else if (h.get('g')) focusGroup(Number(h.get('g')) - 1, false);
+  else { history.replaceState({ v: { m: 'none' }, d: 0, back: '' }, '', location.hash || '#'); navUI(); showTab(['groups', 'crud'].includes(h.get('tab')) ? h.get('tab') : 'overview'); }
 })();

@@ -249,7 +249,11 @@ export function buildModel(graph, { hubs = 40, groups = 60, fold = true, info = 
     let inner = 0;
     for (const [a, b] of edges) if (membership[a] === c && membership[b] === c) inner++;
     // a TCode description that only names its program ("program ZX screen 1000") says nothing — skip it
-    const said = (i) => { const d = descOf.get(all[i].id); return d && !/^(program|report|transaction|tcode)\s+\S+(\s+screen\s+\d+)?$/i.test(d.trim()); };
+    // nor does a parameter TCode's call string ("SM34 VCLDIR-VCLNAME=… UPDATE=X")
+    const said = (i) => {
+      const d = descOf.get(all[i].id);
+      return d && !/^(program|report|transaction|tcode)\s+\S+(\s+screen\s+\d+)?$/i.test(d.trim()) && !/^\/?\*?(SM3[04]|SE16N?|SE54)\b|VIEWNAME=|VCLNAME=/i.test(d.trim());
+    };
     const lead = members.find((i) => all[i].type === 'TRAN' && said(i)) ?? members.find((i) => all[i].type === 'PROG' && said(i)) ?? members.find(said);
     const label = groupLabel(members.slice(0, 60).map((i) => all[i].name), () => (lead !== undefined ? descOf.get(all[lead].id) : ''));
     return { id: gi, size: members.length, top: members.slice(0, 8), mix, inner, label };

@@ -163,6 +163,8 @@ describe('side information', () => {
     const m: any = buildModel(graph, { info: { desc: new Map([['TRAN:ZGD1', 'program ZGD_REPORT screen 1000'], ['PROG:ZGD_REPORT', 'GD list']]) } });
     const g = m.comms[m.nodes[ix(m, 'TRAN:ZGD1')][3]];
     expect(g.label).toContain('GD list');
+    const m2: any = buildModel(graph, { info: { desc: new Map([['TRAN:ZGD1', 'SM34 VCLDIR-VCLNAME=ZGDV UPDATE=X'], ['PROG:ZGD_REPORT', 'GD list']]) } });
+    expect(m2.comms[m2.nodes[ix(m2, 'TRAN:ZGD1')][3]].label).not.toContain('SM34');
   });
 
   it('reads walk / inventory / usage-result / DD08L reads from an inventory folder', () => {
