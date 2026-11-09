@@ -1,0 +1,118 @@
+https://x.com/addyosmani/status/2119332146485891501 에 있는 문서야 
+
+<pasted_content id="63b5">
+Your coding agents made you a manager
+The skills for managing agents are pretty much the skills for managing a team, and you don't need to be a manager to learn them.
+If you're spending all day with a coding agent, you are managing. You're repeatedly selecting tasks, writing instructions, delegating, following up, evaluating results, and deciding what ships. The engineers who get the most out of agents aren't necessarily the ones who are best at prompt engineering. They're the ones who learned how to manage, intentionally or otherwise.
+This might be an unwelcome idea. Many of the engineers I admire took an individual contributor (IC) career path because they want to stay close to the work. They've seen friends become managers and disappear into their calendars. But I'm not telling you to become a manager like that. I'm using "management" in a specific sense: producing good outcomes by enabling others' work. And I'm certainly not saying agents are a substitute for managers or colleagues.
+Every gripe you have about bad managers is a bug report for interacting with agents. Think about handoffs. If you’ve experienced a bad one you may have got an ask that felt vague, lacked context or just had expectations shift a lot. The good news for ICs is that since you’ve been on the receiving end of handoffs for years, you might know what a good one looks like.
+I've written before that your coding agents need a manager. I've also written about the quiet risk of delegation, cognitive surrender. This piece compares good engineering managers' practices with what we've learned from using and creating Claude Code. The sections are roughly ordered by impact, so that the most high-leverage habit comes first.
+Give it a way to check its work
+Best practice: Provide the agent with a mechanism to validate its work, like a test suite, build, or screenshot, and have it show you the results as proof.
+Anti-pattern: Taking "looks done" as confirmation. This forces you to do all the validation, becoming the agent's test suite.
+Ask an experienced manager how they can be confident their team is producing good work without reading everything, and they'll talk about guardrails. CI, code review, dashboards, on-call, etc. Inexperienced managers who don't build guardrails end up validating everything themselves, and within a quarter they're the bottleneck. The same is true for agents. As the Claude Code best-practices guide explains, agents stop when the work looks done. If there's no validation, "looks done" is the only validation the agent has. Providing a mechanism to validate the work allows the agent to do the work, run the validator, see the failure, and correct it on its own. For a UI change, this can mean actually opening the page in a browser and iterating until it works and looks good.
+The validation mechanism can be almost anything, as long as it's something that yields a definitive pass/fail result. Think tests, build exit codes, linters, diff scripts, and screenshots. The guide notes that the command that runs these validations is the single most useful line you can have in your CLAUDE.md, the instructions file the agent starts each session with. Once you have the validation mechanism, here are some ways you can bring it into your workflow:
+Ask. "Run the auth tests after, and continue until they pass."
+Set a goal. With /goal, a separate model runs a condition check after every turn, which is most useful when doing long background work.
+Enforce. A Stop hook can prevent the turn from completing until the typecheck passes.
+Have it reviewed. /code-review sends the diff to a new subagent (which didn't see your conversation) for review, like how authors don't approve their own PRs.
+You can even control the scope of the review. If you ask it to find problems, it will always find something. But if you ask it to find correctness issues and ignore style, it will do that. This is how good managers learn to ask for feedback, as well. Most of the functionality in the Claude Code toolkit is all about tightening this loop. Skills, hooks, subagents, and MCP all exist to bridge the gap between doing the work and validating the work, so your focus is only on the things the agent couldn't validate. This is what experienced engineering managers do.
+Set clear context
+Best practice: Provide a clear summary of what the agent can't know by inspecting the repo, including: the task's objective and why it's important, constraints, out-of-scope items, and success criteria.
+Anti-pattern: Passing a one-line task, while the real expectations live in your head, or padding the brief with things the agent would discover by reading the code.
+Effective managers provide clear descriptions of the desired outcome, constraints, and objectives. They articulate what the work should accomplish, but give the person doing the work the freedom to figure out how to do it. In the military, they call it commander's intent. At Netflix, they call it "context, not control."
+The challenge of working with agents is that it's hard to know what context the agent is missing. The first thing a coding agent does on every task is read your code. Current models are fantastic at picking up on your folder structure, conventions, and test set-up much faster than you could describe them.
+Before you write anything down, think about what the agent can figure out on its own. If the agent can read it in your code, and it would actually go read it, you don't need to say anything. Spend your words on the parts that are not in the repo - e.g. a meeting decision, someone's internal process for deploying, why this task is important, and what it means to be done this time.
+Let's take the example of a vague task, "make the dashboard faster", and turn it into a prompt. The numbers here are just for example.
+bash
+Get p95 load time for the /team dashboard under 2s for orgs with 10k+ members.
+
+Why: enterprise admins open it daily, and slow loads are their top support ticket.
+
+Constraints: no schema changes; keep the API response shape.
+
+Out of scope: UI changes; caching the whole page.
+Check: run scripts/perf/team.sh and show before and after numbers.
+You don't need to do this for every task. If you're doing discovery work, it's totally fine to write a generic prompt. You'll just refine a little more as you go. If you're not ready to write a prompt, have the agent interview you until it could write the spec, save that spec to a file, and then start a new session with the agent to build from that. You can use that spec to review against later.
+You might also need to give your agent access to other tools, like your issue tracker, error dashboard, or team chat. Treat your agent the same way you'd treat a new hire on your team. If it's a CLI tool it already knows about, like gh, you often won't need to tell it anything.
+Make every correction compound
+Best practice: When you correct the same thing more than once, document it in the team's CLAUDE.md or turn it into a shared skill. Over time, check if newer models reduce the need for these corrections.
+Anti-pattern: Manually correcting the same thing every session or relying on tacit knowledge that only exists on your own machine.
+Teams that maximize the value of CLAUDE.md update it semi often and write down lessons learned from mistakes worth preventing. Some teams even mention @claude in code reviews, turning feedback into a permanent policy. Keep CLAUDE.md concise. Here are the types of things that belong in it:
+How to verify something (exact commands)
+Misleading areas of the code
+Decisions that don't exist in the repo
+Anything you've corrected twice
+These are all examples of the compounding nature of written information. It outlasts people changing teams and models getting replaced.
+Let it decide, and enforce only what can't bend
+Best practice: Let the agent decide by default and only use hard enforcement (e.g. hooks, deny rules) for the few things that must always or never happen.
+Anti-pattern: You write rules in ALL CAPS, define hooks for optional preferences, or keep habits from older models long after newer models outgrew them.
+Andy Grove's High Output Management describes this as task-relevant maturity: the level of supervision should depend on a person's history of performance in that specific task, not their overall capability.
+An old piece of advice for new managers says the same thing: give people a little more latitude than you're comfortable with while backing them up and holding them accountable.
+Claude Code takes this and makes it explicit: prompts, CLAUDE.md, and skills are requests that the model can consider and choose to act on; hooks, deny rules, and managed settings are requirements that are always enforced. In most cases, you want the agent to make the call. There are often cases where the model, looking at real code, is better placed to judge if a guideline applies than a rule you set ahead of time. Use enforcement to set hard requirements such as "never edit the generated client" or "always run the license-header script." In particular, new terminal and VS Code sessions start in auto mode, with a classifier that will filter out unsafe behaviors like deploying to production or force pushing over someone's work.
+The guide's advice has two sides. If you're putting more emphasis on a CLAUDE.md line and the agent still isn't picking it up, it should be a hook. If a hook is expressing a preference instead of a requirement, it should be removed in favor of letting the agent call the shots. It's like your team deciding to retire a process that is no longer useful. This also means adjusting when you have a new model. The guide keeps a list of habits you can stop: ALL CAPS directions, "think harder" (effort is a setting now), and "don't be lazy." With current models, these tend to lead to over-enforced rules and overwork. With agents, over-process is the new micromanagement.
+Plan before it builds
+Best practice: Set an agreed-upon plan before the agent starts coding, read for underlying assumptions, and partition tasks into non-overlapping parallel work.
+Anti-pattern: Allowing multiple agents to tackle overlapping tasks simultaneously, then spending the afternoon resolving merge conflicts and duplicated decisions.
+A good workflow here is to first enter plan mode and iterate on your plan until you have the right one, then delegate the coding. With a good plan, the model can often build it all in a single pass. For larger tasks, use a second session to look through the plan as a staff engineer would; it's a design review, which is the cheapest place to catch a wrong turn. When reviewing the plan, look for underlying assumptions (in a 1:1 this would be asking, "What are you unsure about?").
+Decomposition is increasingly being delegated to agents. /batch in Claude Code takes a big mechanical change and creates 5 to 30 tasks, displays the plan, executes them in separate worktrees (separate checkouts of the repo), and creates a PR for each one. You no longer need to divide up the work, just check the slices for overlap and make sure shared interfaces land first. Without this, you might get a false level of parallelism. Five agents taking on overlapping tasks won't lead to five times the output, it leads to one merge conflict with five authors.
+Steer early, reset fast
+Best practice: Watch the first minute and steer the agent. As soon as you see it go off course, correct. If you've already made two failed attempts to correct the agent, start anew with a fresh session and better prompt.
+Anti-pattern: Adding a third or fourth attempt to correct the agent, instead of correcting the request.
+An experienced manager knows that if a capable person has a miss multiple times, the problem might be upstream with the instructions, context or scope. The agent version is explicit: as soon as the agent goes off course, hit Esc. If you've already made two failed attempts to correct the agent, clear the session and write a better prompt, incorporating the lessons you learned. A third attempt to correct the agent is mostly just more information that the model has to keep re-reading and re-processing (including failed attempts).
+Cheap rollback is also changing the game. /rewind rolls the code and conversation to an earlier point, making it low-risk to try a more ambitious approach first. Good managers do the same with employees: if undoing a mistake is cheap, let them try an ambitious approach. Then run the retro afterwards, and generalize the fix into CLAUDE.md if applicable.
+Delegate the task, never the judgment
+Best practice: The agent does the work, you decide the important things: product calls, security boundaries, what ships. Treat every diff like you're going to get paged for it.
+Anti-pattern: Approving large diffs because the tests are green and the names look reasonable. This is not code review, this is code ratification.
+No manager can say "my report shipped that, not me." The same is true for every agent you run. I've fallen into this trap myself. I told an agent to research gaps with competitors and write local PRs to close those gaps. I read the research, skimmed the code and almost went ahead and pushed changes that added complexity for users for little gain. I had delegated the work, and almost delegated the decision as well. It's an easy trap to fall into: it's a 600-line diff, the names look reasonable, the tests are green, approve.
+It makes sense to split tasks this way: let agents do the style, linting, follow-ups to reviews, typical bugs and unit testing, but let humans handle security boundaries, compliance and product decisions.
+Coordination works the same way. An agent can keep track of handoffs, but deciding between competing requests and getting people to actually commit is still a human job.
+You don't need to be in the inner loop of every change. What you do need to own are the outer loops: what the constraints are, how much of the output you actually read, what evidence you keep, and what a human has to sign off on. And keep changes small, since the unit of review is the unit of comprehension.
+Design the run that doesn't need you
+Best practice: Before deploying an autonomous task, define done, the self-verification, the boundaries, the guardrails, and the human approval.
+Anti-pattern: Starting a long-running process before bed, without a definition of done or a stopping point, and waking up the next morning to find out that your model has been working overnight on a faulty premise.
+Skip-level managers don't manage the work of individual engineers; they manage the work of goals, guardrails, checkpoints, and leads. AI agents are following a similar trajectory. They are already delegating parts of a task to sub-agents, and they can run autonomously on schedules, after CI failures or after new pull requests are opened. The frontier is self-governing systems that can autonomously start, self-verify, and only call for human intervention when decisions are needed.
+The role shifts from controlling the session to designing your loops. The five questions to ask yourself when designing an unattended run are the same questions a good manager asks before giving a senior engineer a project and going on vacation:
+Does it know what done looks like? (Goal condition, spec file, or a failing test it has to turn green.)
+Does it have a self-verification mechanism? (Test suite, Stop hook, or review step.)
+What are its boundaries? (Permission controls, sandbox, worktree, or the one branch it's allowed to push to.)
+What are its guardrails? (Turn limit or spend limit.)
+Where does it produce output, and who approves it? (A PR or summary, and a human approval of any non-reversible actions.)
+The guide has two more habits that managers will recognize as good practices: pilot, i.e., get a batch job to run on three files, iterate the prompt, then run the rest; and watch the first few runs of anything new before you trust it unattended. Think of it as a probation period.
+Scale verification, not attention
+Best practice: Scale up the use of agents only as fast as checks, goals and fresh reviewers can take over the watching, and measure quality in addition to throughput.
+Anti-pattern: Opening more sessions than you can review well, and measuring success by how much code the AI wrote.
+Managers learn their span of control pretty quickly. Past a certain number of direct reports, everyone gets less of the manager and the quality goes down. The same is true for agents. It's what I call the orchestration tax: Past the first few agents, each additional agent requires more of your attention than the last. Most days I run four or five background agents and a few local sessions, and some days that's too many.
+Managing lots of sessions isn't about being super-focused, it's about delegating most of the monitoring to self-evaluation, goals and new-context reviewers and reserving attention for decisions. It also helps to have notifications instead of polling and a centralized view of the background jobs. You can't scale the number of agents by monitoring more, only by needing to monitor less. Then measure the system rather than the activity. Useful metrics include cycle time for PRs, ramp up time for new employees and the frequency of reverts or rework. Measuring the percentage of AI-written code isn't a useful goal, because what you're aiming for is quality and reliability. Grove's rule of measuring with a countermeasure applies here: If you measure the number of PRs merged, then also measure reverts and rework.
+Decide what not to build
+Best practice: Ask who needs it, how you'll know it worked and what would make you stop, and limit WIP.
+Anti-pattern: Just throwing every plausible idea into a PR; after all it's cheap to build. You'll now have a junk drawer the team needs to review, secure and maintain.
+The most important word a manager says is often "no." With agents, it's harder to say no. It's nearly free to start work and you can throw any plausible idea into a PR by lunch. But you'll now have a bunch of PRs that the team needs to review, secure, support and maintain. Review and validation are the scarce resources now.
+In fact, the old management questions matter now more than they used to. Who asked for it? How do we measure success? How do we know when to stop? If it's cheap to build the hard question is not "can we?" but "should we?"
+Where the analogy breaks
+Best practice: Follow management best practices, but account for the differences in the agent model, like cheap rework, how quick they are to agree, and strengths that shift with every model release.
+Anti-pattern: Thinking that an agent is just like a junior developer, or that you're prepared to manage five people because you can run five agents.
+The analogy is a useful but imperfect one, and the best practitioners of this work are aware of where it is imperfect:
+Managing people is harder, and the skills don't transfer back. You're not prepared to manage five people because you've run five agents. There is no equivalent for motivation, conflict, career development, or months-long trust building.
+Rework is almost free. You can ask an agent things you would never ask of a person. If a technical debate happens at the whiteboard, the agent can build two or three options and you can compare them.
+Agents don't have experience, just a notebook. Auto memory only records notes on one machine. They don't transfer to your teammates' sessions. They aren't the experience and judgment you develop over the course of your career, and you need to write those lessons down for the whole team.
+Agents are eager and confident. If you ask a good engineer to do something wrong, they push back. Agents are more likely to do what you ask, and you're likely to overtrust them. In Wharton research on cognitive surrender, participants accepted faulty AI answers most of the time, and grew more confident. You can counter the overconfidence by asking the agent to argue against its own answer.
+You only have one agent archetype, and it changes every few months. Human teams have diverse skills and strengths. All your agents have the same strengths and weaknesses, which shift with each model release.
+You still have to train your junior devs. When agents take over the starter work junior devs need to learn the fundamentals of the craft, you have to create those reps intentionally as a manager.
+The human team still matters. Sometimes you can spend a day managing agents without realizing that you've crowded out the time it takes to build a cohesive team. Don't do this.
+You don't need the title
+Best practice: Focus your effort on making good software happen: setting the context, defining done, and reviewing well.
+Anti-pattern: Evaluating yourself by lines of code while running under-briefed, unchecked agents.
+Good staff engineers have always been like this. They write the design doc. They set the context. They do a thorough review. They make the people around them better. Agents let all engineers do this on day one. They give you a crash course on management. You get feedback in minutes, not quarters. You can undo your own mistakes. The job is becoming less about writing the code and more about being the reason good code gets written.
+Nobody's born a great manager (or a great engineer). You build skills the same way you always have, through practice. But with agents, practice is cheap.
+Try these ideas:
+Every task needs a check it can run. Ask for the proof.
+Tell the agent what it can't see and leave out what it can.
+Talk through the plan before writing the code.
+Corrected something twice? Log it in CLAUDE.md. Repeated workflows? Turn them into skills.
+Two failed corrections? Restart and rephrase the prompt.
+Review the diff as if you'll get paged for it.
+You don't have to want to be a manager. But the engineers who do well with agents will have learned to manage along the way.
+</pasted_content id="63b5">
+
+ 어떻게 해야하는지 분석해줘.
