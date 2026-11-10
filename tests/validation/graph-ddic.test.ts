@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildPackageGraph } from '../../scripts/graph/build-package-graph.mjs';
-import { CHUNKS, ddicQueries, slices } from '../../scripts/graph/ddic-queries.mjs';
+import { CHUNKS, ddicQueries, slices, textLangs } from '../../scripts/graph/ddic-queries.mjs';
 import { matchReads } from '../../scripts/graph/collect-ddic-reads.mjs';
 import { loadDdicReads, mergeDdic, parseDdicFacts } from '../../scripts/graph/ddic-edges.mjs';
 import { EDGE_KINDS, extractGraph } from '../../scripts/graph/extract-edges.mjs';
@@ -124,7 +124,7 @@ describe('graph DDIC relations', () => {
   });
 
   it('ddicQueries: DD tables only, single-table IN lists, chunked', () => {
-    const q = ddicQueries(walk, { chunk: 1, fieldsChunk: 2 });
+    const q = ddicQueries(walk, { chunk: 1, fieldsChunk: 2, only: 'ddic' });
     expect(new Set(q.map((x: { table: string }) => x.table))).toEqual(
       new Set(['DD03L', 'DD08L', 'DD05S', 'DD35L', 'DD04L', 'DD01L', 'DD40L', 'DD26S', 'DD30L', 'DD31S']),
     );
@@ -137,7 +137,33 @@ describe('graph DDIC relations', () => {
     // DD03L covers TABL + STRU + VIEW (4 names) in chunks of 2
     expect(q.filter((x: { table: string }) => x.table === 'DD03L').map((x: { id: string }) => x.id)).toEqual(['dd03l-1', 'dd03l-2']);
     expect(q.filter((x: { table: string }) => x.table === 'DD30L')).toHaveLength(2);
-    expect(ddicQueries({ objects: [{ name: 'ZP', type: 'PROG' }] })).toEqual([]);
+    expect(ddicQueries({ objects: [{ name: 'ZP', type: 'PROG' }] }, { only: 'ddic' })).toEqual([]);
+  });
+
+  it('texts: one short-text read per object kind, logon language + English, graph adds customer nodes', () => {
+    const w = { objects: [
+      { name: 'ZT1', type: 'TABL/DT' }, { name: 'ZE1', type: 'DTEL/DE' }, { name: 'ZP1', type: 'PROG/P' },
+      { name: 'ZTC1', type: 'TRAN' }, { name: 'ZFG1', type: 'FUGR/F' }, { name: 'ZCL1', type: 'CLAS/OC' }, { name: 'ZEQ1', type: 'ENQU/DL' },
+    ] };
+    const graph = { nodes: [{ type: 'FUNC', name: 'Z_FM1' }, { type: 'FUNC', name: 'BAPI_X' }, { type: 'TABL', name: 'MARA' }] };
+    const q = ddicQueries(w, { only: 'texts', lang: 'KO', graph });
+    const by = Object.fromEntries(q.map((x: { table: string; sql: string }) => [x.table, x.sql]));
+    expect(Object.keys(by).sort()).toEqual(['DD02T', 'DD04T', 'DD25T', 'SEOCLASSTX', 'TFTIT', 'TLIBT', 'TRDIRT', 'TSTCT']);
+    expect(by.DD02T).toBe("SELECT TABNAME, DDLANGUAGE, DDTEXT FROM DD02T WHERE AS4LOCAL = 'A' AND DDLANGUAGE IN ('3','E') AND TABNAME IN ('ZT1')");
+    expect(by.TRDIRT).toBe("SELECT NAME, SPRSL, TEXT FROM TRDIRT WHERE SPRSL IN ('3','E') AND NAME IN ('ZP1')");
+    expect(by.TFTIT).toContain("FUNCNAME IN ('Z_FM1')"); // standard graph nodes are not read
+    expect(by.DD25T).toContain("VIEWNAME IN ('ZEQ1')");
+    expect(ddicQueries(w, { only: 'texts' })[0].sql).toContain("DDLANGUAGE IN ('E')");
+    expect(ddicQueries(w).length).toBe(ddicQueries(w, { only: 'ddic' }).length + ddicQueries(w, { only: 'texts' }).length);
+    // ECC TABLE_READ refuses SELECT / JOIN anywhere in the condition: such names drop out of their own chunk only
+    const fms = { objects: [], };
+    const g2 = { nodes: ['Z_A', 'Z_B_JOIN02', 'Z_C', 'Z_D'].map((name) => ({ type: 'FUNC', name })) };
+    const ecc = ddicQueries(fms, { only: 'texts', graph: g2, chunk: 2, ecc: true });
+    expect(ecc.map((x: { sql: string }) => x.sql.replace(/.* IN \(/, '('))).toEqual(["('Z_A')", "('Z_C','Z_D')"]);
+    expect(ddicQueries(fms, { only: 'texts', graph: g2, chunk: 2 })[0].sql).toContain('Z_B_JOIN02'); // S4: kept
+    expect(textLangs('EN')).toEqual(['E']);
+    expect(textLangs('d')).toEqual(['D', 'E']);
+    expect(textLangs("x'")).toEqual(['E']);
   });
 
   it('loadDdicReads + mergeDdic: rows per DD table, failed and truncated reported', () => {

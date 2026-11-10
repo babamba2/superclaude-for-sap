@@ -5,7 +5,8 @@
 //   node build-relation-map.mjs --graph <graph.json> [--graph …] --out <file.html>   (no side files)
 //
 // Per --dir it reads graph.json and, when present: walk.json / inventory.json (descriptions), usage-result.json
-// (used / unused), ddic-reads.json (standard check tables, shown as text only). Several --dir → one merged map
+// (used / unused), ddic-reads.json (standard check tables, shown as text only; repository short texts),
+// ddic-texts.json (short texts of a text refresh). A SAP short text wins over the inventory text. Several --dir → one merged map
 // (scripts/process/merge-graphs.mjs); default output then <module dir>/_relmap/<A+B+…>-relation-map-<lang>.html,
 // else <dir>/<PACKAGE>-relation-map-<lang>.html. --snippets embeds ±10 source lines per source relation, read
 // from the local MCP output (default <artifactBase>/mcp-output/src) — never from SAP.
@@ -21,6 +22,21 @@ import { buildModel } from './relmap-model.mjs';
 import { renderPage } from './relmap-page.mjs';
 import { isCustomName } from '../graph/ddic-edges.mjs';
 import { mergeGraphs } from '../process/merge-graphs.mjs';
+import { TEXT_READS } from '../graph/ddic-queries.mjs';
+
+const TEXT_BY_TABLE = new Map(TEXT_READS.map((t) => [t.table, t]));
+
+/**
+ * SAP short texts override the inventory text. English first — customer systems keep it as the maintained
+ * text (prefixes, current wording), while logon-language texts are often partial — then any other language.
+ */
+export function applyTexts(info) {
+  for (const [id, byLang] of info.texts || []) {
+    const pick = byLang.get('E') || [...byLang.values()][0];
+    if (pick) info.desc.set(id, pick);
+  }
+  return info;
+}
 
 const readJson = (p) => { try { return existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : null; } catch { return null; } };
 const SNIPPET_BYTES = 6_000_000;
@@ -39,7 +55,23 @@ export function readSideInfo(dir, info = { desc: new Map(), usage: new Map(), st
   }
   for (const o of readJson(join(dir, 'usage-result.json'))?.objects || []) if (o.id && o.status) info.usage.set(o.id, o.status);
   const reads = readJson(join(dir, 'ddic-reads.json'));
-  for (const r of (Array.isArray(reads) ? reads : reads?.reads) || []) {
+  const listOf = (x) => (Array.isArray(x) ? x : x?.reads) || [];
+  // repository short texts (DD02T, TRDIRT, TSTCT, …) from the G3a reads or the text refresh (ddic-texts.json)
+  info.texts ||= new Map();
+  for (const r of [...listOf(reads), ...listOf(readJson(join(dir, 'ddic-texts.json')))]) {
+    const t = TEXT_BY_TABLE.get(String(r.table || '').toUpperCase());
+    if (!t || !r.path) continue;
+    for (const row of readJson(r.path)?.rows || []) {
+      const name = String(row[t.key] || '').trim(), lang = String(row[t.lang] || '').trim(), text = String(row[t.text] || '').trim();
+      if (!name || !text) continue;
+      for (const type of t.types) {
+        const id = `${type}:${name}`;
+        if (!info.texts.has(id)) info.texts.set(id, new Map());
+        info.texts.get(id).set(lang, text);
+      }
+    }
+  }
+  for (const r of listOf(reads)) {
     if (r.table !== 'DD08L' || !r.path) continue;
     for (const row of readJson(r.path)?.rows || []) {
       const t = String(row.TABNAME || ''), c = String(row.CHECKTABLE || '').trim();
@@ -103,6 +135,7 @@ export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 4
   }
   const info = { desc: new Map(), usage: new Map(), std: new Map() };
   for (const d of dirs) readSideInfo(d, info);
+  applyTexts(info);
   const reader = snippets ? snippetReader(src) : null;
   const model = buildModel(graph, { hubs, groups, fold, info, snippets: reader });
   const html = renderPage(model, { lang });

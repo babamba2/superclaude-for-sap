@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { basisOf, buildModel, groupLabel, includeOwners, isCustomerName, keepNode, louvain } from '../../scripts/relmap/relmap-model.mjs';
 import { renderPage } from '../../scripts/relmap/relmap-page.mjs';
-import { buildRelationMap, readSideInfo, snippetReader } from '../../scripts/relmap/build-relation-map.mjs';
+import { applyTexts, buildRelationMap, readSideInfo, snippetReader } from '../../scripts/relmap/build-relation-map.mjs';
 
 const ev = (unit: string, text: string, line = 0) => [{ unit, line, text }];
 const graph = {
@@ -186,6 +186,39 @@ describe('side information', () => {
       expect(info.usage.get('TRAN:ZGD1')).toBe('direct');
       expect(info.std.get('ZGD_HEAD')).toEqual(['BUKRS→T001']);
       expect(info.std.has('ZGD_ITEM')).toBe(false);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+
+  it('placeholders dropped; a TCode that only names its program takes the program description', () => {
+    const m: any = buildModel(graph, { info: { desc: new Map([
+      ['TRAN:ZGD1', 'program ZGD_REPORT screen 1000'], ['PROG:ZGD_REPORT', 'GD list'], ['TABL:ZGD_HEAD', '-'], ['TABL:ZGD_ITEM', 'No DDIC description available'],
+    ]) } });
+    const d = (name: string) => { const x = m.nodes[ix(m, name)][7]; return x >= 0 ? m.desc[x] : ''; };
+    expect(d('TRAN:ZGD1')).toBe('GD list');
+    expect(d('TABL:ZGD_HEAD')).toBe('');
+    expect(d('TABL:ZGD_ITEM')).toBe('');
+  });
+
+  it('SAP short texts (DD02T / TRDIRT / TSTCT …) win over the inventory text, English first', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'relmap-'));
+    try {
+      const t1 = join(dir, 'dd02t-1.json'), t2 = join(dir, 'trdirt-1.json'), t3 = join(dir, 'tstct-1.json');
+      writeFileSync(t1, JSON.stringify({ rows: [{ TABNAME: 'ZGD_HEAD', DDLANGUAGE: 'E', DDTEXT: 'GD header (SE11)' }] }));
+      writeFileSync(t2, JSON.stringify({ rows: [
+        { NAME: 'ZGD_REPORT', SPRSL: '3', TEXT: 'GD 목록' }, { NAME: 'ZGD_REPORT', SPRSL: 'E', TEXT: '[GL] GD list' },
+      ] }));
+      writeFileSync(t3, JSON.stringify({ rows: [{ TCODE: 'ZGD1', SPRSL: '3', TTEXT: 'GD 조회' }] }));
+      writeFileSync(join(dir, 'ddic-reads.json'), JSON.stringify([{ id: 'dd02t-1', table: 'DD02T', path: t1, rows: 1 }]));
+      writeFileSync(join(dir, 'ddic-texts.json'), JSON.stringify([
+        { id: 'trdirt-1', table: 'TRDIRT', path: t2, rows: 2 }, { id: 'tstct-1', table: 'TSTCT', path: t3, rows: 1 },
+        { id: 'tftit-1', table: 'TFTIT', error: 'no result file' },
+      ]));
+      writeFileSync(join(dir, 'inventory.json'), JSON.stringify({ objects: [{ name: 'ZGD_HEAD', type: 'TABL', description: 'GD header | TRANSP' }] }));
+      const info = applyTexts(readSideInfo(dir));
+      expect(info.desc.get('TABL:ZGD_HEAD')).toBe('GD header (SE11)');
+      expect(info.desc.get('STRU:ZGD_HEAD')).toBe('GD header (SE11)');
+      expect(info.desc.get('PROG:ZGD_REPORT')).toBe('[GL] GD list');
+      expect(info.desc.get('TRAN:ZGD1')).toBe('GD 조회'); // no English text → the other language
     } finally { rmSync(dir, { recursive: true, force: true }); }
   });
 

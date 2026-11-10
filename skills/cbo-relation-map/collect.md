@@ -34,6 +34,14 @@ Eco map-only collection:
 4. **Build** — `node "<PLUGIN_ROOT>/scripts/graph/build-package-graph.mjs" --dir "<UDIR>" --src "<AB>/mcp-output/src" --system <SID> --sap-version <SAPV>`. It writes `graph.json` and `usage-result.json` (used / unused per object).
 5. **Map** — SKILL.md Step 3 with `--dir <AB>/cbo/<MODULE>/<PACKAGE>` (when that whole-package graph exists — it brings the DDIC relations) **and** `--dir "<UDIR>"`. The two graphs of one package merge into one; the page counts them as one package.
 
+## C. Text refresh (graph collected before the short-text reads)
+
+When a `<DIR>` has `graph.json` but neither `ddic-texts.json` nor text tables in `ddic-reads.json`, the map would show names only. Read the short texts alone — no walk, no graph rebuild:
+
+1. `node "<PLUGIN_ROOT>/scripts/graph/ddic-queries.mjs" --dir "<DIR>" --sap-version <SAPV> --lang <SAP_LANGUAGE> --only texts --out "<DIR>/ddic-text-plan.json"` (graph nodes add the function modules and the customer objects outside the walk).
+2. G3a checkers on that plan file, **20 entries per `sap-checker`**: text statements carry long name lists, and a 60-entry slice exceeds the checker's budget (it returns `BLOCKED`).
+3. `node "<PLUGIN_ROOT>/scripts/graph/collect-ddic-reads.mjs" --dir "<DIR>" --sql-dir "<SQLDIR>" --plan ddic-text-plan.json --out ddic-texts.json` — entries with `error` → run those entry ranges again, once.
+
 ## Note — measured eco run (2026-11-06, a customer ECC 7.40 package of about 8,000 objects)
 
 Walk on Haiku 58k tokens · G1 358 sources by 18 checkers 1.12M · G3a 205 statements by 4 checkers 535k · G2 345 TCodes on the main thread (4 calls) · usage reused from a saved productive usage list. Result: 7,928 objects, 19,428 relations, 205 / 205 DDIC reads. 13 FUGR answers overflowed the tool-result limit; all folders were on disk.

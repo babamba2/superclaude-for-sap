@@ -9,7 +9,8 @@
  *
  *   - output: "file", no acknowledge_risk
  *   - one statement (no ';'), SELECT <explicit column list> FROM <one DD table> WHERE <condition>
- *   - the table is one of DD_METADATA_TABLES
+ *   - the table is one of DD_METADATA_TABLES or REPO_TEXT_TABLES (repository short texts: what SE11 / SE38 /
+ *     SE93 / SE37 / SE80 show as the object description — never business rows)
  *   - the condition holds only column names, '=', '<>', IN ( … ), AND / OR and string literals
  *     (no sub-query, JOIN, UNION, host variables, functions)
  *
@@ -18,6 +19,11 @@
 
 export const DD_METADATA_TABLES = new Set([
   'DD01L', 'DD03L', 'DD04L', 'DD05S', 'DD08L', 'DD26S', 'DD30L', 'DD31S', 'DD35L', 'DD40L',
+]);
+
+/** repository object short texts (analyze-cbo-obj G3a texts → object descriptions) */
+export const REPO_TEXT_TABLES = new Set([
+  'DD01T', 'DD02T', 'DD04T', 'DD25T', 'DD30T', 'DD40T', 'TRDIRT', 'TSTCT', 'TFTIT', 'TLIBT', 'SEOCLASSTX',
 ]);
 
 const FORBIDDEN_WORDS = /\b(SELECT|FROM|JOIN|UNION|INTO|EXISTS|UP|ORDER|GROUP|HAVING|DISTINCT|LIKE|BETWEEN|NOT|IS|NULL|CASE|AS)\b/;
@@ -38,7 +44,7 @@ export function isDdMetadataQuery(toolInput) {
   const m = bare.match(/^SELECT\s+([A-Z0-9_]+(?:\s*,\s*[A-Z0-9_]+)*)\s+FROM\s+([A-Z0-9_]+)\s+WHERE\s+([\s\S]+)$/);
   if (!m) return false;
   const [, , table, where] = m;
-  if (!DD_METADATA_TABLES.has(table)) return false;
+  if (!DD_METADATA_TABLES.has(table) && !REPO_TEXT_TABLES.has(table)) return false;
   if (!/^[A-Z0-9_\s=<>(),']+$/.test(where)) return false;
   if (FORBIDDEN_WORDS.test(where)) return false;
   return true;

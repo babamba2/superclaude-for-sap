@@ -30,7 +30,8 @@ Settled with the user (2026-11-06) — do not ask again:
 
 | Topic | Decision |
 |---|---|
-| Input | The `graph.json` of `/sc4sap:analyze-cbo-obj` (Step G), plus its side files when present: `walk.json` / `inventory.json` (descriptions), `usage-result.json` (used / unused), `ddic-reads.json` (standard check tables). Missing graph → collect it per [`collect.md`](collect.md) |
+| Input | The `graph.json` of `/sc4sap:analyze-cbo-obj` (Step G), plus its side files when present: `walk.json` / `inventory.json` (descriptions), `usage-result.json` (used / unused), `ddic-reads.json` (standard check tables, object short texts), `ddic-texts.json` (short texts of a text refresh). Missing graph → collect it per [`collect.md`](collect.md); a graph without short texts → text refresh, [`collect.md`](collect.md) § C |
+| Descriptions | The SAP short text (SE11 / SE38 / SE93 / SE37 / SE80 description; English first, else the logon language) wins over the inventory text. Placeholders (`-`, `No DDIC description available`) are dropped; a TCode whose text only names its program takes that program's description. Every related object in the side panel shows its description |
 | Collection | Scope **whole package** or **used TCodes only** (productive ST03N). Standard = full `/sc4sap:analyze-cbo-obj`; eco = map-only collection (Haiku walk + Step G, no scouts, no finalize) |
 | Objects | Customer objects only: in-package members and Z / Y / namespace objects outside the package. Standard and dynamic targets and their relations are never drawn; standard includes inside a Z function group (`LSVIM*`, …) neither. Standard **check tables** appear only as text in the side panel |
 | Includes | Folded into their program / function group by default (relations move to the owner, evidence keeps the include and line); `--includes keep` draws them |
