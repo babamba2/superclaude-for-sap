@@ -803,6 +803,11 @@ CLASS zcl_mcp_biz_mm IMPLEMENTATION.
                    CHANGING  cs_result = cs_result ).
           RETURN.
         ENDIF.
+        IF lv_ext = ls_cur-delivery_date.
+          add_msg( EXPORTING iv_type = 'E' iv_text = |Nothing to change: schedule line { lv_etenr } already has this delivery date|
+                   CHANGING  cs_result = cs_result ).
+          RETURN.
+        ENDIF.
         CLEAR ls_sched.
         ls_sched-po_item       = lv_ebelp.
         ls_sched-sched_line    = lv_etenr.
@@ -938,8 +943,14 @@ CLASS zcl_mcp_biz_mm IMPLEMENTATION.
           lt_sched  TYPE zif_mcp_biz_action=>ty_po_schedules,
           lt_schedx TYPE ty_schedsx,
           lt_ext    TYPE ty_parex,
-          lv_test   TYPE bapiflag-bapiflag.
+          lv_test   TYPE bapiflag-bapiflag,
+          ls_exph   TYPE bapimepoheader,
+          lv_frgke  TYPE ekko-frgke,
+          lv_frgzu  TYPE ekko-frgzu,
+          lv_text   TYPE string.
 
+    " Release indicator before the change: a change can re-determine (or drop) the release strategy.
+    SELECT SINGLE frgke frgzu FROM ekko INTO (lv_frgke, lv_frgzu) WHERE ebeln = iv_ebeln.
     lt_ext    = it_ext.
     lt_item   = it_item.
     lt_itemx  = it_itemx.
@@ -951,6 +962,8 @@ CLASS zcl_mcp_biz_mm IMPLEMENTATION.
       EXPORTING
         purchaseorder = iv_ebeln
         testrun       = lv_test
+      IMPORTING
+        expheader     = ls_exph
       TABLES
         return        = lt_ret2
         poitem        = lt_item
@@ -965,6 +978,12 @@ CLASS zcl_mcp_biz_mm IMPLEMENTATION.
       add_sy_msg( CHANGING cs_result = cs_result ).
     ENDIF.
     add_ret2( EXPORTING it_return = lt_ret2 CHANGING cs_result = cs_result ).
+    IF ls_exph-po_number IS NOT INITIAL
+       AND ( ls_exph-po_rel_ind <> lv_frgke OR ls_exph-rel_status <> lv_frgzu ).
+      lv_text = |The change re-determines the release of PO { iv_ebeln ALPHA = OUT }: release indicator | &&
+                |'{ lv_frgke }' -> '{ ls_exph-po_rel_ind }', release status '{ lv_frgzu }' -> '{ ls_exph-rel_status }'|.
+      add_msg( EXPORTING iv_type = 'W' iv_text = lv_text CHANGING cs_result = cs_result ).
+    ENDIF.
     commit_or_rollback( EXPORTING iv_testrun = iv_testrun CHANGING cs_result = cs_result ).
   ENDMETHOD.
 
@@ -976,6 +995,7 @@ CLASS zcl_mcp_biz_mm IMPLEMENTATION.
           lv_posted TYPE abap_bool,
           lv_valid  TYPE abap_bool,
           ls_fin    TYPE bapirlcopo,
+          lv_pre    TYPE bapirlcopo-rel_code1,
           lv_fm     TYPE string.
     FIELD-SYMBOLS <lv_relc> TYPE any.
 
@@ -1056,6 +1076,28 @@ CLASS zcl_mcp_biz_mm IMPLEMENTATION.
         ELSEIF iv_action = 'MM.PO.RESET_RELEASE' AND lv_posted = abap_false.
           add_msg( EXPORTING iv_type = 'E' iv_text = |Release code { ev_code } is not set on PO { ev_ebeln }: nothing to reset|
                    CHANGING  cs_result = cs_result ).
+        ELSEIF iv_action = 'MM.PO.RELEASE'.
+          " Codes that must be set before this one (release_prerequisites) and are not set yet.
+          DO 8 TIMES.
+            lv_comp = |REL_CODE{ sy-index }|.
+            ASSIGN COMPONENT lv_comp OF STRUCTURE cs_result-rel_prereq TO <lv_relc>.
+            IF sy-subrc <> 0 OR <lv_relc> IS INITIAL OR <lv_relc> = ev_code.
+              CONTINUE.
+            ENDIF.
+            lv_pre = <lv_relc>.
+            lv_posted = abap_false.
+            DO 8 TIMES.
+              lv_comp = |REL_CODE{ sy-index }|.
+              ASSIGN COMPONENT lv_comp OF STRUCTURE cs_result-rel_posted TO <lv_relc>.
+              IF sy-subrc = 0 AND <lv_relc> = lv_pre.
+                lv_posted = abap_true.
+              ENDIF.
+            ENDDO.
+            IF lv_posted = abap_false.
+              add_msg( EXPORTING iv_type = 'E' iv_text = |Release code { ev_code } needs code { lv_pre } to be set first on PO { ev_ebeln }|
+                       CHANGING  cs_result = cs_result ).
+            ENDIF.
+          ENDDO.
         ENDIF.
       ENDIF.
     ENDIF.
@@ -1526,16 +1568,26 @@ CLASS zcl_mcp_biz_mm IMPLEMENTATION.
 
 
   METHOD check_lock.
-    DATA lv_text TYPE string.
+    DATA: lv_text TYPE string,
+          lv_rc   TYPE sy-subrc.
 
-    CALL FUNCTION 'ENQUEUE_EMEKKOE'
-      EXPORTING
-        ebeln          = iv_ebeln
-      EXCEPTIONS
-        foreign_lock   = 1
-        system_failure = 2
-        OTHERS         = 3.
-    CASE sy-subrc.
+    " The lock of the own user's previous change is released by the update task shortly
+    " after its commit: retry up to 3 seconds before reporting it (other users: no wait).
+    DO 4 TIMES.
+      CALL FUNCTION 'ENQUEUE_EMEKKOE'
+        EXPORTING
+          ebeln          = iv_ebeln
+        EXCEPTIONS
+          foreign_lock   = 1
+          system_failure = 2
+          OTHERS         = 3.
+      lv_rc = sy-subrc.
+      IF lv_rc <> 1 OR sy-msgv1 <> sy-uname OR sy-index = 4.
+        EXIT.
+      ENDIF.
+      WAIT UP TO 1 SECONDS.
+    ENDDO.
+    CASE lv_rc.
       WHEN 0.
         CALL FUNCTION 'DEQUEUE_EMEKKOE'
           EXPORTING
