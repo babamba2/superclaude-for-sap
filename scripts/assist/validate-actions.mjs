@@ -28,6 +28,12 @@ export const S4_FORBIDDEN = [
   [/^KONV$/, 'pricing conditions live in PRCD_ELEMENTS on S/4'],
 ];
 
+// Parameters that are tables (string_table) in ZIF_MCP_BIZ_ACTION=>ty_params. SAP reads a
+// scalar JSON value for them as an empty table, so the catalog must declare them as lists
+// (and every other parameter as a scalar). Keep in sync with abap/biz/zif_mcp_biz_action.intf.abap.
+export const LIST_PARAMS = ['ebelp', 'cbo', 'items', 'fields', 'exists', 'lines'];
+const isListType = (t) => t === 'array' || /\[\]$/.test(t ?? '');
+
 const ID_RE = /^[A-Z]{2,4}\.[A-Z0-9_]+\.[A-Z0-9_]+$/;
 
 function objectNamesOf(impl) {
@@ -65,6 +71,11 @@ export function validateCatalog(cat, label = 'catalog') {
     if (!a.title) err(`${at}: title is required`);
     if (!a.intents?.en?.length || !a.intents?.ko?.length) err(`${at}: intents.en and intents.ko are required`);
     if (!Array.isArray(a.params)) err(`${at}: params must be an array`);
+    for (const p of a.params ?? []) {
+      const list = LIST_PARAMS.includes(p.name);
+      if (list && !isListType(p.type)) err(`${at}: param ${p.name} is a table in SAP — type must be string[]`);
+      if (!list && isListType(p.type)) err(`${at}: param ${p.name} is a scalar in SAP — type must not be a list`);
+    }
     if (!Array.isArray(a.auth) || a.auth.length === 0) err(`${at}: at least one auth object is required`);
     if (!Array.isArray(a.verified_on)) err(`${at}: verified_on must be an array`);
 

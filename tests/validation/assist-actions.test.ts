@@ -94,6 +94,21 @@ describe('validateCatalog rules', () => {
   it('rejects a reverse action that does not exist', () => {
     expect(validateCatalog(minimal({ reverse: 'MM.PO.NOPE' })).join()).toMatch(/unknown action/);
   });
+
+  it('rejects ebelp typed as a scalar (SAP reads it as an empty table)', () => {
+    const c = minimal({ params: [{ name: 'ebelp', type: 'string', required: true }] });
+    expect(validateCatalog(c).join()).toMatch(/ebelp is a table in SAP/);
+  });
+
+  it('accepts list params as string[] or array', () => {
+    const c = minimal({ params: [{ name: 'ebelp', type: 'string[]' }, { name: 'lines', type: 'array' }] });
+    expect(validateCatalog(c)).toEqual([]);
+  });
+
+  it('rejects a scalar SAP param typed as a list', () => {
+    const c = minimal({ params: [{ name: 'posnr', type: 'string[]' }] });
+    expect(validateCatalog(c).join()).toMatch(/posnr is a scalar in SAP/);
+  });
 });
 
 describe('ZCL_MCP_BIZ_EXEC allowed_params matches the catalogs', () => {

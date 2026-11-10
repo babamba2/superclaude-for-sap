@@ -5,7 +5,7 @@ Companion of [`SKILL.md`](SKILL.md). Rules here refine the workflow steps; they 
 ## Parameters
 
 - Parameter names and types come from `catalog.mjs show <ID>` (`params[]`). SAP refuses unknown names, so never invent one.
-- Pass values as strings; item lists (`ebelp`, `posnr` …) as arrays of strings. Keep leading zeros as the user typed them — the handlers pad document numbers.
+- Pass values as strings; parameters typed `string[]` / `array` in the catalog (`ebelp`, `items`, `lines`, `cbo`) as arrays of strings — even for a single item (`"ebelp": ["10"]`); a plain string there reaches SAP as empty. Keep leading zeros as the user typed them — the handlers pad document numbers.
 - Dates: `YYYYMMDD`. Quantities and amounts: plain decimal with a dot.
 - A `required: true` parameter with no value and no `clarify` entry → ask for it plainly ("Which purchase order?").
 - Never fill a business-meaning parameter from a default (`date_basis`, `include_unreleased`, the meaning of "close" …). Technical defaults in the catalog (`max_rows`) may be used silently.

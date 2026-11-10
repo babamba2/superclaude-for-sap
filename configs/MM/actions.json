@@ -260,7 +260,7 @@
         },
         {
           "name": "ebelp",
-          "type": "string",
+          "type": "string[]",
           "required": false
         }
       ],
@@ -666,7 +666,7 @@
         },
         {
           "name": "ebelp",
-          "type": "string",
+          "type": "string[]",
           "required": true
         },
         {
@@ -782,7 +782,7 @@
         },
         {
           "name": "ebelp",
-          "type": "string",
+          "type": "string[]",
           "required": true
         },
         {
@@ -1095,7 +1095,7 @@
         },
         {
           "name": "ebelp",
-          "type": "string",
+          "type": "string[]",
           "required": true
         },
         {
@@ -1201,7 +1201,7 @@
         },
         {
           "name": "ebelp",
-          "type": "string",
+          "type": "string[]",
           "required": true
         },
         {
