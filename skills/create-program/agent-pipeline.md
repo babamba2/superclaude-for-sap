@@ -172,13 +172,14 @@ Full procedure — `trust-session` invocation, auto/manual/hybrid mode prompt, s
 Dispatch input (writer receives, does NOT re-fetch via MCP):
 
 - **Pre-condition (HARD GATE, enforced by main before dispatching)**: `.sc4sap/program/{PROG}/review.md` must exist and end in PASS verdicts for every applicable convention. If missing or contains unresolved violations, return to Phase 6 — do not dispatch Phase 8 and do not tell the user the program is done.
+- **Receipt gate (main, before dispatching)**: build `.sc4sap/program/{PROG}/receipt.json` with `scripts/evidence/build-receipt.mjs` per [`../../common/evidence-receipt.md`](../../common/evidence-receipt.md) § Procedure (`--also` = run objects not starting with `{PROG}` from plan.md; `--unit-test required` when Done Criteria list unit tests). FAIL → back to the owning phase, never "done".
 - Objects created + activation status
 - Transport number
 - Test results summary (Phase 5, if run)
 - Reference to `review.md` (Phase 6 verdicts)
 - **Timing summary** — per-phase `timing` / `sec` fields from `state.json` so the writer can render the total-duration table (Phase 4 parallel gains, Phase 6 bucket gains, Opus escalation ratio)
 - User conversation language (so the report localizes — Korean / English / Japanese / etc.)
-- spec.md § *9. Done Criteria* and the files holding their results — the writer reads these, it does not re-fetch: `verify-phase4.md` (semantic-analysis / activation lines + inactive-list CHECKER blocks, newest wins), Phase 5 `GetUnitTestResult` output, `review.md` § 12 Activation State; plus `decisions.md` and plan.md § *Conflict Resolutions*
+- spec.md § *9. Done Criteria* and the files holding their results — the writer reads these, it does not re-fetch: `receipt.json` (activation / inactive / unit-test statuses copied verbatim, never upgraded), `verify-phase4.md` (semantic-analysis / activation lines + inactive-list CHECKER blocks, newest wins), Phase 5 `GetUnitTestResult` output, `review.md` § 12 Activation State; plus `decisions.md` and plan.md § *Conflict Resolutions*
 
 **Report rules** — [`../../common/verification-evidence.md`](../../common/verification-evidence.md): Evidence block first (one line per Done Criteria check, PASS / FAIL / NOT RUN with the returned value, plus its "does not prove" line), then the summary, then *Decisions & Assumptions* (from `decisions.md` + conflict resolutions + interview defaults the agent proposed and the user only acknowledged with ok / yes), then one *Still check by hand* line. A check with no result in those files is NOT RUN. A FAIL or NOT RUN is reported as such — never folded into "done".
 

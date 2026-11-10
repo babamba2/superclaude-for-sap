@@ -37,6 +37,8 @@ A skill states what "verified" means **before** the work starts, as a short list
 
 Do not redefine "done" after the result is in. If a check could not run (tool missing, ECC limit, user skipped Phase 5), the result is **not run** — never pass.
 
+Where a skill uses an **evidence receipt** ([`evidence-receipt.md`](evidence-receipt.md), today `create-program`), the activation / inactive / unit-test lines come from `receipt.json`. A hook records the MCP responses and a script judges them. The agent copies those statuses and never upgrades one. `GetAbapSemanticAnalysis` is a local parse, not the SAP syntax check; the activation check covers syntax.
+
 In the report, the **Evidence** block comes before the summary. One line per check:
 
 `- <tool> <target> → <result as returned, short excerpt> — PASS | FAIL | NOT RUN`
