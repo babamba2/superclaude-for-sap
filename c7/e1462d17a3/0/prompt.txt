@@ -1,0 +1,8 @@
+sc4sap 에서 아래를 도입할 수 있을까? exaone ai 의 추론 강도인데..  
+
+<pasted_content id="cebb">
+temperature    float    확률 분포의 '뾰족함'을 조절하여 답변의 무작위성을 결정. 범위: 0.0 ~ inf, 클수록 무작위성 커짐 (default: 1.0)    optional
+top_p    float    누적 확률 합이 p 이하인 상위 토큰 후보만 채택. 범위: 0.0 ~ 1.0 (default: 0.95)    optional
+top_k    int    가장 확률이 높은 상위 k개 토큰 후보만 채택. 범위: -1 또는 1 ~ N, -1 설정 시 필터링 비활성화 (default: -1)    optional
+presence_penalty    float    이미 출현한 단어에 감점을 주어 반복 방지 및 새로운 주제 도입 유도. 범위: -2.0 ~ 2.0, 양수면 동일 토큰 발생 확률을 낮춤 (default: 0.0)    optional
+</pasted_content id="cebb">
