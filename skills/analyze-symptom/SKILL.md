@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Analyze Symptom
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): degraded — dump text / source pasted by the user; no dump feed, no transports.
+
 Performs structured root cause analysis for SAP operational incidents by connecting to the live SAP system through MCP. Auto-collects evidence from dumps, system state, recent transports, and code call graphs before asking the user any question — the one exception is an optional "do you already suspect a cause?" question in `full` mode, asked before evidence is read.
 
 

@@ -22,6 +22,12 @@ node "$CLAUDE_PLUGIN_ROOT/scripts/sap-profile-cli.mjs" detect-legacy
 
 Free text. Validate `^[A-Z0-9_-]+$`. Reject `default` (see design §6). Must not exist in `~/.sc4sap/profiles/`. Suggest convention `{ISO-COUNTRY}-{TIER}` (`KR-DEV`, `US-PRD`) — ISO alpha-2 country per feedback memory, never company initials.
 
+## 4.1b — connection
+
+`AskUserQuestion`, 2 options: **Connected (Recommended)** — sc4sap reads and writes the SAP system through the MCP server; **Offline** — no connection to the customer system; skills that need it are blocked, design / consultant / planning skills run from the profile identity and local files ([`../../common/offline-mode.md`](../../common/offline-mode.md)).
+
+Offline → skip 4.2 (tier defaults to `DEV`, it only labels the target system), 4.3 connection part, 4.4, 4.6 password, 4.8, 4.9. Still ask 4.4b identity, then country (ISO alpha-2, lowercase) and active modules, then 4.5 and 4.7. Payload: `{"alias":"KR-OFF","connection":"offline","version":"S4","abapRelease":"816","industry":"other","country":"kr","activeModules":"MM,SD"}` — the CLI rejects `host` / `password` / `passwordPrompt` on an offline profile. Then continue at `wizard-steps.md` § Offline path.
+
 ## 4.2 — tier
 
 Enum via `AskUserQuestion`: `DEV` | `QA` | `PRD`. Remind the user:

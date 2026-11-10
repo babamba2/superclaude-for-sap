@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP SmartForm → Print Preview
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): blocked — reply with the stop line there and stop.
+
 Reads one SmartForm from the connected system and draws what a printed page will look like, without running the print program: **one JPG and one HTML page** (A4 in mm). Field symbols (`&HEADER-NAME1&`) are filled with invented sample values that fit the field types read from the DDIC, so the picture shows realistic widths — and the places where the form cuts text off.
 
 <Purpose>

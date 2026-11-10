@@ -9,6 +9,7 @@
 import { existsSync, readFileSync } from 'fs';
 import { join } from 'path';
 import { readStdin } from './lib/stdin.mjs';
+import { offlineReminder } from './lib/offline-reminder.mjs';
 
 async function main() {
   try {
@@ -32,6 +33,9 @@ async function main() {
 
 ---
 `);
+
+    const offline = offlineReminder(directory);
+    if (offline) messages.push(offline);
 
     // Check for notepad Priority Context
     const notepadPath = join(directory, '.sc4sap', 'notepad.md');

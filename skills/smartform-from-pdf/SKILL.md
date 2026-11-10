@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP PDF / Screenshot → SmartForm
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): blocked — reply with the stop line there and stop.
+
 Reads one page of a printed form and writes a SmartForm that prints the same page: the ruled areas become templates, every text sits where the source has it, in the closest font an existing SmartStyle offers. Then the texts that are data become `&fields&`, item lines become a table over an internal table, and the interface is added. The form is uploaded to the **DEV** system, printed there (no spool) and the print is compared with the source — the score and every difference are reported.
 
 <Purpose>

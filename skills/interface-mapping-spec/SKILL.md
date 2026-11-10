@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Interface Mapping Specification
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): full — new interfaces from a field list or the consultant proposal; DDIC types marked unchecked.
+
 Interviews the consultant briefly and writes **one editable HTML page per interface**: cover, revision history, the mapping sheet (header, systems, Source → Target grid with R / MAPPING columns, response block for synchronous interfaces, conversion rules, extraction condition, remarks) and the field guide. The SAP side comes from the system; the other side is proposed and corrected in the page.
 
 <Purpose>

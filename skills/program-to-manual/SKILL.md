@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Program → User Manual
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): blocked — reply with the stop line there and stop.
+
 Reads one ABAP program via MCP and writes the manual a business user follows to run it: which screen to open, what to enter, which button to press, what the result means and what to do when a message appears. Output is **one HTML file** — a scrolling web document with a contents sidebar on screen, and one scenario step per A4 landscape page when printed or saved as PDF.
 
 <Purpose>

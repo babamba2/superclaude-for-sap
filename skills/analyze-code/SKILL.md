@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Analyze Code
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): degraded — pasted / local-file source only; no where-used or semantic check.
+
 Reviews an ABAP object by delegating the heavy work (source read, structural/semantic/where-used analysis, 14-dimension rule matching) to `sap-code-reviewer` (Opus) — for objects over 1,500 lines, Haiku `sap-checker` detectors find candidates and the Opus reviewer judges them. Every finding's cited line is then checked by Haiku before it reaches the report. The main thread (session model, `model: inherit`) only handles Socratic intake, report formatting, and the follow-up action menu.
 
 

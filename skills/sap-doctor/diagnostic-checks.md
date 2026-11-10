@@ -4,6 +4,8 @@ Detailed diagnostic checklist for `sc4sap:sap-doctor`. Referenced from `SKILL.md
 
 Run all checks in order. Report PASS / FAIL / WARN for each.
 
+**Offline profile** (`connection: offline` in the active profile `config.json` — [`../../common/offline-mode.md`](../../common/offline-mode.md)): run Layer 1, Layer 5 and Layer 7 only; report Layers 2, 3, 4 and 6 as `INFO skipped (offline)` — the bridge does not start the MCP server by design, so a missing `plugin:sc4sap:sap` tool set is not a failure. Add `INFO offline profile <alias> — validate: <errors / warnings from sap-profile-cli.mjs validate <alias>>`.
+
 **Layer 1 - Plugin Health**
 - [ ] SC4SAP plugin directory exists and is readable
 - [ ] Read **plugin version** from `<plugin>/.claude-plugin/plugin.json` → `version`; display as `SC4SAP plugin vX.Y.Z`

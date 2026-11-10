@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Compare Programs
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): blocked — reply with the stop line there and stop.
+
 Reads 2–5 ABAP programs that implement the **same business scenario** but in **different variants**, analyzes them across 10 business dimensions, and emits **one editable HTML report** targeted at **functional consultants** (not developers): a coloured verdict matrix with a *Differences only* switch, field-by-field differences of the selection screens and output lists, the screens drawn side by side, and a decision guide — versioned and editable like the `program-to-spec` and `program-to-manual` pages, with an English companion.
 
 <Purpose>

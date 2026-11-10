@@ -107,6 +107,18 @@ if (ENV_FILE && fs.existsSync(ENV_FILE)) {
       process.env.SC4SAP_MCP_AUTOBUILD = v;
     }
   } catch { /* ignore parse errors; fall back to process.env */ }
+  // Offline profile (SAP_CONNECTION=offline): there is no SAP system to reach, so
+  // never start the server. Exit before the vendor build / dep install paths too.
+  try {
+    const envText = fs.readFileSync(ENV_FILE, 'utf8');
+    const c = envText.match(/^\s*SAP_CONNECTION\s*=\s*["']?\s*offline\s*["']?\s*$/im);
+    if (c) {
+      console.error('[sc4sap] Active profile is OFFLINE (SAP_CONNECTION=offline) — SAP MCP server not started.');
+      console.error('[sc4sap] Skills run from the profile identity and local files (common/offline-mode.md).');
+      console.error('[sc4sap] To connect: /sc4sap:sap-option → fill the connection → set-connection online → restart Claude Code.');
+      process.exit(0);
+    }
+  } catch { /* unreadable env → let the normal path report it */ }
 } else {
   const pointerPath = path.join(CWD, '.sc4sap', 'active-profile.txt');
   console.error('[sc4sap] Config not found. Looked in:');

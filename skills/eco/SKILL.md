@@ -8,6 +8,8 @@ effort: low
 
 # SC4SAP Eco
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): the wrapped skill's class applies.
+
 One-off entry point for **eco cost mode** — same deliverable as standard, cheaper models and effort. Rules: [`../../common/cost-mode.md`](../../common/cost-mode.md). This skill's `effort: low` frontmatter lowers the main-thread effort while it is active — that is lever B of the cost mode. The effect ends at the next user turn, so eco runs re-enter here with `--attach`.
 
 <Response_Prefix>

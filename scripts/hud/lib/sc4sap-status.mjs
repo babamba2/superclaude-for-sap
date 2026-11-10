@@ -167,7 +167,8 @@ export function activeProfile(workspaceDir) {
   }
 
   const tier = normalizeTier(env.SAP_TIER);
-  return { alias, tier, readonly: tier !== 'DEV', legacy };
+  const offline = String(env.SAP_CONNECTION || '').trim().toLowerCase() === 'offline';
+  return { alias, tier, readonly: tier !== 'DEV', legacy, offline };
 }
 
 function normalizeTier(value) {

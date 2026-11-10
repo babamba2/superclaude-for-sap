@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Configuration → Document
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): blocked — reply with the stop line there and stop.
+
 Reads the module's IMG structure and configuration tables from the live system and writes **one HTML file**: an IMG tree with search and status filters on the left, one page per IMG activity (screen drawing with the real values, the full value table, customer changes, checks, SAP documentation) and a checklist panel on the right.
 
 <Purpose>
