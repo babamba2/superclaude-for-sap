@@ -1,0 +1,21 @@
+# Scenario evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10. ABAP Unit scenario matrix YCL_SC4SAP_S4V_SD (expected result declared before the run, DB read-back after every write, no-change proof for refusals).
+# Final run 020000DD4A3B1FD1B799601B811A8000 (S4V_SD-run12.txt). Columns: action, pass/lines, executed writes. Test documents are logged in the S4-DEV data-change log.
+S SD.SO.LIST_OPEN 12/12 exec 0
+S SD.SO.GET_DETAIL 9/9 exec 0
+S SD.SO.CREATE 7/7 exec 1
+S SD.SO.CHANGE_QTY_DATE 8/8 exec 1
+S SD.SO.CHANGE_PRICE 6/6 exec 1
+S SD.SO.SET_DELIVERY_BLOCK 8/8 exec 1
+S SD.SO.REMOVE_DELIVERY_BLOCK 2/2 exec 1
+S SD.SO.SET_BILLING_BLOCK 3/3 exec 1
+S SD.SO.REMOVE_BILLING_BLOCK 2/2 exec 1
+V SD.SO.REJECT_ITEM 3/3 exec 0
+V SD.SO.UNREJECT_ITEM 1/1 exec 0
+S SD.DLV.LIST_OPEN 5/5 exec 0
+S SD.DLV.CREATE 6/6 exec 1
+S SD.DLV.POST_GI 6/7 exec 1 — S4SD-090 FAIL is the follow-up of the open GI reversal gap (I-20), not of POST_GI
+S SD.BIL.LIST_DUE 3/3 exec 0
+S SD.BIL.GET_DETAIL 4/4 exec 0
+S SD.BIL.CREATE 6/6 exec 1
+S SD.BIL.CANCEL 4/4 exec 1
+GAP SD.DLV.REVERSE_GI — WS_REVERSE_GOODS_ISSUE ends with VL 302 "Delivery  does not exist" right after the goods issue and after a cancelled billing (I-20); not released on S/4 (no S4 verified_on).

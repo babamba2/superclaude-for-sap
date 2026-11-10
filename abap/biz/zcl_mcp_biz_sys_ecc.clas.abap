@@ -64,6 +64,7 @@ CLASS zcl_mcp_biz_sys_ecc IMPLEMENTATION.
           ls_f     TYPE ty_f,
           lv_fksta TYPE vbup-fksta,
           lv_any   TYPE abap_bool,
+          lv_open  TYPE abap_bool,
           lv_all   TYPE abap_bool.
 
     CLEAR rv_fksta.
@@ -84,12 +85,18 @@ CLASS zcl_mcp_biz_sys_ecc IMPLEMENTATION.
       SELECT SINGLE fksta FROM vbup INTO lv_fksta WHERE vbeln = ls_f-vbeln AND posnr = ls_f-posnn.
       IF lv_fksta = 'B' OR lv_fksta = 'C'.
         lv_any = abap_true.
+      ELSEIF lv_fksta = 'A'.
+        lv_open = abap_true.
       ENDIF.
       IF lv_fksta <> 'C'.
         lv_all = abap_false.
       ENDIF.
     ENDLOOP.
     IF lv_any = abap_false.
+      " Delivered, nothing billed (or the billing was cancelled): billing open.
+      IF lv_open = abap_true.
+        rv_fksta = 'A'.
+      ENDIF.
       RETURN.
     ENDIF.
     IF lv_all = abap_true AND iv_lfsta = 'C'.
@@ -111,6 +118,7 @@ CLASS zcl_mcp_biz_sys_ecc IMPLEMENTATION.
           lv_st  TYPE vbup-fksta,
           lv_n   TYPE i,
           lv_c   TYPE i,
+          lv_open TYPE abap_bool,
           lv_any TYPE abap_bool.
 
     CLEAR rv_fkstk.
@@ -125,12 +133,17 @@ CLASS zcl_mcp_biz_sys_ecc IMPLEMENTATION.
       ENDIF.
       IF lv_st = 'B' OR lv_st = 'C'.
         lv_any = abap_true.
+      ELSEIF lv_st = 'A'.
+        lv_open = abap_true.
       ENDIF.
       IF lv_st = 'C'.
         lv_c = lv_c + 1.
       ENDIF.
     ENDLOOP.
     IF lv_any = abap_false.
+      IF lv_open = abap_true.
+        rv_fkstk = 'A'.
+      ENDIF.
       RETURN.
     ENDIF.
     IF lv_c = lv_n.

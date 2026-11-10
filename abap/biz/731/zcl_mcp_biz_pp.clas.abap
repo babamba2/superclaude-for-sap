@@ -140,6 +140,14 @@ CLASS zcl_mcp_biz_pp DEFINITION
       EXPORTING es_ord   TYPE ty_ord
                 ev_found TYPE abap_bool.
 
+    "! Status-action authorization (C_AFKO_REL, where the object exists): RELEASE,
+    "! CHANGE_CRT (change a created order), CHANGE_REL (change a released order).
+    METHODS rel_auth
+      IMPORTING iv_relact    TYPE string
+                iv_auart     TYPE aufk-auart
+                iv_aufnr     TYPE string
+      CHANGING  cs_result    TYPE zif_mcp_biz_action=>ty_result
+      RETURNING VALUE(rv_ok) TYPE abap_bool.
     METHODS auth_check
       IMPORTING iv_obj       TYPE tobj-objct
                 iv_werks     TYPE aufk-werks
@@ -737,6 +745,30 @@ CLASS zcl_mcp_biz_pp IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD rel_auth.
+    DATA: lv_obj  TYPE tobj-objct VALUE 'C_AFKO_REL',
+          lv_act  TYPE c LENGTH 10,
+          lv_text TYPE string.
+
+    rv_ok = abap_true.
+    lv_act = iv_relact.
+    SELECT SINGLE objct FROM tobj INTO lv_obj WHERE objct = lv_obj.
+    IF sy-subrc <> 0.
+      RETURN.                          " object not on this release
+    ENDIF.
+    AUTHORITY-CHECK OBJECT lv_obj
+      ID 'ACTVT'      FIELD '16'
+      ID 'ORD_RELACT' FIELD lv_act
+      ID 'AUTYP'      FIELD '10'
+      ID 'AUFART'     FIELD iv_auart.
+    IF sy-subrc <> 0.
+      rv_ok = abap_false.
+      lv_text = |No authorization for activity { iv_relact } (C_AFKO_REL) of order { iv_aufnr } (order type { iv_auart })|.
+      add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = cs_result ).
+    ENDIF.
+  ENDMETHOD.
+
+
   METHOD auth_check.
     DATA: ls_tobj  TYPE tobj,
           lv_comp  TYPE string,
@@ -848,6 +880,10 @@ CLASS zcl_mcp_biz_pp IMPLEMENTATION.
           add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = cs_result ).
           RETURN.
         ENDIF.
+        IF rel_auth( EXPORTING iv_relact = `RELEASE` iv_auart = es_ord-auart iv_aufnr = lv_aufnr
+                     CHANGING cs_result = cs_result ) = abap_false.
+          RETURN.
+        ENDIF.
         ls_chg-field     = 'SYSTEM_STATUS'.
         ls_chg-old_value = cs_result-pp_status.
         ls_chg-new_value = 'REL'.
@@ -943,7 +979,8 @@ CLASS zcl_mcp_biz_pp IMPLEMENTATION.
           lv_nstart TYPE sy-datum,
           lv_nend   TYPE sy-datum,
           lv_min    TYPE afko-gamng,
-          lv_any    TYPE abap_bool.
+          lv_any    TYPE abap_bool,
+          lv_relact TYPE string.
 
     CLEAR: es_data, es_datax.
     check_order( EXPORTING iv_aufnr = is_params-aufnr iv_obj = 'C_AFKO_AWK' iv_actvt = '02'
@@ -959,6 +996,15 @@ CLASS zcl_mcp_biz_pp IMPLEMENTATION.
     IF is_closed( lt_stats ) = abap_true.
       lv_text = |Order { lv_aufnr } is technically completed, closed or flagged for deletion (status: { cs_result-pp_status })|.
       add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = cs_result ).
+      RETURN.
+    ENDIF.
+    IF has_stat( it_stats = lt_stats iv_stat = c_rel ) = abap_true.
+      lv_relact = `CHANGE_REL`.
+    ELSE.
+      lv_relact = `CHANGE_CRT`.
+    ENDIF.
+    IF rel_auth( EXPORTING iv_relact = lv_relact iv_auart = es_ord-auart iv_aufnr = lv_aufnr
+                 CHANGING cs_result = cs_result ) = abap_false.
       RETURN.
     ENDIF.
     IF is_params-new_quantity IS INITIAL AND is_params-new_start IS INITIAL

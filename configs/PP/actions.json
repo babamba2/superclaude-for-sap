@@ -124,6 +124,14 @@
           "date": "2026-11-10",
           "level": "handler",
           "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
         }
       ]
     },
@@ -187,6 +195,14 @@
           "date": "2026-11-10",
           "level": "handler",
           "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
         }
       ]
     },
@@ -258,6 +274,14 @@
           "date": "2026-11-10",
           "level": "handler",
           "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "scenario-preview",
+          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -361,6 +385,14 @@
           "date": "2026-11-10",
           "level": "handler",
           "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "scenario-preview",
+          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -478,6 +510,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "scenario-preview",
+          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -570,6 +610,14 @@
           "date": "2026-11-10",
           "level": "handler",
           "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -681,6 +729,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -786,6 +842,14 @@
           "date": "2026-11-10",
           "level": "handler",
           "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -875,6 +939,14 @@
           "date": "2026-11-10",
           "level": "handler",
           "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
         }
       ]
     }

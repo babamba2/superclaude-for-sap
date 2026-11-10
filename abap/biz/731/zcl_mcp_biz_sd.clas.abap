@@ -2187,6 +2187,11 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
     IF lv_found = abap_true.
       cs_result-sd_status_new = so_status_text( ls_ord ).
       cs_result-sd_header = so_doc_row( ls_ord ).
+      " A higher order value runs the credit check again: say so when the order is now blocked.
+      IF ls_ord-cmgst = 'B' AND ( iv_action = 'SD.SO.CHANGE_PRICE' OR iv_action = 'SD.SO.CHANGE_QTY_DATE' ).
+        lv_text = |Order { fmt_doc( iv_vbeln ) } is now blocked by the credit check: release it in UKM_CASE (S/4) or VKM3 (ECC) before the delivery|.
+        add_msg( EXPORTING iv_type = 'W' iv_text = lv_text CHANGING cs_result = cs_result ).
+      ENDIF.
     ENDIF.
   ENDMETHOD.
 
@@ -2378,6 +2383,13 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
 
 
   METHOD so_call_create.
+    TYPES: BEGIN OF ty_inc,
+             tbnam TYPE vbuv-tbnam,
+             fdnam TYPE vbuv-fdnam,
+           END OF ty_inc.
+    DATA: lt_inc   TYPE STANDARD TABLE OF ty_inc,
+          ls_inc   TYPE ty_inc,
+          lv_flds  TYPE string.
     DATA: lt_ret   TYPE ty_so_ret2,
           lt_items TYPE ty_b_items,
           lt_sched TYPE ty_b_sched,
@@ -2450,6 +2462,19 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
       cs_result-sd_header     = so_doc_row( ls_ord ).
       cs_result-sd_status_new = so_status_text( ls_ord ).
       lv_text = |Order { fmt_doc( lv_vbeln ) } created|.
+      " Incompletion log: missing master data (e.g. incoterms, payment terms) blocks the delivery.
+      SELECT tbnam fdnam FROM vbuv INTO TABLE lt_inc WHERE vbeln = lv_vbeln.
+      IF lt_inc IS NOT INITIAL.
+        SORT lt_inc BY tbnam fdnam.
+        DELETE ADJACENT DUPLICATES FROM lt_inc COMPARING tbnam fdnam.
+        CLEAR lv_flds.
+        LOOP AT lt_inc INTO ls_inc.
+          lv_flds = |{ lv_flds } { ls_inc-tbnam }-{ ls_inc-fdnam }|.
+        ENDLOOP.
+        add_msg( EXPORTING iv_type = 'W'
+                           iv_text = |Order { fmt_doc( lv_vbeln ) } is incomplete:{ lv_flds }. Complete it in VA02 before the delivery|
+                 CHANGING  cs_result = cs_result ).
+      ENDIF.
     ELSE.
       add_msg( EXPORTING iv_type = 'W'
                          iv_text = 'The order is not visible yet: the update may still be running'
@@ -3160,7 +3185,17 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
           lt_done   TYPE STANDARD TABLE OF string WITH DEFAULT KEY,
           lv_key    TYPE string,
           lv_rev    TYPE abap_bool,
+          lv_matx   TYPE string,
           lv_text   TYPE string.
+    TYPES: BEGIN OF ty_bat,
+             posnr TYPE lips-posnr,
+             matnr TYPE lips-matnr,
+             charg TYPE lips-charg,
+             xchpf TYPE lips-xchpf,
+             uecha TYPE lips-uecha,
+           END OF ty_bat.
+    DATA: lt_bat TYPE STANDARD TABLE OF ty_bat WITH DEFAULT KEY,
+          ls_bat TYPE ty_bat.
 
     CLEAR: es_dlv, et_items, ev_date, ev_pick.
     IF iv_action = 'SD.DLV.REVERSE_GI'.
@@ -3264,6 +3299,20 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
         RETURN.
       ENDIF.
     ENDIF.
+    " A batch-managed item without batch (and without batch-split sub-items) stops the goods issue
+    " with "document is incomplete": name the item before the user tries.
+    SELECT posnr matnr charg xchpf uecha FROM lips INTO TABLE lt_bat WHERE vbeln = lv_vbeln.
+    LOOP AT lt_bat INTO ls_bat WHERE xchpf = 'X' AND charg IS INITIAL AND uecha IS INITIAL.
+      READ TABLE lt_bat TRANSPORTING NO FIELDS WITH KEY uecha = ls_bat-posnr.
+      IF sy-subrc <> 0.
+        lv_matx = ls_bat-matnr.
+        SHIFT lv_matx LEFT DELETING LEADING '0'.
+        lv_text = |Item { ls_bat-posnr } (material { lv_matx }) is batch managed and has no batch: | &&
+                  |assign the batch in VL02N before the goods issue|.
+        add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = cs_result ).
+        RETURN.
+      ENDIF.
+    ENDLOOP.
     lv_pick = to_upper( is_params-pick_all ).
     IF lv_pick = 'X' OR lv_pick = 'TRUE' OR lv_pick = 'YES'.
       ev_pick = abap_true.
@@ -3486,6 +3535,16 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
 
     lv_budat = iv_date.
     lv_tcode = 'VL09'.
+
+    " A goods issue posted before in the same session (MCP keeps the RFC session) leaves the delivery
+    " buffers and SAPMV50A filled: the reversal then reads an empty delivery ("Delivery does not exist").
+    CALL FUNCTION 'LE_DELIVERY_REFRESH_BUFFER'
+      EXCEPTIONS
+        OTHERS = 1.
+    " SAPMV50A keeps the document of the goods issue posted before in this session: reset it.
+    CALL FUNCTION 'RV_DELIVERY_INIT'
+      EXPORTING
+        status_buff_init = 'X'.
 
     CALL FUNCTION 'WS_REVERSE_GOODS_ISSUE'
       EXPORTING
@@ -3872,6 +3931,12 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
       lv_faksk = ls_k-faksk.
       IF ls_u-wbstk = 'A' OR ls_u-wbstk = 'B'.
         lv_text = |Delivery { fmt_doc( lv_ref ) }: the goods issue is not posted yet|.
+        add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = cs_result ).
+        RETURN.
+      ENDIF.
+      " Proof of delivery: billing waits for the POD confirmation of the customer.
+      IF ls_u-pdstk = 'A' OR ls_u-pdstk = 'B'.
+        lv_text = |Delivery { fmt_doc( lv_ref ) } needs a proof of delivery first: confirm the POD in VLPOD, then bill|.
         add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = cs_result ).
         RETURN.
       ENDIF.
