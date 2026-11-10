@@ -54,12 +54,90 @@ CLASS zcl_mcp_biz_sys_ecc IMPLEMENTATION.
 
 
   METHOD zif_mcp_biz_sys~sd_item_dlv_billing.
+    " The order item carries no delivery-related billing status (VBUP-FKSTA is kept on
+    " the delivery item): read the delivery items of the order item (flow J).
+    TYPES: BEGIN OF ty_f,
+             vbeln TYPE vbfa-vbeln,
+             posnn TYPE vbfa-posnn,
+           END OF ty_f.
+    DATA: lt_f     TYPE STANDARD TABLE OF ty_f,
+          ls_f     TYPE ty_f,
+          lv_fksta TYPE vbup-fksta,
+          lv_any   TYPE abap_bool,
+          lv_all   TYPE abap_bool.
+
     CLEAR rv_fksta.
+    " Order-related billing: VBUP-FKSAA of the order item.
+    SELECT SINGLE fksaa FROM vbup INTO rv_fksta WHERE vbeln = iv_vbeln AND posnr = iv_posnr.
+    IF rv_fksta = 'B' OR rv_fksta = 'C'.
+      RETURN.
+    ENDIF.
+    CLEAR rv_fksta.
+    SELECT vbeln posnn FROM vbfa INTO TABLE lt_f
+      WHERE vbelv = iv_vbeln AND posnv = iv_posnr AND vbtyp_n = 'J'.
+    IF lt_f IS INITIAL.
+      RETURN.
+    ENDIF.
+    lv_all = abap_true.
+    LOOP AT lt_f INTO ls_f.
+      CLEAR lv_fksta.
+      SELECT SINGLE fksta FROM vbup INTO lv_fksta WHERE vbeln = ls_f-vbeln AND posnr = ls_f-posnn.
+      IF lv_fksta = 'B' OR lv_fksta = 'C'.
+        lv_any = abap_true.
+      ENDIF.
+      IF lv_fksta <> 'C'.
+        lv_all = abap_false.
+      ENDIF.
+    ENDLOOP.
+    IF lv_any = abap_false.
+      RETURN.
+    ENDIF.
+    IF lv_all = abap_true AND iv_lfsta = 'C'.
+      rv_fksta = 'C'.
+    ELSE.
+      rv_fksta = 'B'.
+    ENDIF.
   ENDMETHOD.
 
 
   METHOD zif_mcp_biz_sys~sd_order_dlv_billing.
+    TYPES: BEGIN OF ty_i,
+             posnr TYPE vbap-posnr,
+             abgru TYPE vbap-abgru,
+           END OF ty_i.
+    DATA: lt_i   TYPE STANDARD TABLE OF ty_i,
+          ls_i   TYPE ty_i,
+          ls_u   TYPE vbup,
+          lv_st  TYPE vbup-fksta,
+          lv_n   TYPE i,
+          lv_c   TYPE i,
+          lv_any TYPE abap_bool.
+
     CLEAR rv_fkstk.
+    SELECT posnr abgru FROM vbap INTO TABLE lt_i WHERE vbeln = iv_vbeln.
+    LOOP AT lt_i INTO ls_i WHERE abgru IS INITIAL.
+      lv_n = lv_n + 1.
+      CLEAR ls_u.
+      SELECT SINGLE * FROM vbup INTO ls_u WHERE vbeln = iv_vbeln AND posnr = ls_i-posnr.
+      lv_st = ls_u-fksaa.
+      IF lv_st IS INITIAL.
+        lv_st = zif_mcp_biz_sys~sd_item_dlv_billing( iv_vbeln = iv_vbeln iv_posnr = ls_i-posnr iv_lfsta = ls_u-lfsta ).
+      ENDIF.
+      IF lv_st = 'B' OR lv_st = 'C'.
+        lv_any = abap_true.
+      ENDIF.
+      IF lv_st = 'C'.
+        lv_c = lv_c + 1.
+      ENDIF.
+    ENDLOOP.
+    IF lv_any = abap_false.
+      RETURN.
+    ENDIF.
+    IF lv_c = lv_n.
+      rv_fkstk = 'C'.
+    ELSE.
+      rv_fkstk = 'B'.
+    ENDIF.
   ENDMETHOD.
 
 

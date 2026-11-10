@@ -1,0 +1,3 @@
+# Handler evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
+H OUT.DOC.STATUS BIL 90005894 -> 0 NAST rows, 1 Output Control request (BILLING_DOCUMENT, PRINT, in preparation, SDBIL_CI_STANDARD_IN)
+R OUT.DOC.REISSUE refused on the S/4 family (decision 2026-11-10)

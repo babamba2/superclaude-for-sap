@@ -154,6 +154,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -232,6 +240,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -316,6 +332,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -430,6 +454,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ],
       "preview_limits": {
@@ -625,6 +657,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ],
       "clarify": [
@@ -748,6 +788,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ],
       "preview_limits": {
@@ -850,6 +898,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ],
       "clarify": [
@@ -1319,6 +1375,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ],
       "preview_limits": {
@@ -1401,6 +1465,14 @@
           "date": "2026-11-10",
           "level": "unit-test",
           "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -1461,6 +1533,14 @@
           "date": "2026-11-10",
           "level": "unit-test",
           "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -1536,6 +1616,14 @@
           "date": "2026-11-10",
           "level": "unit-test",
           "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -1610,6 +1698,14 @@
           "date": "2026-11-10",
           "level": "unit-test",
           "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
         }
       ]
     }

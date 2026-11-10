@@ -1,0 +1,10 @@
+# Handler evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
+H PP.ORD.LIST_OPEN 1710 all_open / created -> 10 / 3 orders with system status text
+H PP.ORD.GET_DETAIL 1000001 -> 2 operations, 9 components (backflush X)
+H PP.BOM.READ MZ-FG-R200/1710 -> 9 items; quantities per base quantity 100000 ST (STKO-BMENG) - summary states the base quantity
+P PP.ORD.RELEASE 1000720 -> subrc 0 CRTD -> REL (status check, BAPI has no test run); JEST unchanged (I0001 active)
+P PP.ORD.CHANGE_QTY_DATES 1000720 10 -> 12 -> subrc 0 (check only); AFKO-GAMNG unchanged 10
+P PP.ORD.COMPLETE_TECH 1000001 -> subrc 0 with warnings (open qty, no CNF, irreversible); JEST unchanged
+P PP.ORD.GOODS_RECEIPT 1000001 5 -> subrc 0; MATDOC for the order 0 = 0
+R PP.ORD.GOODS_ISSUE backflushed component refused (confirm instead) - correct, positive path not run
+R PP.ORD.CONFIRM refused: test user has no C_AFRU_AWK (authorization gap, not verified)

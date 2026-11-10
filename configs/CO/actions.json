@@ -67,6 +67,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -168,6 +176,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -274,6 +290,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
         }
       ],
       "preview_limits": {
@@ -360,6 +384,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -460,6 +492,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -514,7 +554,7 @@
             "ACDOCP"
           ],
           "return": "rows",
-          "note": "plan data lives in ACDOCP on S/4; to be re-verified on the S/4 system"
+          "note": "reads classic plan data (COSP); S/4 plan data in ACDOCP is not read. S4-DEV 2026-11-10: no classic plan values"
         }
       },
       "auth": [
@@ -535,6 +575,14 @@
           "date": "2026-11-09",
           "level": "interface",
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-10",
+          "level": "handler",
+          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -965,14 +1013,15 @@
           "check_fm": "BAPI_COSTACTPLN_CHECKPRIMCOST",
           "preview": "BAPI_COSTACTPLN_CHECKPRIMCOST (= BAPI_PRIM_COST_CHECK_AND_POST with TESTRUN X) + plan-version settings (planning allowed, fiscal-year row) + biz-rules/CO.json",
           "commit": "BAPI_TRANSACTION_COMMIT",
-          "return": "BAPIRET2"
+          "return": "BAPIRET2",
+          "note": "classic cost center planning (COSP / COSS, ledger 0); not available on S4-DEV 2026-11-10: the check BAPI fails with GI 174 (plan ledgers 0 / 0R fiscal year variant differs from the controlling area). S/4 planning runs in ACDOCP (SAP Analytics Cloud / plan category) - not covered"
         }
       },
       "auth": [
         {
           "object": "K_CSKS_PLA",
           "fields": {
-            "ACTVT": "01",
+            "ACTVT": "02",
             "KOKRS": "<controlling area>",
             "KOSTL": "<cost center>"
           }

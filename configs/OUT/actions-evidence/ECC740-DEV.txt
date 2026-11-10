@@ -1,0 +1,4 @@
+# Handler evidence — ECC740-DEV (ECC 6.0, BASIS 740), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route.
+H OUT.DOC.STATUS BIL 9000284467 / PO 8000000007 / SO 3100003654 -> 0 NAST rows; DLV 8100002211 -> 1 row (<customer output type>, print, partner WE, not processed, device <printer>)
+P OUT.DOC.REISSUE DLV 8100002211 <customer output type> -> subrc 0 "new print request on device <printer> (program <customer print program>). Nothing was created."; NAST unchanged (1 row); unknown output type that does not exist refused.
+E OUT.DOC.REISSUE EXECUTE (user OK 2026-11-10) -> new NAST row <customer output type> / print / WE / <printer> created + processed 20261110 144705, status error: customer print program <customer print program> returned rc 1; handler answered "Print request created but not processed: status error, return code 1"; old row unchanged; no e-mail. Processing log (CMFP) not readable on this release -> VL03N output log.

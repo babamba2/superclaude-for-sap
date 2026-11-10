@@ -1,0 +1,13 @@
+# Handler evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
+H SD.SO.LIST_OPEN 1710 not_delivered -> 5 orders, credit block from VBAK-CMGST
+H SD.SO.GET_DETAIL 6940 (order-related billing C via FKSAK/FKSAA), 6943 (delivery + billing complete via LIPS-FKSTA, flow J/M)
+H SD.DLV.LIST_OPEN 1710 all_open -> outbound deliveries only (vbtyp J; inbound EL filtered since 2026-11-10)
+H SD.BIL.LIST_DUE 1710 -> K / T / J rows; billing document requests (EBDR) filtered since 2026-11-10
+H SD.BIL.GET_DETAIL 90005894 -> 1 item, accounting doc 1400000010, flow 6940/10 -> M
+P SD.SO.SET_DELIVERY_BLOCK 6941 01 -> subrc 0 (simulation + rollback); VBAK-LIFSK unchanged blank
+P SD.SO.CHANGE_QTY_DATE 6941/10 20 -> 18 -> subrc 0; VBEP 4 rows unchanged
+P SD.SO.REJECT_ITEM 6941/20 -> subrc 0; VBAP-ABGRU unchanged blank
+P SD.DLV.CREATE 6941 -> 20 + 5 (static); 6942 refused credit block
+P SD.BIL.CANCEL 90005894 -> subrc 0 test run ($000000002); VBRK-FKSTO unchanged blank
+R SD.DLV.POST_GI 80000106 -> VL 303 (preceding order 158 missing: data), 180000001 refused (inbound delivery)
+R SD.BIL.CREATE 80003839 -> VF 197 POD open; 60000144 -> F4 746 credit control area config; BDR 10000009 refused

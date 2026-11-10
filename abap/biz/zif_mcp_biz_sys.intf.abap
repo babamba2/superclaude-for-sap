@@ -64,14 +64,15 @@ INTERFACE zif_mcp_biz_sys PUBLIC.
 
   "! Delivery-related billing status of an order item (S/4: the order item carries none):
   "! C = delivered completely and every delivery item billed completely, B = billed partly,
-  "! space = not billed. ECC returns space (VBUP-FKSTA already tells).
+  "! space = not billed. Both families read the delivery items (flow J): the order item
+  "! never carries the delivery-related billing status (ECC VBUP-FKSTA, S/4 LIPS-FKSTA).
   METHODS sd_item_dlv_billing
     IMPORTING iv_vbeln        TYPE vbap-vbeln
               iv_posnr        TYPE vbap-posnr
               iv_lfsta        TYPE vbup-lfsta
     RETURNING VALUE(rv_fksta) TYPE vbup-fksta.
 
-  "! Same for the order header, from all its items (ECC: space).
+  "! Same for the order header, from all its items not rejected.
   METHODS sd_order_dlv_billing
     IMPORTING iv_vbeln        TYPE vbak-vbeln
     RETURNING VALUE(rv_fkstk) TYPE vbuk-fkstk.

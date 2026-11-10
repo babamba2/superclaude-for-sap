@@ -933,6 +933,15 @@ CLASS zcl_mcp_biz_fi IMPLEMENTATION.
       add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = cs_result ).
       RETURN.
     ENDIF.
+    " The reversal BAPI does not accept reference type BKPF (FB01 and other classic FI
+    " dialog postings end in RW 628). BKPFF is left to the BAPI: interface postings
+    " reverse, Enjoy dialog postings come back with F5A 009 (hint added in call_reverse).
+    IF es_bkpf-awtyp IS INITIAL OR es_bkpf-awtyp = 'BKPF'.
+      lv_text = |Document { alpha_out( lv_belnr ) } was posted in the FI dialog (transaction { es_bkpf-tcode }): | &&
+                |reverse it with FB08 - the reversal interface reverses only interface postings|.
+      add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = cs_result ).
+      RETURN.
+    ENDIF.
     lv_grd = to_upper( is_params-reason ).
     SELECT SINGLE stgrd FROM t041c INTO lv_grd WHERE stgrd = lv_grd.
     IF sy-subrc <> 0.
@@ -952,6 +961,7 @@ CLASS zcl_mcp_biz_fi IMPLEMENTATION.
       es_rev-obj_type = 'BKPF'.
     ENDIF.
     es_rev-obj_key_r  = |{ lv_belnr }{ lv_bukrs }{ lv_gjahr }|.
+    es_rev-obj_sys    = es_bkpf-awsys.
     es_rev-comp_code  = lv_bukrs.
     es_rev-pstng_date = lv_date.
     es_rev-reason_rev = lv_grd.
@@ -1008,6 +1018,13 @@ CLASS zcl_mcp_biz_fi IMPLEMENTATION.
       add_sy_msg( CHANGING cs_result = cs_result ).
     ENDIF.
     add_ret2( EXPORTING it_return = lt_ret CHANGING cs_result = cs_result ).
+    " F5A 009: the reference is not an interface posting (Enjoy / dialog entry).
+    READ TABLE lt_ret TRANSPORTING NO FIELDS WITH KEY id = 'F5A' number = '009'.
+    IF sy-subrc = 0.
+      add_msg( EXPORTING iv_type = 'E'
+                         iv_text = 'The document was entered in the FI dialog: reverse it with FB08 - the reversal interface reverses only interface postings'
+               CHANGING  cs_result = cs_result ).
+    ENDIF.
     finish( CHANGING cs_result = cs_result ).
     IF iv_testrun = abap_false AND cs_result-failed = abap_false.
       IF strlen( lv_key ) >= 18.

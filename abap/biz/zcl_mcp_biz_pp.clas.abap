@@ -2025,6 +2025,7 @@ CLASS zcl_mcp_biz_pp IMPLEMENTATION.
           lv_date  TYPE sy-datum,
           lt_stb   TYPE STANDARD TABLE OF stpox,
           ls_stb   TYPE stpox,
+          ls_top   TYPE cstmat,
           ls_r     TYPE ty_r,
           lv_row   TYPE i,
           lv_n     TYPE i,
@@ -2060,6 +2061,8 @@ CLASS zcl_mcp_biz_pp IMPLEMENTATION.
         mtnrv                 = lv_matnr
         stlan                 = lv_stlan
         werks                 = lv_werks
+      IMPORTING
+        topmat                = ls_top
       TABLES
         stb                   = lt_stb
       EXCEPTIONS
@@ -2094,7 +2097,8 @@ CLASS zcl_mcp_biz_pp IMPLEMENTATION.
     ENDLOOP.
     lv_n = lines( lt_stb ).
     rs_result-summary = |BOM of { is_params-matnr }, plant { lv_werks }, usage { lv_stlan }, valid on |
-                     && |{ lv_date DATE = ISO }: { lv_n } items (single level)|.
+                     && |{ lv_date DATE = ISO }: { lv_n } items (single level). Component quantities are per base quantity |
+                     && |{ ls_top-bmeng NUMBER = USER } { ls_top-bmein } of the header material|.
   ENDMETHOD.
 
   METHOD add_rows.

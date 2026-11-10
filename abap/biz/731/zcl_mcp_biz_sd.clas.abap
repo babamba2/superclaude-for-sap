@@ -2646,6 +2646,7 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
       INTO CORRESPONDING FIELDS OF TABLE lt_rows
       UP TO lv_fetch ROWS
       WHERE k~vstel = lv_vstel
+        AND k~vbtyp = 'J'
         AND k~wadat IN lr_wadat
         AND (lt_where)
       ORDER BY k~wadat k~vbeln.
@@ -3640,6 +3641,10 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
           lv_lines TYPE i,
           lt_rows  TYPE ty_dues,
           ls_row   TYPE ty_due,
+          lr_cat   TYPE RANGE OF vkdfs-vbtyp,
+          ls_cat   LIKE LINE OF lr_cat,
+          lv_cats  TYPE c LENGTH 9,
+          lv_pos   TYPE i,
           ls_doc   TYPE zif_mcp_biz_action=>ty_sd_doc,
           lv_text  TYPE string.
 
@@ -3671,6 +3676,16 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
 
     " VKDFS = billing due index (the source of the billing due list). Documents with a
     " billing block are not due. The sold-to party column is never read.
+    " Only categories SD.BIL.CREATE can bill: sales documents and outbound / returns
+    " deliveries (S/4 also lists billing document requests, category EBDR).
+    ls_cat-sign = 'I'.
+    ls_cat-option = 'EQ'.
+    lv_cats = 'CEGHIKLJT'.
+    DO strlen( lv_cats ) TIMES.
+      lv_pos = sy-index - 1.
+      ls_cat-low = lv_cats+lv_pos(1).
+      APPEND ls_cat TO lr_cat.
+    ENDDO.
     SELECT vbeln vbtyp fkart vkorg vstel fkdat netwr waerk
       FROM vkdfs
       INTO CORRESPONDING FIELDS OF TABLE lt_rows
@@ -3678,6 +3693,7 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
       WHERE vkorg = lv_vkorg
         AND fkdat <= lv_date
         AND faksk = space
+        AND vbtyp IN lr_cat
       ORDER BY fkdat vbeln.
 
     IF lines( lt_rows ) > lv_max.

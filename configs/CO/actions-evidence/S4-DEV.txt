@@ -1,0 +1,9 @@
+# Handler evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
+H CO.ORD.LIST A000/1710 released -> 5 orders
+H CO.ORD.GET_DETAIL 100020 -> REL SETC, 74 allowed transactions, settlement rule KS 17101501
+H CO.CC.GET_DETAIL A000/17101201 -> profit center YB700
+H CO.CC.GET_ACTUALS A000/17101201 2026 P1-12 -> 12 cost elements, sum -2,528,680.46 = COSP/COSS compat total (ACDOCA path)
+H CO.PLAN.READ_PRIMARY A000/17101201 2026 v0 -> 0 classic plan values
+P CO.ORD.SET_STATUS 100020 teco -> subrc 0 (CHECK_ONLY), irreversible warning
+R CO.PLAN.PRIMARY -> GI 174 (plan ledgers 0 / 0R fiscal year variant BM vs K4): classic planning not available on this system
+R CO.REPOST.COSTS / CO.ACT.ALLOC refused: test user lacks K_CCA CO_ACTION 2076 (authorization gap, not verified)

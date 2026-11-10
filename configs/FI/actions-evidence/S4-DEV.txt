@@ -1,0 +1,10 @@
+# Handler evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
+H FI.DOC.GET_DETAIL 1710/100000024/2026 -> 2 lines (AWTYP BKPF)
+H FI.DOC.LIST_OPEN_ITEMS 1710/21900000 -> ACDOCA leading ledger; counts and balance = BSIS/BSAS compat (481 = 481, 227 = 227)
+H FI.GL.GET_ACCOUNT 1710/61008000 -> YCOA, P&L account
+H FI.PERIOD.GET_STATUS 1710 -> period 011/2026 open for + A D G K M S
+H FI.AR.GET_CREDIT_STATUS 17100011 -> UKM segment ZAVD (company code area) has no account (W); segment 0000 limit 10000 USD risk C
+P FI.GL.POST 1710 SA 10 USD 61008000/CC 17101201 <-> 21900000 -> RW 614 no errors (check BAPI); BKPF cpudt today 0 = 0
+P FI.ITEM.CHANGE_TEXT 1710/100000000/2022/2 -> subrc 0 (static); ACDOCA 0L SGTXT unchanged
+R FI.ITEM.SET_PAYMENT_BLOCK on a G/L line refused (account type S) - correct
+R FI.DOC.REVERSE: AWTYP BKPF refused up front (RW 628 otherwise); BKPFF dialog postings (e.g. 5200000000 MRKO) answer F5A 009 + FB08 hint; no interface posting in 1710 to run the positive path

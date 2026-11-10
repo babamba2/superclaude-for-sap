@@ -18,3 +18,17 @@ C EKPO: EBELN EBELP LOEKZ MATNR WERKS LGORT MENGE MEINS ELIKZ EREKZ present
 C EKET: EBELN EBELP ETENR EINDT MENGE WEMNG present
 D I_PURCHASEORDERITEMAPI01 exists=yes (deferred option)
 D MATDOC exists=yes
+
+# Handler evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
+H MM.PO.LIST_OPEN werks=1710 all_open -> 10 lines, truncated
+H MM.PO.GET_DETAIL 4500000030 -> 1 item
+H MM.PO.GET_HISTORY 4500000036 -> 2 GR (101) history rows, totals 3 = EKET-WEMNG 3
+H MM.VENDOR.GET_STATUS 17300001 -> no posting / purchasing / payment block (6 levels)
+H MM.PERIOD.GET 1710 -> current 11/2026, previous 10/2026, XRUEM X
+H MM.STOCK.GET TG0011/1710 -> 171A unrestricted 17293 = SUM(MATDOC stock_qty, LBBSA 01)
+H MM.IV.LIST_BLOCKED 1710 -> 0 blocked invoices
+P MM.PO.CHANGE_DELIVERY_DATE 4500000036/10 -> subrc 0, 10/20/2017 -> 12/15/2026, MMPUR_BASE 053 test run; EKET-EINDT unchanged
+P MM.PO.SET_DELIVERY_COMPLETE 4500000036/10 -> subrc 0 NO_MORE_GR X; EKPO-ELIKZ unchanged blank
+P MM.PO.SET_FINAL_INVOICE 4500000036/10 -> subrc 0 FINAL_INV X; EKPO-EREKZ unchanged blank
+P MM.PO.CHANGE_QUANTITY 4500000036/10 10 -> 9 -> BAPI test run refused (MEPO 001 schedule lines, 06 680 source validity): real checks reached; EKPO-MENGE unchanged 10
+P MM.GR.POST 4500000036/10 1 ST 171A -> subrc 0 (BAPI_GOODSMVT_CREATE test run); MATDOC rows for the PO 2 = 2

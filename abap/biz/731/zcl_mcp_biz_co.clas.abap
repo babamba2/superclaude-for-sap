@@ -1384,7 +1384,8 @@ CLASS zcl_mcp_biz_co IMPLEMENTATION.
                CHANGING cs_result = cs_result ).
       RETURN.
     ENDIF.
-    IF auth_csks( iv_kokrs = lv_kokrs iv_kostl = lv_kostl iv_actvt = '01' iv_plan = abap_true ) = abap_false.
+    " K_CSKS_PLA knows only 02 (plan) and 03 (display).
+    IF auth_csks( iv_kokrs = lv_kokrs iv_kostl = lv_kostl iv_actvt = '02' iv_plan = abap_true ) = abap_false.
       lv_text = |No authorization to plan cost center { lv_kostl } of controlling area { lv_kokrs }|.
       add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = cs_result ).
       RETURN.
