@@ -4,7 +4,7 @@
   "area": "maintenance notifications, maintenance orders, equipment, functional locations, maintenance plans",
   "notes": [
     "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side (handler ZCL_MCP_BIZ_PM).",
-    "Verified on ECC only. On S/4HANA every PM action stays hidden until it is tested there.",
+    "Query actions are verified on ECC and on S/4HANA (S4-DEV, 816); write actions are verified on ECC only and stay hidden on S/4HANA until they are tested there (the S/4 write path was not run: no PM write was executed or previewed on S/4HANA).",
     "BAPI_ALM_ORDER_MAINTAIN has no test mode: order create, release, date change and TECO preview with the handler checks only. Notification status changes and confirmations preview with a BAPI test run.",
     "TECO is refused while the notification of the order is open (the BAPI fails with IWO_BAPI 162): complete the notification first.",
     "Not offered: undo TECO (no BAPI method), business completion (CLSD), order deletion, maintenance plan scheduling (IP10 / IP30), measurement documents.",
@@ -108,6 +108,14 @@
           "date": "2026-11-11",
           "level": "scenario",
           "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/S4-DEV.txt"
         }
       ],
       "clarify": [
@@ -190,6 +198,14 @@
           "date": "2026-11-11",
           "level": "scenario",
           "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -277,6 +293,14 @@
           "date": "2026-11-11",
           "level": "scenario",
           "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -342,6 +366,14 @@
           "date": "2026-11-11",
           "level": "scenario",
           "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -411,6 +443,14 @@
           "date": "2026-11-11",
           "level": "scenario",
           "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -490,6 +530,14 @@
           "date": "2026-11-11",
           "level": "scenario",
           "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/S4-DEV.txt"
         }
       ],
       "clarify": [
@@ -562,6 +610,14 @@
           "date": "2026-11-11",
           "level": "scenario",
           "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/S4-DEV.txt"
         }
       ]
     },
@@ -628,6 +684,14 @@
           "date": "2026-11-11",
           "level": "scenario",
           "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/S4-DEV.txt"
         }
       ]
     },

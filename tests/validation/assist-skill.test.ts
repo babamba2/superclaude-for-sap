@@ -64,7 +64,7 @@ describe('assist catalog runtime (scripts/assist/catalog.mjs)', () => {
     expect(ecc.some((a: { id: string }) => a.id.startsWith('QM.'))).toBe(false);
   });
 
-  it('matches Korean PM requests on ECC and hides PM on S/4', () => {
+  it('matches Korean PM requests on ECC and offers only the PM queries on S/4', () => {
     const ecc = allActions(catalogs, 'ECC');
     expect(matchText('미결 보전오더 보여줘', ecc).candidates[0].id).toBe('PM.ORD.LIST_OPEN');
     expect(matchText('고장 통지 등록해줘', ecc).candidates[0].id).toBe('PM.NOTIF.CREATE');
@@ -74,7 +74,11 @@ describe('assist catalog runtime (scripts/assist/catalog.mjs)', () => {
     expect(teco.candidates[0].id).toBe('PM.ORD.TECO');
     expect(teco.ambiguities.length).toBeGreaterThan(0);
     const s4 = allActions(catalogs, 'S4');
-    expect(s4.some((a: { id: string }) => a.id.startsWith('PM.'))).toBe(false);
+    const pmS4 = s4.filter((a: { id: string }) => a.id.startsWith('PM.'));
+    expect(pmS4.length).toBe(8);
+    expect(pmS4.every((a: { kind: string }) => a.kind === 'query')).toBe(true);
+    expect(matchText('미결 보전오더 보여줘', s4).candidates[0].id).toBe('PM.ORD.LIST_OPEN');
+    expect(s4.some((a: { id: string }) => a.id === 'PM.ORD.TECO' || a.id === 'PM.NOTIF.CREATE')).toBe(false);
   });
 
   it('matches a Korean lookup and flags an ambiguous write term', () => {

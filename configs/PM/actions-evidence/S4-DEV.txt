@@ -1,0 +1,259 @@
+S4-DEV (S/4HANA 816) PM scenario evidence, 2026-11-11: 257/257 pass.
+Queries: verified (level scenario). Writes: not run on S/4HANA (ECC-verified only; the S/4 test user is not used for PM writes), so they stay hidden. Run 1 (219 of 250 pass; 31 fails were wrong expectations: status texts list several system statuses, one functional location has an order of another planning plant) and run 2 (31 corrected + 7 new scenarios, after the handler refused over-long auart / qmart / eqtyp instead of cutting them): last run of a scenario counts.
+S4PM-001 | PM.ORD.LIST_OPEN | {} | exp rc=4 rc=4; txt=werks is required (maintenance planning plant);  | act rc=4 werks is required (maintenance planning plant) | rb read only | PASS
+S4PM-002 | PM.ORD.LIST_OPEN | {"werks":"XXXX"} | exp rc=4 rc=4; txt=Planning plant XXXX does not exist;  | act rc=4 Planning plant XXXX does not exist (maintenance planning plants, T399I) | rb read only | PASS
+S4PM-003 | PM.ORD.LIST_OPEN | {"werks":"17100"} | exp rc=4 rc=4; txt=werks must be a plant;  | act rc=4 werks must be a plant (up to 4 characters) | rb read only | PASS
+S4PM-004 | PM.ORD.LIST_OPEN | {"werks":"1710","status":"bogus"} | exp rc=4 rc=4; txt=status must be open, created or released;  | act rc=4 status must be open, created or released | rb read only | PASS
+S4PM-005 | PM.ORD.LIST_OPEN | {"werks":"1710","bukrs":"1710"} | exp rc=4 rc=4; txt=Unknown parameter;  | act rc=4 Unknown parameter(s) for PM.ORD.LIST_OPEN: bukrs. Allowed: werks, auart, equnr, tplnr, status, max_rows | rb read only | PASS
+S4PM-006 | PM.ORD.LIST_OPEN | {"werks":"1710"} | exp rc=0 rc=0; txt=Planning plant 1710: 516 open maintenance orders (first 50 shown); txt="truncated":true;  | act rc=0 OK | rb read only | PASS
+S4PM-007 | PM.ORD.LIST_OPEN | {"werks":"1710","status":"open"} | exp rc=0 rc=0; txt=516 open maintenance orders;  | act rc=0 OK | rb read only | PASS
+S4PM-008 | PM.ORD.LIST_OPEN | {"werks":"1710","status":"created"} | exp rc=0 rc=0; txt=72 open maintenance orders (created);  | act rc=0 OK | rb read only | PASS
+S4PM-009 | PM.ORD.LIST_OPEN | {"werks":"1710","status":"released"} | exp rc=0 rc=0; txt=444 open maintenance orders (released);  | act rc=0 OK | rb read only | PASS
+S4PM-010 | PM.ORD.LIST_OPEN | {"werks":"1710","status":"RELEASED","max_rows":"500"} | exp rc=0 rc=0; txt=444 open maintenance orders (released);  | act rc=0 OK | rb read only | PASS
+S4PM-011 | PM.ORD.LIST_OPEN | {"werks":"1710","max_rows":"500"} | exp rc=0 rc=0; txt=516 open maintenance orders (first 500 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-012 | PM.ORD.LIST_OPEN | {"werks":"1710","max_rows":"900"} | exp rc=0 rc=0; txt=(first 500 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-013 | PM.ORD.LIST_OPEN | {"werks":"1710","max_rows":"0"} | exp rc=0 rc=0; txt=(first 1 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-014 | PM.ORD.LIST_OPEN | {"werks":"1710","max_rows":"abc"} | exp rc=0 rc=0; txt=(first 50 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-015 | PM.ORD.LIST_OPEN | {"werks":"1710","max_rows":"3"} | exp rc=0 rc=0; txt=(first 3 shown); txt="truncated":true;  | act rc=0 OK | rb read only | PASS
+S4PM-016 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"PM01"} | exp rc=0 rc=0; txt=53 open maintenance orders of type PM01;  | act rc=0 OK | rb read only | PASS
+S4PM-017 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"PM01","status":"created"} | exp rc=0 rc=0; txt=10 open maintenance orders (created) of type PM01;  | act rc=0 OK | rb read only | PASS
+S4PM-018 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"PM01","status":"released"} | exp rc=0 rc=0; txt=43 open maintenance orders (released) of type PM01;  | act rc=0 OK | rb read only | PASS
+S4PM-019 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"pm02"} | exp rc=0 rc=0; txt=16 open maintenance orders of type pm02;  | act rc=0 OK | rb read only | PASS
+S4PM-020 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"PM03"} | exp rc=0 rc=0; txt=1 open maintenance orders of type PM03;  | act rc=0 OK | rb read only | PASS
+S4PM-021 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"PM04"} | exp rc=0 rc=0; txt=3 open maintenance orders of type PM04;  | act rc=0 OK | rb read only | PASS
+S4PM-022 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"PM05"} | exp rc=0 rc=0; txt=7 open maintenance orders of type PM05;  | act rc=0 OK | rb read only | PASS
+S4PM-023 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"YA01"} | exp rc=0 rc=0; txt=29 open maintenance orders of type YA01;  | act rc=0 OK | rb read only | PASS
+S4PM-024 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"YA02","status":"released"} | exp rc=0 rc=0; txt=8 open maintenance orders (released) of type YA02;  | act rc=0 OK | rb read only | PASS
+S4PM-025 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"YBA1"} | exp rc=0 rc=0; txt=30 open maintenance orders of type YBA1;  | act rc=0 OK | rb read only | PASS
+S4PM-026 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"YBA2"} | exp rc=0 rc=0; txt=335 open maintenance orders of type YBA2;  | act rc=0 OK | rb read only | PASS
+S4PM-027 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"YBA2","status":"created"} | exp rc=0 rc=0; txt=2 open maintenance orders (created) of type YBA2;  | act rc=0 OK | rb read only | PASS
+S4PM-028 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"YBA3"} | exp rc=0 rc=0; txt=5 open maintenance orders of type YBA3;  | act rc=0 OK | rb read only | PASS
+S4PM-029 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"ZZZZ"} | exp rc=0 rc=0; txt=0 open maintenance orders of type ZZZZ;  | act rc=0 OK | rb read only | PASS
+S4PM-030 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"PM01","status":"created","max_rows":"1"} | exp rc=0 rc=0; txt=000004002085;  | act rc=0 OK | rb read only | PASS
+S4PM-031 | PM.ORD.LIST_OPEN | {"werks":"1010"} | exp rc=0 rc=0; txt=Planning plant 1010: 50 open maintenance orders;  | act rc=0 OK | rb read only | PASS
+S4PM-032 | PM.ORD.LIST_OPEN | {"werks":"1010","status":"created"} | exp rc=0 rc=0; txt=2 open maintenance orders (created);  | act rc=0 OK | rb read only | PASS
+S4PM-033 | PM.ORD.LIST_OPEN | {"werks":"1010","status":"released"} | exp rc=0 rc=0; txt=48 open maintenance orders (released);  | act rc=0 OK | rb read only | PASS
+S4PM-034 | PM.ORD.LIST_OPEN | {"werks":"1010","auart":"YBA2"} | exp rc=0 rc=0; txt=46 open maintenance orders of type YBA2;  | act rc=0 OK | rb read only | PASS
+S4PM-035 | PM.ORD.LIST_OPEN | {"werks":"1010","auart":"YA02"} | exp rc=0 rc=0; txt=2 open maintenance orders of type YA02;  | act rc=0 OK | rb read only | PASS
+S4PM-036 | PM.ORD.LIST_OPEN | {"werks":"1010","auart":"YBA1"} | exp rc=0 rc=0; txt=1 open maintenance orders of type YBA1;  | act rc=0 OK | rb read only | PASS
+S4PM-037 | PM.ORD.LIST_OPEN | {"werks":"FORP"} | exp rc=0 rc=0; txt=Planning plant FORP: 10 open maintenance orders;  | act rc=0 OK | rb read only | PASS
+S4PM-038 | PM.ORD.LIST_OPEN | {"werks":"FORP","status":"created"} | exp rc=0 rc=0; txt=1 open maintenance orders (created);  | act rc=0 OK | rb read only | PASS
+S4PM-039 | PM.ORD.LIST_OPEN | {"werks":"forp","auart":"YBA2"} | exp rc=0 rc=0; txt=3 open maintenance orders of type YBA2;  | act rc=0 OK | rb read only | PASS
+S4PM-040 | PM.ORD.LIST_OPEN | {"werks":"DT01"} | exp rc=0 rc=0; txt=Planning plant DT01: 4 open maintenance orders;  | act rc=0 OK | rb read only | PASS
+S4PM-041 | PM.ORD.LIST_OPEN | {"werks":"DT01","auart":"DTBD"} | exp rc=0 rc=0; txt=3 open maintenance orders of type DTBD;  | act rc=0 OK | rb read only | PASS
+S4PM-042 | PM.ORD.LIST_OPEN | {"werks":"DT01","auart":"DTPM"} | exp rc=0 rc=0; txt=1 open maintenance orders of type DTPM;  | act rc=0 OK | rb read only | PASS
+S4PM-043 | PM.ORD.LIST_OPEN | {"werks":"0003"} | exp rc=0 rc=0; txt=Planning plant 0003: 1 open maintenance orders;  | act rc=0 OK | rb read only | PASS
+S4PM-044 | PM.ORD.LIST_OPEN | {"werks":"1710","equnr":"10003160"} | exp rc=0 rc=0; txt=5 open maintenance orders on equipment 10003160;  | act rc=0 OK | rb read only | PASS
+S4PM-045 | PM.ORD.LIST_OPEN | {"werks":"1710","equnr":"000000000010003160","status":"released"} | exp rc=0 rc=0; txt=5 open maintenance orders (released) on equipment;  | act rc=0 OK | rb read only | PASS
+S4PM-046 | PM.ORD.LIST_OPEN | {"werks":"1710","equnr":"217100093"} | exp rc=0 rc=0; txt=4 open maintenance orders on equipment 217100093;  | act rc=0 OK | rb read only | PASS
+S4PM-047 | PM.ORD.LIST_OPEN | {"werks":"1710","equnr":"217100028"} | exp rc=0 rc=0; txt=1 open maintenance orders on equipment 217100028;  | act rc=0 OK | rb read only | PASS
+S4PM-048 | PM.ORD.LIST_OPEN | {"werks":"1710","equnr":"10003062"} | exp rc=0 rc=0; txt=0 open maintenance orders on equipment 10003062;  | act rc=0 OK | rb read only | PASS
+S4PM-049 | PM.ORD.LIST_OPEN | {"werks":"1010","equnr":"210100093"} | exp rc=0 rc=0; txt=36 open maintenance orders on equipment 210100093;  | act rc=0 OK | rb read only | PASS
+S4PM-050 | PM.ORD.LIST_OPEN | {"werks":"1010","equnr":"210100093","max_rows":"5"} | exp rc=0 rc=0; txt=(first 5 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-051 | PM.ORD.LIST_OPEN | {"werks":"1710","equnr":"210100093"} | exp rc=0 rc=0; txt=0 open maintenance orders on equipment;  | act rc=0 OK | rb read only | PASS
+S4PM-052 | PM.ORD.LIST_OPEN | {"werks":"1710","tplnr":"1710-CWS"} | exp rc=0 rc=0; txt=0 open maintenance orders on functional location 1710-CWS;  | act rc=0 OK | rb read only | PASS
+S4PM-053 | PM.ORD.LIST_OPEN | {"werks":"1710","tplnr":"1710"} | exp rc=0 rc=0; txt=3 open maintenance orders on functional location 1710;  | act rc=0 OK | rb read only | PASS
+S4PM-054 | PM.ORD.LIST_OPEN | {"werks":"1710","tplnr":"1710-CWS-WCS-CWCP3"} | exp rc=0 rc=0; txt=19 open maintenance orders on functional location 1710-CWS-WCS-CWCP3;  | act rc=0 OK | rb read only | PASS
+S4PM-055 | PM.ORD.LIST_OPEN | {"werks":"1710","tplnr":"ts01-ut01-100mv"} | exp rc=0 rc=0; txt=7 open maintenance orders on functional location;  | act rc=0 OK | rb read only | PASS
+S4PM-056 | PM.ORD.LIST_OPEN | {"werks":"DT01","tplnr":"DTPL-DT01-PRD-ACC"} | exp rc=0 rc=0; txt=4 open maintenance orders on functional location;  | act rc=0 OK | rb read only | PASS
+S4PM-057 | PM.ORD.LIST_OPEN | {"werks":"FORP","tplnr":"FORP-TO"} | exp rc=0 rc=0; txt=4 open maintenance orders on functional location FORP-TO;  | act rc=0 OK | rb read only | PASS
+S4PM-058 | PM.ORD.LIST_OPEN | {"werks":"1010","tplnr":"1010-CWS-WCS-CWCP1"} | exp rc=0 rc=0; txt=38 open maintenance orders on functional location;  | act rc=0 OK | rb read only | PASS
+S4PM-059 | PM.ORD.LIST_OPEN | {"werks":"1710","tplnr":"ZZZZ-NOPE"} | exp rc=0 rc=0; txt=0 open maintenance orders on functional location ZZZZ-NOPE;  | act rc=0 OK | rb read only | PASS
+S4PM-060 | PM.ORD.GET_DETAIL | {"aufnr":"4002085"} | exp rc=0 rc=0; txt=Maintenance order 000004002085 (PM01, planning plant 1710): status ; txt= CRTD; txt=, 1 operations, 0 components, 0 confirmations; txt=000000000217100013; txt=1710-SPA-SAC-PLAR1-CLR2; txt=000010001246;  | act rc=0 OK | rb read only | PASS
+S4PM-061 | PM.ORD.GET_DETAIL | {"aufnr":"4002083"} | exp rc=0 rc=0; txt=Maintenance order 000004002083 (PM01, planning plant 1710): status ; txt= REL; txt=, 1 operations, 2 components, 0 confirmations; txt=000000000010004840; txt=000010001243;  | act rc=0 OK | rb read only | PASS
+S4PM-062 | PM.ORD.GET_DETAIL | {"aufnr":"4002082"} | exp rc=0 rc=0; txt=Maintenance order 000004002082 (YBA2, planning plant 1710): status ; txt= REL; txt=, 4 operations, 0 components, 0 confirmations; txt=Test Multiple Counter Plan; txt=000000000232;  | act rc=0 OK | rb read only | PASS
+S4PM-063 | PM.ORD.GET_DETAIL | {"aufnr":"4002081"} | exp rc=0 rc=0; txt=Maintenance order 000004002081 (YBA2, planning plant 1710): status ; txt= REL; txt=, 4 operations, 0 components, 0 confirmations; txt=000010001241;  | act rc=0 OK | rb read only | PASS
+S4PM-064 | PM.ORD.GET_DETAIL | {"aufnr":"4001827"} | exp rc=0 rc=0; txt=Maintenance order 000004001827 (YBA2, planning plant 1010): status ; txt= REL; txt=, 4 operations, 4 components, 0 confirmations; txt=1010-CWS-WCS-CWCP1; txt=Mechanical Inspection for Pump;  | act rc=0 OK | rb read only | PASS
+S4PM-065 | PM.ORD.GET_DETAIL | {"aufnr":"4001791"} | exp rc=0 rc=0; txt=Maintenance order 000004001791 (YA01, planning plant 1710): status ; txt= CLSD; txt=, 1 operations, 0 components, 1 confirmations; txt=Vibration while running;  | act rc=0 OK | rb read only | PASS
+S4PM-066 | PM.ORD.GET_DETAIL | {"aufnr":"4001784"} | exp rc=0 rc=0; txt=Maintenance order 000004001784 (YBA1, planning plant 1710): status ; txt= TECO; txt=, 1 operations, 0 components, 1 confirmations; txt=Test non stock mat;  | act rc=0 OK | rb read only | PASS
+S4PM-067 | PM.ORD.GET_DETAIL | {"aufnr":"4000826"} | exp rc=0 rc=0; txt=Maintenance order 000004000826 (YA02, planning plant 1010): status ; txt= CRTD; txt=, 3 operations, 3 components, 0 confirmations; txt=000010000495;  | act rc=0 OK | rb read only | PASS
+S4PM-068 | PM.ORD.GET_DETAIL | {"aufnr":"4000821"} | exp rc=0 rc=0; txt=Maintenance order 000004000821 (YA01, planning plant FORP): status ; txt= REL; txt=, 1 operations, 4 components, 0 confirmations; txt=FORP-TO; txt=FL Maintenance Request;  | act rc=0 OK | rb read only | PASS
+S4PM-069 | PM.ORD.GET_DETAIL | {"aufnr":"4000722"} | exp rc=0 rc=0; txt=Maintenance order 000004000722 (YA01, planning plant FORP): status ; txt= REL; txt=, 1 operations, 4 components, 0 confirmations; txt=000010000433;  | act rc=0 OK | rb read only | PASS
+S4PM-070 | PM.ORD.GET_DETAIL | {"aufnr":"2003"} | exp rc=0 rc=0; txt=Maintenance order 000000002003 (DTBD, planning plant DT01): status ; txt= REL; txt=, 3 operations, 4 components, 0 confirmations; txt=DTPL-DT01-PRD-ACC; txt=000000000162;  | act rc=0 OK | rb read only | PASS
+S4PM-071 | PM.ORD.GET_DETAIL | {"aufnr":"4001620"} | exp rc=0 rc=0; txt=Maintenance order 000004001620 (PM01, planning plant 0003): status ; txt= REL; txt=, 1 operations, 0 components, 0 confirmations; txt=000010000780;  | act rc=0 OK | rb read only | PASS
+S4PM-072 | PM.ORD.GET_DETAIL | {"aufnr":"4002049"} | exp rc=0 rc=0; txt=Maintenance order 000004002049 (YA02, planning plant 1710): status ; txt= TECO; txt=, 3 operations, 0 components, 3 confirmations; txt=000000000222;  | act rc=0 OK | rb read only | PASS
+S4PM-073 | PM.ORD.GET_DETAIL | {"aufnr":"4002059"} | exp rc=0 rc=0; txt=Maintenance order 000004002059 (YA02, planning plant 1710): status ; txt= CRTD; txt=, 4 operations, 0 components, 0 confirmations; txt=Perfomrance Maitnt;  | act rc=0 OK | rb read only | PASS
+S4PM-074 | PM.ORD.GET_DETAIL | {"aufnr":"4001731"} | exp rc=0 rc=0; txt=Maintenance order 000004001731 (YBA2, planning plant 1710): status ; txt= CLSD; txt=, 1 operations, 0 components, 1 confirmations; txt=SINGLE CYCLE MAINTENANCE;  | act rc=0 OK | rb read only | PASS
+S4PM-075 | PM.ORD.GET_DETAIL | {"aufnr":"000004002085"} | exp rc=0 rc=0; txt=Maintenance order 000004002085 (PM01, planning plant 1710): status ; txt= CRTD; txt=, 1 operations, 0 components, 0 confirmations;  | act rc=0 OK | rb read only | PASS
+S4PM-076 | PM.ORD.GET_DETAIL | {"aufnr":"4002085"} | exp rc=0 rc=0; txt="CONFIRMATIONS"; txt="PLAN_COSTS"; txt="ACTUAL_COSTS"; txt="CURRENCY";  | act rc=0 OK | rb read only | PASS
+S4PM-077 | PM.ORD.GET_DETAIL | {"aufnr":"4002083"} | exp rc=0 rc=0; txt="OPERATION"; txt="COMPONENT"; txt="REQUIREMENT_QTY";  | act rc=0 OK | rb read only | PASS
+S4PM-078 | PM.ORD.GET_DETAIL | {} | exp rc=4 rc=4; txt=aufnr is required (maintenance order number;  | act rc=4 aufnr is required (maintenance order number, digits up to 12) | rb read only | PASS
+S4PM-079 | PM.ORD.GET_DETAIL | {"aufnr":"ABC"} | exp rc=4 rc=4; txt=aufnr is required;  | act rc=4 aufnr is required (maintenance order number, digits up to 12) | rb read only | PASS
+S4PM-080 | PM.ORD.GET_DETAIL | {"aufnr":"0"} | exp rc=4 rc=4; txt=aufnr is required;  | act rc=4 aufnr is required (maintenance order number, digits up to 12) | rb read only | PASS
+S4PM-081 | PM.ORD.GET_DETAIL | {"aufnr":"1234567890123"} | exp rc=4 rc=4; txt=aufnr is required;  | act rc=4 aufnr is required (maintenance order number, digits up to 12) | rb read only | PASS
+S4PM-082 | PM.ORD.GET_DETAIL | {"aufnr":"999999999"} | exp rc=4 rc=4; txt=Maintenance order 999999999 not found;  | act rc=4 Maintenance order 999999999 not found | rb read only | PASS
+S4PM-083 | PM.ORD.GET_DETAIL | {"aufnr":"1000001"} | exp rc=4 rc=4; txt=is not a maintenance order (order category 10;  | act rc=4 Order 1000001 is not a maintenance order (order category 10, type YBM1) | rb read only | PASS
+S4PM-084 | PM.ORD.GET_DETAIL | {"aufnr":"4002085","werks":"1710"} | exp rc=4 rc=4; txt=Unknown parameter;  | act rc=4 Unknown parameter(s) for PM.ORD.GET_DETAIL: werks. Allowed: aufnr | rb read only | PASS
+S4PM-085 | PM.NOTIF.LIST_OPEN | {} | exp rc=0 rc=0; txt=618 open maintenance notifications (first 50 shown); txt="truncated":true;  | act rc=0 OK | rb read only | PASS
+S4PM-086 | PM.NOTIF.LIST_OPEN | {"werks":"1710"} | exp rc=0 rc=0; txt=Planning plant 1710: 507 open maintenance notifications;  | act rc=0 OK | rb read only | PASS
+S4PM-087 | PM.NOTIF.LIST_OPEN | {"werks":"1010"} | exp rc=0 rc=0; txt=Planning plant 1010: 50 open maintenance notifications;  | act rc=0 OK | rb read only | PASS
+S4PM-088 | PM.NOTIF.LIST_OPEN | {"werks":"DT01"} | exp rc=0 rc=0; txt=Planning plant DT01: 23 open maintenance notifications;  | act rc=0 OK | rb read only | PASS
+S4PM-089 | PM.NOTIF.LIST_OPEN | {"werks":"FORP"} | exp rc=0 rc=0; txt=Planning plant FORP: 11 open maintenance notifications;  | act rc=0 OK | rb read only | PASS
+S4PM-090 | PM.NOTIF.LIST_OPEN | {"werks":"0003"} | exp rc=0 rc=0; txt=Planning plant 0003: 1 open maintenance notifications;  | act rc=0 OK | rb read only | PASS
+S4PM-091 | PM.NOTIF.LIST_OPEN | {"qmart":"M1"} | exp rc=0 rc=0; txt=79 open maintenance notifications of type M1;  | act rc=0 OK | rb read only | PASS
+S4PM-092 | PM.NOTIF.LIST_OPEN | {"qmart":"M2"} | exp rc=0 rc=0; txt=72 open maintenance notifications of type M2;  | act rc=0 OK | rb read only | PASS
+S4PM-093 | PM.NOTIF.LIST_OPEN | {"qmart":"M3"} | exp rc=0 rc=0; txt=394 open maintenance notifications of type M3;  | act rc=0 OK | rb read only | PASS
+S4PM-094 | PM.NOTIF.LIST_OPEN | {"qmart":"y1"} | exp rc=0 rc=0; txt=60 open maintenance notifications of type y1;  | act rc=0 OK | rb read only | PASS
+S4PM-095 | PM.NOTIF.LIST_OPEN | {"qmart":"Y2"} | exp rc=0 rc=0; txt=12 open maintenance notifications of type Y2;  | act rc=0 OK | rb read only | PASS
+S4PM-096 | PM.NOTIF.LIST_OPEN | {"qmart":"B1"} | exp rc=0 rc=0; txt=1 open maintenance notifications of type B1;  | act rc=0 OK | rb read only | PASS
+S4PM-097 | PM.NOTIF.LIST_OPEN | {"werks":"1710","qmart":"M1"} | exp rc=0 rc=0; txt=Planning plant 1710: 62 open maintenance notifications of type M1;  | act rc=0 OK | rb read only | PASS
+S4PM-098 | PM.NOTIF.LIST_OPEN | {"werks":"1710","qmart":"M2"} | exp rc=0 rc=0; txt=44 open maintenance notifications of type M2;  | act rc=0 OK | rb read only | PASS
+S4PM-099 | PM.NOTIF.LIST_OPEN | {"werks":"1710","qmart":"M3"} | exp rc=0 rc=0; txt=345 open maintenance notifications of type M3;  | act rc=0 OK | rb read only | PASS
+S4PM-100 | PM.NOTIF.LIST_OPEN | {"werks":"1710","qmart":"Y1"} | exp rc=0 rc=0; txt=46 open maintenance notifications of type Y1;  | act rc=0 OK | rb read only | PASS
+S4PM-101 | PM.NOTIF.LIST_OPEN | {"werks":"1710","qmart":"Y2"} | exp rc=0 rc=0; txt=10 open maintenance notifications of type Y2;  | act rc=0 OK | rb read only | PASS
+S4PM-102 | PM.NOTIF.LIST_OPEN | {"werks":"1010","qmart":"M3"} | exp rc=0 rc=0; txt=46 open maintenance notifications of type M3;  | act rc=0 OK | rb read only | PASS
+S4PM-103 | PM.NOTIF.LIST_OPEN | {"werks":"1010","qmart":"Y2"} | exp rc=0 rc=0; txt=2 open maintenance notifications of type Y2;  | act rc=0 OK | rb read only | PASS
+S4PM-104 | PM.NOTIF.LIST_OPEN | {"werks":"DT01","qmart":"M2"} | exp rc=0 rc=0; txt=21 open maintenance notifications of type M2;  | act rc=0 OK | rb read only | PASS
+S4PM-105 | PM.NOTIF.LIST_OPEN | {"werks":"DT01","qmart":"M1"} | exp rc=0 rc=0; txt=1 open maintenance notifications of type M1;  | act rc=0 OK | rb read only | PASS
+S4PM-106 | PM.NOTIF.LIST_OPEN | {"werks":"FORP","qmart":"M3"} | exp rc=0 rc=0; txt=3 open maintenance notifications of type M3;  | act rc=0 OK | rb read only | PASS
+S4PM-107 | PM.NOTIF.LIST_OPEN | {"werks":"FORP","qmart":"M1"} | exp rc=0 rc=0; txt=0 open maintenance notifications of type M1;  | act rc=0 OK | rb read only | PASS
+S4PM-108 | PM.NOTIF.LIST_OPEN | {"werks":"1710","qmart":"M1","max_rows":"1"} | exp rc=0 rc=0; txt=(first 1 shown); txt=000010001246;  | act rc=0 OK | rb read only | PASS
+S4PM-109 | PM.NOTIF.LIST_OPEN | {"qmart":"M3","max_rows":"5"} | exp rc=0 rc=0; txt=(first 5 shown); txt="truncated":true;  | act rc=0 OK | rb read only | PASS
+S4PM-110 | PM.NOTIF.LIST_OPEN | {"qmart":"Q2"} | exp rc=4 rc=4; txt=is not a maintenance notification type;  | act rc=4 Notification type Q2 is not a maintenance notification type | rb read only | PASS
+S4PM-111 | PM.NOTIF.LIST_OPEN | {"qmart":"ZZ"} | exp rc=4 rc=4; txt=is not a maintenance notification type;  | act rc=4 Notification type ZZ is not a maintenance notification type | rb read only | PASS
+S4PM-112 | PM.NOTIF.LIST_OPEN | {"werks":"XXXX"} | exp rc=4 rc=4; txt=Planning plant XXXX does not exist;  | act rc=4 Planning plant XXXX does not exist (maintenance planning plants, T399I) | rb read only | PASS
+S4PM-113 | PM.NOTIF.LIST_OPEN | {"werks":"17100"} | exp rc=4 rc=4; txt=werks must be a plant;  | act rc=4 werks must be a plant (up to 4 characters) | rb read only | PASS
+S4PM-114 | PM.NOTIF.LIST_OPEN | {"werks":"1710","bukrs":"X"} | exp rc=4 rc=4; txt=Unknown parameter;  | act rc=4 Unknown parameter(s) for PM.NOTIF.LIST_OPEN: bukrs. Allowed: werks, qmart, equnr, tplnr, max_rows | rb read only | PASS
+S4PM-115 | PM.NOTIF.LIST_OPEN | {"equnr":"10003160"} | exp rc=0 rc=0; txt=on equipment 10003160;  | act rc=0 OK | rb read only | PASS
+S4PM-116 | PM.NOTIF.LIST_OPEN | {"equnr":"999999999"} | exp rc=0 rc=0; txt=0 open maintenance notifications on equipment 999999999;  | act rc=0 OK | rb read only | PASS
+S4PM-117 | PM.NOTIF.LIST_OPEN | {"equnr":"10003062"} | exp rc=0 rc=0; txt=0 open maintenance notifications on equipment 10003062;  | act rc=0 OK | rb read only | PASS
+S4PM-118 | PM.NOTIF.LIST_OPEN | {"werks":"1710","tplnr":"ZZZZ-NOPE"} | exp rc=0 rc=0; txt=0 open maintenance notifications on functional location ZZZZ-NOPE;  | act rc=0 OK | rb read only | PASS
+S4PM-119 | PM.NOTIF.LIST_OPEN | {"werks":"1710","tplnr":"1710-CWS-WCS-CWCP3"} | exp rc=0 rc=0; txt=on functional location 1710-CWS-WCS-CWCP3;  | act rc=0 OK | rb read only | PASS
+S4PM-120 | PM.NOTIF.GET_DETAIL | {"qmnum":"10001246"} | exp rc=0 rc=0; txt=Notification 000010001246 (M1): status ; txt= NOPR; txt=, 0 items, 0 open tasks, order 000004002085; txt=000000000217100013; txt=1710-SPA-SAC-PLAR1-CLR2;  | act rc=0 OK | rb read only | PASS
+S4PM-121 | PM.NOTIF.GET_DETAIL | {"qmnum":"10001228"} | exp rc=0 rc=0; txt=Notification 000010001228 (M1): status OSNO, 0 items, 0 open tasks;  | act rc=0 OK | rb read only | PASS
+S4PM-122 | PM.NOTIF.GET_DETAIL | {"qmnum":"10000972"} | exp rc=0 rc=0; txt=Notification 000010000972 (M1): status ; txt= NOCO; txt=, 0 items, 0 open tasks, order 000004001790;  | act rc=0 OK | rb read only | PASS
+S4PM-123 | PM.NOTIF.GET_DETAIL | {"qmnum":"10000968"} | exp rc=0 rc=0; txt=Notification 000010000968 (M2): status ; txt= NOPR; txt=, 1 items, 1 open tasks, order 000004001783;  | act rc=0 OK | rb read only | PASS
+S4PM-124 | PM.NOTIF.GET_DETAIL | {"qmnum":"10000974"} | exp rc=0 rc=0; txt=Notification 000010000974 (M2): status ; txt= OSNO; txt=, 0 items, 0 open tasks; txt=DT01;  | act rc=0 OK | rb read only | PASS
+S4PM-125 | PM.NOTIF.GET_DETAIL | {"qmnum":"10001242"} | exp rc=0 rc=0; txt=Notification 000010001242 (M3): status ; txt= NOPR; txt=, 0 items, 0 open tasks, order 000004002082;  | act rc=0 OK | rb read only | PASS
+S4PM-126 | PM.NOTIF.GET_DETAIL | {"qmnum":"10000969"} | exp rc=0 rc=0; txt=Notification 000010000969 (Y1): status ; txt= NOPR; txt=, 0 items, 0 open tasks, order 000004001787;  | act rc=0 OK | rb read only | PASS
+S4PM-127 | PM.NOTIF.GET_DETAIL | {"qmnum":"10001244"} | exp rc=0 rc=0; txt=Notification 000010001244 (B1): status OSNO, 0 items, 0 open tasks;  | act rc=0 OK | rb read only | PASS
+S4PM-128 | PM.NOTIF.GET_DETAIL | {"qmnum":"10000495"} | exp rc=0 rc=0; txt=Notification 000010000495 (Y2): status ; txt= NOPR; txt=, 0 items, 0 open tasks, order 000004000826; txt=1010;  | act rc=0 OK | rb read only | PASS
+S4PM-129 | PM.NOTIF.GET_DETAIL | {"qmnum":"10000792"} | exp rc=0 rc=0; txt=Notification 000010000792 (M2): status ; txt= NOCO; txt=, 1 items, 0 open tasks, order 000000002000;  | act rc=0 OK | rb read only | PASS
+S4PM-130 | PM.NOTIF.GET_DETAIL | {"qmnum":"10000973"} | exp rc=0 rc=0; txt=Notification 000010000973 (Y1): status ; txt= NOCO; txt=, 1 items, 0 open tasks, order 000004001791;  | act rc=0 OK | rb read only | PASS
+S4PM-131 | PM.NOTIF.GET_DETAIL | {"qmnum":"10000964"} | exp rc=0 rc=0; txt=Notification 000010000964 (M1): status ; txt= NOCO; txt=, 1 items, 0 open tasks;  | act rc=0 OK | rb read only | PASS
+S4PM-132 | PM.NOTIF.GET_DETAIL | {"qmnum":"10000939"} | exp rc=0 rc=0; txt=Notification 000010000939 (M1): status ; txt= NOPR; txt=, 1 items, 1 open tasks;  | act rc=0 OK | rb read only | PASS
+S4PM-133 | PM.NOTIF.GET_DETAIL | {"qmnum":"10000884"} | exp rc=0 rc=0; txt=Notification 000010000884 (Y1): status ; txt= NOPR; txt=, 1 items, 2 open tasks;  | act rc=0 OK | rb read only | PASS
+S4PM-134 | PM.NOTIF.GET_DETAIL | {"qmnum":"10000883"} | exp rc=0 rc=0; txt=Notification 000010000883 (M1): status OSNO, 1 items, 0 open tasks;  | act rc=0 OK | rb read only | PASS
+S4PM-135 | PM.NOTIF.GET_DETAIL | {"qmnum":"000010001246"} | exp rc=0 rc=0; txt=Notification 000010001246 (M1): status ; txt= NOPR; txt=, 0 items, 0 open tasks, order 000004002085;  | act rc=0 OK | rb read only | PASS
+S4PM-136 | PM.NOTIF.GET_DETAIL | {"qmnum":"10001246"} | exp rc=0 rc=0; txt="ITEMS"; txt="TASKS"; txt="OPEN_TASKS"; txt="PLANNING_PLANT";  | act rc=0 OK | rb read only | PASS
+S4PM-137 | PM.NOTIF.GET_DETAIL | {} | exp rc=4 rc=4; txt=qmnum is required (notification number;  | act rc=4 qmnum is required (notification number, digits up to 12) | rb read only | PASS
+S4PM-138 | PM.NOTIF.GET_DETAIL | {"qmnum":"ABC"} | exp rc=4 rc=4; txt=qmnum is required;  | act rc=4 qmnum is required (notification number, digits up to 12) | rb read only | PASS
+S4PM-139 | PM.NOTIF.GET_DETAIL | {"qmnum":"1234567890123"} | exp rc=4 rc=4; txt=qmnum is required;  | act rc=4 qmnum is required (notification number, digits up to 12) | rb read only | PASS
+S4PM-140 | PM.NOTIF.GET_DETAIL | {"qmnum":"999999999"} | exp rc=4 rc=4; txt=Notification 999999999 not found;  | act rc=4 Notification 999999999 not found | rb read only | PASS
+S4PM-141 | PM.NOTIF.GET_DETAIL | {"qmnum":"200000061"} | exp rc=4 rc=4; txt=is not a maintenance notification;  | act rc=4 Notification 200000061 (type Q2) is not a maintenance notification | rb read only | PASS
+S4PM-142 | PM.NOTIF.GET_DETAIL | {"qmnum":"10001246","aufnr":"1"} | exp rc=4 rc=4; txt=Unknown parameter;  | act rc=4 Unknown parameter(s) for PM.NOTIF.GET_DETAIL: aufnr. Allowed: qmnum | rb read only | PASS
+S4PM-143 | PM.EQUI.GET_DETAIL | {"equnr":"10003160"} | exp rc=0 rc=0; txt=Equipment 10003160 (; txt=), category F, planning plant 1710, installed at 1710-CWS-WCS-CWCP3: 5 open orders, 5 open notifications; txt=000000000010003159;  | act rc=0 OK | rb read only | PASS
+S4PM-144 | PM.EQUI.GET_DETAIL | {"equnr":"217100013"} | exp rc=0 rc=0; txt=Equipment 217100013 (; txt=), category M, planning plant 1710, installed at 1710-SPA-SAC-PLAR1-CLR2: 4 open orders, 2 open notifications; txt=000004002085;  | act rc=0 OK | rb read only | PASS
+S4PM-145 | PM.EQUI.GET_DETAIL | {"equnr":"10004840"} | exp rc=0 rc=0; txt=Equipment 10004840 (; txt=), category Q, planning plant 1710, installed at 1710-CWS-WCS-CWCP1: 3 open orders, 1 open notifications; txt=000000000217100091;  | act rc=0 OK | rb read only | PASS
+S4PM-146 | PM.EQUI.GET_DETAIL | {"equnr":"210100093"} | exp rc=0 rc=0; txt=Equipment 210100093 (; txt=), category M, planning plant 1010, installed at 1010-CWS-WCS-CWCP1: 36 open orders, 36 open notifications; txt=000004001827;  | act rc=0 OK | rb read only | PASS
+S4PM-147 | PM.EQUI.GET_DETAIL | {"equnr":"10003062"} | exp rc=0 rc=0; txt=Equipment 10003062 (; txt=), category P, planning plant 1710, installed at TS01-UT01-100MV: 0 open orders, 0 open notifications; txt=000000000010003049;  | act rc=0 OK | rb read only | PASS
+S4PM-148 | PM.EQUI.GET_DETAIL | {"equnr":"30000"} | exp rc=0 rc=0; txt=Equipment 30000 (; txt=), category 3, planning plant DT01, installed at DTPL-DT01: 0 open orders, 0 open notifications; txt=000000002000;  | act rc=0 OK | rb read only | PASS
+S4PM-149 | PM.EQUI.GET_DETAIL | {"equnr":"10000"} | exp rc=0 rc=0; txt=Equipment 10000 (; txt=), category 1, planning plant DT01, installed at DTPL-DT01-PRD-ACC: 4 open orders, 19 open notifications; txt=<manufacturer>; txt=<model>; txt=000000002003;  | act rc=0 OK | rb read only | PASS
+S4PM-150 | PM.EQUI.GET_DETAIL | {"equnr":"217100903"} | exp rc=0 rc=0; txt=Equipment 217100903 (; txt=), category S, planning plant 1710: 0 open orders, 0 open notifications;  | act rc=0 OK | rb read only | PASS
+S4PM-151 | PM.EQUI.GET_DETAIL | {"equnr":"10009"} | exp rc=0 rc=0; txt=Equipment 10009 (; txt=), category 1, planning plant DT01, installed at DTPL-DT01-PRD-ACC: 0 open orders, 0 open notifications; txt=<manufacturer>;  | act rc=0 OK | rb read only | PASS
+S4PM-152 | PM.EQUI.GET_DETAIL | {"equnr":"217100028"} | exp rc=0 rc=0; txt=Equipment 217100028 (; txt=), category M, planning plant 1710, installed at 1710-SPA-SAC-PLAR2-CLR1: 1 open orders, 0 open notifications; txt=000004002059;  | act rc=0 OK | rb read only | PASS
+S4PM-153 | PM.EQUI.GET_DETAIL | {"equnr":"210100091"} | exp rc=0 rc=0; txt=Equipment 210100091 (; txt=), category M, planning plant 1010, installed at 1010-CWS-WCS-CWCP1: 3 open orders, 4 open notifications; txt=000004000826;  | act rc=0 OK | rb read only | PASS
+S4PM-154 | PM.EQUI.GET_DETAIL | {"equnr":"10003114"} | exp rc=0 rc=0; txt=Equipment 10003114 (; txt=), category M, planning plant FORP, installed at FORP-TO: 0 open orders, 0 open notifications;  | act rc=0 OK | rb read only | PASS
+S4PM-155 | PM.EQUI.GET_DETAIL | {"equnr":"217100093"} | exp rc=0 rc=0; txt=Equipment 217100093 (; txt=), category M, planning plant 1710, installed at 1710-CWS-WCS-CWCP1: 4 open orders, 6 open notifications; txt=000004001791;  | act rc=0 OK | rb read only | PASS
+S4PM-156 | PM.EQUI.GET_DETAIL | {"equnr":"000000000010003160"} | exp rc=0 rc=0; txt=Equipment 000000000010003160 (; txt=), category F, planning plant 1710, installed at 1710-CWS-WCS-CWCP3: 5 open orders, 5 open notifications;  | act rc=0 OK | rb read only | PASS
+S4PM-157 | PM.EQUI.GET_DETAIL | {"equnr":"10003160"} | exp rc=0 rc=0; txt="CATEGORY"; txt="OBJECT_TYPE"; txt="MAINT_PLANT"; txt="ORDERS"; txt="OPEN_ORDERS"; txt="OPEN_NOTIFICATIONS"; txt="LAST_ORDER";  | act rc=0 OK | rb read only | PASS
+S4PM-158 | PM.EQUI.GET_DETAIL | {} | exp rc=4 rc=4; txt=equnr is required (equipment number);  | act rc=4 equnr is required (equipment number) | rb read only | PASS
+S4PM-159 | PM.EQUI.GET_DETAIL | {"equnr":"99999999"} | exp rc=4 rc=4; txt=Equipment 99999999 not found;  | act rc=4 Equipment 99999999 not found | rb read only | PASS
+S4PM-160 | PM.EQUI.GET_DETAIL | {"equnr":"10003160","werks":"1710"} | exp rc=4 rc=4; txt=Unknown parameter;  | act rc=4 Unknown parameter(s) for PM.EQUI.GET_DETAIL: werks. Allowed: equnr | rb read only | PASS
+S4PM-161 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"F"} | exp rc=0 rc=0; txt=3 equipment of planning plant 1710, category F;  | act rc=0 OK | rb read only | PASS
+S4PM-162 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"P"} | exp rc=0 rc=0; txt=4 equipment of planning plant 1710, category P;  | act rc=0 OK | rb read only | PASS
+S4PM-163 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"Q"} | exp rc=0 rc=0; txt=4 equipment of planning plant 1710, category Q;  | act rc=0 OK | rb read only | PASS
+S4PM-164 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"2"} | exp rc=0 rc=0; txt=1 equipment of planning plant 1710, category 2;  | act rc=0 OK | rb read only | PASS
+S4PM-165 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"S"} | exp rc=0 rc=0; txt=19 equipment of planning plant 1710, category S;  | act rc=0 OK | rb read only | PASS
+S4PM-166 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"f"} | exp rc=0 rc=0; txt=3 equipment of planning plant 1710, category F;  | act rc=0 OK | rb read only | PASS
+S4PM-167 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"M","max_rows":"500"} | exp rc=0 rc=0; txt=193 equipment of planning plant 1710, category M;  | act rc=0 OK | rb read only | PASS
+S4PM-168 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"M"} | exp rc=0 rc=0; txt=50 equipment of planning plant 1710, category M (more exist, first 50 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-169 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"M"} | exp rc=0 rc=0; txt="truncated":true;  | act rc=0 OK | rb read only | PASS
+S4PM-170 | PM.EQUI.LIST | {"werks":"1710","max_rows":"500"} | exp rc=0 rc=0; txt=224 equipment of planning plant 1710;  | act rc=0 OK | rb read only | PASS
+S4PM-171 | PM.EQUI.LIST | {"werks":"1710"} | exp rc=0 rc=0; txt=50 equipment of planning plant 1710 (more exist, first 50 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-172 | PM.EQUI.LIST | {"werks":"1710","max_rows":"224"} | exp rc=0 rc=0; txt=224 equipment of planning plant 1710;  | act rc=0 OK | rb read only | PASS
+S4PM-173 | PM.EQUI.LIST | {"werks":"1710","max_rows":"223"} | exp rc=0 rc=0; txt=223 equipment of planning plant 1710 (more exist, first 223 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-174 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"F","max_rows":"2"} | exp rc=0 rc=0; txt=2 equipment of planning plant 1710, category F (more exist, first 2 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-175 | PM.EQUI.LIST | {"werks":"1010","max_rows":"500"} | exp rc=0 rc=0; txt=102 equipment of planning plant 1010;  | act rc=0 OK | rb read only | PASS
+S4PM-176 | PM.EQUI.LIST | {"werks":"1010","eqtyp":"S"} | exp rc=0 rc=0; txt=5 equipment of planning plant 1010, category S;  | act rc=0 OK | rb read only | PASS
+S4PM-177 | PM.EQUI.LIST | {"werks":"1010","eqtyp":"M","max_rows":"500"} | exp rc=0 rc=0; txt=97 equipment of planning plant 1010, category M;  | act rc=0 OK | rb read only | PASS
+S4PM-178 | PM.EQUI.LIST | {"werks":"DT01"} | exp rc=0 rc=0; txt=14 equipment of planning plant DT01;  | act rc=0 OK | rb read only | PASS
+S4PM-179 | PM.EQUI.LIST | {"werks":"DT01","eqtyp":"1"} | exp rc=0 rc=0; txt=10 equipment of planning plant DT01, category 1;  | act rc=0 OK | rb read only | PASS
+S4PM-180 | PM.EQUI.LIST | {"werks":"DT01","eqtyp":"3"} | exp rc=0 rc=0; txt=4 equipment of planning plant DT01, category 3;  | act rc=0 OK | rb read only | PASS
+S4PM-181 | PM.EQUI.LIST | {"werks":"FORP"} | exp rc=0 rc=0; txt=7 equipment of planning plant FORP;  | act rc=0 OK | rb read only | PASS
+S4PM-182 | PM.EQUI.LIST | {"werks":"FORP","eqtyp":"M"} | exp rc=0 rc=0; txt=7 equipment of planning plant FORP, category M;  | act rc=0 OK | rb read only | PASS
+S4PM-183 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"X"} | exp rc=0 rc=0; txt=0 equipment of planning plant 1710, category X;  | act rc=0 OK | rb read only | PASS
+S4PM-184 | PM.EQUI.LIST | {"tplnr":"1010-CWS-CTW-CTW01-CTFN"} | exp rc=0 rc=0; txt=2 equipment installed at 1010-CWS-CTW-CTW01-CTFN;  | act rc=0 OK | rb read only | PASS
+S4PM-185 | PM.EQUI.LIST | {"tplnr":"1010-CWS-CTW-CTW01-IWIV"} | exp rc=0 rc=0; txt=1 equipment installed at 1010-CWS-CTW-CTW01-IWIV;  | act rc=0 OK | rb read only | PASS
+S4PM-186 | PM.EQUI.LIST | {"tplnr":"1010-CWS-WCS-CWCP1"} | exp rc=0 rc=0; txt=2 equipment installed at 1010-CWS-WCS-CWCP1;  | act rc=0 OK | rb read only | PASS
+S4PM-187 | PM.EQUI.LIST | {"tplnr":"1010-CWS-WCS-CWCP2"} | exp rc=0 rc=0; txt=1 equipment installed at 1010-CWS-WCS-CWCP2;  | act rc=0 OK | rb read only | PASS
+S4PM-188 | PM.EQUI.LIST | {"tplnr":"1710-CWS-WCS-CWCP3"} | exp rc=0 rc=0; txt=4 equipment installed at 1710-CWS-WCS-CWCP3;  | act rc=0 OK | rb read only | PASS
+S4PM-189 | PM.EQUI.LIST | {"tplnr":"1710-CWS-WCS-CWCP1"} | exp rc=0 rc=0; txt=6 equipment installed at 1710-CWS-WCS-CWCP1;  | act rc=0 OK | rb read only | PASS
+S4PM-190 | PM.EQUI.LIST | {"tplnr":"DTPL-DT01-PRD-ACC"} | exp rc=0 rc=0; txt=10 equipment installed at DTPL-DT01-PRD-ACC;  | act rc=0 OK | rb read only | PASS
+S4PM-191 | PM.EQUI.LIST | {"tplnr":"DTPL-DT01"} | exp rc=0 rc=0; txt=4 equipment installed at DTPL-DT01;  | act rc=0 OK | rb read only | PASS
+S4PM-192 | PM.EQUI.LIST | {"tplnr":"FORP-TO"} | exp rc=0 rc=0; txt=6 equipment installed at FORP-TO;  | act rc=0 OK | rb read only | PASS
+S4PM-193 | PM.EQUI.LIST | {"tplnr":"TS01-UT01-100MV"} | exp rc=0 rc=0; txt=13 equipment installed at TS01-UT01-100MV;  | act rc=0 OK | rb read only | PASS
+S4PM-194 | PM.EQUI.LIST | {"tplnr":"ts01-ut01-100mv","max_rows":"5"} | exp rc=0 rc=0; txt=5 equipment installed at ts01-ut01-100mv (more exist, first 5 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-195 | PM.EQUI.LIST | {"tplnr":"1010-CWS"} | exp rc=0 rc=0; txt=0 equipment installed at 1010-CWS;  | act rc=0 OK | rb read only | PASS
+S4PM-196 | PM.EQUI.LIST | {"werks":"1010","tplnr":"1010-CWS-WCS-CWCP1"} | exp rc=0 rc=0; txt=2 equipment of planning plant 1010 installed at 1010-CWS-WCS-CWCP1;  | act rc=0 OK | rb read only | PASS
+S4PM-197 | PM.EQUI.LIST | {"werks":"1710","tplnr":"1010-CWS-WCS-CWCP1"} | exp rc=0 rc=0; txt=0 equipment of planning plant 1710 installed at 1010-CWS-WCS-CWCP1;  | act rc=0 OK | rb read only | PASS
+S4PM-198 | PM.EQUI.LIST | {} | exp rc=4 rc=4; txt=werks (planning plant) or tplnr (functional location) is required;  | act rc=4 werks (planning plant) or tplnr (functional location) is required | rb read only | PASS
+S4PM-199 | PM.EQUI.LIST | {"eqtyp":"M"} | exp rc=4 rc=4; txt=werks (planning plant) or tplnr;  | act rc=4 werks (planning plant) or tplnr (functional location) is required | rb read only | PASS
+S4PM-200 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"ZZ"} | exp rc=4 rc=4; txt=eqtyp must be an equipment category (1 character);  | act rc=4 eqtyp must be an equipment category (1 character) | rb read only | PASS
+S4PM-201 | PM.EQUI.LIST | {"tplnr":"ZZZZ-NOPE"} | exp rc=4 rc=4; txt=Functional location ZZZZ-NOPE not found;  | act rc=4 Functional location ZZZZ-NOPE not found | rb read only | PASS
+S4PM-202 | PM.EQUI.LIST | {"werks":"XXXX"} | exp rc=4 rc=4; txt=Planning plant XXXX does not exist;  | act rc=4 Planning plant XXXX does not exist (maintenance planning plants, T399I) | rb read only | PASS
+S4PM-203 | PM.EQUI.LIST | {"werks":"17100"} | exp rc=4 rc=4; txt=werks must be a plant;  | act rc=4 werks must be a plant (up to 4 characters) | rb read only | PASS
+S4PM-204 | PM.EQUI.LIST | {"werks":"1710","bukrs":"X"} | exp rc=4 rc=4; txt=Unknown parameter;  | act rc=4 Unknown parameter(s) for PM.EQUI.LIST: bukrs. Allowed: werks, tplnr, eqtyp, max_rows | rb read only | PASS
+S4PM-205 | PM.FL.GET_DETAIL | {"tplnr":"1010-CWS-CTW-CTW01"} | exp rc=0 rc=0; txt=Functional location 1010-CWS-CTW-CTW01; txt=, planning plant 1010: 3 subordinate locations, 0 installed equipment, 0 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-206 | PM.FL.GET_DETAIL | {"tplnr":"1010-CWS-CTW-CTW01-CTFN"} | exp rc=0 rc=0; txt=Functional location 1010-CWS-CTW-CTW01-CTFN; txt=, planning plant 1010: 0 subordinate locations, 2 installed equipment, 0 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-207 | PM.FL.GET_DETAIL | {"tplnr":"1010-CWS-WCS-CWCP1"} | exp rc=0 rc=0; txt=Functional location 1010-CWS-WCS-CWCP1; txt=, planning plant 1010: 0 subordinate locations, 2 installed equipment, 39 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-208 | PM.FL.GET_DETAIL | {"tplnr":"1710-CWS-WCS-CWCP3"} | exp rc=0 rc=0; txt=Functional location 1710-CWS-WCS-CWCP3; txt=, planning plant 1710: 0 subordinate locations, 4 installed equipment, 19 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-209 | PM.FL.GET_DETAIL | {"tplnr":"DTPL-DT01-PRD-ACC"} | exp rc=0 rc=0; txt=Functional location DTPL-DT01-PRD-ACC; txt=, planning plant DT01: 0 subordinate locations, 10 installed equipment, 4 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-210 | PM.FL.GET_DETAIL | {"tplnr":"DTPL-DT01"} | exp rc=0 rc=0; txt=Functional location DTPL-DT01; txt=, planning plant DT01: 3 subordinate locations, 4 installed equipment, 0 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-211 | PM.FL.GET_DETAIL | {"tplnr":"FORP-TO"} | exp rc=0 rc=0; txt=Functional location FORP-TO; txt=, planning plant FORP: 0 subordinate locations, 6 installed equipment, 4 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-212 | PM.FL.GET_DETAIL | {"tplnr":"TS01-UT01-100MV"} | exp rc=0 rc=0; txt=Functional location TS01-UT01-100MV; txt=, planning plant 1710: 0 subordinate locations, 13 installed equipment, 7 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-213 | PM.FL.GET_DETAIL | {"tplnr":"1710-CWS-WCS-CWCP1"} | exp rc=0 rc=0; txt=Functional location 1710-CWS-WCS-CWCP1; txt=, planning plant 1710: 0 subordinate locations, 6 installed equipment, 259 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-214 | PM.FL.GET_DETAIL | {"tplnr":"1710"} | exp rc=0 rc=0; txt=Functional location 1710; txt=, planning plant 1710: 2 subordinate locations, 0 installed equipment, 3 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-215 | PM.FL.GET_DETAIL | {"tplnr":"1710-CWS"} | exp rc=0 rc=0; txt=Functional location 1710-CWS; txt=, planning plant 1710: 2 subordinate locations, 0 installed equipment, 0 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-216 | PM.FL.GET_DETAIL | {"tplnr":"1010-cws-ctw-ctw01"} | exp rc=0 rc=0; txt=Functional location 1010-CWS-CTW-CTW01; txt=, planning plant 1010: 3 subordinate locations, 0 installed equipment, 0 open orders;  | act rc=0 OK | rb read only | PASS
+S4PM-217 | PM.FL.GET_DETAIL | {"tplnr":"1010-CWS-CTW-CTW01"} | exp rc=0 rc=0; txt="CATEGORY"; txt="SUBORDINATE_LOCATIONS"; txt="INSTALLED_EQUIPMENT"; txt="OPEN_ORDERS"; txt="SUPERIOR";  | act rc=0 OK | rb read only | PASS
+S4PM-218 | PM.FL.GET_DETAIL | {} | exp rc=4 rc=4; txt=tplnr is required (functional location);  | act rc=4 tplnr is required (functional location) | rb read only | PASS
+S4PM-219 | PM.FL.GET_DETAIL | {"tplnr":"ZZZZ-NOPE"} | exp rc=4 rc=4; txt=Functional location ZZZZ-NOPE not found;  | act rc=4 Functional location ZZZZ-NOPE not found | rb read only | PASS
+S4PM-220 | PM.FL.GET_DETAIL | {"tplnr":"1710","werks":"1710"} | exp rc=4 rc=4; txt=Unknown parameter;  | act rc=4 Unknown parameter(s) for PM.FL.GET_DETAIL: werks. Allowed: tplnr | rb read only | PASS
+S4PM-221 | PM.PLAN.GET_DETAIL | {"warpl":"1"} | exp rc=0 rc=0; txt=Maintenance plan 000000000001 (; txt=): status ; txt=1 items, 0 cycles, 99 calls, 2 orders, next planned date 20171201; txt="CALLS";  | act rc=0 OK | rb read only | PASS
+S4PM-222 | PM.PLAN.GET_DETAIL | {"warpl":"000000000023"} | exp rc=0 rc=0; txt=Maintenance plan 000000000023 (; txt=): status ; txt=1 items, 1 cycles, 0 calls, 0 orders;  | act rc=0 OK | rb read only | PASS
+S4PM-223 | PM.PLAN.GET_DETAIL | {"warpl":"31"} | exp rc=0 rc=0; txt=Maintenance plan 000000000031 (; txt=): status ; txt=1 items, 1 cycles, 28 calls, 0 orders, next planned date 20201029;  | act rc=0 OK | rb read only | PASS
+S4PM-224 | PM.PLAN.GET_DETAIL | {"warpl":"101"} | exp rc=0 rc=0; txt=Maintenance plan 000000000101 (; txt=): status ; txt=1 items, 1 cycles, 14 calls, 0 orders, next planned date 20221117;  | act rc=0 OK | rb read only | PASS
+S4PM-225 | PM.PLAN.GET_DETAIL | {"warpl":"206"} | exp rc=0 rc=0; txt=Maintenance plan 000000000206 (; txt=): status ; txt=2 items, 2 cycles, 14 calls, 2 orders, next planned date 20260728;  | act rc=0 OK | rb read only | PASS
+S4PM-226 | PM.PLAN.GET_DETAIL | {"warpl":"231"} | exp rc=0 rc=0; txt=Maintenance plan 000000000231 (; txt=): status ; txt=2 items, 6 cycles, 39 calls, 1 orders, next planned date 20261024;  | act rc=0 OK | rb read only | PASS
+S4PM-227 | PM.PLAN.GET_DETAIL | {"warpl":"900000000010"} | exp rc=0 rc=0; txt=Maintenance plan 900000000010 (; txt=): status ; txt=1 items, 0 cycles, 5 calls, 2 orders, next planned date 20221227;  | act rc=0 OK | rb read only | PASS
+S4PM-228 | PM.PLAN.GET_DETAIL | {"warpl":"900000000090"} | exp rc=0 rc=0; txt=Maintenance plan 900000000090 (; txt=): status ; txt=1 items, 0 cycles, 0 calls, 0 orders;  | act rc=0 OK | rb read only | PASS
+S4PM-229 | PM.PLAN.GET_DETAIL | {"warpl":"206"} | exp rc=0 rc=0; txt="ITEM"; txt="PLANNING_PLANT"; txt="CYCLE"; txt="CALL"; txt="PLANNED_DATE"; txt="CALL_DATE";  | act rc=0 OK | rb read only | PASS
+S4PM-230 | PM.PLAN.GET_DETAIL | {"warpl":"206"} | exp rc=0 rc=0; txt=not called yet; txt=1710;  | act rc=0 OK | rb read only | PASS
+S4PM-231 | PM.PLAN.GET_DETAIL | {} | exp rc=4 rc=4; txt=warpl is required (maintenance plan number);  | act rc=4 warpl is required (maintenance plan number) | rb read only | PASS
+S4PM-232 | PM.PLAN.GET_DETAIL | {"warpl":"1234567890123"} | exp rc=4 rc=4; txt=warpl is required;  | act rc=4 warpl is required (maintenance plan number) | rb read only | PASS
+S4PM-233 | PM.PLAN.GET_DETAIL | {"warpl":"999999999999"} | exp rc=4 rc=4; txt=Maintenance plan 999999999999 not found;  | act rc=4 Maintenance plan 999999999999 not found | rb read only | PASS
+S4PM-234 | PM.PLAN.GET_DETAIL | {"warpl":"abc"} | exp rc=4 rc=4; txt=Maintenance plan abc not found;  | act rc=4 Maintenance plan abc not found | rb read only | PASS
+S4PM-235 | PM.PLAN.GET_DETAIL | {"warpl":"206","werks":"1710"} | exp rc=4 rc=4; txt=Unknown parameter;  | act rc=4 Unknown parameter(s) for PM.PLAN.GET_DETAIL: werks. Allowed: warpl | rb read only | PASS
+S4PM-236 | PM.NOTIF.CREATE | {} | exp rc=4 rc=4; txt=is a write action;  | act rc=4 PM.NOTIF.CREATE is a write action: use PREVIEW and EXECUTE | rb read only | PASS
+S4PM-237 | PM.NOTIF.PUT_IN_PROCESS | {} | exp rc=4 rc=4; txt=is a write action;  | act rc=4 PM.NOTIF.PUT_IN_PROCESS is a write action: use PREVIEW and EXECUTE | rb read only | PASS
+S4PM-238 | PM.NOTIF.COMPLETE | {} | exp rc=4 rc=4; txt=is a write action;  | act rc=4 PM.NOTIF.COMPLETE is a write action: use PREVIEW and EXECUTE | rb read only | PASS
+S4PM-239 | PM.ORD.CREATE | {} | exp rc=4 rc=4; txt=is a write action;  | act rc=4 PM.ORD.CREATE is a write action: use PREVIEW and EXECUTE | rb read only | PASS
+S4PM-240 | PM.ORD.RELEASE | {} | exp rc=4 rc=4; txt=is a write action;  | act rc=4 PM.ORD.RELEASE is a write action: use PREVIEW and EXECUTE | rb read only | PASS
+S4PM-241 | PM.ORD.CHANGE_DATES | {} | exp rc=4 rc=4; txt=is a write action;  | act rc=4 PM.ORD.CHANGE_DATES is a write action: use PREVIEW and EXECUTE | rb read only | PASS
+S4PM-242 | PM.ORD.CONFIRM | {} | exp rc=4 rc=4; txt=is a write action;  | act rc=4 PM.ORD.CONFIRM is a write action: use PREVIEW and EXECUTE | rb read only | PASS
+S4PM-243 | PM.ORD.TECO | {} | exp rc=4 rc=4; txt=is a write action;  | act rc=4 PM.ORD.TECO is a write action: use PREVIEW and EXECUTE | rb read only | PASS
+S4PM-244 | PM.ORD.LIST_OPEN | {} | exp rc=4 rc=4; txt=is a query action; snapshot unchanged | act rc=4 PM.ORD.LIST_OPEN is a query action: use QUERY | rb log= snapshot same (0 keys) | PASS
+S4PM-245 | PM.EQUI.LIST | {} | exp rc=4 rc=4; txt=is a query action; snapshot unchanged | act rc=4 PM.EQUI.LIST is a query action: use QUERY | rb log= snapshot same (0 keys) | PASS
+S4PM-246 | PM.PLAN.GET_DETAIL | {} | exp rc=4 rc=4; txt=is a query action; snapshot unchanged | act rc=4 PM.PLAN.GET_DETAIL is a query action: use QUERY | rb log= snapshot same (0 keys) | PASS
+S4PM-247 | PM.NOPE | {} | exp rc=4 rc=4;  | act rc=4 Action PM.NOPE is not allowed | rb read only | PASS
+S4PM-248 | PM.ORD.LIST_OPEN | {"werks":"1710"} | exp rc=4 rc=4; txt=Unknown mode;  | act rc=4 Unknown mode FOO: LIST, QUERY, PREVIEW, EXECUTE or PRECHECK | rb read only | PASS
+S4PM-249 | PM.ORD.LIST_OPEN | {"werks":"1710"} | exp rc=0 rc=0; txt=516 open maintenance orders;  | act rc=0 OK | rb read only | PASS
+S4PM-250 | PM.NOTIF.LIST_OPEN | {"werks":"1710"} | exp rc=0 rc=0; txt=507 open maintenance notifications;  | act rc=0 OK | rb read only | PASS
+S4PM-251 | PM.ORD.LIST_OPEN | {"werks":"1710","tplnr":"1010-CWS-WCS-CWCP1"} | exp rc=0 rc=0; txt=1 open maintenance orders on functional location;  | act rc=0 OK | rb read only | PASS
+S4PM-252 | PM.ORD.LIST_OPEN | {"werks":"1710","max_rows":"-5"} | exp rc=0 rc=0; txt=516 open maintenance orders (first 50 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-253 | PM.ORD.LIST_OPEN | {"werks":"1710","status":"Released","max_rows":"2"} | exp rc=0 rc=0; txt=444 open maintenance orders (released) (first 2 shown);  | act rc=0 OK | rb read only | PASS
+S4PM-254 | PM.ORD.LIST_OPEN | {"werks":"1710","auart":"PM011"} | exp rc=4 rc=4; txt=auart must be an order type (up to 4 characters);  | act rc=4 auart must be an order type (up to 4 characters) | rb read only | PASS
+S4PM-255 | PM.NOTIF.LIST_OPEN | {"qmart":"M11"} | exp rc=4 rc=4; txt=qmart must be a notification type (up to 2 characters);  | act rc=4 qmart must be a notification type (up to 2 characters) | rb read only | PASS
+S4PM-256 | PM.NOTIF.LIST_OPEN | {"werks":"1010","tplnr":"1010-CWS-WCS-CWCP1"} | exp rc=0 rc=0; txt=Planning plant 1010: 39 open maintenance notifications on functional location 1010-CWS-WCS-CWCP1;  | act rc=0 OK | rb read only | PASS
+S4PM-257 | PM.EQUI.LIST | {"werks":"1710","eqtyp":"FF"} | exp rc=4 rc=4; txt=eqtyp must be an equipment category (1 character);  | act rc=4 eqtyp must be an equipment category (1 character) | rb read only | PASS

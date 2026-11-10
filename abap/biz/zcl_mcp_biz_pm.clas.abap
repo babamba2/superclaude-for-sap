@@ -883,6 +883,11 @@ CLASS zcl_mcp_biz_pm IMPLEMENTATION.
                CHANGING cs_result = rs_result ).
       RETURN.
     ENDIF.
+    IF strlen( condense( is_params-auart ) ) > 4.
+      add_msg( EXPORTING iv_type = 'E' iv_text = 'auart must be an order type (up to 4 characters)'
+               CHANGING cs_result = rs_result ).
+      RETURN.
+    ENDIF.
     IF is_params-auart IS NOT INITIAL.
       ls_auart-sign = 'I'. ls_auart-option = 'EQ'.
       ls_auart-low = condense( is_params-auart ).
@@ -1105,6 +1110,11 @@ CLASS zcl_mcp_biz_pm IMPLEMENTATION.
     check_iwerk( EXPORTING iv_werks = is_params-werks iv_need = abap_false IMPORTING ev_iwerk = lv_iwerk CHANGING cs_result = rs_result ).
     finish( CHANGING cs_result = rs_result ).
     IF rs_result-failed = abap_true.
+      RETURN.
+    ENDIF.
+    IF strlen( condense( is_params-qmart ) ) > 2.
+      add_msg( EXPORTING iv_type = 'E' iv_text = 'qmart must be a notification type (up to 2 characters)'
+               CHANGING cs_result = rs_result ).
       RETURN.
     ENDIF.
     IF is_params-qmart IS NOT INITIAL.
@@ -1382,6 +1392,11 @@ CLASS zcl_mcp_biz_pm IMPLEMENTATION.
     ENDIF.
     IF lv_iwerk IS INITIAL AND is_params-tplnr IS INITIAL.
       add_msg( EXPORTING iv_type = 'E' iv_text = 'werks (planning plant) or tplnr (functional location) is required'
+               CHANGING cs_result = rs_result ).
+      RETURN.
+    ENDIF.
+    IF strlen( condense( is_params-eqtyp ) ) > 1.
+      add_msg( EXPORTING iv_type = 'E' iv_text = 'eqtyp must be an equipment category (1 character)'
                CHANGING cs_result = rs_result ).
       RETURN.
     ENDIF.
