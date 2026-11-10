@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Security
+- **Blocklist hook covers source uploads.** `block-forbidden-tables.mjs` now also checks `Create*` / `Update*` source tools: a test class (or a source holding `FOR TESTING`) or a CDS view that reads a `deny`-tier table is refused, because running it returns the rows to the agent (ABAP Unit messages, `GetSqlQuery` on the view). Plain business code that reads e.g. KNA1 is unchanged. The hook is now wired in the plugin's `hooks/hooks.json`, so it runs for every install without re-running setup.
+- **No exception route for `deny` tables.** `common/data-extraction-policy.md`: a chat request ("just this once") is not an authorization; no program / class / FM / CDS view may be written to read a `deny` table; only the user can widen the scope by reselecting the blocklist profile. The one-off approval now applies to `warn`-tier tables only.
+
 ## [0.6.62] — 2026-11-10
 
 ### Added

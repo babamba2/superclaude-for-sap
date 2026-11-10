@@ -224,7 +224,61 @@ function extractTables(toolName, toolInput) {
     let m;
     while ((m = re.exec(sql)) !== null) tables.add(m[1].toUpperCase());
   }
+  if (SOURCE_TOOL_RE.test(toolName) && sourceIsReadChannel(toolName, toolInput)) {
+    for (const t of tablesFromSource(toolInput)) tables.add(t);
+  }
   return tables;
+}
+
+// Tools that upload ABAP / CDS source.
+export const SOURCE_TOOL_RE = /__(Create|Update)(Program|Include|Class|Interface|FunctionModule|FunctionGroup|LocalTestClass|LocalDefinitions|LocalTypes|LocalMacros|UnitTest|CdsUnitTest|BehaviorImplementation|View)$/i;
+const TEST_TOOL_RE = /__(Create|Update)(LocalTestClass|UnitTest|CdsUnitTest)$/i;
+const CDS_TOOL_RE = /__(Create|Update)View$/i;
+
+// Business code that reads KNA1 / LFA1 / ADRC is normal development, so plain
+// source is not checked. Checked is source whose rows come back to the agent:
+// ABAP Unit test classes (RunUnitTest returns their messages) and CDS views
+// (a view over a blocked table is the same table under a new name for
+// GetSqlQuery). There the deny tier applies exactly as for GetSqlQuery.
+export function sourceIsReadChannel(toolName, toolInput) {
+  if (TEST_TOOL_RE.test(toolName) || CDS_TOOL_RE.test(toolName)) return true;
+  for (const key of SOURCE_KEYS) {
+    const v = toolInput?.[key];
+    if (typeof v === 'string' && /\bFOR\s+TESTING\b/i.test(stripAbapNoise(v))) return true;
+  }
+  return false;
+}
+
+// String-valued input fields that may carry source code.
+const SOURCE_KEYS = ['source_code', 'source', 'code', 'ddl_source', 'ddl', 'test_class_source', 'class_source',
+  'implementation', 'definitions', 'local_types', 'local_definitions', 'macros', 'test_classes'];
+
+/** Remove ABAP comments and literals so "FROM" in a message text does not count. */
+export function stripAbapNoise(src) {
+  return src
+    .split(/\r?\n/)
+    .filter((line) => !/^\*/.test(line))
+    .map((line) => line
+      .replace(/'(?:[^']|'')*'/g, "''")
+      .replace(/`(?:[^`]|``)*`/g, '``')
+      .replace(/\|(?:[^|\\]|\\.)*\|/g, '||')
+      .replace(/".*$/, '')
+      .replace(/\/\/.*$/, ''))
+    .join('\n');
+}
+
+/** Tables read by uploaded source: FROM / JOIN targets in ABAP SQL and CDS DDL. */
+export function tablesFromSource(toolInput) {
+  const out = new Set();
+  const texts = [];
+  for (const key of SOURCE_KEYS) if (typeof toolInput[key] === 'string') texts.push(toolInput[key]);
+  for (const text of texts) {
+    const clean = stripAbapNoise(text);
+    const re = /\b(?:FROM|JOIN)\s+(?:TABLE\s+)?@?([A-Z0-9_\/]+)/gi;
+    let m;
+    while ((m = re.exec(clean)) !== null) out.add(m[1].toUpperCase());
+  }
+  return out;
 }
 
 // Return every rule a table matches (exact hit first, then each matching
@@ -272,7 +326,9 @@ async function main() {
 
   const toolName = payload.tool_name || payload.toolName || '';
   const toolInput = payload.tool_input || payload.toolInput || payload.arguments || {};
-  if (!/GetTableContents|GetSqlQuery/i.test(toolName)) process.exit(0);
+  const isSourceUpload = SOURCE_TOOL_RE.test(toolName);
+  if (!/GetTableContents|GetSqlQuery/i.test(toolName) && !isSourceUpload) process.exit(0);
+  if (isSourceUpload && !sourceIsReadChannel(toolName, toolInput)) process.exit(0);
 
   const { configPath, projectDir } = resolveProjectConfig();
   const profile = loadProfile(configPath);
@@ -302,15 +358,22 @@ async function main() {
 
   const denyHits = hits.filter((h) => (h.action || 'deny') === 'deny');
   const warnHits = hits.filter((h) => h.action === 'warn');
+  // Source uploads: only the deny tier blocks; warn tables (VBAK, BKPF …) are
+  // everyday test-class reads and keep their GetSqlQuery confirmation instead.
+  if (isSourceUpload && denyHits.length === 0) process.exit(0);
 
   // deny takes precedence over warn.
   if (denyHits.length > 0) {
     const lines = denyHits.map((h) => `  - ${h.table} — ${h.category}: ${h.why || 'protected'}`).join('\n');
+    const what = isSourceUpload
+      ? 'source upload denied — a test class or CDS view reads a blocked table (running it would extract the rows)'
+      : 'row extraction denied';
     const reason =
-      `sc4sap blocklist (profile: ${profile}) — row extraction denied:\n${lines}\n\n` +
-      `See exceptions/table_exception.md and common/data-extraction-policy.md for allowed alternatives ` +
-      `(released CDS views, anonymized test data, COUNT/SUM aggregates, or documented one-off approval).\n` +
-      `To change scope, run \`/sc4sap:setup\` and reselect the blocklist profile.`;
+      `sc4sap blocklist (profile: ${profile}) — ${what}:\n${lines}\n\n` +
+      `A deny table has no exception route: not a chat request, not a program / class / FM / CDS view ` +
+      `written to read it. See common/data-extraction-policy.md for allowed alternatives ` +
+      `(released CDS views, anonymized test data, COUNT/SUM aggregates, the user's own SAP GUI lookup).\n` +
+      `Only the user can change the scope, by reselecting the blocklist profile in \`/sc4sap:setup\`.`;
     process.stdout.write(JSON.stringify({
       hookSpecificOutput: {
         hookEventName: 'PreToolUse',
@@ -338,4 +401,5 @@ async function main() {
   process.exit(0);
 }
 
-main();
+// Run only as a hook command, not when a test imports the helpers.
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) main();

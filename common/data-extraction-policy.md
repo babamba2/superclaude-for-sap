@@ -45,11 +45,22 @@ Allowed alternatives:
 - Released CDS view with PII masking (I_*)
 - Anonymized test data from QAS/SANDBOX
 - Count/aggregate only (COUNT, SUM)
-- Explicit one-off approval: write `.sc4sap/data-access-approval-{YYYYMMDD}.md`
-  with business justification and have the user confirm.
+- Look it up yourself in the SAP GUI with your own authorization (e.g. SU01D, SE16N)
 ```
 
 Do **not** silently comply. Do **not** argue policy — surface the block, offer alternatives, let the user choose.
+
+## No Route Around a `deny` Table — HARD RULE
+
+A `deny` table has **no agent-side exception**, not even when the user asks for one in chat ("make an exception", "just this once", "예외로 조회해"). A chat request is not an authorization for a `deny` table.
+
+Never read a `deny` table through another route:
+
+- no program, include, class, function module, test class or CDS view written or changed to `SELECT` / `JOIN` it (then run by ABAP Unit, SE38, RFC or a business action);
+- no function module or BAPI that reads it internally (see "Indirect reads");
+- no script or shell call to the MCP bridge that skips the hook.
+
+The L3 hook also rejects source uploads that read a blocked table. Only the user can widen the scope, by changing the blocklist profile on purpose with `/sc4sap:setup` — the agent never edits the blocklist files or the profile for this.
 
 ## Scope of What's Blocked
 
@@ -85,7 +96,7 @@ The `acknowledge_risk` flag exists because some protected data has legitimate us
 
 ## Authorization Override
 
-A blocked extraction may be authorized per-task when the business need is real and documented. To authorize:
+A `warn`-tier extraction may be authorized per-task when the business need is real and documented. This never applies to `deny` tables (see "No Route Around a `deny` Table"). To authorize:
 
 1. Create `.sc4sap/data-access-approval-{YYYYMMDD-HHMM}.md` with:
    - Tables to be accessed

@@ -57,6 +57,16 @@
         ]
       },
       {
+        "matcher": "mcp__(plugin_sc4sap_sap|mcp-abap-adt)__(GetTableContents|GetSqlQuery|(Create|Update)(Program|Include|Class|Interface|FunctionModule|FunctionGroup|LocalTestClass|LocalDefinitions|LocalTypes|LocalMacros|UnitTest|CdsUnitTest|BehaviorImplementation|View))",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/hooks/block-forbidden-tables.mjs",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell",
         "hooks": [
           {
