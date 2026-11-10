@@ -5,8 +5,12 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.62] — 2026-11-10
+
 ### Added
 
+- Offline profiles for consultants who cannot connect sc4sap to the customer system ([#48](https://github.com/babamba2/superclaude-for-sap/issues/48)). `/sc4sap:setup` asks *Connected* or *Offline*; an offline profile (`SAP_CONNECTION=offline`) has no host, client, user or password but keeps the SAP version, release, industry, country and modules. The MCP server is not started, the HUD shows `<alias> [OFFLINE]` and the session start says so. `common/offline-mode.md` classes every skill: **full** (project-dashboard, role-matrix new design, interface-mapping-spec for new interfaces, cbo-relation-map from an existing graph), **degraded** with a "not checked in the system" notice (ask-consultant, analyze-code / analyze-symptom on pasted text, sap-doctor) or **blocked** with one stop line. Offline answers draw on the profile identity, the plugin references, artifacts copied under `work/<alias>/` and the user's own notes in `work/<alias>/notes/*.md`. `sap-profile-cli.mjs set-connection online|offline` switches a profile later (restart Claude Code).
+- `/sc4sap:create-program` evidence receipt: a PostToolUse hook logs every SAP check and write (main thread and sub-agents) to a ledger, `build-receipt.mjs` judges activation / inactive objects / unit tests into `receipt.json` (PASS / FAIL / INCOMPLETE), and Phase 8 copies those verdicts verbatim. A PreToolUse guard keeps agents from writing the ledger or receipts. Rules: `common/evidence-receipt.md`.
 - `/sc4sap:cbo-relation-map` shows a description under every related object in the side panel. The descriptions are the SAP short texts (what SE11 / SE38 / SE93 / SE37 / SE80 show; English first, else the logon language) and win over the inventory text. Placeholder texts are dropped; a TCode whose text only names its program takes that program's description.
 - `analyze-cbo-obj` G3a also reads the repository short texts (DD01T, DD02T, DD04T, DD25T, DD30T, DD40T, TRDIRT, TSTCT, TFTIT, TLIBT, SEOCLASSTX) in the logon language and English (`ddic-queries.mjs --lang`). Graphs collected earlier get a text refresh without a new walk: `ddic-queries.mjs --only texts` + `collect-ddic-reads.mjs --plan / --out` → `ddic-texts.json` (cbo-relation-map `collect.md` § C).
 
@@ -14,6 +18,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 - `permission-approver` auto-approves single-table `output: "file"` reads of the repository short-text tables above, in the same shape as the DD\* metadata reads. They are object descriptions, never business rows.
 - On ECC, G3a leaves out object names containing `SELECT` or `JOIN`: `TABLE_READ` refuses any condition with those words, literals included.
+- CI enforces the prompt MD conventions: skill / agent / common / exceptions MDs at most 200 lines, and every `subagent_type` naming a plugin agent carries the `sc4sap:` prefix.
 
 ## [0.6.61] — 2026-11-06
 
