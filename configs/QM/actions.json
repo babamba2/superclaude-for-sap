@@ -1,0 +1,1070 @@
+{
+ "schemaVersion": 1,
+ "module": "QM",
+ "area": "inspection lots, results recording, usage decisions, quality notifications, inspection plans and setup",
+ "notes": [
+  "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side (handler ZCL_MCP_BIZ_QM).",
+  "Queries verified on S/4HANA only; on ECC every QM action stays hidden until it is tested there.",
+  "Write actions are built and checked up to the authorization step on S/4HANA, but stay hidden: the test user had no QM write authorization (Q_UD_CODE, Q_QMEL QM01 / QM02, transaction QE11), so no write was executed yet.",
+  "A bare notification request is ambiguous: maintenance notifications are PM, quality notifications (TQ80-QMTYP 02) are QM.",
+  "BAPI_INSPLOT_SETUSAGEDECISION and BAPI_QUALNOT_CREATE have no test mode: their previews run the handler checks. Results recording previews call the BAPI and roll back; notification status changes preview with a BAPI test run.",
+  "Not offered: changing a usage decision (QA12), stock postings after the decision (QAC2 / QA12), inspection lot creation or cancellation, sample management, defects recording, quality certificates.",
+  "No person names are returned (creator, inspector, changer)."
+ ],
+ "actions": [
+  {
+   "id": "QM.LOT.LIST_OPEN",
+   "object": "InspectionLot",
+   "kind": "query",
+   "risk": "none",
+   "title": "List open inspection lots (no usage decision)",
+   "intents": {
+    "en": [
+     "open inspection lots",
+     "inspection lots without usage decision",
+     "lots waiting for inspection"
+    ],
+    "ko": [
+     "미결 검사로트",
+     "검사로트 목록",
+     "사용결정 안 된 검사로트",
+     "검사 대기 로트"
+    ]
+   },
+   "params": [
+    {
+     "name": "werks",
+     "type": "string",
+     "required": true
+    },
+    {
+     "name": "art",
+     "type": "string",
+     "required": false,
+     "description": "inspection type, e.g. 01 goods receipt"
+    },
+    {
+     "name": "matnr",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "max_rows",
+     "type": "string",
+     "required": false,
+     "description": "1-500, default 50"
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "source": [
+      "QALS",
+      "TQ30",
+      "JEST"
+     ],
+     "note": "open = no usage decision (UD) and not cancelled (LTCA); not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "source": [
+      "QALS",
+      "TQ30",
+      "JEST"
+     ],
+     "note": "open = no usage decision (UD) and not cancelled (LTCA)"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_INSPLOT",
+     "fields": {
+      "QACT_ILOT": "<display>",
+      "WERKS": "<plant>",
+      "QPRUEFART": "<inspection type>"
+     }
+    }
+   ],
+   "verified_on": [
+    {
+     "alias": "S4-DEV",
+     "family": "S4",
+     "release": "816",
+     "date": "2026-11-11",
+     "level": "scenario",
+     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+    }
+   ]
+  },
+  {
+   "id": "QM.LOT.LIST_BY_MATERIAL",
+   "object": "InspectionLot",
+   "kind": "query",
+   "risk": "none",
+   "title": "List the inspection lots of a material",
+   "intents": {
+    "en": [
+     "inspection lots of material",
+     "inspection history of material"
+    ],
+    "ko": [
+     "자재별 검사로트",
+     "자재 검사 이력",
+     "자재 검사로트 조회"
+    ]
+   },
+   "params": [
+    {
+     "name": "matnr",
+     "type": "string",
+     "required": true
+    },
+    {
+     "name": "werks",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "date_from",
+     "type": "string",
+     "required": false,
+     "description": "lot creation date from, YYYY-MM-DD"
+    },
+    {
+     "name": "date_to",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "max_rows",
+     "type": "string",
+     "required": false,
+     "description": "1-500, default 50"
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "source": [
+      "QALS",
+      "QAVE",
+      "JEST"
+     ],
+     "note": "all lots incl. decided ones, newest first, with the usage decision code; not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "source": [
+      "QALS",
+      "QAVE",
+      "JEST"
+     ],
+     "note": "all lots incl. decided ones, newest first, with the usage decision code"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_INSPLOT",
+     "fields": {
+      "QACT_ILOT": "<display>",
+      "WERKS": "<plant>",
+      "QPRUEFART": "<inspection type>"
+     }
+    }
+   ],
+   "verified_on": [
+    {
+     "alias": "S4-DEV",
+     "family": "S4",
+     "release": "816",
+     "date": "2026-11-11",
+     "level": "scenario",
+     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+    }
+   ]
+  },
+  {
+   "id": "QM.LOT.GET_DETAIL",
+   "object": "InspectionLot",
+   "kind": "query",
+   "risk": "none",
+   "title": "Show an inspection lot (characteristics, results, decision, stock)",
+   "intents": {
+    "en": [
+     "show inspection lot",
+     "inspection lot details",
+     "inspection results of lot"
+    ],
+    "ko": [
+     "검사로트",
+     "검사로트 조회",
+     "검사로트 상세",
+     "검사결과 조회"
+    ]
+   },
+   "params": [
+    {
+     "name": "prueflos",
+     "type": "string",
+     "required": true
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "source": [
+      "QALS",
+      "AFVC",
+      "QAMV",
+      "QAMR",
+      "QAVE",
+      "QPCT",
+      "JEST"
+     ],
+     "note": "characteristics with specification and result, usage decision, quantities posted from inspection stock; not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "source": [
+      "QALS",
+      "AFVC",
+      "QAMV",
+      "QAMR",
+      "QAVE",
+      "QPCT",
+      "JEST"
+     ],
+     "note": "characteristics with specification and result, usage decision, quantities posted from inspection stock"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_INSPLOT",
+     "fields": {
+      "QACT_ILOT": "<display>",
+      "WERKS": "<plant>",
+      "QPRUEFART": "<inspection type>"
+     }
+    }
+   ],
+   "verified_on": [
+    {
+     "alias": "S4-DEV",
+     "family": "S4",
+     "release": "816",
+     "date": "2026-11-11",
+     "level": "scenario",
+     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+    }
+   ]
+  },
+  {
+   "id": "QM.UD.GET",
+   "object": "InspectionLot",
+   "kind": "query",
+   "risk": "none",
+   "title": "Show the usage decision of a lot, or the codes that can be chosen",
+   "intents": {
+    "en": [
+     "usage decision of lot",
+     "which usage decision codes",
+     "show usage decision"
+    ],
+    "ko": [
+     "사용결정 조회",
+     "사용결정 코드",
+     "사용결정 보여줘"
+    ]
+   },
+   "params": [
+    {
+     "name": "prueflos",
+     "type": "string",
+     "required": true
+    },
+    {
+     "name": "ud_set",
+     "type": "string",
+     "required": false,
+     "description": "selected set; default from the inspection type or its past decisions"
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "source": [
+      "QAVE",
+      "QPAC",
+      "QPCT",
+      "TQ30",
+      "QALS"
+     ],
+     "note": "no decision yet: lists the codes of the selected set with their valuation; not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "source": [
+      "QAVE",
+      "QPAC",
+      "QPCT",
+      "TQ30",
+      "QALS"
+     ],
+     "note": "no decision yet: lists the codes of the selected set with their valuation"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_INSPLOT",
+     "fields": {
+      "QACT_ILOT": "<display>",
+      "WERKS": "<plant>",
+      "QPRUEFART": "<inspection type>"
+     }
+    }
+   ],
+   "verified_on": [
+    {
+     "alias": "S4-DEV",
+     "family": "S4",
+     "release": "816",
+     "date": "2026-11-11",
+     "level": "scenario",
+     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+    }
+   ]
+  },
+  {
+   "id": "QM.NOTIF.LIST_OPEN",
+   "object": "QualityNotification",
+   "kind": "query",
+   "risk": "none",
+   "title": "List open quality notifications",
+   "intents": {
+    "en": [
+     "open quality notifications",
+     "open complaints",
+     "open supplier complaints"
+    ],
+    "ko": [
+     "미결 품질통지",
+     "품질통지 목록",
+     "미결 품질 통지",
+     "미결 클레임"
+    ]
+   },
+   "params": [
+    {
+     "name": "werks",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "qmart",
+     "type": "string",
+     "required": false,
+     "description": "quality notification type, e.g. Q1 / Q2 / Q3"
+    },
+    {
+     "name": "matnr",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "lifnr",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "max_rows",
+     "type": "string",
+     "required": false,
+     "description": "1-500, default 50"
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "source": [
+      "QMEL",
+      "TQ80",
+      "JEST"
+     ],
+     "note": "quality notification types only (TQ80-QMTYP 02); open = not NOCO / DLFL; not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "source": [
+      "QMEL",
+      "TQ80",
+      "JEST"
+     ],
+     "note": "quality notification types only (TQ80-QMTYP 02); open = not NOCO / DLFL"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_QMEL",
+     "fields": {
+      "TCD": "QM03",
+      "QMART": "<notification type>",
+      "WERKS": "<plant>"
+     }
+    }
+   ],
+   "verified_on": [
+    {
+     "alias": "S4-DEV",
+     "family": "S4",
+     "release": "816",
+     "date": "2026-11-11",
+     "level": "scenario",
+     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+    }
+   ]
+  },
+  {
+   "id": "QM.NOTIF.GET_DETAIL",
+   "object": "QualityNotification",
+   "kind": "query",
+   "risk": "none",
+   "title": "Show a quality notification",
+   "intents": {
+    "en": [
+     "show quality notification",
+     "quality notification details"
+    ],
+    "ko": [
+     "품질통지",
+     "품질통지 조회",
+     "품질 통지 상세"
+    ]
+   },
+   "params": [
+    {
+     "name": "qmnum",
+     "type": "string",
+     "required": true
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "source": [
+      "QMEL",
+      "TQ80",
+      "JEST"
+     ],
+     "note": "maintenance notifications are refused with a pointer to the PM actions; not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "source": [
+      "QMEL",
+      "TQ80",
+      "JEST"
+     ],
+     "note": "maintenance notifications are refused with a pointer to the PM actions"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_QMEL",
+     "fields": {
+      "TCD": "QM03",
+      "QMART": "<notification type>",
+      "WERKS": "<plant>"
+     }
+    }
+   ],
+   "verified_on": [
+    {
+     "alias": "S4-DEV",
+     "family": "S4",
+     "release": "816",
+     "date": "2026-11-11",
+     "level": "scenario",
+     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+    }
+   ]
+  },
+  {
+   "id": "QM.PLAN.GET_DETAIL",
+   "object": "InspectionPlan",
+   "kind": "query",
+   "risk": "none",
+   "title": "Show the inspection plan of a material or lot",
+   "intents": {
+    "en": [
+     "inspection plan",
+     "show inspection plan",
+     "inspection characteristics of material"
+    ],
+    "ko": [
+     "검사계획 조회",
+     "검사계획 보여줘",
+     "검사항목 조회"
+    ]
+   },
+   "params": [
+    {
+     "name": "prueflos",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "matnr",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "werks",
+     "type": "string",
+     "required": false
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "source": [
+      "MAPL",
+      "PLKO",
+      "PLAS",
+      "PLPO",
+      "PLMK"
+     ],
+     "note": "plan of the lot, or the material / plant assignment (task list type Q); not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "source": [
+      "MAPL",
+      "PLKO",
+      "PLAS",
+      "PLPO",
+      "PLMK"
+     ],
+     "note": "plan of the lot, or the material / plant assignment (task list type Q)"
+    }
+   },
+   "auth": [
+    {
+     "object": "C_ROUT",
+     "fields": {
+      "ACTVT": "03",
+      "PLNTY": "Q"
+     }
+    }
+   ],
+   "verified_on": [
+    {
+     "alias": "S4-DEV",
+     "family": "S4",
+     "release": "816",
+     "date": "2026-11-11",
+     "level": "scenario",
+     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+    }
+   ]
+  },
+  {
+   "id": "QM.MAT.GET_INSP_SETUP",
+   "object": "Material",
+   "kind": "query",
+   "risk": "none",
+   "title": "Show the inspection setup of a material",
+   "intents": {
+    "en": [
+     "inspection setup of material",
+     "is material quality inspected",
+     "inspection types active for material"
+    ],
+    "ko": [
+     "검사설정",
+     "검사설정 조회",
+     "자재 검사설정",
+     "품질검사 대상 자재인지"
+    ]
+   },
+   "params": [
+    {
+     "name": "matnr",
+     "type": "string",
+     "required": true
+    },
+    {
+     "name": "werks",
+     "type": "string",
+     "required": false
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "source": [
+      "QMAT",
+      "MARA"
+     ],
+     "note": "inspection types with active flag, post to inspection stock, task list / specification use, skips, automatic UD; not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "source": [
+      "QMAT",
+      "MARA"
+     ],
+     "note": "inspection types with active flag, post to inspection stock, task list / specification use, skips, automatic UD"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_MATERIAL",
+     "fields": {
+      "QMATAUTH": "<material authorization group>",
+      "WERKS": "<plant>"
+     }
+    }
+   ],
+   "verified_on": [
+    {
+     "alias": "S4-DEV",
+     "family": "S4",
+     "release": "816",
+     "date": "2026-11-11",
+     "level": "scenario",
+     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+    }
+   ]
+  },
+  {
+   "id": "QM.RESULT.RECORD",
+   "object": "InspectionLot",
+   "kind": "write",
+   "risk": "medium",
+   "title": "Record inspection results for a lot",
+   "intents": {
+    "en": [
+     "record inspection results",
+     "enter results for inspection lot",
+     "record measured value"
+    ],
+    "ko": [
+     "검사결과 입력",
+     "검사결과 등록",
+     "측정값 입력",
+     "검사결과 기록"
+    ]
+   },
+   "params": [
+    {
+     "name": "prueflos",
+     "type": "string",
+     "required": true
+    },
+    {
+     "name": "vornr",
+     "type": "string",
+     "required": false,
+     "description": "operation; needed only when several operations have characteristics"
+    },
+    {
+     "name": "lines",
+     "type": "string[]",
+     "required": true,
+     "description": "one row per characteristic: merknr=0030;value=150 (quantitative) or merknr=0020;code=SMOOTH (qualitative) or merknr=0020;valuation=A"
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "fm": "BAPI_INSPOPER_RECORDRESULTS",
+     "testrun": "none",
+     "preview": "BAPI called and rolled back (BAPI_TRANSACTION_ROLLBACK)",
+     "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+     "set": "INSPLOT, INSPOPER, CHAR_RESULTS (closed; mean value or code)",
+     "return": "BAPIRET2",
+     "note": "not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "fm": "BAPI_INSPOPER_RECORDRESULTS",
+     "testrun": "none",
+     "preview": "BAPI called and rolled back (BAPI_TRANSACTION_ROLLBACK)",
+     "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+     "set": "INSPLOT, INSPOPER, CHAR_RESULTS (closed; mean value or code)",
+     "return": "BAPIRET2",
+     "note": "not executed on S/4HANA yet (test user without QM write authorization): hidden until it is"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_INSPRSLT",
+     "fields": {
+      "QACT_IRSLT": "<record>",
+      "WERKS": "<plant>",
+      "QPRUEFART": "<inspection type>"
+     }
+    },
+    {
+     "object": "Q_TCODE",
+     "fields": {
+      "TCD": "QE11"
+     }
+    }
+   ],
+   "verified_on": [],
+   "preview_limits": {
+    "en": [
+     "The preview calls the BAPI and rolls it back: messages are real, nothing is saved.",
+     "Valuated characteristics cannot be changed here (QE12)."
+    ],
+    "ko": [
+     "미리보기는 BAPI를 호출한 뒤 롤백해요. 메시지는 실제 결과이고 저장은 안 돼요.",
+     "이미 판정된 특성은 여기서 바꿀 수 없어요(QE12)."
+    ]
+   }
+  },
+  {
+   "id": "QM.UD.SET",
+   "object": "InspectionLot",
+   "kind": "write",
+   "risk": "high",
+   "max_items": 1,
+   "title": "Make the usage decision of an inspection lot (with stock posting)",
+   "intents": {
+    "en": [
+     "make usage decision",
+     "accept inspection lot",
+     "reject inspection lot",
+     "release lot from quality inspection"
+    ],
+    "ko": [
+     "사용결정",
+     "사용결정 입력",
+     "검사로트 합격 처리",
+     "검사로트 불합격 처리",
+     "품질검사 재고 해제"
+    ]
+   },
+   "params": [
+    {
+     "name": "prueflos",
+     "type": "string",
+     "required": true
+    },
+    {
+     "name": "ud_code",
+     "type": "string",
+     "required": true,
+     "description": "usage decision code, see QM.UD.GET"
+    },
+    {
+     "name": "ud_set",
+     "type": "string",
+     "required": false,
+     "description": "selected set; default from the inspection type"
+    },
+    {
+     "name": "ud_code_group",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "stock_posting",
+     "type": "string",
+     "required": true,
+     "description": "auto = post the inspection stock as proposed by the code; none = decision only"
+    },
+    {
+     "name": "force_close",
+     "type": "string",
+     "required": false,
+     "description": "true closes characteristics without results"
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "fm": "BAPI_INSPLOT_SETUSAGEDECISION",
+     "testrun": "none",
+     "preview": "handler checks: lot open, code in the selected set, Q_UD_CODE, open characteristics, quantity to post",
+     "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+     "set": "UD_DATA (selected set, plant, code group, code, UD_STOCK_POSTING, UD_FORCE_COMPLETION)",
+     "return": "BAPIRETURN1 (QV 050 = success)",
+     "note": "not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "fm": "BAPI_INSPLOT_SETUSAGEDECISION",
+     "testrun": "none",
+     "preview": "handler checks: lot open, code in the selected set, Q_UD_CODE, open characteristics, quantity to post",
+     "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+     "set": "UD_DATA (selected set, plant, code group, code, UD_STOCK_POSTING, UD_FORCE_COMPLETION)",
+     "return": "BAPIRETURN1 (QV 050 = success)",
+     "note": "not executed on S/4HANA yet (test user without QM write authorization): hidden until it is"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_UD_CODE",
+     "fields": {
+      "WERKS": "<plant>",
+      "QVEART": "<inspection type>",
+      "QVAUSWHLMG": "<selected set>",
+      "QVCODEGRP": "<code group>",
+      "QVCODE": "<code>"
+     }
+    },
+    {
+     "object": "Q_STCK_CHG",
+     "fields": {
+      "WERKS": "<plant>"
+     }
+    }
+   ],
+   "verified_on": [],
+   "preview_limits": {
+    "en": [
+     "The BAPI has no test mode: the preview checks lot, code, authorization and open characteristics only.",
+     "The stock target follows the code proposal; the executed result shows the real posting.",
+     "A decision with stock posting cannot be undone here (code change in QA12, stock only by a transfer posting)."
+    ],
+    "ko": [
+     "BAPI에 테스트 모드가 없어요. 미리보기는 로트, 코드, 권한, 미결 특성만 확인해요.",
+     "재고 이동 대상은 코드의 제안을 따라요. 실제 전기 결과는 실행 후에 보여드려요.",
+     "재고 전기까지 된 사용결정은 여기서 되돌릴 수 없어요(코드 변경은 QA12, 재고는 이전 전기로만)."
+    ]
+   },
+   "ambiguity": {
+    "note": "accept / reject words also match goods receipt and release actions",
+    "candidates": [
+     "QM.UD.GET"
+    ]
+   }
+  },
+  {
+   "id": "QM.NOTIF.CREATE",
+   "object": "QualityNotification",
+   "kind": "write",
+   "risk": "medium",
+   "title": "Create a quality notification (complaint)",
+   "intents": {
+    "en": [
+     "create quality notification",
+     "create supplier complaint",
+     "create customer complaint",
+     "report quality problem"
+    ],
+    "ko": [
+     "품질통지 생성",
+     "품질 통지 생성",
+     "공급업체 클레임 생성",
+     "고객 클레임 생성",
+     "품질문제 등록"
+    ]
+   },
+   "params": [
+    {
+     "name": "qmart",
+     "type": "string",
+     "required": true,
+     "description": "Q1 customer, Q2 supplier, Q3 internal (types with TQ80-QMTYP 02)"
+    },
+    {
+     "name": "text",
+     "type": "string",
+     "required": true,
+     "description": "short text, up to 40 characters"
+    },
+    {
+     "name": "prueflos",
+     "type": "string",
+     "required": false,
+     "description": "takes material, plant, supplier, PO and material document from the lot"
+    },
+    {
+     "name": "matnr",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "werks",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "lifnr",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "kunnr",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "quantity",
+     "type": "string",
+     "required": false,
+     "description": "complaint quantity"
+    },
+    {
+     "name": "unit",
+     "type": "string",
+     "required": false
+    },
+    {
+     "name": "priok",
+     "type": "string",
+     "required": false
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "fm": "BAPI_QUALNOT_CREATE",
+     "testrun": "none",
+     "preview": "handler checks: type, texts, material / plant / partner, priority, Q_QMEL",
+     "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+     "set": "NOTIF_TYPE, NOTIFHEADER (material, plant, supplier, customer, PO, material document, quantity); saved with BAPI_QUALNOT_SAVE",
+     "return": "BAPIRET2",
+     "note": "not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "fm": "BAPI_QUALNOT_CREATE",
+     "testrun": "none",
+     "preview": "handler checks: type, texts, material / plant / partner, priority, Q_QMEL",
+     "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+     "set": "NOTIF_TYPE, NOTIFHEADER (material, plant, supplier, customer, PO, material document, quantity); saved with BAPI_QUALNOT_SAVE",
+     "return": "BAPIRET2",
+     "note": "not executed on S/4HANA yet (test user without QM write authorization): hidden until it is"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_QMEL",
+     "fields": {
+      "TCD": "QM01",
+      "QMART": "<notification type>",
+      "WERKS": "<plant>"
+     }
+    }
+   ],
+   "verified_on": [],
+   "preview_limits": {
+    "en": [
+     "BAPI_QUALNOT_CREATE has no test mode: the preview checks the inputs and the authorization only.",
+     "The lot number is used to fill the reference data; the notification is not linked to the lot itself."
+    ],
+    "ko": [
+     "BAPI_QUALNOT_CREATE에는 테스트 모드가 없어요. 미리보기는 입력값과 권한만 확인해요.",
+     "로트 번호로 참조 데이터를 채울 뿐, 통지가 로트에 직접 연결되지는 않아요."
+    ]
+   }
+  },
+  {
+   "id": "QM.NOTIF.PUT_IN_PROCESS",
+   "object": "QualityNotification",
+   "kind": "write",
+   "risk": "medium",
+   "title": "Put a quality notification in process",
+   "intents": {
+    "en": [
+     "put quality notification in process",
+     "start processing complaint"
+    ],
+    "ko": [
+     "품질통지 처리 시작",
+     "품질 통지 진행 처리"
+    ]
+   },
+   "params": [
+    {
+     "name": "qmnum",
+     "type": "string",
+     "required": true
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "fm": "BAPI_QUALNOT_RELSTAT",
+     "testrun": "TESTRUN",
+     "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+     "set": "NUMBER, LANGU",
+     "return": "BAPIRET2",
+     "note": "not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "fm": "BAPI_QUALNOT_RELSTAT",
+     "testrun": "TESTRUN",
+     "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+     "set": "NUMBER, LANGU",
+     "return": "BAPIRET2",
+     "note": "not executed on S/4HANA yet (test user without QM write authorization): hidden until it is"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_QMEL",
+     "fields": {
+      "TCD": "QM02",
+      "QMART": "<notification type>",
+      "WERKS": "<plant>"
+     }
+    }
+   ],
+   "verified_on": [],
+   "preview_limits": {
+    "en": [
+     "The preview is a BAPI test run."
+    ],
+    "ko": [
+     "미리보기는 BAPI 테스트 실행이에요."
+    ]
+   }
+  },
+  {
+   "id": "QM.NOTIF.COMPLETE",
+   "object": "QualityNotification",
+   "kind": "write",
+   "risk": "medium",
+   "title": "Complete a quality notification",
+   "intents": {
+    "en": [
+     "complete quality notification",
+     "close complaint"
+    ],
+    "ko": [
+     "품질통지 완료",
+     "품질 통지 완료 처리",
+     "클레임 종결"
+    ]
+   },
+   "params": [
+    {
+     "name": "qmnum",
+     "type": "string",
+     "required": true
+    }
+   ],
+   "impl": {
+    "ECC": {
+     "fm": "BAPI_QUALNOT_COMPLSTAT",
+     "testrun": "TESTRUN",
+     "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+     "set": "NUMBER, SYSTSTAT (reference date / time)",
+     "return": "BAPIRET2",
+     "note": "not verified on ECC: the action stays hidden there until it is tested"
+    },
+    "S4": {
+     "fm": "BAPI_QUALNOT_COMPLSTAT",
+     "testrun": "TESTRUN",
+     "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+     "set": "NUMBER, SYSTSTAT (reference date / time)",
+     "return": "BAPIRET2",
+     "note": "not executed on S/4HANA yet (test user without QM write authorization): hidden until it is"
+    }
+   },
+   "auth": [
+    {
+     "object": "Q_QMEL",
+     "fields": {
+      "TCD": "QM02",
+      "QMART": "<notification type>",
+      "WERKS": "<plant>"
+     }
+    }
+   ],
+   "verified_on": [],
+   "preview_limits": {
+    "en": [
+     "The preview is a BAPI test run.",
+     "A completed notification can be put back in process only in QM02."
+    ],
+    "ko": [
+     "미리보기는 BAPI 테스트 실행이에요.",
+     "완료된 통지는 QM02에서만 다시 진행 상태로 돌릴 수 있어요."
+    ]
+   }
+  }
+ ]
+}

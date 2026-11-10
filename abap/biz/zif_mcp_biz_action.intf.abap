@@ -3,7 +3,7 @@ INTERFACE zif_mcp_biz_action
 
 * ZIF_MCP_BIZ_ACTION - business action handler contract for ZMCP_BIZ_EXECUTE.
 *
-* One handler class per module: ZCL_MCP_BIZ_MM, _PP, _SD, _FI, _CO, _OUT, _LE, _WM, _PM, _EWM.
+* One handler class per module: ZCL_MCP_BIZ_MM, _PP, _SD, _FI, _CO, _OUT, _LE, _WM, _PM, _QM, _EWM.
 * The executor (ZCL_MCP_BIZ_EXEC) owns JSON, the production block, the
 * preview token and the log; handlers own the business logic only.
 *
@@ -149,6 +149,16 @@ INTERFACE zif_mcp_biz_action
       date_from          TYPE string,
       date_to            TYPE string,
       who                TYPE string,
+      " Quality management (ZCL_MCP_BIZ_QM). prueflos = inspection lot; art = inspection type; ud_* = usage
+      " decision set / code group / code; stock_posting auto|none; force_close true|false. qmnum / qmart /
+      " matnr / werks / lifnr / kunnr / vornr / lines / quantity / unit / priok / text / date_* shared.
+      prueflos           TYPE string,
+      art                TYPE string,
+      ud_set             TYPE string,
+      ud_code_group      TYPE string,
+      ud_code            TYPE string,
+      stock_posting      TYPE string,
+      force_close        TYPE string,
     END OF ty_params.
 
   TYPES:

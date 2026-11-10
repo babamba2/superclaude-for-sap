@@ -12,7 +12,7 @@ const catalogs = loadCatalogs();
 describe('assist catalog runtime (scripts/assist/catalog.mjs)', () => {
   it('loads every module catalog', () => {
     const mods = catalogs.map((c: { module: string }) => c.module);
-    for (const m of ['MM', 'PP', 'SD', 'FI', 'CO', 'OUT', 'LE', 'WM', 'PM', 'EWM']) expect(mods).toContain(m);
+    for (const m of ['MM', 'PP', 'SD', 'FI', 'CO', 'OUT', 'LE', 'WM', 'PM', 'QM', 'EWM']) expect(mods).toContain(m);
   });
 
   it('matches Korean EWM lookups on S/4 and hides EWM on ECC', () => {
@@ -50,6 +50,18 @@ describe('assist catalog runtime (scripts/assist/catalog.mjs)', () => {
     expect(matchText('납품 8100000001 피킹해줘', ecc).candidates[0].id).toBe('LE.DLV.PICK');
     const s4 = allActions(catalogs, 'S4');
     expect(s4.some((a: { id: string }) => /^(LE|WM)\./.test(a.id))).toBe(false);
+  });
+
+  it('matches Korean QM lookups on S/4, hides QM on ECC and keeps unexecuted QM writes hidden', () => {
+    const s4 = allActions(catalogs, 'S4');
+    expect(matchText('미결 검사로트 보여줘', s4).candidates[0].id).toBe('QM.LOT.LIST_OPEN');
+    expect(matchText('검사로트 10000000886 조회', s4).candidates[0].id).toBe('QM.LOT.GET_DETAIL');
+    expect(matchText('사용결정 코드 알려줘', s4).candidates[0].id).toBe('QM.UD.GET');
+    expect(matchText('미결 품질통지 목록', s4).candidates[0].id).toBe('QM.NOTIF.LIST_OPEN');
+    expect(matchText('검사계획 조회', s4).candidates[0].id).toBe('QM.PLAN.GET_DETAIL');
+    expect(s4.filter((a: { id: string; kind: string }) => a.id.startsWith('QM.')).every((a: { kind: string }) => a.kind === 'query')).toBe(true);
+    const ecc = allActions(catalogs, 'ECC');
+    expect(ecc.some((a: { id: string }) => a.id.startsWith('QM.'))).toBe(false);
   });
 
   it('matches Korean PM requests on ECC and hides PM on S/4', () => {

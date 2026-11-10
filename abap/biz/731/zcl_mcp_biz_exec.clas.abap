@@ -18,7 +18,7 @@ CLASS zcl_mcp_biz_exec DEFINITION
 *   - PRECHECK (read only, any client, not logged): document field values and
 *     true / false answers for the customer check rules, see ZCL_MCP_BIZ_PRECHECK
 *     (SD.* actions: facts by ZCL_MCP_BIZ_PRECHECK=>RUN_SD)
-*   - handlers: one class per module (ZCL_MCP_BIZ_MM / _PP / _SD / _FI / _CO / _OUT / _LE / _WM / _PM / _EWM)
+*   - handlers: one class per module (ZCL_MCP_BIZ_MM / _PP / _SD / _FI / _CO / _OUT / _LE / _WM / _PM / _QM / _EWM)
 *
 * Variant: ECC BASIS 7.31 (ZCL_MCP_JSON, installed with the 7.31 helpers).
 * Differs from the 7.40 / S/4 source only in parse_params / to_json.
@@ -47,7 +47,7 @@ CLASS zcl_mcp_biz_exec DEFINITION
     CLASS-METHODS list_actions
       RETURNING VALUE(rs_result) TYPE zif_mcp_biz_action=>ty_result.
 
-    "! Handler of a family-specific module (LE / WM / PM / EWM), unbound when its class is not installed
+    "! Handler of a family-specific module (LE / WM / PM / QM / EWM), unbound when its class is not installed
     CLASS-METHODS optional_handler
       IMPORTING iv_module         TYPE string
       RETURNING VALUE(ro_handler) TYPE REF TO zif_mcp_biz_action.
@@ -250,8 +250,9 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
       CREATE OBJECT ro_handler TYPE zcl_mcp_biz_co.
     ELSEIF iv_action CP 'OUT.*'.
       CREATE OBJECT ro_handler TYPE zcl_mcp_biz_out.
-    ELSEIF iv_action CP 'LE.*' OR iv_action CP 'WM.*' OR iv_action CP 'PM.*' OR iv_action CP 'EWM.*'.
-      " Family-specific modules (LE / WM / PM on ECC, EWM on S/4HANA): created by name so that
+    ELSEIF iv_action CP 'LE.*' OR iv_action CP 'WM.*' OR iv_action CP 'PM.*' OR iv_action CP 'EWM.*'
+        OR iv_action CP 'QM.*'.
+      " Family-specific modules (LE / WM / PM on ECC, QM and EWM on S/4HANA): created by name so that
       " EXEC also activates where they are not installed.
       ro_handler = optional_handler( segment( val = iv_action index = 1 sep = '.' ) ).
     ENDIF.
@@ -290,6 +291,11 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
       APPEND LINES OF lt_actions TO rs_result-actions.
     ENDIF.
     lo_handler = optional_handler( 'PM' ).
+    IF lo_handler IS BOUND.
+      lt_actions = lo_handler->get_actions( ).
+      APPEND LINES OF lt_actions TO rs_result-actions.
+    ENDIF.
+    lo_handler = optional_handler( 'QM' ).
     IF lo_handler IS BOUND.
       lt_actions = lo_handler->get_actions( ).
       APPEND LINES OF lt_actions TO rs_result-actions.
@@ -935,6 +941,32 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
         lv_list = 'vbeln'.
       WHEN 'EWM.DLV.LIST_OPEN'.
         lv_list = 'lgnum doc_category max_rows'.
+      WHEN 'QM.LOT.LIST_OPEN'.
+        lv_list = 'werks art matnr max_rows'.
+      WHEN 'QM.LOT.LIST_BY_MATERIAL'.
+        lv_list = 'matnr werks date_from date_to max_rows'.
+      WHEN 'QM.LOT.GET_DETAIL'.
+        lv_list = 'prueflos'.
+      WHEN 'QM.UD.GET'.
+        lv_list = 'prueflos ud_set'.
+      WHEN 'QM.NOTIF.LIST_OPEN'.
+        lv_list = 'werks qmart matnr lifnr max_rows'.
+      WHEN 'QM.NOTIF.GET_DETAIL'.
+        lv_list = 'qmnum'.
+      WHEN 'QM.PLAN.GET_DETAIL'.
+        lv_list = 'prueflos matnr werks'.
+      WHEN 'QM.MAT.GET_INSP_SETUP'.
+        lv_list = 'matnr werks'.
+      WHEN 'QM.RESULT.RECORD'.
+        lv_list = 'prueflos vornr lines'.
+      WHEN 'QM.UD.SET'.
+        lv_list = 'prueflos ud_code ud_set ud_code_group stock_posting force_close'.
+      WHEN 'QM.NOTIF.CREATE'.
+        lv_list = 'qmart text prueflos matnr werks lifnr kunnr quantity unit priok'.
+      WHEN 'QM.NOTIF.PUT_IN_PROCESS'.
+        lv_list = 'qmnum'.
+      WHEN 'QM.NOTIF.COMPLETE'.
+        lv_list = 'qmnum'.
       WHEN OTHERS.
         CLEAR lv_list.
     ENDCASE.
