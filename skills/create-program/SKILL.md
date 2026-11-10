@@ -171,6 +171,7 @@ Do not inline or paraphrase phase logic here — update `agent-pipeline.md` inst
 - `.sc4sap/program/{PROG}/review-candidates.md` — Phase 6 Haiku detector output, `detect-judge` strategy (see `phase6-detect-judge.md`)
 - `.sc4sap/program/{PROG}/review.md` — Phase 6 consolidated review
 - `.sc4sap/program/{PROG}/decisions.md` — executor `## Decisions` lines, appended by main (feeds the report's *Decisions & Assumptions*)
+- `.sc4sap/program/{PROG}/receipt.json` — Done Criteria verdicts built by `scripts/evidence/build-receipt.mjs` from the hook-written `.sc4sap/evidence/ledger.jsonl` (agents never write either; see `common/evidence-receipt.md`)
 - `.sc4sap/program/{PROG}/report.md` — final completion report (Evidence first, per `common/verification-evidence.md`)
 - `.sc4sap/program/{PROG}/{spec,report}.html` — optional single-file HTML copies, offered after Phase 8
 - `.claude/settings.local.json` — permissions allowlist (written by `/sc4sap:trust-session` during Phase 3.5)
