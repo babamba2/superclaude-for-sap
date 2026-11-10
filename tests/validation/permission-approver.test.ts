@@ -26,14 +26,20 @@ describe('permission-approver DD* metadata exception', () => {
         { name: 'ZTT1', type: 'TTYP/DA' }, { name: 'ZV1', type: 'VIEW/DV' }, { name: 'ZH1', type: 'SHLP/DH' },
       ],
     };
-    const plan = ddicQueries(walk);
-    expect(new Set(plan.map((q: { table: string }) => q.table)).size).toBe(10);
-    for (const q of plan) expect(ok(q.sql), q.sql).toBe(true);
+    expect(new Set(ddicQueries(walk, { only: 'ddic' }).map((q: { table: string }) => q.table)).size).toBe(10);
+    const texts = ddicQueries({ objects: [...walk.objects, { name: 'ZP1', type: 'PROG/P' }, { name: 'ZTC1', type: 'TRAN' },
+      { name: 'ZFG1', type: 'FUGR/F' }, { name: 'ZCL1', type: 'CLAS/OC' }] }, { only: 'texts', lang: 'KO', graph: { nodes: [{ type: 'FUNC', name: 'Z_FM1' }] } });
+    expect(new Set(texts.map((q: { table: string }) => q.table)).size).toBe(11);
+    const plan = ddicQueries(walk, { lang: 'KO' });
+    for (const q of [...plan, ...texts]) expect(ok(q.sql), q.sql).toBe(true);
     expect(ok(G3A)).toBe(true);
   });
 
   it('rejects everything outside the G3a shape', () => {
     expect(ok(G3A.replace('DD05S', 'VBAK'))).toBe(false);
+    expect(ok("SELECT NAME, SPRSL, TEXT FROM TRDIRT WHERE SPRSL IN ('E') AND NAME IN ('ZP1')")).toBe(true);
+    expect(ok("SELECT BNAME FROM USR02 WHERE BNAME IN ('X')")).toBe(false);
+    expect(ok("SELECT * FROM TSTCT WHERE TCODE = 'Z1'")).toBe(false);
     expect(ok("SELECT * FROM DD03L WHERE TABNAME = 'ZT'")).toBe(false);
     expect(ok(`${G3A}; DELETE FROM DD03L`)).toBe(false);
     expect(ok("SELECT TABNAME FROM DD03L WHERE TABNAME IN (SELECT TABNAME FROM DD02L)")).toBe(false);

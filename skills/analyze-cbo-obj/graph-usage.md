@@ -31,13 +31,13 @@ Two ways in. G3a reads the DD repository tables once per table kind. G3b is the 
 
 ### G3a — DD reads (`sc4sap:sap-checker` × n, `MODE: dd-read`, analyze-cbo-obj only)
 
-The one exception to "no `GetSqlQuery`" in this skill: **DD\* repository tables only** — the statements in the plan file, nothing else, never `acknowledge_risk`. They are metadata about the package's DDIC objects, never business rows. The `permission-approver` hook auto-approves these statements (`output: "file"` is part of the match — never drop it); any other form prompts. Neither the SQL text nor the results pass through the main thread.
+The one exception to "no `GetSqlQuery`" in this skill: **DD\* repository tables and repository short-text tables only** — the statements in the plan file, nothing else, never `acknowledge_risk`. They are metadata about the package's DDIC objects, never business rows. The `permission-approver` hook auto-approves these statements (`output: "file"` is part of the match — never drop it); any other form prompts. Neither the SQL text nor the results pass through the main thread.
 
 ```bash
-node "<PLUGIN_ROOT>/scripts/graph/ddic-queries.mjs" --dir "<DIR>" --sap-version <SAPV> --out "<DIR>/ddic-plan.json"
+node "<PLUGIN_ROOT>/scripts/graph/ddic-queries.mjs" --dir "<DIR>" --sap-version <SAPV> --lang <SAP_LANGUAGE> --out "<DIR>/ddic-plan.json"
 ```
 
-It writes the plan (DD03L, DD08L, DD05S, DD35L, DD04L, DD01L, DD40L, DD26S, DD30L, DD31S — single-table `SELECT … WHERE … IN (…)`; S4 packs 200 names per statement, ECC 50 because the `TABLE_READ` condition travels in a URL) and prints `{ plan, statements, slices: [{ from, to }] }`. `statements` = 0 → no DDIC members; skip G3. One checker per slice, at most 8 per message (banner `▶ phase=graph-dd · agent=sap-checker×<n> · model=Haiku`):
+It writes the plan (DD03L, DD08L, DD05S, DD35L, DD04L, DD01L, DD40L, DD26S, DD30L, DD31S — single-table `SELECT … WHERE … IN (…)`; S4 packs 200 names per statement, ECC 50 because the `TABLE_READ` condition travels in a URL), plus the object short texts in the logon language and English (DD02T, DD04T, DD01T, DD40T, DD30T, DD25T, TRDIRT, TSTCT, TFTIT, TLIBT, SEOCLASSTX — repository texts, never business rows; the relation map shows them as descriptions). On ECC, names containing `SELECT` or `JOIN` are left out: `TABLE_READ` refuses any condition with those words, literals included. It prints `{ plan, statements, slices: [{ from, to }] }`. `statements` = 0 → no DDIC members; skip G3. One checker per slice, at most 8 per message (banner `▶ phase=graph-dd · agent=sap-checker×<n> · model=Haiku`):
 
 ```
 MODE: dd-read

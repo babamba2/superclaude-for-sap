@@ -22,6 +22,10 @@ export const USAGE = ['direct', 'indirect', 'unused', 'no-evidence'];
 const KEEP_SCOPES = new Set(['member', 'custom']);
 const EV_CHARS = 90;
 const DESC_CHARS = 140;
+// inventory placeholders that are not descriptions
+const JUNK_DESC = /^(-+|n\/?a|tbd|none|no (ddic )?description( available)?\.?)$/i;
+// a TCode text that only names its target
+const BARE_TCODE_DESC = /^(program|report|transaction|tcode)\s+\S+(\s+screen\s+\d+)?$/i;
 const OWNER_TYPES = new Set(['PROG', 'FUGR', 'CLAS', 'INTF']);
 
 // Includes inherit the scope of the program / function group that includes them, so a standard include
@@ -222,11 +226,22 @@ export function buildModel(graph, { hubs = 40, groups = 60, fold = true, info = 
   const commId = new Map(order.map((c, i) => [c, i]));
   const degree = nb.map((s) => s.size), biz = nbBiz.map((s) => s.size);
 
+  // usable descriptions: placeholders dropped; a TCode whose text only names its program ("program ZX screen
+  // 1000") or that has none takes the description of the program / view it launches
+  const launches = new Map();
+  for (const e of merged.values()) if (e.kind === 'launches' && !launches.has(e.from)) launches.set(e.from, e.to);
+  const usable = (id) => { const d = String(descOf.get(id) || '').trim(); return d && !JUNK_DESC.test(d) && !BARE_TCODE_DESC.test(d) ? d : ''; };
+  const descText = new Map();
+  for (const nd of all) {
+    const d = usable(nd.id) || (nd.type === 'TRAN' && launches.has(nd.id) ? usable(launches.get(nd.id)) : '');
+    if (d) descText.set(nd.id, d);
+  }
+
   const desc = [], descIx = new Map(), std = [], pkgs = [], pkgIx = new Map();
   const strIx = (arr, ix, s) => { if (!ix.has(s)) { ix.set(s, arr.length); arr.push(s); } return ix.get(s); };
   const usageCounts = { direct: 0, indirect: 0, unused: 0, 'no-evidence': 0 };
   const nodes = all.map((nd, i) => {
-    const d = descOf.get(nd.id);
+    const d = descText.get(nd.id);
     const u = USAGE.indexOf(usageOf.get(nd.id));
     if (u >= 0) usageCounts[USAGE[u]]++;
     const s = (nd.type === 'TABL' || nd.type === 'VIEW') && stdOf.get(nd.name);
@@ -251,11 +266,11 @@ export function buildModel(graph, { hubs = 40, groups = 60, fold = true, info = 
     // a TCode description that only names its program ("program ZX screen 1000") says nothing — skip it
     // nor does a parameter TCode's call string ("SM34 VCLDIR-VCLNAME=… UPDATE=X")
     const said = (i) => {
-      const d = descOf.get(all[i].id);
-      return d && !/^(program|report|transaction|tcode)\s+\S+(\s+screen\s+\d+)?$/i.test(d.trim()) && !/^\/?\*?(SM3[04]|SE16N?|SE54)\b|VIEWNAME=|VCLNAME=/i.test(d.trim());
+      const d = usable(all[i].id);
+      return d && !/^\/?\*?(SM3[04]|SE16N?|SE54)\b|VIEWNAME=|VCLNAME=/i.test(d);
     };
     const lead = members.find((i) => all[i].type === 'TRAN' && said(i)) ?? members.find((i) => all[i].type === 'PROG' && said(i)) ?? members.find(said);
-    const label = groupLabel(members.slice(0, 60).map((i) => all[i].name), () => (lead !== undefined ? descOf.get(all[lead].id) : ''));
+    const label = groupLabel(members.slice(0, 60).map((i) => all[i].name), () => (lead !== undefined ? usable(all[lead].id) : ''));
     return { id: gi, size: members.length, top: members.slice(0, 8), mix, inner, label };
   });
 
@@ -269,7 +284,7 @@ export function buildModel(graph, { hubs = 40, groups = 60, fold = true, info = 
     meta: {
       package: graph.package, packages: graph.packages || (graph.package ? [graph.package] : []), module: graph.module, system: graph.system,
       sapVersion: graph.sapVersion, graphBuiltAt: graph.builtAt, sourcesParsed: graph.coverage?.parsed ?? (graph.coverage ? Object.values(graph.coverage).reduce((s, c) => s + (c?.parsed || 0), 0) : null),
-      folded: fold, hasUsage: usageOf.size > 0, hasDesc: descOf.size > 0, snippets: Boolean(snippets),
+      folded: fold, hasUsage: usageOf.size > 0, hasDesc: descText.size > 0, snippets: Boolean(snippets),
     },
     types, kinds, bases: BASES, usage: USAGE, nodes, edges, ev, ops, desc, std, pkgs, inc, comms,
     hubs: rank(biz), typeHubs: rank(typeDeg),

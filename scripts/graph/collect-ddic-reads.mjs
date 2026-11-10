@@ -1,6 +1,9 @@
 // sc4sap:graph — Step G3a collector: match the GetSqlQuery result files to the read plan and write ddic-reads.json.
 //
-//   node collect-ddic-reads.mjs --dir <inventory dir> --sql-dir <MCP output sql dir>
+//   node collect-ddic-reads.mjs --dir <inventory dir> --sql-dir <MCP output sql dir> [--plan <file>] [--out <file>]
+//
+// --plan / --out default to ddic-plan.json / ddic-reads.json in <dir>; the text refresh uses
+// --plan ddic-text-plan.json --out ddic-texts.json (ddic-queries.mjs --only texts).
 //
 // The plan is <dir>/ddic-plan.json (ddic-queries.mjs --out). The sap-checker workers run the statements with
 // GetSqlQuery { output: "file" }; each call writes <sql-dir>/<table>-<time>.json holding the executed
@@ -33,11 +36,14 @@ export function matchReads(plan, results, since = 0) {
   });
 }
 
+// <table>-<time>.json of the DD* relation reads and of the repository text reads
+const RESULT_FILE = /^(dd\d\d[a-z]|trdirt|tstct|tftit|tlibt|seoclasstx)-.*\.json$/i;
+
 function readResults(sqlDir) {
   if (!existsSync(sqlDir)) return [];
   const out = [];
   for (const f of readdirSync(sqlDir)) {
-    if (!/^dd\d\d[a-z]-.*\.json$/i.test(f)) continue;
+    if (!RESULT_FILE.test(f)) continue;
     const path = join(sqlDir, f);
     try {
       const j = JSON.parse(readFileSync(path, 'utf8'));
@@ -54,8 +60,10 @@ function parseArgs(argv) {
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--dir') a.dir = resolve(argv[++i]);
     else if (argv[i] === '--sql-dir') a.sqlDir = resolve(argv[++i]);
+    else if (argv[i] === '--plan') a.plan = argv[++i];
+    else if (argv[i] === '--out') a.out = argv[++i];
   }
-  if (!a.dir || !a.sqlDir) throw new Error('usage: collect-ddic-reads.mjs --dir <inventory dir> --sql-dir <MCP output sql dir>');
+  if (!a.dir || !a.sqlDir) throw new Error('usage: collect-ddic-reads.mjs --dir <inventory dir> --sql-dir <MCP output sql dir> [--plan <file>] [--out <file>]');
   return a;
 }
 
@@ -63,12 +71,12 @@ const thisFile = fileURLToPath(import.meta.url);
 if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
   try {
     const a = parseArgs(process.argv.slice(2));
-    const planPath = join(a.dir, 'ddic-plan.json');
-    if (!existsSync(planPath)) throw new Error(`ddic-plan.json not found in ${a.dir}`);
+    const planPath = resolve(a.dir, a.plan || 'ddic-plan.json');
+    if (!existsSync(planPath)) throw new Error(`plan not found: ${planPath}`);
     const plan = JSON.parse(readFileSync(planPath, 'utf8'));
     // 2 s slack: the plan file and the first result can share a timestamp on coarse file systems
     const reads = matchReads(plan, readResults(a.sqlDir), statSync(planPath).mtimeMs - 2000);
-    writeFileSync(join(a.dir, 'ddic-reads.json'), `${JSON.stringify(reads, null, 1)}\n`);
+    writeFileSync(resolve(a.dir, a.out || 'ddic-reads.json'), `${JSON.stringify(reads, null, 1)}\n`);
     const errors = reads.filter((r) => r.error).map((r) => r.id);
     const truncated = reads.filter((r) => r.truncated).map((r) => r.id);
     process.stdout.write(`${JSON.stringify({ reads: reads.length, ok: reads.length - errors.length, errors, truncated })}\n`);

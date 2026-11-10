@@ -5,6 +5,16 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+
+- `/sc4sap:cbo-relation-map` shows a description under every related object in the side panel. The descriptions are the SAP short texts (what SE11 / SE38 / SE93 / SE37 / SE80 show; English first, else the logon language) and win over the inventory text. Placeholder texts are dropped; a TCode whose text only names its program takes that program's description.
+- `analyze-cbo-obj` G3a also reads the repository short texts (DD01T, DD02T, DD04T, DD25T, DD30T, DD40T, TRDIRT, TSTCT, TFTIT, TLIBT, SEOCLASSTX) in the logon language and English (`ddic-queries.mjs --lang`). Graphs collected earlier get a text refresh without a new walk: `ddic-queries.mjs --only texts` + `collect-ddic-reads.mjs --plan / --out` → `ddic-texts.json` (cbo-relation-map `collect.md` § C).
+
+### Changed
+
+- `permission-approver` auto-approves single-table `output: "file"` reads of the repository short-text tables above, in the same shape as the DD\* metadata reads. They are object descriptions, never business rows.
+- On ECC, G3a leaves out object names containing `SELECT` or `JOIN`: `TABLE_READ` refuses any condition with those words, literals included.
+
 ## [0.6.61] — 2026-11-06
 
 ### Added

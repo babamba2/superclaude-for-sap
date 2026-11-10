@@ -888,14 +888,15 @@
       if (S.paths.length > 1) html += `<p class="alts">${S.paths.map((pp, x) => `<a href="#" data-path="${x}" class="${x === S.pathIx ? 'on' : ''}">${esc(T.pathAlt.replace('{n}', x + 1).replace('{s}', pp.edges.length))}</a>`).join(' ')}</p>`;
       html += `<h4>${esc(T.pathSteps)}</h4><ol class="steps">` + S.path.edges.map((k) => {
         const e = M.edges[k];
-        return `<li>${nodeLink(e[0])} <b>—${esc(M.kinds[e[2]])}→</b> ${nodeLink(e[1])}${evidence(k, true)}</li>`;
+        const ds = [e[0], e[1]].filter((x) => nDesc(x)).map((x) => `${esc(nName(x))}: ${esc(nDesc(x))}`).join(' · ');
+        return `<li>${nodeLink(e[0])} <b>—${esc(M.kinds[e[2]])}→</b> ${nodeLink(e[1])}${ds ? `<div class="desc">${ds}</div>` : ''}${evidence(k, true)}</li>`;
       }).join('') + '</ol>';
     }
     const im = S.impact;
     if (im && im.nodes.length) {
       html += `<h4>${esc(T.impact)} <small>${esc(T.impactCount.replace('{t}', fmt(im.tcodes.length)).replace('{p}', fmt(im.progs.length)))}</small></h4>
         <p class="muted">${esc(T.impactHelp)}</p><p><a href="#" id="impact-show">${esc(T.impactShow)}</a></p>
-        ${im.tcodes.length ? `<details ${im.tcodes.length <= 15 ? 'open' : ''}><summary>TRAN <small>${fmt(im.tcodes.length)}</small></summary><ul class="el">${im.tcodes.slice(0, 200).map((x) => `<li>${nodeLink(x, true)}</li>`).join('')}</ul></details>` : ''}`;
+        ${im.tcodes.length ? `<details ${im.tcodes.length <= 15 ? 'open' : ''}><summary>TRAN <small>${fmt(im.tcodes.length)}</small></summary><ul class="el">${im.tcodes.slice(0, 200).map((x) => `<li>${nodeLink(x)}${nDesc(x) ? `<div class="desc">${esc(nDesc(x))}</div>` : ''}</li>`).join('')}</ul></details>` : ''}`;
     }
     html += edgeList(T.outgoing, out[i], 1) + edgeList(T.incoming, inn[i], 0);
     p.innerHTML = html;
@@ -918,7 +919,7 @@
       html += `<details ${list.length <= 12 && !off ? 'open' : ''}><summary><span class="ln k-${esc(M.kinds[kd])}"></span>${esc(M.kinds[kd])} <small>${fmt(list.length)}${off ? ' · ' + esc(T.hidden) : ''}</small></summary><ul class="el">`;
       for (const k of list.slice(0, 300)) {
         const e = M.edges[k], other = e[side], c = crudOf(k);
-        html += `<li>${c && c !== 'R' ? `<span class="crud">${c.split('').map((x) => `<b class="c-${x}">${x}</b>`).join('')}</span> ` : ''}${nodeLink(other)}${e[3] > 1 ? ` <small>×${e[3]}</small>` : ''} <span class="b b${e[4]}">${esc(T.basisShort[M.bases[e[4]]])}</span>${evidence(k, false)}</li>`;
+        html += `<li>${c && c !== 'R' ? `<span class="crud">${c.split('').map((x) => `<b class="c-${x}">${x}</b>`).join('')}</span> ` : ''}${nodeLink(other)}${e[3] > 1 ? ` <small>×${e[3]}</small>` : ''} <span class="b b${e[4]}">${esc(T.basisShort[M.bases[e[4]]])}</span>${nDesc(other) ? `<div class="desc">${esc(nDesc(other))}</div>` : ''}${evidence(k, false)}</li>`;
       }
       if (list.length > 300) html += `<li class="muted">${esc(T.more.replace('{n}', fmt(list.length - 300)))}</li>`;
       html += '</ul></details>';
