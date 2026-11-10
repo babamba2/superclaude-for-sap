@@ -1,0 +1,28 @@
+재시작함 
+
+<pasted_content id="8867">
+marketplace와 실행 중인 cache(0.6.60)에 동기화를 마쳤어요. 실제 SAP에서 돌리는 smoke test는 Claude Code를 재시작해야 할 수 있어요.
+
+동기화 결과
+
+- 바꾼 파일 9개를 두 곳에 복사했어요. 프로젝트와 diff를 비교해서 모두 일치해요.
+- 덮어쓴 기존 파일 4개는 복사 전에 git HEAD와 같았어요. 다른 작업의 변경은 섞이지 않았어요.
+- cache 위치에서 스크립트를 직접 실행해 확인했어요.
+  - guard: 기록 파일 쓰기는 deny, 일반 파일
+  - record: 읽기 도구 호출(GetProgram)은 기록하지 않음
+
+다음 순서
+
+1. Claude Code를 완전히 종료한 뒤 다시 시작해 주세요. 새 hook 설정을 읽으려면 필요해요.
+2. 재시작한 뒤 "smoke test 진행"이라고 말씀게요.
+   - HKT-DEV $TMP에 ZSC4SAP_ 접두사의 작은 테스트 리포트를 create-program으로 만들어요. 단순 ALV 1개에 로컬 unit test 클래스 1개예요.
+   - .sc4sap/evidence/ledger.jsonl에 호출이 가 부른 호출도 포함되는지 확인해요.
+   - receipt.json의 판정이 실제 결과와 맞는지 대조해요.
+   - Write, Edit, Bash를 쓸 때 guard hook 때문에 느려지는지 확인해요.
+3. 끝나면 SE38에서 결과를 직접 확인해 주세요. 확인이 끝나면 커밋할지 여쭤볼게요.
+
+참고
+
+- 진행 상황을 memory에 project_evidence_receipt.md로 저장했어요.
+- memory의 WIP 한도 메모에는 진행 중인 작업 4번째예요. smoke test를 바로 할지, 다른작업을 먼저 마칠지 정해 주세요.
+</pasted_content id="8867">
