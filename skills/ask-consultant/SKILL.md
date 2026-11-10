@@ -71,7 +71,7 @@ The consultant agent's Mandatory_Baseline (Tier 1 + Tier 2 per [`../../common/co
 Map the user's question to the target module(s). Priority:
 
 1. **Explicit mention**: "MM 물어봐" / "ask SD" / "FI 컨설턴트" → dispatch that consultant directly.
-2. **Keyword inference**: map keywords to modules (PO/EKKO/EBELN → MM; invoice/BKPF/BSEG → FI; sales order/VBAK → SD; cost center/KOSTL → CO; MRP/production order/AFKO → PP; WBS/PROJ → PS; maintenance order → PM; inspection lot → QM; cash management/treasury → TR; payroll/infotype → HCM; warehouse/bin → WM; freight order → TM; InfoObject/DataSource → BW; sourcing/Ariba Network → Ariba; dump/transport/kernel → BC).
+2. **Keyword inference**: map keywords to modules (PO/EKKO/EBELN → MM; invoice/BKPF/BSEG → FI; sales order/VBAK → SD; cost center/KOSTL → CO; MRP/production order/AFKO → PP; WBS/PROJ → PS; maintenance order → PM; inspection lot → QM; cash management/treasury → TR; payroll/infotype → HCM; warehouse/bin/transfer order → WM; shipment/VTTK/handling unit/shipment cost → SD on ECC (LE-TRA), TM on S/4; freight order → TM; InfoObject/DataSource → BW; sourcing/Ariba Network → Ariba; dump/transport/kernel → BC).
 3. **Multi-module**: if 2-3 modules match with similar signal strength, dispatch all in parallel. Example: "MM PO가 FI에 어떻게 전기되는지" → dispatch MM + FI in parallel; the skill then composes the answer.
 4. **Unclear**: ask the user which module first — one question, one round.
 

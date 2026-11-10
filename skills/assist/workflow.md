@@ -57,6 +57,8 @@ Explain in short sentences why SAP blocks this business action and what configur
 })
 ```
 
+Module of the action prefix → consultant: MM / PP / SD / FI / CO / WM as named; LE (shipments, picking, packing, shipment costs on ECC) → `sap-sd-consultant`; OUT → the module of the document (PO → MM, delivery / billing → SD).
+
 Show the consultant's answer under the SAP message. The fix itself is the user's (or their consultant's) work in the TCode; this skill does not change configuration.
 
 ## Errors that are not refusals

@@ -1,0 +1,1637 @@
+{
+  "schemaVersion": 1,
+  "module": "LE",
+  "area": "shipments, picking, packing / handling units, delivery changes, shipment costs (LE-TRA)",
+  "notes": [
+    "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side (handler ZCL_MCP_BIZ_LE).",
+    "ECC only. On S/4HANA transportation runs in SAP TM (and warehouse handling in EWM): every LE action is refused there.",
+    "Outbound delivery creation, goods issue and its reversal stay in SD (SD.DLV.*); LE covers shipments, shipment costs, picking, packing and delivery changes.",
+    "BAPI_SHIPMENT_CHANGE saves by itself (proven on the test system: a change persisted after ROLLBACK WORK), so shipment change and status previews are rule checks only.",
+    "Picking, delivery changes and packing preview with WS_DELIVERY_UPDATE_2 in check mode (IF_DATABASE_UPDATE_1 = 2), then rollback.",
+    "Not offered: shipment deletion, shipment cost creation and settlement (VI01 / VI02 runs), inbound deliveries, collective shipment creation (VT04).",
+    "The carrier is shown as its vendor number only; no partner names or addresses are returned."
+  ],
+  "actions": [
+    {
+      "id": "LE.SHP.LIST",
+      "object": "Shipment",
+      "kind": "query",
+      "risk": "none",
+      "title": "List shipments of a transportation planning point",
+      "intents": {
+        "en": [
+          "shipments planned today",
+          "open shipments",
+          "shipments not started",
+          "list shipments"
+        ],
+        "ko": [
+          "오늘 출발 운송",
+          "미출발 운송",
+          "운송 목록",
+          "선적 목록"
+        ]
+      },
+      "params": [
+        {
+          "name": "tplst",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "shtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": false,
+          "values": [
+            "not_started",
+            "started",
+            "completed",
+            "all"
+          ]
+        },
+        {
+          "name": "date_basis",
+          "type": "string",
+          "required": false,
+          "values": [
+            "start_today",
+            "start_overdue",
+            "created_last_30",
+            "all"
+          ]
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "tplst",
+          "ask": "Which transportation planning point?",
+          "when": "tplst is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "VTTK",
+            "VTTP"
+          ],
+          "note": "SELECT on VTTK by planning point, status (STTRG) and planned start (DPTBG); no shipment list BAPI"
+        },
+        "S4": {
+          "source": [
+            "none"
+          ],
+          "note": "not available on S/4HANA: transportation runs in SAP TM"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VTTK_SHT",
+          "fields": {
+            "SHTYP": "<shipment type>",
+            "ACTVT": "03"
+          }
+        },
+        {
+          "object": "V_VTTK_TDS",
+          "fields": {
+            "TPLST": "<transportation planning point>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.SHP.GET_DETAIL",
+      "object": "Shipment",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show one shipment: status steps, dates, route, carrier and deliveries",
+      "intents": {
+        "en": [
+          "shipment status",
+          "show shipment",
+          "what is in shipment"
+        ],
+        "ko": [
+          "운송 상태",
+          "운송 조회",
+          "선적 상세"
+        ]
+      },
+      "params": [
+        {
+          "name": "tknum",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "tknum",
+          "ask": "Which shipment number?",
+          "when": "tknum is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "VTTK",
+            "VTTP",
+            "LIKP",
+            "VBUK"
+          ],
+          "note": "BAPI_SHIPMENT_GETDETAIL does not exist on the test system: SELECT on VTTK / VTTP and the delivery status"
+        },
+        "S4": {
+          "source": [
+            "none"
+          ],
+          "note": "not available on S/4HANA: transportation runs in SAP TM"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VTTK_SHT",
+          "fields": {
+            "SHTYP": "<shipment type>",
+            "ACTVT": "03"
+          }
+        },
+        {
+          "object": "V_VTTK_TDS",
+          "fields": {
+            "TPLST": "<transportation planning point>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.SHP.LIST_OPEN_DLV",
+      "object": "Delivery",
+      "kind": "query",
+      "risk": "none",
+      "title": "List deliveries of a shipping point that are not in a shipment yet",
+      "intents": {
+        "en": [
+          "deliveries without shipment",
+          "deliveries to plan",
+          "unplanned deliveries"
+        ],
+        "ko": [
+          "운송 미배정 납품",
+          "운송 계획할 납품",
+          "선적 안 된 납품"
+        ]
+      },
+      "params": [
+        {
+          "name": "vstel",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "date_basis",
+          "type": "string",
+          "required": false,
+          "values": [
+            "gi_today",
+            "gi_overdue_until_today",
+            "all"
+          ]
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "vstel",
+          "ask": "Which shipping point?",
+          "when": "vstel is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LIKP",
+            "VBUK"
+          ],
+          "note": "VBUK-TRSTA A (transportation planning open), goods issue not posted"
+        },
+        "S4": {
+          "source": [
+            "none"
+          ],
+          "note": "not available on S/4HANA: transportation runs in SAP TM"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.SHP.CREATE",
+      "object": "Shipment",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Create a shipment for one or more deliveries",
+      "intents": {
+        "en": [
+          "create shipment",
+          "make a shipment for these deliveries",
+          "plan transport"
+        ],
+        "ko": [
+          "운송 생성",
+          "선적 생성",
+          "이 납품으로 운송 만들어"
+        ]
+      },
+      "params": [
+        {
+          "name": "shtyp",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tplst",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "dlv_list",
+          "type": "string[]",
+          "required": true,
+          "description": "delivery numbers"
+        },
+        {
+          "name": "route",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "tdlnr",
+          "type": "string",
+          "required": false,
+          "description": "carrier vendor number"
+        },
+        {
+          "name": "exti1",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "exti2",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "shtyp",
+          "ask": "Which shipment type?",
+          "when": "shtyp is missing"
+        },
+        {
+          "param": "tplst",
+          "ask": "Which transportation planning point?",
+          "when": "tplst is missing"
+        },
+        {
+          "param": "dlv_list",
+          "ask": "Which deliveries go into the shipment?",
+          "when": "dlv_list is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SHIPMENT_CREATE",
+          "group": "V56I_BAPI",
+          "set": "HEADERDATA (SHIPMENT_TYPE, TRANS_PLAN_PT, SHIPMENT_ROUTE, SERVICE_AGENT_ID, EXTERNAL_ID_1/2), ITEMDATA (DELIVERY, ITENERARY)",
+          "testrun": "none",
+          "preview": "rule check only: shipment type (TVTK), planning point (TTDS), route (TVRO), carrier (vendor exists), every delivery outbound / transport relevant / not planned completely, authorization; nothing is called",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "return": "RETURN (BAPIRET2) + TRANSPORT number"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: not available on S/4HANA (transportation runs in SAP TM)",
+          "commit": "none",
+          "note": "not available on S/4HANA: shipments, shipment costs and packing run in SAP TM / EWM there"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VTTK_SHT",
+          "fields": {
+            "SHTYP": "<shipment type>",
+            "ACTVT": "01"
+          }
+        },
+        {
+          "object": "V_VTTK_TDS",
+          "fields": {
+            "TPLST": "<transportation planning point>",
+            "ACTVT": "01"
+          }
+        },
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The shipment BAPI has no test mode: errors raised only at save (number range, shipment type rules, user exits) appear at execute."
+        ],
+        "ko": [
+          "운송 BAPI에는 테스트 모드가 없어요. 저장할 때만 나는 오류(번호 범위, 운송 유형 규칙, 사용자 출구)는 실행할 때 나와요."
+        ]
+      },
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.SHP.CHANGE",
+      "object": "Shipment",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Change a shipment: add or remove deliveries, route, carrier, external IDs",
+      "intents": {
+        "en": [
+          "add delivery to shipment",
+          "remove delivery from shipment",
+          "change carrier",
+          "change shipment route"
+        ],
+        "ko": [
+          "운송에 납품 추가",
+          "운송에서 납품 빼",
+          "운송사 변경",
+          "운송 경로 변경"
+        ]
+      },
+      "params": [
+        {
+          "name": "tknum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "dlv_list",
+          "type": "string[]",
+          "required": false,
+          "description": "\"8100000001\" adds, \"-8100000001\" removes"
+        },
+        {
+          "name": "route",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "tdlnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "exti1",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "exti2",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "tknum",
+          "ask": "Which shipment number?",
+          "when": "tknum is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SHIPMENT_CHANGE",
+          "group": "V56I_BAPI",
+          "set": "HEADERDATA + HEADERDATAACTION (C), ITEMDATA + ITEMDATAACTION (A add / D delete)",
+          "testrun": "none",
+          "preview": "rule check only (status below shipment start, deliveries can change only before the planned status, route / carrier exist, authorization). BAPI_SHIPMENT_CHANGE saves by itself (proven on the test system: changes persisted after ROLLBACK), so it is never called in a preview",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT (the BAPI also commits internally)",
+          "return": "RETURN (BAPIRET2)"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: not available on S/4HANA (transportation runs in SAP TM)",
+          "commit": "none",
+          "note": "not available on S/4HANA: shipments, shipment costs and packing run in SAP TM / EWM there"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VTTK_SHT",
+          "fields": {
+            "SHTYP": "<shipment type>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "V_VTTK_TDS",
+          "fields": {
+            "TPLST": "<transportation planning point>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The change BAPI saves by itself and has no test mode: save-time checks of the shipment run only at execute."
+        ],
+        "ko": [
+          "변경 BAPI는 스스로 저장하고 테스트 모드가 없어요. 운송 저장 시점 체크는 실행할 때만 돌아요."
+        ]
+      },
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.SHP.SET_STATUS",
+      "object": "Shipment",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Set the next shipment status (planned, check-in, loading, completion, start, end)",
+      "intents": {
+        "en": [
+          "set shipment to loaded",
+          "shipment check in",
+          "start shipment",
+          "end shipment",
+          "complete shipment"
+        ],
+        "ko": [
+          "운송 체크인",
+          "선적 완료 처리",
+          "운송 출발",
+          "운송 종료",
+          "적재 완료"
+        ]
+      },
+      "params": [
+        {
+          "name": "tknum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "target",
+          "type": "string",
+          "required": true,
+          "values": [
+            "planned",
+            "checked_in",
+            "load_start",
+            "load_end",
+            "completed",
+            "started",
+            "ended"
+          ]
+        }
+      ],
+      "clarify": [
+        {
+          "param": "tknum",
+          "ask": "Which shipment number?",
+          "when": "tknum is missing"
+        },
+        {
+          "param": "target",
+          "ask": "Which status should the shipment reach (planned, checked in, loading start / end, completion, start, end)?",
+          "when": "target is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SHIPMENT_CHANGE",
+          "group": "V56I_BAPI",
+          "set": "HEADERDATA-STATUS_* = X with HEADERDATAACTION-STATUS_* = C for every open step up to the target",
+          "testrun": "none",
+          "preview": "rule check only: target above the current status, deliveries present, shipment start needs completely picked deliveries (VW 571) and can post the goods issue (activity profile)",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT (the BAPI also commits internally)",
+          "return": "RETURN (BAPIRET2)"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: not available on S/4HANA (transportation runs in SAP TM)",
+          "commit": "none",
+          "note": "not available on S/4HANA: shipments, shipment costs and packing run in SAP TM / EWM there"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VTTK_SHT",
+          "fields": {
+            "SHTYP": "<shipment type>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "V_VTTK_TDS",
+          "fields": {
+            "TPLST": "<transportation planning point>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Shipment start or end can post the goods issue of the deliveries through the activity profile of the shipment type; a closed posting period stops it at execute.",
+          "Status steps can only move forward through this action."
+        ],
+        "ko": [
+          "운송 출발이나 종료는 운송 유형의 활동 프로필에 따라 납품 출고를 전기할 수 있어요. 전기 기간이 닫혀 있으면 실행할 때 막혀요.",
+          "이 액션으로는 상태를 앞으로만 진행할 수 있어요."
+        ]
+      },
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.DLV.LIST_TO_PICK",
+      "object": "Delivery",
+      "kind": "query",
+      "risk": "none",
+      "title": "List deliveries of a shipping point that are still to pick",
+      "intents": {
+        "en": [
+          "deliveries to pick",
+          "picking list",
+          "open picking"
+        ],
+        "ko": [
+          "피킹할 납품",
+          "피킹 미완료",
+          "피킹 대상"
+        ]
+      },
+      "params": [
+        {
+          "name": "vstel",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "date_basis",
+          "type": "string",
+          "required": false,
+          "values": [
+            "pick_today",
+            "pick_overdue_until_today",
+            "all"
+          ]
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "vstel",
+          "ask": "Which shipping point?",
+          "when": "vstel is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LIKP",
+            "VBUK"
+          ],
+          "note": "VBUK-KOSTK A / B and goods issue not posted, by picking date (KODAT)"
+        },
+        "S4": {
+          "source": [
+            "none"
+          ],
+          "note": "not available on S/4HANA: transportation runs in SAP TM"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.DLV.GET_STATUS",
+      "object": "Delivery",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show the logistics status of a delivery: picking, WM, packing, goods issue, billing, transport",
+      "intents": {
+        "en": [
+          "delivery status",
+          "is the delivery picked",
+          "is the delivery packed"
+        ],
+        "ko": [
+          "납품 상태",
+          "피킹 됐어",
+          "포장 됐어",
+          "출하 상태"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "vbeln",
+          "ask": "Which delivery number?",
+          "when": "vbeln is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LIKP",
+            "LIPS",
+            "VBUK",
+            "VBUP",
+            "VBFA",
+            "VTTP",
+            "VEKP"
+          ],
+          "note": "picked quantity from the document flow (category Q)"
+        },
+        "S4": {
+          "source": [
+            "none"
+          ],
+          "note": "not available on S/4HANA: transportation runs in SAP TM"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.DLV.PICK",
+      "object": "Delivery",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Enter the picked quantity of delivery items (not for WM-managed items)",
+      "intents": {
+        "en": [
+          "pick delivery",
+          "confirm picking",
+          "set picked quantity"
+        ],
+        "ko": [
+          "피킹 처리",
+          "피킹 수량 입력",
+          "피킹 완료",
+          "피킹해줘",
+          "피킹 해줘"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "items",
+          "type": "string[]",
+          "required": false,
+          "description": "POSNR:QTY picked"
+        },
+        {
+          "name": "pick_all",
+          "type": "string",
+          "required": false,
+          "description": "X = pick every open item completely"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "vbeln",
+          "ask": "Which delivery number?",
+          "when": "vbeln is missing"
+        },
+        {
+          "param": "items",
+          "ask": "Pick everything, or which items and quantities?",
+          "when": "items and pick_all are missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "WS_DELIVERY_UPDATE_2",
+          "group": "V50S",
+          "set": "VBKOK_WA (VBELN_VL), VBPOK_TAB (PIKMG), UPDATE_PICKING = X",
+          "testrun": "IF_DATABASE_UPDATE_1 = 2",
+          "preview": "WS_DELIVERY_UPDATE_2 in check mode (IF_DATABASE_UPDATE_1 = 2, saves nothing) then rollback; WM-managed items and over-picking are refused up front (the update accepts over-picking without a message)",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "return": "PROT (PROTT) + EF_ERROR_ANY"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: not available on S/4HANA (transportation runs in SAP TM)",
+          "commit": "none",
+          "note": "not available on S/4HANA: shipments, shipment costs and packing run in SAP TM / EWM there"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "WM-managed items are picked by confirming the transfer order (WM actions), not here."
+        ],
+        "ko": [
+          "WM 관리 품목은 여기서가 아니라 이전 오더(TO) 확인으로 피킹해요."
+        ]
+      },
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.DLV.CHANGE",
+      "object": "Delivery",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Change the planned goods issue date or the quantity of a delivery item",
+      "intents": {
+        "en": [
+          "change delivery quantity",
+          "change goods issue date",
+          "move delivery date"
+        ],
+        "ko": [
+          "납품 수량 변경",
+          "출고 예정일 변경",
+          "납품일 변경"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "new_date",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "posnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "new_quantity",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "vbeln",
+          "ask": "Which delivery number?",
+          "when": "vbeln is missing"
+        },
+        {
+          "param": "new_date",
+          "ask": "New planned goods issue date, or a new quantity for which item?",
+          "when": "new_date and new_quantity are missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "WS_DELIVERY_UPDATE_2",
+          "group": "V50S",
+          "set": "VBKOK_WA-WADAT + KZWAD; VBPOK_TAB-LFIMG + LIANP",
+          "testrun": "IF_DATABASE_UPDATE_1 = 2",
+          "preview": "WS_DELIVERY_UPDATE_2 in check mode then rollback; quantity below the picked quantity (VL 019), items with a transfer order and item deletion (quantity 0) are refused up front",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "return": "PROT (PROTT) + EF_ERROR_ANY"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: not available on S/4HANA (transportation runs in SAP TM)",
+          "commit": "none",
+          "note": "not available on S/4HANA: shipments, shipment costs and packing run in SAP TM / EWM there"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "A higher quantity is checked against the order and availability only at save."
+        ],
+        "ko": [
+          "수량을 늘리면 오더와 가용성 체크는 저장할 때만 돌아요."
+        ]
+      },
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.DLV.SPLIT",
+      "object": "Delivery",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Split items of a delivery into a new delivery",
+      "intents": {
+        "en": [
+          "split delivery",
+          "move items to a new delivery",
+          "partial delivery split"
+        ],
+        "ko": [
+          "납품 분할",
+          "납품 쪼개",
+          "일부 품목 새 납품으로"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "items",
+          "type": "string[]",
+          "required": true,
+          "description": "POSNR:QTY that move to the new delivery"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "vbeln",
+          "ask": "Which delivery number?",
+          "when": "vbeln is missing"
+        },
+        {
+          "param": "items",
+          "ask": "Which items and quantities move to the new delivery?",
+          "when": "items is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_OUTB_DELIVERY_SPLIT_DEC",
+          "group": "V50I",
+          "set": "DELIVERY, DELIVERYITEMSBELONGTO = N, BUSINESSPROCESS = split profile (TVDSS, standard 0001), ITEMDATA (DELIV_ITEM, DLV_QTY, SALES_UNIT)",
+          "testrun": "none",
+          "preview": "rule check only: goods issue open, no transfer order, items not picked, quantities within the delivery, something stays in the delivery, split profile exists",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "return": "RETURN (BAPIRET2); new delivery number read from the messages"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: not available on S/4HANA (transportation runs in SAP TM)",
+          "commit": "none",
+          "note": "not available on S/4HANA: shipments, shipment costs and packing run in SAP TM / EWM there"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The split BAPI has no test mode: split rules of the profile run only at execute."
+        ],
+        "ko": [
+          "분할 BAPI에는 테스트 모드가 없어요. 분할 프로필 규칙은 실행할 때만 돌아요."
+        ]
+      },
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario-preview",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.HU.LIST",
+      "object": "Handling unit",
+      "kind": "query",
+      "risk": "none",
+      "title": "List handling units of a delivery, or HUs in stock of a plant / storage location",
+      "intents": {
+        "en": [
+          "handling units of delivery",
+          "list HUs",
+          "pallets of delivery"
+        ],
+        "ko": [
+          "납품 HU 목록",
+          "HU 조회",
+          "팔레트 목록"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "werks",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "lgort",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "vbeln",
+          "ask": "HUs of which delivery, or of which plant / storage location?",
+          "when": "vbeln and werks are missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "VEKP",
+            "VEPO"
+          ],
+          "note": "packing object 01 = delivery, 12 = HU in stock"
+        },
+        "S4": {
+          "source": [
+            "none"
+          ],
+          "note": "not available on S/4HANA: transportation runs in SAP TM"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.HU.GET_DETAIL",
+      "object": "Handling unit",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show one handling unit and its content",
+      "intents": {
+        "en": [
+          "show handling unit",
+          "what is in HU",
+          "HU content"
+        ],
+        "ko": [
+          "HU 상세",
+          "HU 내용",
+          "팔레트 내용"
+        ]
+      },
+      "params": [
+        {
+          "name": "exidv",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "exidv",
+          "ask": "Which handling unit number?",
+          "when": "exidv is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "VEKP",
+            "VEPO"
+          ]
+        },
+        "S4": {
+          "source": [
+            "none"
+          ],
+          "note": "not available on S/4HANA: transportation runs in SAP TM"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.HU.PACK",
+      "object": "Handling unit",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Pack delivery items into one new handling unit",
+      "intents": {
+        "en": [
+          "pack delivery",
+          "create HU for delivery",
+          "put items on a pallet"
+        ],
+        "ko": [
+          "포장 처리",
+          "납품 포장",
+          "HU 생성"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "vhilm",
+          "type": "string",
+          "required": true,
+          "description": "packaging material"
+        },
+        {
+          "name": "items",
+          "type": "string[]",
+          "required": false,
+          "description": "POSNR:QTY (base unit); empty = every unpacked quantity"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "vbeln",
+          "ask": "Which delivery number?",
+          "when": "vbeln is missing"
+        },
+        {
+          "param": "vhilm",
+          "ask": "Which packaging material?",
+          "when": "vhilm is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "WS_DELIVERY_UPDATE_2",
+          "group": "V50S",
+          "set": "VERKO_TAB (VHILM, WERKS, LGORT, OBJECT 01, OBJKEY delivery), VERPO_TAB (VELIN 1, VBELN, POSNR, TMENG)",
+          "testrun": "IF_DATABASE_UPDATE_1 = 2",
+          "preview": "WS_DELIVERY_UPDATE_2 in check mode then rollback; packaging material must have a packaging material type; quantities within the unpacked quantity",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "return": "PROT (PROTT) + EF_ERROR_ANY; new HU read back from VEKP"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: not available on S/4HANA (transportation runs in SAP TM)",
+          "commit": "none",
+          "note": "not available on S/4HANA: shipments, shipment costs and packing run in SAP TM / EWM there"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The HU number is assigned at save from the HU number range."
+        ],
+        "ko": [
+          "HU 번호는 저장할 때 HU 번호 범위에서 정해져요."
+        ]
+      },
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario-preview",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.HU.UNPACK",
+      "object": "Handling unit",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Unpack the delivery items of a handling unit",
+      "intents": {
+        "en": [
+          "unpack HU",
+          "unpack delivery",
+          "remove items from pallet"
+        ],
+        "ko": [
+          "포장 해제",
+          "HU 해체",
+          "언팩"
+        ]
+      },
+      "params": [
+        {
+          "name": "exidv",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "exidv",
+          "ask": "Which handling unit number?",
+          "when": "exidv is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_HU_UNPACK",
+          "group": "HU_BASIC_BAPIS",
+          "set": "HUKEY = external HU number, ITEMUNPACK (HU_ITEM_TYPE 1, MATERIAL, BATCH, PACK_QTY, PLANT, STGE_LOC) per item",
+          "testrun": "none",
+          "preview": "rule check only: HU packed on an outbound delivery, goods issue open, authorization",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "return": "RETURN (BAPIRET2); VEPO read back"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: not available on S/4HANA (transportation runs in SAP TM)",
+          "commit": "none",
+          "note": "not available on S/4HANA: shipments, shipment costs and packing run in SAP TM / EWM there"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The unpack BAPI has no test mode: HU-management checks run only at execute."
+        ],
+        "ko": [
+          "언팩 BAPI에는 테스트 모드가 없어요. HU 관리 체크는 실행할 때만 돌아요."
+        ]
+      },
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario-preview",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.SCD.GET_DETAIL",
+      "object": "Shipment cost document",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a shipment cost document: items, shipment, net value, calculation and settlement status",
+      "intents": {
+        "en": [
+          "shipment cost document",
+          "freight cost status",
+          "is the freight settled"
+        ],
+        "ko": [
+          "운송비 전표",
+          "운임 상태",
+          "운송비 정산됐어"
+        ]
+      },
+      "params": [
+        {
+          "name": "fknum",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "fknum",
+          "ask": "Which shipment cost document number?",
+          "when": "fknum is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "VFKK",
+            "VFKP"
+          ]
+        },
+        "S4": {
+          "source": [
+            "none"
+          ],
+          "note": "not available on S/4HANA: transportation runs in SAP TM"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VFKK_FKA",
+          "fields": {
+            "FKARTT": "<shipment cost type>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.SCD.LIST_DUE",
+      "object": "Shipment",
+      "kind": "query",
+      "risk": "none",
+      "title": "List ended shipments without shipment costs",
+      "intents": {
+        "en": [
+          "shipments without freight cost",
+          "freight costs to create",
+          "shipment cost due"
+        ],
+        "ko": [
+          "운송비 미생성 운송",
+          "운송비 만들 대상",
+          "운임 미정산"
+        ]
+      },
+      "params": [
+        {
+          "name": "tplst",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "date_basis",
+          "type": "string",
+          "required": false,
+          "values": [
+            "ended_last_30",
+            "all"
+          ]
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "tplst",
+          "ask": "Which transportation planning point?",
+          "when": "tplst is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "VTTK",
+            "VFKP"
+          ],
+          "note": "STTRG 7 and no VFKP row with REBEL = shipment"
+        },
+        "S4": {
+          "source": [
+            "none"
+          ],
+          "note": "not available on S/4HANA: transportation runs in SAP TM"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VTTK_SHT",
+          "fields": {
+            "SHTYP": "<shipment type>",
+            "ACTVT": "03"
+          }
+        },
+        {
+          "object": "V_VTTK_TDS",
+          "fields": {
+            "TPLST": "<transportation planning point>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "LE.SCD.SIMULATE",
+      "object": "Shipment",
+      "kind": "query",
+      "risk": "none",
+      "title": "Estimate the freight cost of a shipment (simulation, nothing is saved)",
+      "intents": {
+        "en": [
+          "estimate freight",
+          "simulate shipment cost",
+          "how much is the freight"
+        ],
+        "ko": [
+          "운임 시뮬레이션",
+          "운송비 예상",
+          "운임 얼마야"
+        ]
+      },
+      "params": [
+        {
+          "name": "tknum",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "tknum",
+          "ask": "Which shipment number?",
+          "when": "tknum is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SHIPMENT_COST_ESTIMATE",
+          "group": "V56I_BAPI",
+          "note": "simulation with the header and deliveries of the shipment; rollback afterwards; shipment cost creation (VI01) is not offered"
+        },
+        "S4": {
+          "source": [
+            "none"
+          ],
+          "note": "not available on S/4HANA: transportation runs in SAP TM"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VTTK_SHT",
+          "fields": {
+            "SHTYP": "<shipment type>",
+            "ACTVT": "03"
+          }
+        },
+        {
+          "object": "V_VTTK_TDS",
+          "fields": {
+            "TPLST": "<transportation planning point>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/LE/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    }
+  ]
+}

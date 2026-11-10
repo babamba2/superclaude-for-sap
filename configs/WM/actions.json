@@ -1,0 +1,1466 @@
+{
+  "schemaVersion": 1,
+  "module": "WM",
+  "area": "classic warehouse management (LE-WM): transfer orders, transfer requirements, stock, bins, posting changes, inventory",
+  "notes": [
+    "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side (handler ZCL_MCP_BIZ_WM).",
+    "Classic WM (LE-WM) on ECC only. On S/4HANA the warehouse runs in EWM, which is out of scope: every WM action is refused there.",
+    "The L_TO_* / L_TR_CREATE function modules have no test mode: previews check status, bins, stock, configuration and authorization; L_TR_CREATE_CHECK checks a transfer requirement row.",
+    "Not offered: bin block changes (L_LAGP_VERAENDERN is internal), WM inventory count and clearing (LI11 / LI20 / LI21 are runs), confirmation with differences, replenishment runs.",
+    "The handler checks L_LGNUM (warehouse / storage type) and L_BWLVS (movement type) itself and refuses when a check fails (fail closed).",
+    "No person names are returned (TO creator / confirmer / counter fields are left out)."
+  ],
+  "actions": [
+    {
+      "id": "WM.TO.LIST_OPEN",
+      "object": "Transfer order",
+      "kind": "query",
+      "risk": "none",
+      "title": "List open transfer orders of a warehouse (or all TOs of a delivery)",
+      "intents": {
+        "en": [
+          "open transfer orders",
+          "transfer orders not confirmed",
+          "TOs of a delivery"
+        ],
+        "ko": [
+          "미결 이전오더",
+          "미확정 TO",
+          "납품의 TO"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lgtyp",
+          "type": "string",
+          "required": false,
+          "description": "source or destination storage type of an item"
+        },
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": false,
+          "description": "delivery: lists its TOs, open and confirmed"
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "lgnum",
+          "ask": "Which warehouse number?",
+          "when": "lgnum is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LTAK",
+            "LTAP"
+          ],
+          "note": "SELECT LTAK (KQUIT = space = open) with item counts from LTAP; BAPI_WHSE_TO_GET_LIST exists but needs range tables"
+        },
+        "S4": {
+          "fm": "none",
+          "note": "not offered on S/4HANA (warehouse = EWM, out of scope)"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "WM.TO.GET_DETAIL",
+      "object": "Transfer order",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a transfer order with its items, bins and confirmation status",
+      "intents": {
+        "en": [
+          "transfer order detail",
+          "show TO",
+          "where does the TO move the stock"
+        ],
+        "ko": [
+          "이전오더 조회",
+          "TO 상세",
+          "TO 저장빈"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tanum",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LTAK",
+            "LTAP"
+          ],
+          "note": "SELECT LTAK + LTAP (no person names)"
+        },
+        "S4": {
+          "fm": "none",
+          "note": "not offered on S/4HANA (warehouse = EWM, out of scope)"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "WM.TO.CREATE_FOR_DLV",
+      "object": "Transfer order",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Create the picking transfer order of an outbound delivery (LT03)",
+      "intents": {
+        "en": [
+          "create TO for delivery",
+          "create picking transfer order",
+          "LT03"
+        ],
+        "ko": [
+          "납품 이전오더 생성",
+          "피킹 TO 생성",
+          "출고 TO 생성"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "fm": "L_TO_CREATE_DN",
+          "group": "L03B",
+          "set": "I_LGNUM, I_VBELN, I_COMMIT_WORK = X",
+          "testrun": "none",
+          "preview": "checks only: delivery outbound, items of this warehouse (LIPS-LGNUM), WM status (VBUK-LVSTK) not complete, goods issue not posted, warehouse stock (LQUA, interim types 9xx left out) against the item quantity, authorization",
+          "commit": "I_COMMIT_WORK = X",
+          "return": "E_TANUM, E_TEILK (partial) + exceptions (DN_COMPLETED, NO_TO_CREATED, ...)",
+          "note": "the TO is read back from LTAK / LTAP after the commit"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: classic WM actions are not offered on S/4HANA (warehouse = EWM, out of scope)",
+          "commit": "none",
+          "note": "not offered on S/4HANA"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "reverse": "WM.TO.CANCEL",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The WM function module has no test mode: the preview checks status, bins, stock and authorization only.",
+          "Stock and bins can change between preview and execute; the function module decides at execute."
+        ],
+        "ko": [
+          "WM 함수 모듈에 테스트 모드가 없어서 미리보기는 상태, 저장빈, 재고, 권한만 확인해요.",
+          "미리보기와 실행 사이에 재고나 저장빈이 바뀔 수 있어요. 실행할 때 함수 모듈이 최종 판단해요."
+        ]
+      }
+    },
+    {
+      "id": "WM.TO.CREATE_STOCK",
+      "object": "Transfer order",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Create a transfer order to move stock between bins (LT01)",
+      "intents": {
+        "en": [
+          "move stock to another bin",
+          "bin to bin transfer",
+          "create transfer order",
+          "LT01"
+        ],
+        "ko": [
+          "저장빈 이동",
+          "빈간 이동",
+          "이전오더 생성"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "bwlvs",
+          "type": "string",
+          "required": true,
+          "description": "WM movement type (T333), e.g. 999"
+        },
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "werks",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lgort",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "charg",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "quantity",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "required": false,
+          "description": "default: base unit of the material"
+        },
+        {
+          "name": "src_lgtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "src_lgpla",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "dst_lgtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "dst_lgpla",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "bwlvs",
+          "ask": "Which WM movement type (for a bin-to-bin move usually 999)?",
+          "when": "bwlvs is missing"
+        },
+        {
+          "param": "dst_lgpla",
+          "ask": "To which destination storage type and bin?",
+          "when": "dst_lgtyp or dst_lgpla is missing and the movement type does not determine it"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "L_TO_CREATE_SINGLE",
+          "group": "L03B",
+          "set": "I_LGNUM, I_BWLVS, I_MATNR, I_WERKS, I_LGORT, I_CHARG, I_ANFME, I_ALTME, I_VLTYP / I_VLPLA, I_NLTYP / I_NLPLA, I_COMMIT_WORK = X",
+          "testrun": "none",
+          "preview": "checks only: movement type in T333, material in the warehouse (MLGN), source bin stock (LQUA available quantity) and removal block, destination bin exists in this warehouse, putaway block and inventory flag (LAGP), authorization for both storage types and the movement type",
+          "commit": "I_COMMIT_WORK = X",
+          "return": "E_TANUM, E_LTAP + exceptions",
+          "note": "BAPI_WHSE_TO_CREATE_STOCK is the released alternative; L_TO_CREATE_SINGLE was verified on an ECC 7.40 DEV system"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: classic WM actions are not offered on S/4HANA (warehouse = EWM, out of scope)",
+          "commit": "none",
+          "note": "not offered on S/4HANA"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<source and destination storage type>"
+          }
+        },
+        {
+          "object": "L_BWLVS",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "BWLVS": "<WM movement type>"
+          }
+        }
+      ],
+      "reverse": "WM.TO.CANCEL",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The WM function module has no test mode: the preview checks status, bins, stock and authorization only.",
+          "Stock and bins can change between preview and execute; the function module decides at execute."
+        ],
+        "ko": [
+          "WM 함수 모듈에 테스트 모드가 없어서 미리보기는 상태, 저장빈, 재고, 권한만 확인해요.",
+          "미리보기와 실행 사이에 재고나 저장빈이 바뀔 수 있어요. 실행할 때 함수 모듈이 최종 판단해요."
+        ]
+      }
+    },
+    {
+      "id": "WM.TO.CREATE_FOR_TR",
+      "object": "Transfer order",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Create a transfer order from a transfer requirement (LT04)",
+      "intents": {
+        "en": [
+          "create TO from transfer requirement",
+          "process transfer requirement",
+          "LT04"
+        ],
+        "ko": [
+          "이전요청으로 TO 생성",
+          "TR 처리",
+          "이전요청 처리"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tbnum",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "fm": "L_TO_CREATE_TR",
+          "group": "L03B",
+          "set": "I_LGNUM, I_TBNUM, I_COMMIT_WORK = X",
+          "testrun": "none",
+          "preview": "checks only: TR exists, not completed (LTBK-STATU E), open item quantity (LTBP-MENGE minus TAMEN), warehouse stock per item, authorization",
+          "commit": "I_COMMIT_WORK = X",
+          "return": "E_TANUM, E_TEILK + exceptions (TR_COMPLETED, NO_TO_CREATED, ...)"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: classic WM actions are not offered on S/4HANA (warehouse = EWM, out of scope)",
+          "commit": "none",
+          "note": "not offered on S/4HANA"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "reverse": "WM.TO.CANCEL",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The WM function module has no test mode: the preview checks status, bins, stock and authorization only.",
+          "Stock and bins can change between preview and execute; the function module decides at execute."
+        ],
+        "ko": [
+          "WM 함수 모듈에 테스트 모드가 없어서 미리보기는 상태, 저장빈, 재고, 권한만 확인해요.",
+          "미리보기와 실행 사이에 재고나 저장빈이 바뀔 수 있어요. 실행할 때 함수 모듈이 최종 판단해요."
+        ]
+      }
+    },
+    {
+      "id": "WM.TO.CONFIRM",
+      "object": "Transfer order",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Confirm a transfer order (all open items, or one item) without differences (LT12)",
+      "intents": {
+        "en": [
+          "confirm transfer order",
+          "confirm TO",
+          "confirm picking",
+          "LT12"
+        ],
+        "ko": [
+          "이전오더 확정",
+          "TO 확정",
+          "피킹 확정"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tanum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tapos",
+          "type": "string",
+          "required": false,
+          "description": "one item only; default = all open items"
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "fm": "L_TO_CONFIRM",
+          "group": "L03B",
+          "set": "I_LGNUM, I_TANUM, T_LTAP_CONF (TANUM, TAPOS, SQUIT = X), I_COMMIT_WORK = X",
+          "testrun": "none",
+          "preview": "checks only: TO not confirmed (LTAK-KQUIT), items open (LTAP-PQUIT), authorization for the storage types of the items",
+          "commit": "I_COMMIT_WORK = X",
+          "return": "exceptions (TO_CONFIRMED, ITEM_CONFIRMED, TWO_STEP_CONFIRMATION_REQUIRED, ...)",
+          "note": "confirmation with differences is not offered (it posts a stock difference)"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: classic WM actions are not offered on S/4HANA (warehouse = EWM, out of scope)",
+          "commit": "none",
+          "note": "not offered on S/4HANA"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage types of the items>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The WM function module has no test mode: the preview checks status, bins, stock and authorization only.",
+          "Stock and bins can change between preview and execute; the function module decides at execute.",
+          "Confirmation moves the stock in the warehouse and cannot be undone by cancelling the TO."
+        ],
+        "ko": [
+          "WM 함수 모듈에 테스트 모드가 없어서 미리보기는 상태, 저장빈, 재고, 권한만 확인해요.",
+          "미리보기와 실행 사이에 재고나 저장빈이 바뀔 수 있어요. 실행할 때 함수 모듈이 최종 판단해요.",
+          "확정하면 창고 재고가 이동해요. TO 취소로 되돌릴 수 없어요."
+        ]
+      }
+    },
+    {
+      "id": "WM.TO.CANCEL",
+      "object": "Transfer order",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Cancel the open items of a transfer order (LT15)",
+      "intents": {
+        "en": [
+          "cancel transfer order",
+          "cancel TO",
+          "delete TO item",
+          "LT15"
+        ],
+        "ko": [
+          "이전오더 취소",
+          "TO 취소",
+          "TO 품목 취소"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tanum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tapos",
+          "type": "string",
+          "required": false,
+          "description": "one item only; default = all open items"
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "fm": "L_TO_CANCEL",
+          "group": "L03B",
+          "set": "I_LGNUM, I_TANUM, T_LTAP_CANCL (TANUM, TAPOS), I_COMMIT_WORK = X",
+          "testrun": "none",
+          "preview": "checks only: TO not confirmed, items open, authorization",
+          "commit": "I_COMMIT_WORK = X",
+          "return": "exceptions (TO_CONFIRMED, ITEM_CONFIRMED, ...)"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: classic WM actions are not offered on S/4HANA (warehouse = EWM, out of scope)",
+          "commit": "none",
+          "note": "not offered on S/4HANA"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage types of the items>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The WM function module has no test mode: the preview checks status, bins, stock and authorization only.",
+          "Stock and bins can change between preview and execute; the function module decides at execute.",
+          "A cancelled TO item cannot be reopened: a new TO is needed."
+        ],
+        "ko": [
+          "WM 함수 모듈에 테스트 모드가 없어서 미리보기는 상태, 저장빈, 재고, 권한만 확인해요.",
+          "미리보기와 실행 사이에 재고나 저장빈이 바뀔 수 있어요. 실행할 때 함수 모듈이 최종 판단해요.",
+          "취소한 TO 품목은 다시 열 수 없어요. 새 TO를 만들어야 해요."
+        ]
+      }
+    },
+    {
+      "id": "WM.TO.POSTING_CHANGE",
+      "object": "Transfer order",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Create the transfer order of a posting change notice (LU04)",
+      "intents": {
+        "en": [
+          "posting change transfer order",
+          "process posting change notice",
+          "LU04"
+        ],
+        "ko": [
+          "전기변경 TO 생성",
+          "전기변경 통지 처리"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ref_doc",
+          "type": "string",
+          "required": true,
+          "description": "posting change notice number (LUBU-UBNUM)"
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "fm": "L_TO_CREATE_POSTING_CHANGE",
+          "group": "L03B",
+          "set": "I_LGNUM, I_UBNUM, I_COMMIT_WORK = X",
+          "testrun": "none",
+          "preview": "checks only: notice exists and is not processed (LUBU-STATU U), from / to stock, quant stock of the material, authorization",
+          "commit": "I_COMMIT_WORK = X",
+          "return": "E_TANUM + exceptions (TP_COMPLETED, NO_QUANTS, ...)"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: classic WM actions are not offered on S/4HANA (warehouse = EWM, out of scope)",
+          "commit": "none",
+          "note": "not offered on S/4HANA"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "reverse": "WM.TO.CANCEL",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario-preview",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The WM function module has no test mode: the preview checks status, bins, stock and authorization only.",
+          "Stock and bins can change between preview and execute; the function module decides at execute."
+        ],
+        "ko": [
+          "WM 함수 모듈에 테스트 모드가 없어서 미리보기는 상태, 저장빈, 재고, 권한만 확인해요.",
+          "미리보기와 실행 사이에 재고나 저장빈이 바뀔 수 있어요. 실행할 때 함수 모듈이 최종 판단해요."
+        ]
+      }
+    },
+    {
+      "id": "WM.TR.LIST_OPEN",
+      "object": "Transfer requirement",
+      "kind": "query",
+      "risk": "none",
+      "title": "List open transfer requirements of a warehouse",
+      "intents": {
+        "en": [
+          "open transfer requirements",
+          "transfer requirements to process"
+        ],
+        "ko": [
+          "미결 이전요청",
+          "처리할 TR",
+          "이전요청 목록",
+          "TR 목록"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LTBK",
+            "LTBP"
+          ],
+          "note": "SELECT LTBK (STATU <> E) with LTBP items"
+        },
+        "S4": {
+          "fm": "none",
+          "note": "not offered on S/4HANA (warehouse = EWM, out of scope)"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "WM.TR.GET_DETAIL",
+      "object": "Transfer requirement",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a transfer requirement with items and open quantities",
+      "intents": {
+        "en": [
+          "transfer requirement detail",
+          "show TR"
+        ],
+        "ko": [
+          "이전요청 조회",
+          "TR 상세"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "tbnum",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LTBK",
+            "LTBP"
+          ],
+          "note": "SELECT LTBK + LTBP"
+        },
+        "S4": {
+          "fm": "none",
+          "note": "not offered on S/4HANA (warehouse = EWM, out of scope)"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "WM.TR.CREATE",
+      "object": "Transfer requirement",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Create a transfer requirement manually (LB01)",
+      "intents": {
+        "en": [
+          "create transfer requirement",
+          "request stock movement in the warehouse",
+          "LB01"
+        ],
+        "ko": [
+          "이전요청 생성",
+          "TR 생성"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "bwlvs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "werks",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lgort",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "quantity",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "bwlvs",
+          "ask": "Which WM movement type for the transfer requirement?",
+          "when": "bwlvs is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "L_TR_CREATE",
+          "group": "L02B",
+          "set": "T_LTBA (LGNUM, BWLVS, MATNR, WERKS, LGORT, MENGA, ALTME), I_COMMIT_WORK = X",
+          "testrun": "L_TR_CREATE_CHECK (I_NUMBER = space)",
+          "preview": "L_TR_CREATE_CHECK on the same T_LTBA row (check only, no number) followed by rollback, plus movement type (T333), material in the warehouse (MLGN) and authorization",
+          "commit": "I_COMMIT_WORK = X",
+          "return": "T_LTBA-TBNUM + LMESS / EPROT of the row"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: classic WM actions are not offered on S/4HANA (warehouse = EWM, out of scope)",
+          "commit": "none",
+          "note": "not offered on S/4HANA"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        },
+        {
+          "object": "L_BWLVS",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "BWLVS": "<WM movement type>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The check function validates the request row only; stock is not reserved by a transfer requirement."
+        ],
+        "ko": [
+          "체크 함수는 요청 행만 검증해요. 이전요청은 재고를 확보하지 않아요."
+        ]
+      }
+    },
+    {
+      "id": "WM.STOCK.LIST",
+      "object": "Warehouse stock",
+      "kind": "query",
+      "risk": "none",
+      "title": "List warehouse stock (quants) by material, storage type or bin",
+      "intents": {
+        "en": [
+          "warehouse stock of a material",
+          "content of a storage bin",
+          "stock per storage type",
+          "stock in interim storage"
+        ],
+        "ko": [
+          "창고 재고",
+          "저장빈 재고",
+          "저장유형별 재고",
+          "임시 저장 재고"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "lgtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "lgpla",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "werks",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "matnr",
+          "ask": "For which material, storage type or bin?",
+          "when": "none of matnr, lgtyp, lgpla is given"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LQUA"
+          ],
+          "note": "SELECT LQUA (available and total quantity, stock category, special stock); material number converted with CONVERSION_EXIT_MATN1_INPUT"
+        },
+        "S4": {
+          "fm": "none",
+          "note": "not offered on S/4HANA (warehouse = EWM, out of scope)"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "WM.STOCK.COMPARE",
+      "object": "Warehouse stock",
+      "kind": "query",
+      "risk": "none",
+      "title": "Compare inventory management stock (MARD) with warehouse stock (LQUA) of a material",
+      "intents": {
+        "en": [
+          "IM WM stock difference",
+          "compare stock with warehouse",
+          "stock mismatch WM"
+        ],
+        "ko": [
+          "재고 차이 IM WM",
+          "IM WM 재고 비교",
+          "창고 재고 불일치"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "werks",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "lgort",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "source": [
+            "MARD",
+            "LQUA",
+            "T320"
+          ],
+          "note": "MARD (unrestricted + quality + blocked) per plant / storage location assigned to the warehouse (T320) against the LQUA total; differences come from open TOs, interim types or errors"
+        },
+        "S4": {
+          "fm": "none",
+          "note": "not offered on S/4HANA (warehouse = EWM, out of scope)"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "WM.BIN.LIST_EMPTY",
+      "object": "Storage bin",
+      "kind": "query",
+      "risk": "none",
+      "title": "List empty storage bins of a warehouse or storage type",
+      "intents": {
+        "en": [
+          "empty bins",
+          "free storage bins"
+        ],
+        "ko": [
+          "빈 저장빈",
+          "비어 있는 빈"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lgtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LAGP"
+          ],
+          "note": "SELECT LAGP KZLER = X"
+        },
+        "S4": {
+          "fm": "none",
+          "note": "not offered on S/4HANA (warehouse = EWM, out of scope)"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "WM.BIN.LIST_BLOCKED",
+      "object": "Storage bin",
+      "kind": "query",
+      "risk": "none",
+      "title": "List blocked storage bins (putaway or removal block)",
+      "intents": {
+        "en": [
+          "blocked bins",
+          "bins blocked for removal",
+          "bins blocked for putaway"
+        ],
+        "ko": [
+          "블록된 저장빈",
+          "출고 블록 빈",
+          "입고 블록 빈"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lgtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LAGP"
+          ],
+          "note": "SELECT LAGP SKZUA / SKZUE (block reason SPGRU)"
+        },
+        "S4": {
+          "fm": "none",
+          "note": "not offered on S/4HANA (warehouse = EWM, out of scope)"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "WM.PCN.LIST_OPEN",
+      "object": "Posting change notice",
+      "kind": "query",
+      "risk": "none",
+      "title": "List posting change notices not processed yet",
+      "intents": {
+        "en": [
+          "open posting change notices",
+          "posting changes to process in WM"
+        ],
+        "ko": [
+          "미처리 전기변경 통지",
+          "WM 전기변경 대기"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LUBU"
+          ],
+          "note": "SELECT LUBU STATU <> U (U = processed)"
+        },
+        "S4": {
+          "fm": "none",
+          "note": "not offered on S/4HANA (warehouse = EWM, out of scope)"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "WM.INV.LIST_OPEN",
+      "object": "WM inventory",
+      "kind": "query",
+      "risk": "none",
+      "title": "List WM physical inventory documents not cleared, with bins still to count",
+      "intents": {
+        "en": [
+          "open WM inventory",
+          "bins not counted yet",
+          "WM physical inventory status"
+        ],
+        "ko": [
+          "미결 WM 재고실사",
+          "미카운트 저장빈",
+          "창고 실사 현황"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lgtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LINK",
+            "LINP"
+          ],
+          "note": "SELECT LINK ISTAT not L (cleared) / S (cancelled), bins from LINP (ISTAT N = not counted)"
+        },
+        "S4": {
+          "fm": "none",
+          "note": "not offered on S/4HANA (warehouse = EWM, out of scope)"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "WM.INV.GET_DETAIL",
+      "object": "WM inventory",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a WM physical inventory document with its bins and count status",
+      "intents": {
+        "en": [
+          "WM inventory document detail"
+        ],
+        "ko": [
+          "WM 재고실사 문서 조회"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ivnum",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LINK",
+            "LINP"
+          ],
+          "note": "SELECT LINK + LINP (no counter names)"
+        },
+        "S4": {
+          "fm": "none",
+          "note": "not offered on S/4HANA (warehouse = EWM, out of scope)"
+        }
+      },
+      "auth": [
+        {
+          "object": "L_LGNUM",
+          "fields": {
+            "LGNUM": "<warehouse>",
+            "LGTYP": "<storage type or DUMMY>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "scenario",
+          "evidence": "configs/WM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    }
+  ]
+}

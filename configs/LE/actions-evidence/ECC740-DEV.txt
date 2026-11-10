@@ -1,0 +1,24 @@
+# Scenario evidence — ECC740-DEV (ECC 6.0, BASIS 740), 2026-11-10. ABAP Unit scenario matrix (expected result declared before the run, DB read-back after every write, no-change proof for every preview and refusal).
+# Runs LE-A1 (111), LE-AB1 (50), LE-C1 (15), LE-D1 (10); last run of a scenario counts. Columns: verdict (S = scenario, P = scenario-preview), action, pass/lines, executed writes, notes.
+S LE.SHP.LIST 11/11 exec 0
+S LE.SHP.GET_DETAIL 8/8 exec 0
+S LE.SHP.LIST_OPEN_DLV 5/5 exec 0
+S LE.SHP.CREATE 16/16 exec 2
+S LE.SHP.CHANGE 15/15 exec 4
+S LE.SHP.SET_STATUS 15/15 exec 5
+S LE.DLV.LIST_TO_PICK 4/4 exec 0
+S LE.DLV.GET_STATUS 9/10 exec 0 | LX-06 BLOCKED_BY_GAP
+S LE.DLV.PICK 17/18 exec 3 | LX-39 BLOCKED_BY_GAP
+S LE.DLV.CHANGE 12/12 exec 2
+P LE.DLV.SPLIT 8/10 exec 0 | LX-05 KNOWN_GAP, LX-07 BLOCKED_BY_GAP
+S LE.HU.LIST 3/3 exec 0
+S LE.HU.GET_DETAIL 3/3 exec 0
+P LE.HU.PACK 6/7 exec 0 | LX-40 BLOCKED_BY_GAP
+P LE.HU.UNPACK 4/4 exec 0
+S LE.SCD.GET_DETAIL 4/4 exec 0
+S LE.SCD.LIST_DUE 5/5 exec 0
+S LE.SCD.SIMULATE 5/5 exec 0
+# Known gap: LE.DLV.SPLIT EXECUTE — BAPI_OUTB_DELIVERY_SPLIT_DEC ends in LE_DSP_DECENTRAL DATA_ERROR on this system (after stock quantity + conversion factors were supplied). Preview rule checks verified; LX-06/07/39/40 blocked by it.
+# Data limits: HU.PACK / HU.UNPACK execute not run — no packaging material is extended to the delivery plants (VL 411 refusal verified); no own delivery carries an HU.
+# Not run: shipment start / end execute (open MM periods 2026/09-10 only: refused up front with the period check, verified).
+# Guards: no token, bogus token, changed params, changed action, token reuse, idempotency key — all PASS.

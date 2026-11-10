@@ -1,0 +1,22 @@
+# Scenario evidence - ECC740-DEV (ECC 6.0, BASIS 740), 2026-11-10. ABAP Unit scenario matrix (expected result declared before the run,
+# DB read-back after every write, no-change proof for refusals, PREVIEW_GAP when a preview passes and the execute fails).
+# Final run WM-run3 (legacy synchronous ABAP Unit, 124/124 PASS). Columns: action, verdict, pass/lines, executed writes, run.
+# Test documents (own stock TOs on test bins, net zero; one delivery TO and one TR TO, both cancelled) are logged in the system data-change log.
+S WM.TO.LIST_OPEN PASS 10/10 exec 0 WM-run3
+S WM.TO.GET_DETAIL PASS 7/7 exec 0 WM-run3
+S WM.TO.CREATE_FOR_DLV PASS 9/9 exec 1 WM-run3
+S WM.TO.CREATE_STOCK PASS 24/24 exec 3 WM-run3
+S WM.TO.CREATE_FOR_TR PASS 7/7 exec 1 WM-run3
+S WM.TO.CONFIRM PASS 9/9 exec 2 WM-run3
+S WM.TO.CANCEL PASS 7/7 exec 3 WM-run3
+S WM.TO.POSTING_CHANGE PASS 3/3 exec 0 WM-run3
+S WM.TR.LIST_OPEN PASS 5/5 exec 0 WM-run3
+S WM.TR.GET_DETAIL PASS 5/5 exec 0 WM-run3
+S WM.TR.CREATE PASS 7/7 exec 1 WM-run3
+S WM.STOCK.LIST PASS 9/9 exec 0 WM-run3
+S WM.STOCK.COMPARE PASS 5/5 exec 0 WM-run3
+S WM.BIN.LIST_EMPTY PASS 4/4 exec 0 WM-run3
+S WM.BIN.LIST_BLOCKED PASS 3/3 exec 0 WM-run3
+S WM.PCN.LIST_OPEN PASS 3/3 exec 0 WM-run3
+S WM.INV.LIST_OPEN PASS 3/3 exec 0 WM-run3
+S WM.INV.GET_DETAIL PASS 4/4 exec 0 WM-run3

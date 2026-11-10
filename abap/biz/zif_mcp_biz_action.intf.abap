@@ -3,7 +3,7 @@ INTERFACE zif_mcp_biz_action
 
 * ZIF_MCP_BIZ_ACTION - business action handler contract for ZMCP_BIZ_EXECUTE.
 *
-* One handler class per module: ZCL_MCP_BIZ_MM, _PP, _SD, _FI, _CO.
+* One handler class per module: ZCL_MCP_BIZ_MM, _PP, _SD, _FI, _CO, _OUT, _LE, _WM.
 * The executor (ZCL_MCP_BIZ_EXEC) owns JSON, the production block, the
 * preview token and the log; handlers own the business logic only.
 *
@@ -106,6 +106,33 @@ INTERFACE zif_mcp_biz_action
       stlan              TYPE string,
       " Output (ZCL_MCP_BIZ_OUT): output type; document via doc_category + ebeln / vbeln.
       kschl              TYPE string,
+      " Shipping / transportation (ZCL_MCP_BIZ_LE, ECC only): shipment, shipment cost, handling unit.
+      " dlv_list = delivery numbers; items (shared) = "POSNR:QTY" rows; vbeln / posnr / quantity shared.
+      tknum              TYPE string,
+      shtyp              TYPE string,
+      tplst              TYPE string,
+      tdlnr              TYPE string,
+      route              TYPE string,
+      exti1              TYPE string,
+      exti2              TYPE string,
+      dlv_list           TYPE string_table,
+      fknum              TYPE string,
+      exidv              TYPE string,
+      vhilm              TYPE string,
+      " Warehouse management (ZCL_MCP_BIZ_WM, classic LE-WM, ECC only). matnr / werks / lgort / charg /
+      " quantity / vbeln / items / posting_date shared; src_* / dst_* = storage type and bin of the move.
+      lgnum              TYPE string,
+      tanum              TYPE string,
+      tapos              TYPE string,
+      tbnum              TYPE string,
+      ivnum              TYPE string,
+      lgtyp              TYPE string,
+      lgpla              TYPE string,
+      bwlvs              TYPE string,
+      src_lgtyp          TYPE string,
+      src_lgpla          TYPE string,
+      dst_lgtyp          TYPE string,
+      dst_lgpla          TYPE string,
     END OF ty_params.
 
   TYPES:

@@ -12,7 +12,7 @@ const catalogs = loadCatalogs();
 describe('assist catalog runtime (scripts/assist/catalog.mjs)', () => {
   it('loads every module catalog', () => {
     const mods = catalogs.map((c: { module: string }) => c.module);
-    for (const m of ['MM', 'PP', 'SD', 'FI', 'CO']) expect(mods).toContain(m);
+    for (const m of ['MM', 'PP', 'SD', 'FI', 'CO', 'OUT', 'LE', 'WM']) expect(mods).toContain(m);
   });
 
   it('family from sapVersion', () => {
@@ -27,6 +27,17 @@ describe('assist catalog runtime (scripts/assist/catalog.mjs)', () => {
     expect(isVerified(a, 'ECC')).toBe(true);
     expect(isVerified(a, 'S4')).toBe(false);
     expect(isVerified({ verified_on: [] }, 'ECC')).toBe(false);
+  });
+
+  it('matches Korean LE / WM requests on ECC and hides them on S/4', () => {
+    const ecc = allActions(catalogs, 'ECC');
+    expect(matchText('이전오더 확정해줘', ecc).candidates[0].id).toBe('WM.TO.CONFIRM');
+    expect(matchText('빈 저장빈 알려줘', ecc).candidates[0].id).toBe('WM.BIN.LIST_EMPTY');
+    expect(matchText('미결 이전요청 목록', ecc).candidates[0].id).toBe('WM.TR.LIST_OPEN');
+    expect(matchText('운송 생성해줘', ecc).candidates[0].id).toBe('LE.SHP.CREATE');
+    expect(matchText('납품 8100000001 피킹해줘', ecc).candidates[0].id).toBe('LE.DLV.PICK');
+    const s4 = allActions(catalogs, 'S4');
+    expect(s4.some((a: { id: string }) => /^(LE|WM)\./.test(a.id))).toBe(false);
   });
 
   it('matches a Korean lookup and flags an ambiguous write term', () => {

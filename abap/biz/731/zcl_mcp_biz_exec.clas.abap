@@ -18,7 +18,7 @@ CLASS zcl_mcp_biz_exec DEFINITION
 *   - PRECHECK (read only, any client, not logged): document field values and
 *     true / false answers for the customer check rules, see ZCL_MCP_BIZ_PRECHECK
 *     (SD.* actions: facts by ZCL_MCP_BIZ_PRECHECK=>RUN_SD)
-*   - handlers: one class per module (ZCL_MCP_BIZ_MM / _PP / _SD / _FI / _CO)
+*   - handlers: one class per module (ZCL_MCP_BIZ_MM / _PP / _SD / _FI / _CO / _OUT / _LE / _WM)
 *
 * Variant: ECC BASIS 7.31 (ZCL_MCP_JSON, installed with the 7.31 helpers).
 * Differs from the 7.40 / S/4 source only in parse_params / to_json.
@@ -46,6 +46,11 @@ CLASS zcl_mcp_biz_exec DEFINITION
 
     CLASS-METHODS list_actions
       RETURNING VALUE(rs_result) TYPE zif_mcp_biz_action=>ty_result.
+
+    "! Handler of an optional (ECC-only) module, unbound when its class is not installed
+    CLASS-METHODS optional_handler
+      IMPORTING iv_module         TYPE string
+      RETURNING VALUE(ro_handler) TYPE REF TO zif_mcp_biz_action.
 
     CLASS-METHODS is_production
       RETURNING VALUE(rv_prod) TYPE abap_bool.
@@ -245,6 +250,9 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
       CREATE OBJECT ro_handler TYPE zcl_mcp_biz_co.
     ELSEIF iv_action CP 'OUT.*'.
       CREATE OBJECT ro_handler TYPE zcl_mcp_biz_out.
+    ELSEIF iv_action CP 'LE.*' OR iv_action CP 'WM.*'.
+      " ECC-only modules: created by name so that EXEC also activates where they are not installed.
+      ro_handler = optional_handler( substring( val = iv_action len = 2 ) ).
     ENDIF.
   ENDMETHOD.
 
@@ -270,9 +278,31 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
     CREATE OBJECT lo_handler TYPE zcl_mcp_biz_out.
     lt_actions = lo_handler->get_actions( ).
     APPEND LINES OF lt_actions TO rs_result-actions.
+    lo_handler = optional_handler( 'LE' ).
+    IF lo_handler IS BOUND.
+      lt_actions = lo_handler->get_actions( ).
+      APPEND LINES OF lt_actions TO rs_result-actions.
+    ENDIF.
+    lo_handler = optional_handler( 'WM' ).
+    IF lo_handler IS BOUND.
+      lt_actions = lo_handler->get_actions( ).
+      APPEND LINES OF lt_actions TO rs_result-actions.
+    ENDIF.
     IF is_production( ) = abap_true.
       rs_result-summary = 'Production client: only query actions run here'.
     ENDIF.
+  ENDMETHOD.
+
+
+  METHOD optional_handler.
+    DATA lv_class TYPE string.
+
+    lv_class = |ZCL_MCP_BIZ_{ iv_module }|.
+    TRY.
+        CREATE OBJECT ro_handler TYPE (lv_class).
+      CATCH cx_sy_create_object_error.
+        CLEAR ro_handler.
+    ENDTRY.
   ENDMETHOD.
 
 
@@ -752,6 +782,78 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
         lv_list = 'doc_category ebeln vbeln'.
       WHEN 'OUT.DOC.REISSUE'.
         lv_list = 'doc_category ebeln vbeln kschl'.
+      WHEN 'LE.SHP.LIST'.
+        lv_list = 'tplst shtyp status date_basis max_rows'.
+      WHEN 'LE.SHP.GET_DETAIL'.
+        lv_list = 'tknum'.
+      WHEN 'LE.SHP.LIST_OPEN_DLV'.
+        lv_list = 'vstel date_basis max_rows'.
+      WHEN 'LE.SHP.CREATE'.
+        lv_list = 'shtyp tplst dlv_list route tdlnr exti1 exti2'.
+      WHEN 'LE.SHP.CHANGE'.
+        lv_list = 'tknum dlv_list route tdlnr exti1 exti2'.
+      WHEN 'LE.SHP.SET_STATUS'.
+        lv_list = 'tknum target'.
+      WHEN 'LE.DLV.LIST_TO_PICK'.
+        lv_list = 'vstel date_basis max_rows'.
+      WHEN 'LE.DLV.GET_STATUS'.
+        lv_list = 'vbeln'.
+      WHEN 'LE.DLV.PICK'.
+        lv_list = 'vbeln items pick_all'.
+      WHEN 'LE.DLV.CHANGE'.
+        lv_list = 'vbeln new_date posnr new_quantity'.
+      WHEN 'LE.DLV.SPLIT'.
+        lv_list = 'vbeln items'.
+      WHEN 'LE.HU.LIST'.
+        lv_list = 'vbeln werks lgort max_rows'.
+      WHEN 'LE.HU.GET_DETAIL'.
+        lv_list = 'exidv'.
+      WHEN 'LE.HU.PACK'.
+        lv_list = 'vbeln vhilm items'.
+      WHEN 'LE.HU.UNPACK'.
+        lv_list = 'exidv vbeln'.
+      WHEN 'LE.SCD.GET_DETAIL'.
+        lv_list = 'fknum'.
+      WHEN 'LE.SCD.LIST_DUE'.
+        lv_list = 'tplst date_basis max_rows'.
+      WHEN 'LE.SCD.SIMULATE'.
+        lv_list = 'tknum'.
+      WHEN 'WM.TO.LIST_OPEN'.
+        lv_list = 'lgnum lgtyp vbeln max_rows'.
+      WHEN 'WM.TO.GET_DETAIL'.
+        lv_list = 'lgnum tanum'.
+      WHEN 'WM.TO.CREATE_FOR_DLV'.
+        lv_list = 'lgnum vbeln'.
+      WHEN 'WM.TO.CREATE_STOCK'.
+        lv_list = 'lgnum bwlvs matnr werks lgort charg quantity unit src_lgtyp src_lgpla dst_lgtyp dst_lgpla'.
+      WHEN 'WM.TO.CREATE_FOR_TR'.
+        lv_list = 'lgnum tbnum'.
+      WHEN 'WM.TO.CONFIRM'.
+        lv_list = 'lgnum tanum tapos'.
+      WHEN 'WM.TO.CANCEL'.
+        lv_list = 'lgnum tanum tapos'.
+      WHEN 'WM.TO.POSTING_CHANGE'.
+        lv_list = 'lgnum ref_doc'.
+      WHEN 'WM.TR.LIST_OPEN'.
+        lv_list = 'lgnum matnr max_rows'.
+      WHEN 'WM.TR.GET_DETAIL'.
+        lv_list = 'lgnum tbnum'.
+      WHEN 'WM.TR.CREATE'.
+        lv_list = 'lgnum bwlvs matnr werks lgort quantity unit'.
+      WHEN 'WM.STOCK.LIST'.
+        lv_list = 'lgnum matnr lgtyp lgpla werks max_rows'.
+      WHEN 'WM.STOCK.COMPARE'.
+        lv_list = 'lgnum matnr werks lgort'.
+      WHEN 'WM.BIN.LIST_EMPTY'.
+        lv_list = 'lgnum lgtyp max_rows'.
+      WHEN 'WM.BIN.LIST_BLOCKED'.
+        lv_list = 'lgnum lgtyp max_rows'.
+      WHEN 'WM.PCN.LIST_OPEN'.
+        lv_list = 'lgnum max_rows'.
+      WHEN 'WM.INV.LIST_OPEN'.
+        lv_list = 'lgnum lgtyp max_rows'.
+      WHEN 'WM.INV.GET_DETAIL'.
+        lv_list = 'lgnum ivnum'.
       WHEN OTHERS.
         CLEAR lv_list.
     ENDCASE.

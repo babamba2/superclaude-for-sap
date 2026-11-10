@@ -14,7 +14,7 @@ Mixed sentences: "Why is PO 4500… blocked and release it" = `lookup` + `knowle
 
 ## 2. Signals (in this order)
 
-1. **Document or record reference** — a number that looks like a document (PO, sales order, delivery, billing, FI document, production / internal order, cost center) together with a verb → `lookup` or `action`.
+1. **Document or record reference** — a number that looks like a document (PO, sales order, delivery, billing, FI document, production / internal order, cost center, shipment, handling unit, transfer order / requirement) together with a verb → `lookup` or `action`.
 2. **Catalog match** — run `node scripts/assist/catalog.mjs match "<sentence>"`. Any candidate → `lookup` (kind `query`) or `action` (kind `write`). `ambiguities` → the action is not chosen yet; ask the listed question.
 3. **Imperative verb on business data** — create / change / post / release / block / cancel / reverse, KO 처리해줘 / 바꿔줘 / 전기 / 해제 / 취소 → `action`.
 4. **Question words without a document** — how / why / what is / best practice / configure, KO 어떻게 / 왜 / 설정 / 방법 → `knowledge`.
@@ -22,7 +22,7 @@ Mixed sentences: "Why is PO 4500… blocked and release it" = `lookup` + `knowle
 
 ## 3. Module detection
 
-Same keyword map as `ask-consultant` § Module_Routing (PO → MM, sales order / delivery / billing → SD, FI document / G/L / vendor item → FI, cost center / internal order → CO, production order → PP). For `lookup` / `action` the action id prefix (`MM.`, `SD.` …) is the module.
+Same keyword map as `ask-consultant` § Module_Routing (PO → MM, sales order / delivery / billing → SD, FI document / G/L / vendor item → FI, cost center / internal order → CO, production order → PP, shipment / shipment cost / picking / packing / handling unit → LE, transfer order / transfer requirement / storage bin / warehouse number / quant → WM; LE and WM are ECC only — on S/4 the same requests belong to TM / EWM and are not offered). For `lookup` / `action` the action id prefix (`MM.`, `SD.` …) is the module.
 
 ## 4. Handoffs
 

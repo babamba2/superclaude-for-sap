@@ -31,7 +31,7 @@ export const S4_FORBIDDEN = [
 // Parameters that are tables (string_table) in ZIF_MCP_BIZ_ACTION=>ty_params. SAP reads a
 // scalar JSON value for them as an empty table, so the catalog must declare them as lists
 // (and every other parameter as a scalar). Keep in sync with abap/biz/zif_mcp_biz_action.intf.abap.
-export const LIST_PARAMS = ['ebelp', 'cbo', 'items', 'fields', 'exists', 'lines'];
+export const LIST_PARAMS = ['ebelp', 'cbo', 'items', 'fields', 'exists', 'lines', 'dlv_list'];
 const isListType = (t) => t === 'array' || /\[\]$/.test(t ?? '');
 
 const ID_RE = /^[A-Z]{2,4}\.[A-Z0-9_]+\.[A-Z0-9_]+$/;
