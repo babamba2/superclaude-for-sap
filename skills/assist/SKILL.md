@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Assist — business actions
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): blocked — reply with the stop line there and stop.
+
 Turns a business request into one catalog action of the connected SAP system and runs it safely: lookup → table → preview → explicit user yes → execute → document numbers. The SAP side (`ZMCP_BIZ_EXECUTE`) enforces the whitelist, authorization, preview token and production block; this skill guides and never bypasses it.
 
 <Response_Prefix>

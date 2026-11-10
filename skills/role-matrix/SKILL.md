@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Role Matrix
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): full — new design only (no ST03N narrowing); `sync` is blocked.
+
 One **editable HTML workbook per role design** — the classic SAP role-matrix workbook (seven sheets and a cover) as a page the security owner, module consultants and the business edit together. Built new from a consultant's proposal, or read from the roles that already exist in SAP.
 
 <Purpose>

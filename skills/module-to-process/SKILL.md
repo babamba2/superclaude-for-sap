@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Module → Process Map
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): blocked — reply with the stop line there and stop.
+
 Reads the CBO packages of one module via MCP, places every Z entry point on the module's **standard process backbone**, and writes **one HTML page** a module consultant reads on day one of a project: which processes run, who runs each task, in which system, through which standard TCodes and which CBO programs, which variants exist, and what a conversion touches.
 
 <Purpose>

@@ -53,6 +53,16 @@ Full procedure: **[`wizard-step-04-profile-creation.md`](wizard-step-04-profile-
 
 > **On failure (preflight / handler install / SM59 / SICF / transport error)**: escalate to `sap-bc-consultant` per `SKILL.md` → `<Error_Escalation_Paths>`. Pure Basis domain — Basis consultant owns this ground. Emit banner `▶ phase=4bis.escalate (basis) · agent=sap-bc-consultant · model=Opus`, dispatch with the error context + profile env (password masked) + attempted backend type, surface the returned diagnosis to the user, and ask whether to retry or abort.
 
+## Offline path (Step 4.1b → Offline)
+
+Rules: [`../../common/offline-mode.md`](../../common/offline-mode.md). After Step 4 writes the offline profile and the pointer:
+
+- Step 3 (MCP build) ran before the question — keep it; a build failure there does not block an offline setup.
+- **Skip** 4bis (RFC backend), 5–9 (reconnect, `GetSession`, systemInfo, ADT check, ABAP objects) and 11 / 11b (extraction needs the system).
+- **Run** Step 10 (finalize `config.json`; no `systemInfo`, no `alvFramework`), Step 12 (hooks — harmless offline, ready for a later switch), Step 13 (HUD shows `<alias> [OFFLINE]`), Step 14.
+- **Tell the user**, short: which skills run fully, which run with a notice, which are blocked (the table in `offline-mode.md`); local notes about the customer system go under `<project>/.sc4sap/work/<alias>/notes/*.md`; artifacts copied from a colleague's online run of the same system go under `work/<alias>/` too.
+- **Going online later**: `/sc4sap:sap-option` → fill the connection fields → `sap-profile-cli.mjs set-connection online` → run Step 3 if the MCP server was never built → restart Claude Code → `/sc4sap:setup` resumes at Step 5.
+
 ## Step 5 — Reconnect MCP
 
 Prompt user to reconnect via `/mcp`. The MCP server's `ReloadProfile` tool reads the active pointer + profile env (with keychain resolution) and refreshes its cached connection. No Claude Code restart is needed.

@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Project Dashboard
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): full — no SAP actuals; plan and edit mode as usual.
+
 One **editable HTML page per SAP project** for the PM and the PMO, and one **portfolio page** over all projects. The plan comes from a template for the project type; the progress comes from the PM (edit mode) and from the connected SAP system (read-only).
 
 <Purpose>

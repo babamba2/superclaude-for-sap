@@ -39,6 +39,12 @@ Route here when the user says:
 
 If the user passes an alias as an argument (`sap-option switch KR-QA`), skip the picker and just perform the switch + reload.
 
+**Offline profiles** (`connection: offline` in the profile `config.json`, [`../../common/offline-mode.md`](../../common/offline-mode.md)): the picker `description` shows `OFFLINE • <version> <abapRelease> • <industry>` instead of host / client / user. When the switch crosses online ↔ offline, write the pointer but do **not** call `ReloadProfile` (to offline: the server would stay on the previous system; to online: no server is running) — tell the user to restart Claude Code, and say that until then the old state stays.
+
+## Connection — online ↔ offline
+
+`sap-option connection <online|offline> [<alias>]` → `node "$CLAUDE_PLUGIN_ROOT/scripts/sap-profile-cli.mjs" set-connection <value> [<alias>]`. Going online needs `SAP_URL` (and client / user / password) first — run **Edit** with the connection fields, then `set-password`, then this. Output `restartNeeded: true` → tell the user to restart Claude Code; going online for the first time also needs the MCP server build (`/sc4sap:setup mcp`) and `/sc4sap:setup` from Step 5.
+
 ## List
 
 Render a compact table sorted by alias:

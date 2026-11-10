@@ -254,7 +254,10 @@ async function main() {
     let line2 = '';
     if (ap || si || at) {
       const bits = [];
-      if (ap?.alias) {
+      if (ap?.alias && ap.offline) {
+        // Offline profile: no system behind it, so tier / lock carry no meaning here.
+        bits.push(paint(ap.alias, color.cyan) + ' ' + paint('[OFFLINE]', color.yellow));
+      } else if (ap?.alias) {
         const lock = ap.readonly ? ' 🔒' : '';
         bits.push(
           paint(ap.alias, color.cyan) + ' ' + paint(`[${ap.tier}]${lock}`, color.gray, color.dim),

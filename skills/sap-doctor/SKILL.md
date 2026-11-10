@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Doctor
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): degraded — plugin and profile layers only; connection layers `skipped (offline)`.
+
 Diagnoses the full SC4SAP stack: plugin installation, MCP server status, and live SAP system connectivity. Reports findings with actionable fixes for each issue found.
 
 

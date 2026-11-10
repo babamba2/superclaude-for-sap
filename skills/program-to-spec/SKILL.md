@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Program → Specification
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): blocked — reply with the stop line there and stop.
+
 Reads an existing ABAP program (Report / Module Pool / FM Group / Class / CDS / RAP) via MCP, runs structural + semantic + where-used analysis, then produces a Specification artifact in any combination of **Markdown** (`.md`), **HTML** (`.html`, one self-contained file) and **Excel** (`.xlsx`). Scope is **negotiated Socratically** — start wide, narrow on each turn, stop when the user's target granularity is confirmed.
 
 <Purpose>

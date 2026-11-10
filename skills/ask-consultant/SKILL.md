@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Ask Consultant
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): degraded — no system lookups; local knowledge order and the notice line from there.
+
 Single entrypoint for asking a SAP module consultant agent an operational question. The skill auto-selects the right consultant(s) from the question text + project config, honors the configured SAP environment, and returns a faithful answer — no code generation, no object creation, just the consultant's judgment.
 
 

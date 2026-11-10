@@ -21,8 +21,14 @@
  *   add               — read JSON from stdin: {alias, tier, host, client,
  *                       username, password, description?, language?,
  *                       systemType?, version?, abapRelease?, industry?,
- *                       activeModules?, copyFrom?, passwordPrompt?}
- *                       → create profile dir
+ *                       activeModules?, copyFrom?, passwordPrompt?,
+ *                       connection?, country?}
+ *                       → create profile dir. connection=offline: no host,
+ *                       client, user or password (no SAP connection; the
+ *                       MCP bridge stays down — common/offline-mode.md)
+ *   set-connection <online|offline> [<alias>]
+ *                     — flip SAP_CONNECTION in sap.env + config.json;
+ *                       online needs SAP_URL in the profile env
  *   set-password <alias> — open the masked dialog, store the new password in
  *                       the OS keychain, point SAP_PASSWORD at it
  *   set-blocklist <strict|standard|minimal|custom> [<alias>]
@@ -135,6 +141,15 @@ function normalizeTier(v) {
   return null;
 }
 
+// SAP_CONNECTION: `online` (default — MCP bridge connects) | `offline` (no SAP connection; skills
+// work from the profile identity + local knowledge files only). Independent of SAP_TIER.
+function normalizeConnection(v) {
+  const s = String(v || '').trim().toLowerCase();
+  if (s === '' || s === 'online') return 'online';
+  if (s === 'offline') return 'offline';
+  return null;
+}
+
 // SAP_SYSTEM_TYPE is the MCP server's deployment axis: `onprem` | `cloud` (`legacy` kept for old
 // profiles). The server reads any other value as `cloud` and hides the on-prem-only tools, so the
 // older `s4hana` / `ecc` values, an empty value and typos become `onprem`. ECC vs S/4HANA is
@@ -209,6 +224,7 @@ function readProfile(alias) {
   return {
     alias,
     tier: normalizeTier(env.SAP_TIER) || 'DEV',
+    connection: normalizeConnection(env.SAP_CONNECTION) || 'online',
     host: env.SAP_URL || '',
     client: env.SAP_CLIENT || '',
     username: env.SAP_USERNAME || '',
@@ -251,10 +267,17 @@ async function cmdSwitch(cwd, alias) {
 async function cmdAdd() {
   const payload = await readStdinJson();
   const alias = String(payload.alias || '').trim();
-  const tier = normalizeTier(payload.tier);
+  const connection = normalizeConnection(payload.connection);
+  if (!connection) die(2, 'add: connection must be online | offline');
+  const offline = connection === 'offline';
+  // Offline profiles have no system to protect; tier only labels the target system and defaults to DEV.
+  const tier = normalizeTier(payload.tier) || (offline && !payload.tier ? 'DEV' : null);
   if (!alias) die(2, 'add: alias required');
   if (!/^[A-Z0-9_-]+$/i.test(alias)) die(2, 'add: alias must match [A-Z0-9_-]');
   if (!tier) die(2, 'add: tier must be DEV | QA | PRD');
+  if (offline && (payload.host || payload.password || payload.passwordPrompt)) {
+    die(2, 'add: an offline profile takes no host / password — create it online or switch later with set-connection');
+  }
   const targetDir = join(profilesDir(), alias);
   if (existsSync(targetDir)) die(4, `profile already exists: ${alias}`);
 
@@ -348,6 +371,8 @@ async function cmdAdd() {
     SAP_INDUSTRY: payload.industry || base.SAP_INDUSTRY || '',
     SAP_ACTIVE_MODULES: payload.activeModules || base.SAP_ACTIVE_MODULES || '',
     SAP_TIER: tier,
+    SAP_CONNECTION: connection,
+    SAP_COUNTRY: payload.country ? String(payload.country).trim().toLowerCase() : null,
     SAP_DESCRIPTION: payload.description || '',
     MCP_BLOCKLIST_PROFILE: blocklistProfile,
   };
@@ -361,10 +386,39 @@ async function cmdAdd() {
     activeModules: env.SAP_ACTIVE_MODULES.split(',').map((s) => s.trim()).filter(Boolean),
     blocklistProfile,
     tier,
+    connection,
+    ...(env.SAP_COUNTRY ? { country: env.SAP_COUNTRY } : {}),
     createdAt: new Date().toISOString(),
   };
   writeFileSync(join(targetDir, 'config.json'), `${JSON.stringify(configJson, null, 2)}\n`);
-  jsonOut({ ok: true, alias, tier, readonly: tier !== 'DEV', passwordStored: passwordStoredKind(passwordRef) });
+  jsonOut({ ok: true, alias, tier, connection, readonly: tier !== 'DEV', passwordStored: passwordStoredKind(passwordRef) });
+}
+
+async function cmdSetConnection(cwd, value, aliasArg) {
+  const connection = normalizeConnection(value);
+  if (!value || !connection) die(1, 'set-connection: value must be online | offline');
+  const alias = aliasArg || readActiveAlias(cwd);
+  if (!alias) die(1, 'set-connection: no alias given and no active profile in cwd');
+  const dir = join(profilesDir(), alias);
+  const envPath = join(dir, 'sap.env');
+  if (!existsSync(envPath)) die(3, `profile not found: ${alias}`);
+  const env = parseDotenv(readFileSync(envPath, 'utf8'));
+  if (connection === 'online' && !env.SAP_URL) {
+    die(2, `set-connection: ${alias} has no SAP_URL — fill the connection fields first (/sc4sap:sap-option edit)`);
+  }
+  const previous = normalizeConnection(env.SAP_CONNECTION) || 'online';
+  writeFileSync(envPath, formatDotenv({ ...env, SAP_CONNECTION: connection }));
+  const configPath = join(dir, 'config.json');
+  if (existsSync(configPath)) {
+    let config;
+    try {
+      config = JSON.parse(readFileSync(configPath, 'utf8'));
+    } catch (e) {
+      die(2, `set-connection: cannot parse ${configPath}: ${e.message}`);
+    }
+    writeFileSync(configPath, `${JSON.stringify({ ...config, connection }, null, 2)}\n`);
+  }
+  jsonOut({ ok: true, alias, connection, previous, restartNeeded: previous !== connection });
 }
 
 function passwordStoredKind(ref) {
@@ -543,6 +597,13 @@ function validateProfile(p, otherProfiles) {
   if (!['DEV', 'QA', 'PRD'].includes(p.tier)) {
     errors.push(`invalid tier "${p.tier}" (expected DEV | QA | PRD)`);
   }
+  if (p.connection === 'offline') {
+    // No system behind it: connection fields are not used, so only identity matters.
+    for (const [key, label] of [['version', 'SAP_VERSION'], ['abapRelease', 'ABAP_RELEASE'], ['industry', 'SAP_INDUSTRY']]) {
+      if (!p[key]) errors.push(`missing ${label} (offline profiles answer from the profile identity)`);
+    }
+    return { alias: p.alias, tier: p.tier, connection: p.connection, errors, warnings };
+  }
   if (!/^https?:\/\/[^ ]+[^/]$/.test(p.host || '')) {
     if (!p.host) errors.push('missing SAP_URL');
     else if (/\/$/.test(p.host)) errors.push(`SAP_URL must not end with /: ${p.host}`);
@@ -578,6 +639,7 @@ function validateProfile(p, otherProfiles) {
   const dupes = otherProfiles.filter(
     (o) =>
       o.alias !== p.alias &&
+      o.connection !== 'offline' &&
       (o.host || '').toLowerCase() === rawHost &&
       String(o.client || '') === String(p.client || ''),
   );
@@ -594,7 +656,7 @@ function validateProfile(p, otherProfiles) {
     );
   }
 
-  return { alias: p.alias, tier: p.tier, errors, warnings };
+  return { alias: p.alias, tier: p.tier, connection: p.connection, errors, warnings };
 }
 
 async function cmdValidate(requestedAlias) {
@@ -645,6 +707,7 @@ async function main() {
       case 'switch': return await cmdSwitch(cwd, rest[0]);
       case 'add': return await cmdAdd();
       case 'set-blocklist': return await cmdSetBlocklist(cwd, rest[0], rest[1]);
+      case 'set-connection': return await cmdSetConnection(cwd, rest[0], rest[1]);
       case 'remove': return await cmdRemove(cwd, rest[0]);
       case 'purge': return await cmdPurge(rest.includes('--all'));
       case 'migrate': return await cmdMigrate(cwd);

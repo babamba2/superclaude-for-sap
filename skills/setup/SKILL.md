@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Setup
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): full — the connection question offers **Offline**; see `wizard-steps.md` § Offline path.
+
 Use `/sc4sap:setup` as the unified setup and configuration entrypoint for SuperClaude for SAP.
 
 

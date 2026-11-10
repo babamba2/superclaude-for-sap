@@ -26,6 +26,7 @@ This file is the **index** of development rules — NOT a payload to preload. De
 | Industry business-context references (14 industries) | [`industry/README.md`](industry/README.md) + `industry/*.md` |
 | Country / localization references (16 countries + EU common) | [`country/README.md`](country/README.md) + `country/*.md` |
 | Active modules — cross-module integration matrix (MM↔PS, SD↔CO, QM↔PP, …) | [`common/active-modules.md`](common/active-modules.md) |
+| Offline mode (profile `connection: offline` — no SAP connection, MCP bridge stays down; each skill is full / degraded / blocked; local knowledge order; notice and stop lines) | [`common/offline-mode.md`](common/offline-mode.md) |
 | Context loading protocol (CLAUDE.md is an index; every dispatch declares its minimal context kit) | [`common/context-loading-protocol.md`](common/context-loading-protocol.md) |
 | Model routing (Opus for judgment / novel code; Sonnet for template + bulk writes; Haiku `sap-checker` fan-out for fetch / verify / detect) | [`common/model-routing-rule.md`](common/model-routing-rule.md) |
 | Model dispatch mode (`auto` default = route per rule; `user-defined` = ask Opus / Sonnet / Haiku before each dispatch group; set via `/sc4sap:sap-option`) | [`common/model-dispatch-mode.md`](common/model-dispatch-mode.md) |

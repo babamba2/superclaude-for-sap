@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP CBO Relation Map
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): full — only from an existing `graph.json`; collection is blocked.
+
 One **HTML page per package (or set of packages)** that shows how the customer objects hang together: which tables use which data elements and domains, which tables check against which, which programs and function modules read or write which tables, which transactions start what — and what is affected when one of them changes. Drawn from the `graph.json` of `/sc4sap:analyze-cbo-obj`; the page itself needs no SAP call.
 
 <Purpose>

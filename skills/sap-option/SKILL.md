@@ -6,6 +6,8 @@ model: inherit
 
 # SC4SAP Option
 
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): full — local configuration; `set-connection` switches the profile.
+
 Single entrypoint to **inspect live SAP state** and **edit the values stored in `.sc4sap/sap.env`** — the dotenv file that holds SAP connection credentials, TLS settings, and the `abap-mcp-adt-powerup` blocklist policy for row-extraction safety.
 
 
