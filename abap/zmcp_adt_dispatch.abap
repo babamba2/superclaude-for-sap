@@ -27,6 +27,8 @@ FUNCTION zmcp_adt_dispatch
 *   CUA_WRITE      - Write GUI status (RS_CUA_INTERNAL_WRITE)
 *   CUA_DELETE     - Delete GUI status (RS_CUA_DELETE)
 
+* BIZ_EXECUTE    - business action, forwards to ZMCP_BIZ_EXECUTE (FORM biz_execute)
+
   CLEAR: ev_subrc, ev_message, ev_result.
 
   TRY.
@@ -49,6 +51,9 @@ FUNCTION zmcp_adt_dispatch
         WHEN 'CUA_DELETE'.
           PERFORM cua_delete USING iv_params
                              CHANGING ev_subrc ev_message ev_result.
+        WHEN 'BIZ_EXECUTE'.
+          PERFORM biz_execute USING iv_params
+                              CHANGING ev_subrc ev_message ev_result.
         WHEN OTHERS.
           ev_subrc = 4.
           ev_message = |Unknown action: { iv_action }|.
@@ -530,4 +535,74 @@ FORM cua_delete USING iv_params TYPE string
     ev_result = '{"deleted":true}'.
   ENDIF.
 
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form BIZ_EXECUTE
+*&---------------------------------------------------------------------*
+* Business actions for backends that only reach ZMCP_ADT_DISPATCH
+* (OData FunctionImport Dispatch, gateway, zrfc). Forwards to the RFC FM
+* ZMCP_BIZ_EXECUTE (function group ZMCP_BIZ, sc4sap abap/biz/) and wraps
+* its exports. The SOAP and native backends call ZMCP_BIZ_EXECUTE directly.
+* params: action, mode, params (JSON object as a string), token, idem_key
+* result: {"subrc":n,"message":"..","token":"..","result":<EV_RESULT JSON>}
+* ev_subrc stays 0 when the FM ran: a business refusal (subrc 4 / 8) is
+* an answer for the caller, not a dispatcher error. Dynamic call, so the
+* dispatcher activates without ZMCP_BIZ installed.
+FORM biz_execute USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message TYPE string ev_result TYPE string.
+  DATA: BEGIN OF ls_in,
+          action   TYPE string,
+          mode     TYPE string,
+          params   TYPE string,
+          token    TYPE string,
+          idem_key TYPE string,
+        END OF ls_in.
+  DATA: lv_fm    TYPE rs38l_fnam VALUE 'ZMCP_BIZ_EXECUTE',
+        lv_subrc TYPE i,
+        lv_msg   TYPE string,
+        lv_res   TYPE string,
+        lv_tok   TYPE string,
+        lv_first TYPE c LENGTH 1.
+
+  /ui2/cl_json=>deserialize( EXPORTING json = iv_params CHANGING data = ls_in ).
+
+  CALL FUNCTION 'FUNCTION_EXISTS'
+    EXPORTING
+      funcname           = lv_fm
+    EXCEPTIONS
+      function_not_exist = 1
+      OTHERS             = 2.
+  IF sy-subrc <> 0.
+    ev_subrc   = 4.
+    ev_message = 'ZMCP_BIZ_EXECUTE is not installed on this system (sc4sap abap/biz)'.
+    RETURN.
+  ENDIF.
+
+  CALL FUNCTION lv_fm
+    EXPORTING
+      iv_action   = ls_in-action
+      iv_mode     = ls_in-mode
+      iv_params   = ls_in-params
+      iv_token    = ls_in-token
+      iv_idem_key = ls_in-idem_key
+    IMPORTING
+      ev_subrc    = lv_subrc
+      ev_message  = lv_msg
+      ev_result   = lv_res
+      ev_token    = lv_tok.
+
+  lv_res = condense( lv_res ).
+  IF lv_res IS INITIAL.
+    lv_res = 'null'.
+  ELSE.
+    lv_first = lv_res.
+    IF lv_first <> '{' AND lv_first <> '['.
+      lv_res = /ui2/cl_json=>serialize( data = lv_res ).
+    ENDIF.
+  ENDIF.
+
+  ev_result = |\{"subrc":{ lv_subrc },"message":{ /ui2/cl_json=>serialize( data = lv_msg ) },| &&
+              |"token":{ /ui2/cl_json=>serialize( data = lv_tok ) },"result":{ lv_res }\}|.
+  ev_subrc = 0.
 ENDFORM.

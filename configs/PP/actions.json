@@ -1,0 +1,826 @@
+{
+  "schemaVersion": 1,
+  "module": "PP",
+  "area": "production orders",
+  "notes": [
+    "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side.",
+    "Draft 2026-11-09: interface checked on ECC740-DEV only; S4-DEV and ECC731-DEV pending.",
+    "Actions without TESTRUN are previewed from order status, configuration and the customer check rules of the system (biz-rules/PP.json)."
+  ],
+  "actions": [
+    {
+      "id": "PP.ORD.LIST_OPEN",
+      "object": "ProductionOrder",
+      "kind": "query",
+      "risk": "none",
+      "title": "List open production orders",
+      "intents": {
+        "en": [
+          "open production orders",
+          "orders to release",
+          "orders due"
+        ],
+        "ko": [
+          "미결 생산오더",
+          "릴리스할 오더",
+          "납기 생산오더"
+        ]
+      },
+      "params": [
+        {
+          "name": "werks",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": true,
+          "values": [
+            "created",
+            "released",
+            "all_open"
+          ]
+        },
+        {
+          "name": "date_basis",
+          "type": "string",
+          "required": true,
+          "values": [
+            "start_due_today",
+            "start_overdue_until_today",
+            "all"
+          ]
+        },
+        {
+          "name": "dispo",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "status",
+          "ask": "Only orders not released yet, only released orders, or all open orders?",
+          "when": "status is missing"
+        },
+        {
+          "param": "date_basis",
+          "ask": "Orders that start today, orders whose start date has passed, or all?",
+          "when": "date_basis is missing"
+        },
+        {
+          "param": "werks",
+          "ask": "Which plant?",
+          "when": "werks is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PRODORD_GET_LIST",
+          "group": "2005_BAPI",
+          "return": "BAPIRET2",
+          "note": "or SELECT AFKO/AUFK/JEST (status filter, M_... auth by plant)"
+        },
+        "S4": {
+          "fm": "BAPI_PRODORD_GET_LIST",
+          "group": "2005_BAPI",
+          "return": "BAPIRET2",
+          "note": "or SELECT AFKO/AUFK/JEST (status filter, M_... auth by plant)"
+        }
+      },
+      "auth": [
+        {
+          "object": "C_AFKO_AWK",
+          "fields": {
+            "WERKS": "<plant>",
+            "AUFART": "<order type>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "PP.ORD.GET_DETAIL",
+      "object": "ProductionOrder",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a production order (header, operations, components, status)",
+      "intents": {
+        "en": [
+          "show production order",
+          "order status"
+        ],
+        "ko": [
+          "생산오더 조회",
+          "오더 상태"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PRODORD_GET_DETAIL",
+          "group": "2005_BAPI",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_PRODORD_GET_DETAIL",
+          "group": "2005_BAPI",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "C_AFKO_AWK",
+          "fields": {
+            "WERKS": "<plant>",
+            "AUFART": "<order type>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "PP.ORD.RELEASE",
+      "object": "ProductionOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Release a production order",
+      "intents": {
+        "en": [
+          "release order"
+        ],
+        "ko": [
+          "오더 릴리스",
+          "생산오더 확정"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PRODORD_RELEASE",
+          "group": "2005_BAPI",
+          "set": "ORDERS-ORDER_NUMBER",
+          "testrun": "none",
+          "preview": "no TESTRUN: preview = order status (BAPI_PRODORD_GET_DETAIL + JEST) + config checks + customer check rules (biz-rules/PP.json); refuse when status REL / TECO / DLFL; material availability via BAPI_PRODORD_CHECK_MAT_AVAIL",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2 + DETAIL_RETURN"
+        },
+        "S4": {
+          "fm": "BAPI_PRODORD_RELEASE",
+          "group": "2005_BAPI",
+          "set": "ORDERS-ORDER_NUMBER",
+          "testrun": "none",
+          "preview": "no TESTRUN: preview = order status (BAPI_PRODORD_GET_DETAIL + JEST) + config checks + customer check rules (biz-rules/PP.json); refuse when status REL / TECO / DLFL; material availability via BAPI_PRODORD_CHECK_MAT_AVAIL",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2 + DETAIL_RETURN"
+        }
+      },
+      "auth": [
+        {
+          "object": "C_AFKO_AWK",
+          "fields": {
+            "WERKS": "<plant>",
+            "AUFART": "<order type>"
+          }
+        }
+      ],
+      "reverse": "PP.ORD.REVOKE_RELEASE (not in pilot)",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "No test mode: the preview checks the order status, configuration and known check rules only.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "테스트 모드가 없어요. 미리보기는 오더 상태, 설정, 알려진 체크 규칙만 확인해요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "PP.ORD.CHANGE_QTY_DATES",
+      "object": "ProductionOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Change order quantity or basic dates",
+      "intents": {
+        "en": [
+          "change order quantity",
+          "reschedule order"
+        ],
+        "ko": [
+          "오더 수량 변경",
+          "오더 일정 변경"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "new_quantity",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "new_start",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "new_finish",
+          "type": "date",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "new_quantity",
+          "ask": "Which value changes: the quantity, the start date, or the finish date?",
+          "when": "none of new_quantity / new_start / new_finish is given"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PRODORD_CHANGE",
+          "group": "2005_BAPI",
+          "set": "ORDERDATA-QUANTITY / BASIC_START_DATE / BASIC_END_DATE + ORDERDATAX",
+          "testrun": "none",
+          "preview": "no TESTRUN: preview = order status (BAPI_PRODORD_GET_DETAIL + JEST) + config checks + customer check rules (biz-rules/PP.json); refuse quantity below confirmed / delivered quantity",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_PRODORD_CHANGE",
+          "group": "2005_BAPI",
+          "set": "ORDERDATA-QUANTITY / BASIC_START_DATE / BASIC_END_DATE + ORDERDATAX",
+          "testrun": "none",
+          "preview": "no TESTRUN: preview = order status (BAPI_PRODORD_GET_DETAIL + JEST) + config checks + customer check rules (biz-rules/PP.json); refuse quantity below confirmed / delivered quantity",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "C_AFKO_AWK",
+          "fields": {
+            "WERKS": "<plant>",
+            "AUFART": "<order type>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "No test mode: the preview checks the order status, configuration and known check rules only.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "테스트 모드가 없어요. 미리보기는 오더 상태, 설정, 알려진 체크 규칙만 확인해요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "PP.ORD.CONFIRM",
+      "object": "ProductionOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Confirm an operation (yield, scrap, final confirmation)",
+      "intents": {
+        "en": [
+          "confirm order",
+          "report production",
+          "enter yield"
+        ],
+        "ko": [
+          "실적 등록",
+          "작업 확정",
+          "생산 실적"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "vornr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "yield",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "scrap",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "final_conf",
+          "type": "string",
+          "required": true,
+          "values": [
+            "partial",
+            "final",
+            "auto"
+          ]
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "final_conf",
+          "ask": "Is this the final confirmation of the operation, or a partial one?",
+          "when": "final_conf is missing"
+        },
+        {
+          "param": "posting_date",
+          "ask": "Which posting date? Today, or another date?",
+          "when": "posting_date is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PRODORDCONF_CREATE_TT",
+          "group": "2116",
+          "set": "TIMETICKETS (ORDERID, OPERATION, YIELD, SCRAP, FIN_CONF, POSTG_DATE)",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET1 + DETAIL_RETURN",
+          "note": "backflush / automatic goods receipt follow the order type and control key"
+        },
+        "S4": {
+          "fm": "BAPI_PRODORDCONF_CREATE_TT",
+          "group": "2116",
+          "set": "TIMETICKETS (ORDERID, OPERATION, YIELD, SCRAP, FIN_CONF, POSTG_DATE)",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET1 + DETAIL_RETURN",
+          "note": "backflush / automatic goods receipt follow the order type and control key"
+        }
+      },
+      "auth": [
+        {
+          "object": "C_AFRU_AWK",
+          "fields": {
+            "ACTVT": "01"
+          }
+        }
+      ],
+      "reverse": "PP.ORD.CANCEL_CONFIRMATION (not in pilot)",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "PP.ORD.COMPLETE_TECH",
+      "object": "ProductionOrder",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Complete an order technically (TECO)",
+      "intents": {
+        "en": [
+          "technically complete",
+          "TECO",
+          "close production order"
+        ],
+        "ko": [
+          "기술적 완료",
+          "TECO",
+          "생산오더 종료"
+        ]
+      },
+      "ambiguity": {
+        "term": {
+          "en": "close",
+          "ko": "종료"
+        },
+        "candidates": [
+          "PP.ORD.COMPLETE_TECH"
+        ],
+        "ask": "By closing, do you mean technical completion (TECO)? Business completion (CLSD) is not offered."
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PRODORD_COMPLETE_TECH",
+          "group": "2005_BAPI",
+          "set": "ORDERS-ORDER_NUMBER",
+          "testrun": "none",
+          "preview": "no TESTRUN: preview = order status (BAPI_PRODORD_GET_DETAIL + JEST) + config checks + customer check rules (biz-rules/PP.json); warn on open reservations / open quantity / missing final confirmation",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2 + DETAIL_RETURN"
+        },
+        "S4": {
+          "fm": "BAPI_PRODORD_COMPLETE_TECH",
+          "group": "2005_BAPI",
+          "set": "ORDERS-ORDER_NUMBER",
+          "testrun": "none",
+          "preview": "no TESTRUN: preview = order status (BAPI_PRODORD_GET_DETAIL + JEST) + config checks + customer check rules (biz-rules/PP.json); warn on open reservations / open quantity / missing final confirmation",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2 + DETAIL_RETURN"
+        }
+      },
+      "auth": [
+        {
+          "object": "C_AFKO_AWK",
+          "fields": {
+            "WERKS": "<plant>",
+            "AUFART": "<order type>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "No test mode: the preview checks the order status, configuration and known check rules only.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "테스트 모드가 없어요. 미리보기는 오더 상태, 설정, 알려진 체크 규칙만 확인해요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "PP.ORD.GOODS_ISSUE",
+      "object": "GoodsMovement",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Issue a component to a production order (movement type 261)",
+      "intents": {
+        "en": [
+          "issue material to order",
+          "goods issue order"
+        ],
+        "ko": [
+          "오더 출고",
+          "자재 투입"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "lgort",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "charg",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "charg",
+          "ask": "The material is batch-managed: which batch?",
+          "when": "the material is batch-managed and charg is missing"
+        },
+        {
+          "param": "posting_date",
+          "ask": "Which posting date?",
+          "when": "posting_date is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_GOODSMVT_CREATE",
+          "group": "MB_BUS2017",
+          "set": "GOODSMVT_CODE = '03', MOVE_TYPE = '261', ORDERID, RESERV_NO/RES_ITEM when reserved",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "note": "TESTRUN does not run every posting-time check: also evaluate biz-rules (e.g. closed periods)"
+        },
+        "S4": {
+          "fm": "BAPI_GOODSMVT_CREATE",
+          "group": "MB_BUS2017",
+          "set": "GOODSMVT_CODE = '03', MOVE_TYPE = '261', ORDERID, RESERV_NO/RES_ITEM when reserved",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "note": "TESTRUN does not run every posting-time check: also evaluate biz-rules (e.g. closed periods)"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_MSEG_BWA",
+          "fields": {
+            "ACTVT": "01",
+            "BWART": "261"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "PP.ORD.GOODS_RECEIPT",
+      "object": "GoodsMovement",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Receive finished goods from a production order (movement type 101)",
+      "intents": {
+        "en": [
+          "receive from production",
+          "order goods receipt"
+        ],
+        "ko": [
+          "생산 입고",
+          "오더 입고"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "lgort",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "charg",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "posting_date",
+          "ask": "Which posting date?",
+          "when": "posting_date is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_GOODSMVT_CREATE",
+          "group": "MB_BUS2017",
+          "set": "GOODSMVT_CODE = '02', MOVE_TYPE = '101', MVT_IND = 'F', ORDERID",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_GOODSMVT_CREATE",
+          "group": "MB_BUS2017",
+          "set": "GOODSMVT_CODE = '02', MOVE_TYPE = '101', MVT_IND = 'F', ORDERID",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_MSEG_BWA",
+          "fields": {
+            "ACTVT": "01",
+            "BWART": "101"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "kind": "query",
+      "risk": "none",
+      "id": "PP.BOM.READ",
+      "object": "BillOfMaterial",
+      "title": "Show the single-level BOM of a material in a plant",
+      "intents": {
+        "en": [
+          "bom of material",
+          "components of",
+          "bill of material"
+        ],
+        "ko": [
+          "BOM 조회",
+          "자재 구성품",
+          "부품 목록"
+        ]
+      },
+      "params": [
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "werks",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "stlan",
+          "type": "string",
+          "required": false,
+          "description": "BOM usage, default 1 (production)"
+        },
+        {
+          "name": "key_date",
+          "type": "date",
+          "required": false
+        }
+      ],
+      "rules": [
+        "CS_BOM_EXPL_MAT_V2, application PP01, single level, valid on key_date (today when empty)"
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "CS_BOM_EXPL_MAT_V2"
+        },
+        "S4": {
+          "fm": "CS_BOM_EXPL_MAT_V2"
+        }
+      },
+      "auth": [
+        {
+          "object": "C_STUE_WRK",
+          "fields": {
+            "ACTVT": "03",
+            "WERKS": "<plant>"
+          },
+          "note": "checked inside the FM (missing_authorization)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "unit-test",
+          "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    }
+  ]
+}

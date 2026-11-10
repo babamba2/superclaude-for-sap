@@ -1,0 +1,74 @@
+# SD evidence - ECC740-DEV (ECC 6.0, BASIS 740), 2026-11-09, read-only
+# Sources: TFDIR (function group), GetFunctionModule (signature + source), DDIC (domain / structures),
+# SU24 proposals (USOBX) and TOBJ (authorization object fields), source of the standard includes. No FM was executed.
+
+SYSTEM ECC740-DEV
+
+## A. Function modules (group from TFDIR PNAME)
+A BAPI_SALESORDER_CHANGE group=2032 (SAPL2032) found=yes; IMPORTING SALESDOCUMENT, ORDER_HEADER_IN (BAPISDH1), ORDER_HEADER_INX (BAPISDH1X), SIMULATION, BEHAVE_WHEN_ERROR, LOGIC_SWITCH, NO_STATUS_BUF_INIT; TABLES RETURN (BAPIRET2), ORDER_ITEM_IN/INX, SCHEDULE_LINES/LINESX, PARTNERS ...; calls SD_SALESDOCUMENT_CHANGE with BUSINESS_OBJECT BUS2032
+A BAPI_SALESORDER_CREATEFROMDAT2 group=2032 found=yes; TESTRUN (BAPIFLAG), INT_NUMBER_ASSIGNMENT, ORDER_HEADER_IN (BAPISDHD1); not in the catalog (candidate)
+A BAPI_SALESORDER_GETSTATUS group=2032 found=yes; IMPORTING SALESDOCUMENT; EXPORTING RETURN (BAPIRETURN); TABLES STATUSINFO (BAPISDSTAT); wraps SD_SALES_ORDER_STATUS_WWW
+A BAPI_SALESORDER_GETLIST group=2032 found=yes; CUSTOMER_NUMBER and SALES_ORGANIZATION are mandatory (customer centred); BAPIORDERS also carries the customer name -> not used for lists
+A BAPI_SALESORDER_SIMULATE group=2032 found=yes; pricing / ATP simulation without saving (not used)
+A BAPI_OUTB_DELIVERY_CREATE_SLS group=V50I (SAPLV50I) found=yes; IMPORTING SHIP_POINT, DUE_DATE, DEBUG_FLG, NO_DEQUEUE; EXPORTING DELIVERY, NUM_DELIVERIES; TABLES SALES_ORDER_ITEMS (BAPIDLVREFTOSALESORDER: REF_DOC REF_ITEM DLV_QTY SALES_UNIT), DELIVERIES, CREATED_ITEMS, RETURN (BAPIRET2); NO TESTRUN / SIMULATE parameter; wraps SHP_DELIVERY_CREATE_FROM_SLS
+A BAPI_OUTB_DELIVERY_CHANGE group=V50I found=yes; HEADER_CONTROL-SIMULATE (BAPIOBDLVHDRCTRLCHG-SIMULATE "Simulation of Delivery Change (No DB Change)"), HEADER_DATA-DLV_BLOCK_FLG; not used by a pilot action
+A BAPI_OUTB_DELIVERY_CONFIRM_DEC group=V50I found=yes; HEADER_CONTROL (BAPIOBDLVHDRCTRLCON) has POST_GI_FLG "Post Goods Movement Automatically" and SIMULATE; from the decentralised warehouse interface (picking confirmation + GI); second candidate for goods issue
+A WS_DELIVERY_UPDATE group=V50L found=yes; IMPORTING VBKOK_WA, COMMIT, DELIVERY, IF_DATABASE_UPDATE ...; the older variant
+A WS_DELIVERY_UPDATE_2 group=V50S (SAPLV50S) found=yes; IMPORTING VBKOK_WA (WABUC = post goods movement, WADAT_IST), SYNCHRON, COMMIT, DELIVERY, IF_DATABASE_UPDATE (domain LESHP_DATABASE_UPDATE: 1 check and save, 2 check, 3 save), IF_NO_INIT, IF_NO_READ ...; EXPORTING EF_ERROR_ANY, EF_ERROR_IN_GOODS_ISSUE, EF_ERROR_IN_FINAL_CHECK ...; TABLES VBPOK_TAB, PROT, VERKO_TAB, VERPO_TAB ...; COMMIT = X -> COMMIT WORK inside (source lines 654-679); no AUTHORITY-CHECK in the FM
+A WS_REVERSE_GOODS_ISSUE group=V51W found=yes; IMPORTING I_VBELN, I_BUDAT, I_VBTYP, I_SIMULATE (default space), I_TCODE ...; TABLES T_MESG, T_VBAPF, T_VBFA; EXCEPTION ERROR_REVERSE_GOODS_ISSUE; AUTHORITY-CHECK OBJECT V_LIKP_VST at source line 199
+A BAPI_DELIVERY_GETLIST group=LE_SHP_DB_DELIVERY_BUFFER found=yes; IS_DLV_DATA_CONTROL + one range table per field; not used (SELECT is simpler)
+A BAPI_DELIVERYPROCESSING_EXEC group=V50R_CREA found=yes; deliver preceding document / expand delivery; not used
+A BAPI_BILLINGDOC_CREATEMULTIPLE group=VBRK (SAPLVBRK) found=yes; IMPORTING CREATORDATAIN, TESTRUN (BAPIVBRKTESTRUN-TESTRUN), POSTING; TABLES BILLINGDATAIN (BAPIVBRK), CONDITIONDATAIN, CCARDDATAIN, TEXTDATAIN, ERRORS, RETURN (BAPIRET1), SUCCESS (BAPIVBRKSUCCESS); with TESTRUN the closing call RV_INVOICE_REFRESH gets WITH_POSTING = F (no save, no commit)
+A BAPI_BILLINGDOC_SIMULATE group=VBRK found=yes; simulation with external data (not used)
+A BAPI_BILLINGDOC_GETDETAIL group=VBRK found=yes; IMPORTING BILLINGDOCUMENT; EXPORTING BILLINGDOCUMENTDETAIL (BAPIVBRKOUT), RETURN (BAPIRETURN1)
+A BAPI_BILLINGDOC_CANCEL1 group=VBRK found=yes; IMPORTING BILLINGDOCUMENT, TESTRUN, NO_COMMIT, BILLINGDATE; TABLES RETURN (BAPIRETURN1), SUCCESS
+A SD_ORDER_CREDIT_RELEASE group=VKMP (SAPLVKMP) found=yes; IMPORTING VBELN, IF_SYNCHRON, CALL_ACTIVE; no return table, no AUTHORITY-CHECK, SD_SALES_DOCUMENT_SAVE with COMMIT AND WAIT -> NOT offered (authorization would have to be enforced by the caller)
+A SD_SALESDOCUMENT_CHANGE group=VBAK found=yes; SIMULATION passed through to SD_SALES_DOCU_MAINTAIN
+A SD_SALES_DOCU_MAINTAIN group=V45A found=yes; source lines 1896-1908: "if simulation is initial. call function SD_SALES_DOCUMENT_SAVE" - in simulation the save is skipped, SD_SALES_DOCU_PROC_TERMINATE runs instead (line 2063 "Simulation Mode")
+A SD_SALES_DOCUMENT_SAVE group=V45A found=yes; line 86: PERFORM BELEG_SICHERN(SAPMV45A); BELEG_SICHERN calls USEREXIT_SAVE_DOCUMENT_PREPARE (line 542), USEREXIT_NUMBER_RANGE (675) and USEREXIT_SAVE_DOCUMENT (1873)
+A BAPI_TRANSACTION_COMMIT group=BAPT found=yes
+B BAPISDH1 / BAPISDH1X: DLV_BLOCK, BILL_BLOCK, UPDATEFLAG present (header of BAPI_SALESORDER_CHANGE)
+B BAPISDITM / BAPISDITMX: REASON_REJ, TARGET_QTY, ITM_NUMBER, UPDATEFLAG present
+B BAPISCHDL / BAPISCHDLX: ITM_NUMBER, SCHED_LINE, REQ_DATE, REQ_QTY, UPDATEFLAG present
+B BAPIVBRK: DOC_TYPE, BILL_DATE, REF_DOC, REF_ITEM, REQ_QTY present; also carries SOLD_TO / NAME / STREET ... (never filled by the handler)
+B BAPIDLVREFTOSALESORDER: REF_DOC, REF_ITEM, DLV_QTY, SALES_UNIT present
+B VBKOK: WABUC, WADAT_IST, VBELN_VL, KOMUE present
+B BAPIOBDLVHDRCTRLCON / BAPIOBDLVHDRCTRLCHG: SIMULATE present
+C Configuration tables read via DDIC: TVAK (LFARV delivery type, FKARV billing type, FAKSK / LIFSK default blocks, CMGRA credit group, VBTYP), TVAP (LFREL, FKREL, FAKSP), TVEP (LFREL, LIFSP), TVLS (key LIFSP; flags SPELF SPEKO SPEWA SPEFT SPEBE SPEAU SPEDR SPEVI), TVFS (key FAKSP only), TVAG (key ABGRU; DRAGR EP_OFF FK_ERL KOWRR), TVLK, TVFK, TVST, TVSTZ (key VSBED LADGR WERKS LGORT; VSTEL), TROLZ (key ALAND AZONE VSBED TRAGR LLAND LZONE GRULG; ROUTE), TVCPL (key LFARN AUARV PSTYV), TVCPF (key FKARN AUARV LFARV FKARV PSTYV), T180 (TRTYP), MARV (LFGJA LFMON VMGJA VMMON)
+C Status fields: VBUK LFSTK WBSTK FKSTK ABSTK GBSTK CMGST UVALL UVVLS UVFAS UVPRS; VBUP LFSTA FKSTA ABSTA; ECC only (S/4 moved them to VBAK / LIKP / VBAP / LIPS)
+C Row counts (config, no master data): TVAP 328, TVLK 56, TVFK 75, TVST 197, TVSTZ 3296, TROLZ 25845, TVCPL 45076, TVCPF 9199; delivery block reasons 14, billing block reasons 11, rejection reasons 26
+D skipped (ECC)
+
+## B. Authorization objects (TOBJ fields; SU24 proposals of the standard transactions, check indicator Y)
+E VA02: V_VBAK_VKO (VKORG VTWEG SPART ACTVT), V_VBAK_AAT (AUART ACTVT); also B_USERSTAT, C_TCLS_*; VA03 and VA05 the same with ACTVT 03
+E VL01N / VL02N / VL10A: V_LIKP_VST (VSTEL ACTVT), C_KLAH_BKL
+E VF01: V_VBRK_FKA (FKART ACTVT), V_VBRK_VKO (VKORG ACTVT), V_KONH_VKO, V_KONH_VKS
+E VKM1 / VKM3: V_KNKK_FRE (KKBER SBGRP CTLPC KLPRZ ACTVT), V_VBUK_FRE (SIZEC ACTVT) - credit release, not offered
+E Goods issue 601 / 602: M_MSEG_BWA (ACTVT BWART) (movement type check of goods movements, same object as the PP goods movements); M_MSEG_WWA (ACTVT WERKS) exists; not verified in the SD path
+E WS_REVERSE_GOODS_ISSUE: AUTHORITY-CHECK V_LIKP_VST (source line 199)
+E The FMs BAPI_OUTB_DELIVERY_CREATE_SLS, WS_DELIVERY_UPDATE_2, BAPI_BILLINGDOC_CREATEMULTIPLE and BAPI_SALESORDER_SIMULATE contain no AUTHORITY-CHECK in their own source; checks happen in the called chain or are expected from the transaction: the handler must check the objects above itself before EXECUTE (fail closed)
+E BAPI_SALESORDER_CHANGE chain: SD_SALES_DOCUMENT_READ is called with I_NO_AUTHORITY_CHECK = space (SD_SALESDOCUMENT_CHANGE line 330), so V_VBAK_VKO / V_VBAK_AAT are checked
+
+## C. Test modes (what they really do)
+T SD.SO.* : BAPI_SALESORDER_CHANGE SIMULATION = X runs the document processing up to but excluding SD_SALES_DOCUMENT_SAVE. Customer / standard exits in FORM BELEG_SICHERN (USEREXIT_SAVE_DOCUMENT_PREPARE, USEREXIT_NUMBER_RANGE, USEREXIT_SAVE_DOCUMENT) are NOT reached; exits of the document check and item fill (USEREXIT_CHECK_VBAK / VBAP / VBKD / VBEP, USEREXIT_MOVE_FIELD_TO_VBAP) are called from VBAK_PRUEFEN / VBAP_PRUEFEN_ENDE / VBAP_FUELLEN (call sites read in SAPFV45K and SAPFV45P) and are expected to run. Not executed here.
+T SD.DLV.CREATE: no test mode.
+T SD.DLV.POST_GI: no verified test mode. Candidates: WS_DELIVERY_UPDATE_2 IF_DATABASE_UPDATE = 2 ("Check"); BAPI_OUTB_DELIVERY_CONFIRM_DEC HEADER_CONTROL-SIMULATE. The delivery exits USEREXIT_SAVE_DOCUMENT_PREPARE (SAPMV50A FORM BELEG_SICHERN_DET_CHECK, line 432) and USEREXIT_SAVE_DOCUMENT (FORM BELEG_SICHERN_POST, line 1577) are separate steps.
+T SD.DLV.REVERSE_GI: I_SIMULATE exists in the signature; behaviour not tested.
+T SD.BIL.CREATE / SD.BIL.CANCEL: TESTRUN builds the billing documents (no posting, no commit).
+T Customer user exits of the billing build (USEREXIT_FILL_VBRK_VBRP, USEREXIT_NUMBER_RANGE_INV_DATE, USEREXIT_PRICING_PREPARE_*) are called from the invoice build (LV60AA93, LV60AA94, LV60AA95); USEREXIT_NUMBER_RANGE and USEREXIT_SAVE_DOCUMENT_PREPARE of the billing save are in LV60AU02.
+
+## D. Rejected candidates
+R SD.CREDIT.RELEASE: SD_ORDER_CREDIT_RELEASE has no authority check, no return table, saves with commit; the standard dialog (VKM3) checks V_VBUK_FRE / V_KNKK_FRE before calling it. A safe wrapper would need those checks plus the credit master (blocked data). Not offered.
+R BAPI_SALESORDER_GETLIST: customer-centred, returns the customer name; not used for lists.
+R BAPI_DELIVERYPROCESSING_EXEC: not a delivery creation for orders; not used.
+
+## H. Handler checks (ECC740-DEV, 2026-11-09): ZCL_MCP_BIZ_SD_SO / _DLV / _BIL through ZMCP_BIZ_EXECUTE, verification harness
+H SD.SO.CREATE: TESTRUN preview leaves the database unchanged (snapshot); execute creates the order; header text and amounts verified by read-back
+H SD.SO.CHANGE_QTY_DATE / CHANGE_PRICE / SET and REMOVE billing block / REJECT_ITEM / UNREJECT_ITEM: SIMULATION preview rolls back (snapshot); execute verified by read-back; CHANGE_PRICE adds a new condition record
+H SD.SO.SET_DELIVERY_BLOCK: refused by the order BAPI when the user lacks the delivery block authorization (message returned unchanged)
+H SD.DLV.CREATE: static preview; execute creates the delivery (read-back of LIKP / LIPS); delivery relevance from VBUP-LFSTA
+H SD.DLV.POST_GI: WS_DELIVERY_UPDATE_2 with IF_DATABASE_UPDATE_1 = 2 saves nothing (snapshots before and after the call are equal) and runs the goods movement and accounting checks (MM period message M7 053, customer closing message)
+H SD.DLV.REVERSE_GI: preview static (I_SIMULATE of WS_REVERSE_GOODS_ISSUE cannot be used: the delivery is not found in simulation)
+H SD.BIL.CREATE / CANCEL: TESTRUN runs the invoice-build exits; execute not reached on this system because a customer billing check refuses every billing date for the test user
+H Amounts: the BAPI interface returns amounts in the internal 2-decimal scale; the handler converts with CURRENCY_AMOUNT_SAP_TO_BAPI (KRW 1,500 is held as 15.00)
+H Limits on this system: goods issue and reversal execute are closed by the MM period of the company code and a customer closing rule; no goods issue and no billing document were posted

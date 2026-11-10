@@ -23,6 +23,10 @@
  *       · GetSqlQuery
  *     One narrow exception: a GetSqlQuery that is a DD* repository metadata read
  *     in the shape analyze-cbo-obj Step G3a uses (lib/dd-metadata-query.mjs) is allowed.
+ *   - The business-action tools that change business data are never auto-approved
+ *     either (each preview / execution is a user decision, /sc4sap:assist):
+ *       · PreviewBusinessAction
+ *       · ExecuteBusinessAction
  *   - Every other tool → no decision (normal permission flow preserved).
  *
  * Kill switch: DISABLE_SC4SAP=1 disables auto-approval.
@@ -43,6 +47,9 @@ const SAP_NAMESPACES = ['mcp__plugin_sc4sap_sap__', 'mcp__mcp-abap-adt__'];
 
 // Row-level data extraction — must always remain an explicit user decision.
 const GATED_TOOLS = ['GetTableContents', 'GetSqlQuery'];
+
+// Business-data changes (/sc4sap:assist) — always an explicit user decision.
+const BUSINESS_WRITE_TOOLS = ['PreviewBusinessAction', 'ExecuteBusinessAction'];
 
 function extractJsonField(input, field, defaultValue = '') {
   try {
@@ -90,6 +97,11 @@ async function main() {
           },
         })
       );
+      return;
+    }
+    if (BUSINESS_WRITE_TOOLS.includes(handler)) {
+      // Never auto-approve a business preview or execution.
+      passthrough();
       return;
     }
     if (GATED_TOOLS.includes(handler)) {

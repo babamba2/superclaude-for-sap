@@ -1,0 +1,16 @@
+# P1 evidence — ECC731-DEV (ECC, ABAP 7.31), 2026-11-09, read-only (sap-checker + main-thread GetFunctionModule re-check)
+SYSTEM ECC731-DEV
+A BAPI_PO_CHANGE group=2012 found=yes missing_params=none notes="RETURN BAPIRET2; TESTRUN present"
+A BAPI_PO_GETDETAIL1 group=2012 found=yes missing_params=none notes="RETURN BAPIRET2"
+A BAPI_PO_GETRELINFO group=MEWF found=yes missing_params=none notes="RETURN BAPIRETURN"
+A BAPI_PO_RELEASE group=MEWF found=yes missing_params=none notes="RETURN BAPIRETURN; NO_COMMIT present"
+A BAPI_PO_RESET_RELEASE group=MEWF found=yes missing_params=NO_COMMIT notes="RE-CHECKED: signature has PURCHASEORDER, PO_REL_CODE, USE_EXCEPTIONS only; body calls ME_PURCHASE_DOCUMENT_DATA_SAVE with i_no_commit = ' ' (line 308) -> the BAPI commits itself, no rollback possible"
+A BAPI_GOODSMVT_CREATE group=MB_BUS2017 found=yes missing_params=none notes="RETURN BAPIRET2; TESTRUN present"
+A BAPI_TRANSACTION_COMMIT group=BAPT found=yes missing_params=none
+A BAPI_TRANSACTION_ROLLBACK group=BAPT found=yes missing_params=none
+B BAPIMEPOITEM: PO_ITEM, DELETE_IND, MATERIAL CHAR18, QUANTITY, NO_MORE_GR, FINAL_INV present; MATERIAL_LONG missing
+B BAPIMEPOITEMX: PO_ITEM, PO_ITEMX, DELETE_IND, QUANTITY, NO_MORE_GR, FINAL_INV present
+B BAPIMEPOSCHEDULE / BAPIMEPOSCHEDULX: all checked fields present
+B BAPI2017_GM_ITEM_CREATE: all checked fields present; MATERIAL CHAR18; MATERIAL_LONG missing
+C EKKO / EKPO / EKET: all checked fields present
+D skipped (ECC)

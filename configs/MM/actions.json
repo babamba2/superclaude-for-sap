@@ -1,0 +1,1617 @@
+{
+  "schemaVersion": 1,
+  "module": "MM",
+  "area": "purchasing",
+  "notes": [
+    "Business actions for /sc4sap:assist. Executed only through ZMCP_BIZ_EXECUTE on the SAP side.",
+    "An action is shown to the user only when verified_on is not empty for the connected system family (ECC or S4).",
+    "Business-meaning questions have no defaults: the skill asks them (clarify). Technical rules are fixed (rules).",
+    "S4 handlers fill and read MATERIAL_LONG (CHAR 40) in BAPI structures; ECC handlers use MATERIAL (CHAR 18). Verified 2026-11-09.",
+    "BAPI_PO_RELEASE / BAPI_PO_RESET_RELEASE return BAPIRETURN (not BAPIRET2), raise classic exceptions and have no TESTRUN. Handlers map BAPIRETURN to the common result shape."
+  ],
+  "actions": [
+    {
+      "id": "MM.PO.LIST_OPEN",
+      "object": "PurchaseOrder",
+      "kind": "query",
+      "risk": "none",
+      "title": "List open purchase order items",
+      "intents": {
+        "en": [
+          "open purchase orders",
+          "open POs",
+          "POs not yet received"
+        ],
+        "ko": [
+          "미결 구매오더",
+          "미결 PO",
+          "입고 안 된 PO",
+          "미입고"
+        ]
+      },
+      "params": [
+        {
+          "name": "date_basis",
+          "type": "enum",
+          "values": [
+            "due_today",
+            "overdue_until_today",
+            "all_open"
+          ],
+          "required": true
+        },
+        {
+          "name": "ekgrp",
+          "type": "string",
+          "required": false,
+          "description": "Purchasing group"
+        },
+        {
+          "name": "lifnr",
+          "type": "string",
+          "required": false,
+          "description": "Vendor"
+        },
+        {
+          "name": "werks",
+          "type": "string",
+          "required": false,
+          "description": "Plant"
+        },
+        {
+          "name": "include_unreleased",
+          "type": "boolean",
+          "required": true
+        },
+        {
+          "name": "max_rows",
+          "type": "integer",
+          "required": false,
+          "default": 200
+        }
+      ],
+      "clarify": [
+        {
+          "param": "date_basis",
+          "ask": "Which open items: only those due today, everything due up to today, or every open item?",
+          "options": [
+            "due_today",
+            "overdue_until_today",
+            "all_open"
+          ]
+        },
+        {
+          "param": "scope",
+          "ask": "Whose orders: your purchasing group only, or a specific vendor or plant?",
+          "when": "ekgrp, lifnr and werks are all missing"
+        },
+        {
+          "param": "include_unreleased",
+          "ask": "Include orders that are not released yet?",
+          "options": [
+            true,
+            false
+          ]
+        }
+      ],
+      "rules": [
+        "open quantity = EKET-MENGE - EKET-WEMNG > 0",
+        "exclude EKPO-LOEKZ <> space and EKPO-ELIKZ = 'X'",
+        "exclude EKKO-LOEKZ <> space",
+        "only EKKO-BSTYP = 'F' (purchase orders)",
+        "date_basis due_today: EKET-EINDT = today; overdue_until_today: EKET-EINDT <= today",
+        "include_unreleased = false: EKKO-FRGKE must be released or no release strategy (FRGZU complete or FRGKE space)"
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "EKKO",
+            "EKPO",
+            "EKET"
+          ],
+          "method": "select"
+        },
+        "S4": {
+          "source": [
+            "EKKO",
+            "EKPO",
+            "EKET"
+          ],
+          "method": "select",
+          "later": "released CDS I_PurchaseOrderItemAPI01 (deferred with released APIs)"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_BEST_EKG",
+          "fields": {
+            "ACTVT": "03",
+            "EKGRP": "<row>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "MM.PO.GET_DETAIL",
+      "object": "PurchaseOrder",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show purchase order detail",
+      "intents": {
+        "en": [
+          "show PO",
+          "PO detail"
+        ],
+        "ko": [
+          "PO 상세",
+          "구매오더 조회"
+        ]
+      },
+      "params": [
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PO_GETDETAIL1",
+          "group": "2012",
+          "tables": [
+            "POITEM",
+            "POSCHEDULE"
+          ],
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_PO_GETDETAIL1",
+          "group": "2012",
+          "tables": [
+            "POITEM",
+            "POSCHEDULE"
+          ],
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_BEST_EKO",
+          "fields": {
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "MM.PO.GET_HISTORY",
+      "object": "PurchaseOrder",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show goods receipt and invoice history of a purchase order",
+      "intents": {
+        "en": [
+          "PO history",
+          "goods receipts of PO"
+        ],
+        "ko": [
+          "PO 이력",
+          "입고 이력",
+          "송장 이력"
+        ]
+      },
+      "params": [
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ebelp",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PO_GETDETAIL1",
+          "group": "2012",
+          "tables": [
+            "POHISTORY",
+            "POHISTORY_TOTALS"
+          ],
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_PO_GETDETAIL1",
+          "group": "2012",
+          "tables": [
+            "POHISTORY",
+            "POHISTORY_TOTALS"
+          ],
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_BEST_EKO",
+          "fields": {
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "MM.PO.SET_DELIVERY_COMPLETE",
+      "object": "PurchaseOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Set the delivery-completed indicator on PO items",
+      "intents": {
+        "en": [
+          "close PO",
+          "delivery complete",
+          "no more goods receipt"
+        ],
+        "ko": [
+          "완결",
+          "납품 완료",
+          "더 이상 입고 없음"
+        ]
+      },
+      "ambiguity": {
+        "term": {
+          "en": "close",
+          "ko": "완결"
+        },
+        "candidates": [
+          "MM.PO.SET_DELIVERY_COMPLETE",
+          "MM.PO.SET_FINAL_INVOICE",
+          "MM.PO.DELETE_ITEM"
+        ],
+        "ask": "By 'close', do you mean no more goods receipts (delivery completed), no more invoices (final invoice), or deleting the item?"
+      },
+      "params": [
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ebelp",
+          "type": "string[]",
+          "required": false
+        },
+        {
+          "name": "cbo",
+          "type": "string[]",
+          "required": false,
+          "format": "H.<FIELD>=<value> | I.<ebelp>.<FIELD>=<value>; dates YYYY-MM-DD, numbers with . as decimal separator"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "ebelp",
+          "ask": "All items of this order, or only some items?",
+          "when": "ebelp is missing and the order has more than one open item"
+        },
+        {
+          "param": "cbo",
+          "ask": "This PO has customer fields (cbo_fields in the preview). Must any of them change together with this action?",
+          "when": "the PREVIEW result lists cbo_fields; ask once, before EXECUTE; fields with settable=false can only be shown (explain the note)"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POITEM-NO_MORE_GR = 'X', POITEMX-NO_MORE_GR = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POITEM-NO_MORE_GR = 'X', POITEMX-NO_MORE_GR = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_BEST_EKO",
+          "fields": {
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "reverse": "MM.PO.UNSET_DELIVERY_COMPLETE",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "MM.PO.UNSET_DELIVERY_COMPLETE",
+      "object": "PurchaseOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Remove the delivery-completed indicator from PO items",
+      "intents": {
+        "en": [
+          "reopen PO item"
+        ],
+        "ko": [
+          "완결 취소",
+          "납품완료 해제"
+        ]
+      },
+      "params": [
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ebelp",
+          "type": "string[]",
+          "required": true
+        },
+        {
+          "name": "cbo",
+          "type": "string[]",
+          "required": false,
+          "format": "H.<FIELD>=<value> | I.<ebelp>.<FIELD>=<value>; dates YYYY-MM-DD, numbers with . as decimal separator"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POITEM-NO_MORE_GR = space, POITEMX-NO_MORE_GR = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POITEM-NO_MORE_GR = space, POITEMX-NO_MORE_GR = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_BEST_EKO",
+          "fields": {
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "reverse": "MM.PO.SET_DELIVERY_COMPLETE",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "cbo",
+          "ask": "This PO has customer fields (cbo_fields in the preview). Must any of them change together with this action?",
+          "when": "the PREVIEW result lists cbo_fields; ask once, before EXECUTE; fields with settable=false can only be shown (explain the note)"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "MM.PO.SET_FINAL_INVOICE",
+      "object": "PurchaseOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Set the final-invoice indicator on PO items",
+      "intents": {
+        "en": [
+          "final invoice"
+        ],
+        "ko": [
+          "최종 송장"
+        ]
+      },
+      "params": [
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ebelp",
+          "type": "string[]",
+          "required": true
+        },
+        {
+          "name": "cbo",
+          "type": "string[]",
+          "required": false,
+          "format": "H.<FIELD>=<value> | I.<ebelp>.<FIELD>=<value>; dates YYYY-MM-DD, numbers with . as decimal separator"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POITEM-FINAL_INV = 'X', POITEMX-FINAL_INV = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POITEM-FINAL_INV = 'X', POITEMX-FINAL_INV = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_BEST_EKO",
+          "fields": {
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "cbo",
+          "ask": "This PO has customer fields (cbo_fields in the preview). Must any of them change together with this action?",
+          "when": "the PREVIEW result lists cbo_fields; ask once, before EXECUTE; fields with settable=false can only be shown (explain the note)"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "MM.PO.CHANGE_DELIVERY_DATE",
+      "object": "PurchaseOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Change the delivery date of a schedule line",
+      "intents": {
+        "en": [
+          "change delivery date"
+        ],
+        "ko": [
+          "납기 변경",
+          "납기일 변경"
+        ]
+      },
+      "params": [
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ebelp",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "etenr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "new_date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "cbo",
+          "type": "string[]",
+          "required": false,
+          "format": "H.<FIELD>=<value> | I.<ebelp>.<FIELD>=<value>; dates YYYY-MM-DD, numbers with . as decimal separator"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "etenr",
+          "ask": "This item has several schedule lines. Which one should move?",
+          "when": "item has more than one schedule line"
+        },
+        {
+          "param": "cbo",
+          "ask": "This PO has customer fields (cbo_fields in the preview). Must any of them change together with this action?",
+          "when": "the PREVIEW result lists cbo_fields; ask once, before EXECUTE; fields with settable=false can only be shown (explain the note)"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POSCHEDULE-DELIVERY_DATE, POSCHEDULX-DELIVERY_DATE = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POSCHEDULE-DELIVERY_DATE, POSCHEDULX-DELIVERY_DATE = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_BEST_EKO",
+          "fields": {
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "MM.PO.CHANGE_QUANTITY",
+      "object": "PurchaseOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Change the order quantity of a PO item",
+      "intents": {
+        "en": [
+          "change PO quantity"
+        ],
+        "ko": [
+          "수량 변경",
+          "발주 수량 변경"
+        ]
+      },
+      "params": [
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ebelp",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "new_quantity",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "cbo",
+          "type": "string[]",
+          "required": false,
+          "format": "H.<FIELD>=<value> | I.<ebelp>.<FIELD>=<value>; dates YYYY-MM-DD, numbers with . as decimal separator"
+        }
+      ],
+      "rules": [
+        "new_quantity must not be below the quantity already received (POHISTORY_TOTALS)"
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POITEM-QUANTITY, POITEMX-QUANTITY = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POITEM-QUANTITY, POITEMX-QUANTITY = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_BEST_EKO",
+          "fields": {
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "cbo",
+          "ask": "This PO has customer fields (cbo_fields in the preview). Must any of them change together with this action?",
+          "when": "the PREVIEW result lists cbo_fields; ask once, before EXECUTE; fields with settable=false can only be shown (explain the note)"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "MM.PO.RELEASE",
+      "object": "PurchaseOrder",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Release a purchase order with a release code",
+      "intents": {
+        "en": [
+          "release PO",
+          "approve PO"
+        ],
+        "ko": [
+          "PO 승인",
+          "구매오더 릴리즈"
+        ]
+      },
+      "params": [
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "rel_code",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "rel_code",
+          "ask": "Which release code do you release with?",
+          "when": "the user holds more than one release code for this strategy (from BAPI_PO_GETRELINFO)"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PO_RELEASE",
+          "group": "MEWF",
+          "testrun": "none",
+          "preview": "BAPI_PO_GETRELINFO (current status and pending codes, no call to BAPI_PO_RELEASE)",
+          "commit": "NO_COMMIT = 'X' then BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRETURN",
+          "exceptions": true
+        },
+        "S4": {
+          "fm": "BAPI_PO_RELEASE",
+          "group": "MEWF",
+          "testrun": "none",
+          "preview": "BAPI_PO_GETRELINFO (current status and pending codes, no call to BAPI_PO_RELEASE)",
+          "commit": "NO_COMMIT = 'X' then BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRETURN",
+          "exceptions": true
+        }
+      },
+      "auth": [
+        {
+          "object": "M_EINK_FRG",
+          "fields": {
+            "FRGGR": "<po>",
+            "FRGCO": "<rel_code>"
+          }
+        }
+      ],
+      "reverse": "MM.PO.RESET_RELEASE",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "No test mode: the preview shows the release status and codes only; the release itself is not tried.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "테스트 모드가 없어요. 미리보기는 승인 상태와 코드만 보여 주고, 승인 자체는 시도하지 않아요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "MM.PO.RESET_RELEASE",
+      "object": "PurchaseOrder",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Cancel a release of a purchase order",
+      "intents": {
+        "en": [
+          "cancel PO release"
+        ],
+        "ko": [
+          "승인 취소",
+          "릴리즈 취소"
+        ]
+      },
+      "params": [
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "rel_code",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PO_RESET_RELEASE",
+          "group": "MEWF",
+          "testrun": "none",
+          "preview": "BAPI_PO_GETRELINFO",
+          "commit": "NO_COMMIT = 'X' then BAPI_TRANSACTION_COMMIT when the parameter exists; otherwise the BAPI commits itself (no rollback)",
+          "return": "BAPIRETURN",
+          "exceptions": true,
+          "no_commit_param": "check at runtime (FUPARAREF), not by release: missing on ECC731-DEV 7.31, present on ECC740-DEV 7.40"
+        },
+        "S4": {
+          "fm": "BAPI_PO_RESET_RELEASE",
+          "group": "MEWF",
+          "testrun": "none",
+          "preview": "BAPI_PO_GETRELINFO",
+          "commit": "NO_COMMIT = 'X' then BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRETURN",
+          "exceptions": true
+        }
+      },
+      "auth": [
+        {
+          "object": "M_EINK_FRG",
+          "fields": {
+            "FRGGR": "<po>",
+            "FRGCO": "<rel_code>"
+          }
+        }
+      ],
+      "reverse": "MM.PO.RELEASE",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ],
+      "rules": [
+        "when NO_COMMIT is missing, tell the user before EXECUTE that the change cannot be rolled back"
+      ],
+      "preview_limits": {
+        "en": [
+          "No test mode: the preview shows the release status and codes only; the reset itself is not tried.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "테스트 모드가 없어요. 미리보기는 승인 상태와 코드만 보여 주고, 승인 취소 자체는 시도하지 않아요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "MM.PO.DELETE_ITEM",
+      "object": "PurchaseOrder",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Set the deletion indicator on a PO item",
+      "intents": {
+        "en": [
+          "delete PO item",
+          "cancel PO item"
+        ],
+        "ko": [
+          "품목 삭제",
+          "PO 삭제"
+        ]
+      },
+      "params": [
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ebelp",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "cbo",
+          "type": "string[]",
+          "required": false,
+          "format": "H.<FIELD>=<value> | I.<ebelp>.<FIELD>=<value>; dates YYYY-MM-DD, numbers with . as decimal separator"
+        }
+      ],
+      "rules": [
+        "refuse when the item already has goods receipts or invoices (POHISTORY not empty): suggest delivery completed instead"
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POITEM-DELETE_IND = 'L', POITEMX-DELETE_IND = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_PO_CHANGE",
+          "group": "2012",
+          "set": "POITEM-DELETE_IND = 'L', POITEMX-DELETE_IND = 'X'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_BEST_EKO",
+          "fields": {
+            "ACTVT": "06"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "cbo",
+          "ask": "This PO has customer fields (cbo_fields in the preview). Must any of them change together with this action?",
+          "when": "the PREVIEW result lists cbo_fields; ask once, before EXECUTE; fields with settable=false can only be shown (explain the note)"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "MM.GR.POST",
+      "object": "GoodsMovement",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Post a goods receipt for a PO item (movement type 101)",
+      "intents": {
+        "en": [
+          "post goods receipt",
+          "receive PO"
+        ],
+        "ko": [
+          "입고 처리",
+          "입고"
+        ]
+      },
+      "params": [
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "ebelp",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "quantity",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "lgort",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "charg",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "stock_type",
+          "type": "enum",
+          "values": [
+            "F",
+            "X",
+            "S"
+          ],
+          "required": false,
+          "description": "Stock type of the receipt: F unrestricted (default), X quality inspection, S blocked"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "quantity",
+          "ask": "Receive the full open quantity or a part of it?",
+          "when": "quantity is missing"
+        },
+        {
+          "param": "posting_date",
+          "ask": "Which posting date? Today, or another date?",
+          "when": "posting_date is missing"
+        },
+        {
+          "param": "lgort",
+          "ask": "Into which storage location?",
+          "when": "the PO item has no storage location"
+        },
+        {
+          "param": "charg",
+          "ask": "The material is batch-managed: which batch should the goods go into?",
+          "when": "the material is batch-managed and charg is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_GOODSMVT_CREATE",
+          "group": "MB_BUS2017",
+          "set": "GOODSMVT_CODE = '01', MOVE_TYPE = '101', MVT_IND = 'B'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "material_field": "MATERIAL (CHAR 18)"
+        },
+        "S4": {
+          "fm": "BAPI_GOODSMVT_CREATE",
+          "group": "MB_BUS2017",
+          "set": "GOODSMVT_CODE = '01', MOVE_TYPE = '101', MVT_IND = 'B'",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "material_field": "MATERIAL_LONG (CHAR 40); MATERIAL (CHAR 18) is compatibility only"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_MSEG_BWE",
+          "fields": {
+            "ACTVT": "01",
+            "BWART": "101"
+          }
+        },
+        {
+          "object": "M_MSEG_WWE",
+          "fields": {
+            "ACTVT": "01",
+            "WERKS": "<item>"
+          }
+        }
+      ],
+      "reverse": "MM.GR.CANCEL (not in pilot)",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        },
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/S4-DEV.txt"
+        },
+        {
+          "alias": "ECC731-DEV",
+          "family": "ECC",
+          "release": "731",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/MM/actions-evidence/ECC731-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "kind": "query",
+      "risk": "none",
+      "id": "MM.VENDOR.GET_STATUS",
+      "object": "Vendor",
+      "title": "Show the posting, purchasing, payment and deletion blocks of a vendor (flags only, no name or address)",
+      "intents": {
+        "en": [
+          "is the vendor blocked",
+          "vendor block",
+          "supplier status"
+        ],
+        "ko": [
+          "거래처 블록",
+          "공급업체 차단 여부",
+          "벤더 상태"
+        ]
+      },
+      "params": [
+        {
+          "name": "lifnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": false,
+          "description": "Company code (all when empty)"
+        }
+      ],
+      "rules": [
+        "LFA1-SPERR / SPERM / LOEVM, LFB1-SPERR / ZAHLS / LOEVM per company code, LFM1-SPERM / LOEVM per purchasing organization",
+        "never name, address or bank data"
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LFA1",
+            "LFB1",
+            "LFM1"
+          ],
+          "method": "select"
+        },
+        "S4": {
+          "source": [
+            "LFA1",
+            "LFB1",
+            "LFM1"
+          ],
+          "method": "select",
+          "note": "business partner (BUT000) blocks are mirrored by CVI into these tables"
+        }
+      },
+      "auth": [
+        {
+          "object": "F_LFA1_BUK",
+          "fields": {
+            "ACTVT": "03",
+            "BUKRS": "<row>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "unit-test",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "kind": "query",
+      "risk": "none",
+      "id": "MM.PERIOD.GET",
+      "object": "MMPeriod",
+      "title": "Show the open MM posting period of a company code (MARV)",
+      "intents": {
+        "en": [
+          "open MM period",
+          "which period is open for goods movements"
+        ],
+        "ko": [
+          "MM 기간",
+          "자재 전기 기간",
+          "열린 기간"
+        ]
+      },
+      "params": [
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "rules": [
+        "current period MARV-LFMON / LFGJA, previous VMMON / VMGJA, XRUEM = posting into the previous period allowed",
+        "any other posting date fails with M7 053"
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "MARV"
+          ],
+          "method": "select"
+        },
+        "S4": {
+          "source": [
+            "MARV"
+          ],
+          "method": "select"
+        }
+      },
+      "auth": [
+        {
+          "object": "none",
+          "fields": {},
+          "note": "customizing-like data, no business values"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "unit-test",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "kind": "query",
+      "risk": "none",
+      "id": "MM.STOCK.GET",
+      "object": "MaterialStock",
+      "title": "Show the stock of a material per storage location (unrestricted, quality inspection, blocked, in transfer)",
+      "intents": {
+        "en": [
+          "stock of material",
+          "how much stock",
+          "available stock"
+        ],
+        "ko": [
+          "재고 조회",
+          "재고 얼마",
+          "가용 재고"
+        ]
+      },
+      "params": [
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "werks",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lgort",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "rules": [
+        "MARD-LABST / INSME / SPEME / UMLME / EINME / RETME, storage locations not flagged for deletion"
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "MARD",
+            "MARA"
+          ],
+          "method": "select"
+        },
+        "S4": {
+          "source": [
+            "MARD",
+            "MARA"
+          ],
+          "method": "select",
+          "later": "released CDS I_MaterialStock (MARD is a compatibility view on S/4)"
+        }
+      },
+      "auth": [
+        {
+          "object": "M_MATE_WRK",
+          "fields": {
+            "ACTVT": "03",
+            "WERKS": "<plant>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "unit-test",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "kind": "query",
+      "risk": "none",
+      "id": "MM.IV.LIST_BLOCKED",
+      "object": "SupplierInvoice",
+      "title": "List posted supplier invoices blocked for payment by invoice verification (payment block R)",
+      "intents": {
+        "en": [
+          "blocked invoices",
+          "invoices blocked for payment",
+          "MRBR list"
+        ],
+        "ko": [
+          "보류 송장",
+          "지급 보류 송장",
+          "블록된 송장"
+        ]
+      },
+      "params": [
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lifnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "integer",
+          "required": false,
+          "default": 200
+        }
+      ],
+      "rules": [
+        "RBKP-RBSTAT = 5, ZLSPR = R, not reversed (STBLG initial)",
+        "release: MRBR (automatic when the price / quantity / date variance is cleared, or manual)"
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "RBKP"
+          ],
+          "method": "select"
+        },
+        "S4": {
+          "source": [
+            "RBKP"
+          ],
+          "method": "select"
+        }
+      },
+      "auth": [
+        {
+          "object": "F_BKPF_BUK",
+          "fields": {
+            "ACTVT": "03",
+            "BUKRS": "<company code>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "unit-test",
+          "evidence": "configs/MM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    }
+  ]
+}

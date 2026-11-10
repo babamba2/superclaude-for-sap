@@ -1,0 +1,1001 @@
+{
+  "schemaVersion": 1,
+  "module": "CO",
+  "area": "internal orders, cost centers, allocations, planning",
+  "notes": [
+    "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side.",
+    "Draft 2026-11-09: interface and source checked on ECC740-DEV only; S4-DEV and ECC731-DEV pending.",
+    "testrun CHECK_FM = a separate check FM (check_fm) runs the same checks without posting; CHECK_ONLY = the same FM with a check-only flag; none = preview from facts and biz-rules.",
+    "Customer exits for orders and allocations are system specific and live in biz-rules/CO.json of the profile, not in this catalog."
+  ],
+  "actions": [
+    {
+      "id": "CO.ORD.GET_DETAIL",
+      "object": "InternalOrder",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show an internal order (master data, system / user status, allowed business transactions)",
+      "intents": {
+        "en": [
+          "show internal order",
+          "order status",
+          "what can I do with this order"
+        ],
+        "ko": [
+          "내부오더 조회",
+          "오더 상태",
+          "오더 상세"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_INTERNALORDER_GETDETAIL",
+          "return": "BAPIRETURN",
+          "note": "returns SYSTEM_STATUS, USER_STATUS and ALLOWED_BUS_TRACT (business transactions allowed in the current status); the handler reads the order header from AUFK and the active statuses from JEST, no person responsible"
+        },
+        "S4": {
+          "fm": "BAPI_INTERNALORDER_GETDETAIL",
+          "return": "BAPIRETURN",
+          "note": "returns SYSTEM_STATUS, USER_STATUS and ALLOWED_BUS_TRACT (business transactions allowed in the current status); the handler reads the order header from AUFK and the active statuses from JEST, no person responsible"
+        }
+      },
+      "auth": [
+        {
+          "object": "K_ORDER",
+          "fields": {
+            "RESPAREA": "not checked",
+            "AUFART": "<order type>",
+            "AUTHPHASE": "not checked",
+            "CO_ACTION": "0003",
+            "KSTAR": "not checked"
+          },
+          "note": "CO_ACTION 0003 = display"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "CO.ORD.LIST",
+      "object": "InternalOrder",
+      "kind": "query",
+      "risk": "none",
+      "title": "List internal orders by company code, type, status or responsible cost center",
+      "intents": {
+        "en": [
+          "list internal orders",
+          "open orders",
+          "released orders"
+        ],
+        "ko": [
+          "내부오더 목록",
+          "릴리스된 오더",
+          "미결 오더"
+        ]
+      },
+      "params": [
+        {
+          "name": "kokrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "order_type",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": true,
+          "values": [
+            "created",
+            "released",
+            "teco",
+            "closed",
+            "all"
+          ]
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "status",
+          "ask": "Which orders: created, released, technically complete, closed, or all?",
+          "when": "status is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "note": "internal orders (order category 30) of the controlling area, status taken from the active JEST rows (created, released, teco, closed, locked, all_open); no BAPI needed",
+          "source": [
+            "AUFK",
+            "JEST"
+          ],
+          "return": "rows"
+        },
+        "S4": {
+          "note": "internal orders (order category 30) of the controlling area, status taken from the active JEST rows (created, released, teco, closed, locked, all_open); no BAPI needed",
+          "source": [
+            "AUFK",
+            "JEST"
+          ],
+          "return": "rows"
+        }
+      },
+      "auth": [
+        {
+          "object": "K_ORDER",
+          "fields": {
+            "RESPAREA": "not checked",
+            "AUFART": "<order type>",
+            "AUTHPHASE": "not checked",
+            "CO_ACTION": "0003",
+            "KSTAR": "not checked"
+          },
+          "note": "CO_ACTION 0003 = display; orders of an order type the user may not display are left out and counted"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "CO.ORD.SET_STATUS",
+      "object": "InternalOrder",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Release, complete technically (TECO), close, lock or unlock an internal order, or revoke the closing",
+      "intents": {
+        "en": [
+          "release internal order",
+          "TECO order",
+          "close internal order",
+          "lock order",
+          "unlock order",
+          "revoke order closing"
+        ],
+        "ko": [
+          "내부오더 릴리스",
+          "오더 기술적 완료",
+          "내부오더 종료",
+          "오더 잠금",
+          "오더 잠금 해제",
+          "오더 종료 취소"
+        ]
+      },
+      "ambiguity": {
+        "term": {
+          "en": "close",
+          "ko": "종료"
+        },
+        "candidates": [
+          "CO.ORD.SET_STATUS"
+        ],
+        "ask": "By closing, do you mean technical completion (TECO) or final closing (CLSD)?"
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "target",
+          "type": "string",
+          "required": true,
+          "values": [
+            "release",
+            "teco",
+            "close",
+            "lock",
+            "unlock",
+            "revoke_close"
+          ]
+        }
+      ],
+      "clarify": [
+        {
+          "param": "target",
+          "ask": "Which status: release, technically complete (TECO), close, lock, unlock or revoke the closing?",
+          "when": "target is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "STATUS_CHANGE_FOR_ACTIVITY",
+          "set": "OBJNR = order object number (OR + order), VRGNG = TJ01 business transaction of the target: release FREI, TECO BTAB, close BABS, lock BLOC, unlock BUNL, revoke close BUAB",
+          "testrun": "CHECK_ONLY",
+          "preview": "static checks of the handler on the active JEST statuses (already released / locked / closed, flagged for deletion) + STATUS_CHANGE_FOR_ACTIVITY with CHECK_ONLY = X + CO.ORD.GET_DETAIL (allowed transactions) + biz-rules/CO.json",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "exceptions STATUS_NOT_ALLOWED / STATUS_INCONSISTENT / ACTIVITY_NOT_ALLOWED / OBJECT_NOT_FOUND",
+          "note": "CHECK_ONLY is a weak preview: it accepts lock on a locked order, close on a released order and release when the status profile does not allow it; the handler therefore adds its own status checks. Persistence is in the update task: the handler waits for the JEST change and reports an error when nothing changed (a status profile with a user-status precondition can make release and revoke close a no-op). No BAPI_INTERNALORDER_CHANGE on this release."
+        },
+        "S4": {
+          "fm": "STATUS_CHANGE_FOR_ACTIVITY",
+          "set": "OBJNR = order object number (OR + order), VRGNG = TJ01 business transaction of the target: release FREI, TECO BTAB, close BABS, lock BLOC, unlock BUNL, revoke close BUAB",
+          "testrun": "CHECK_ONLY",
+          "preview": "static checks of the handler on the active JEST statuses (already released / locked / closed, flagged for deletion) + STATUS_CHANGE_FOR_ACTIVITY with CHECK_ONLY = X + CO.ORD.GET_DETAIL (allowed transactions) + biz-rules/CO.json",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "exceptions STATUS_NOT_ALLOWED / STATUS_INCONSISTENT / ACTIVITY_NOT_ALLOWED / OBJECT_NOT_FOUND",
+          "note": "CHECK_ONLY is a weak preview: it accepts lock on a locked order, close on a released order and release when the status profile does not allow it; the handler therefore adds its own status checks. Persistence is in the update task: the handler waits for the JEST change and reports an error when nothing changed (a status profile with a user-status precondition can make release and revoke close a no-op). No BAPI_INTERNALORDER_CHANGE on this release."
+        }
+      },
+      "auth": [
+        {
+          "object": "K_ORDER",
+          "fields": {
+            "RESPAREA": "not checked",
+            "AUFART": "<order type>",
+            "AUTHPHASE": "not checked",
+            "CO_ACTION": "0011 release, 0013 TECO, 0014 close / revoke close, 0015 lock, 0016 unlock",
+            "KSTAR": "not checked"
+          },
+          "note": "the handler checks the CO_ACTION of the requested target"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The SAP status check is weak; the handler adds its own status checks.",
+          "Status profiles with user-status steps can accept the request without changing the status; the result then says so.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "SAP 상태 체크가 약해요. 핸들러가 자체 상태 체크를 더해요.",
+          "사용자 상태 단계가 있는 프로파일은 요청을 받고도 상태를 바꾸지 않을 수 있어요. 그때는 결과에서 알려요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "CO.CC.GET_DETAIL",
+      "object": "CostCenter",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a cost center (validity, responsible area, lock indicators)",
+      "intents": {
+        "en": [
+          "cost center detail",
+          "is the cost center locked",
+          "cost center master"
+        ],
+        "ko": [
+          "코스트센터 조회",
+          "코스트센터 잠금 여부",
+          "코스트센터 정보"
+        ]
+      },
+      "params": [
+        {
+          "name": "kokrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "kostl",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "key_date",
+          "type": "date",
+          "required": false
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "note": "validity (key date), hierarchy area, category and lock flags from CSKS, text from CSKT in the logon language; the person responsible is a personal data field and is not returned",
+          "source": [
+            "CSKS",
+            "CSKT"
+          ],
+          "return": "rows"
+        },
+        "S4": {
+          "note": "validity (key date), hierarchy area, category and lock flags from CSKS, text from CSKT in the logon language; the person responsible is a personal data field and is not returned",
+          "source": [
+            "CSKS",
+            "CSKT"
+          ],
+          "return": "rows"
+        }
+      },
+      "auth": [
+        {
+          "object": "K_CSKS",
+          "fields": {
+            "ACTVT": "03",
+            "KOKRS": "<controlling area>",
+            "KOSTL": "<cost center>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "CO.CC.GET_ACTUALS",
+      "object": "CostCenter",
+      "kind": "query",
+      "risk": "none",
+      "title": "Actual versus plan of a cost center for a period range",
+      "intents": {
+        "en": [
+          "cost center actual vs plan",
+          "cost center report",
+          "budget vs actual"
+        ],
+        "ko": [
+          "코스트센터 실적 계획 비교",
+          "코스트센터 실적",
+          "계획 대비 실적"
+        ]
+      },
+      "params": [
+        {
+          "name": "kokrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "kostl",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "fiscal_year",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "from_period",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "to_period",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "fiscal_year",
+          "ask": "Which fiscal year?",
+          "when": "fiscal_year is missing"
+        },
+        {
+          "param": "from_period",
+          "ask": "From which period to which period?",
+          "when": "period range is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "COSP",
+            "COSS"
+          ],
+          "return": "rows",
+          "note": "actual = value type 04 (version 000), plan = value type 01 of the requested version (default 000), totals per cost element for the period range, summed from COSP and COSS; amounts are returned in the real currency amount (SAP stores two decimals for every currency); no standard BAPI reads cost-center totals"
+        },
+        "S4": {
+          "source": [
+            "ACDOCA"
+          ],
+          "return": "rows",
+          "note": "ACDOCA on S/4 (CO postings are in the universal journal)"
+        }
+      },
+      "auth": [
+        {
+          "object": "K_CSKS",
+          "fields": {
+            "ACTVT": "03",
+            "KOKRS": "<controlling area>",
+            "KOSTL": "<cost center>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "CO.PLAN.READ_PRIMARY",
+      "object": "PlanData",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show primary cost plan data of a cost center",
+      "intents": {
+        "en": [
+          "show cost plan",
+          "primary cost plan"
+        ],
+        "ko": [
+          "원가 계획 조회",
+          "1차원가 계획"
+        ]
+      },
+      "params": [
+        {
+          "name": "kokrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "fiscal_year",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "kostl",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "COSP"
+          ],
+          "return": "rows",
+          "note": "primary plan values (value type 01 of the plan version) per cost element and period from COSP; BAPI_COSTACTPLN_READPRIMCOST was tried and returned no values for period plans"
+        },
+        "S4": {
+          "source": [
+            "ACDOCP"
+          ],
+          "return": "rows",
+          "note": "plan data lives in ACDOCP on S/4; to be re-verified on the S/4 system"
+        }
+      },
+      "auth": [
+        {
+          "object": "K_CSKS_PLA",
+          "fields": {
+            "ACTVT": "03",
+            "KOKRS": "<controlling area>",
+            "KOSTL": "<cost center>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "CO.REPOST.COSTS",
+      "object": "CoDocument",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Repost actual costs from one cost object to another (manual cost allocation)",
+      "intents": {
+        "en": [
+          "repost costs",
+          "move cost to another cost center",
+          "cost reallocation"
+        ],
+        "ko": [
+          "비용 재전기",
+          "코스트센터 간 비용 이전",
+          "원가 대체"
+        ]
+      },
+      "params": [
+        {
+          "name": "kokrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "header_text",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "lines",
+          "type": "array",
+          "required": true,
+          "note": "each line: name=value pairs separated by ; (from_cc or from_order, to_cc or to_order, cost_element, amount, text), values percent-encoded for % ; ="
+        }
+      ],
+      "clarify": [
+        {
+          "param": "posting_date",
+          "ask": "Which posting date? The CO period of that date must be open.",
+          "when": "posting_date is missing"
+        },
+        {
+          "param": "lines",
+          "ask": "From which cost object to which, which cost element and how much?",
+          "when": "sender, receiver, cost element or amount is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ACC_MANUAL_ALLOC_POST",
+          "set": "DOC_HEADER (CO_AREA, DOCDATE, POSTGDATE, DOC_HDR_TX) + DOC_ITEMS (sender / receiver objects, COST_ELEM, VALUE_TCUR)",
+          "testrun": "CHECK_FM",
+          "check_fm": "BAPI_ACC_MANUAL_ALLOC_CHECK",
+          "preview": "BAPI_ACC_MANUAL_ALLOC_CHECK (K40C_CO_ACTUAL_POSTING_CHECK: authority, header, lines, locks, cost element, period) + biz-rules/CO.json",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "note": "a receiver order can create an FI document (the FI number range and customer FI validations then run); the CO document type is KAMV (posted to COSS)"
+        },
+        "S4": {
+          "fm": "BAPI_ACC_MANUAL_ALLOC_POST",
+          "set": "DOC_HEADER (CO_AREA, DOCDATE, POSTGDATE, DOC_HDR_TX) + DOC_ITEMS (sender / receiver objects, COST_ELEM, VALUE_TCUR)",
+          "testrun": "CHECK_FM",
+          "check_fm": "BAPI_ACC_MANUAL_ALLOC_CHECK",
+          "preview": "BAPI_ACC_MANUAL_ALLOC_CHECK (K40C_CO_ACTUAL_POSTING_CHECK: authority, header, lines, locks, cost element, period) + biz-rules/CO.json",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "note": "a receiver order can create an FI document (the FI number range and customer FI validations then run); the CO document type is KAMV (posted to COSS)"
+        }
+      },
+      "auth": [
+        {
+          "object": "K_CCA",
+          "fields": {
+            "RESPAREA": "not checked",
+            "CO_ACTION": "2076",
+            "KSTAR": "not checked"
+          },
+          "note": "CO_ACTION 2076 = enter documents"
+        },
+        {
+          "object": "K_CSKS",
+          "fields": {
+            "ACTVT": "02",
+            "KOKRS": "<controlling area>",
+            "KOSTL": "<sender cost center>"
+          }
+        }
+      ],
+      "reverse": "CO.REPOST.REVERSE",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "A receiver order can create an FI document: FI checks (number range, closing date) then apply at execute.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "받는 쪽이 오더면 FI 전표가 생길 수 있어요. 그때는 번호범위, 마감일 같은 FI 체크가 실행할 때 적용돼요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "CO.REPOST.REVERSE",
+      "object": "CoDocument",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Reverse a manual cost repost or activity allocation (CO document)",
+      "intents": {
+        "en": [
+          "reverse cost repost",
+          "cancel CO document",
+          "undo cost reallocation"
+        ],
+        "ko": [
+          "비용 재전기 취소",
+          "CO 문서 역분개",
+          "원가 대체 취소"
+        ]
+      },
+      "params": [
+        {
+          "name": "kokrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "belnr",
+          "type": "string",
+          "required": true,
+          "note": "CO document number"
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "header_text",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "belnr",
+          "ask": "Which CO document number should be reversed?",
+          "when": "belnr is missing"
+        },
+        {
+          "param": "posting_date",
+          "ask": "Which posting date for the reversal? The CO period of that date must be open.",
+          "when": "posting_date is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ACC_ACT_POSTINGS_REVERSE",
+          "set": "DOC_HEADER (CO_AREA, RVRS_NO = document to reverse, DOCDATE, POSTGDATE, DOC_HDR_TX); the new document number comes back in the DOC_NO table",
+          "testrun": "none",
+          "preview": "no check mode: preview = static checks of the handler on COBK (document exists, business transaction RKU1 / RKL / KAMV, not already reversed, not itself a reversal)",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "note": "the reversal itself is not reversible"
+        },
+        "S4": {
+          "fm": "BAPI_ACC_ACT_POSTINGS_REVERSE",
+          "set": "DOC_HEADER (CO_AREA, RVRS_NO = document to reverse, DOCDATE, POSTGDATE, DOC_HDR_TX); the new document number comes back in the DOC_NO table",
+          "testrun": "none",
+          "preview": "no check mode: preview = static checks of the handler on COBK (document exists, business transaction RKU1 / RKL / KAMV, not already reversed, not itself a reversal)",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "note": "to be re-verified on the S/4 system"
+        }
+      },
+      "auth": [
+        {
+          "object": "K_CCA",
+          "fields": {
+            "RESPAREA": "not checked",
+            "CO_ACTION": "2076",
+            "KSTAR": "not checked"
+          },
+          "note": "CO_ACTION 2076 = enter documents"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "No check mode: static checks on the original CO document only.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "체크 모드가 없어요. 원래 CO 전표만 보고 판단해요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "CO.ACT.ALLOC",
+      "object": "CoDocument",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Allocate activity (direct activity allocation from a sender cost center to a receiver)",
+      "intents": {
+        "en": [
+          "allocate activity",
+          "post activity allocation",
+          "charge hours to order"
+        ],
+        "ko": [
+          "활동 배부",
+          "활동 유형 배부",
+          "시간 배부"
+        ]
+      },
+      "params": [
+        {
+          "name": "kokrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "header_text",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "lines",
+          "type": "array",
+          "required": true,
+          "note": "each line: name=value pairs separated by ; (from_cc, activity_type, to_cc or to_order, quantity, unit, text)"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "lines",
+          "ask": "Which sender cost center and activity type, which receiver, and how many units?",
+          "when": "sender, activity type, receiver or quantity is missing"
+        },
+        {
+          "param": "posting_date",
+          "ask": "Which posting date?",
+          "when": "posting_date is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ACC_ACTIVITY_ALLOC_POST",
+          "set": "DOC_HEADER (CO_AREA, DOCDATE, POSTGDATE) + DOC_ITEMS (SEND_CCTR, ACTTYPE, REC_CCTR / REC_ORDER, ACTVTY_QTY, ACTIVITYUN)",
+          "testrun": "CHECK_FM",
+          "check_fm": "BAPI_ACC_ACTIVITY_ALLOC_CHECK",
+          "preview": "BAPI_ACC_ACTIVITY_ALLOC_CHECK + planned price of the activity type for the period (message plan price does not exist is raised by the posting logic of the activity price indicator) + biz-rules/CO.json",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "note": "the CHECK reports a missing activity master record or planned price of the sender cost center / activity type for the period"
+        },
+        "S4": {
+          "fm": "BAPI_ACC_ACTIVITY_ALLOC_POST",
+          "set": "DOC_HEADER (CO_AREA, DOCDATE, POSTGDATE) + DOC_ITEMS (SEND_CCTR, ACTTYPE, REC_CCTR / REC_ORDER, ACTVTY_QTY, ACTIVITYUN)",
+          "testrun": "CHECK_FM",
+          "check_fm": "BAPI_ACC_ACTIVITY_ALLOC_CHECK",
+          "preview": "BAPI_ACC_ACTIVITY_ALLOC_CHECK + planned price of the activity type for the period (message plan price does not exist is raised by the posting logic of the activity price indicator) + biz-rules/CO.json",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "note": "the CHECK reports a missing activity master record or planned price of the sender cost center / activity type for the period"
+        }
+      },
+      "auth": [
+        {
+          "object": "K_CCA",
+          "fields": {
+            "RESPAREA": "not checked",
+            "CO_ACTION": "2076",
+            "KSTAR": "not checked"
+          },
+          "note": "CO_ACTION 2076 = enter documents"
+        },
+        {
+          "object": "K_CSKS",
+          "fields": {
+            "ACTVT": "02",
+            "KOKRS": "<controlling area>",
+            "KOSTL": "<sender cost center>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "CO.PLAN.PRIMARY",
+      "object": "PlanData",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Plan primary costs of a cost center (cost element, period values)",
+      "intents": {
+        "en": [
+          "plan primary costs",
+          "enter cost plan",
+          "cost center plan"
+        ],
+        "ko": [
+          "1차원가 계획 입력",
+          "코스트센터 계획",
+          "비용 계획"
+        ]
+      },
+      "params": [
+        {
+          "name": "kokrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "fiscal_year",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "version",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "from_period",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "to_period",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "kostl",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lines",
+          "type": "array",
+          "required": true,
+          "note": "each line: cost_element, amount per period (the amount replaces the existing plan values of that cost element in every period of the range; 0 removes them)"
+        },
+        {
+          "name": "header_text",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "version",
+          "ask": "Which plan version?",
+          "when": "version is missing"
+        },
+        {
+          "param": "fiscal_year",
+          "ask": "Which fiscal year?",
+          "when": "fiscal_year is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_COSTACTPLN_POSTPRIMCOST",
+          "set": "HEADERINFO (CO_AREA, FISC_YEAR, PERIOD_FROM / TO, VERSION) + COOBJECT + PERVALUE / TOTVALUE + INDEXSTRUCTURE",
+          "testrun": "CHECK_FM",
+          "check_fm": "BAPI_COSTACTPLN_CHECKPRIMCOST",
+          "preview": "BAPI_COSTACTPLN_CHECKPRIMCOST (= BAPI_PRIM_COST_CHECK_AND_POST with TESTRUN X) + plan-version settings (planning allowed, fiscal-year row) + biz-rules/CO.json",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_COSTACTPLN_POSTPRIMCOST",
+          "set": "HEADERINFO (CO_AREA, FISC_YEAR, PERIOD_FROM / TO, VERSION) + COOBJECT + PERVALUE / TOTVALUE + INDEXSTRUCTURE",
+          "testrun": "CHECK_FM",
+          "check_fm": "BAPI_COSTACTPLN_CHECKPRIMCOST",
+          "preview": "BAPI_COSTACTPLN_CHECKPRIMCOST (= BAPI_PRIM_COST_CHECK_AND_POST with TESTRUN X) + plan-version settings (planning allowed, fiscal-year row) + biz-rules/CO.json",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "K_CSKS_PLA",
+          "fields": {
+            "ACTVT": "01",
+            "KOKRS": "<controlling area>",
+            "KOSTL": "<cost center>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    }
+  ]
+}

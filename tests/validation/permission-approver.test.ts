@@ -72,3 +72,14 @@ describe('permission-approver DD* metadata exception', () => {
     expect(other.hookSpecificOutput?.permissionDecision).toBe('allow');
   });
 });
+
+describe('permission-approver business-action tools', () => {
+  it('never auto-approves Preview / Execute; reads are allowed', () => {
+    for (const t of ['PreviewBusinessAction', 'ExecuteBusinessAction']) {
+      expect(runHook(`mcp__plugin_sc4sap_sap__${t}`, { action: 'MM.PO.X', params: {} }).hookSpecificOutput).toBeUndefined();
+    }
+    for (const t of ['ListBusinessActions', 'RunBusinessQuery']) {
+      expect(runHook(`mcp__plugin_sc4sap_sap__${t}`, { action: 'MM.PO.LIST_OPEN' }).hookSpecificOutput?.permissionDecision).toBe('allow');
+    }
+  });
+});

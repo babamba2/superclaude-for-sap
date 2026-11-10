@@ -1,0 +1,891 @@
+{
+  "schemaVersion": 1,
+  "module": "FI",
+  "area": "accounting documents and G/L",
+  "notes": [
+    "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side.",
+    "Draft 2026-11-09: interface and source checked on ECC740-DEV only; S4-DEV and ECC731-DEV pending.",
+    "testrun CHECK_FM = a separate check FM (check_fm) runs the same checks without posting; CHECK_ONLY = the same FM with a check-only flag; none = preview from facts and biz-rules.",
+    "Customer validations / substitutions (GGB) are system specific and live in biz-rules/FI.json of the profile, not in this catalog."
+  ],
+  "actions": [
+    {
+      "id": "FI.DOC.GET_DETAIL",
+      "object": "AccountingDocument",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show an accounting document (header, lines, status, reversal link)",
+      "intents": {
+        "en": [
+          "show document",
+          "display accounting document",
+          "journal entry detail"
+        ],
+        "ko": [
+          "전표 조회",
+          "회계전표 상세",
+          "전표 보여줘"
+        ]
+      },
+      "params": [
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "belnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "gjahr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "FI_DOCUMENT_READ",
+          "note": "RFC-enabled read by document number or object key; returns header and lines in the BKPF / BSEG structures to the caller only; party names are not requested",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "FI_DOCUMENT_READ",
+          "note": "RFC-enabled read by document number or object key; returns header and lines in the BKPF / BSEG structures to the caller only; party names are not requested",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "F_BKPF_BUK",
+          "fields": {
+            "ACTVT": "03",
+            "BUKRS": "<company code>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "FI.DOC.LIST_OPEN_ITEMS",
+      "object": "GLOpenItem",
+      "kind": "query",
+      "risk": "none",
+      "title": "List open items of a G/L account (open-item managed accounts)",
+      "intents": {
+        "en": [
+          "open items of account",
+          "g/l open items",
+          "uncleared items"
+        ],
+        "ko": [
+          "미결항목",
+          "계정 미청산 항목",
+          "GL 오픈아이템"
+        ]
+      },
+      "params": [
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "hkont",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "key_date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "key_date",
+          "ask": "Open items as of which key date? Today, or another date?",
+          "when": "key_date is missing"
+        },
+        {
+          "param": "hkont",
+          "ask": "Which G/L account? (The account must be open-item managed.)",
+          "when": "hkont is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "BSIS"
+          ],
+          "return": "rows",
+          "note": "no standard read FM fits a chatbot (FAGL_GET_OPEN_ITEMS_GL is a migration helper); handler reads BSIS by company code, account and key date; amounts only, no party master data"
+        },
+        "S4": {
+          "source": [
+            "ACDOCA"
+          ],
+          "return": "rows",
+          "note": "ACDOCA with open-item flag (XOPVW) on S/4; to be re-verified on the S/4 system"
+        }
+      },
+      "auth": [
+        {
+          "object": "F_BKPF_BUK",
+          "fields": {
+            "ACTVT": "03",
+            "BUKRS": "<company code>"
+          }
+        },
+        {
+          "object": "F_BKPF_KOA",
+          "fields": {
+            "ACTVT": "03",
+            "KOART": "S"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "FI.GL.GET_ACCOUNT",
+      "object": "GLAccount",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a G/L account of a company code (type, currency, field status group, block flags)",
+      "intents": {
+        "en": [
+          "g/l account detail",
+          "can I post to account",
+          "account master"
+        ],
+        "ko": [
+          "계정 정보",
+          "계정 마스터 조회",
+          "이 계정에 전기 가능해?"
+        ]
+      },
+      "params": [
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "saknr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_GL_ACC_GETDETAIL",
+          "return": "BAPIRETURN",
+          "note": "companion existence check: BAPI_GL_ACC_EXISTENCECHECK"
+        },
+        "S4": {
+          "fm": "BAPI_GL_ACC_GETDETAIL",
+          "return": "BAPIRETURN",
+          "note": "companion existence check: BAPI_GL_ACC_EXISTENCECHECK"
+        }
+      },
+      "auth": [
+        {
+          "object": "F_SKA1_BUK",
+          "fields": {
+            "ACTVT": "03",
+            "BUKRS": "<company code>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "FI.GL.POST",
+      "object": "AccountingDocument",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Post a G/L journal entry (accrual, reclass, correction)",
+      "intents": {
+        "en": [
+          "post journal entry",
+          "book accrual",
+          "reclass between accounts",
+          "post gl document"
+        ],
+        "ko": [
+          "분개 전기",
+          "미지급비용 계상",
+          "계정 대체",
+          "회계전표 생성"
+        ]
+      },
+      "params": [
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "doc_type",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "doc_date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "header_text",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "reference",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "exchange_rate",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "lines",
+          "type": "array",
+          "required": true,
+          "note": "each line: name=value pairs separated by ; (account, amount (+ debit, - credit, document currency), cost_center, order, profit_center, text, tax_code, business_area, assignment), values percent-encoded for % ; ="
+        },
+        {
+          "name": "fis_period",
+          "type": "string",
+          "required": false,
+          "description": "Posting period, e.g. 13-16 for closing postings in a special period; empty = from the posting date"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "posting_date",
+          "ask": "Which posting date? The period of that date must be open.",
+          "when": "posting_date is missing"
+        },
+        {
+          "param": "doc_type",
+          "ask": "Which document type? (for example SA for a general journal entry)",
+          "when": "doc_type is missing"
+        },
+        {
+          "param": "lines",
+          "ask": "Which accounts and amounts? A journal entry needs balanced debit and credit lines.",
+          "when": "lines are missing or do not balance"
+        },
+        {
+          "param": "lines",
+          "ask": "This account needs a cost center or order. Which one?",
+          "when": "the account field status requires a cost object and none is given"
+        },
+        {
+          "param": "exchange_rate",
+          "ask": "The currency differs from the company code currency. Use the table rate of the posting date, or enter a rate?",
+          "when": "currency differs from the local currency"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ACC_DOCUMENT_POST",
+          "set": "DOCUMENTHEADER (COMP_CODE, DOC_TYPE, PSTNG_DATE, DOC_DATE, HEADER_TXT, REF_DOC_NO) + ACCOUNTGL + CURRENCYAMOUNT (+ ACCOUNTTAX)",
+          "testrun": "CHECK_FM",
+          "check_fm": "BAPI_ACC_DOCUMENT_CHECK",
+          "preview": "BAPI_ACC_DOCUMENT_CHECK with the same tables (the CHECK never posts): runs the AC-interface checks, field status, number range and the customer validations of the check path (a user-bound closing-date validation and an exchange-rate validation were reached on the test system); it does not return text substitutions. Plus the static rules of biz-rules/FI.json for what the check does not reach.",
+          "note": "CHECK never posts; the document number is returned only by POST (OBJ_KEY). Substitutions may change lines: show the substituted lines from the CHECK result tables before EXECUTE.",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_ACC_DOCUMENT_POST",
+          "set": "DOCUMENTHEADER (COMP_CODE, DOC_TYPE, PSTNG_DATE, DOC_DATE, HEADER_TXT, REF_DOC_NO) + ACCOUNTGL + CURRENCYAMOUNT (+ ACCOUNTTAX)",
+          "testrun": "CHECK_FM",
+          "check_fm": "BAPI_ACC_DOCUMENT_CHECK",
+          "preview": "BAPI_ACC_DOCUMENT_CHECK with the same tables (the CHECK never posts): runs the AC-interface checks, field status, number range and the customer validations of the check path (a user-bound closing-date validation and an exchange-rate validation were reached on the test system); it does not return text substitutions. Plus the static rules of biz-rules/FI.json for what the check does not reach.",
+          "note": "CHECK never posts; the document number is returned only by POST (OBJ_KEY). Substitutions may change lines: show the substituted lines from the CHECK result tables before EXECUTE.",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "F_BKPF_BUK",
+          "fields": {
+            "ACTVT": "01",
+            "BUKRS": "<company code>"
+          }
+        },
+        {
+          "object": "F_BKPF_BLA",
+          "fields": {
+            "ACTVT": "01",
+            "BRGRU": "<document type group>"
+          }
+        },
+        {
+          "object": "F_BKPF_KOA",
+          "fields": {
+            "ACTVT": "01",
+            "KOART": "S"
+          }
+        }
+      ],
+      "reverse": "FI.DOC.REVERSE",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The check does not return values set by substitution (for example texts); they appear in the posted document.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "체크는 대체(substitution)로 바뀌는 값(예: 텍스트)을 돌려주지 않아요. 전기된 전표에서만 보여요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "FI.DOC.REVERSE",
+      "object": "AccountingDocument",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Reverse a posted accounting document",
+      "intents": {
+        "en": [
+          "reverse document",
+          "cancel journal entry",
+          "storno"
+        ],
+        "ko": [
+          "전표 역분개",
+          "전표 취소",
+          "스토르노"
+        ]
+      },
+      "ambiguity": {
+        "term": {
+          "en": "cancel",
+          "ko": "취소"
+        },
+        "candidates": [
+          "FI.DOC.REVERSE"
+        ],
+        "ask": "Do you want to reverse the posted document (a new reversal document is posted)?"
+      },
+      "params": [
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "belnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "gjahr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "fis_period",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "reason",
+          "ask": "Which reversal reason? (it decides whether the reversal posts in the original period or in the posting-date period)",
+          "when": "reason is missing"
+        },
+        {
+          "param": "posting_date",
+          "ask": "Which posting date for the reversal document? Same period as the original, or the next period?",
+          "when": "posting_date is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ACC_DOCUMENT_REV_POST",
+          "set": "REVERSAL (OBJ_TYPE = origin of the document from BKPF-AWTYP, OBJ_KEY, OBJ_KEY_R, PSTNG_DATE, FIS_PERIOD, COMP_CODE, REASON_REV) + BUS_ACT RFBU",
+          "testrun": "CHECK_FM",
+          "check_fm": "BAPI_ACC_DOCUMENT_REV_CHECK",
+          "preview": "static checks of the handler (document exists, not already reversed, reason in T041C) + BAPI_ACC_DOCUMENT_REV_CHECK (AC_DOCUMENT_REVERSE: reversibility, period, number range)",
+          "note": "REV_CHECK refuses documents posted in dialog (origin BKPF) and documents whose reversal document type has no number range; the reversal posting date must not be smaller than the original posting date; whether REV_CHECK reaches the document-level customer validations is not confirmed",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_ACC_DOCUMENT_REV_POST",
+          "set": "REVERSAL (OBJ_TYPE = origin of the document from BKPF-AWTYP, OBJ_KEY, OBJ_KEY_R, PSTNG_DATE, FIS_PERIOD, COMP_CODE, REASON_REV) + BUS_ACT RFBU",
+          "testrun": "CHECK_FM",
+          "check_fm": "BAPI_ACC_DOCUMENT_REV_CHECK",
+          "preview": "static checks of the handler (document exists, not already reversed, reason in T041C) + BAPI_ACC_DOCUMENT_REV_CHECK (AC_DOCUMENT_REVERSE: reversibility, period, number range)",
+          "note": "REV_CHECK refuses documents posted in dialog (origin BKPF) and documents whose reversal document type has no number range; the reversal posting date must not be smaller than the original posting date; whether REV_CHECK reaches the document-level customer validations is not confirmed",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "F_BKPF_BUK",
+          "fields": {
+            "ACTVT": "01",
+            "BUKRS": "<company code>"
+          }
+        },
+        {
+          "object": "F_BKPF_BLA",
+          "fields": {
+            "ACTVT": "01",
+            "BRGRU": "<document type group>"
+          }
+        },
+        {
+          "object": "F_BKPF_BUK",
+          "fields": {
+            "ACTVT": "02",
+            "BUKRS": "<company code>"
+          }
+        }
+      ],
+      "reverse": "FI.GL.POST",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The reversal check stops at the first error; later checks (such as the closing date) show only after that error is fixed.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "역분개 체크는 첫 오류에서 멈춰요. 마감일 같은 뒤쪽 체크는 그 오류를 고친 뒤에야 드러나요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "FI.ITEM.SET_PAYMENT_BLOCK",
+      "object": "OpenItem",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Set or remove the payment block key of an open vendor line item",
+      "intents": {
+        "en": [
+          "block payment",
+          "release payment block",
+          "set payment block on invoice"
+        ],
+        "ko": [
+          "지급보류 설정",
+          "지급보류 해제",
+          "송장 지급 막아줘"
+        ]
+      },
+      "params": [
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "belnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "gjahr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "buzei",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "block_key",
+          "type": "string",
+          "required": true,
+          "note": "a payment block key (1 character), or - to remove the block; blank is refused"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "block_key",
+          "ask": "Which payment block key? Answer - to remove the block.",
+          "when": "block_key is missing"
+        },
+        {
+          "param": "buzei",
+          "ask": "The document has several open vendor lines. Which line item?",
+          "when": "more than one open vendor line"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "FI_ITEMS_MASS_CHANGE",
+          "set": "FB02 batch input of the line: field ZLSPR = block key, after FI_DOCUMENT_READ confirmed that the line is an open vendor or customer line and T008 holds the block key",
+          "testrun": "none",
+          "preview": "no check mode: preview = static (FI_DOCUMENT_READ: line open, vendor or customer line, current block; T008: block key exists) + biz-rules/FI.json. EXECUTE runs all FB02 validations, so a customer validation can refuse a change that the preview accepts (PREVIEW_GAP).",
+          "note": "FI_DOCUMENT_CHANGE would skip the FB02 validations; BAPI_ACC_PYMNTBLK_UPDATE_* changes only the cash-discount day offset of an invoice reference, not the block key.",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "FI_ITEMS_MASS_CHANGE",
+          "set": "FB02 batch input of the line: field ZLSPR = block key, after FI_DOCUMENT_READ confirmed that the line is an open vendor or customer line and T008 holds the block key",
+          "testrun": "none",
+          "preview": "no check mode: preview = static (FI_DOCUMENT_READ: line open, vendor or customer line, current block; T008: block key exists) + biz-rules/FI.json. EXECUTE runs all FB02 validations, so a customer validation can refuse a change that the preview accepts (PREVIEW_GAP).",
+          "note": "FI_DOCUMENT_CHANGE would skip the FB02 validations; BAPI_ACC_PYMNTBLK_UPDATE_* changes only the cash-discount day offset of an invoice reference, not the block key.",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "F_BKPF_BUK",
+          "fields": {
+            "ACTVT": "02",
+            "BUKRS": "<company code>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "No check mode: document-change validations run only at execute.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "체크 모드가 없어요. 전표 변경 검증은 실행할 때만 돌아요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "FI.ITEM.CHANGE_TEXT",
+      "object": "OpenItem",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Change the text of a document line item",
+      "intents": {
+        "en": [
+          "change line text",
+          "change item text",
+          "edit document text"
+        ],
+        "ko": [
+          "적요 수정",
+          "라인 텍스트 변경",
+          "전표 텍스트 변경"
+        ]
+      },
+      "params": [
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "belnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "gjahr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "buzei",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "required": true,
+          "note": "new line item text, up to 50 characters; an empty text is refused (clearing a text is not offered)"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "FI_DOCUMENT_CHANGE",
+          "set": "T_ACCCHG (FDNAME SGTXT, NEWVAL) with I_BUKRS / I_BELNR / I_GJAHR / I_BUZEI",
+          "testrun": "none",
+          "preview": "no check mode: preview = FI_DOCUMENT_READ (line exists, current text) + the field is allowed to change + biz-rules/FI.json text rules",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "note": "FI_DOCUMENT_CHANGE runs no document validation and no customer check: the preview and the result say so; the text is limited to the 50 characters of SGTXT"
+        },
+        "S4": {
+          "fm": "FI_DOCUMENT_CHANGE",
+          "set": "T_ACCCHG (FDNAME SGTXT, NEWVAL) with I_BUKRS / I_BELNR / I_GJAHR / I_BUZEI",
+          "testrun": "none",
+          "preview": "no check mode: preview = FI_DOCUMENT_READ (line exists, current text) + the field is allowed to change + biz-rules/FI.json text rules",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2",
+          "note": "FI_DOCUMENT_CHANGE runs no document validation and no customer check: the preview and the result say so; the text is limited to the 50 characters of SGTXT"
+        }
+      },
+      "auth": [
+        {
+          "object": "F_BKPF_BUK",
+          "fields": {
+            "ACTVT": "02",
+            "BUKRS": "<company code>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "interface",
+          "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The change does not run document validations at all: the text is changed without them.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "이 변경은 전표 검증을 전혀 거치지 않아요. 검증 없이 텍스트가 바뀌어요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "kind": "query",
+      "risk": "none",
+      "id": "FI.PERIOD.GET_STATUS",
+      "object": "PostingPeriod",
+      "title": "Show whether the FI posting period of a date is open, per account type (T001B)",
+      "intents": {
+        "en": [
+          "is the period open",
+          "posting period status",
+          "can I post in"
+        ],
+        "ko": [
+          "전기 기간 열렸어?",
+          "회계 기간 상태",
+          "기간 오픈"
+        ]
+      },
+      "params": [
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": false
+        }
+      ],
+      "rules": [
+        "period from FI_PERIOD_DETERMINE; T001B rows of the posting period variant T001-OPVAR; open = in interval 1 or 2"
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "T001",
+            "T001B"
+          ],
+          "method": "select"
+        },
+        "S4": {
+          "source": [
+            "T001",
+            "T001B"
+          ],
+          "method": "select"
+        }
+      },
+      "auth": [
+        {
+          "object": "F_BKPF_BUK",
+          "fields": {
+            "ACTVT": "03",
+            "BUKRS": "<company code>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "unit-test",
+          "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "kind": "query",
+      "risk": "none",
+      "id": "FI.AR.GET_CREDIT_STATUS",
+      "object": "CustomerCredit",
+      "title": "Show the credit limit, exposure and credit block of a customer (classic credit management)",
+      "intents": {
+        "en": [
+          "credit limit of customer",
+          "credit exposure",
+          "credit block"
+        ],
+        "ko": [
+          "여신 한도",
+          "신용 한도",
+          "여신 블록"
+        ]
+      },
+      "params": [
+        {
+          "name": "kunnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "bukrs",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "rules": [
+        "credit control area T001-KKBER; KNKK limit, receivables SKFOR, special liabilities SSOBL; open orders S066-OEIKW; open deliveries / billing S067-OLIKW / OFAKW",
+        "BAPI_CREDIT_ACCOUNT_GET_STATUS fails with FN 550 on some systems: not used"
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "KNKK",
+            "S066",
+            "S067",
+            "T014"
+          ],
+          "method": "select"
+        },
+        "S4": {
+          "source": [
+            "UKMBP_CMS_SGM"
+          ],
+          "method": "select",
+          "later": "S/4 uses FSCM credit management (UKM_*): separate implementation needed"
+        }
+      },
+      "auth": [
+        {
+          "object": "F_KNKA_KKB",
+          "fields": {
+            "ACTVT": "03",
+            "KKBER": "<credit control area>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-10",
+          "level": "unit-test",
+          "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    }
+  ]
+}

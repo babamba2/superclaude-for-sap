@@ -37,7 +37,12 @@ When module routing produces ≥ 2 consultants, Step 4 doubles as teamMode Round
 - User wants to analyze a runtime error — use `/sc4sap:analyze-symptom`.
 - User wants to review existing code quality — use `/sc4sap:analyze-code`.
 - User wants IMG customizing table data extraction — refuse per `common/data-extraction-policy.md`.
+- User wants data of specific documents or a change to them ("open POs due today", "출고 전기해줘") — hand over to `/sc4sap:assist` (§ Assist_Handoff).
 </Do_Not_Use_When>
+
+<Assist_Handoff>
+Classify the request first with [`../../common/intent-router.md`](../../common/intent-router.md). Class `lookup` or `action` → say one line ("This is a document action — handing over to assist") and continue with the `/sc4sap:assist` workflow in the same turn, reusing the user's sentence; never ask the user to retype it. Mixed requests: answer the how / why part here, then hand the document part over. When `assist` dispatches a module consultant to explain a blocked preview, that answer follows this skill's environment rules but is returned to `assist`.
+</Assist_Handoff>
 
 <Session_Trust_Bootstrap>
 **MANDATORY — runs as Step 0 before the consultant dispatch.**

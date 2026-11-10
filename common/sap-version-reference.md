@@ -50,7 +50,7 @@ If `SAP_VERSION` is unset, fail safe: ask the user to run `/sc4sap:setup` or `/s
 | Table structure | MKPF (header) + MSEG (item) | MATDOC (single unified table) |
 | Backward compatibility | — | MKPF/MSEG are **reproduced via CDS views** (compatibility views) |
 | TCode | MB01/MB1A/MB1B/MB1C, MIGO | MIGO only — many MB* transactions are obsolete |
-| BAPI | BAPI_GOODS_CREATE_FROM_DATA, BAPI_GOODS_MVT_CREATE | Same BAPIs retained; internal logic routed through MATDOC |
+| BAPI | BAPI_GOODSMVT_CREATE, BAPI_GOODSMVT_CANCEL | Same BAPIs retained; internal logic routed through MATDOC |
 
 **Agent guidance:**
 - On S/4HANA, **do not SELECT directly from MKPF/MSEG** — performance suffers and results can be inaccurate. Use MATDOC or a released CDS view (e.g., `I_MaterialDocumentItem`).

@@ -1,0 +1,247 @@
+ECC740-DEV (ECC 6.0, BASIS 740) - 2026-11-09 - FI business actions - FM signatures read via MCP GetFunctionModule (active source), analysis from source
+
+--- BAPI_ACC_DOCUMENT_CHECK (function group ACC9) ---
+FUNCTION BAPI_ACC_DOCUMENT_CHECK
+  IMPORTING
+    VALUE(DOCUMENTHEADER) LIKE BAPIACHE09
+    VALUE(CUSTOMERCPD) LIKE BAPIACPA09 OPTIONAL
+    VALUE(CONTRACTHEADER) LIKE BAPIACCAHD OPTIONAL
+  TABLES
+    ACCOUNTGL LIKE BAPIACGL09 OPTIONAL
+    ACCOUNTRECEIVABLE LIKE BAPIACAR09 OPTIONAL
+    ACCOUNTPAYABLE LIKE BAPIACAP09 OPTIONAL
+    ACCOUNTTAX LIKE BAPIACTX09 OPTIONAL
+    CURRENCYAMOUNT LIKE BAPIACCR09 OPTIONAL
+    CRITERIA LIKE BAPIACKEC9 OPTIONAL
+    VALUEFIELD LIKE BAPIACKEV9 OPTIONAL
+    EXTENSION1 LIKE BAPIACEXTC OPTIONAL
+    RETURN LIKE BAPIRET2
+    PAYMENTCARD LIKE BAPIACPC09 OPTIONAL
+    CONTRACTITEM LIKE BAPIACCAIT OPTIONAL
+    EXTENSION2 LIKE BAPIPAREX OPTIONAL
+    REALESTATE LIKE BAPIACRE09 OPTIONAL
+    ACCOUNTWT LIKE BAPIACWT09 OPTIONAL.
+
+--- BAPI_ACC_DOCUMENT_POST (ACC9) ---
+FUNCTION BAPI_ACC_DOCUMENT_POST
+  IMPORTING
+    VALUE(DOCUMENTHEADER) LIKE BAPIACHE09
+    VALUE(CUSTOMERCPD) LIKE BAPIACPA09 OPTIONAL
+    VALUE(CONTRACTHEADER) LIKE BAPIACCAHD OPTIONAL
+  EXPORTING
+    VALUE(OBJ_TYPE) LIKE BAPIACHE09-OBJ_TYPE
+    VALUE(OBJ_KEY) LIKE BAPIACHE09-OBJ_KEY
+    VALUE(OBJ_SYS) LIKE BAPIACHE09-OBJ_SYS
+  TABLES
+    ACCOUNTGL LIKE BAPIACGL09 OPTIONAL
+    ACCOUNTRECEIVABLE LIKE BAPIACAR09 OPTIONAL
+    ACCOUNTPAYABLE LIKE BAPIACAP09 OPTIONAL
+    ACCOUNTTAX LIKE BAPIACTX09 OPTIONAL
+    CURRENCYAMOUNT LIKE BAPIACCR09
+    CRITERIA LIKE BAPIACKEC9 OPTIONAL
+    VALUEFIELD LIKE BAPIACKEV9 OPTIONAL
+    EXTENSION1 LIKE BAPIACEXTC OPTIONAL
+    RETURN LIKE BAPIRET2
+    PAYMENTCARD LIKE BAPIACPC09 OPTIONAL
+    CONTRACTITEM LIKE BAPIACCAIT OPTIONAL
+    EXTENSION2 LIKE BAPIPAREX OPTIONAL
+    REALESTATE LIKE BAPIACRE09 OPTIONAL
+    ACCOUNTWT LIKE BAPIACWT09 OPTIONAL.
+
+--- BAPI_ACC_DOCUMENT_REV_CHECK (ACC9) ---
+FUNCTION BAPI_ACC_DOCUMENT_REV_CHECK
+  IMPORTING
+    VALUE(REVERSAL) LIKE BAPIACREV
+    VALUE(BUS_ACT) LIKE BAPIACHE09-BUS_ACT
+  TABLES
+    RETURN LIKE BAPIRET2.
+
+--- BAPI_ACC_DOCUMENT_REV_POST (ACC9) ---
+FUNCTION BAPI_ACC_DOCUMENT_REV_POST
+  IMPORTING
+    VALUE(REVERSAL) LIKE BAPIACREV
+    VALUE(BUS_ACT) LIKE BAPIACHE09-BUS_ACT
+  EXPORTING
+    VALUE(OBJ_TYPE) LIKE BAPIACREV-OBJ_TYPE
+    VALUE(OBJ_KEY) LIKE BAPIACREV-OBJ_KEY
+    VALUE(OBJ_SYS) LIKE BAPIACREV-OBJ_SYS
+  TABLES
+    RETURN LIKE BAPIRET2.
+
+--- FI_DOCUMENT_READ (FBAS) ---
+FUNCTION FI_DOCUMENT_READ
+  IMPORTING
+    VALUE(I_AWTYP) LIKE ACCHD-AWTYP OPTIONAL
+    VALUE(I_AWREF) LIKE ACCHD-AWREF OPTIONAL
+    VALUE(I_AWORG) LIKE ACCHD-AWORG DEFAULT SPACE
+    VALUE(I_AWSYS) LIKE ACCHD-AWSYS DEFAULT SPACE
+    VALUE(I_XNBKL) LIKE ACCIT-XAUTO DEFAULT SPACE
+    VALUE(I_BUKRS) LIKE ACCIT-BUKRS OPTIONAL
+    VALUE(I_BELNR) LIKE BSEG-BELNR OPTIONAL
+    VALUE(I_GJAHR) LIKE BSEG-GJAHR OPTIONAL
+    VALUE(I_BSTAT) TYPE BSTAT_D DEFAULT SPACE
+    VALUE(I_XBLNR) TYPE XBLNR1 DEFAULT SPACE
+    VALUE(I_BUDAT) TYPE BUDAT OPTIONAL
+    VALUE(I_BLART) TYPE BLART DEFAULT SPACE
+    VALUE(I_AUTH_RFC) TYPE XFELD DEFAULT SPACE
+  EXPORTING
+    VALUE(E_AWTYP) LIKE ACCHD-AWTYP
+    VALUE(E_AWREF) LIKE ACCHD-AWREF
+    VALUE(E_AWORG) LIKE ACCHD-AWORG
+    VALUE(E_AWSYS) LIKE ACCHD-AWSYS
+  TABLES
+    T_ABUZ LIKE ABUZ OPTIONAL
+    T_ACCHD LIKE ACCHD OPTIONAL
+    T_ACCIT LIKE ACCIT OPTIONAL
+    T_ACCCR LIKE ACCCR OPTIONAL
+    T_BKPF LIKE BKPF OPTIONAL
+    T_BSEG LIKE BSEG OPTIONAL
+  EXCEPTIONS
+    WRONG_INPUT
+    NOT_FOUND.
+
+--- FI_DOCUMENT_CHANGE (FBAS) ---
+FUNCTION FI_DOCUMENT_CHANGE
+  IMPORTING
+    VALUE(I_AWTYP) LIKE ACCHD-AWTYP OPTIONAL
+    VALUE(I_AWREF) LIKE ACCHD-AWREF OPTIONAL
+    VALUE(I_AWORG) LIKE ACCHD-AWORG DEFAULT SPACE
+    VALUE(I_AWSYS) LIKE ACCHD-AWSYS DEFAULT SPACE
+    VALUE(I_KUNNR) LIKE ACCIT-KUNNR DEFAULT SPACE
+    VALUE(I_LIFNR) LIKE ACCIT-LIFNR DEFAULT SPACE
+    VALUE(I_HKONT) LIKE ACCIT-HKONT DEFAULT SPACE
+    VALUE(I_OBZEI) LIKE BSEG-OBZEI DEFAULT SPACE
+    I_BUZEI LIKE BSEG-BUZEI OPTIONAL
+    I_BSEGC LIKE BSEGC OPTIONAL
+    VALUE(X_LOCK) LIKE BOOLE-BOOLE DEFAULT 'X'
+    VALUE(I_BUKRS) TYPE BUKRS OPTIONAL
+    VALUE(I_BELNR) TYPE BELNR_D OPTIONAL
+    VALUE(I_GJAHR) TYPE GJAHR OPTIONAL
+    VALUE(X_ALE) TYPE XFELD OPTIONAL
+  TABLES
+    T_ACCCHG LIKE ACCCHG
+  EXCEPTIONS
+    NO_REFERENCE
+    NO_DOCUMENT
+    MANY_DOCUMENTS
+    WRONG_INPUT
+    OVERWRITE_CREDITCARD.
+
+--- FI_ITEMS_MASS_CHANGE (FREP) ---
+FUNCTION FI_ITEMS_MASS_CHANGE
+  IMPORTING
+    S_BSEG LIKE BSEG
+  EXPORTING
+    ERRTAB TYPE TPIT_T_ERRDOC
+  TABLES
+    IT_BUZTAB TYPE TPIT_T_BUZTAB
+    IT_FLDTAB TYPE TPIT_T_FNAME
+  EXCEPTIONS
+    BDC_ERRORS.
+
+--- BAPI_ACC_PYMNTBLK_UPDATE_CHECK (ACC6 (invoice reference only, see notes)) ---
+FUNCTION BAPI_ACC_PYMNTBLK_UPDATE_CHECK
+  IMPORTING
+    VALUE(REFERENCEINV) LIKE BAPIACPMBLK
+  TABLES
+    RETURN LIKE BAPIRET2.
+
+--- BAPI_ACC_PYMNTBLK_UPDATE_POST (ACC6) ---
+FUNCTION BAPI_ACC_PYMNTBLK_UPDATE_POST
+  IMPORTING
+    VALUE(REFERENCEINV) LIKE BAPIACPMBLK
+  TABLES
+    RETURN LIKE BAPIRET2.
+
+--- BAPI_GL_ACC_GETDETAIL (FBSCORE) ---
+FUNCTION BAPI_GL_ACC_GETDETAIL
+  IMPORTING
+    VALUE(COMPANYCODE) LIKE BAPI3006_0-COMP_CODE
+    VALUE(GLACCT) LIKE BAPI3006_0-GL_ACCOUNT
+    VALUE(LANGUAGE) LIKE BAPI3006_5-LANGU OPTIONAL
+    VALUE(LANGUAGE_ISO) LIKE BAPI3006_5-LANGU_ISO OPTIONAL
+    VALUE(TEXT_ONLY) LIKE BAPI3006_5-TEXT_ONLY OPTIONAL
+  EXPORTING
+    VALUE(RETURN) LIKE BAPIRETURN
+    VALUE(ACCOUNT_DETAIL) LIKE BAPI3006_2.
+
+--- BAPI_GL_ACC_EXISTENCECHECK (FBS) ---
+FUNCTION BAPI_GL_ACC_EXISTENCECHECK
+  IMPORTING
+    VALUE(COMPANYCODE) LIKE BAPI3006_0-COMP_CODE
+    VALUE(GLACCT) LIKE BAPI3006_0-GL_ACCOUNT
+  EXPORTING
+    VALUE(RETURN) LIKE BAPIRETURN.
+
+--- FAGL_GET_OPEN_ITEMS_GL (migration helper, not used) ---
+FUNCTION FAGL_GET_OPEN_ITEMS_GL
+  IMPORTING
+    VALUE(I_MIGDT) TYPE BUDAT
+    VALUE(I_BUKRS) TYPE BUKRS
+    VALUE(IT_HKONT) TYPE FAGL_T_SAKNR
+    VALUE(IT_FIELDLIST) TYPE TTFIELDNAME
+    VALUE(IT_FIELDLIST_INTO) TYPE FAGL_T_MIG_FIELD_INTO
+    VALUE(I_READ_BSEG) TYPE FLAG
+  EXPORTING
+    VALUE(ET_OPEN_ITEMS) TYPE FAGL_T_XSTRING.
+
+=== FINDINGS (read from the active source on ECC740-DEV, 2026-11-09; no BAPI was executed) ===
+
+F1  Existence. Every FM above exists and is active (SearchObject + GetFunctionModule). No FI document-parking BAPI exists on this release
+    (PRELIMINARY_POSTING_* are dialog-coupled internals), so FI.DOC.PARK is not in the catalog (candidate only).
+
+F2  BAPI_ACC_DOCUMENT_CHECK / _POST (group ACC9, LACC9U01 / LACC9U04). Both call the same chain: check_and_fill_acc_document, call_customer_function
+    (OPEN_FI_PERFORM_RWBAPI01_P, only when EXTENSION1 is filled), call_badi, fill_and_check_copa, check_document_pp, then FORM document_check (CHECK)
+    or document_post -> AC_DOCUMENT_POST (POST, only when no E/A message exists). CHECK never posts.
+F3  CHECK runs the customer validations and substitutions:
+    - LACC9F20 FORM check_cobl -> FI_VALIDATION_ITEM (FACS) per line: G_VSR_VALIDATION_CALL with callup point 2 (T001D event 2), active when
+      T001D-ACTIV = 1, or 2 and SY-BINPT initial. A BAPI call is not batch input, so activation level 1 and 2 are both active.
+    - LACC9F20 FORM check_rwin -> AC_DOCUMENT_CREATE (RWCL; description "dialog-like checks and substitutions"): PERFORM document_create 'DOCUMENT'
+      'CHECK' dispatches to the component check function. FI_DOCUMENT_CHECK (FACI) has the same table interface (T_ACCHD/T_ACCIT/T_ACCCR...) and
+      FORM check_accit calls SUBSTITUTION (-> FI_SUBSTITUTION_HEADER / FI_SUBSTITUTION_ITEM), CHECK_ZLSPR, CHECK_MWSKZ, CHECK_BUPLA, SUBST_VBUND ...
+      FORM document_validation (LFACIF4Q) calls FI_VALIDATION_HEADER (callup 1), FI_VALIDATION_ITEM (callup 2) and FI_VALIDATION_DOC (callup 3);
+      LFACIF49 DOCUMENT_OPEN_FI calls the BTE field substitutions 1120 / 1130 and the BTE validation 1025.
+      In LFACIU04 the status is branched: parked-complete (status_new = 3) runs document_validation; the normal-posting branch (WHEN OTHERS) runs
+      document_open_fi + document_validation unless FLG_RGUREC is set.
+    - The reachability of FI_DOCUMENT_CHECK from the RWIN event 'CHECK' is INFERRED from the shared interface and the description; the RWIN
+      registration table was not read. Test to run first in the handler phase: CHECK with a user that has no row in the customer closing-date table -> expect the customer closing-date message.
+F4  The AC-interface BAdI AC_DOCUMENT (CHANGE_AFTER_CHECK) is called by AC_DOCUMENT_CREATE (badi_init + AC_DOCUMENT BAdI references), so a customer
+    implementation runs on the BAPI path too. The ECC740-DEV implementation keys on the document origin (invoice verification, material document, reversal, billing,
+    asset); the branch for directly posted FI documents is commented out (details: private biz-rules/FI.json).
+F5  Authorization (LFACIFAC): AUTHORITY-CHECK F_BKPF_BUK (company code), F_BKPF_BLA (document type), F_BKPF_KOA (account type). FI_DOCUMENT_CHANGE
+    calls FI_AUTH_CHECK_RFC scenario FI_DOC_CHANGE activity 02.
+F6  BAPI_ACC_DOCUMENT_REV_CHECK / _POST: both call FORM reverse (LACC9F60). REV_CHECK = mode CHECK: check_and_fill_accrev + reverse_check ->
+    AC_DOCUMENT_REVERSE (exceptions reverse_impossible / error_message); POST additionally document_post. OBJ_TYPE BKPF, OBJ_KEY = belnr(10)+bukrs(4)+gjahr(4)
+    (AWKEY: awref 10 + aworg 10), OBJ_KEY_R = key of the document to reverse, REASON_REV, PSTNG_DATE, FIS_PERIOD, AC_DOC_NO. Validation callup 3 on the
+    reversal document is expected on POST; whether REV_CHECK reaches it is unknown (AC_DOCUMENT_REVERSE not traced).
+F7  BAPI_ACC_PYMNTBLK_UPDATE_CHECK / _POST do NOT set a payment-block key. The interface BAPIACPMBLK has only OBJ_TYPE, OBJ_KEY, OBJ_SYS, COMP_CODE and
+    DSCT_DAYSOFF (cash discount days offset); FORM FILL_ACCPMBLK maps only awtyp/awref/aworg/awsys/bukrs/zbdtoff -> AC_PAYMENTBLOCK_CHECK / _UPDATE.
+    They are NOT usable for FI.ITEM.SET_PAYMENT_BLOCK.
+F8  FI_DOCUMENT_CHANGE (FBAS): changes fields of an existing document via table T_ACCCHG; no test mode; no GGB validation / substitution is called
+    (only CHECK_INPUT, document select with lock, FI_AUTH_CHECK_RFC, DOCUMENT_CHANGE, RITA_SPECIAL). Customer GGB rules are therefore NOT hit.
+    The preview has to be static: document read (FI_DOCUMENT_READ), item open and field allowed, T008 block key exists, then PRECHECK rules.
+F9  FI_ITEMS_MASS_CHANGE (FREP): builds a BDC and runs CALL TRANSACTION 'FB02' mode N (batch input). All FB02 validations / substitutions run
+    (SY-TCODE FB02; the closing-date exit U240 is bypassed only for the FB02/FB03/FB09 + AB1 authorization case). No test mode. Listed as an alternative only.
+F10 A customer closing-date validation (GGB validation, callup 3, rule exit) exists for the two test company codes: it blocks posting when the user has no
+    row in the per-user closing-date table or the posting date is not after the user's date. The ECC740-DEV test user has no such row (read-only count), so any
+    real posting by this user is blocked. Details and source lines: private biz-rules/FI.json (closing-date rules).
+F11 Customer BTE implementations on ECC740-DEV (sources read): the posting-related ones (1030, 2213, 1050, 1640, 1650) raise messages only for other company-code
+    ranges or have no MESSAGE statement; 1321 / 1421 are master-data hooks. None of them touches the test company codes. No BTE 1025 (validation) and no
+    customer 1120 / 1130 for the test company codes. Details: private biz-rules/FI.json.
+F12 Open items: no standard read FM fits a chatbot (FAGL_GET_OPEN_ITEMS_GL is a migration helper). Plan: read BSIS (ECC) / ACDOCA (S/4) in the handler.
+    BKPF / BSEG / BSIK / BSID are in the protected-business-data blocklist group, so PRECHECK cannot read them; FI_DOCUMENT_READ provides the facts.
+F13 Standard messages seen: RW 605 (success), RW 632 (reversal failed). Customer message texts were read from T100 into the private rules file.
+F14 Exchange rate: the AC interface checks TCURR itself; a customer header validation (rate of the posting date, weekend -> Friday) is added
+    on top for 1100.
+
+=== NOT VERIFIED (gaps) ===
+G1  RWIN registration of FI_DOCUMENT_CHECK for event CHECK (inferred, see F3). Run one CHECK call in the handler phase.
+G2  Whether BAPI_ACC_DOCUMENT_REV_CHECK reaches the GGB callup 3 validation (AC_DOCUMENT_REVERSE not traced).
+G3  Authorization objects of BAPI_GL_ACC_GETDETAIL / FI_DOCUMENT_READ (read) not traced; F_BKPF_BUK activity 03 is assumed.
+G4  The customer set that marks the go-live date range (precondition "live" of nearly every customer GGB step) cannot be read with the available tools: treated as true.
+G5  ECC731-DEV and S4-DEV: not checked (task scope: ECC740-DEV only).
+
+# 2026-11-10 step 5 (YSC4SAP_TFIX_09, client 300, QUERY / PREVIEW TESTRUN only): 16/16 PASS
+FI.PERIOD.GET_STATUS T5-FPER PASS (1100, 2026-11-10)
+FI.AR.GET_CREDIT_STATUS FI-134 PASS (customer of SO 3100003659)
+FI.GL.POST fis_period: FI-008 PASS (invalid value refused before the BAPI); posting in a special period not run (C1/C2 enablers reverted)

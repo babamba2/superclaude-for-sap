@@ -1,0 +1,1955 @@
+{
+  "schemaVersion": 1,
+  "module": "SD",
+  "area": "sales orders, deliveries, billing",
+  "notes": [
+    "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side.",
+    "Handler checked on ECC740-DEV (ECC 6.0, 740) on 2026-11-09 with the verification harness (actions-evidence/ECC740-DEV.txt); S4-DEV and ECC731-DEV pending.",
+    "Order actions use BAPI_SALESORDER_CHANGE with SIMULATION (rollback) and BAPI_SALESORDER_CREATEFROMDAT2 with TESTRUN; save-time customer rules are previewed from the customer check rules of the system (biz-rules/SD.json).",
+    "Delivery creation and the goods-issue reversal have no usable test mode: previews are static (status, configuration, rules). The goods issue preview runs WS_DELIVERY_UPDATE_2 in check mode (IF_DATABASE_UPDATE = 2), proven not to save. Billing create and cancel use TESTRUN.",
+    "The handler runs its own authorization check for delivery, goods issue and billing and refuses when it fails (fail closed).",
+    "Amounts: the BAPI interface carries currency amounts in the internal (2-decimal) scale; the handler converts them, so inputs and outputs are real amounts.",
+    "Not offered: credit release (SD_ORDER_CREDIT_RELEASE is an internal FM without authorization check or return table), delivery deletion, order deletion, credit and debit memo requests (value-based items are not supported by SD.SO.CREATE).",
+    "Customer master, partner and address data are never returned: list and detail actions read documents only."
+  ],
+  "actions": [
+    {
+      "id": "SD.SO.LIST_OPEN",
+      "object": "SalesOrder",
+      "kind": "query",
+      "risk": "none",
+      "title": "List open sales orders (by delivery status, blocks, credit status)",
+      "intents": {
+        "en": [
+          "open sales orders",
+          "orders to deliver",
+          "blocked orders",
+          "orders on credit block"
+        ],
+        "ko": [
+          "미결 판매오더",
+          "납품할 오더",
+          "출하 보류 오더",
+          "신용 보류 오더"
+        ]
+      },
+      "params": [
+        {
+          "name": "vkorg",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": true,
+          "values": [
+            "not_delivered",
+            "partly_delivered",
+            "delivery_blocked",
+            "credit_blocked",
+            "incomplete",
+            "all_open"
+          ]
+        },
+        {
+          "name": "doc_category",
+          "type": "string",
+          "required": false,
+          "values": [
+            "standard",
+            "free_of_charge",
+            "return",
+            "credit_memo_request",
+            "debit_memo_request"
+          ]
+        },
+        {
+          "name": "auart",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "vtweg",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "created_from",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "status",
+          "ask": "Which orders: not delivered yet, partly delivered, delivery blocked, credit blocked, incomplete, or all open orders?",
+          "when": "status is missing"
+        },
+        {
+          "param": "vkorg",
+          "ask": "Which sales organization?",
+          "when": "vkorg is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "VBAK",
+            "VBAP",
+            "VBUK",
+            "VBUP"
+          ],
+          "note": "SELECT with status fields (VBUK-LFSTK / ABSTK / CMGST / UVALL, VBAK-LIFSK). BAPI_SALESORDER_GETLIST needs a customer number and returns one customer only, so it is not used for lists by status; its return structure BAPIORDERS also carries the customer name"
+        },
+        "S4": {
+          "source": [
+            "VBAK",
+            "VBAP"
+          ],
+          "note": "status fields moved into VBAK / VBAP on S/4 (not verified on an S/4 system)"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBAK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "VTWEG": "<distr. channel>",
+            "SPART": "<division>",
+            "ACTVT": "03"
+          }
+        },
+        {
+          "object": "V_VBAK_AAT",
+          "fields": {
+            "AUART": "<order type>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "SD.SO.GET_DETAIL",
+      "object": "SalesOrder",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a sales order (header, items, schedule lines, status, delivery and billing flow)",
+      "intents": {
+        "en": [
+          "show sales order",
+          "order status",
+          "what is delivered on this order"
+        ],
+        "ko": [
+          "판매오더 조회",
+          "오더 상태",
+          "납품 현황"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "VBAK",
+            "VBAP",
+            "VBEP",
+            "VBUK",
+            "VBUP",
+            "VBFA"
+          ],
+          "note": "items, schedule lines, status and document flow by SELECT (VBAK, VBAP, VBEP, VBUK, VBUP, VBFA); BAPI_SALESORDER_GETSTATUS is not used; names and addresses of partners are not returned"
+        },
+        "S4": {
+          "source": [
+            "VBAK",
+            "VBAP",
+            "VBEP",
+            "VBFA"
+          ],
+          "note": "items, schedule lines, status and document flow by SELECT (VBAK, VBAP, VBEP, VBUK, VBUP, VBFA); BAPI_SALESORDER_GETSTATUS is not used; names and addresses of partners are not returned"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBAK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "VTWEG": "<distr. channel>",
+            "SPART": "<division>",
+            "ACTVT": "03"
+          }
+        },
+        {
+          "object": "V_VBAK_AAT",
+          "fields": {
+            "AUART": "<order type>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "SD.SO.CREATE",
+      "object": "SalesOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Create a standard sales order (items given as MATERIAL:QUANTITY[:PLANT])",
+      "intents": {
+        "en": [
+          "create sales order",
+          "enter a new order",
+          "new order for a customer"
+        ],
+        "ko": [
+          "판매오더 생성",
+          "오더 등록",
+          "신규 오더 입력"
+        ]
+      },
+      "params": [
+        {
+          "name": "auart",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "vkorg",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "vtweg",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "spart",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "sold_to",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "items",
+          "type": "string[]",
+          "required": false,
+          "format": "MATERIAL:QUANTITY[:PLANT]",
+          "note": "required unless the one-item form (matnr + quantity) is given"
+        },
+        {
+          "name": "cust_po",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "req_date",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "ship_to",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": false,
+          "note": "one-item form instead of items: material"
+        },
+        {
+          "name": "quantity",
+          "type": "string",
+          "required": false,
+          "note": "one-item form: quantity"
+        },
+        {
+          "name": "werks",
+          "type": "string",
+          "required": false,
+          "note": "one-item form: plant"
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "required": false,
+          "note": "sales unit for the items (optional)"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "sold_to",
+          "ask": "For which customer (sold-to party)?",
+          "when": "sold_to is missing"
+        },
+        {
+          "param": "items",
+          "ask": "Which materials and quantities?",
+          "when": "items are missing"
+        },
+        {
+          "param": "auart",
+          "ask": "Which order type?",
+          "when": "auart is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SALESORDER_CREATEFROMDAT2",
+          "group": "2032",
+          "set": "ORDER_HEADER_IN (DOC_TYPE, SALES_ORG, DISTR_CHAN, DIVISION, PURCH_NO_C, REQ_DATE_H), ORDER_PARTNERS (AG, WE), ORDER_ITEMS_IN (MATERIAL, PLANT, TARGET_QTY, TARGET_QU), ORDER_SCHEDULES_IN",
+          "testrun": "TESTRUN",
+          "preview": "BAPI_SALESORDER_CREATEFROMDAT2 with TESTRUN = X (document built and checked, nothing saved, rolled back); also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2 + SALESDOCUMENT"
+        },
+        "S4": {
+          "fm": "BAPI_SALESORDER_CREATEFROMDAT2",
+          "group": "2032",
+          "set": "ORDER_HEADER_IN (DOC_TYPE, SALES_ORG, DISTR_CHAN, DIVISION, PURCH_NO_C, REQ_DATE_H), ORDER_PARTNERS (AG, WE), ORDER_ITEMS_IN (MATERIAL, PLANT, TARGET_QTY, TARGET_QU), ORDER_SCHEDULES_IN",
+          "testrun": "TESTRUN",
+          "preview": "BAPI_SALESORDER_CREATEFROMDAT2 with TESTRUN = X (document built and checked, nothing saved, rolled back); also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2 + SALESDOCUMENT"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBAK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "VTWEG": "<distr. channel>",
+            "SPART": "<division>",
+            "ACTVT": "01"
+          }
+        },
+        {
+          "object": "V_VBAK_AAT",
+          "fields": {
+            "AUART": "<order type>",
+            "ACTVT": "01"
+          }
+        }
+      ],
+      "reverse": "SD.SO.REJECT_ITEM",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.SO.CHANGE_QTY_DATE",
+      "object": "SalesOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Change the quantity or the requested delivery date of an order item (schedule line)",
+      "intents": {
+        "en": [
+          "change order quantity",
+          "change delivery date",
+          "reschedule order item"
+        ],
+        "ko": [
+          "오더 수량 변경",
+          "납품일 변경",
+          "요청 납기 변경"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "new_quantity",
+          "type": "number",
+          "required": false
+        },
+        {
+          "name": "new_date",
+          "type": "date",
+          "required": false
+        },
+        {
+          "name": "sched_line",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "posnr",
+          "ask": "Which item of the order?",
+          "when": "posnr is missing and the order has more than one item"
+        },
+        {
+          "param": "new_quantity",
+          "ask": "Which value changes: the quantity or the requested delivery date?",
+          "when": "neither new_quantity nor new_date is given"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "SCHEDULE_LINES (ITM_NUMBER, SCHED_LINE, REQ_DATE, REQ_QTY) + SCHEDULE_LINESX UPDATEFLAG U; item quantity through ORDER_ITEM_IN-TARGET_QTY + ORDER_ITEM_INX",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "SCHEDULE_LINES (ITM_NUMBER, SCHED_LINE, REQ_DATE, REQ_QTY) + SCHEDULE_LINESX UPDATEFLAG U; item quantity through ORDER_ITEM_IN-TARGET_QTY + ORDER_ITEM_INX",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBAK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "VTWEG": "<distr. channel>",
+            "SPART": "<division>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "V_VBAK_AAT",
+          "fields": {
+            "AUART": "<order type>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "reverse": "SD.SO.CHANGE_QTY_DATE",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Simulation skips the save step: checks in the save exits show only at execute.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "시뮬레이션은 저장 단계를 건너뛰어요. 저장 exit의 체크는 실행할 때만 드러나요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.SO.CHANGE_PRICE",
+      "object": "SalesOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Change the price of a pricing condition on an order item",
+      "intents": {
+        "en": [
+          "change price",
+          "change item price",
+          "set a different condition value"
+        ],
+        "ko": [
+          "단가 변경",
+          "품목 가격 수정",
+          "조건 금액 변경"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "cond_type",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "new_price",
+          "type": "string",
+          "required": true,
+          "description": "real amount per price unit in the document currency"
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "cond_type",
+          "ask": "Which condition type should be changed?",
+          "when": "cond_type is missing"
+        },
+        {
+          "param": "new_price",
+          "ask": "What is the new price?",
+          "when": "new_price is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "CONDITION_IN (ITM_NUMBER, COND_TYPE, COND_VALUE, CURRENCY, UPDATEFLAG U) + CONDITION_INX; the BAPI adds a new condition record (COND_COUNT) next to the old one",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X (rollback); status checks from VBUK / VBUP; refuse when the item is delivered or billed or the condition type does not exist in the item pricing; also run the customer check rules of the system (biz-rules/SD.json)",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "CONDITION_IN (ITM_NUMBER, COND_TYPE, COND_VALUE, CURRENCY, UPDATEFLAG U) + CONDITION_INX; the BAPI adds a new condition record (COND_COUNT) next to the old one",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X (rollback); status checks from VBUK / VBUP; refuse when the item is delivered or billed or the condition type does not exist in the item pricing; also run the customer check rules of the system (biz-rules/SD.json)",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBAK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "VTWEG": "<distr. channel>",
+            "SPART": "<division>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "V_VBAK_AAT",
+          "fields": {
+            "AUART": "<order type>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "reverse": "SD.SO.CHANGE_PRICE",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Simulation skips the save step: checks in the save exits show only at execute.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "시뮬레이션은 저장 단계를 건너뛰어요. 저장 exit의 체크는 실행할 때만 드러나요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.SO.SET_DELIVERY_BLOCK",
+      "object": "SalesOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Set a delivery block on an order (header)",
+      "intents": {
+        "en": [
+          "block order for delivery",
+          "put order on delivery hold",
+          "set delivery block"
+        ],
+        "ko": [
+          "출하 보류",
+          "납품 블록 설정",
+          "오더 출하 블록"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "reason",
+          "ask": "Which delivery block reason?",
+          "when": "reason is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_HEADER_IN-DLV_BLOCK = reason + ORDER_HEADER_INX-DLV_BLOCK = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP; the reason must exist in the delivery block table (TVLS)",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_HEADER_IN-DLV_BLOCK = reason + ORDER_HEADER_INX-DLV_BLOCK = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP; the reason must exist in the delivery block table (TVLS)",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBAK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "VTWEG": "<distr. channel>",
+            "SPART": "<division>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "V_VBAK_AAT",
+          "fields": {
+            "AUART": "<order type>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "reverse": "SD.SO.REMOVE_DELIVERY_BLOCK",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Simulation skips the save step: checks in the save exits show only at execute.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "시뮬레이션은 저장 단계를 건너뛰어요. 저장 exit의 체크는 실행할 때만 드러나요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.SO.REMOVE_DELIVERY_BLOCK",
+      "object": "SalesOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Remove the delivery block of an order (header)",
+      "intents": {
+        "en": [
+          "release delivery block",
+          "remove delivery hold",
+          "unblock order for delivery"
+        ],
+        "ko": [
+          "출하 보류 해제",
+          "납품 블록 해제"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_HEADER_IN-DLV_BLOCK = space + ORDER_HEADER_INX-DLV_BLOCK = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_HEADER_IN-DLV_BLOCK = space + ORDER_HEADER_INX-DLV_BLOCK = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBAK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "VTWEG": "<distr. channel>",
+            "SPART": "<division>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "V_VBAK_AAT",
+          "fields": {
+            "AUART": "<order type>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "reverse": "SD.SO.SET_DELIVERY_BLOCK",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Simulation skips the save step: checks in the save exits show only at execute.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "시뮬레이션은 저장 단계를 건너뛰어요. 저장 exit의 체크는 실행할 때만 드러나요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.SO.SET_BILLING_BLOCK",
+      "object": "SalesOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Set a billing block on an order (header)",
+      "intents": {
+        "en": [
+          "block order for billing",
+          "set billing block"
+        ],
+        "ko": [
+          "청구 보류",
+          "빌링 블록 설정"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "reason",
+          "ask": "Which billing block reason?",
+          "when": "reason is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_HEADER_IN-BILL_BLOCK = reason + ORDER_HEADER_INX-BILL_BLOCK = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP; the reason must exist in the billing block table (TVFS)",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_HEADER_IN-BILL_BLOCK = reason + ORDER_HEADER_INX-BILL_BLOCK = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP; the reason must exist in the billing block table (TVFS)",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBAK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "VTWEG": "<distr. channel>",
+            "SPART": "<division>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "V_VBAK_AAT",
+          "fields": {
+            "AUART": "<order type>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "reverse": "SD.SO.REMOVE_BILLING_BLOCK",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Simulation skips the save step: checks in the save exits show only at execute.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "시뮬레이션은 저장 단계를 건너뛰어요. 저장 exit의 체크는 실행할 때만 드러나요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.SO.REMOVE_BILLING_BLOCK",
+      "object": "SalesOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Remove the billing block of an order (header)",
+      "intents": {
+        "en": [
+          "release billing block",
+          "unblock order for billing"
+        ],
+        "ko": [
+          "청구 보류 해제",
+          "빌링 블록 해제"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_HEADER_IN-BILL_BLOCK = space + ORDER_HEADER_INX-BILL_BLOCK = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_HEADER_IN-BILL_BLOCK = space + ORDER_HEADER_INX-BILL_BLOCK = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBAK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "VTWEG": "<distr. channel>",
+            "SPART": "<division>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "V_VBAK_AAT",
+          "fields": {
+            "AUART": "<order type>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "reverse": "SD.SO.SET_BILLING_BLOCK",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Simulation skips the save step: checks in the save exits show only at execute.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "시뮬레이션은 저장 단계를 건너뛰어요. 저장 exit의 체크는 실행할 때만 드러나요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.SO.REJECT_ITEM",
+      "object": "SalesOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Reject an order item with a reason for rejection",
+      "intents": {
+        "en": [
+          "reject order item",
+          "cancel order line with reason",
+          "set reason for rejection"
+        ],
+        "ko": [
+          "오더 품목 거부",
+          "거부 사유 입력",
+          "품목 취소 처리"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "reason",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "reason",
+          "ask": "Which reason for rejection?",
+          "when": "reason is missing"
+        },
+        {
+          "param": "posnr",
+          "ask": "Which item should be rejected?",
+          "when": "posnr is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_ITEM_IN-REASON_REJ = reason + ORDER_ITEM_INX-REASON_REJ = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP; refuse when the item is already (partly) delivered or billed; the reason must exist in TVAG",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_ITEM_IN-REASON_REJ = reason + ORDER_ITEM_INX-REASON_REJ = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP; refuse when the item is already (partly) delivered or billed; the reason must exist in TVAG",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBAK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "VTWEG": "<distr. channel>",
+            "SPART": "<division>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "V_VBAK_AAT",
+          "fields": {
+            "AUART": "<order type>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "reverse": "SD.SO.UNREJECT_ITEM",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Simulation skips the save step: checks in the save exits show only at execute.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "시뮬레이션은 저장 단계를 건너뛰어요. 저장 exit의 체크는 실행할 때만 드러나요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.SO.UNREJECT_ITEM",
+      "object": "SalesOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Remove the reason for rejection from an order item",
+      "intents": {
+        "en": [
+          "unreject order item",
+          "reactivate order line",
+          "remove reason for rejection"
+        ],
+        "ko": [
+          "품목 거부 취소",
+          "거부 사유 제거",
+          "품목 재활성화"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posnr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "posnr",
+          "ask": "Which item should be reactivated?",
+          "when": "posnr is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_ITEM_IN-REASON_REJ = space + ORDER_ITEM_INX-REASON_REJ = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP; refuse when the item has no reason for rejection",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_SALESORDER_CHANGE",
+          "group": "2032",
+          "set": "ORDER_ITEM_IN-REASON_REJ = space + ORDER_ITEM_INX-REASON_REJ = X, UPDATEFLAG U",
+          "testrun": "SIMULATION",
+          "preview": "BAPI_SALESORDER_CHANGE with SIMULATION = X: builds and checks the document but skips SD_SALES_DOCUMENT_SAVE (read in SD_SALES_DOCU_MAINTAIN), so the save-time checks (SAVE_DOCUMENT_PREPARE exits, number ranges, update tasks, purchase requisitions) are not run; also run the customer check rules of the system (biz-rules/SD.json); post-phase rules are not caught by the BAPI test mode; status checks from VBUK / VBUP; refuse when the item has no reason for rejection",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBAK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "VTWEG": "<distr. channel>",
+            "SPART": "<division>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "V_VBAK_AAT",
+          "fields": {
+            "AUART": "<order type>",
+            "ACTVT": "02"
+          }
+        }
+      ],
+      "reverse": "SD.SO.REJECT_ITEM",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Simulation skips the save step: checks in the save exits show only at execute.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "시뮬레이션은 저장 단계를 건너뛰어요. 저장 exit의 체크는 실행할 때만 드러나요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.DLV.LIST_OPEN",
+      "object": "Delivery",
+      "kind": "query",
+      "risk": "none",
+      "title": "List deliveries to issue, or issued and not billed",
+      "intents": {
+        "en": [
+          "deliveries to ship",
+          "open deliveries",
+          "deliveries not issued yet",
+          "issued but not billed"
+        ],
+        "ko": [
+          "출고할 납품",
+          "미출고 납품",
+          "출고 후 미청구"
+        ]
+      },
+      "params": [
+        {
+          "name": "vstel",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": true,
+          "values": [
+            "to_issue",
+            "issued_unbilled",
+            "all_open"
+          ]
+        },
+        {
+          "name": "date_basis",
+          "type": "string",
+          "required": true,
+          "values": [
+            "planned_today",
+            "planned_overdue_until_today",
+            "all"
+          ]
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "status",
+          "ask": "Deliveries still to issue, or deliveries already issued but not billed?",
+          "when": "status is missing"
+        },
+        {
+          "param": "vstel",
+          "ask": "Which shipping point?",
+          "when": "vstel is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "LIKP",
+            "LIPS",
+            "VBUK"
+          ],
+          "note": "SELECT with VBUK-WBSTK / FKSTK. BAPI_DELIVERY_GETLIST exists (LE_SHP_DB_DELIVERY_BUFFER) but takes one range table per field; a SELECT is simpler and returns no partner data"
+        },
+        "S4": {
+          "source": [
+            "LIKP",
+            "LIPS"
+          ],
+          "note": "status fields in LIKP on S/4 (not verified)"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "SD.DLV.CREATE",
+      "object": "Delivery",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Create an outbound delivery from a sales order (all open quantity or given items)",
+      "intents": {
+        "en": [
+          "create delivery",
+          "deliver this order",
+          "ship order"
+        ],
+        "ko": [
+          "납품 생성",
+          "출하 처리",
+          "오더 납품"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "quantity",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "items",
+          "type": "string[]",
+          "required": false,
+          "format": "POSNR:QUANTITY"
+        },
+        {
+          "name": "ship_point",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "due_date",
+          "type": "date",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "quantity",
+          "ask": "Deliver the whole open quantity or only a part? Which items and quantities?",
+          "when": "the order is partly delivered or the user mentions part of the quantity"
+        },
+        {
+          "param": "due_date",
+          "ask": "Delivery creation up to which date?",
+          "when": "the order has schedule lines on several dates and due_date is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_OUTB_DELIVERY_CREATE_SLS",
+          "group": "V50I",
+          "set": "SALES_ORDER_ITEMS (REF_DOC, REF_ITEM, DLV_QTY, SALES_UNIT), SHIP_POINT, DUE_DATE",
+          "testrun": "none",
+          "preview": "no test mode: static preview from the order status (VBUK / VBUP-LFSTA: delivered, rejected, credit, incompletion), blocks (TVLS), configuration (TVAK delivery type, TVEP schedule line delivery relevance, copy control TVCPL, shipping point) and the customer check rules of the system (biz-rules/SD.json); delivery relevance comes from the item status (VBUP-LFSTA), not from the item category alone; post-phase rules are not caught",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2 + DELIVERIES + CREATED_ITEMS"
+        },
+        "S4": {
+          "fm": "BAPI_OUTB_DELIVERY_CREATE_SLS",
+          "group": "V50I",
+          "set": "SALES_ORDER_ITEMS (REF_DOC, REF_ITEM, DLV_QTY, SALES_UNIT), SHIP_POINT, DUE_DATE",
+          "testrun": "none",
+          "preview": "no test mode: static preview from the order status (VBUK / VBUP-LFSTA: delivered, rejected, credit, incompletion), blocks (TVLS), configuration (TVAK delivery type, TVEP schedule line delivery relevance, copy control TVCPL, shipping point) and the customer check rules of the system (biz-rules/SD.json); delivery relevance comes from the item status (VBUP-LFSTA), not from the item category alone; post-phase rules are not caught",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "BAPIRET2 + DELIVERIES + CREATED_ITEMS"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "01"
+          }
+        }
+      ],
+      "reverse": "delete delivery (not in pilot)",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "No test mode: static preview from the order status, blocks and configuration; the delivery is not built.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "테스트 모드가 없어요. 오더 상태, 보류, 설정으로만 판단하고 납품을 실제로 만들어 보지는 않아요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.DLV.POST_GI",
+      "object": "Delivery",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Post the goods issue of a delivery (movement type 601)",
+      "intents": {
+        "en": [
+          "post goods issue",
+          "goods issue delivery",
+          "ship delivery"
+        ],
+        "ko": [
+          "출고 전기",
+          "출고 처리",
+          "GI 전기"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "pick_all",
+          "type": "string",
+          "required": false,
+          "description": "X = check as if the delivery quantity is picked completely"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "posting_date",
+          "ask": "Which goods issue (posting) date? Today, or another date?",
+          "when": "posting_date is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "WS_DELIVERY_UPDATE_2",
+          "group": "V50S",
+          "set": "VBKOK_WA (VBELN_VL, WABUC = X, WADAT_IST), DELIVERY, COMMIT = X; VBPOK_TAB for partial quantities",
+          "testrun": "IF_DATABASE_UPDATE = 2",
+          "preview": "WS_DELIVERY_UPDATE_2 with IF_DATABASE_UPDATE_1 = 2 (check only: runs the goods movement and accounting checks incl. the MM period and customer closing rules, saves nothing; proven by database snapshots) followed by rollback; pick_all = X sets the picked quantity to the delivery quantity for the check",
+          "commit": "COMMIT parameter of WS_DELIVERY_UPDATE_2 (or BAPI_TRANSACTION_COMMIT)",
+          "return": "PROT (PROTT) + EF_ERROR_* flags",
+          "note": "the material document and the accounting document are posted in the update task: closing errors appear in the update log, not as a return message"
+        },
+        "S4": {
+          "fm": "WS_DELIVERY_UPDATE_2",
+          "group": "V50S",
+          "set": "VBKOK_WA (VBELN_VL, WABUC = X, WADAT_IST), DELIVERY, COMMIT = X; VBPOK_TAB for partial quantities",
+          "testrun": "IF_DATABASE_UPDATE = 2",
+          "preview": "WS_DELIVERY_UPDATE_2 with IF_DATABASE_UPDATE_1 = 2 (check only: runs the goods movement and accounting checks incl. the MM period and customer closing rules, saves nothing; proven by database snapshots) followed by rollback; pick_all = X sets the picked quantity to the delivery quantity for the check",
+          "commit": "COMMIT parameter of WS_DELIVERY_UPDATE_2 (or BAPI_TRANSACTION_COMMIT)",
+          "return": "PROT (PROTT) + EF_ERROR_* flags",
+          "note": "the material document and the accounting document are posted in the update task: closing errors appear in the update log, not as a return message"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "M_MSEG_BWA",
+          "fields": {
+            "ACTVT": "01",
+            "BWART": "601"
+          }
+        }
+      ],
+      "reverse": "SD.DLV.REVERSE_GI",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.DLV.REVERSE_GI",
+      "object": "Delivery",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Reverse the goods issue of a delivery (movement type 602)",
+      "intents": {
+        "en": [
+          "reverse goods issue",
+          "cancel goods issue"
+        ],
+        "ko": [
+          "출고 취소",
+          "GI 취소",
+          "출고 전기 취소"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "posting_date",
+          "type": "date",
+          "required": true
+        }
+      ],
+      "clarify": [
+        {
+          "param": "posting_date",
+          "ask": "Which posting date for the reversal?",
+          "when": "posting_date is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "WS_REVERSE_GOODS_ISSUE",
+          "group": "V51W",
+          "set": "I_VBELN, I_BUDAT, I_VBTYP = J, I_TCODE = VL09",
+          "testrun": "none",
+          "preview": "static: delivery status (WBSTK = C), billing status, MM period check; WS_REVERSE_GOODS_ISSUE has I_SIMULATE but it is unusable (the delivery is not found in simulation), so the real FM runs only on EXECUTE",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "T_MESG (MESG) + exception ERROR_REVERSE_GOODS_ISSUE"
+        },
+        "S4": {
+          "fm": "WS_REVERSE_GOODS_ISSUE",
+          "group": "V51W",
+          "set": "I_VBELN, I_BUDAT, I_VBTYP = J, I_TCODE = VL09",
+          "testrun": "none",
+          "preview": "static: delivery status (WBSTK = C), billing status, MM period check; WS_REVERSE_GOODS_ISSUE has I_SIMULATE but it is unusable (the delivery is not found in simulation), so the real FM runs only on EXECUTE",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "T_MESG (MESG) + exception ERROR_REVERSE_GOODS_ISSUE"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_LIKP_VST",
+          "fields": {
+            "VSTEL": "<shipping point>",
+            "ACTVT": "02"
+          }
+        },
+        {
+          "object": "M_MSEG_BWA",
+          "fields": {
+            "ACTVT": "01",
+            "BWART": "602"
+          }
+        }
+      ],
+      "reverse": "SD.DLV.POST_GI",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Static preview: delivery status and MM period only. Posting-date validations of accounting (such as closing-date checks) show only at execute.",
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "미리보기는 납품 상태와 MM 기간만 확인해요. 마감일 같은 회계 전기일 검증은 실행할 때만 드러나요.",
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.BIL.LIST_DUE",
+      "object": "BillingDocument",
+      "kind": "query",
+      "risk": "none",
+      "title": "List deliveries (or orders) due for billing",
+      "intents": {
+        "en": [
+          "billing due list",
+          "what can I bill",
+          "deliveries to invoice"
+        ],
+        "ko": [
+          "청구 대상 목록",
+          "빌링 대상",
+          "청구할 납품"
+        ]
+      },
+      "params": [
+        {
+          "name": "vkorg",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "billing_date_to",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "billing_date_to",
+          "ask": "Billing due up to which date?",
+          "when": "billing_date_to is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "VKDFS",
+            "LIKP",
+            "VBUK"
+          ],
+          "note": "billing due index VKDFS (what VF04 reads), filtered by sales organization and billing date; no partner data"
+        },
+        "S4": {
+          "source": [
+            "VKDFS",
+            "LIKP",
+            "VBAK"
+          ],
+          "note": "billing due index VKDFS (what VF04 reads), filtered by sales organization and billing date; no partner data"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBRK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "SD.BIL.GET_DETAIL",
+      "object": "BillingDocument",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a billing document (header, items, values, accounting status)",
+      "intents": {
+        "en": [
+          "show invoice",
+          "billing document status"
+        ],
+        "ko": [
+          "청구 문서 조회",
+          "인보이스 상태"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "note": "header and items by SELECT (VBRK, VBRP); net and tax amounts converted to real amounts; partner names are not passed on to the user",
+          "source": [
+            "VBRK",
+            "VBRP"
+          ]
+        },
+        "S4": {
+          "note": "header and items by SELECT (VBRK, VBRP); net and tax amounts converted to real amounts; partner names are not passed on to the user",
+          "source": [
+            "VBRK",
+            "VBRP"
+          ]
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBRK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "ACTVT": "03"
+          }
+        },
+        {
+          "object": "V_VBRK_FKA",
+          "fields": {
+            "FKART": "<billing type>",
+            "ACTVT": "03"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "SD.BIL.CREATE",
+      "object": "BillingDocument",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Create a billing document from a delivery (or an order)",
+      "intents": {
+        "en": [
+          "create invoice",
+          "bill this delivery",
+          "invoice delivery"
+        ],
+        "ko": [
+          "청구 생성",
+          "인보이스 생성",
+          "납품 청구"
+        ]
+      },
+      "params": [
+        {
+          "name": "ref_doc",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "billing_date",
+          "type": "date",
+          "required": true
+        },
+        {
+          "name": "billing_type",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "billing_date",
+          "ask": "Which billing date? Today, or another date?",
+          "when": "billing_date is missing"
+        },
+        {
+          "param": "ref_doc",
+          "ask": "Which delivery (or order) should be billed?",
+          "when": "ref_doc is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_BILLINGDOC_CREATEMULTIPLE",
+          "group": "VBRK",
+          "set": "BILLINGDATAIN (REF_DOC, REF_ITEM, DOC_TYPE, BILL_DATE; no partner or address fields), TESTRUN",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "RETURN (BAPIRET1) + SUCCESS + ERRORS",
+          "note": "with TESTRUN the documents are built and the billing-time exits of the invoice build run (accounting post type F, no commit); billing type: order-related TVAK-FKARA, delivery-related LIKP-FKARV; the number-range and save-time customer rules are not reached"
+        },
+        "S4": {
+          "fm": "BAPI_BILLINGDOC_CREATEMULTIPLE",
+          "group": "VBRK",
+          "set": "BILLINGDATAIN (REF_DOC, REF_ITEM, DOC_TYPE, BILL_DATE; no partner or address fields), TESTRUN",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT",
+          "return": "RETURN (BAPIRET1) + SUCCESS + ERRORS",
+          "note": "with TESTRUN the documents are built and the billing-time exits of the invoice build run (accounting post type F, no commit); billing type: order-related TVAK-FKARA, delivery-related LIKP-FKARV; the number-range and save-time customer rules are not reached"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBRK_FKA",
+          "fields": {
+            "FKART": "<billing type>",
+            "ACTVT": "01"
+          }
+        },
+        {
+          "object": "V_VBRK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "ACTVT": "01"
+          }
+        }
+      ],
+      "reverse": "SD.BIL.CANCEL",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "SD.BIL.CANCEL",
+      "object": "BillingDocument",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Cancel a billing document (cancellation invoice)",
+      "intents": {
+        "en": [
+          "cancel invoice",
+          "cancel billing document",
+          "reverse billing"
+        ],
+        "ko": [
+          "청구 취소",
+          "인보이스 취소",
+          "빌링 취소"
+        ]
+      },
+      "ambiguity": {
+        "term": {
+          "en": "cancel",
+          "ko": "취소"
+        },
+        "candidates": [
+          "SD.BIL.CANCEL",
+          "SD.DLV.REVERSE_GI",
+          "SD.SO.REJECT_ITEM"
+        ],
+        "ask": "What should be cancelled: the invoice (billing document), the goods issue of a delivery, or an order item (rejection)?"
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "billing_date",
+          "type": "date",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "billing_date",
+          "ask": "Which date for the cancellation document? Same day, or the original billing date?",
+          "when": "billing_date is missing and the original billing date is in a closed period"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_BILLINGDOC_CANCEL1",
+          "group": "VBRK",
+          "set": "BILLINGDOCUMENT, TESTRUN, NO_COMMIT, BILLINGDATE",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT (or NO_COMMIT = X and commit by the caller)",
+          "return": "RETURN (BAPIRETURN1) + SUCCESS",
+          "note": "refused when the accounting document is cleared or the billing document is already cancelled; check FKSTO / SFAKN on the document"
+        },
+        "S4": {
+          "fm": "BAPI_BILLINGDOC_CANCEL1",
+          "group": "VBRK",
+          "set": "BILLINGDOCUMENT, TESTRUN, NO_COMMIT, BILLINGDATE",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT (or NO_COMMIT = X and commit by the caller)",
+          "return": "RETURN (BAPIRETURN1) + SUCCESS",
+          "note": "refused when the accounting document is cleared or the billing document is already cancelled; check FKSTO / SFAKN on the document"
+        }
+      },
+      "auth": [
+        {
+          "object": "V_VBRK_FKA",
+          "fields": {
+            "FKART": "<billing type>",
+            "ACTVT": "01"
+          }
+        },
+        {
+          "object": "V_VBRK_VKO",
+          "fields": {
+            "VKORG": "<sales org>",
+            "ACTVT": "01"
+          }
+        }
+      ],
+      "reverse": "SD.BIL.CREATE",
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-09",
+          "level": "handler",
+          "evidence": "configs/SD/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "Authorization and customer checks that run only at save can still refuse the change at execute."
+        ],
+        "ko": [
+          "저장할 때만 도는 권한 체크와 고객 체크는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    }
+  ]
+}
