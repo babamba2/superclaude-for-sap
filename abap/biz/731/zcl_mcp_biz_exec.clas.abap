@@ -18,7 +18,7 @@ CLASS zcl_mcp_biz_exec DEFINITION
 *   - PRECHECK (read only, any client, not logged): document field values and
 *     true / false answers for the customer check rules, see ZCL_MCP_BIZ_PRECHECK
 *     (SD.* actions: facts by ZCL_MCP_BIZ_PRECHECK=>RUN_SD)
-*   - handlers: one class per module (ZCL_MCP_BIZ_MM / _PP / _SD / _FI / _CO / _OUT / _LE / _WM / _PM)
+*   - handlers: one class per module (ZCL_MCP_BIZ_MM / _PP / _SD / _FI / _CO / _OUT / _LE / _WM / _PM / _EWM)
 *
 * Variant: ECC BASIS 7.31 (ZCL_MCP_JSON, installed with the 7.31 helpers).
 * Differs from the 7.40 / S/4 source only in parse_params / to_json.
@@ -47,7 +47,7 @@ CLASS zcl_mcp_biz_exec DEFINITION
     CLASS-METHODS list_actions
       RETURNING VALUE(rs_result) TYPE zif_mcp_biz_action=>ty_result.
 
-    "! Handler of an optional (ECC-only) module, unbound when its class is not installed
+    "! Handler of a family-specific module (LE / WM / PM / EWM), unbound when its class is not installed
     CLASS-METHODS optional_handler
       IMPORTING iv_module         TYPE string
       RETURNING VALUE(ro_handler) TYPE REF TO zif_mcp_biz_action.
@@ -250,9 +250,10 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
       CREATE OBJECT ro_handler TYPE zcl_mcp_biz_co.
     ELSEIF iv_action CP 'OUT.*'.
       CREATE OBJECT ro_handler TYPE zcl_mcp_biz_out.
-    ELSEIF iv_action CP 'LE.*' OR iv_action CP 'WM.*' OR iv_action CP 'PM.*'.
-      " ECC-only modules: created by name so that EXEC also activates where they are not installed.
-      ro_handler = optional_handler( substring( val = iv_action len = 2 ) ).
+    ELSEIF iv_action CP 'LE.*' OR iv_action CP 'WM.*' OR iv_action CP 'PM.*' OR iv_action CP 'EWM.*'.
+      " Family-specific modules (LE / WM / PM on ECC, EWM on S/4HANA): created by name so that
+      " EXEC also activates where they are not installed.
+      ro_handler = optional_handler( segment( val = iv_action index = 1 sep = '.' ) ).
     ENDIF.
   ENDMETHOD.
 
@@ -289,6 +290,11 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
       APPEND LINES OF lt_actions TO rs_result-actions.
     ENDIF.
     lo_handler = optional_handler( 'PM' ).
+    IF lo_handler IS BOUND.
+      lt_actions = lo_handler->get_actions( ).
+      APPEND LINES OF lt_actions TO rs_result-actions.
+    ENDIF.
+    lo_handler = optional_handler( 'EWM' ).
     IF lo_handler IS BOUND.
       lt_actions = lo_handler->get_actions( ).
       APPEND LINES OF lt_actions TO rs_result-actions.
@@ -555,6 +561,9 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
     rs_params-arbpl = zcl_mcp_json=>get_string( it_members = lt_members iv_name = 'arbpl' ).
     rs_params-eqtyp = zcl_mcp_json=>get_string( it_members = lt_members iv_name = 'eqtyp' ).
     rs_params-act_work = zcl_mcp_json=>get_string( it_members = lt_members iv_name = 'act_work' ).
+    rs_params-date_from = zcl_mcp_json=>get_string( it_members = lt_members iv_name = 'date_from' ).
+    rs_params-date_to = zcl_mcp_json=>get_string( it_members = lt_members iv_name = 'date_to' ).
+    rs_params-who = zcl_mcp_json=>get_string( it_members = lt_members iv_name = 'who' ).
   ENDMETHOD.
 
 
@@ -900,6 +909,32 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
         lv_list = 'aufnr vornr act_work unit final_conf posting_date text'.
       WHEN 'PM.ORD.TECO'.
         lv_list = 'aufnr'.
+      WHEN 'EWM.WHS.LIST'.
+        lv_list = 'werks lgnum'.
+      WHEN 'EWM.WT.LIST_OPEN'.
+        lv_list = 'lgnum lgtyp matnr vbeln who max_rows'.
+      WHEN 'EWM.WT.GET_DETAIL'.
+        lv_list = 'lgnum tanum'.
+      WHEN 'EWM.WT.LIST_CONFIRMED'.
+        lv_list = 'lgnum date_from date_to matnr lgtyp max_rows'.
+      WHEN 'EWM.WO.GET_DETAIL'.
+        lv_list = 'lgnum who'.
+      WHEN 'EWM.BIN.GET_DETAIL'.
+        lv_list = 'lgnum lgpla'.
+      WHEN 'EWM.BIN.LIST_EMPTY'.
+        lv_list = 'lgnum lgtyp max_rows'.
+      WHEN 'EWM.BIN.LIST_BLOCKED'.
+        lv_list = 'lgnum lgtyp max_rows'.
+      WHEN 'EWM.STOCK.BY_PRODUCT'.
+        lv_list = 'matnr lgnum lgtyp max_rows'.
+      WHEN 'EWM.STOCK.BY_BIN'.
+        lv_list = 'lgnum lgpla lgtyp max_rows'.
+      WHEN 'EWM.HU.GET_DETAIL'.
+        lv_list = 'exidv lgnum'.
+      WHEN 'EWM.DLV.WAREHOUSE_STATUS'.
+        lv_list = 'vbeln'.
+      WHEN 'EWM.DLV.LIST_OPEN'.
+        lv_list = 'lgnum doc_category max_rows'.
       WHEN OTHERS.
         CLEAR lv_list.
     ENDCASE.

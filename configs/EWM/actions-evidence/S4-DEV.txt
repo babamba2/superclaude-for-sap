@@ -1,0 +1,18 @@
+# Scenario evidence - S4-DEV (S/4HANA, release 816), 2026-11-11. ABAP Unit scenario matrix through ZCL_MCP_BIZ_EXEC (queries only):
+# expected results declared before the run from direct SQL on the EWM tables (open / confirmed tasks, bins, quants, delivery items).
+# Final run EWM-run2 (98/98 PASS). Run 1: 97/98, one wrong expectation (storage-type pattern count) corrected from the SQL pairs.
+# Columns: action, verdict, pass/lines, executed writes, run. No SAP data was changed.
+S EWM.BIN.GET_DETAIL PASS 7/7 exec 0 EWM-run2
+S EWM.BIN.LIST_BLOCKED PASS 4/4 exec 0 EWM-run2
+S EWM.BIN.LIST_EMPTY PASS 6/6 exec 0 EWM-run2
+S EWM.DLV.LIST_OPEN PASS 5/5 exec 0 EWM-run2
+S EWM.DLV.WAREHOUSE_STATUS PASS 6/6 exec 0 EWM-run2
+S EWM.HU.GET_DETAIL PASS 6/6 exec 0 EWM-run2
+S EWM.STOCK.BY_BIN PASS 4/4 exec 0 EWM-run2
+S EWM.STOCK.BY_PRODUCT PASS 8/8 exec 0 EWM-run2
+S EWM.WHS.LIST PASS 5/5 exec 0 EWM-run2
+S EWM.WO.GET_DETAIL PASS 5/5 exec 0 EWM-run2
+# guard: unknown action EWM.WT.CONFIRM refused (no write action exists) PASS 1/1 EWM-run2
+S EWM.WT.GET_DETAIL PASS 9/9 exec 0 EWM-run2
+S EWM.WT.LIST_CONFIRMED PASS 10/10 exec 0 EWM-run2
+S EWM.WT.LIST_OPEN PASS 22/22 exec 0 EWM-run2

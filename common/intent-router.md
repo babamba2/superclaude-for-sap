@@ -22,7 +22,7 @@ Mixed sentences: "Why is PO 4500… blocked and release it" = `lookup` + `knowle
 
 ## 3. Module detection
 
-Same keyword map as `ask-consultant` § Module_Routing (PO → MM, sales order / delivery / billing → SD, FI document / G/L / vendor item → FI, cost center / internal order → CO, production order → PP, shipment / shipment cost / picking / packing / handling unit → LE, transfer order / transfer requirement / storage bin / warehouse number / quant → WM, maintenance order / maintenance notification / equipment / functional location / maintenance plan → PM; LE, WM and PM are ECC only — on S/4 the same requests belong to TM / EWM and are not offered; PM stays hidden on S/4 until verified there). For `lookup` / `action` the action id prefix (`MM.`, `SD.` …) is the module.
+Same keyword map as `ask-consultant` § Module_Routing (PO → MM, sales order / delivery / billing → SD, FI document / G/L / vendor item → FI, cost center / internal order → CO, production order → PP, shipment / shipment cost / picking / packing / handling unit → LE, transfer order / transfer requirement / storage bin / warehouse number / quant → WM, maintenance order / maintenance notification / equipment / functional location / maintenance plan → PM, warehouse task / warehouse order / EWM stock / handling unit in EWM → EWM; LE, WM and PM are ECC only — on S/4 shipments belong to TM (not offered) and warehouse requests to EWM (lookups only); PM stays hidden on S/4 until verified there). For `lookup` / `action` the action id prefix (`MM.`, `SD.` …) is the module.
 
 ## 4. Handoffs
 

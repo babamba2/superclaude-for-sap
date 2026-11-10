@@ -5,14 +5,14 @@ import { join } from 'path';
 // Business-action ABAP sources are split by system family:
 //   abap/biz/*.abap      common  — must activate on ECC 7.40 and S/4HANA
 //   abap/biz/731/*.abap  ECC 7.31 copy
-//   abap/biz/s4/*.abap   S/4HANA only (ZCL_MCP_BIZ_SYS_S4)
+//   abap/biz/s4/*.abap   S/4HANA only (ZCL_MCP_BIZ_SYS_S4, ZCL_MCP_BIZ_EWM)
 // Common and 7.31 sources must not name S/4-only objects statically: ECC activation would fail.
 
 const ROOT = join(__dirname, '..', '..', 'abap', 'biz');
 
-// Tables / views that do not exist on ECC.
+// Tables / views that do not exist on ECC (EWM /SCWM/ and /SCDL/ tables only exist where EWM runs).
 const S4_ONLY_OBJECT =
-  /\b(?:FROM|JOIN|TYPE|LIKE|TABLE\s+OF|INCLUDE\s+TYPE|UPDATE|INSERT\s+INTO|MODIFY|DELETE\s+FROM)\s+(acdoca|acdocp|acdoca_m_extract|matdoc|matdoc_extract|prcd_elements|ukm[a-z0-9_]*|fins_[a-z0-9_]*|i_[a-z0-9_]+)\b/i;
+  /\b(?:FROM|JOIN|TYPE|LIKE|TABLE\s+OF|INCLUDE\s+TYPE|UPDATE|INSERT\s+INTO|MODIFY|DELETE\s+FROM)\s+(acdoca|acdocp|acdoca_m_extract|matdoc|matdoc_extract|prcd_elements|ukm[a-z0-9_]*|fins_[a-z0-9_]*|i_[a-z0-9_]+|\/scwm\/[a-z0-9_]+|\/scdl\/[a-z0-9_]+)\b/i;
 // Status fields that exist in these tables on S/4HANA only (they are in VBUK / VBUP on ECC);
 // also through a variable named after the table (ls_vbak-fksak) — compile-checked as well.
 const S4_ONLY_FIELD =
@@ -125,6 +125,16 @@ describe('biz ABAP sources: system-family split', () => {
     expect(duplicateDecls(src)).toHaveLength(1);
   });
 
+  it('the EWM handler is S/4-only and EXEC creates it by name only', () => {
+    const ewm = readFileSync(join(ROOT, 's4', 'zcl_mcp_biz_ewm.clas.abap'), 'utf-8');
+    expect(s4OnlyRefs(ewm).length).toBeGreaterThan(0);
+    for (const f of [...abapIn(ROOT), ...abapIn(join(ROOT, '731'))]) {
+      expect(codeOnly(readFileSync(f, 'utf-8')), f).not.toMatch(/zcl_mcp_biz_ewm/i);
+    }
+    const exec = readFileSync(join(ROOT, 'zcl_mcp_biz_exec.clas.abap'), 'utf-8');
+    expect(exec).toMatch(/optional_handler\( 'EWM' \)/);
+  });
+
   it('the factory creates the S/4 class by name only', () => {
     const fac = readFileSync(join(ROOT, 'zcl_mcp_biz_sys.clas.abap'), 'utf-8');
     expect(fac).toMatch(/CREATE OBJECT lo_obj TYPE \(c_s4_class\)/);
@@ -135,6 +145,8 @@ describe('biz ABAP sources: system-family split', () => {
     expect(s4OnlyRefs('    SELECT * FROM prcd_elements INTO TABLE lt.')).toHaveLength(1);
     expect(s4OnlyRefs('    DATA ls TYPE acdoca.')).toHaveLength(1);
     expect(s4OnlyRefs('    lv = ls_vbak-fksak.')).toHaveLength(1);
+    expect(s4OnlyRefs('    SELECT * FROM /scwm/ordim_o INTO TABLE lt.')).toHaveLength(1);
+    expect(s4OnlyRefs('    DATA lv TYPE /scdl/db_refdoc-docid.')).toHaveLength(1);
     expect(s4OnlyRefs('* reads ACDOCA on S/4\n    " FROM acdoca\n    lv_tab = `ACDOCA`.')).toEqual([]);
     expect(s4OnlyRefs('    SELECT * FROM (lv_tab) INTO TABLE lt.')).toEqual([]);
   });

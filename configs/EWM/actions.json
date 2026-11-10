@@ -1,0 +1,1044 @@
+{
+  "schemaVersion": 1,
+  "module": "EWM",
+  "area": "embedded extended warehouse management (S/4HANA): warehouse tasks, warehouse orders, bins, stock, handling units, delivery warehouse status",
+  "notes": [
+    "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side (handler ZCL_MCP_BIZ_EWM, installed only on S/4HANA systems that run EWM).",
+    "Queries only. Confirming, creating or cancelling warehouse tasks, bin blocks and physical inventory are not offered.",
+    "On ECC the warehouse runs in classic WM: use the WM module there; EWM actions are hidden.",
+    "The handler checks an EWM authorization for the warehouse number itself (/SCWM/MO or /SCWM/DLV2) and refuses when neither passes (fail closed).",
+    "Products are shown with the material number (MARA-SCM_MATID_GUID16 maps the EWM product GUID). No person names are returned."
+  ],
+  "actions": [
+    {
+      "id": "EWM.WHS.LIST",
+      "object": "Warehouse",
+      "kind": "query",
+      "risk": "none",
+      "title": "List EWM warehouses (with the ERP warehouse and plants)",
+      "intents": {
+        "en": [
+          "ewm warehouses",
+          "which warehouse numbers",
+          "warehouses of a plant"
+        ],
+        "ko": [
+          "EWM 창고 목록",
+          "창고번호 알려줘",
+          "플랜트 창고"
+        ]
+      },
+      "params": [
+        {
+          "name": "werks",
+          "type": "string",
+          "required": false,
+          "description": "plant: only warehouses mapped to it"
+        },
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCWM/T300",
+            "/SCWM/T300T",
+            "/SCWM/TMAPWHNUM",
+            "T320"
+          ],
+          "note": "warehouse texts in the logon language; plants via ERP warehouse mapping and T320"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.WT.LIST_OPEN",
+      "object": "Warehouse task",
+      "kind": "query",
+      "risk": "none",
+      "title": "List open warehouse tasks of a warehouse (by storage type, product, delivery or warehouse order)",
+      "intents": {
+        "en": [
+          "open warehouse tasks",
+          "warehouse tasks not confirmed",
+          "tasks of a delivery"
+        ],
+        "ko": [
+          "미결 창고작업",
+          "미확정 창고작업",
+          "납품의 창고작업",
+          "열린 WT"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true,
+          "description": "EWM warehouse number (4 characters)"
+        },
+        {
+          "name": "lgtyp",
+          "type": "string",
+          "required": false,
+          "description": "source or destination storage type; * allowed"
+        },
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": false,
+          "description": "ERP delivery number"
+        },
+        {
+          "name": "who",
+          "type": "string",
+          "required": false,
+          "description": "warehouse order"
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "lgnum",
+          "ask": "Which EWM warehouse number?",
+          "when": "lgnum is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCWM/ORDIM_O",
+            "/SCDL/DB_REFDOC",
+            "MARA"
+          ],
+          "note": "status blank = open, B = waiting; product number from MARA-SCM_MATID_GUID16"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.WT.GET_DETAIL",
+      "object": "Warehouse task",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show one warehouse task (open, or confirmed / cancelled items)",
+      "intents": {
+        "en": [
+          "show warehouse task",
+          "warehouse task details",
+          "where does this task go"
+        ],
+        "ko": [
+          "창고작업 조회",
+          "창고작업 상세",
+          "WT 상세"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true,
+          "description": "EWM warehouse number (4 characters)"
+        },
+        {
+          "name": "tanum",
+          "type": "string",
+          "required": true,
+          "description": "warehouse task number (up to 12 digits)"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "lgnum",
+          "ask": "Which EWM warehouse number?",
+          "when": "lgnum is missing"
+        },
+        {
+          "param": "tanum",
+          "ask": "Which warehouse task number?",
+          "when": "tanum is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCWM/ORDIM_O",
+            "/SCWM/ORDIM_C",
+            "/SCDL/DB_REFDOC"
+          ],
+          "note": "open table first, then the confirmed items"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.WT.LIST_CONFIRMED",
+      "object": "Warehouse task",
+      "kind": "query",
+      "risk": "none",
+      "title": "List confirmed warehouse task items in a period",
+      "intents": {
+        "en": [
+          "confirmed warehouse tasks",
+          "tasks confirmed last month",
+          "warehouse movements in a period"
+        ],
+        "ko": [
+          "확정된 창고작업",
+          "지난달 확정 창고작업",
+          "기간별 창고 이동"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true,
+          "description": "EWM warehouse number (4 characters)"
+        },
+        {
+          "name": "date_from",
+          "type": "string",
+          "required": true,
+          "description": "YYYY-MM-DD (UTC day)"
+        },
+        {
+          "name": "date_to",
+          "type": "string",
+          "required": false,
+          "description": "YYYY-MM-DD, default today"
+        },
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "lgtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "lgnum",
+          "ask": "Which EWM warehouse number?",
+          "when": "lgnum is missing"
+        },
+        {
+          "param": "date_from",
+          "ask": "From which date?",
+          "when": "date_from is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCWM/ORDIM_C",
+            "MARA"
+          ],
+          "note": "status C only (cancelled items left out); confirmation time stamp in UTC"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.WO.GET_DETAIL",
+      "object": "Warehouse order",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a warehouse order with its open and confirmed tasks",
+      "intents": {
+        "en": [
+          "show warehouse order",
+          "warehouse order status"
+        ],
+        "ko": [
+          "창고오더",
+          "창고오더 조회",
+          "창고오더 상태"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true,
+          "description": "EWM warehouse number (4 characters)"
+        },
+        {
+          "name": "who",
+          "type": "string",
+          "required": true,
+          "description": "warehouse order number"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "lgnum",
+          "ask": "Which EWM warehouse number?",
+          "when": "lgnum is missing"
+        },
+        {
+          "param": "who",
+          "ask": "Which warehouse order?",
+          "when": "who is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCWM/WHO",
+            "/SCWM/ORDIM_O",
+            "/SCWM/ORDIM_C"
+          ],
+          "note": "no processor or resource names are returned"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.BIN.GET_DETAIL",
+      "object": "Storage bin",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a storage bin: blocks, stock in it and open tasks in / out",
+      "intents": {
+        "en": [
+          "show storage bin",
+          "what is in bin",
+          "bin status"
+        ],
+        "ko": [
+          "저장빈 조회",
+          "빈에 뭐 있어",
+          "저장빈 상태"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true,
+          "description": "EWM warehouse number (4 characters)"
+        },
+        {
+          "name": "lgpla",
+          "type": "string",
+          "required": true,
+          "description": "storage bin"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "lgnum",
+          "ask": "Which EWM warehouse number?",
+          "when": "lgnum is missing"
+        },
+        {
+          "param": "lgpla",
+          "ask": "Which storage bin?",
+          "when": "lgpla is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCWM/LAGP",
+            "/SCWM/AQUA",
+            "/SCWM/ORDIM_O"
+          ],
+          "note": "up to 200 stock lines"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.BIN.LIST_EMPTY",
+      "object": "Storage bin",
+      "kind": "query",
+      "risk": "none",
+      "title": "List empty storage bins free for putaway",
+      "intents": {
+        "en": [
+          "empty storage bins",
+          "free bins for putaway"
+        ],
+        "ko": [
+          "빈 저장빈",
+          "비어있는 빈",
+          "입고 가능한 빈"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true,
+          "description": "EWM warehouse number (4 characters)"
+        },
+        {
+          "name": "lgtyp",
+          "type": "string",
+          "required": false,
+          "description": "storage type; * allowed"
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "lgnum",
+          "ask": "Which EWM warehouse number?",
+          "when": "lgnum is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCWM/LAGP"
+          ],
+          "note": "empty flag set and no putaway, removal or inventory block"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.BIN.LIST_BLOCKED",
+      "object": "Storage bin",
+      "kind": "query",
+      "risk": "none",
+      "title": "List blocked storage bins (putaway, removal or inventory block)",
+      "intents": {
+        "en": [
+          "blocked storage bins",
+          "bins blocked for putaway"
+        ],
+        "ko": [
+          "블록된 저장빈",
+          "입고 블록 빈",
+          "출고 블록 빈"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true,
+          "description": "EWM warehouse number (4 characters)"
+        },
+        {
+          "name": "lgtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "lgnum",
+          "ask": "Which EWM warehouse number?",
+          "when": "lgnum is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCWM/LAGP"
+          ],
+          "note": "shows which block is set; changing blocks is not offered"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.STOCK.BY_PRODUCT",
+      "object": "Stock",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show where a product is stored (bins, HUs, stock types) with the total",
+      "intents": {
+        "en": [
+          "where is product stored",
+          "warehouse stock of product",
+          "stock location"
+        ],
+        "ko": [
+          "재고 위치",
+          "제품 재고 어디",
+          "창고 재고 조회"
+        ]
+      },
+      "params": [
+        {
+          "name": "matnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": false,
+          "description": "without it: every warehouse the user may display"
+        },
+        {
+          "name": "lgtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "matnr",
+          "ask": "Which product?",
+          "when": "matnr is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCWM/AQUA",
+            "MARA"
+          ],
+          "note": "available quantity per quant; the total counts every line even when the list is cut"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.STOCK.BY_BIN",
+      "object": "Stock",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show the stock in a storage bin or storage type",
+      "intents": {
+        "en": [
+          "stock in bin",
+          "stock in storage type"
+        ],
+        "ko": [
+          "빈 재고",
+          "저장유형 재고"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true,
+          "description": "EWM warehouse number (4 characters)"
+        },
+        {
+          "name": "lgpla",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "lgtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "lgnum",
+          "ask": "Which EWM warehouse number?",
+          "when": "lgnum is missing"
+        },
+        {
+          "param": "lgpla",
+          "ask": "Which storage bin (or storage type)?",
+          "when": "lgpla and lgtyp are missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCWM/AQUA",
+            "MARA"
+          ],
+          "note": "bin or storage type required"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.HU.GET_DETAIL",
+      "object": "Handling unit",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a handling unit: warehouse, location and content",
+      "intents": {
+        "en": [
+          "show handling unit",
+          "where is HU",
+          "HU content"
+        ],
+        "ko": [
+          "HU 조회",
+          "HU 위치",
+          "핸들링유닛 내용"
+        ]
+      },
+      "params": [
+        {
+          "name": "exidv",
+          "type": "string",
+          "required": true,
+          "description": "handling unit number"
+        },
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "exidv",
+          "ask": "Which handling unit?",
+          "when": "exidv is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCWM/HUHDR",
+            "/SCWM/AQUA"
+          ],
+          "note": "numeric HU numbers get leading zeros"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.DLV.WAREHOUSE_STATUS",
+      "object": "Delivery",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show the warehouse progress of an ERP delivery (picking, goods issue / receipt, open tasks)",
+      "intents": {
+        "en": [
+          "warehouse status of delivery",
+          "is delivery picked in EWM",
+          "delivery warehouse progress"
+        ],
+        "ko": [
+          "납품 창고 진행",
+          "창고 진행",
+          "창고 진행 상태",
+          "출고 진행 상태"
+        ]
+      },
+      "params": [
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": true,
+          "description": "ERP outbound or inbound delivery"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "vbeln",
+          "ask": "Which delivery?",
+          "when": "vbeln is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCDL/DB_REFDOC",
+            "/SCDL/DB_PROCH_O",
+            "/SCDL/DB_PROCI_O",
+            "/SCDL/DB_PROCH_I",
+            "/SCDL/DB_PROCI_I",
+            "/SCWM/ORDIM_O"
+          ],
+          "note": "status values: not relevant / not started / partly done / completed"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "EWM.DLV.LIST_OPEN",
+      "object": "Delivery",
+      "kind": "query",
+      "risk": "none",
+      "title": "List warehouse requests with goods issue (or receipt) not completed",
+      "intents": {
+        "en": [
+          "open outbound deliveries in warehouse",
+          "deliveries not goods issued",
+          "open inbound deliveries"
+        ],
+        "ko": [
+          "미출고 납품",
+          "출고 안 된 납품",
+          "미입고 입고납품"
+        ]
+      },
+      "params": [
+        {
+          "name": "lgnum",
+          "type": "string",
+          "required": true,
+          "description": "EWM warehouse number (4 characters)"
+        },
+        {
+          "name": "doc_category",
+          "type": "string",
+          "required": false,
+          "description": "outbound (default) or inbound"
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "clarify": [
+        {
+          "param": "lgnum",
+          "ask": "Which EWM warehouse number?",
+          "when": "lgnum is missing"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "none",
+          "note": "not offered on ECC: classic warehouse management is the WM module"
+        },
+        "S4": {
+          "source": [
+            "/SCDL/DB_PROCI_O",
+            "/SCDL/DB_PROCI_I",
+            "/SCDL/DB_PROCH_O",
+            "/SCDL/DB_PROCH_I",
+            "/SCDL/DB_REFDOC"
+          ],
+          "note": "newest first; ERP delivery number shown when the request has one"
+        }
+      },
+      "auth": [
+        {
+          "object": "/SCWM/MO",
+          "fields": {
+            "/SCWM/LGNU": "<warehouse>"
+          },
+          "note": "or /SCWM/DLV2 for the warehouse number (either one is enough; other fields DUMMY)"
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "S4-DEV",
+          "family": "S4",
+          "release": "816",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/EWM/actions-evidence/S4-DEV.txt"
+        }
+      ]
+    }
+  ]
+}

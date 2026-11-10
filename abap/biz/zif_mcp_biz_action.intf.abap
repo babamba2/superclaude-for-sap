@@ -3,7 +3,7 @@ INTERFACE zif_mcp_biz_action
 
 * ZIF_MCP_BIZ_ACTION - business action handler contract for ZMCP_BIZ_EXECUTE.
 *
-* One handler class per module: ZCL_MCP_BIZ_MM, _PP, _SD, _FI, _CO, _OUT, _LE, _WM, _PM.
+* One handler class per module: ZCL_MCP_BIZ_MM, _PP, _SD, _FI, _CO, _OUT, _LE, _WM, _PM, _EWM.
 * The executor (ZCL_MCP_BIZ_EXEC) owns JSON, the production block, the
 * preview token and the log; handlers own the business logic only.
 *
@@ -144,6 +144,11 @@ INTERFACE zif_mcp_biz_action
       arbpl              TYPE string,
       eqtyp              TYPE string,
       act_work           TYPE string,
+      " EWM queries (ZCL_MCP_BIZ_EWM, S/4HANA only): confirmation period, warehouse order. lgnum / tanum /
+      " lgtyp / lgpla / matnr / vbeln / exidv / doc_category / max_rows shared.
+      date_from          TYPE string,
+      date_to            TYPE string,
+      who                TYPE string,
     END OF ty_params.
 
   TYPES:

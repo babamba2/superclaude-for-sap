@@ -12,7 +12,19 @@ const catalogs = loadCatalogs();
 describe('assist catalog runtime (scripts/assist/catalog.mjs)', () => {
   it('loads every module catalog', () => {
     const mods = catalogs.map((c: { module: string }) => c.module);
-    for (const m of ['MM', 'PP', 'SD', 'FI', 'CO', 'OUT', 'LE', 'WM', 'PM']) expect(mods).toContain(m);
+    for (const m of ['MM', 'PP', 'SD', 'FI', 'CO', 'OUT', 'LE', 'WM', 'PM', 'EWM']) expect(mods).toContain(m);
+  });
+
+  it('matches Korean EWM lookups on S/4 and hides EWM on ECC', () => {
+    const s4 = allActions(catalogs, 'S4');
+    expect(matchText('미결 창고작업 보여줘', s4).candidates[0].id).toBe('EWM.WT.LIST_OPEN');
+    expect(matchText('빈 저장빈 알려줘', s4).candidates[0].id).toBe('EWM.BIN.LIST_EMPTY');
+    expect(matchText('재고 위치 알려줘', s4).candidates[0].id).toBe('EWM.STOCK.BY_PRODUCT');
+    expect(matchText('창고오더 2000001 조회', s4).candidates[0].id).toBe('EWM.WO.GET_DETAIL');
+    expect(matchText('납품 80000001 창고 진행 알려줘', s4).candidates[0].id).toBe('EWM.DLV.WAREHOUSE_STATUS');
+    expect(s4.filter((a: { id: string; kind: string }) => a.id.startsWith('EWM.')).every((a: { kind: string }) => a.kind === 'query')).toBe(true);
+    const ecc = allActions(catalogs, 'ECC');
+    expect(ecc.some((a: { id: string }) => a.id.startsWith('EWM.'))).toBe(false);
   });
 
   it('family from sapVersion', () => {
