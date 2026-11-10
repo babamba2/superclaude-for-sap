@@ -11,7 +11,8 @@ function module body (no inline declaration) differ.
 
 1. **SE11 table `ZMCP_BIZ_LOG`**: fields in `zmcp_biz_log.tabl.md`. Activate.
 2. **SE24 interface `ZIF_MCP_BIZ_ACTION`**: Source-based editor (Goto > Source Code Based), paste `zif_mcp_biz_action.intf.abap`. Activate.
-3. **SE24 handler classes, one per module** (Final, activate each): `ZCL_MCP_BIZ_MM` (`zcl_mcp_biz_mm.clas.abap`, includes the PO customer include fields, see `../CBO-EXTENSION-GUIDE.md`), `ZCL_MCP_BIZ_PP`, `ZCL_MCP_BIZ_SD`, `ZCL_MCP_BIZ_FI`, `ZCL_MCP_BIZ_CO`.
+2a. **SE24 system-family reads** (before the handlers, Final, activate each): interface `ZIF_MCP_BIZ_SYS` (`zif_mcp_biz_sys.intf.abap`), class `ZCL_MCP_BIZ_SYS_ECC` (`zcl_mcp_biz_sys_ecc.clas.abap`), then factory `ZCL_MCP_BIZ_SYS` (`zcl_mcp_biz_sys.clas.abap`). Never install `ZCL_MCP_BIZ_SYS_S4` here (S/4HANA only, `../s4/`).
+3. **SE24 handler classes, one per module** (output: also `ZCL_MCP_BIZ_OUT`, `zcl_mcp_biz_out.clas.abap`) (Final, activate each): `ZCL_MCP_BIZ_MM` (`zcl_mcp_biz_mm.clas.abap`, includes the PO customer include fields, see `../CBO-EXTENSION-GUIDE.md`), `ZCL_MCP_BIZ_PP`, `ZCL_MCP_BIZ_SD`, `ZCL_MCP_BIZ_FI`, `ZCL_MCP_BIZ_CO`.
    The older split classes (`ZCL_MCP_BIZ_MM_PUR`, `_PO_CBO`, `_PP_ORD`, `_SD_BASE`, `_SD_SO`, `_SD_DLV`, `_SD_BIL`, `_PRE_SD`) were deleted on 2026-11-10 (merged into ZCL_MCP_BIZ_MM / _PP / _SD / _PRECHECK): do not install them.
 4. **SE24 class `ZCL_MCP_BIZ_PRECHECK`** (before step 5): paste `zcl_mcp_biz_precheck.clas.abap` (SD facts included: `run_sd`). Final. Activate. Mode PRECHECK (read only) needs the TVARVC selection option `ZMCP_BIZ_PRECHECK_TABLES` (STVARV: type S, sign I, option EQ, low = table name) listing the tables its exists queries may ask about.
 5. **SE24 class `ZCL_MCP_BIZ_EXEC`**: paste `zcl_mcp_biz_exec.clas.abap`. Final. Activate.

@@ -1703,6 +1703,7 @@ CLASS zcl_mcp_biz_precheck IMPLEMENTATION.
   METHOD read_order.
     DATA: ls_vbak  TYPE vbak,
           ls_vbuk  TYPE vbuk,
+          lv_stat_found TYPE abap_bool,
           ls_vbkd  TYPE vbkd,
           lt_vbap  TYPE ty_t_vbap,
           ls_vbap  TYPE vbap,
@@ -1739,8 +1740,9 @@ CLASS zcl_mcp_biz_precheck IMPLEMENTATION.
                      CHANGING  ct_facts = ct_facts ).
     ENDIF.
     IF sd_has_req( it_req = it_req iv_table = 'VBUK' ) = abap_true.
-      SELECT SINGLE * FROM vbuk INTO ls_vbuk WHERE vbeln = iv_vbeln.
-      IF sy-subrc = 0.
+      zcl_mcp_biz_sys=>get( )->sd_read_vbuk( EXPORTING iv_vbeln = iv_vbeln iv_table = `VBAK`
+                                 IMPORTING es_vbuk = ls_vbuk ev_found = lv_stat_found ).
+      IF lv_stat_found = abap_true.
         sd_add_row_facts( EXPORTING iv_table = 'VBUK' iv_level = 'H' iv_item = ''
                                  is_row = ls_vbuk it_req = it_req
                        CHANGING  ct_facts = ct_facts ).
@@ -1804,8 +1806,9 @@ CLASS zcl_mcp_biz_precheck IMPLEMENTATION.
                        CHANGING  ct_facts = ct_facts ).
       ENDIF.
       IF sd_has_req( it_req = it_req iv_table = 'VBUP' ) = abap_true.
-        SELECT SINGLE * FROM vbup INTO ls_vbup WHERE vbeln = iv_vbeln AND posnr = ls_vbap-posnr.
-        IF sy-subrc = 0.
+        zcl_mcp_biz_sys=>get( )->sd_read_vbup( EXPORTING iv_vbeln = iv_vbeln iv_posnr = ls_vbap-posnr iv_table = `VBAP`
+                                   IMPORTING es_vbup = ls_vbup ev_found = lv_stat_found ).
+        IF lv_stat_found = abap_true.
           sd_add_row_facts( EXPORTING iv_table = 'VBUP' iv_level = 'I' iv_item = lv_item
                                    is_row = ls_vbup it_req = it_req
                          CHANGING  ct_facts = ct_facts ).
@@ -1849,6 +1852,7 @@ CLASS zcl_mcp_biz_precheck IMPLEMENTATION.
   METHOD read_dlv.
     DATA: ls_likp  TYPE likp,
           ls_vbuk  TYPE vbuk,
+          lv_stat_found TYPE abap_bool,
           lt_lips  TYPE ty_t_lips,
           ls_lips  TYPE lips,
           ls_vbup  TYPE vbup,
@@ -1876,8 +1880,9 @@ CLASS zcl_mcp_biz_precheck IMPLEMENTATION.
                      CHANGING  ct_facts = ct_facts ).
     ENDIF.
     IF sd_has_req( it_req = it_req iv_table = 'VBUK' ) = abap_true.
-      SELECT SINGLE * FROM vbuk INTO ls_vbuk WHERE vbeln = iv_vbeln.
-      IF sy-subrc = 0.
+      zcl_mcp_biz_sys=>get( )->sd_read_vbuk( EXPORTING iv_vbeln = iv_vbeln iv_table = `LIKP`
+                                 IMPORTING es_vbuk = ls_vbuk ev_found = lv_stat_found ).
+      IF lv_stat_found = abap_true.
         sd_add_row_facts( EXPORTING iv_table = 'VBUK' iv_level = 'H' iv_item = ''
                                  is_row = ls_vbuk it_req = it_req
                        CHANGING  ct_facts = ct_facts ).
@@ -1924,8 +1929,9 @@ CLASS zcl_mcp_biz_precheck IMPLEMENTATION.
                        CHANGING  ct_facts = ct_facts ).
       ENDIF.
       IF sd_has_req( it_req = it_req iv_table = 'VBUP' ) = abap_true.
-        SELECT SINGLE * FROM vbup INTO ls_vbup WHERE vbeln = iv_vbeln AND posnr = ls_lips-posnr.
-        IF sy-subrc = 0.
+        zcl_mcp_biz_sys=>get( )->sd_read_vbup( EXPORTING iv_vbeln = iv_vbeln iv_posnr = ls_lips-posnr iv_table = `LIPS`
+                                   IMPORTING es_vbup = ls_vbup ev_found = lv_stat_found ).
+        IF lv_stat_found = abap_true.
           sd_add_row_facts( EXPORTING iv_table = 'VBUP' iv_level = 'I' iv_item = lv_item
                                    is_row = ls_vbup it_req = it_req
                          CHANGING  ct_facts = ct_facts ).

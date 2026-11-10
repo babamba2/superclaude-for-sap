@@ -678,11 +678,6 @@ CLASS zcl_mcp_biz_co IMPLEMENTATION.
 
 
   METHOD cc_actuals.
-    TYPES: BEGIN OF ty_tot,
-             kstar TYPE cosp-kstar,
-             plan  TYPE p LENGTH 15 DECIMALS 2,
-             act   TYPE p LENGTH 15 DECIMALS 2,
-           END OF ty_tot.
     DATA: lv_kokrs  TYPE csks-kokrs,
           lv_kostl  TYPE csks-kostl,
           lv_objnr  TYPE csks-objnr,
@@ -690,20 +685,11 @@ CLASS zcl_mcp_biz_co IMPLEMENTATION.
           lv_from   TYPE i,
           lv_to     TYPE i,
           lv_ver    TYPE cosp-versn,
-          lt_p      TYPE STANDARD TABLE OF cosp,
-          lt_s      TYPE STANDARD TABLE OF coss,
-          lt_tot    TYPE STANDARD TABLE OF ty_tot,
-          ls_tot    TYPE ty_tot,
-          lv_per    TYPE i,
-          lv_name   TYPE string,
+          lt_tot    TYPE zif_mcp_biz_sys=>ty_co_tots,
+          ls_tot    TYPE zif_mcp_biz_sys=>ty_co_tot,
           ls_row    TYPE zif_mcp_biz_action=>ty_co_amount,
           lv_text   TYPE string,
-          lv_cur    TYPE tka01-waers,
-          lv_v      TYPE p LENGTH 15 DECIMALS 2.
-    FIELD-SYMBOLS: <ls_p> TYPE cosp,
-                   <ls_s> TYPE coss,
-                   <lv_w> TYPE any,
-                   <ls_t> TYPE ty_tot.
+          lv_cur    TYPE tka01-waers.
 
     lv_kokrs = to_upper( is_params-kokrs ).
     lv_kostl = to_kostl( is_params-kostl ).
@@ -748,63 +734,11 @@ CLASS zcl_mcp_biz_co IMPLEMENTATION.
       RETURN.
     ENDIF.
 
-    " Actual = value type 04 (version 000); plan = value type 01 of the requested version.
-    SELECT * FROM cosp INTO TABLE lt_p
-      WHERE lednr = '00' AND objnr = lv_objnr AND gjahr = lv_gjahr
-        AND ( ( wrttp = '04' AND versn = '000' ) OR ( wrttp = '01' AND versn = lv_ver ) ).
-    SELECT * FROM coss INTO TABLE lt_s
-      WHERE lednr = '00' AND objnr = lv_objnr AND gjahr = lv_gjahr
-        AND ( ( wrttp = '04' AND versn = '000' ) OR ( wrttp = '01' AND versn = lv_ver ) ).
-
-    LOOP AT lt_p ASSIGNING <ls_p>.
-      lv_v = 0.
-      lv_per = lv_from.
-      WHILE lv_per <= lv_to.
-        lv_name = |WKG{ lv_per WIDTH = 3 ALIGN = RIGHT PAD = '0' }|.
-        ASSIGN COMPONENT lv_name OF STRUCTURE <ls_p> TO <lv_w>.
-        IF sy-subrc = 0.
-          lv_v = lv_v + <lv_w>.
-        ENDIF.
-        lv_per = lv_per + 1.
-      ENDWHILE.
-      READ TABLE lt_tot ASSIGNING <ls_t> WITH KEY kstar = <ls_p>-kstar.
-      IF sy-subrc <> 0.
-        CLEAR ls_tot.
-        ls_tot-kstar = <ls_p>-kstar.
-        APPEND ls_tot TO lt_tot.
-        READ TABLE lt_tot ASSIGNING <ls_t> WITH KEY kstar = <ls_p>-kstar.
-      ENDIF.
-      IF <ls_p>-wrttp = '04'.
-        <ls_t>-act = <ls_t>-act + lv_v.
-      ELSE.
-        <ls_t>-plan = <ls_t>-plan + lv_v.
-      ENDIF.
-    ENDLOOP.
-    LOOP AT lt_s ASSIGNING <ls_s>.
-      lv_v = 0.
-      lv_per = lv_from.
-      WHILE lv_per <= lv_to.
-        lv_name = |WKG{ lv_per WIDTH = 3 ALIGN = RIGHT PAD = '0' }|.
-        ASSIGN COMPONENT lv_name OF STRUCTURE <ls_s> TO <lv_w>.
-        IF sy-subrc = 0.
-          lv_v = lv_v + <lv_w>.
-        ENDIF.
-        lv_per = lv_per + 1.
-      ENDWHILE.
-      READ TABLE lt_tot ASSIGNING <ls_t> WITH KEY kstar = <ls_s>-kstar.
-      IF sy-subrc <> 0.
-        CLEAR ls_tot.
-        ls_tot-kstar = <ls_s>-kstar.
-        APPEND ls_tot TO lt_tot.
-        READ TABLE lt_tot ASSIGNING <ls_t> WITH KEY kstar = <ls_s>-kstar.
-      ENDIF.
-      IF <ls_s>-wrttp = '04'.
-        <ls_t>-act = <ls_t>-act + lv_v.
-      ELSE.
-        <ls_t>-plan = <ls_t>-plan + lv_v.
-      ENDIF.
-    ENDLOOP.
-
+    " Actual (value type 04, version 000) and plan (value type 01 of the requested version) per cost
+    " element: ECC COSP / COSS, S/4 ACDOCA for the actual (ZIF_MCP_BIZ_SYS).
+    zcl_mcp_biz_sys=>get( )->co_totals( EXPORTING iv_kokrs = lv_kokrs iv_objnr = lv_objnr iv_gjahr = lv_gjahr
+                                                  iv_from  = lv_from  iv_to    = lv_to    iv_versn = lv_ver
+                                        IMPORTING et_tot   = lt_tot ).
     SELECT SINGLE waers FROM tka01 INTO lv_cur WHERE kokrs = lv_kokrs.
     SORT lt_tot BY kstar.
     LOOP AT lt_tot INTO ls_tot.

@@ -26,7 +26,7 @@ CLASS zcl_mcp_biz_sd DEFINITION
 * ---- sales orders (was ZCL_MCP_BIZ_SD_SO)
 * ZCL_MCP_BIZ_SD_SO - SD sales order business actions for ZMCP_BIZ_EXECUTE.
 * Catalog: sc4sap configs/SD/actions.json. Action IDs must match it.
-* Reads: SELECT on VBAK / VBAP / VBEP / VBUK / VBUP / VBFA (display authorization
+* Reads: SELECT on VBAK / VBAP / VBEP / VBUK / VBUP (S/4: status fields in VBAK / VBAP) / VBFA (display authorization
 *        V_VBAK_VKO + V_VBAK_AAT). No customer, partner or address data.
 *        Amounts are returned as real amounts of the currency (ext_amount).
 * Writes: BAPI_SALESORDER_CHANGE (preview = SIMULATION + rollback) and
@@ -41,7 +41,7 @@ CLASS zcl_mcp_biz_sd DEFINITION
 * ---- deliveries (was ZCL_MCP_BIZ_SD_DLV)
 * ZCL_MCP_BIZ_SD_DLV - SD outbound delivery business actions for ZMCP_BIZ_EXECUTE.
 * Catalog: sc4sap configs/SD/actions.json. Action IDs must match it.
-* Reads: SELECT on LIKP / LIPS / VBUK / VBUP (display authorization V_LIKP_VST).
+* Reads: SELECT on LIKP / LIPS / VBUK / VBUP (S/4: LIKP / LIPS) (display authorization V_LIKP_VST).
 *        No customer, partner or address data.
 * Writes: BAPI_OUTB_DELIVERY_CREATE_SLS (no test mode: the preview is the static
 *         check of status, blocks and configuration), WS_DELIVERY_UPDATE_2 for the
@@ -1220,6 +1220,8 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
           lv_key    TYPE string,
           lv_text   TYPE string,
           lt_where  TYPE string_table,
+          lv_sql_cols TYPE string,
+          lv_sql_from TYPE string,
           lr_auart  TYPE RANGE OF vbak-auart,
           ls_auart  LIKE LINE OF lr_auart,
           lr_vtweg  TYPE RANGE OF vbak-vtweg,
@@ -1318,11 +1320,13 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
         APPEND `u~gbstk <> 'C' AND u~abstk <> 'C'` TO lt_where.
     ENDCASE.
 
-    SELECT k~vbeln k~auart k~vbtyp k~vkorg k~vtweg k~spart k~erdat k~vdatu
-           k~netwr k~waerk k~lifsk k~faksk
-           u~lfstk u~wbstk u~fkstk u~abstk u~gbstk u~cmgst u~uvall
-      FROM vbak AS k
-      INNER JOIN vbuk AS u ON u~vbeln = k~vbeln
+    lv_sql_cols = zcl_mcp_biz_sys=>get( )->sd_status_cols( iv_base = `VBAK`
+                           iv_cols = `k~vbeln k~auart k~vbtyp k~vkorg k~vtweg k~spart k~erdat k~vdatu ` &&
+                                     `k~netwr k~waerk k~lifsk k~faksk ` &&
+                                     `u~lfstk u~wbstk u~fkstk u~abstk u~gbstk u~cmgst u~uvall` ).
+    lv_sql_from = zcl_mcp_biz_sys=>get( )->sd_status_from( iv_base = `VBAK` iv_alias = `k` ).
+    SELECT (lv_sql_cols)
+      FROM (lv_sql_from)
       INTO CORRESPONDING FIELDS OF TABLE lt_rows
       UP TO lv_fetch ROWS
       WHERE k~vkorg = lv_vkorg
@@ -1477,30 +1481,50 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
 
 
   METHOD load_order.
+    DATA: lv_sql_cols TYPE string,
+          lv_sql_from TYPE string.
+
     CLEAR: es_ord, ev_found.
-    SELECT SINGLE k~vbeln k~auart k~vbtyp k~vkorg k~vtweg k~spart k~erdat k~vdatu
-                  k~netwr k~waerk k~lifsk k~faksk
-                  u~lfstk u~wbstk u~fkstk u~abstk u~gbstk u~cmgst u~uvall
-      FROM vbak AS k
-      INNER JOIN vbuk AS u ON u~vbeln = k~vbeln
+    lv_sql_cols = zcl_mcp_biz_sys=>get( )->sd_status_cols( iv_base = `VBAK`
+                           iv_cols = `k~vbeln k~auart k~vbtyp k~vkorg k~vtweg k~spart k~erdat k~vdatu ` &&
+                                     `k~netwr k~waerk k~lifsk k~faksk ` &&
+                                     `u~lfstk u~wbstk u~fkstk u~abstk u~gbstk u~cmgst u~uvall` ).
+    lv_sql_from = zcl_mcp_biz_sys=>get( )->sd_status_from( iv_base = `VBAK` iv_alias = `k` ).
+    SELECT SINGLE (lv_sql_cols)
+      FROM (lv_sql_from)
       INTO CORRESPONDING FIELDS OF es_ord
       WHERE k~vbeln = iv_vbeln.
     IF sy-subrc = 0.
       ev_found = abap_true.
+      " S/4: delivery-related billing leaves no status on the order header (ECC: no-op).
+      IF es_ord-fkstk IS INITIAL.
+        es_ord-fkstk = zcl_mcp_biz_sys=>get( )->sd_order_dlv_billing( iv_vbeln ).
+      ENDIF.
     ENDIF.
   ENDMETHOD.
 
 
   METHOD load_items.
+    DATA: lv_sql_cols TYPE string,
+          lv_sql_from TYPE string.
+    FIELD-SYMBOLS <ls_it> LIKE LINE OF et_items.
+
     CLEAR et_items.
-    SELECT p~posnr p~matnr p~arktx p~werks p~lgort p~kwmeng p~vrkme p~meins
-           p~umvkz p~umvkn p~pstyv p~abgru p~netwr p~netpr
-           u~lfsta u~wbsta u~fksta u~gbsta u~absta
-      FROM vbap AS p
-      LEFT OUTER JOIN vbup AS u ON u~vbeln = p~vbeln AND u~posnr = p~posnr
+    lv_sql_cols = zcl_mcp_biz_sys=>get( )->sd_status_cols( iv_base = `VBAP`
+                           iv_cols = `p~posnr p~matnr p~arktx p~werks p~lgort p~kwmeng p~vrkme p~meins ` &&
+                                     `p~umvkz p~umvkn p~pstyv p~abgru p~netwr p~netpr ` &&
+                                     `u~lfsta u~wbsta u~fksta u~gbsta u~absta` ).
+    lv_sql_from = zcl_mcp_biz_sys=>get( )->sd_status_from( iv_base = `VBAP` iv_alias = `p` ).
+    SELECT (lv_sql_cols)
+      FROM (lv_sql_from)
       INTO CORRESPONDING FIELDS OF TABLE et_items
       WHERE p~vbeln = iv_vbeln.
     SORT et_items BY posnr.
+    " Delivery-related billing leaves no status on an S/4 order item: the flow tells (ECC: no-op).
+    LOOP AT et_items ASSIGNING <ls_it> WHERE fksta IS INITIAL.
+      <ls_it>-fksta = zcl_mcp_biz_sys=>get( )->sd_item_dlv_billing( iv_vbeln = iv_vbeln iv_posnr = <ls_it>-posnr
+                                                                    iv_lfsta = <ls_it>-lfsta ).
+    ENDLOOP.
   ENDMETHOD.
 
 
@@ -2550,6 +2574,8 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
           lv_chk    TYPE tvst-vstel,
           lv_text   TYPE string,
           lt_where  TYPE string_table,
+          lv_sql_cols TYPE string,
+          lv_sql_from TYPE string,
           lr_wadat  TYPE RANGE OF likp-wadat,
           ls_wadat  LIKE LINE OF lr_wadat,
           lt_rows   TYPE ty_dlvs,
@@ -2611,10 +2637,12 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
         APPEND `( u~wbstk = 'A' OR u~wbstk = 'B' OR ( u~wbstk = 'C' AND ( u~fkstk = 'A' OR u~fkstk = 'B' ) ) )` TO lt_where.
     ENDCASE.
 
-    SELECT k~vbeln k~lfart k~vbtyp k~vstel k~vkorg k~wadat k~wadat_ist k~lifsk k~faksk k~erdat
-           u~wbstk u~fkstk u~kostk u~lvstk u~gbstk
-      FROM likp AS k
-      INNER JOIN vbuk AS u ON u~vbeln = k~vbeln
+    lv_sql_cols = zcl_mcp_biz_sys=>get( )->sd_status_cols( iv_base = `LIKP`
+                           iv_cols = `k~vbeln k~lfart k~vbtyp k~vstel k~vkorg k~wadat k~wadat_ist k~lifsk k~faksk k~erdat ` &&
+                                     `u~wbstk u~fkstk u~kostk u~lvstk u~gbstk` ).
+    lv_sql_from = zcl_mcp_biz_sys=>get( )->sd_status_from( iv_base = `LIKP` iv_alias = `k` ).
+    SELECT (lv_sql_cols)
+      FROM (lv_sql_from)
       INTO CORRESPONDING FIELDS OF TABLE lt_rows
       UP TO lv_fetch ROWS
       WHERE k~vstel = lv_vstel
@@ -2639,11 +2667,16 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
 
 
   METHOD load_dlv.
+    DATA: lv_sql_cols TYPE string,
+          lv_sql_from TYPE string.
+
     CLEAR: es_dlv, ev_found.
-    SELECT SINGLE k~vbeln k~lfart k~vbtyp k~vstel k~vkorg k~wadat k~wadat_ist k~lifsk k~faksk k~erdat
-                  u~wbstk u~fkstk u~kostk u~lvstk u~gbstk
-      FROM likp AS k
-      INNER JOIN vbuk AS u ON u~vbeln = k~vbeln
+    lv_sql_cols = zcl_mcp_biz_sys=>get( )->sd_status_cols( iv_base = `LIKP`
+                           iv_cols = `k~vbeln k~lfart k~vbtyp k~vstel k~vkorg k~wadat k~wadat_ist k~lifsk k~faksk k~erdat ` &&
+                                     `u~wbstk u~fkstk u~kostk u~lvstk u~gbstk` ).
+    lv_sql_from = zcl_mcp_biz_sys=>get( )->sd_status_from( iv_base = `LIKP` iv_alias = `k` ).
+    SELECT SINGLE (lv_sql_cols)
+      FROM (lv_sql_from)
       INTO CORRESPONDING FIELDS OF es_dlv
       WHERE k~vbeln = iv_vbeln.
     IF sy-subrc = 0.
@@ -2653,12 +2686,17 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
 
 
   METHOD load_dlv_items.
+    DATA: lv_sql_cols TYPE string,
+          lv_sql_from TYPE string.
+
     CLEAR et_items.
-    SELECT p~posnr p~matnr p~arktx p~werks p~lgort p~lfimg p~vrkme p~meins p~lgmng
-           p~pstyv p~bwart p~vgbel p~vgpos p~lgnum
-           u~wbsta u~kosta u~lvsta u~fksta
-      FROM lips AS p
-      LEFT OUTER JOIN vbup AS u ON u~vbeln = p~vbeln AND u~posnr = p~posnr
+    lv_sql_cols = zcl_mcp_biz_sys=>get( )->sd_status_cols( iv_base = `LIPS`
+                           iv_cols = `p~posnr p~matnr p~arktx p~werks p~lgort p~lfimg p~vrkme p~meins p~lgmng ` &&
+                                     `p~pstyv p~bwart p~vgbel p~vgpos p~lgnum ` &&
+                                     `u~wbsta u~kosta u~lvsta u~fksta` ).
+    lv_sql_from = zcl_mcp_biz_sys=>get( )->sd_status_from( iv_base = `LIPS` iv_alias = `p` ).
+    SELECT (lv_sql_cols)
+      FROM (lv_sql_from)
       INTO CORRESPONDING FIELDS OF TABLE et_items
       WHERE p~vbeln = iv_vbeln.
     SORT et_items BY posnr.
@@ -2708,6 +2746,8 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
           ls_so     TYPE ty_so,
           lt_si     TYPE ty_sis,
           ls_si     TYPE ty_si,
+          lv_sql_cols TYPE string,
+          lv_sql_from TYPE string,
           lv_lfarv  TYPE tvak-lfarv,
           lv_spelf  TYPE tvls-spelf,
           lt_spec   TYPE string_table,
@@ -2736,10 +2776,12 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
                CHANGING  cs_result = cs_result ).
       RETURN.
     ENDIF.
-    SELECT SINGLE k~vbeln k~auart k~vbtyp k~vkorg k~vtweg k~spart k~lifsk
-                  u~lfstk u~abstk u~cmgst u~uvvls
-      FROM vbak AS k
-      INNER JOIN vbuk AS u ON u~vbeln = k~vbeln
+    lv_sql_cols = zcl_mcp_biz_sys=>get( )->sd_status_cols( iv_base = `VBAK`
+                           iv_cols = `k~vbeln k~auart k~vbtyp k~vkorg k~vtweg k~spart k~lifsk ` &&
+                                     `u~lfstk u~abstk u~cmgst u~uvvls` ).
+    lv_sql_from = zcl_mcp_biz_sys=>get( )->sd_status_from( iv_base = `VBAK` iv_alias = `k` ).
+    SELECT SINGLE (lv_sql_cols)
+      FROM (lv_sql_from)
       INTO CORRESPONDING FIELDS OF ls_so
       WHERE k~vbeln = lv_vbeln.
     IF sy-subrc <> 0.
@@ -2814,9 +2856,11 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
       APPEND lv_spec TO lt_spec.
     ENDIF.
 
-    SELECT p~posnr p~kwmeng p~vrkme p~meins p~umvkz p~umvkn p~pstyv p~abgru p~vstel u~lfsta
-      FROM vbap AS p
-      LEFT OUTER JOIN vbup AS u ON u~vbeln = p~vbeln AND u~posnr = p~posnr
+    lv_sql_cols = zcl_mcp_biz_sys=>get( )->sd_status_cols( iv_base = `VBAP`
+                           iv_cols = `p~posnr p~kwmeng p~vrkme p~meins p~umvkz p~umvkn p~pstyv p~abgru p~vstel u~lfsta` ).
+    lv_sql_from = zcl_mcp_biz_sys=>get( )->sd_status_from( iv_base = `VBAP` iv_alias = `p` ).
+    SELECT (lv_sql_cols)
+      FROM (lv_sql_from)
       INTO CORRESPONDING FIELDS OF TABLE lt_si
       WHERE p~vbeln = lv_vbeln.
     SORT lt_si BY posnr.
@@ -3325,6 +3369,7 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
           lv_upd   TYPE rvsel-xfeld,
           lv_dbu   TYPE leshp_database_update,
           lv_state TYPE vbuk-wbstk,
+          ls_state TYPE vbuk,
           ls_head  TYPE ty_dlv,
           lv_found TYPE abap_bool,
           ls_chg   TYPE zif_mcp_biz_action=>ty_change,
@@ -3399,7 +3444,8 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
     " The material document and the accounting document are posted in the update task:
     " an error there (closed period, customer check) leaves the delivery unchanged.
     DO 15 TIMES.
-      SELECT SINGLE wbstk FROM vbuk INTO lv_state WHERE vbeln = is_dlv-vbeln.
+      zcl_mcp_biz_sys=>get( )->sd_read_vbuk( EXPORTING iv_vbeln = is_dlv-vbeln iv_table = `LIKP` IMPORTING es_vbuk = ls_state ).
+      lv_state = ls_state-wbstk.
       IF lv_state = 'C'.
         EXIT.
       ENDIF.
@@ -3431,6 +3477,7 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
           lv_budat TYPE sy-datlo,
           lv_tcode TYPE sy-tcode,
           lv_state TYPE vbuk-wbstk,
+          ls_state TYPE vbuk,
           ls_head  TYPE ty_dlv,
           lv_found TYPE abap_bool,
           ls_chg   TYPE zif_mcp_biz_action=>ty_change,
@@ -3470,7 +3517,8 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
       RETURN.
     ENDIF.
     DO 15 TIMES.
-      SELECT SINGLE wbstk FROM vbuk INTO lv_state WHERE vbeln = is_dlv-vbeln.
+      zcl_mcp_biz_sys=>get( )->sd_read_vbuk( EXPORTING iv_vbeln = is_dlv-vbeln iv_table = `LIKP` IMPORTING es_vbuk = ls_state ).
+      lv_state = ls_state-wbstk.
       IF lv_state <> 'C'.
         EXIT.
       ENDIF.
@@ -3770,6 +3818,7 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
     DATA: lv_ref    TYPE vbak-vbeln,
           ls_k      TYPE likp,
           ls_u      TYPE vbuk,
+          lv_u_found TYPE abap_bool,
           lv_vkorg  TYPE vbrk-vkorg,
           lv_fkarv  TYPE tvak-fkarv,
           lv_chk    TYPE tvfk-fkart,
@@ -3790,8 +3839,9 @@ CLASS zcl_mcp_biz_sd IMPLEMENTATION.
                CHANGING  cs_result = cs_result ).
       RETURN.
     ENDIF.
-    SELECT SINGLE * FROM vbuk INTO ls_u WHERE vbeln = lv_ref.
-    IF sy-subrc <> 0.
+    " S/4: an order reference reads FKSAK (order-related billing) as FKSTK.
+    zcl_mcp_biz_sys=>get( )->sd_read_vbuk( EXPORTING iv_vbeln = lv_ref IMPORTING es_vbuk = ls_u ev_found = lv_u_found ).
+    IF lv_u_found = abap_false.
       lv_text = |Document { fmt_doc( lv_ref ) } not found|.
       add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = cs_result ).
       RETURN.

@@ -243,6 +243,8 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
       CREATE OBJECT ro_handler TYPE zcl_mcp_biz_fi.
     ELSEIF iv_action CP 'CO.*'.
       CREATE OBJECT ro_handler TYPE zcl_mcp_biz_co.
+    ELSEIF iv_action CP 'OUT.*'.
+      CREATE OBJECT ro_handler TYPE zcl_mcp_biz_out.
     ENDIF.
   ENDMETHOD.
 
@@ -263,6 +265,9 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
     lt_actions = lo_handler->get_actions( ).
     APPEND LINES OF lt_actions TO rs_result-actions.
     CREATE OBJECT lo_handler TYPE zcl_mcp_biz_co.
+    lt_actions = lo_handler->get_actions( ).
+    APPEND LINES OF lt_actions TO rs_result-actions.
+    CREATE OBJECT lo_handler TYPE zcl_mcp_biz_out.
     lt_actions = lo_handler->get_actions( ).
     APPEND LINES OF lt_actions TO rs_result-actions.
     IF is_production( ) = abap_true.
@@ -743,6 +748,10 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
         lv_list = 'kokrs posting_date header_text lines'.
       WHEN 'CO.PLAN.PRIMARY'.
         lv_list = 'kokrs fiscal_year version from_period to_period kostl lines header_text'.
+      WHEN 'OUT.DOC.STATUS'.
+        lv_list = 'doc_category ebeln vbeln'.
+      WHEN 'OUT.DOC.REISSUE'.
+        lv_list = 'doc_category ebeln vbeln kschl'.
       WHEN OTHERS.
         CLEAR lv_list.
     ENDCASE.

@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "module": "OUT",
+  "description": "Document output (print / message records). NAST on every system; S/4 Output Control read on S/4HANA. Re-issue: ECC only, print medium only — never e-mail, fax, EDI or other sending media.",
+  "actions": [
+    {
+      "id": "OUT.DOC.STATUS",
+      "object": "Output",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show the output of a document",
+      "intents": {
+        "en": [
+          "output status",
+          "was the PO printed",
+          "show output of invoice",
+          "message status"
+        ],
+        "ko": [
+          "출력 상태",
+          "출력 이력",
+          "PO 출력됐어",
+          "청구서 출력 확인",
+          "인쇄 여부"
+        ]
+      },
+      "params": [
+        {
+          "name": "doc_category",
+          "type": "enum",
+          "values": ["PO", "SO", "DLV", "BIL"],
+          "required": true,
+          "note": "PO = purchase order, SO = sales order, DLV = outbound delivery, BIL = billing document"
+        },
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": false,
+          "note": "purchase order number (doc_category PO)"
+        },
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": false,
+          "note": "sales order, delivery or billing document number (doc_category SO / DLV / BIL)"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": ["NAST", "EKKO", "VBAK", "LIKP", "VBRK"],
+          "note": "message records of application EF / V1 / V2 / V3 for the document key; no partner names"
+        },
+        "S4": {
+          "source": ["NAST", "EKKO", "VBAK", "LIKP", "VBRK", "APOC_C_OBJ_ACT", "APOC_D_OR_ROOT", "APOC_D_OR_ITEM"],
+          "note": "NAST plus Output Control requests (ZCL_MCP_BIZ_SYS_S4) when Output Control is active for the object type; outbound deliveries stay on NAST"
+        }
+      },
+      "auth": [
+        { "object": "M_BEST_EKO", "fields": { "ACTVT": "03", "EKORG": "<purchasing org>" } },
+        { "object": "V_VBAK_VKO", "fields": { "ACTVT": "03", "VKORG": "<sales org>" } },
+        { "object": "V_LIKP_VST", "fields": { "ACTVT": "03", "VSTEL": "<shipping point>" } },
+        { "object": "V_VBRK_VKO", "fields": { "ACTVT": "03", "VKORG": "<sales org>" } }
+      ],
+      "verified_on": []
+    },
+    {
+      "id": "OUT.DOC.REISSUE",
+      "object": "Output",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "title": "Print the output of a document again",
+      "intents": {
+        "en": [
+          "reprint",
+          "print again",
+          "repeat output",
+          "reissue the invoice print"
+        ],
+        "ko": [
+          "재출력",
+          "다시 인쇄",
+          "출력 재발행",
+          "청구서 다시 출력"
+        ]
+      },
+      "params": [
+        {
+          "name": "doc_category",
+          "type": "enum",
+          "values": ["PO", "SO", "DLV", "BIL"],
+          "required": true
+        },
+        {
+          "name": "ebeln",
+          "type": "string",
+          "required": false,
+          "note": "purchase order number (doc_category PO)"
+        },
+        {
+          "name": "vbeln",
+          "type": "string",
+          "required": false,
+          "note": "sales order, delivery or billing document number"
+        },
+        {
+          "name": "kschl",
+          "type": "string",
+          "required": true,
+          "note": "output type to print again; its last message record is repeated on the same device"
+        }
+      ],
+      "clarify": [
+        { "param": "kschl", "ask": "Which output type should be printed again? (OUT.DOC.STATUS lists the ones the document has)" }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "RV_MESSAGE_UPDATE_SINGLE",
+          "set": "copy of the last NAST record of the output type: new ERDAT / ERUHR, VSTAT 0, MANUE X; then WFMC_MESSAGE_SINGLE processes it",
+          "testrun": "none",
+          "preview": "no simulation: preview = last record of the output type, medium must be 1 (print), print program in TNAPR, target device; nothing is created",
+          "commit": "COMMIT WORK AND WAIT",
+          "return": "PE_RCODE + NAST-VSTAT read back",
+          "note": "print only: any other medium (e-mail, fax, EDI, ALE, special function) is refused by the handler"
+        },
+        "S4": {
+          "fm": "none",
+          "testrun": "none",
+          "preview": "refused: re-issuing output is not offered on S/4HANA (decision 2026-11-10); OUT.DOC.STATUS reads the output",
+          "commit": "none",
+          "note": "not offered on S/4HANA"
+        }
+      },
+      "auth": [
+        { "object": "M_BEST_EKO", "fields": { "ACTVT": "03", "EKORG": "<purchasing org>" } },
+        { "object": "V_VBAK_VKO", "fields": { "ACTVT": "03", "VKORG": "<sales org>" } },
+        { "object": "V_LIKP_VST", "fields": { "ACTVT": "03", "VSTEL": "<shipping point>" } },
+        { "object": "V_VBRK_VKO", "fields": { "ACTVT": "03", "VKORG": "<sales org>" } }
+      ],
+      "verified_on": [],
+      "preview_limits": {
+        "en": [
+          "The preview does not run the print program: form errors or a missing printer show only at execute.",
+          "A spool request is created at execute and cannot be taken back; the print itself depends on the device."
+        ],
+        "ko": [
+          "Preview는 인쇄 프로그램을 실행하지 않아서 폼 오류나 프린터 문제는 실행할 때만 드러나요.",
+          "실행하면 스풀 요청이 만들어지고 되돌릴 수 없어요. 실제 인쇄는 출력 장치에 달려 있어요."
+        ]
+      }
+    }
+  ]
+}

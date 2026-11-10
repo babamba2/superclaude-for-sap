@@ -440,7 +440,6 @@ CLASS zcl_mcp_biz_fi IMPLEMENTATION.
           lv_fetch TYPE i,
           lv_open  TYPE skb1-xopvw,
           lt_open  TYPE zif_mcp_biz_action=>ty_fi_opens,
-          lt_clr   TYPE zif_mcp_biz_action=>ty_fi_opens,
           ls_open  TYPE zif_mcp_biz_action=>ty_fi_open,
           lv_local TYPE t001-waers,
           lv_text  TYPE string,
@@ -496,16 +495,10 @@ CLASS zcl_mcp_biz_fi IMPLEMENTATION.
     ENDIF.
     lv_fetch = lv_max + 1.
 
-    " Open today and posted up to the key date, plus items cleared after the key date.
-    SELECT belnr gjahr buzei budat blart shkzg dmbtr wrbtr waers zuonr sgtxt
-      FROM bsis INTO CORRESPONDING FIELDS OF TABLE lt_open UP TO lv_fetch ROWS
-      WHERE bukrs = lv_bukrs AND hkont = lv_hkont AND budat <= lv_date
-      ORDER BY budat belnr buzei.
-    SELECT belnr gjahr buzei budat blart shkzg dmbtr wrbtr waers zuonr sgtxt
-      FROM bsas INTO CORRESPONDING FIELDS OF TABLE lt_clr UP TO lv_fetch ROWS
-      WHERE bukrs = lv_bukrs AND hkont = lv_hkont AND budat <= lv_date AND augdt > lv_date
-      ORDER BY budat belnr buzei.
-    APPEND LINES OF lt_clr TO lt_open.
+    " Open at the key date: ECC BSIS + BSAS, S/4 ACDOCA (ZIF_MCP_BIZ_SYS).
+    zcl_mcp_biz_sys=>get( )->fi_gl_open_items( EXPORTING iv_bukrs = lv_bukrs iv_hkont = lv_hkont
+                                                         iv_date  = lv_date  iv_fetch = lv_fetch
+                                               IMPORTING et_open  = lt_open ).
     SORT lt_open BY budat belnr buzei.
     lv_n = lines( lt_open ).
     IF lv_n > lv_max.
@@ -1291,6 +1284,15 @@ CLASS zcl_mcp_biz_fi IMPLEMENTATION.
       finish( CHANGING cs_result = cs_result ).
       RETURN.
     ENDIF.
+    " S/4: the Universal Journal must carry the same text (ECC: reads BSEG again).
+    lv_now = zcl_mcp_biz_sys=>get( )->fi_ledger_text( iv_bukrs = lv_bukrs iv_belnr = lv_belnr
+                                                      iv_gjahr = lv_gjahr iv_buzei = lv_buzei ).
+    IF lv_now <> lv_want.
+      lv_text = |Text of line { is_bseg-buzei } is in BSEG but not in the ledger (ACDOCA-SGTXT '{ lv_now }')|.
+      add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = cs_result ).
+      finish( CHANGING cs_result = cs_result ).
+      RETURN.
+    ENDIF.
     lv_text = |Line { is_bseg-buzei } text changed and read back (FI_DOCUMENT_CHANGE: the document-change validations were not run)|.
     add_msg( EXPORTING iv_type = 'W' iv_text = lv_text CHANGING cs_result = cs_result ).
   ENDMETHOD.
@@ -1877,29 +1879,23 @@ CLASS zcl_mcp_biz_fi IMPLEMENTATION.
 
 
   METHOD credit_status.
-    " Credit limit, exposure and block of a customer in the credit control area of a company code
-    " (KNKK + open order / delivery / billing values S066 / S067). No name or address data.
-    TYPES: BEGIN OF ty_c,
-             kkber    TYPE knkk-kkber,
-             knkli    TYPE knkk-knkli,
-             klimk    TYPE knkk-klimk,
-             skfor    TYPE knkk-skfor,
-             ssobl    TYPE knkk-ssobl,
-             oeikw    TYPE s066-oeikw,
-             olikw    TYPE s067-olikw,
-             ofakw    TYPE s067-ofakw,
-             exposure TYPE knkk-klimk,
-             used_pct TYPE p LENGTH 8 DECIMALS 1,
-             waers    TYPE t014-waers,
-             ctlpc    TYPE knkk-ctlpc,
-             crblb    TYPE knkk-crblb,
+    " Credit limit, exposure and block of a customer in the credit control area of a company code.
+    " Read by the system family (ZIF_MCP_BIZ_SYS): ECC KNKK + S066 / S067, S/4 FSCM Credit Management.
+    " No name or address data.
+    TYPES: BEGIN OF ty_c.
+             INCLUDE TYPE zif_mcp_biz_sys=>ty_credit.
+    TYPES:   used_pct TYPE p LENGTH 8 DECIMALS 1,
            END OF ty_c.
-    DATA: lv_kunnr TYPE knkk-kunnr,
-          lv_bukrs TYPE t001-bukrs,
-          lv_kkber TYPE t001-kkber,
-          ls_c     TYPE ty_c,
-          lv_block TYPE string,
-          lv_text  TYPE string.
+    DATA: lv_kunnr  TYPE knkk-kunnr,
+          lv_bukrs  TYPE t001-bukrs,
+          lv_kkber  TYPE t001-kkber,
+          ls_credit TYPE zif_mcp_biz_sys=>ty_credit,
+          ls_c      TYPE ty_c,
+          lv_found  TYPE abap_bool,
+          lv_denied TYPE abap_bool,
+          lv_block  TYPE string,
+          lv_scope  TYPE string,
+          lv_text   TYPE string.
 
     lv_bukrs = to_upper( is_params-bukrs ).
     IF is_params-kunnr IS INITIAL OR lv_bukrs IS INITIAL.
@@ -1917,27 +1913,21 @@ CLASS zcl_mcp_biz_fi IMPLEMENTATION.
       add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = rs_result ).
       RETURN.
     ENDIF.
-    AUTHORITY-CHECK OBJECT 'F_KNKA_KKB' ID 'ACTVT' FIELD '03' ID 'KKBER' FIELD lv_kkber.
-    IF sy-subrc <> 0.
-      lv_text = |No authorization to display credit data of credit control area { lv_kkber }|.
+    zcl_mcp_biz_sys=>get( )->credit_read( EXPORTING iv_kunnr  = lv_kunnr
+                                                    iv_kkber  = lv_kkber
+                                          IMPORTING es_credit = ls_credit
+                                                    ev_found  = lv_found
+                                                    ev_denied = lv_denied
+                                                    ev_text   = lv_text ).
+    IF lv_denied = abap_true.
       add_msg( EXPORTING iv_type = 'E' iv_text = lv_text CHANGING cs_result = rs_result ).
       RETURN.
     ENDIF.
-    SELECT SINGLE kkber knkli klimk skfor ssobl FROM knkk
-      INTO (ls_c-kkber, ls_c-knkli, ls_c-klimk, ls_c-skfor, ls_c-ssobl)
-      WHERE kunnr = lv_kunnr AND kkber = lv_kkber.
-    IF sy-subrc <> 0.
-      lv_text = |Customer { is_params-kunnr } has no credit data in credit control area { lv_kkber }: no credit check applies|.
+    IF lv_found = abap_false.
       add_msg( EXPORTING iv_type = 'W' iv_text = lv_text CHANGING cs_result = rs_result ).
       RETURN.
     ENDIF.
-    SELECT SINGLE ctlpc crblb FROM knkk INTO (ls_c-ctlpc, ls_c-crblb)
-      WHERE kunnr = lv_kunnr AND kkber = lv_kkber.
-    SELECT SINGLE waers FROM t014 INTO ls_c-waers WHERE kkber = lv_kkber.
-    SELECT SUM( oeikw ) FROM s066 INTO ls_c-oeikw WHERE knkli = ls_c-knkli AND kkber = lv_kkber.
-    SELECT SUM( olikw ) SUM( ofakw ) FROM s067 INTO (ls_c-olikw, ls_c-ofakw)
-      WHERE knkli = ls_c-knkli AND kkber = lv_kkber.
-    ls_c-exposure = ls_c-skfor + ls_c-ssobl + ls_c-oeikw + ls_c-olikw + ls_c-ofakw.
+    MOVE-CORRESPONDING ls_credit TO ls_c.
     IF ls_c-klimk > 0.
       ls_c-used_pct = ls_c-exposure * 100 / ls_c-klimk.
     ENDIF.
@@ -1945,7 +1935,12 @@ CLASS zcl_mcp_biz_fi IMPLEMENTATION.
     IF ls_c-crblb IS NOT INITIAL.
       lv_block = ', blocked in credit management'.
     ENDIF.
-    rs_result-summary = |Customer { is_params-kunnr }, credit control area { lv_kkber }: limit { ls_c-klimk } { ls_c-waers }, |
+    IF ls_c-segment IS NOT INITIAL.
+      lv_scope = |credit segment { ls_c-segment }|.
+    ELSE.
+      lv_scope = |credit control area { lv_kkber }|.
+    ENDIF.
+    rs_result-summary = |Customer { is_params-kunnr }, { lv_scope }: limit { ls_c-klimk } { ls_c-waers }, |
                      && |exposure { ls_c-exposure } ({ ls_c-used_pct } %), risk category { ls_c-ctlpc }{ lv_block }|.
   ENDMETHOD.
 

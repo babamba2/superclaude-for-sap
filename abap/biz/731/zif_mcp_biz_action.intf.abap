@@ -104,6 +104,8 @@ INTERFACE zif_mcp_biz_action
       stock_type         TYPE string,
       kunnr              TYPE string,
       stlan              TYPE string,
+      " Output (ZCL_MCP_BIZ_OUT): output type; document via doc_category + ebeln / vbeln.
+      kschl              TYPE string,
     END OF ty_params.
 
   TYPES:
