@@ -12,7 +12,7 @@ const catalogs = loadCatalogs();
 describe('assist catalog runtime (scripts/assist/catalog.mjs)', () => {
   it('loads every module catalog', () => {
     const mods = catalogs.map((c: { module: string }) => c.module);
-    for (const m of ['MM', 'PP', 'SD', 'FI', 'CO', 'OUT', 'LE', 'WM']) expect(mods).toContain(m);
+    for (const m of ['MM', 'PP', 'SD', 'FI', 'CO', 'OUT', 'LE', 'WM', 'PM']) expect(mods).toContain(m);
   });
 
   it('family from sapVersion', () => {
@@ -38,6 +38,19 @@ describe('assist catalog runtime (scripts/assist/catalog.mjs)', () => {
     expect(matchText('납품 8100000001 피킹해줘', ecc).candidates[0].id).toBe('LE.DLV.PICK');
     const s4 = allActions(catalogs, 'S4');
     expect(s4.some((a: { id: string }) => /^(LE|WM)\./.test(a.id))).toBe(false);
+  });
+
+  it('matches Korean PM requests on ECC and hides PM on S/4', () => {
+    const ecc = allActions(catalogs, 'ECC');
+    expect(matchText('미결 보전오더 보여줘', ecc).candidates[0].id).toBe('PM.ORD.LIST_OPEN');
+    expect(matchText('고장 통지 등록해줘', ecc).candidates[0].id).toBe('PM.NOTIF.CREATE');
+    expect(matchText('보전오더 실적 등록', ecc).candidates[0].id).toBe('PM.ORD.CONFIRM');
+    expect(matchText('설비 10000001 조회', ecc).candidates[0].id).toBe('PM.EQUI.GET_DETAIL');
+    const teco = matchText('보전오더 4000001 기술적 완료해줘', ecc);
+    expect(teco.candidates[0].id).toBe('PM.ORD.TECO');
+    expect(teco.ambiguities.length).toBeGreaterThan(0);
+    const s4 = allActions(catalogs, 'S4');
+    expect(s4.some((a: { id: string }) => a.id.startsWith('PM.'))).toBe(false);
   });
 
   it('matches a Korean lookup and flags an ambiguous write term', () => {

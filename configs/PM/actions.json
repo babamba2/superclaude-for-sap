@@ -1,0 +1,1424 @@
+{
+  "schemaVersion": 1,
+  "module": "PM",
+  "area": "maintenance notifications, maintenance orders, equipment, functional locations, maintenance plans",
+  "notes": [
+    "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side (handler ZCL_MCP_BIZ_PM).",
+    "Verified on ECC only. On S/4HANA every PM action stays hidden until it is tested there.",
+    "BAPI_ALM_ORDER_MAINTAIN has no test mode: order create, release, date change and TECO preview with the handler checks only. Notification status changes and confirmations preview with a BAPI test run.",
+    "TECO is refused while the notification of the order is open (the BAPI fails with IWO_BAPI 162): complete the notification first.",
+    "Not offered: undo TECO (no BAPI method), business completion (CLSD), order deletion, maintenance plan scheduling (IP10 / IP30), measurement documents.",
+    "No person names are returned (creator, reporter, changer)."
+  ],
+  "actions": [
+    {
+      "id": "PM.ORD.LIST_OPEN",
+      "object": "MaintenanceOrder",
+      "kind": "query",
+      "risk": "none",
+      "title": "List open maintenance orders of a planning plant",
+      "intents": {
+        "en": [
+          "open maintenance orders",
+          "maintenance orders to release",
+          "open work orders"
+        ],
+        "ko": [
+          "미결 보전오더",
+          "보전오더 목록",
+          "릴리스할 보전오더",
+          "미결 작업오더"
+        ]
+      },
+      "params": [
+        {
+          "name": "werks",
+          "type": "string",
+          "required": true,
+          "description": "maintenance planning plant"
+        },
+        {
+          "name": "auart",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "equnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "tplnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": false,
+          "values": [
+            "open",
+            "created",
+            "released"
+          ]
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false,
+          "description": "1-500, default 50"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "AUFK",
+            "AFIH",
+            "AFKO",
+            "ILOA",
+            "JEST"
+          ],
+          "note": "SELECT on AUFK (AUTYP 30) + AFIH by planning plant; open = not TECO / CLSD / DLFL"
+        },
+        "S4": {
+          "source": [
+            "AUFK",
+            "AFIH",
+            "AFKO",
+            "ILOA",
+            "JEST"
+          ],
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IW33",
+            "IWERK": "<planning plant>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "werks",
+          "ask": "Which maintenance planning plant?",
+          "when": "werks is missing"
+        }
+      ]
+    },
+    {
+      "id": "PM.ORD.GET_DETAIL",
+      "object": "MaintenanceOrder",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a maintenance order (status, operations, components, costs)",
+      "intents": {
+        "en": [
+          "maintenance order details",
+          "show work order"
+        ],
+        "ko": [
+          "보전오더 조회",
+          "보전오더 상세",
+          "작업오더 조회",
+          "보전오더"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "AUFK",
+            "AFIH",
+            "AFKO",
+            "AFVC",
+            "AFVV",
+            "RESB",
+            "AFRU",
+            "COSP",
+            "COSS"
+          ],
+          "note": "operations, components, confirmations and plan / actual costs (COSP / COSS value types 01 / 04)"
+        },
+        "S4": {
+          "source": [
+            "AUFK",
+            "AFIH",
+            "AFKO",
+            "AFVC",
+            "AFVV",
+            "RESB",
+            "AFRU",
+            "COSP",
+            "COSS"
+          ],
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IW33",
+            "IWERK": "<planning plant>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "PM.NOTIF.LIST_OPEN",
+      "object": "MaintenanceNotification",
+      "kind": "query",
+      "risk": "none",
+      "title": "List open maintenance notifications",
+      "intents": {
+        "en": [
+          "open maintenance notifications",
+          "open malfunction reports"
+        ],
+        "ko": [
+          "미결 보전통지",
+          "보전통지 목록",
+          "미결 고장통지"
+        ]
+      },
+      "params": [
+        {
+          "name": "werks",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "qmart",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "equnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "tplnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false,
+          "description": "1-500, default 50"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "QMEL",
+            "QMIH",
+            "ILOA",
+            "TQ80",
+            "JEST"
+          ],
+          "note": "maintenance notification types only (TQ80-QMTYP 01); open = not NOCO / DLFL"
+        },
+        "S4": {
+          "source": [
+            "QMEL",
+            "QMIH",
+            "ILOA",
+            "TQ80",
+            "JEST"
+          ],
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_QMEL",
+          "fields": {
+            "TCD": "IW23",
+            "QMART": "<notification type>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "PM.NOTIF.GET_DETAIL",
+      "object": "MaintenanceNotification",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a maintenance notification",
+      "intents": {
+        "en": [
+          "maintenance notification details",
+          "show notification"
+        ],
+        "ko": [
+          "보전통지 조회",
+          "보전통지 상세",
+          "통지 조회",
+          "보전통지"
+        ]
+      },
+      "params": [
+        {
+          "name": "qmnum",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "QMEL",
+            "QMIH",
+            "QMFE",
+            "QMSM"
+          ],
+          "note": "header, reference object, items and open tasks"
+        },
+        "S4": {
+          "source": [
+            "QMEL",
+            "QMIH",
+            "QMFE",
+            "QMSM"
+          ],
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_QMEL",
+          "fields": {
+            "TCD": "IW23",
+            "QMART": "<notification type>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "PM.EQUI.GET_DETAIL",
+      "object": "Equipment",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show an equipment (installation, work center, open orders)",
+      "intents": {
+        "en": [
+          "equipment details",
+          "show equipment"
+        ],
+        "ko": [
+          "설비 조회",
+          "설비 상세",
+          "설비 정보",
+          "설비"
+        ]
+      },
+      "params": [
+        {
+          "name": "equnr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "EQUI",
+            "EQKT",
+            "EQUZ",
+            "ILOA",
+            "AFIH",
+            "QMIH"
+          ],
+          "note": "current time segment (EQUZ DATBI 99991231); counts open orders and notifications"
+        },
+        "S4": {
+          "source": [
+            "EQUI",
+            "EQKT",
+            "EQUZ",
+            "ILOA",
+            "AFIH",
+            "QMIH"
+          ],
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IE03",
+            "IWERK": "<planning plant>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "PM.EQUI.LIST",
+      "object": "Equipment",
+      "kind": "query",
+      "risk": "none",
+      "title": "List equipment of a planning plant or functional location",
+      "intents": {
+        "en": [
+          "list equipment",
+          "equipment at functional location"
+        ],
+        "ko": [
+          "설비 목록",
+          "기능위치 설비 목록"
+        ]
+      },
+      "params": [
+        {
+          "name": "werks",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "tplnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "eqtyp",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "max_rows",
+          "type": "string",
+          "required": false,
+          "description": "1-500, default 50"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "EQUI",
+            "EQUZ",
+            "ILOA",
+            "EQKT"
+          ],
+          "note": "werks or tplnr required"
+        },
+        "S4": {
+          "source": [
+            "EQUI",
+            "EQUZ",
+            "ILOA",
+            "EQKT"
+          ],
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IE03",
+            "IWERK": "<planning plant>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "clarify": [
+        {
+          "param": "werks",
+          "ask": "Which planning plant or functional location?",
+          "when": "werks and tplnr are missing"
+        }
+      ]
+    },
+    {
+      "id": "PM.FL.GET_DETAIL",
+      "object": "FunctionalLocation",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a functional location",
+      "intents": {
+        "en": [
+          "functional location details",
+          "show functional location"
+        ],
+        "ko": [
+          "기능위치 조회",
+          "기능위치 상세"
+        ]
+      },
+      "params": [
+        {
+          "name": "tplnr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "IFLOT",
+            "IFLOTX",
+            "ILOA",
+            "EQUZ",
+            "AFIH"
+          ],
+          "note": "subordinate locations, installed equipment and open orders"
+        },
+        "S4": {
+          "source": [
+            "IFLOT",
+            "IFLOTX",
+            "ILOA",
+            "EQUZ",
+            "AFIH"
+          ],
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IL03",
+            "IWERK": "<planning plant>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "PM.PLAN.GET_DETAIL",
+      "object": "MaintenancePlan",
+      "kind": "query",
+      "risk": "none",
+      "title": "Show a maintenance plan (items, cycles, calls)",
+      "intents": {
+        "en": [
+          "maintenance plan details",
+          "next maintenance date"
+        ],
+        "ko": [
+          "보전계획 조회",
+          "보전계획 상세",
+          "다음 보전 일정"
+        ]
+      },
+      "params": [
+        {
+          "name": "warpl",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "MPLA",
+            "MPOS",
+            "MMPT",
+            "MHIS",
+            "AFIH"
+          ],
+          "note": "cycles converted from the SI unit; next planned date = first call not yet called"
+        },
+        "S4": {
+          "source": [
+            "MPLA",
+            "MPOS",
+            "MMPT",
+            "MHIS",
+            "AFIH"
+          ],
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IP03",
+            "IWERK": "<planning plant>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ]
+    },
+    {
+      "id": "PM.NOTIF.CREATE",
+      "object": "MaintenanceNotification",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Create a maintenance notification",
+      "intents": {
+        "en": [
+          "create maintenance notification",
+          "report a malfunction",
+          "create notification"
+        ],
+        "ko": [
+          "보전통지 생성",
+          "고장 통지 등록",
+          "보전요청 등록"
+        ]
+      },
+      "params": [
+        {
+          "name": "qmart",
+          "type": "string",
+          "required": true,
+          "description": "notification type, e.g. M1 / M2"
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "required": true,
+          "description": "short text, up to 40 characters"
+        },
+        {
+          "name": "equnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "tplnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "werks",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "priok",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ALM_NOTIF_CREATE",
+          "testrun": "none",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "NOTIFHEADER (EQUIPMENT, FUNCT_LOC, SHORT_TEXT, PRIORITY, PLANPLANT)",
+          "return": "BAPIRET2",
+          "preview": "checks only: notification type (TQ80), reference object, planning plant, priority (T356), authorization; saved with BAPI_ALM_NOTIF_SAVE"
+        },
+        "S4": {
+          "fm": "BAPI_ALM_NOTIF_CREATE",
+          "testrun": "none",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "NOTIFHEADER (EQUIPMENT, FUNCT_LOC, SHORT_TEXT, PRIORITY, PLANPLANT)",
+          "return": "BAPIRET2",
+          "preview": "checks only: notification type (TQ80), reference object, planning plant, priority (T356), authorization; saved with BAPI_ALM_NOTIF_SAVE",
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_QMEL",
+          "fields": {
+            "TCD": "IW21",
+            "QMART": "<notification type>"
+          }
+        },
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IW21",
+            "IWERK": "<planning plant>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The create BAPI has no test mode: the preview checks the input and authorization only."
+        ],
+        "ko": [
+          "생성 BAPI에는 테스트 모드가 없어요. 미리보기는 입력값과 권한만 확인해요."
+        ]
+      },
+      "clarify": [
+        {
+          "param": "qmart",
+          "ask": "Which notification type (for example M1 or M2)?",
+          "when": "qmart is missing"
+        },
+        {
+          "param": "equnr",
+          "ask": "Which equipment or functional location is affected?",
+          "when": "equnr and tplnr are missing"
+        }
+      ]
+    },
+    {
+      "id": "PM.NOTIF.PUT_IN_PROCESS",
+      "object": "MaintenanceNotification",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Put a maintenance notification in process",
+      "intents": {
+        "en": [
+          "put notification in process",
+          "start working on notification"
+        ],
+        "ko": [
+          "보전통지 처리 중",
+          "통지 처리 시작"
+        ]
+      },
+      "params": [
+        {
+          "name": "qmnum",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ALM_NOTIF_PUTINPROGRESS",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "NUMBER, LANGU; saved with BAPI_ALM_NOTIF_SAVE",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_ALM_NOTIF_PUTINPROGRESS",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "NUMBER, LANGU; saved with BAPI_ALM_NOTIF_SAVE",
+          "return": "BAPIRET2",
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_QMEL",
+          "fields": {
+            "TCD": "IW22",
+            "QMART": "<notification type>"
+          }
+        },
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IW22",
+            "IWERK": "<planning plant>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The preview is a BAPI test run: user exits that run only at save can still refuse it."
+        ],
+        "ko": [
+          "미리보기는 BAPI 테스트 실행이에요. 저장할 때만 도는 사용자 출구는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "PM.NOTIF.COMPLETE",
+      "object": "MaintenanceNotification",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Complete a maintenance notification",
+      "intents": {
+        "en": [
+          "complete notification",
+          "close maintenance notification"
+        ],
+        "ko": [
+          "보전통지 완료",
+          "통지 완료 처리"
+        ]
+      },
+      "params": [
+        {
+          "name": "qmnum",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ALM_NOTIF_CLOSE",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "NUMBER, SYSTSTAT (reference date / time); saved with BAPI_ALM_NOTIF_SAVE",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_ALM_NOTIF_CLOSE",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "NUMBER, SYSTSTAT (reference date / time); saved with BAPI_ALM_NOTIF_SAVE",
+          "return": "BAPIRET2",
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_QMEL",
+          "fields": {
+            "TCD": "IW22",
+            "QMART": "<notification type>"
+          }
+        },
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IW22",
+            "IWERK": "<planning plant>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The preview is a BAPI test run.",
+          "Completing the notification does not complete its order; it can be put back in process only in IW22."
+        ],
+        "ko": [
+          "미리보기는 BAPI 테스트 실행이에요.",
+          "통지를 완료해도 오더는 완료되지 않아요. 되돌리려면 IW22에서 처리해야 해요."
+        ]
+      }
+    },
+    {
+      "id": "PM.ORD.CREATE",
+      "object": "MaintenanceOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Create a maintenance order (optionally for a notification)",
+      "intents": {
+        "en": [
+          "create maintenance order",
+          "create work order",
+          "order for this notification"
+        ],
+        "ko": [
+          "보전오더 생성",
+          "작업오더 생성",
+          "통지로 보전오더 생성"
+        ]
+      },
+      "params": [
+        {
+          "name": "auart",
+          "type": "string",
+          "required": true,
+          "description": "maintenance order type, e.g. PM01"
+        },
+        {
+          "name": "werks",
+          "type": "string",
+          "required": true,
+          "description": "planning plant"
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "required": true,
+          "description": "short text, up to 40 characters"
+        },
+        {
+          "name": "equnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "tplnr",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "arbpl",
+          "type": "string",
+          "required": false,
+          "description": "main work center; default = the work center of the equipment"
+        },
+        {
+          "name": "new_start",
+          "type": "string",
+          "required": false,
+          "description": "YYYY-MM-DD"
+        },
+        {
+          "name": "new_finish",
+          "type": "string",
+          "required": false,
+          "description": "YYYY-MM-DD"
+        },
+        {
+          "name": "priok",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "qmnum",
+          "type": "string",
+          "required": false,
+          "description": "notification the order is created for"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ALM_ORDER_MAINTAIN",
+          "testrun": "none",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "IT_METHODS (HEADER CREATE or CREATETONOTIF, OPERATION CREATE 0010, SAVE), IT_HEADER, IT_OPERATION",
+          "return": "BAPIRET2",
+          "preview": "checks only: order type (T003O AUTYP 30, T399X), reference object and its planning plant, work center (CRHD), dates, priority (T356), open notification without order, authorization"
+        },
+        "S4": {
+          "fm": "BAPI_ALM_ORDER_MAINTAIN",
+          "testrun": "none",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "IT_METHODS (HEADER CREATE or CREATETONOTIF, OPERATION CREATE 0010, SAVE), IT_HEADER, IT_OPERATION",
+          "return": "BAPIRET2",
+          "preview": "checks only: order type (T003O AUTYP 30, T399X), reference object and its planning plant, work center (CRHD), dates, priority (T356), open notification without order, authorization",
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IW31",
+            "IWERK": "<planning plant>"
+          }
+        },
+        {
+          "object": "I_AUART",
+          "fields": {
+            "IWERK": "<planning plant>",
+            "AUFART": "<order type>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "BAPI_ALM_ORDER_MAINTAIN has no test mode: the preview checks status, configuration and authorization only.",
+          "Checks that run only at save (user exits, number ranges, scheduling) can still refuse the change at execute."
+        ],
+        "ko": [
+          "BAPI_ALM_ORDER_MAINTAIN에는 테스트 모드가 없어요. 미리보기는 상태, 설정, 권한만 확인해요.",
+          "저장할 때만 도는 체크(사용자 출구, 번호 범위, 일정 계산)는 실행할 때 거절할 수 있어요."
+        ]
+      },
+      "clarify": [
+        {
+          "param": "auart",
+          "ask": "Which maintenance order type (for example PM01)?",
+          "when": "auart is missing"
+        },
+        {
+          "param": "werks",
+          "ask": "Which maintenance planning plant?",
+          "when": "werks is missing"
+        }
+      ]
+    },
+    {
+      "id": "PM.ORD.RELEASE",
+      "object": "MaintenanceOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Release a maintenance order",
+      "intents": {
+        "en": [
+          "release maintenance order",
+          "release work order"
+        ],
+        "ko": [
+          "보전오더 릴리스",
+          "작업오더 릴리스"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ALM_ORDER_MAINTAIN",
+          "testrun": "none",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "IT_METHODS (HEADER RELEASE, SAVE)",
+          "return": "BAPIRET2",
+          "preview": "status check only: not DLFL / CLSD / TECO, not yet REL; authorization"
+        },
+        "S4": {
+          "fm": "BAPI_ALM_ORDER_MAINTAIN",
+          "testrun": "none",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "IT_METHODS (HEADER RELEASE, SAVE)",
+          "return": "BAPIRET2",
+          "preview": "status check only: not DLFL / CLSD / TECO, not yet REL; authorization",
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IW32",
+            "IWERK": "<planning plant>"
+          }
+        },
+        {
+          "object": "I_AUART",
+          "fields": {
+            "IWERK": "<planning plant>",
+            "AUFART": "<order type>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "BAPI_ALM_ORDER_MAINTAIN has no test mode: the preview checks status, configuration and authorization only.",
+          "Checks that run only at save (user exits, number ranges, scheduling) can still refuse the change at execute."
+        ],
+        "ko": [
+          "BAPI_ALM_ORDER_MAINTAIN에는 테스트 모드가 없어요. 미리보기는 상태, 설정, 권한만 확인해요.",
+          "저장할 때만 도는 체크(사용자 출구, 번호 범위, 일정 계산)는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "PM.ORD.CHANGE_DATES",
+      "object": "MaintenanceOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Change the basic dates of a maintenance order",
+      "intents": {
+        "en": [
+          "reschedule maintenance order",
+          "change order dates"
+        ],
+        "ko": [
+          "보전오더 일정 변경",
+          "작업오더 날짜 변경"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "new_start",
+          "type": "string",
+          "required": false,
+          "description": "YYYY-MM-DD"
+        },
+        {
+          "name": "new_finish",
+          "type": "string",
+          "required": false,
+          "description": "YYYY-MM-DD; with only new_start the planned duration is kept"
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ALM_ORDER_MAINTAIN",
+          "testrun": "none",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "IT_METHODS (HEADER CHANGE, SAVE), IT_HEADER (START_DATE, FINISH_DATE), IT_HEADER_UP",
+          "return": "BAPIRET2",
+          "preview": "status and date check only: not DLFL / CLSD / TECO, finish not before start, dates differ"
+        },
+        "S4": {
+          "fm": "BAPI_ALM_ORDER_MAINTAIN",
+          "testrun": "none",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "IT_METHODS (HEADER CHANGE, SAVE), IT_HEADER (START_DATE, FINISH_DATE), IT_HEADER_UP",
+          "return": "BAPIRET2",
+          "preview": "status and date check only: not DLFL / CLSD / TECO, finish not before start, dates differ",
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IW32",
+            "IWERK": "<planning plant>"
+          }
+        },
+        {
+          "object": "I_AUART",
+          "fields": {
+            "IWERK": "<planning plant>",
+            "AUFART": "<order type>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "BAPI_ALM_ORDER_MAINTAIN has no test mode: the preview checks status, configuration and authorization only.",
+          "Checks that run only at save (user exits, number ranges, scheduling) can still refuse the change at execute."
+        ],
+        "ko": [
+          "BAPI_ALM_ORDER_MAINTAIN에는 테스트 모드가 없어요. 미리보기는 상태, 설정, 권한만 확인해요.",
+          "저장할 때만 도는 체크(사용자 출구, 번호 범위, 일정 계산)는 실행할 때 거절할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "PM.ORD.CONFIRM",
+      "object": "MaintenanceOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Confirm work on a maintenance order operation",
+      "intents": {
+        "en": [
+          "confirm maintenance work",
+          "enter hours on work order"
+        ],
+        "ko": [
+          "보전오더 실적 등록",
+          "보전작업 확정",
+          "작업시간 등록"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "vornr",
+          "type": "string",
+          "required": true,
+          "description": "operation, e.g. 0010"
+        },
+        {
+          "name": "act_work",
+          "type": "string",
+          "required": true,
+          "description": "actual work"
+        },
+        {
+          "name": "unit",
+          "type": "string",
+          "required": false,
+          "description": "default = the work unit of the operation"
+        },
+        {
+          "name": "final_conf",
+          "type": "string",
+          "required": false,
+          "values": [
+            "partial",
+            "final",
+            "auto"
+          ]
+        },
+        {
+          "name": "posting_date",
+          "type": "string",
+          "required": false,
+          "description": "YYYY-MM-DD, not in the future"
+        },
+        {
+          "name": "text",
+          "type": "string",
+          "required": false
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ALM_CONF_CREATE",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "TIMETICKETS (ORDERID, OPERATION, ACT_WORK, UN_WORK, FIN_CONF, POSTG_DATE, CONF_TEXT)",
+          "return": "BAPIRET2"
+        },
+        "S4": {
+          "fm": "BAPI_ALM_CONF_CREATE",
+          "testrun": "TESTRUN",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "TIMETICKETS (ORDERID, OPERATION, ACT_WORK, UN_WORK, FIN_CONF, POSTG_DATE, CONF_TEXT)",
+          "return": "BAPIRET2",
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IW41",
+            "IWERK": "<planning plant>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The preview is a BAPI test run.",
+          "A confirmation can be cancelled only in IW45."
+        ],
+        "ko": [
+          "미리보기는 BAPI 테스트 실행이에요.",
+          "확정은 IW45에서만 취소할 수 있어요."
+        ]
+      }
+    },
+    {
+      "id": "PM.ORD.TECO",
+      "object": "MaintenanceOrder",
+      "kind": "write",
+      "risk": "medium",
+      "title": "Complete a maintenance order technically (TECO)",
+      "intents": {
+        "en": [
+          "technically complete maintenance order",
+          "TECO work order",
+          "technically complete"
+        ],
+        "ko": [
+          "보전오더 기술적 완료",
+          "작업오더 기술적 완료",
+          "보전오더 TECO",
+          "기술적 완료"
+        ]
+      },
+      "params": [
+        {
+          "name": "aufnr",
+          "type": "string",
+          "required": true
+        }
+      ],
+      "impl": {
+        "ECC": {
+          "fm": "BAPI_ALM_ORDER_MAINTAIN",
+          "testrun": "none",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "IT_METHODS (HEADER TECHNICALCOMPLETE, SAVE), IT_HEADER (TECO_REF_DATE / TIME)",
+          "return": "BAPIRET2",
+          "preview": "status check only: released, not DLFL / CLSD / TECO, its notification already completed (NOCO)"
+        },
+        "S4": {
+          "fm": "BAPI_ALM_ORDER_MAINTAIN",
+          "testrun": "none",
+          "commit": "BAPI_TRANSACTION_COMMIT WAIT",
+          "set": "IT_METHODS (HEADER TECHNICALCOMPLETE, SAVE), IT_HEADER (TECO_REF_DATE / TIME)",
+          "return": "BAPIRET2",
+          "preview": "status check only: released, not DLFL / CLSD / TECO, its notification already completed (NOCO)",
+          "note": "not verified on S/4HANA: the action stays hidden there until it is tested"
+        }
+      },
+      "auth": [
+        {
+          "object": "I_IWERK",
+          "fields": {
+            "TCD": "IW32",
+            "IWERK": "<planning plant>"
+          }
+        },
+        {
+          "object": "I_AUART",
+          "fields": {
+            "IWERK": "<planning plant>",
+            "AUFART": "<order type>"
+          }
+        }
+      ],
+      "verified_on": [
+        {
+          "alias": "ECC740-DEV",
+          "family": "ECC",
+          "release": "740",
+          "date": "2026-11-11",
+          "level": "scenario",
+          "evidence": "configs/PM/actions-evidence/ECC740-DEV.txt"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "BAPI_ALM_ORDER_MAINTAIN has no test mode: the preview checks status, configuration and authorization only.",
+          "Checks that run only at save (user exits, number ranges, scheduling) can still refuse the change at execute.",
+          "TECO can be revoked only in IW32 (cancel technical completion)."
+        ],
+        "ko": [
+          "BAPI_ALM_ORDER_MAINTAIN에는 테스트 모드가 없어요. 미리보기는 상태, 설정, 권한만 확인해요.",
+          "저장할 때만 도는 체크(사용자 출구, 번호 범위, 일정 계산)는 실행할 때 거절할 수 있어요.",
+          "기술적 완료는 IW32에서만 취소할 수 있어요."
+        ]
+      },
+      "ambiguity": {
+        "term": {
+          "en": "technically complete",
+          "ko": "기술적 완료"
+        },
+        "candidates": [
+          "PM.ORD.TECO"
+        ],
+        "ask": "Which order do you want to complete technically: a maintenance order or a production order?"
+      }
+    }
+  ]
+}

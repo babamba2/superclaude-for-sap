@@ -3,7 +3,7 @@ INTERFACE zif_mcp_biz_action
 
 * ZIF_MCP_BIZ_ACTION - business action handler contract for ZMCP_BIZ_EXECUTE.
 *
-* One handler class per module: ZCL_MCP_BIZ_MM, _PP, _SD, _FI, _CO, _OUT, _LE, _WM.
+* One handler class per module: ZCL_MCP_BIZ_MM, _PP, _SD, _FI, _CO, _OUT, _LE, _WM, _PM.
 * The executor (ZCL_MCP_BIZ_EXEC) owns JSON, the production block, the
 * preview token and the log; handlers own the business logic only.
 *
@@ -133,6 +133,17 @@ INTERFACE zif_mcp_biz_action
       src_lgpla          TYPE string,
       dst_lgtyp          TYPE string,
       dst_lgpla          TYPE string,
+      " Plant maintenance (ZCL_MCP_BIZ_PM). werks = planning plant; aufnr / vornr / auart / text /
+      " new_start / new_finish / unit / final_conf / posting_date / status / max_rows shared.
+      qmnum              TYPE string,
+      qmart              TYPE string,
+      equnr              TYPE string,
+      tplnr              TYPE string,
+      warpl              TYPE string,
+      priok              TYPE string,
+      arbpl              TYPE string,
+      eqtyp              TYPE string,
+      act_work           TYPE string,
     END OF ty_params.
 
   TYPES:

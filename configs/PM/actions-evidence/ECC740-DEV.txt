@@ -1,0 +1,23 @@
+# Scenario evidence — ECC740-DEV (ECC 6.0, BASIS 740), 2026-11-11. ABAP Unit scenario matrix (expected result declared before the run, DB read-back after every write, no-change proof for every preview and refusal).
+# Final handler build, run 3: parts S1 (45), S2 (51), S3 (14), S4 (12), S4b (7), S5 (16), S5b (3); last run of a scenario counts. Columns: verdict (S = scenario), action, pass/lines, executed writes, notes.
+S PM.ORD.LIST_OPEN 15/15 exec 0
+S PM.ORD.GET_DETAIL 11/11 exec 0
+S PM.NOTIF.LIST_OPEN 8/8 exec 0
+S PM.NOTIF.GET_DETAIL 6/6 exec 0
+S PM.EQUI.GET_DETAIL 4/4 exec 0
+S PM.EQUI.LIST 6/6 exec 0
+S PM.FL.GET_DETAIL 4/4 exec 0
+S PM.PLAN.GET_DETAIL 3/3 exec 0
+S PM.NOTIF.CREATE 14/14 exec 2
+S PM.NOTIF.PUT_IN_PROCESS 5/5 exec 1
+S PM.NOTIF.COMPLETE 5/5 exec 2
+S PM.ORD.CREATE 18/18 exec 2 | one with CREATETONOTIF (notification points to the order), one without notification
+S PM.ORD.RELEASE 9/9 exec 2
+S PM.ORD.CHANGE_DATES 13/13 exec 1 | plus token guard executes
+S PM.ORD.CONFIRM 14/14 exec 2 | partial + final, BAPI test run previews
+S PM.ORD.TECO 7/8 exec 2 | PM-130 HARNESS_SESSION (see below); TECO executed in a fresh harness run and through the MCP route
+# Total 142/143 PASS. No FAIL on the final build.
+# HARNESS_SESSION: in one ABAP session, BAPI_ALM_NOTIF_CLOSE followed by BAPI_ALM_ORDER_MAINTAIN TECHNICALCOMPLETE on the same order is refused (buffered state). The same TECO succeeded right after through the MCP route (OData backend, one session per call; IW 085) and in a fresh harness run. A caller that reuses one ABAP session (pooled native RFC) may hit it: not verified.
+# Refusal checked up front: TECO of an order whose notification is open (BAPI IWO_BAPI 162 otherwise), TECO of an order not released (IWO_BAPI 167 otherwise).
+# Guards: no token, bogus token, changed params, changed action, token reuse, idempotency key — all PASS.
+# Not offered: undo TECO (no BAPI method), CLSD, order deletion, plan scheduling.

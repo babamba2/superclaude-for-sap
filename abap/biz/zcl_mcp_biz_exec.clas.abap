@@ -18,7 +18,7 @@ CLASS zcl_mcp_biz_exec DEFINITION
 *   - PRECHECK (read only, any client, not logged): document field values and
 *     true / false answers for the customer check rules, see ZCL_MCP_BIZ_PRECHECK
 *     (SD.* actions: facts by ZCL_MCP_BIZ_PRECHECK=>RUN_SD)
-*   - handlers: one class per module (ZCL_MCP_BIZ_MM / _PP / _SD / _FI / _CO / _OUT / _LE / _WM)
+*   - handlers: one class per module (ZCL_MCP_BIZ_MM / _PP / _SD / _FI / _CO / _OUT / _LE / _WM / _PM)
 *
 * Variant: S/4HANA and ECC 7.40+ (/UI2/CL_JSON). The 7.31 variant differs
 * only in parse_params / to_json (ZCL_MCP_JSON).
@@ -250,7 +250,7 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
       CREATE OBJECT ro_handler TYPE zcl_mcp_biz_co.
     ELSEIF iv_action CP 'OUT.*'.
       CREATE OBJECT ro_handler TYPE zcl_mcp_biz_out.
-    ELSEIF iv_action CP 'LE.*' OR iv_action CP 'WM.*'.
+    ELSEIF iv_action CP 'LE.*' OR iv_action CP 'WM.*' OR iv_action CP 'PM.*'.
       " ECC-only modules: created by name so that EXEC also activates where they are not installed.
       ro_handler = optional_handler( substring( val = iv_action len = 2 ) ).
     ENDIF.
@@ -284,6 +284,11 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
       APPEND LINES OF lt_actions TO rs_result-actions.
     ENDIF.
     lo_handler = optional_handler( 'WM' ).
+    IF lo_handler IS BOUND.
+      lt_actions = lo_handler->get_actions( ).
+      APPEND LINES OF lt_actions TO rs_result-actions.
+    ENDIF.
+    lo_handler = optional_handler( 'PM' ).
     IF lo_handler IS BOUND.
       lt_actions = lo_handler->get_actions( ).
       APPEND LINES OF lt_actions TO rs_result-actions.
@@ -775,6 +780,38 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
         lv_list = 'lgnum lgtyp max_rows'.
       WHEN 'WM.INV.GET_DETAIL'.
         lv_list = 'lgnum ivnum'.
+      WHEN 'PM.ORD.LIST_OPEN'.
+        lv_list = 'werks auart equnr tplnr status max_rows'.
+      WHEN 'PM.ORD.GET_DETAIL'.
+        lv_list = 'aufnr'.
+      WHEN 'PM.NOTIF.LIST_OPEN'.
+        lv_list = 'werks qmart equnr tplnr max_rows'.
+      WHEN 'PM.NOTIF.GET_DETAIL'.
+        lv_list = 'qmnum'.
+      WHEN 'PM.EQUI.GET_DETAIL'.
+        lv_list = 'equnr'.
+      WHEN 'PM.EQUI.LIST'.
+        lv_list = 'werks tplnr eqtyp max_rows'.
+      WHEN 'PM.FL.GET_DETAIL'.
+        lv_list = 'tplnr'.
+      WHEN 'PM.PLAN.GET_DETAIL'.
+        lv_list = 'warpl'.
+      WHEN 'PM.NOTIF.CREATE'.
+        lv_list = 'qmart text equnr tplnr werks priok'.
+      WHEN 'PM.NOTIF.PUT_IN_PROCESS'.
+        lv_list = 'qmnum'.
+      WHEN 'PM.NOTIF.COMPLETE'.
+        lv_list = 'qmnum'.
+      WHEN 'PM.ORD.CREATE'.
+        lv_list = 'auart werks text equnr tplnr arbpl new_start new_finish priok qmnum'.
+      WHEN 'PM.ORD.RELEASE'.
+        lv_list = 'aufnr'.
+      WHEN 'PM.ORD.CHANGE_DATES'.
+        lv_list = 'aufnr new_start new_finish'.
+      WHEN 'PM.ORD.CONFIRM'.
+        lv_list = 'aufnr vornr act_work unit final_conf posting_date text'.
+      WHEN 'PM.ORD.TECO'.
+        lv_list = 'aufnr'.
       WHEN OTHERS.
         CLEAR lv_list.
     ENDCASE.
