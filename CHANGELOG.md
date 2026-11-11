@@ -18,6 +18,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 - **RFC backends `native`, `gateway`, `zrfc` and the RFC connection `SAP_CONNECTION_TYPE=rfc`** (MCP 4.10.0, pin → `67b8db7`). Setup offers `odata` (default) or `soap`; Step 9d (ZRFC ICF handler) is gone. A profile that still uses a removed value stops the MCP server at boot with the fix; `/sc4sap:sap-doctor` reports it as a BLOCKER (check 6.0) and `/sc4sap:sap-option` offers odata / soap.
 
+## [0.6.64] — 2026-11-11
+
+### Changed
+- MCP pin `19eccf7` (4.8.19) → `b089d9f` (4.8.20): adds `GetAreaMenu`, so the `/sc4sap:module-to-process` area menu cross-check of 0.6.63 works on a fresh install. Nothing else changes in the MCP server.
+
+### Fixed
+- The npm package carries every folder the plugin reads at run time (`common/`, `exceptions/`, `industry/`, `country/`, `agent-refs/`, `abap/`, `asset/`, `data/`, `runtime-deps/`); before, a package install missed the rules, the blocklist and the keyring.
+
 ## [0.6.63] — 2026-11-11
 
 ### Added
