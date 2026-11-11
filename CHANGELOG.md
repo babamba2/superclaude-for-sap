@@ -6,17 +6,35 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 ## [Unreleased]
 
 ### Added
-- `/sc4sap:module-to-process` cross-checks a map against the customer **area menu** (SE43, MCP `GetAreaMenu` — needs MCP with that tool). `area-menu.mjs` sorts every menu TCode by usage and map: *core* (used, in the map), *gap* (used, no task), *elsewhere* (used, documented in another module map — `--other-model`), *dead* (measured, unused), *not measured*, and *off-menu* (used map TCodes no menu carries). The page shows the menu path on each task sheet and an appendix section with the counts, the gap list and the menu tree per top folder with usage and task links. A new run asks for the menu at intake and uses its folders as placement hints; an existing map is supplemented without a rebuild (`workflow-menu.md`).
+
 - **ECC DDIC through the MCP tools.** `/sc4sap:create-object` and `/sc4sap:create-program` now create Domain / Data Element / Structure / Table / Table type on ECC with the MCP tools (call shapes in `common/ecc-ddic-fallback.md` § Path 1); the SE38 helper report is only a fallback for the listed errors (§ Path 2). New FM `ZMCP_ADT_DDIC_TTYP` (`abap/zmcp_adt_ddic_ttyp_ecc.abap`, setup Step 9a.2) and a TTYP branch in `ZMCP_ADT_DDIC_ACTIVATE` back the MCP tools `CreateTableType` / `DeleteTableType`. MCP pin → `11eb11c` (4.9.1).
-- `supplement-model.mjs` places newly found entries into an existing process model: new L2 / L3 / L4 rows with task sheets take the next free number under their parent and land in document order; existing tasks get TCodes, objects, rules and links added. Every entry of a part must be placed or listed as unplaced. A map for a module without one can start from an L1-only model.
 
 ### Fixed
+
 - **Setup installed OData classes without the DDIC actions.** `odata-classes-install.md` used class sources that had only the Dispatch and Textpool actions, so on a fresh ECC install every DDIC read and write through OData failed. The repo now carries the full `abap/zcl_zmcp_adt_{mpc,dpc}_ext.clas.abap` (all `Ddic*` actions, `DdicTtyp` included) and setup installs those.
 - ECC DDIC FMs: objects created in `$TMP` are registered in TADIR (Table, Data Element, Domain); deleting a data element passed the object type `D` (domain) to `RS_DD_DELETE_OBJ` and never worked — now `E`.
-- Integration maps (`cross-module.mjs`): a map that covers several module codes (`model.modules`, e.g. LE + WM) owns the objects of all of them; a called customer function module is followed into its own include of the function group (before, the walk stopped at the function); a customer table that the name prefix assigns to the other map but only this map writes is no longer reported as a hand-off.
 
 ### Removed
+
 - **RFC backends `native`, `gateway`, `zrfc` and the RFC connection `SAP_CONNECTION_TYPE=rfc`** (MCP 4.10.0, pin → `67b8db7`). Setup offers `odata` (default) or `soap`; Step 9d (ZRFC ICF handler) is gone. A profile that still uses a removed value stops the MCP server at boot with the fix; `/sc4sap:sap-doctor` reports it as a BLOCKER (check 6.0) and `/sc4sap:sap-option` offers odata / soap.
+
+## [0.6.63] — 2026-11-11
+
+### Added
+- `/sc4sap:cbo-relation-map` **Fields tab** — per table field, which objects create, read, update or delete it and which use it as a condition (C / R / U / D / F), from the SQL statements of the saved sources (`scripts/graph/extract-fields.mjs` → `fields.json`, written by `build-package-graph`). `UPDATE SET f` changes that field; INSERT / MODIFY / UPDATE / DELETE from a work area, `SELECT *` and cluster IMPORT / EXPORT count as "whole row". Customer structures inherit the CRUD of the tables that include or append them. Per field: source line and snippet, the TCodes and jobs that reach each writer, "never read" / "never written" flags; CSV per table; search `TABLE-FIELD`. Variable assignments are not traced.
+- Customer appends of standard tables (VBAK-ZZ…, CI_ includes) in the Fields tab: `stock-cbo` Step G6 reads them in two small DD03L rounds (`ddic-queries.mjs --only appends` / `--only append-fields`). Only Z / Y / CI_ structures and the package's own namespaces count as customer — SAP add-on namespaces (/DSD/, /SPE/ …) do not.
+- `build-package-graph --fields-ddic <dir>` lends the DD03L reads of the whole-package folder to a used-TCode folder.
+- `/sc4sap:module-to-process` cross-checks a map against the customer **area menu** (SE43, MCP `GetAreaMenu` — needs MCP with that tool). `area-menu.mjs` sorts every menu TCode by usage and map: *core* (used, in the map), *gap* (used, no task), *elsewhere* (used, documented in another module map — `--other-model`), *dead* (measured, unused), *not measured*, and *off-menu* (used map TCodes no menu carries). The page shows the menu path on each task sheet and an appendix section with the counts, the gap list and the menu tree per top folder with usage and task links. A new run asks for the menu at intake and uses its folders as placement hints; an existing map is supplemented without a rebuild (`workflow-menu.md`).
+- `supplement-model.mjs` places newly found entries into an existing process model: new L2 / L3 / L4 rows with task sheets take the next free number under their parent and land in document order; existing tasks get TCodes, objects, rules and links added. Every entry of a part must be placed or listed as unplaced. A map for a module without one can start from an L1-only model.
+
+### Changed
+- **`analyze-cbo-obj` is now `/sc4sap:stock-cbo`** — the name of what it does (stock the package's CBO objects into `inventory.json`, paired with the `sap-stocker` agent). The old name is gone; outputs and paths are unchanged.
+
+### Removed
+- `/sc4sap:package-to-process` (a redirect since 0.6.47) — use `/sc4sap:module-to-process`. Its companion files and `scripts/spec/render-process-images.mjs` are deleted.
+
+### Fixed
+- Integration maps (`cross-module.mjs`): a map that covers several module codes (`model.modules`, e.g. LE + WM) owns the objects of all of them; a called customer function module is followed into its own include of the function group (before, the walk stopped at the function); a customer table that the name prefix assigns to the other map but only this map writes is no longer reported as a hand-off.
 
 ### Security
 - **Blocklist hook covers source uploads.** `block-forbidden-tables.mjs` now also checks `Create*` / `Update*` source tools: a test class (or a source holding `FOR TESTING`) or a CDS view that reads a `deny`-tier table is refused, because running it returns the rows to the agent (ABAP Unit messages, `GetSqlQuery` on the view). Plain business code that reads e.g. KNA1 is unchanged. The hook is now wired in the plugin's `hooks/hooks.json`, so it runs for every install without re-running setup.
