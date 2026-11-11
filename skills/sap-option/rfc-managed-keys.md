@@ -1,12 +1,13 @@
 # RFC backend managed keys
 
-Referenced by `SKILL.md` from `<Managed_Keys>` and `<Validation>`. Per-backend env fields for `SAP_RFC_BACKEND = odata | soap`.
+Referenced by `SKILL.md` from `<Managed_Keys>` and `<Validation>`. Per-backend env fields for `SAP_RFC_BACKEND = odata | soap | nco`.
 
 ## Backend selector
 
-- `SAP_RFC_BACKEND` — `odata` (default) | `soap`
+- `SAP_RFC_BACKEND` — `odata` (default) | `soap` | `nco`
   - `odata` — SAP OData v2 service `ZMCP_ADT_SRV` (pure HTTPS; ABAP side needs `ZCL_ZMCP_ADT_MPC`/`_DPC` installed by setup Step 9c and the service registered in `/IWFND/MAINT_SERVICE`)
   - `soap` — HTTPS via `/sap/bc/soap/rfc` (reuses `SAP_URL` + `SAP_USERNAME` + `SAP_PASSWORD`; no extra fields needed)
+  - `nco` — RFC through SAP .NET Connector (Windows, NCo 3.x in the GAC); NCo block below and `../setup/nco-connection.md`
 - `native`, `gateway` and `zrfc` were removed in MCP 4.10.0. The MCP server refuses to start with them.
 
 ## OData block (only when `SAP_RFC_BACKEND=odata`)
@@ -16,12 +17,24 @@ Referenced by `SKILL.md` from `<Managed_Keys>` and `<Validation>`. Per-backend e
 
 > When `SAP_RFC_BACKEND=odata`, the existing `SAP_USERNAME` / `SAP_PASSWORD` are reused as Basic auth against the OData service URL, and `SAP_CLIENT` is appended as `?sap-client=<n>` on every request. No extra credential block is needed. The client performs an automatic CSRF handshake on first call (GET `$metadata` with `X-CSRF-Token: Fetch`), caches the token for `SAP_RFC_ODATA_CSRF_TTL_SEC` seconds, and refreshes on HTTP 403.
 
+## NCo block (only when `SAP_RFC_BACKEND=nco` or `SAP_CONNECTION_TYPE=nco`)
+
+- `SAP_CONNECTION_TYPE` — unset (HTTP, default) | `nco` (the ADT requests go over RFC too)
+- `SAP_NCO_SYSNR` — system number; default derived from the `SAP_URL` port 80XX
+- `SAP_NCO_ASHOST` — application server host, when it differs from the `SAP_URL` host
+- `SAP_NCO_LANG` — logon language; default `SAP_LANGUAGE`, else `EN`
+- `SAP_NCO_BRIDGE_EXE` — path to a prebuilt `nco-bridge.exe` (rare; normally compiled on first use)
+
+> `SAP_CLIENT` / `SAP_USERNAME` / `SAP_PASSWORD` are reused for the RFC logon. Direct application-server logon only.
+
 ## Validation rules (applied by sap-option workflow)
 
-- `SAP_RFC_BACKEND`: one of `odata` | `soap`. On switching:
+- `SAP_RFC_BACKEND`: one of `odata` | `soap` | `nco`. On switching:
   - → `odata`: warn `SAP_RFC_ODATA_SERVICE_URL` must be set, MPC/DPC classes must be installed (setup Step 9c), and the service must be registered in `/IWFND/MAINT_SERVICE`
   - → `soap`: warn the ICF node `/sap/bc/soap/rfc` must be active in SICF
+  - → `nco`: run the preflight of `../setup/nco-connection.md` (Windows, NCo in the GAC, gateway port `33<sysnr>` open) and warn that `ZMCP_ADT_DISPATCH` needs the `FM_PROXY` action
   - Always suggest running `/sc4sap:sap-doctor` afterwards to exercise Layer 6.
-- Profile still has `native` / `gateway` / `zrfc` (or `SAP_CONNECTION_TYPE=rfc`): tell the user these were removed in MCP 4.10.0, offer `odata` / `soap`, and comment out the leftover `SAP_RFC_*` keys of the removed backend and `SAP_CONNECTION_TYPE`.
+- Profile still has `native` / `gateway` / `zrfc` (or `SAP_CONNECTION_TYPE=rfc`): tell the user these were removed in MCP 4.10.0, offer `odata` / `soap` / `nco`, and comment out the leftover `SAP_RFC_*` keys of the removed backend and `SAP_CONNECTION_TYPE=rfc`.
+- `SAP_CONNECTION_TYPE`: unset, `http` or `nco`. `SAP_NCO_SYSNR`: two digits.
 - `SAP_RFC_ODATA_SERVICE_URL`: must match `^https?://[^ ]+` and not end with `/` (trailing slashes stripped automatically at call time; reject on input for cleanliness).
 - `SAP_RFC_ODATA_CSRF_TTL_SEC`: integer ≥ 60. Values below 60 silently clamp to 60 on the client; reject non-numeric input.

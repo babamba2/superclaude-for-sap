@@ -8,15 +8,18 @@ Three MCP operation families (Screen, GUI Status, Text Element) dispatch through
 Pick RFC backend for Screen / GUI Status / Text Element ops:
   1) odata   — SAP OData v2 service ZMCP_ADT_SRV via HTTPS (default, SEGW + Gateway reg)
   2) soap    — HTTPS via /sap/bc/soap/rfc (requires ICF node active, often disabled)
+  3) nco     — RFC through SAP .NET Connector (Windows + NCo 3.x installed; no OData /
+               SOAP needed; optionally ADT over RFC too)
 ```
 
 Default changed 2026-04-22: OData is now the default because hardened SAP installs increasingly disable the legacy `/sap/bc/soap/rfc` ICF node, while OData Gateway is almost always reachable and routes through standard Gateway authorization (S_SERVICE) instead of S_RFC. Existing profiles that already pinned `SAP_RFC_BACKEND=soap` keep working unchanged.
 
 Full detail on odata / soap is in `docs/user-guide/CLIENT_CONFIGURATION.md` of the `abap-mcp-adt-powerup` repository. The condensed option summary above is what you present to the user.
 
-- Accept `odata` / `soap` (or 1/2). Default `odata` if the user presses Enter.
+- Accept `odata` / `soap` / `nco` (or 1/2/3). Default `odata` if the user presses Enter.
+- `nco` → follow [`nco-connection.md`](nco-connection.md) (preflight, keys, the second question about ADT over RFC), then continue to Step 5. Step 9c is skipped.
 - `native`, `gateway` and `zrfc` were removed in MCP 4.10.0 (the server refuses to start with them). A re-run on a profile that still has one: tell the user, then ask this question again and overwrite the value.
-- Write the choice to the **active profile's** env (`~/.sc4sap/profiles/<alias>/sap.env`, resolved from `<project>/.sc4sap/active-profile.txt`) as `SAP_RFC_BACKEND=odata|soap`. Never write it to `<project>/.sc4sap/sap.env` — that file does not exist in multi-profile mode (decision §4.3 of the setup gap plan).
+- Write the choice to the **active profile's** env (`~/.sc4sap/profiles/<alias>/sap.env`, resolved from `<project>/.sc4sap/active-profile.txt`) as `SAP_RFC_BACKEND=odata|soap|nco`. Never write it to `<project>/.sc4sap/sap.env` — that file does not exist in multi-profile mode (decision §4.3 of the setup gap plan).
 
 ### ⚠️ Backend-specific preflight — bootstrap order
 

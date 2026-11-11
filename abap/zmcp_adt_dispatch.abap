@@ -28,6 +28,8 @@ FUNCTION zmcp_adt_dispatch
 *   CUA_DELETE     - Delete GUI status (RS_CUA_DELETE)
 
 * BIZ_EXECUTE    - business action, forwards to ZMCP_BIZ_EXECUTE (FORM biz_execute)
+* FM_PROXY       - calls an allow-listed helper FM that is not remote-enabled,
+*                  for RFC clients (NCo backend) (FORM fm_proxy)
 
   CLEAR: ev_subrc, ev_message, ev_result.
 
@@ -54,6 +56,9 @@ FUNCTION zmcp_adt_dispatch
         WHEN 'BIZ_EXECUTE'.
           PERFORM biz_execute USING iv_params
                               CHANGING ev_subrc ev_message ev_result.
+        WHEN 'FM_PROXY'.
+          PERFORM fm_proxy USING iv_params
+                           CHANGING ev_subrc ev_message ev_result.
         WHEN OTHERS.
           ev_subrc = 4.
           ev_message = |Unknown action: { iv_action }|.
@@ -604,5 +609,165 @@ FORM biz_execute USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message
 
   ev_result = |\{"subrc":{ lv_subrc },"message":{ /ui2/cl_json=>serialize( data = lv_msg ) },| &&
               |"token":{ /ui2/cl_json=>serialize( data = lv_tok ) },"result":{ lv_res }\}|.
+  ev_subrc = 0.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FM_PROXY
+*&---------------------------------------------------------------------*
+* Calls one of the sc4sap helper FMs that are not remote-enabled, for
+* RFC clients (NCo backend) that only reach remote-enabled FMs. Allow
+* list only. Importing parameters arrive by name as strings and are
+* converted to the FM's own parameter types; CHANGING / TABLES
+* parameters are not supported.
+* params: {"fm":"ZMCP_ADT_DDIC_TTYP",
+*          "params":[{"name":"IV_ACTION","value":"READ"},...]}
+* result: the FM's EXPORTING parameters as one JSON object, e.g.
+*         {"EV_SUBRC":0,"EV_MESSAGE":"..","EV_RESULT":".."}
+* ev_subrc 0 = the FM ran (its own EV_SUBRC is inside the result).
+FORM fm_proxy USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message TYPE string ev_result TYPE string.
+  TYPES: BEGIN OF ty_kv,
+           name  TYPE string,
+           value TYPE string,
+         END OF ty_kv.
+  DATA: BEGIN OF ls_in,
+          fm     TYPE string,
+          params TYPE STANDARD TABLE OF ty_kv WITH DEFAULT KEY,
+        END OF ls_in.
+  DATA: lt_allowed TYPE STANDARD TABLE OF rs38l_fnam WITH DEFAULT KEY,
+        lv_fm      TYPE rs38l_fnam,
+        lt_imp     TYPE STANDARD TABLE OF rsimp,
+        lt_exp     TYPE STANDARD TABLE OF rsexp,
+        lt_cha     TYPE STANDARD TABLE OF rscha,
+        lt_tbl     TYPE STANDARD TABLE OF rstbl,
+        lt_exc     TYPE STANDARD TABLE OF rsexc,
+        lt_ptab    TYPE abap_func_parmbind_tab,
+        ls_pbind   TYPE abap_func_parmbind,
+        lt_etab    TYPE abap_func_excpbind_tab,
+        ls_ebind   TYPE abap_func_excpbind,
+        lv_type    TYPE string,
+        lr_data    TYPE REF TO data,
+        lv_rc      TYPE i,
+        lv_json    TYPE string,
+        lv_sep     TYPE string.
+  FIELD-SYMBOLS: <ls_imp> TYPE rsimp,
+                 <ls_exp> TYPE rsexp,
+                 <ls_exc> TYPE rsexc,
+                 <ls_kv>  TYPE ty_kv,
+                 <lv_any> TYPE any.
+
+  lt_allowed = VALUE #( ( 'ZMCP_ADT_DDIC_TABL_READ' ) ( 'ZMCP_ADT_DDIC_DTEL_READ' )
+                        ( 'ZMCP_ADT_DDIC_DOMA_READ' ) ( 'ZMCP_ADT_DDIC_TTYP' )
+                        ( 'ZMCP_ADT_DDIC_BADI' ) ( 'ZMCP_ADT_DDIC_INTROSPECT' )
+                        ( 'ZMCP_WL_TCODE_USAGE' ) ( 'ZMCP_WL_JOB_USAGE' ) ).
+
+  /ui2/cl_json=>deserialize( EXPORTING json = iv_params CHANGING data = ls_in ).
+  lv_fm = to_upper( ls_in-fm ).
+  READ TABLE lt_allowed TRANSPORTING NO FIELDS WITH KEY table_line = lv_fm.
+  IF sy-subrc <> 0.
+    ev_subrc = 4.
+    ev_message = |FM_PROXY: { lv_fm } is not on the allow list|.
+    RETURN.
+  ENDIF.
+  LOOP AT ls_in-params ASSIGNING <ls_kv>.
+    TRANSLATE <ls_kv>-name TO UPPER CASE.
+  ENDLOOP.
+
+  CALL FUNCTION 'FUNCTION_IMPORT_INTERFACE'
+    EXPORTING
+      funcname           = lv_fm
+    TABLES
+      exception_list     = lt_exc
+      export_parameter   = lt_exp
+      import_parameter   = lt_imp
+      changing_parameter = lt_cha
+      tables_parameter   = lt_tbl
+    EXCEPTIONS
+      error_message      = 1
+      function_not_found = 2
+      invalid_name       = 3
+      OTHERS             = 4.
+  IF sy-subrc <> 0.
+    ev_subrc = 4.
+    ev_message = |FM_PROXY: { lv_fm } is not installed on this system|.
+    RETURN.
+  ENDIF.
+  IF lt_cha IS NOT INITIAL OR lt_tbl IS NOT INITIAL.
+    ev_subrc = 4.
+    ev_message = |FM_PROXY: { lv_fm } has CHANGING / TABLES parameters (not supported)|.
+    RETURN.
+  ENDIF.
+
+  LOOP AT lt_imp ASSIGNING <ls_imp>.
+    READ TABLE ls_in-params ASSIGNING <ls_kv> WITH KEY name = <ls_imp>-parameter.
+    IF sy-subrc <> 0.
+      CONTINUE.
+    ENDIF.
+    lv_type = COND #( WHEN <ls_imp>-typ IS NOT INITIAL THEN <ls_imp>-typ ELSE <ls_imp>-dbfield ).
+    IF lv_type IS INITIAL.
+      lv_type = 'STRING'.
+    ENDIF.
+    CREATE DATA lr_data TYPE (lv_type).
+    ASSIGN lr_data->* TO <lv_any>.
+    <lv_any> = <ls_kv>-value.
+    CLEAR ls_pbind.
+    ls_pbind-name  = <ls_imp>-parameter.
+    ls_pbind-kind  = abap_func_exporting.
+    ls_pbind-value = lr_data.
+    INSERT ls_pbind INTO TABLE lt_ptab.
+  ENDLOOP.
+
+  LOOP AT lt_exp ASSIGNING <ls_exp>.
+    lv_type = COND #( WHEN <ls_exp>-typ IS NOT INITIAL THEN <ls_exp>-typ ELSE <ls_exp>-dbfield ).
+    IF lv_type IS INITIAL.
+      lv_type = 'STRING'.
+    ENDIF.
+    CREATE DATA lr_data TYPE (lv_type).
+    CLEAR ls_pbind.
+    ls_pbind-name  = <ls_exp>-parameter.
+    ls_pbind-kind  = abap_func_importing.
+    ls_pbind-value = lr_data.
+    INSERT ls_pbind INTO TABLE lt_ptab.
+  ENDLOOP.
+
+  LOOP AT lt_exc ASSIGNING <ls_exc>.
+    ls_ebind-name  = <ls_exc>-exception.
+    ls_ebind-value = sy-tabix.
+    INSERT ls_ebind INTO TABLE lt_etab.
+  ENDLOOP.
+  ls_ebind-name  = 'ERROR_MESSAGE'.
+  ls_ebind-value = 90.
+  INSERT ls_ebind INTO TABLE lt_etab.
+  ls_ebind-name  = 'OTHERS'.
+  ls_ebind-value = 99.
+  INSERT ls_ebind INTO TABLE lt_etab.
+
+  CALL FUNCTION lv_fm
+    PARAMETER-TABLE lt_ptab
+    EXCEPTION-TABLE lt_etab.
+  lv_rc = sy-subrc.
+  IF lv_rc <> 0.
+    ev_subrc = 8.
+    IF lv_rc = 90 AND sy-msgid IS NOT INITIAL.
+      MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO ev_message.
+      ev_message = |FM_PROXY: { lv_fm }: { ev_message }|.
+    ELSE.
+      ev_message = |FM_PROXY: { lv_fm } raised an exception (sy-subrc { lv_rc })|.
+    ENDIF.
+    RETURN.
+  ENDIF.
+
+  lv_json = '{'.
+  LOOP AT lt_exp ASSIGNING <ls_exp>.
+    READ TABLE lt_ptab INTO ls_pbind WITH TABLE KEY name = <ls_exp>-parameter kind = abap_func_importing.
+    IF sy-subrc <> 0.
+      CONTINUE.
+    ENDIF.
+    ASSIGN ls_pbind-value->* TO <lv_any>.
+    lv_json = |{ lv_json }{ lv_sep }"{ <ls_exp>-parameter }":{ /ui2/cl_json=>serialize( data = <lv_any> ) }|.
+    lv_sep = ','.
+  ENDLOOP.
+  ev_result = |{ lv_json }\}|.
   ev_subrc = 0.
 ENDFORM.

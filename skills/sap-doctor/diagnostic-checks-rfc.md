@@ -6,6 +6,15 @@ Referenced by `diagnostic-checks.md`. Resolve `SAP_RFC_BACKEND` from the active 
 
 - [ ] `SAP_RFC_BACKEND` is not `native`, `gateway` or `zrfc`, and `SAP_CONNECTION_TYPE` is not `rfc`. Otherwise report **BLOCKER** "removed in MCP 4.10.0, set `SAP_RFC_BACKEND=odata` or `soap` and remove `SAP_CONNECTION_TYPE`" — the MCP server refuses to start with these values. Fix via `/sc4sap:sap-option` → "rfc", then restart Claude Code. Skip the sub-sections below.
 
+## 6.nco — NCo mode (active when `SAP_RFC_BACKEND=nco` or `SAP_CONNECTION_TYPE=nco`)
+
+- [ ] Windows, and NCo 3.x in the GAC (`GAC_64\sapnco` or `GAC_32\sapnco`, `v4.0_3.*`). Missing → **BLOCKER** (install SAP Connector for Microsoft .NET 3.1).
+- [ ] TCP `<ashost>:33<sysnr>` connects within 3 s (`SAP_NCO_ASHOST` / `SAP_NCO_SYSNR`, else host and port of `SAP_URL`). Closed → **BLOCKER** (firewall / VPN).
+- [ ] A read through the MCP works: `GetSqlQuery` on `TFDIR` for `ZMCP_ADT_DISPATCH` returns `FMODE = R` (path `ecc-dispatch-table-read`); with `SAP_CONNECTION_TYPE=nco` also `GetProgram RSPARAM`.
+- [ ] `GetDataElement MANDT` on ECC returns `path: "ecc-nco-rfc"`. "Unknown action: FM_PROXY" → **FAIL**, reinstall `ZMCP_ADT_DISPATCH` (setup Step 9a).
+
+Report: `Layer 6 (nco): n/4 PASS`.
+
 ## 6.soap — SOAP mode (active when `SAP_RFC_BACKEND=soap`)
 
 *6.soap.1 — ICF node hint (print once, always):*

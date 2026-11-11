@@ -42,7 +42,7 @@ Contents (only show rows you could resolve):
 - **Active profile**: `<alias> [<tier>]` with `🔒` if tier≠DEV — from `<project>/.sc4sap/active-profile.txt` + `~/.sc4sap/profiles/<alias>/sap.env` → `SAP_TIER`. Show `(legacy)` when no active-profile.txt is set and a legacy `sap.env` is in use.
 - **System**: `<SID>` · client `<MANDT>` · user `<BNAME>` · lang `<SPRAS>`   *(from `GetSession`)*
 - **Connection**: `<SAP_URL>` · auth `<SAP_AUTH_TYPE>` · type `<SAP_SYSTEM_TYPE>` · version `<SAP_VERSION>` · ABAP `<ABAP_RELEASE>`
-- **RFC backend**: `<SAP_RFC_BACKEND or "odata (default)">` — if `odata` (or unset), append `· <SAP_RFC_ODATA_SERVICE_URL>` (with CSRF TTL = `<SAP_RFC_ODATA_CSRF_TTL_SEC or "600">`s); if `native` / `gateway` / `zrfc`, append `· removed in MCP 4.10.0 — set odata or soap`
+- **RFC backend**: `<SAP_RFC_BACKEND or "odata (default)">` — if `odata` (or unset), append `· <SAP_RFC_ODATA_SERVICE_URL>` (with CSRF TTL = `<SAP_RFC_ODATA_CSRF_TTL_SEC or "600">`s); if `nco`, append `· NCo RFC (sysnr <SAP_NCO_SYSNR or "from SAP_URL">, ADT over <"RFC" when SAP_CONNECTION_TYPE=nco, else "HTTP">)`; if `native` / `gateway` / `zrfc`, append `· removed in MCP 4.10.0 — set odata, soap or nco`
 - **Industry**: `<SAP_INDUSTRY or "(not set)">` — drives which `industry/*.md` consultant agents load
 - **Inactive objects**: `<count>` (0 = green, >0 = red)   *(from `GetInactiveObjects`)*
 - **Active transport (pinned)**: `<TRKORR> — <description>` if present in `config.json` → `activeTransport`, else "-"
@@ -83,7 +83,7 @@ Blocklist policy (optional — guard for `GetTableContents` / `GetSqlQuery`):
 - `MCP_ALLOW_TABLE`        — comma-separated whitelist for audited bypass
 
 RFC backend (optional — selects transport for Screen / GUI Status / Text Element ops):
-- `SAP_RFC_BACKEND` — `odata` (default) | `soap` (`native` / `gateway` / `zrfc` were removed in MCP 4.10.0)
+- `SAP_RFC_BACKEND` — `odata` (default) | `soap` | `nco` (`native` / `gateway` / `zrfc` were removed in MCP 4.10.0); NCo keys `SAP_CONNECTION_TYPE`, `SAP_NCO_*`
 
 Per-backend env blocks (OData knobs) live in [`rfc-managed-keys.md`](rfc-managed-keys.md). Read that file when the user asks to change the RFC backend or edit any `SAP_RFC_*` field.
 
