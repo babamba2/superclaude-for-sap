@@ -55,6 +55,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 | Function Module | `CreateFunctionModule` + `CreateFunctionGroup` | RFC-capable function module |
 | Table | `CreateTable` | Transparent database table |
 | Structure | `CreateStructure` | ABAP structure (type definition) |
+| Table Type | `CreateTableType` | DDIC table type (row type, access mode, primary key) |
 | Data Element | `CreateDataElement` | Domain-based data element |
 | Domain | `CreateDomain` | Value domain with fixed values or ranges |
 | CDS View | `CreateView` | Core Data Services view |
@@ -66,7 +67,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 </Supported_Object_Types>
 
 <ECC_DDIC_Fallback>
-**MANDATORY**: Read [`../../common/ecc-ddic-fallback.md`](../../common/ecc-ddic-fallback.md) before creating any Table / Data Element / Domain. It defines when the ECC branch triggers, the helper-program naming rules, the strict template format (mirroring the files under `ecc/`), and the hard constraints (`$TMP` only, no activate, no CTS).
+**MANDATORY** on ECC: read [`../../common/ecc-ddic-fallback.md`](../../common/ecc-ddic-fallback.md) before creating any Table / Structure / Data Element / Domain. Path 1 (default): the normal MCP tools with the ECC call shapes (`CreateTable` / `CreateStructure` with `fields`, `CreateDataElement` with a domain) — created, transported and activated through the `ZMCP_ADT_DDIC_*` FMs. Path 2 (fallback, only on the listed errors): helper report in `$TMP` from the templates under `ecc/`, run by the user in SE38.
 </ECC_DDIC_Fallback>
 
 <Field_Typing_Rule>
@@ -110,7 +111,7 @@ Per-step model allocation (the main thread follows the session model — `model:
 | 3 Pre-Creation Check | main | **Sonnet** | `SearchObject` (name-exists guard) |
 | 3.5 Version Branch | main | **Sonnet** | `SAP_VERSION` ECC vs S/4 routing |
 | **4 + 5 + 6 Create + Implement + Activate (standard flow)** | **`sap-executor`** with `model: "opus"` override | **Opus** | One dispatch covers: `CreateClass`/`CreateProgram`/... → `UpdateClass`/`UpdateProgram`/... with initial implementation code → `ActivateObjects` → `GetInactiveObjects` verify. The Opus override is justified because Step 5 is novel code generation (`common/model-routing-rule.md` § Tier 1 (Opus)) — field typing priority 1–4, class constructor + method signatures, FM inline parameter declarations, etc. |
-| **4-ECC DDIC Helper Program (ECC fallback)** | **`sap-executor`** with `model: "opus"` override | **Opus** | ECC-only branch for Table/DTEL/DOMA. Executor picks the matching template from `skills/create-object/ecc/`, substitutes names, fills the field list per `common/field-typing-rule.md`, and `CreateProgram` + `UpdateProgram` + `ActivateObjects` the helper into `$TMP`. |
+| **4-ECC DDIC Helper Program (ECC fallback)** | **`sap-executor`** with `model: "opus"` override | **Opus** | Only after Step 4 returned `ecc-fallback-needed` (no OData backend, `ZMCP_ADT_DDIC_*` not installed, or old MCP). Executor picks the matching template from `skills/create-object/ecc/`, substitutes names, fills the field list per `common/field-typing-rule.md`, and `CreateProgram` + `UpdateProgram` + `ActivateObjects` the helper into `$TMP`. |
 | **7 Completion Report** | main | **Sonnet** | Pure formatting from the executor's structured return — no agent dispatch. Localizes to the user's current conversation language. Render rules: `dispatch-prompts.md` § Step 7. For ECC fallback, use the mandatory report format there verbatim (do NOT rephrase the ⚠ header + 3-step SE38/SE11 checklist). |
 
 At Step 2 (metadata collection) — when the object belongs to a specific SAP module (MM table, SD structure, PS data element, …) — the main thread reads `SAP_ACTIVE_MODULES` from `sap.env` / `config.json` and consults [`../../common/active-modules.md`](../../common/active-modules.md). If companion modules are active, proactively suggest integration fields (e.g., creating an MM CBO table in a landscape with PS active → suggest adding `PS_POSID` / `AUFNR`). Do NOT add silently — propose to user and let them accept/decline, then pass the confirmed field list through to the executor dispatch.
@@ -144,7 +145,7 @@ If the user-provided name violates any rule, suggest a compliant alternative bas
 - `CreateClass` / `CreateInterface` / `CreateProgram` / `CreateFunctionGroup` / `CreateFunctionModule` / `CreateTable` / `CreateStructure` / `CreateDataElement` / `CreateDomain` / `CreateView` / `CreateServiceDefinition` / `CreateServiceBinding` / `CreateBehaviorDefinition` / `CreateScreen` / `CreateGuiStatus`
 - `UpdateClass` / `UpdateProgram` / `UpdateScreen` / `UpdateGuiStatus` / etc. — write initial implementation
 - `GetInactiveObjects` — verify activation
-- **ECC DDIC fallback:** only `CreateProgram` + `UpdateProgram` (target `$TMP`). `CreateTable` / `CreateDataElement` / `CreateDomain` must NOT be attempted when `SAP_VERSION = ECC`.
+- **ECC DDIC:** `CreateTable` / `CreateStructure` / `CreateDataElement` / `CreateDomain` first (ECC shapes per `common/ecc-ddic-fallback.md`); the helper-report fallback (`CreateProgram` + `UpdateProgram` in `$TMP`) only after a Path 2 error.
 </MCP_Tools_Used>
 
 Task: $ARGUMENTS

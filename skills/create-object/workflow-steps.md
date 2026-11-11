@@ -29,8 +29,8 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:create-object`. Skip si
 ## Step 3.5 — Version Branch Decision (main thread)
 
 - Read `SAP_VERSION` from `.sc4sap/config.json` (or `sap.env`).
-- If `SAP_VERSION = ECC` **and** object type ∈ {Table, Data Element, Domain} → go to Step 4-ECC.
-- Otherwise → go to Step 4 (standard flow).
+- All object types, ECC included → Step 4 (standard flow). On ECC, Table / Structure / Data Element / Domain use the ECC call shapes in `common/ecc-ddic-fallback.md` § Path 1 (e.g. `CreateTable` with `fields`).
+- Step 4-ECC (helper report) runs **only** when the Step 4 executor returns `flow: "ecc-fallback-needed"` with one of the fallback errors in `common/ecc-ddic-fallback.md` § Path 2.
 
 ## Step 4 + 5 + 6 — Create + Implement + Activate (one `sap-executor` dispatch, Opus override)
 
@@ -55,7 +55,7 @@ On `BLOCKED` or `FAILED` activation: main surfaces the error verbatim in the Ste
 
 ## Step 4-ECC — DDIC Helper Program (one `sap-executor` dispatch, Opus override)
 
-**ECC branch only** (SAP_VERSION=ECC + Table/DTEL/DOMA). The DDIC object itself cannot be created via MCP on ECC; the executor generates a helper ABAP program the user runs in SE38.
+**Fallback only** — runs when Step 4 returned `flow: "ecc-fallback-needed"` (a `common/ecc-ddic-fallback.md` § Path 2 error: OData backend missing, `ZMCP_ADT_DDIC_*` FMs not installed, or an MCP server without the ECC `CreateTable` branch). Pass the `fallback_error` into the prompt; the executor generates a helper ABAP program the user runs in SE38.
 
 Emit phase banner:
 ```
@@ -78,7 +78,7 @@ Render the report directly from the executor's structured return, following the 
 
 ## Safety Rails
 
-- ECC DDIC: NEVER call `CreateTable` / `CreateDataElement` / `CreateDomain` when `SAP_VERSION = ECC` — enforced in the Step 4-ECC executor prompt.
+- ECC DDIC: MCP tools first (`common/ecc-ddic-fallback.md` § Path 1); helper report only for a § Path 2 error — never because the system is ECC alone.
 - Field typing: NEVER emit `LIFNR CHAR 10` / `MATNR CHAR 40` / `BUKRS CHAR 4` or any other raw-primitive declaration where an authoritative SAP Data Element exists — enforced by `common/field-typing-rule.md`.
 - FM signature: NEVER emit the placeholder `" You can use the template 'functionModuleParameter' ..."` line, never use `*"*"Local Interface:` blocks as a substitute — enforced by `common/function-module-rule.md`.
 - Naming: validated by main before dispatch (Step 2); executor performs a second-pass check and refuses on violation.

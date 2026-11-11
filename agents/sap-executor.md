@@ -70,7 +70,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
     | Naming (Z/Y prefix, module namespace, object types, variable prefixes LV_/LT_/LS_/IV_/EV_, constants GC_/LC_) | [`../common/naming-conventions.md`](../common/naming-conventions.md) | Every new object and identifier |
     | ABAP release-allowed syntax (`< 740` / `< 750` / `< 751` / `< 754` / `< 756` gates) | [`../common/abap-release-reference.md`](../common/abap-release-reference.md) | Gate before inline-decl / NEW / VALUE / CDS / RAP |
     | SAP version guardrails (ECC vs S/4 APIs; ACDOCA / BP / MATDOC) | [`../common/sap-version-reference.md`](../common/sap-version-reference.md) | Gate before choosing tables / BAPIs |
-    | ECC DDIC fallback (Table / DTEL / Domain cannot be created via MCP on ECC) | [`../common/ecc-ddic-fallback.md`](../common/ecc-ddic-fallback.md) | When `SAP_VERSION = ECC` and plan includes new DDIC |
+    | ECC DDIC creation (MCP tools in ECC call shapes first; helper report only on a listed error) | [`../common/ecc-ddic-fallback.md`](../common/ecc-ddic-fallback.md) | When `SAP_VERSION = ECC` and plan includes new DDIC |
     | ALV rules (Full ALV CL_GUI_ALV_GRID + Docking, SALV for popups, field catalog via `cl_salv_controller_metadata=>get_lvc_fieldcatalog`) | [`../common/alv-rules.md`](../common/alv-rules.md) | Any ALV output |
     | Text element rule (no hardcoded user-visible literals) | [`../common/text-element-rule.md`](../common/text-element-rule.md) | Screens, messages, labels |
     | Constant rule (no magic literals — fcodes, statuses, thresholds) | [`../common/constant-rule.md`](../common/constant-rule.md) | Every control-flow branch on a literal |

@@ -24,16 +24,9 @@ The SEGW project must be created via SAPGUI — SEGW is not ADT-MCP-controllable
 ## Automated by sc4sap (MCP)
 
 1. **Check existence** — `SearchObject(ZCL_ZMCP_ADT_MPC, CLAS)`. If absent, halt and re-prompt user for SEGW project creation.
-2. **Inject MPC_EXT source** — `UpdateClass ZCL_ZMCP_ADT_MPC_EXT` with source from `abap/zcl_zmcp_adt_mpc.clas.abap`, adapted for:
-   - `INHERITING FROM zcl_zmcp_adt_mpc` (SEGW-generated parent)
-   - `METHODS define REDEFINITION` (override parent DEFINE)
-   - Complex types (`DispatchResult`, `TextpoolResult`) + function imports (`Dispatch`, `Textpool`)
-   - Activate.
-3. **Inject DPC_EXT source** — `UpdateClass ZCL_ZMCP_ADT_DPC_EXT` with source from `abap/zcl_zmcp_adt_dpc.clas.abap`, adapted for:
-   - `INHERITING FROM zcl_zmcp_adt_dpc`
-   - `METHODS /iwbep/if_mgw_appl_srv_runtime~execute_action REDEFINITION`
-   - Routes `Dispatch` → `CALL FUNCTION 'ZMCP_ADT_DISPATCH'`, `Textpool` → `CALL FUNCTION 'ZMCP_ADT_TEXTPOOL'`
-   - Activate.
+2. **Inject MPC_EXT source** — `UpdateClass ZCL_ZMCP_ADT_MPC_EXT` with the source of `abap/zcl_zmcp_adt_mpc_ext.clas.abap` verbatim (already `INHERITING FROM zcl_zmcp_adt_mpc` with `METHODS define REDEFINITION`). It defines every function import the MCP server calls: `Dispatch`, `Textpool`, `DdicTabl` / `DdicTtyp` / `DdicDtel` / `DdicDoma` / `DdicActivate`, `DdicBadi`, the `Ddic*Read` actions and `WlTcodeUsage` / `WlJobUsage`. Activate.
+3. **Inject DPC_EXT source** — `UpdateClass ZCL_ZMCP_ADT_DPC_EXT` with the source of `abap/zcl_zmcp_adt_dpc_ext.clas.abap` verbatim (routes each action to its `ZMCP_*` FM). Activate. An FM that is not installed on this system (e.g. the ECC-only DDIC FMs on S/4HANA) only fails when that action is called — the class still compiles.
+   - The older `abap/zcl_zmcp_adt_mpc.clas.abap` / `_dpc.clas.abap` carry only `Dispatch` / `Textpool`; do not use them for the `_EXT` classes — without the `Ddic*` actions every ECC DDIC write and read fails.
 4. **Install cache / diagnostics program** — `CreateProgram` + `UpdateProgram` for `ZMCP_ADT_FLUSH_CACHE` with source from `abap/zmcp_adt_flush_cache.abap`. Activate. This program supports three modes:
    - `P_FLUSH` — flush OData model / service-alias / proxy caches
    - `P_DIAG` — instantiate `ZCL_ZMCP_ADT_DPC_EXT` directly and call `execute_action` (bypasses Gateway, proves ABAP logic)

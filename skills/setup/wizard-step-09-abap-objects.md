@@ -79,26 +79,28 @@ Required by the MCP server for Screen, GUI Status, and Text Element operations.
 
 **Tier gate:** Read `SAP_VERSION` from `sap.env`. If `S4`, skip 9a.2 entirely — the MCP server uses ADT's native DDIC write paths on S/4HANA. If `ECC`, proceed below.
 
-**Why:** ECC's ADT REST API does not support DDIC writes (TABL / DTEL / DOMA), so the MCP server falls back to RFC-exposed wrappers around `DDIF_*_PUT` / `DDIF_*_ACTIVATE`. These four FMs provide that fallback.
+**Why:** ECC's ADT REST API does not support DDIC writes (TABL / TTYP / DTEL / DOMA), so the MCP server falls back to RFC-exposed wrappers around `DDIF_*_PUT` / `DDIF_*_ACTIVATE`. These five FMs provide that fallback (OData function imports `DdicTabl` / `DdicTtyp` / `DdicDtel` / `DdicDoma` / `DdicActivate` in Step 9c).
 
-1. All four FMs live in the same function group `ZMCP_ADT_UTILS` (created in 9a) — do NOT create a separate group.
+1. All five FMs live in the same function group `ZMCP_ADT_UTILS` (created in 9a) — do NOT create a separate group.
 2. Create each FM via `CreateFunctionModule` (group: `ZMCP_ADT_UTILS`, transport: `LOCAL`):
    - `ZMCP_ADT_DDIC_TABL` — description `MCP DDIC: Table CREATE/UPDATE/DELETE (ECC)`
+   - `ZMCP_ADT_DDIC_TTYP` — description `MCP DDIC: Table type CREATE/UPDATE/DELETE (ECC)`
    - `ZMCP_ADT_DDIC_DTEL` — description `MCP DDIC: DataElement CREATE/UPDATE/DELETE (ECC)`
    - `ZMCP_ADT_DDIC_DOMA` — description `MCP DDIC: Domain CREATE/UPDATE/DELETE (ECC)`
-   - `ZMCP_ADT_DDIC_ACTIVATE` — description `MCP DDIC: Activate TABL/DTEL/DOMA (ECC)`
+   - `ZMCP_ADT_DDIC_ACTIVATE` — description `MCP DDIC: Activate TABL/TTYP/DTEL/DOMA (ECC)`
 3. Upload sources via `UpdateFunctionModule` (pass `activate=true`, `transport_request=LOCAL`):
    - `abap/zmcp_adt_ddic_tabl_ecc.abap` → `ZMCP_ADT_DDIC_TABL`
+   - `abap/zmcp_adt_ddic_ttyp_ecc.abap` → `ZMCP_ADT_DDIC_TTYP`
    - `abap/zmcp_adt_ddic_dtel_ecc.abap` → `ZMCP_ADT_DDIC_DTEL`
    - `abap/zmcp_adt_ddic_doma_ecc.abap` → `ZMCP_ADT_DDIC_DOMA`
    - `abap/zmcp_adt_ddic_activate_ecc.abap` → `ZMCP_ADT_DDIC_ACTIVATE`
-4. **Install order matters — DTEL / DOMA / TABL must all be present before running any CREATE flow, and ACTIVATE must be present before any CREATE action returns.** Install in the order listed above (TABL → DTEL → DOMA → ACTIVATE); the precheck requires every sibling's FORM references to resolve inside the function group.
-5. **FORM naming invariant** — each FM defines its TADIR helper with a FM-specific suffix: `register_tadir_tabl` / `_dtel` / `_doma`. Do NOT rename to a shared `register_tadir` — ADT's FG-wide precheck treats duplicate FORMs across sibling FMs as compile errors.
-6. **FM object name invariant** — installed names must be exactly `ZMCP_ADT_DDIC_TABL` / `_DTEL` / `_DOMA` / `_ACTIVATE`. The MCP client calls those names directly; the `FUNCTION <name>` identifier inside every ECC variant file matches (no `_ecc` suffix). Release-specific variants exist only as sibling source files, never at the installed-object layer — same pattern as 9a.
+4. **Install order matters — TABL / TTYP / DTEL / DOMA must all be present before running any CREATE flow, and ACTIVATE must be present before any CREATE action returns.** Install in the order listed above (TABL → TTYP → DTEL → DOMA → ACTIVATE); the precheck requires every sibling's FORM references to resolve inside the function group.
+5. **FORM naming invariant** — each FM defines its TADIR helper with a FM-specific suffix: `register_tadir_tabl` / `_ttyp` / `_dtel` / `_doma`. Do NOT rename to a shared `register_tadir` — ADT's FG-wide precheck treats duplicate FORMs across sibling FMs as compile errors.
+6. **FM object name invariant** — installed names must be exactly `ZMCP_ADT_DDIC_TABL` / `_TTYP` / `_DTEL` / `_DOMA` / `_ACTIVATE`. The MCP client calls those names directly; the `FUNCTION <name>` identifier inside every ECC variant file matches (no `_ecc` suffix). Release-specific variants exist only as sibling source files, never at the installed-object layer — same pattern as 9a.
 7. These FMs MUST be set as **RFC-enabled** (same manual SE37 step as dispatch/textpool — `TFDIR.FMODE` is not writable via ADT REST).
-8. After install: re-verify via `SearchObject` for each of the four FM names.
+8. After install: re-verify via `SearchObject` for each of the five FM names.
 
-**S/4HANA note:** if `SAP_VERSION=S4`, these four ECC-only files are NOT installed. S/4HANA's `sc4sap` MCP server handles DDIC writes directly via ADT endpoints (`CreateTable` / `CreateDataElement` / `CreateDomain`). Do not port these FMs to the S/4 primary layer.
+**S/4HANA note:** if `SAP_VERSION=S4`, these five ECC-only files are NOT installed. S/4HANA's `sc4sap` MCP server handles DDIC writes directly via ADT endpoints (`CreateTable` / `CreateTableType` / `CreateDataElement` / `CreateDomain`). Do not port these FMs to the S/4 primary layer.
 
 ## 9b. ALV OOP Reuse Handlers `ZIF_S4SAP_CM` / `ZCX_S4SAP_EXCP` / `ZCL_S4SAP_CM_*`
 

@@ -51,11 +51,24 @@ FUNCTION zmcp_adt_ddic_tabl
             IF ev_subrc <> 0.
               RETURN.
             ENDIF.
+          ELSEIF iv_devclass = '$TMP'.
+            " Local object: write the TADIR entry directly. Without it the
+            " object is invisible to the repository search and a later
+            " delete asks for a package / request in a dialog.
+            PERFORM register_local_tabl USING lv_name
+                                        CHANGING ev_subrc ev_message.
+            IF ev_subrc <> 0.
+              RETURN.
+            ENDIF.
           ENDIF.
 
+          " dd09l (technical settings) is optional; when TABART is set it
+          " is passed to DDIF_TABL_PUT so a transparent table gets its
+          " data class / size category and activates with a DB table.
           DATA: BEGIN OF ls_payload_t,
                   dd02v TYPE dd02v,
                   dd03p TYPE STANDARD TABLE OF dd03p WITH DEFAULT KEY,
+                  dd09l TYPE dd09l,
                 END OF ls_payload_t.
 
           /ui2/cl_json=>deserialize(
@@ -70,10 +83,17 @@ FUNCTION zmcp_adt_ddic_tabl
             <ls_fld>-tabname = lv_name.
           ENDLOOP.
 
+          DATA(ls_dd09l) = ls_payload_t-dd09l.
+          IF ls_dd09l-tabart IS NOT INITIAL.
+            ls_dd09l-tabname  = lv_name.
+            ls_dd09l-as4local = 'A'.
+          ENDIF.
+
           CALL FUNCTION 'DDIF_TABL_PUT'
             EXPORTING
               name              = lv_name
               dd02v_wa          = ls_dd02v
+              dd09l_wa          = ls_dd09l
             TABLES
               dd03p_tab         = lt_dd03p
             EXCEPTIONS
@@ -82,11 +102,18 @@ FUNCTION zmcp_adt_ddic_tabl
               tabl_inconsistent = 3
               put_failure       = 4
               put_refused       = 5
+              error_message     = 7     " MESSAGE E in HTTP/RFC mode → subrc, not an exception
               OTHERS            = 6.
 
           ev_subrc = sy-subrc.
           IF sy-subrc <> 0.
-            ev_message = |DDIF_TABL_PUT failed (sy-subrc={ sy-subrc })|.
+            IF sy-msgid IS NOT INITIAL.
+              MESSAGE ID sy-msgid TYPE 'E' NUMBER sy-msgno
+                      WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO DATA(lv_msg).
+              ev_message = |DDIF_TABL_PUT failed (sy-subrc={ ev_subrc }): { sy-msgid } { sy-msgno } { lv_msg }|.
+            ELSE.
+              ev_message = |DDIF_TABL_PUT failed (sy-subrc={ ev_subrc })|.
+            ENDIF.
             RETURN.
           ENDIF.
 
@@ -201,6 +228,43 @@ FORM register_corr_tabl
       ev_subrc   = 8.
       ev_message = |RS_CORR_INSERT exception: { lx_root->get_text( ) }|.
   ENDTRY.
+
+ENDFORM.
+
+
+FORM register_local_tabl
+  USING iv_name    TYPE ddobjname
+  CHANGING ev_subrc   TYPE i
+           ev_message TYPE string.
+
+  DATA lv_obj_name TYPE tadir-obj_name.
+  lv_obj_name = iv_name.
+
+  CALL FUNCTION 'TR_TADIR_INTERFACE'
+    EXPORTING
+      wi_test_modus       = ' '
+      wi_tadir_pgmid      = 'R3TR'
+      wi_tadir_object     = 'TABL'
+      wi_tadir_obj_name   = lv_obj_name
+      wi_tadir_devclass   = '$TMP'
+      wi_tadir_masterlang = sy-langu
+      wi_tadir_author     = sy-uname
+    EXCEPTIONS
+      error_message       = 98
+      OTHERS              = 99.
+
+  IF sy-subrc <> 0.
+    ev_subrc = sy-subrc.
+    IF sy-msgid IS NOT INITIAL.
+      MESSAGE ID sy-msgid TYPE 'E' NUMBER sy-msgno
+              WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO DATA(lv_msg).
+      ev_message = |TR_TADIR_INTERFACE failed for { iv_name }: { sy-msgid } { sy-msgno } { lv_msg }|.
+    ELSE.
+      ev_message = |TR_TADIR_INTERFACE failed for { iv_name } (sy-subrc={ ev_subrc })|.
+    ENDIF.
+    RETURN.
+  ENDIF.
+  ev_subrc = 0.
 
 ENDFORM.
 

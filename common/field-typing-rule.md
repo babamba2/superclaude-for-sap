@@ -10,7 +10,7 @@
 |---|---|---|
 | **1 — Standard DE** | SAP-delivered data element (e.g., `LIFNR`, `MATNR`, `WERKS_D`, `BELNR_D`, `BUDAT`, `MENGE_D`, `MEINS`, `WAERS`, `USNAM`, `CPUDT`, `CPUTM`, `MANDT`) | Field semantics match a standard business term. This is the default — try it first. |
 | **2 — CBO DE** | Existing customer Z/Y data element from the project CBO inventory | No standard DE fits, but a previously-created project DE does (e.g., from `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`). Reuse over create. |
-| **3 — New CBO DE** | Freshly-created Z data element (triggers a `CreateDataElement` / ECC DTEL helper) | Semantics are genuinely new AND the field will appear in ≥ 2 places OR carries domain-specific meaning that deserves a label + F1 help. Must follow `naming-conventions.md` (`ZFIE00010`, …). |
+| **3 — New CBO DE** | Freshly-created Z data element (triggers a `CreateDataElement`; on ECC with `type_kind: "domain"`, helper report only as fallback) | Semantics are genuinely new AND the field will appear in ≥ 2 places OR carries domain-specific meaning that deserves a label + F1 help. Must follow `naming-conventions.md` (`ZFIE00010`, …). |
 | **4 — Data Type + Length** | `CHAR 10`, `NUMC 4`, `DEC 15 2`, … directly on the field | Last resort. Only for purely technical / internal fields with NO business meaning (counters, flags, temporary buffers, checksums). Never for business keys (vendor, material, plant, doc no, date, quantity, UoM, currency, user, …). |
 
 ## HARD RULE — Semantic Categories That REQUIRE a Data Element
@@ -53,7 +53,7 @@ Each field goes through this order on every run — no shortcut, no cached guess
 2. **CBO DE search** — if `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json` exists, grep it for a DE whose role / domain / length / label matches. Also call `SearchObject` with the project Z-prefix (e.g., `ZFIE*`).
    - Hit → priority 2. Stop.
    - Miss → continue.
-3. **New CBO DE decision** — does the field justify a new DE? Apply the priority-3 gate (reuse ≥ 2 OR domain-specific label). If yes → priority 3; emit a `CreateDataElement` (S/4) or an ECC DTEL helper program (ECC, per `ecc-ddic-fallback.md`). Then reference it as `rollname`.
+3. **New CBO DE decision** — does the field justify a new DE? Apply the priority-3 gate (reuse ≥ 2 OR domain-specific label). If yes → priority 3; emit a `CreateDataElement` (on ECC with a domain; helper program only on a fallback error per `ecc-ddic-fallback.md`). Then reference it as `rollname`.
 4. **Primitive only if all above fail** — priority 4. Justify inline in the plan / spec (`"Field X: primitive CHAR 20 — internal scratch buffer, no business meaning"`).
 
 ## Common Standard DE Reference (quick lookup — expand as needed)

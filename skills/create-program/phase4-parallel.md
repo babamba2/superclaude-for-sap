@@ -70,7 +70,7 @@ Sub-order within G1 (DDIC has internal dependencies):
 
 Between steps, NO activation call — SAP can create inactive chains. Activation happens once at the final batch step.
 
-**ECC branch**: when `SAP_VERSION = ECC` and the plan includes new Table/DTEL/Domain, do NOT call `CreateTable` / `CreateDataElement` / `CreateDomain`. Generate helper reports in `$TMP` per `common/ecc-ddic-fallback.md` and emit the mandatory user message (SE38 run → SE11 activate). Wave 1 blocks on user confirmation before Wave 2 starts.
+**ECC branch**: when `SAP_VERSION = ECC` and the plan includes new Domain / Data Element / Structure / Table, create them with the MCP tools in the ECC call shapes of `common/ecc-ddic-fallback.md` § Path 1 (each call activates; order domains → data elements → structures → tables). Only on a § Path 2 error, generate helper reports in `$TMP` and emit the mandatory user message (SE38 run → SE11 activate); then Wave 1 blocks on user confirmation before Wave 2 starts.
 
 ### Wave 2 — G2 + G3 + G4-prep (parallel)
 

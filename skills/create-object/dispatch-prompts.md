@@ -4,7 +4,7 @@ Full `Agent(...)` prompt bodies for create-object (Steps 4-6) plus the Step 7 ma
 
 ## Step 4+5+6 — sap-executor (standard flow, Opus override)
 
-One dispatch covers create + implement + activate for all non-ECC-DDIC cases.
+One dispatch covers create + implement + activate for every object type, ECC DDIC included (ECC call shapes: `common/ecc-ddic-fallback.md` § Path 1).
 
 ```
 Create, implement, and activate ABAP object per the provided metadata. One continuous workflow.
@@ -33,14 +33,17 @@ Execute in order:
 
 3. ACTIVATE — ActivateObjects then GetInactiveObjects to verify. Retry once on activation failure. If still failing, return status FAILED with the error message.
 
+ECC (SAP_VERSION=ECC) and type ∈ {Table, Structure, DataElement, Domain}: read common/ecc-ddic-fallback.md first. Create in one call with the § Path 1 shape (CreateTable / CreateStructure with `fields`; CreateDataElement with type_kind "domain"); these tools activate themselves — skip steps 2–3, then read the object back (GetTable / GetDataElement) as evidence. If the first call fails with a § Path 2 error, stop and return flow "ecc-fallback-needed" with the error text verbatim; never write a helper report yourself.
+
 Return structure (JSON-like):
   {
     "object_name"        : "<NAME>",
     "object_type"        : "<TYPE>",
     "package"            : "<PACKAGE>",
     "transport"          : "<TRKORR or $TMP>",
-    "flow"               : "standard",
-    "activation_status"  : "ACTIVE" | "FAILED",
+    "flow"               : "standard" | "ecc-fallback-needed",
+    "activation_status"  : "ACTIVE" | "FAILED",                                 // omitted for ecc-fallback-needed
+    "fallback_error"     : "<verbatim MCP error>",                             // ecc-fallback-needed only
     "field_typing_decisions": [{field, type, rollname, priority, justification}],  // Tables/Structures only
     "warnings"           : ["..."],
     "errors"             : ["..."]                                              // only on FAILED
@@ -54,10 +57,10 @@ Rules:
 
 ## Step 4-ECC — sap-executor (ECC DDIC helper program, Opus override)
 
-ECC-only branch for Table / DataElement / Domain. Generates an ABAP helper program that the user runs in SE38; does NOT attempt direct DDIC MCP creates.
+Fallback only — runs after Step 4 returned `flow: "ecc-fallback-needed"` (a `common/ecc-ddic-fallback.md` § Path 2 error). Generates an ABAP helper program that the user runs in SE38.
 
 ```
-Generate a DDIC helper program for ECC (SAP_VERSION=ECC forbids direct DDIC MCP creates).
+Generate a DDIC helper program for ECC. Direct MCP creation failed with: <fallback_error> (see common/ecc-ddic-fallback.md § Path 2).
 
 Metadata:
   ddic_target_name : <NAME>                  // Z-table / data element / domain
@@ -88,7 +91,7 @@ Execute in order:
 
 5. Activate the helper program (activate = true).
 
-DO NOT attempt CreateTable / CreateDataElement / CreateDomain on ECC — they are disallowed.
+DO NOT retry CreateTable / CreateDataElement / CreateDomain here — Step 4 already tried and hit the fallback error.
 
 Return:
   {
@@ -125,7 +128,7 @@ Render rules:
 - flow = "ecc-helper" AND activation_status = "ECC_DEFERRED":
     **Use the MANDATORY format VERBATIM** (do NOT rephrase):
 
-    ⚠ ECC detected — DDIC {Table|Data Element|Domain} cannot be created via MCP.
+    ⚠ ECC — DDIC {Table|Data Element|Domain} could not be created via MCP: <reason from ecc-ddic-fallback.md § Path 2>.
     Helper program generated instead:
       Program : <HELPER_NAME>           (package $TMP, activated)
       Target  : <DDIC_OBJECT_NAME>      ({type})

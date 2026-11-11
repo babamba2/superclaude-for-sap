@@ -259,7 +259,7 @@ Cross-skill authoring rules live in `common/` so every skill and agent follows t
 | `field-typing-rule.md` | DDIC field typing priority (Standard DE → CBO DE → new DE → primitive) |
 | `function-module-rule.md` | FM source convention (inline IMPORTING/EXPORTING/TABLES signature) |
 | `transport-client-rule.md` | Every `CreateTransport` requires explicit client from `sap.env` |
-| `ecc-ddic-fallback.md` | ECC `$TMP` helper-report path for Table/DTEL/Domain creation |
+| `ecc-ddic-fallback.md` | ECC DDIC creation: MCP tools via `ZMCP_ADT_DDIC_*` first, `$TMP` helper report as fallback |
 | `cloud-abap-constraints.md` | Forbidden statements + Cloud-native API replacements for S/4 Cloud Public |
 | `customization-lookup.md` | Existing Z*/Y* BAdI impl / CMOD / form-exit / append reuse gate |
 
@@ -388,7 +388,7 @@ Matrix verified on ECC 7.40 (BASIS 7.40, SAP_SYSTEM_TYPE=onprem, SAP_VERSION=ECC
 | Package read | `GetPackageContents`, `GetPackageTree` | ✅ | — |
 | Package metadata | `GetPackage` | ❌ | `/sap/bc/adt/packages` absent — use SE80/SE21 |
 | DDIC read | `GetTable`, `GetStructure`, `GetDataElement`, `GetDomain` | ❌ | `/sap/bc/adt/ddic/{tables,structures,dataelements,domains}` added in 7.50 |
-| DDIC write (classic) | `Create/Update/Delete` of `Table`, `Structure`, `DataElement`, `Domain` | ❌ | Same gap — use SE11 / or the **ECC $TMP helper-report workaround** in [`common/ecc-ddic-fallback.md`](../common/ecc-ddic-fallback.md) |
+| DDIC write (classic) | `Create/Update/Delete` of `Table`, `Structure`, `DataElement`, `Domain` | ❌ | Same gap — the MCP routes Create to the `ZMCP_ADT_DDIC_*` FMs (setup Step 9a.2, OData backend); otherwise the **$TMP helper-report fallback** in [`common/ecc-ddic-fallback.md`](../common/ecc-ddic-fallback.md) |
 | Classic view (`VIEW/DV`) | `GetView` for V_T001_CORE-style classic views | ❌ | Classic view endpoint 404 on ECC 7.40 |
 | CDS view (`DDLS/DF`) | `GetView`, `CreateView`, `UpdateView`, `DeleteView` | ✅ | `/sap/bc/adt/ddic/ddl/sources/` present from BASIS 7.40 SP05+; CDS DDL activates cleanly |
 | ABAP source | `Get/Create/Update/Delete` for Program, Class, Interface, Include, FunctionGroup, FunctionModule | ✅ | Full R/W; `UpdateFunctionModule` auto-defaults `transport_request` to `"local"` for $TMP objects |
