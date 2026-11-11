@@ -19,6 +19,7 @@ Continues [`workflow.md`](workflow.md). Path variables, checkpoints and escalati
 ## Step 7 — Assemble the model (main thread)
 
 1. Print the Step 7 line. Run `assemble-model.mjs`, then `build-process-doc.mjs --check`, per [`dispatch-review.md`](dispatch-review.md) § Step 7.
+2. `intake.json → menus` set → Step 7b of [`workflow-menu.md`](workflow-menu.md) (annotate the model with the area menu), then `--check` again.
 
 ## Step 8 — Build HTML (main thread)
 

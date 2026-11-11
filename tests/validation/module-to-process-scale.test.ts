@@ -219,6 +219,25 @@ describe("cross-module touchpoints", () => {
     expect(w.evidence.line).toBe(10);
     expect(r.stubs.FI).toBe(1);
   });
+  it("follows a called customer function into its own include, owns by map aliases, skips own data behind a foreign prefix", async () => {
+    const { buildTouchpoints } = await import("../../scripts/process/cross-module.mjs");
+    const n = (id: string, scope = "custom", x: any = {}) => ({ id, type: id.split(":")[0], name: id.split(":")[1], scope, ...x });
+    const le = { module: "LE", state: "", model: { ...model([{ code: "1.1.1.1", level: 4, tcodes: ["ZWMA01"], objects: ["ZWMA01"] }]), modules: ["LE", "WM"] },
+      graph: { nodes: [n("PROG:ZWMA01", "member"), n("FUNC:ZSD_F1", "member", { parent: "FUGR:ZSD1", unit: "LZSD1U01" }), n("FUGR:ZSD1", "member"),
+        n("TABL:ZSDT00001"), n("TABL:ZSDT00002")],
+        edges: [{ from: "PROG:ZWMA01", to: "FUNC:ZSD_F1", kind: "calls" },
+          { from: "FUGR:ZSD1", to: "TABL:ZSDT00001", kind: "writes", evidence: [{ unit: "LZSD1U01", line: 5 }] },
+          { from: "FUGR:ZSD1", to: "TABL:ZSDT00002", kind: "writes", evidence: [{ unit: "LZSD1U02", line: 7 }] }] } };
+    const sd = { module: "SD", state: "", model: model([{ code: "1.4.1.1", level: 4, tcodes: ["ZSDB01"], objects: ["ZSDB01"] }]),
+      graph: { nodes: [n("PROG:ZSDB01", "member"), n("TABL:ZSDT00001"), n("TABL:LTAK", "standard"), n("TABL:ZLET00001")],
+        edges: [{ from: "PROG:ZSDB01", to: "TABL:ZSDT00001", kind: "reads" }, { from: "PROG:ZSDB01", to: "TABL:LTAK", kind: "reads" },
+          { from: "PROG:ZSDB01", to: "TABL:ZLET00001", kind: "writes" }] } };
+    const r = buildTouchpoints([sd, le], { pluginRoot: ROOT });
+    const objs = (m: string) => r.touchpoints.filter((t: any) => t.from.module === m).map((t: any) => t.object).sort();
+    expect(objs("LE")).toEqual(["ZSDT00001", "ZSD_F1"]); // not ZSDT00002: another FM of the group writes it
+    expect(r.touchpoints.find((t: any) => t.object === "ZSDT00001" && t.from.module === "LE").to[0]).toMatchObject({ module: "SD", code: "1.4.1.1" });
+    expect(objs("SD")).toEqual(["LTAK"]); // LTAK is WM = the LE map; ZLET00001 is SD's own data
+  });
   it("shortens step actions in the page language", async () => {
     const { shortAction } = await import("../../scripts/process/swimlane.mjs");
     expect(shortAction("실행(F8)하면 확인 없이 바로 처리")).toBe("실행(F8)");

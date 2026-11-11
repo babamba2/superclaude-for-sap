@@ -21,6 +21,9 @@ import { zipFiles } from '../../scripts/spec/xlsx-zip.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { checkModel, normalizeModel, rollup, interfaceIndex, conversionIndex } from '../../scripts/process/process-model.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
+import { crossMenu, applyToModel } from '../../scripts/process/area-menu.mjs';
+import { supplementModel } from '../../scripts/process/supplement-model.mjs';
+// @ts-expect-error — plain .mjs script, no type declarations
 import { renderProcessHtml, buildProcessDoc, nextVersion, importEditedHtml } from '../../scripts/process/build-process-doc.mjs';
 
 const ROOT = resolve(__dirname, '../..');
@@ -368,5 +371,85 @@ describe('build-process-doc', () => {
   });
   it('nextVersion', () => {
     expect(nextVersion({ versions: [{ version: '1.4' }] }, { major: true })).toBe('2.0');
+  });
+});
+
+describe('area-menu', () => {
+  const MENU = {
+    menu: 'ZPTMM', title: 'Purchasing', menus_read: ['ZPTMM'], links: [],
+    entries: [
+      { tcode: 'ME51N', text: 'Create PR', path: ['Requisition'], menu: 'ZPTMM' },
+      { tcode: 'ZPT01', text: 'PR batch', path: ['Requisition', 'Batch'], menu: 'ZPTMM' },
+      { tcode: 'ZPT99', text: 'Old upload', path: ['Requisition'], menu: 'ZPTMM' },
+      { tcode: 'ZPT77', text: 'New report', path: ['Reports'], menu: 'ZPTMM' },
+      { tcode: 'ZPT55', text: 'Never measured', path: ['Reports'], menu: 'ZPTMM' },
+    ],
+  };
+  const usage = { used: new Set(['ME51N', 'ZPT01', 'ZPT77', 'ME21N']), measured: new Set(['ME51N', 'ZPT01', 'ZPT77', 'ME21N', 'ZPT99']), sources: [{ system: 'PRD', measuredAt: '2026-01-01', months: 12, coverage: 3 }] };
+
+  it('sorts menu TCodes into core / gap / dead / unmeasured and finds used tasks off the menu', () => {
+    const r = crossMenu([MENU], usage, MODEL);
+    expect(r.quadrants.core).toEqual(['ME51N', 'ZPT01']);
+    expect(r.quadrants.gap).toEqual(['ZPT77']);
+    expect(r.quadrants.dead).toEqual(['ZPT99']);
+    expect(r.quadrants.unmeasured).toEqual(['ZPT55']);
+    expect(r.quadrants.offMenu).toContain('ME21N');
+    expect(r.entries.find((e: any) => e.tcode === 'ZPT01').rows).toEqual(['1.1.1.2']);
+  });
+
+  it('annotates task rows with menu paths and renders the appendix and the task head line', () => {
+    const model = JSON.parse(JSON.stringify(MODEL));
+    const n = applyToModel(model, crossMenu([MENU], usage, model));
+    expect(n).toBe(2);
+    expect(model.rows.find((x: any) => x.code === '1.1.1.2').menuPaths).toEqual(['ZPTMM > Requisition > Batch > ZPT01']);
+    const html = renderProcessHtml(model, { version: '1.0', date: 'd' });
+    expect(html).toContain('id="amenu"');
+    expect(html).toContain('id="amenu-gap"');
+    expect(html).toContain('ZPTMM &gt; Requisition &gt; Batch &gt; ZPT01');
+    expect(checkModel(model).errors).toEqual([]);
+  });
+
+  it('counts a used menu TCode documented in another module map as elsewhere, not as a gap', () => {
+    const other = { module: 'QX', rows: [{ code: '1.2.1.1', level: 4, label: 'Report', tcodes: ['ZPT77'] }] };
+    const r = crossMenu([MENU], usage, MODEL, [other]);
+    expect(r.quadrants.gap).toEqual([]);
+    expect(r.quadrants.elsewhere).toEqual(['ZPT77']);
+    expect(r.entries.find((e: any) => e.tcode === 'ZPT77').elsewhere).toEqual(['QX 1.2.1.1']);
+  });
+});
+
+describe('supplement-model', () => {
+  const base = () => ({
+    module: 'MM', lang: 'en', scope: { systems: [{ id: 'sap', kind: 'sap', label: 'SAP' }] }, lanes: [{ id: 'buyer', label: 'Buyer' }],
+    rows: [
+      { code: '1', level: 1, label: 'Procurement' },
+      { code: '1.1', level: 2, label: 'Purchasing' },
+      { code: '1.1.1', level: 3, label: 'Requisition' },
+      { code: '1.1.1.1', level: 4, label: 'Create PR', kind: 'std', system: 'sap', owner: 'buyer', tcodes: ['ME51N'], task: { rules: [] } },
+      { code: '1.2', level: 2, label: 'Inventory' },
+    ],
+  });
+
+  it('adds new L2 / L3 / L4 rows in document order and patches existing rows', () => {
+    const m = base();
+    const res = supplementModel(m, [{
+      new_l2: [{ key: 'x:ret', label: 'Returns' }],
+      new_l3: [{ key: 'x:ret3', parent: 'x:ret', label: 'Return orders' }, { key: 'x:req2', parent: '1.1', label: 'Approval' }],
+      new_tasks: [{ key: 'x:t1', parent: 'x:ret3', label: 'Create return', kind: 'cbo', system: 'sap', owner: 'buyer', tcodes: ['ZRT01'], objects: ['ZRT01'], task: { definition: 'd' } }],
+      row_patches: [{ code: '1.1.1.1', patch: { tcodes_add: ['ME52N'] }, task_add: { rules: [{ text: 'r', estimated: true }] } }],
+      placements: [{ entry: 'ZRT01', to: 'x:t1' }, { entry: 'ME52N', to: '1.1.1.1' }],
+      unplaced: [{ entry: 'SE16', reason: 'technical' }],
+    }], [['ZRT01', 'ME52N', 'SE16']]);
+    expect(res.errors).toEqual([]);
+    expect(res.keys).toEqual({ 'x:ret': '1.3', 'x:ret3': '1.3.1', 'x:req2': '1.1.2', 'x:t1': '1.3.1.1' });
+    expect(m.rows.map((r) => r.code)).toEqual(['1', '1.1', '1.1.1', '1.1.1.1', '1.1.2', '1.2', '1.3', '1.3.1', '1.3.1.1']);
+    expect(m.rows[3].tcodes).toEqual(['ME51N', 'ME52N']);
+    expect(m.rows[3].task.rules).toHaveLength(1);
+    expect(checkModel(m as any).errors).toEqual([]);
+  });
+
+  it('reports unplaced entries and bad targets', () => {
+    const res = supplementModel(base(), [{ placements: [{ entry: 'A', to: '1.1' }] }], [['A', 'B']]);
+    expect(res.errors).toEqual(['placement A: target 1.1 is not an L4', 'entry B neither placed nor unplaced']);
   });
 });
