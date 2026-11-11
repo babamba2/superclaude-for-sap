@@ -51,6 +51,15 @@ Compute `dedupKey = SAP_URL + '#' + SAP_CLIENT`. Iterate sibling profiles under 
 
 If no match, proceed to 9a. Write the sentinel on successful activation of the final bundle.
 
+## 9.0c — Authorization preflight (DEV only)
+
+The installing user needs, besides the ADT logon itself:
+
+- `S_ADT_RES` with `URI = /sap/bc/adt/*` — without it every ADT call returns 403 `ExceptionResourceNoAuthorization`.
+- `S_DEVELOP` for `OBJTYPE = FUGR` **and** `OBJTYPE = FUNC` (`ACTVT = 01, 02, 03, 06, 07`, `DEVCLASS = $TMP`). Developer roles often carry `FUGR` and `PROG` but not `FUNC`: the function group and the empty FMs are then created, and the source upload fails with "You have no display authorization".
+
+Missing → stop and ask the user to have the role extended (SU53 shows the failed check), then resume at 9a.
+
 ## 9a. Function Modules `ZMCP_ADT_UTILS`
 
 Required by the MCP server for Screen, GUI Status, and Text Element operations.
@@ -101,6 +110,23 @@ Required by the MCP server for Screen, GUI Status, and Text Element operations.
 8. After install: re-verify via `SearchObject` for each of the five FM names.
 
 **S/4HANA note:** if `SAP_VERSION=S4`, these five ECC-only files are NOT installed. S/4HANA's `sc4sap` MCP server handles DDIC writes directly via ADT endpoints (`CreateTable` / `CreateTableType` / `CreateDataElement` / `CreateDomain`). Do not port these FMs to the S/4 primary layer.
+
+## 9a.3 — DDIC Read + Workload FMs (ECC ONLY — skip on S/4HANA)
+
+On ECC the MCP server reads tables, data elements and domains, BAdI implementations and ST03N usage through these FMs (ADT 7.40 has no DDIC read endpoints). Without them `GetTable` / `GetDataElement` / `GetDomain` fail with "`<FM>` is not installed on this system".
+
+| FM | Group | Source |
+|---|---|---|
+| `ZMCP_ADT_DDIC_TABL_READ` | `ZMCP_ADT_UTILS` | `abap/zmcp_adt_ddic_tabl_read_ecc.abap` |
+| `ZMCP_ADT_DDIC_DTEL_READ` | `ZMCP_ADT_UTILS` | `abap/zmcp_adt_ddic_dtel_read_ecc.abap` |
+| `ZMCP_ADT_DDIC_DOMA_READ` | `ZMCP_ADT_UTILS` | `abap/zmcp_adt_ddic_doma_read_ecc.abap` |
+| `ZMCP_ADT_DDIC_BADI` | `ZMCP_ADT_UTILS` | `abap/zmcp_adt_ddic_badi_ecc.abap` |
+| `ZMCP_WL_TCODE_USAGE` | `ZMCP_WL` (create in `$TMP`) | `abap/zmcp_wl_tcode_usage_ecc.abap` |
+| `ZMCP_WL_JOB_USAGE` | `ZMCP_WL` | `abap/zmcp_wl_job_usage_ecc.abap` |
+
+`CreateFunctionModule` + `UpdateFunctionModule` (`activate=true`) as in 9a. They need not be remote-enabled: the MCP server reaches them through `ZMCP_ADT_DISPATCH` (`FM_PROXY` on the `nco` backend, the OData function imports on `odata`).
+
+After the last upload call `ReloadProfile` before testing — an open RFC session keeps the old function group loaded and answers `CX_SY_DYN_CALL_ILLEGAL_FUNC` for the new FMs.
 
 ## 9b. ALV OOP Reuse Handlers `ZIF_S4SAP_CM` / `ZCX_S4SAP_EXCP` / `ZCL_S4SAP_CM_*`
 

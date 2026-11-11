@@ -33,8 +33,12 @@ SAP_NCO_ASHOST=           # only when the app server host differs from the SAP_U
 
 - `ZMCP_ADT_DISPATCH` must contain the action `FM_PROXY` (current `abap/zmcp_adt_dispatch*.abap`, Step 9a). The FMs that are not remote-enabled (DDIC reads, `ZMCP_ADT_DDIC_TTYP`, `ZMCP_ADT_DDIC_BADI`, `ZMCP_WL_*`) are called through it. An older dispatcher answers "Unknown action: FM_PROXY" — reinstall it via Step 9a.
 - Authorization: `S_RFC` for function groups `SADT_REST` (when `SAP_CONNECTION_TYPE=nco`), `ZMCP_ADT_UTILS`, `ZMCP_BIZ`, `ZMCP_WL`, `SYST` (RFC_PING).
+- Authorization: `S_ADT_RES` with `URI = /sap/bc/adt/*` (or `*`). ADT checks it on every request, over RFC exactly as over HTTP. Missing or blank → every ADT call (also Step 9a, which installs through ADT) returns HTTP 403 `ExceptionResourceNoAuthorization` although the RFC logon works. Fix: the Basis team adds it to a role of the user (SU53 shows the failed check).
 - Step 9c (OData classes) is skipped for `nco`.
 
 ## Verify
 
 After the MCP restart (Step 5), `/sc4sap:sap-doctor` Layer 6.nco runs the RFC checks.
+
+- 403 `ExceptionResourceNoAuthorization` on `GetInactiveObjects` / `GetProgram` → missing `S_ADT_RES` (above), not a transport problem. Stop and ask the user to request it; do not retry.
+- `FU_NOT_FOUND ... ZMCP_ADT_DISPATCH` → logon works, the helper FMs are not installed yet (Step 9a).

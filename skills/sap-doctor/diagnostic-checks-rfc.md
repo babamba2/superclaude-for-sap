@@ -10,7 +10,7 @@ Referenced by `diagnostic-checks.md`. Resolve `SAP_RFC_BACKEND` from the active 
 
 - [ ] Windows, and NCo 3.x in the GAC (`GAC_64\sapnco` or `GAC_32\sapnco`, `v4.0_3.*`). Missing → **BLOCKER** (install SAP Connector for Microsoft .NET 3.1).
 - [ ] TCP `<ashost>:33<sysnr>` connects within 3 s (`SAP_NCO_ASHOST` / `SAP_NCO_SYSNR`, else host and port of `SAP_URL`). Closed → **BLOCKER** (firewall / VPN).
-- [ ] A read through the MCP works: `GetSqlQuery` on `TFDIR` for `ZMCP_ADT_DISPATCH` returns `FMODE = R` (path `ecc-dispatch-table-read`); with `SAP_CONNECTION_TYPE=nco` also `GetProgram RSPARAM`.
+- [ ] A read through the MCP works: `GetSqlQuery` on `TFDIR` for `ZMCP_ADT_DISPATCH` returns `FMODE = R` (path `ecc-dispatch-table-read`); with `SAP_CONNECTION_TYPE=nco` also `GetProgram RSPARAM`. `FU_NOT_FOUND ZMCP_ADT_DISPATCH` → **FAIL**, install it (setup Step 9a). HTTP 403 `ExceptionResourceNoAuthorization` on `GetProgram` → **BLOCKER**: the user lacks `S_ADT_RES` (`URI = /sap/bc/adt/*`); the RFC logon itself is fine.
 - [ ] `GetDataElement MANDT` on ECC returns `path: "ecc-nco-rfc"`. "Unknown action: FM_PROXY" → **FAIL**, reinstall `ZMCP_ADT_DISPATCH` (setup Step 9a).
 
 Report: `Layer 6 (nco): n/4 PASS`.
