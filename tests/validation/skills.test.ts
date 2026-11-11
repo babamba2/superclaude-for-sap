@@ -5,7 +5,7 @@ import { join } from 'path';
 const SKILLS_DIR = join(__dirname, '..', '..', 'skills');
 
 const EXPECTED_SKILLS = [
-  'analyze-cbo-obj', 'analyze-code', 'cbo-relation-map', 'analyze-symptom', 'ask-consultant',
+  'stock-cbo', 'analyze-code', 'cbo-relation-map', 'analyze-symptom', 'ask-consultant',
   'compare-programs', 'create-object', 'create-program', 'interface-mapping-spec',
   'mcp-setup', 'program-to-manual', 'program-to-spec', 'sap-doctor',
   'project-dashboard', 'role-matrix', 'sap-option', 'setup', 'smartform-from-pdf', 'smartform-preview', 'trust-session',

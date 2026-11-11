@@ -1580,7 +1580,7 @@ export function flowchartMetrics(graph = {}) {
 
 // ──────────────────────────────────────────────────────────────
 // Sequence diagram renderer (v13) — high-quality PNG replacement for the
-// Mermaid `sequenceDiagram` blocks in package-to-process. Lifelines,
+// Mermaid `sequenceDiagram` blocks (formerly package-to-process). Lifelines,
 // sync (solid/filled) + return (dashed/open) arrows, self-messages, notes,
 // and alt/opt/loop frames with label tabs + else dividers. Coloured actor
 // (human) vs participant (system/object) headers, drop-shadows, marker arrows.
@@ -1750,7 +1750,7 @@ export function sequenceDiagramMetrics(spec = {}) {
 
 // ──────────────────────────────────────────────────────────────
 // Process map renderer (v13) — high-quality PNG replacement for the Mermaid
-// macro `flowchart LR` in package-to-process. Lays a small process DAG into
+// macro `flowchart LR` (formerly package-to-process). Lays a small process DAG into
 // left→right layers (longest-path layering), draws numbered process cards
 // with bezier connectors + arrowheads. Each card = one business process.
 //

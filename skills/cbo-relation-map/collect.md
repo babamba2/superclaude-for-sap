@@ -13,13 +13,13 @@ Before the first dispatch: invoke `/sc4sap:trust-session` with `parent_skill=sc4
 
 | Cost mode | What runs |
 |---|---|
-| standard | `/sc4sap:analyze-cbo-obj <PACKAGE>` in full (walk, scouts, Step G, finalize). Its `inventory.json` adds descriptions, roles and purpose to the map. Then back to SKILL.md Step 2. |
+| standard | `/sc4sap:stock-cbo <PACKAGE>` in full (walk, scouts, Step G, finalize). Its `inventory.json` adds descriptions, roles and purpose to the map. Then back to SKILL.md Step 2. |
 | eco | **Map-only collection**: the steps below — no Step C scouts, no Step D finalize, so no inventory and no purpose inference. Same graph as standard (same Step G). |
 
 Eco map-only collection:
 
-1. **Walk** — `sap-stocker`, `MODE: walk` as in [`../analyze-cbo-obj/stocker-fanout.md`](../analyze-cbo-obj/stocker-fanout.md) § Step A, dispatched with `model: "haiku"`, `effort: "low"`. A `walk.json` of the same package ≤ 7 days old → reuse it, no dispatch. `BLOCKED` → re-dispatch once on Sonnet (cost-mode § lever A escalation).
-2. **Step G** — [`../analyze-cbo-obj/graph-usage.md`](../analyze-cbo-obj/graph-usage.md) G1 → G2 → G3a (G3b for its gaps) → G4 → G5 for `<DIR>` = the walk's folder, unchanged. G3a slices: keep the planned 60 statements per `sap-checker` (smaller slices cost more — note at the end). Sources already in the MCP output folder (`<AB>/mcp-output/src/<name>.prog|.fugr/`) are not fetched again: drop those objects from the G1 scope. G1 scope = `PROG/P` and `FUGR` only (walk `PROG/I` entries are includes, read through their owner); 20 objects per checker (fewer checkers, lower fixed cost). A FUGR whose `GetProgFullCode` answer exceeds the tool-result limit reports `ERROR … exceeds maximum allowed tokens` although the files were written — check the folder before treating it as missing.
+1. **Walk** — `sap-stocker`, `MODE: walk` as in [`../stock-cbo/stocker-fanout.md`](../stock-cbo/stocker-fanout.md) § Step A, dispatched with `model: "haiku"`, `effort: "low"`. A `walk.json` of the same package ≤ 7 days old → reuse it, no dispatch. `BLOCKED` → re-dispatch once on Sonnet (cost-mode § lever A escalation).
+2. **Step G** — [`../stock-cbo/graph-usage.md`](../stock-cbo/graph-usage.md) G1 → G2 → G3a (G3b for its gaps) → G4 → G5 for `<DIR>` = the walk's folder, unchanged. G3a slices: keep the planned 60 statements per `sap-checker` (smaller slices cost more — note at the end). Sources already in the MCP output folder (`<AB>/mcp-output/src/<name>.prog|.fugr/`) are not fetched again: drop those objects from the G1 scope. G1 scope = `PROG/P` and `FUGR` only (walk `PROG/I` entries are includes, read through their owner); 20 objects per checker (fewer checkers, lower fixed cost). A FUGR whose `GetProgFullCode` answer exceeds the tool-result limit reports `ERROR … exceeds maximum allowed tokens` although the files were written — check the folder before treating it as missing.
 3. Print `↳ collected <nodes> nodes · <edges> edges · sources <parsed>/<programs> · DDIC reads <ok>/<n>` and continue with SKILL.md Step 2.
 
 ## B. Used TCodes only

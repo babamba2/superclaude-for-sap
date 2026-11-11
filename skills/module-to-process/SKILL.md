@@ -1,6 +1,6 @@
 ---
 name: module-to-process
-description: Map how one SAP module (or a process area of several modules) runs in the connected system — one HTML page for a module consultant starting a project (conversion, enhancement, AMS takeover). Walks every CBO package of the module, lays the CBO programs onto the standard process backbone (L1 mega process > L2 process chain > L3 process > L4 task, with variants), and writes a BPH table plus one task sheet per L4 (owner, system, business rules with source lines, steps, related standard / CBO / enhancement objects with usage, interfaces, conversion notes). Replaces package-to-process.
+description: Map how one SAP module (or a process area of several modules) runs in the connected system — one HTML page for a module consultant starting a project (conversion, enhancement, AMS takeover). Walks every CBO package of the module, lays the CBO programs onto the standard process backbone (L1 mega process > L2 process chain > L3 process > L4 task, with variants), and writes a BPH table plus one task sheet per L4 (owner, system, business rules with source lines, steps, related standard / CBO / enhancement objects with usage, interfaces, conversion notes).
 model: inherit
 ---
 
@@ -11,7 +11,7 @@ model: inherit
 Reads the CBO packages of one module via MCP, places every Z entry point on the module's **standard process backbone**, and writes **one HTML page** a module consultant reads on day one of a project: which processes run, who runs each task, in which system, through which standard TCodes and which CBO programs, which variants exist, and what a conversion touches.
 
 <Purpose>
-At the start of a conversion or enhancement project the consultant inherits dozens of Z programs spread over several packages and no current process documentation. Package-by-package analysis (`analyze-cbo-obj`) lists objects; it does not say which business task each one serves. This skill answers per module: *"Here is the BPH of this module as the system implements it — standard where the standard is used, CBO where the customer built it — with a task sheet per L4."*
+At the start of a conversion or enhancement project the consultant inherits dozens of Z programs spread over several packages and no current process documentation. Package-by-package analysis (`stock-cbo`) lists objects; it does not say which business task each one serves. This skill answers per module: *"Here is the BPH of this module as the system implements it — standard where the standard is used, CBO where the customer built it — with a task sheet per L4."*
 </Purpose>
 
 <Response_Prefix>Every response triggered by this skill MUST begin with `[Model: <main-model> · Dispatched: <sub-summary>]` per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Response Prefix Convention.</Response_Prefix>
@@ -33,7 +33,7 @@ Every Step entry prints one line: `Step X/9 · <label>   [<20-char bar>]  NN%` �
 </Use_When>
 
 <Do_Not_Use_When>
-- Reusable-object catalog of one package → `/sc4sap:analyze-cbo-obj`
+- Reusable-object catalog of one package → `/sc4sap:stock-cbo`
 - One program in depth → `/sc4sap:program-to-spec` · end-user steps → `/sc4sap:program-to-manual`
 - Configuration (IMG) of a module → `/sc4sap:config-to-document`
 - Code quality → `/sc4sap:analyze-code`
@@ -107,11 +107,10 @@ Source, DDIC metadata, TCode metadata and usage statistics only. No row data —
 </Data_Extraction_Safety>
 
 <Related_Skills>
-- `/sc4sap:analyze-cbo-obj` — inventory + `graph.json` per package (reused or produced in Step 2)
+- `/sc4sap:stock-cbo` — inventory + `graph.json` per package (reused or produced in Step 2)
 - `/sc4sap:program-to-spec` / `/sc4sap:program-to-manual` — drill into one program of a task
 - `/sc4sap:config-to-document` — the module's configuration behind the business rules
 - `/sc4sap:ask-consultant` — follow-ups from the open questions
-- `/sc4sap:package-to-process` — previous single-package skill; redirects here for one release
 </Related_Skills>
 
 Task: $ARGUMENTS

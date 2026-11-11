@@ -1,6 +1,6 @@
 # CBO Stocking — Walk, Haiku Scout Fan-out, Finalize
 
-Shared by [`workflow-steps.md`](workflow-steps.md) (analyze-cbo-obj Step 3–7) and [`../package-to-process/dispatch-stocker.md`](../package-to-process/dispatch-stocker.md). The per-object `GetWhereUsed` graph — one call per package object — moves from one Sonnet stocker working serially to Haiku `sap-checker` workers running in parallel. The stocker keeps every judgment: tiering, business purpose, cross-module gaps, sensitive names, persistence. Model rationale: [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Tier 3 and § Checker fan-out in other skills.
+Shared by [`workflow-steps.md`](workflow-steps.md) (stock-cbo Step 3–7). The per-object `GetWhereUsed` graph — one call per package object — moves from one Sonnet stocker working serially to Haiku `sap-checker` workers running in parallel. The stocker keeps every judgment: tiering, business purpose, cross-module gaps, sensitive names, persistence. Model rationale: [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md) § Tier 3 and § Checker fan-out in other skills.
 
 `<DIR>` = the **absolute** directory of the `path=` in the stocker's `WALKED` line. The stocker resolves it per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md), so it may be under `.sc4sap/work/<alias>/cbo/…` rather than `.sc4sap/cbo/…` — never rebuild it by hand.
 
@@ -23,7 +23,7 @@ The stocker returns one line: `WALKED objects=<n> batches=<b> path=<absolute pat
 ## Step B — Gate
 
 - `objects < 30` → skip Step C. Dispatch Step D without a facts file; the stocker runs step 3 (graph) itself as before (ECC mode: no graph — see Step D).
-- `objects ≥ 30` (when called by `package-to-process` in cost mode `eco`: ≥ 15) → main reads `walk.json → batches[]` (`NAME:TYPE` strings only) and runs Step C.
+- `objects ≥ 30` → main reads `walk.json → batches[]` (`NAME:TYPE` strings only) and runs Step C.
 
 ## Step C — Scout fan-out (`sc4sap:sap-checker` × `batches`, `MODE: scout`)
 

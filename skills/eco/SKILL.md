@@ -35,6 +35,5 @@ Called by a skill already running in eco (first action of the run when eco came 
 <Examples>
 - `/sc4sap:eco compare-programs ZSDR_SALES_KR ZSDR_SALES_EU` → the same report (all dimensions, English companion), scouts on Haiku, analyst and writer on Sonnet · low.
 - `/sc4sap:eco program-to-manual ZMMR_PO_STATUS` → the same manual (all scenarios, English companion), written on Sonnet · low.
-- `/sc4sap:eco package-to-process ZSD300 lang=ko` → the same documents, Haiku scouts read every source, Sonnet · low analyst and writer.
 - To make eco the default instead: `/sc4sap:sap-option cost mode`.
 </Examples>

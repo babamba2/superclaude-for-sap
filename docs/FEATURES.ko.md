@@ -52,10 +52,10 @@
 | `sc4sap:config-to-document` | 연결된 시스템의 모듈 설정을 그대로 문서화 (MM 우선) → IMG 트리를 따르는 HTML 한 파일 (SM30 스타일 화면에 실제 테이블 값, 고객 변경 행과 트랜스포트, 설정 점검, SAP IMG 문서, `sap-critic`이 검토한 컨설턴트 노트, 노트 · 설정값 · 변경 이력 편집 모드 — `--import`로 다음 버전에 반영) |
 | `sc4sap:interface-mapping-spec` | 인터페이스 매핑 정의서 — 템플릿 양식의 편집 가능한 HTML 한 페이지 (표지, 개정이력, R / MAPPING 열이 있는 Source → Target 그리드, 응답 블록, 변환규칙, 추출 조건, 항목설명); SAP 측은 DDIC / RFC 시그니처에서 읽거나 신규 인터페이스는 필드 목록 · 컨설턴트 제안으로; 상대 측과 변환규칙 제안, 페이지 내 검증, 버전 관리, 영어판 |
 | `sc4sap:analyze-code` | ABAP 코드 분석 (Clean ABAP / 성능 / 보안) |
-| `sc4sap:analyze-cbo-obj` | CBO 인벤토리 스캐너 + 교차 모듈 갭 분석 |
+| `sc4sap:stock-cbo` | CBO 인벤토리 스캐너 + 교차 모듈 갭 분석 |
 | `sc4sap:analyze-symptom` | SAP 운영 에러/증상 단계별 분석 (덤프, 로그, SAP Note 후보) |
 | `sc4sap:ask-consultant` | 모듈 컨설턴트 에이전트(SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC)에 직접 질의. 읽기 전용 — 설정된 SAP 환경에 맞추어 답변. |
-| `sc4sap:module-to-process` | 운영 ST03N에서 실제로 쓰는 TCode만으로 모듈별 편집 가능한 HTML 프로세스 맵을 만들어요: 표준 L1~L4 프로세스에 CBO Task·Variant·담당·시스템, L3 시나리오 swimlane, L4 PDD 형식 Task 시트(소스 근거 Business Rule, Step, 인터페이스, S/4 conversion 메모), 컨설턴트 검토·BPH 대조·영문판은 선택. `package-to-process`는 한 릴리스 동안 이 skill로 넘겨요 |
+| `sc4sap:module-to-process` | 운영 ST03N에서 실제로 쓰는 TCode만으로 모듈별 편집 가능한 HTML 프로세스 맵을 만들어요: 표준 L1~L4 프로세스에 CBO Task·Variant·담당·시스템, L3 시나리오 swimlane, L4 PDD 형식 Task 시트(소스 근거 Business Rule, Step, 인터페이스, S/4 conversion 메모), 컨설턴트 검토·BPH 대조·영문판은 선택 |
 | `sc4sap:trust-session` | INTERNAL-ONLY — 세션 전체 MCP 권한 부트스트랩 |
 
 ## 스킬 — 예시 & 워크플로우
@@ -93,10 +93,10 @@
 → "ZCL_SD_ORDER_VALIDATOR의 Clean ABAP 위반과 SELECT * 사용 리뷰"
 ```
 
-### `/sc4sap:analyze-cbo-obj`
+### `/sc4sap:stock-cbo`
 Z 패키지 탐색, 재사용 자산 카탈로그, 교차 모듈 갭 분석.
 ```
-/sc4sap:analyze-cbo-obj
+/sc4sap:stock-cbo
 → "ZSD_ORDER 패키지에서 MM 모듈 재사용 후보 스캔"
 ```
 흐름: `GetPackageTree` → 카테고리별 walk → 빈도 휴리스틱 → 교차 모듈 갭 체크 → `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`.
@@ -262,7 +262,7 @@ sc4sap의 규칙 코퍼스는 방대함 — 25+ `common/*.md` + 14 `configs/{MOD
 
 예: MM PO 생성 시 **PS 활성** 상황 → 계정지정 `P`/`Q` + `PS_POSID` (WBS) 제안; **CO 활성** → 비용센터 파생 제안; **QM 활성** → GR 시 inspection lot 자동 생성.
 
-`/sc4sap:setup` (Step 4) 또는 `/sc4sap:sap-option modules`로 설정. `create-program`, `create-object`, `analyze-cbo-obj`, 모든 컨설턴트 에이전트가 소비.
+`/sc4sap:setup` (Step 4) 또는 `/sc4sap:sap-option modules`로 설정. `create-program`, `create-object`, `stock-cbo`, 모든 컨설턴트 에이전트가 소비.
 
 ## SAP 플랫폼 인식 (ECC / S4 On-Prem / Cloud)
 

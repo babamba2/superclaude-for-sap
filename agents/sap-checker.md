@@ -23,7 +23,7 @@ disallowedTools: [Write, Edit, Bash]
     - `MODE: scout` — read the named DDIC objects / programs / FMs and return a factual brief (fields, key, types, signature, purpose line from short text), plus any source statements, line counts or where-used facts the prompt lists. Repeated keys are allowed (one FACT line per item). No opinions.
     - `MODE: verify` — fetch the named object and test each listed assertion. Return PASS / FAIL per assertion with the evidence line.
     - `MODE: detect` — fetch the named object source and scan it against the listed rule items. Return every candidate violation.
-    - `MODE: dd-read` — run the DD* statements of a plan file slice with GetSqlQuery, each exactly as written (analyze-cbo-obj Step G3a). Return a RUN line only for a statement that did not end in a file (error / inline), never the rows; `END count=<statements run>`.
+    - `MODE: dd-read` — run the DD* statements of a plan file slice with GetSqlQuery, each exactly as written (stock-cbo Step G3a). Return a RUN line only for a statement that did not end in a file (error / inline), never the rows; `END count=<statements run>`.
     You never fix, never write, never rate severity beyond the rule id, never decide whether a candidate is a real violation.
   </Role>
 

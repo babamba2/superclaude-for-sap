@@ -38,7 +38,7 @@ Suggested session model per skill (guidance only — nothing enforces it):
 | `mcp-setup` | Haiku or above | Reference documentation, optional `check` subcommand |
 | `ask-consultant` | Sonnet or above | Routing, teamMode divergence checks and synthesis review |
 | `setup` | Sonnet or above | Configuration workflow with failure triage and escalation |
-| `analyze-cbo-obj` | Sonnet or above | Orchestrates inventory analysis; synthesizes stocker output |
+| `stock-cbo` | Sonnet or above | Orchestrates inventory analysis; synthesizes stocker output |
 | `analyze-code` | Sonnet or above | Orchestrates review; report composition needs judgment |
 | `analyze-symptom` | Sonnet or above | Routes questions, composes narratives from debugger output |
 | `compare-programs` | Sonnet or above | Orchestrates multi-program analysis; matrix assembly |
@@ -47,7 +47,6 @@ Suggested session model per skill (guidance only — nothing enforces it):
 | `create-object` | Sonnet or above | Metadata validation + executor/writer orchestration |
 | `create-program` | Sonnet or above | 9-phase pipeline orchestration, resume logic, state.json |
 | `module-to-process` | Sonnet or above | Usage scope, gates, assemble + build (no writer agent); Opus analyst for hierarchy and task sheets, optional module consultant, Sonnet translators for the English companion |
-| `package-to-process` | — | Redirect to `module-to-process` (one release) |
 | `program-to-spec` | Sonnet or above | Socratic interview → structural inventory → analyst+writer delegation → render; depth / format / language state across turns |
 
 A Haiku session still works for the orchestration skills — the dispatched agents keep their own tiers — but multi-round state reconciliation and edge-case handling on the main thread are shallower.
@@ -83,8 +82,8 @@ Steps 11/11b (SPRO / customization extraction) are intentionally LLM-free: `scri
 
 ### Analysis cluster (session-model main)
 
-#### `analyze-cbo-obj` — session-model main, 2 + N dispatches
-- Steps 3–7 — `sap-stocker` (Sonnet) `MODE: walk` → `sap-checker` × N (Haiku, packages ≥ 30 objects) collect in-package callers + DDIC signals per batch → `sap-stocker` `MODE: finalize` scores, infers business purpose, checks cross-module gaps, persists (`skills/analyze-cbo-obj/stocker-fanout.md`; package-to-process Step 2 reuses it)
+#### `stock-cbo` — session-model main, 2 + N dispatches
+- Steps 3–7 — `sap-stocker` (Sonnet) `MODE: walk` → `sap-checker` × N (Haiku, packages ≥ 30 objects) collect in-package callers + DDIC signals per batch → `sap-stocker` `MODE: finalize` scores, infers business purpose, checks cross-module gaps, persists (`skills/stock-cbo/stocker-fanout.md`)
 - Step 8 (conditional, `Logic-heavy: true`) — main thread renders the briefing from `inventory.json` (no agent dispatch)
 
 #### `analyze-code` — session-model main, 3 + N dispatches
@@ -152,7 +151,7 @@ Excel output uses the same writer tier (depth-driven) — xlsx driver fill-in is
 Applied in every analysis / creation skill. Main thread holds only the structured return from agents, not their working memory (dump stack, source code, AST, where-used graph). Keeps orchestrator context small even for large objects / packages.
 
 ### Pattern 2 — Conditional branching
-Analyze-cbo-obj, analyze-code, ask-consultant branch between canned output (main thread formats directly) and rich briefing (dispatch to writer). Branching decision lives in the primary agent's return (`Logic-heavy`, consultant count) or, for analyze-code, in the verified finding counts after the Haiku evidence check.
+Stock-cbo, analyze-code, ask-consultant branch between canned output (main thread formats directly) and rich briefing (dispatch to writer). Branching decision lives in the primary agent's return (`Logic-heavy`, consultant count) or, for analyze-code, in the verified finding counts after the Haiku evidence check.
 
 ### Pattern 3 — Model override on agent dispatch
 The `Agent(...)` tool's `model` parameter overrides the agent's frontmatter. Used in:

@@ -105,7 +105,7 @@ Same rule as `program-to-spec`: only source, DDIC metadata and screen definition
 <Related_Skills>
 - `/sc4sap:program-to-spec` — the specification of the same program (shares the screen renderer and schemas)
 - `/sc4sap:module-to-process` — process map of the module the program belongs to
-- `/sc4sap:analyze-cbo-obj` — CBO inventory that enriches the business context
+- `/sc4sap:stock-cbo` — CBO inventory that enriches the business context
 </Related_Skills>
 
 Task: $ARGUMENTS

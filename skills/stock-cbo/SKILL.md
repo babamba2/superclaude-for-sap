@@ -1,10 +1,10 @@
 ---
-name: analyze-cbo-obj
+name: stock-cbo
 description: Analyze a CBO (Customer Business Object) package — discover frequently-used Z tables / function modules / data elements / classes / structures / table types — and save a per-module / per-package reference file so later `program` / `program-to-spec` runs prefer existing CBO elements over new ones.
 model: inherit
 ---
 
-# SC4SAP Analyze CBO Objects
+# SC4SAP Stock CBO
 
 > **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): blocked — reply with the stop line there and stop.
 
@@ -12,7 +12,7 @@ Walks a CBO (Customer Business Object) package, inventories every project-built 
 
 
 <Purpose>
-Projects accumulate Z tables, Z data elements, Z function modules, and ZCL_ classes that encode domain logic. New development too often recreates near-duplicates because nobody has a compact inventory of what already exists. `analyze-cbo-obj` produces that inventory — once per package — and writes it to a file that later `sc4sap:` skills read automatically, so the next spec / program / object creation defaults to reusing proven CBO assets.
+Projects accumulate Z tables, Z data elements, Z function modules, and ZCL_ classes that encode domain logic. New development too often recreates near-duplicates because nobody has a compact inventory of what already exists. `stock-cbo` produces that inventory — once per package — and writes it to a file that later `sc4sap:` skills read automatically, so the next spec / program / object creation defaults to reusing proven CBO assets.
 </Purpose>
 
 <Response_Prefix>
@@ -41,7 +41,7 @@ Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<lab
 <Session_Trust_Bootstrap>
 **MANDATORY — runs as Step 0 before any MCP call or user interaction.**
 
-Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:analyze-cbo-obj` to pre-grant all MCP tool + file-op permissions for this session (eliminates per-tool "Allow this tool?" prompts during the 8-step walk).
+Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:stock-cbo` to pre-grant all MCP tool + file-op permissions for this session (eliminates per-tool "Allow this tool?" prompts during the 8-step walk).
 
 - If `.sc4sap/session-trust.log` already has a line within the last 24h, skip silently.
 - Otherwise run it and surface the one-line confirmation.

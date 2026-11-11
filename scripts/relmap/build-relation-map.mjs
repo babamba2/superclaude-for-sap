@@ -1,4 +1,4 @@
-// sc4sap:cbo-relation-map — build the relation map page from analyze-cbo-obj's graph.json.
+// sc4sap:cbo-relation-map — build the relation map page from stock-cbo's graph.json.
 //
 //   node build-relation-map.mjs --dir <inventory dir> [--dir <dir2> …] [--lang ko|en] [--out <file.html>]
 //                               [--snippets [--src <MCP output src dir>]] [--includes keep] [--hubs 40] [--groups 60]
@@ -175,7 +175,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     const a = args(process.argv.slice(2));
     const missing = a.graphs.filter((g) => !existsSync(g));
-    if (missing.length) { console.error(`graph.json not found: ${missing.join(', ')} — run /sc4sap:analyze-cbo-obj on the package first`); process.exit(2); }
+    if (missing.length) { console.error(`graph.json not found: ${missing.join(', ')} — run /sc4sap:stock-cbo on the package first`); process.exit(2); }
     const graphs = a.graphs.map((g) => JSON.parse(readFileSync(g, 'utf8')));
     const first = a.dirs[0] || dirname(a.graphs[0]);
     if (!a.out) {

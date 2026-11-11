@@ -85,7 +85,7 @@ node scripts/graph/graph-query.mjs graph.json usage usage.json --md
 ## How P2 / P3 consume it
 
 - **P2 — stocker.** Walk stays as is (`walk.json`). Fetch: Haiku checkers save every source member with `GetProgFullCode output:"file"` and return paths only. Extract: this script writes `graph.json` next to `inventory.json` (profile-resolved `cbo/<MODULE>/<PACKAGE>/`). Enrich: TCodes → `--tcodes`, DDIC type fixes for `guess` nodes, S/4 only: `GetWhereUsed` for incoming external edges. Finalize: `ref_count` = `stats.degree[].in` (per kind), flagship boost = `reach` from key programs, role hints from read/write patterns (log table = written only, config = read only). Incremental: re-extract only owners whose `srcHash` changed.
-- **P3 — package-to-process.** Entry points = `launches`; process candidates = `components`; step order = `flow` per shared written table (writer → reader = document hand-off, e.g. order → delivery → billing); the analyst receives the component sub-graph plus evidence lines and only names and narrates the process.
+- **P3 — process mapping (now `module-to-process`).** Entry points = `launches`; process candidates = `components`; step order = `flow` per shared written table (writer → reader = document hand-off, e.g. order → delivery → billing); the analyst receives the component sub-graph plus evidence lines and only names and narrates the process.
 - **Later (P4)** — analyze-code §14 = `impact`; create-program reuse = `callers <table> --kinds writes`; compare-programs = reads / writes / calls set differences.
 
 Tests: `tests/validation/graph.test.ts` (synthetic fixtures in `tests/fixtures/graph/`, invented ZGT names; a golden test reads a real program from the local work folder only when it exists and never copies it).

@@ -52,10 +52,10 @@
 | `sc4sap:config-to-document` | 接続先システムのモジュール設定をそのまま文書化(MM から)→ IMG ツリーに沿った HTML 1 本(SM30 風画面に実テーブル値、顧客変更行とトランスポート、設定チェック、SAP IMG ドキュメント、`sap-critic` がレビューしたコンサルタントノート、ノート・設定値・変更履歴の編集モード — `--import` で次のバージョンへ) |
 | `sc4sap:interface-mapping-spec` | インターフェースマッピング定義書 — テンプレート様式の編集可能な HTML 1 ページ(表紙、改訂履歴、R / MAPPING 列付き Source → Target グリッド、応答ブロック、変換ルール、抽出条件、項目説明)。SAP 側は DDIC / RFC シグネチャから、新規はフィールド一覧・コンサルタント提案から。相手側と変換ルールを提案、ページ内チェック、バージョン管理、英語版 |
 | `sc4sap:analyze-code` | ABAP コード解析 (Clean ABAP / パフォーマンス / セキュリティ) |
-| `sc4sap:analyze-cbo-obj` | CBO インベントリスキャナー + クロスモジュールギャップ解析 |
+| `sc4sap:stock-cbo` | CBO インベントリスキャナー + クロスモジュールギャップ解析 |
 | `sc4sap:analyze-symptom` | SAP 運用エラー/症状のステップバイステップ解析 (ダンプ、ログ、SAP Note 候補) |
 | `sc4sap:ask-consultant` | モジュールコンサルタントエージェント (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC) に直接質問。読み取り専用 — 設定された SAP 環境に沿って回答。 |
-| `sc4sap:module-to-process` | 本番 ST03N で実際に使われている TCode だけからモジュールごとの編集可能な HTML プロセスマップを作成: 標準 L1–L4 プロセスに CBO タスク・バリアント・担当・システム、L3 シナリオのスイムレーン、L4 ごとの PDD 形式タスクシート (根拠付き業務ルール、ステップ、インターフェース、S/4 コンバージョンメモ)。コンサルタントレビュー・BPH 照合・英語版は任意。`package-to-process` は 1 リリースの間ここへ転送 |
+| `sc4sap:module-to-process` | 本番 ST03N で実際に使われている TCode だけからモジュールごとの編集可能な HTML プロセスマップを作成: 標準 L1–L4 プロセスに CBO タスク・バリアント・担当・システム、L3 シナリオのスイムレーン、L4 ごとの PDD 形式タスクシート (根拠付き業務ルール、ステップ、インターフェース、S/4 コンバージョンメモ)。コンサルタントレビュー・BPH 照合・英語版は任意。|
 | `sc4sap:trust-session` | INTERNAL-ONLY — セッション全体 MCP パーミッションブートストラップ |
 
 ## スキル — 例 & ワークフロー
@@ -93,10 +93,10 @@
 → "ZCL_SD_ORDER_VALIDATOR の Clean ABAP 違反と SELECT * 使用をレビュー"
 ```
 
-### `/sc4sap:analyze-cbo-obj`
+### `/sc4sap:stock-cbo`
 Z パッケージを走査、再利用可能資産をカタログ化、クロスモジュールギャップ解析。
 ```
-/sc4sap:analyze-cbo-obj
+/sc4sap:stock-cbo
 → "ZSD_ORDER パッケージから MM モジュール再利用候補をスキャン"
 ```
 フロー: `GetPackageTree` → カテゴリ別 walk → 頻度ヒューリスティクス → クロスモジュールギャップチェック → `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`。
@@ -262,7 +262,7 @@ sc4sap のルールコーパスは膨大 — 25+ `common/*.md` + 14 `configs/{MO
 
 例: MM PO 作成時 **PS 有効** → 勘定指定カテゴリ `P`/`Q` + `PS_POSID` (WBS) を提案;**CO 有効** → コストセンター派生を提案;**QM 有効** → GR 時のインスペクションロット自動作成。
 
-`/sc4sap:setup` (Step 4) または `/sc4sap:sap-option modules` で設定。`create-program`, `create-object`, `analyze-cbo-obj`, すべてのコンサルタントエージェントが消費。
+`/sc4sap:setup` (Step 4) または `/sc4sap:sap-option modules` で設定。`create-program`, `create-object`, `stock-cbo`, すべてのコンサルタントエージェントが消費。
 
 ## SAP プラットフォーム認識 (ECC / S4 On-Prem / Cloud)
 

@@ -1,4 +1,4 @@
-# Analyze CBO Objects — Workflow Steps
+# Stock CBO — Workflow Steps
 
 Referenced by `SKILL.md`. The orchestration is **3 main-thread Socratic steps** (Step 1 / 1.5 / 2) followed by **one delegated dispatch to `sap-stocker`** (Step 3–7) and a **main-thread hand-off summary** (Step 8).
 

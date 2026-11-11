@@ -115,7 +115,7 @@ This skill reads **source code + DDIC metadata + where-used + screen/GUI-status/
 <Related_Skills>
 - `/sc4sap:program-to-spec` — single-program reverse-engineering (vertical depth)
 - `/sc4sap:analyze-code` — quality review (what's wrong, not what's different)
-- `/sc4sap:analyze-cbo-obj` — CBO package inventory (complementary context for dimension 8)
+- `/sc4sap:stock-cbo` — CBO package inventory (complementary context for dimension 8)
 </Related_Skills>
 
 Task: $ARGUMENTS

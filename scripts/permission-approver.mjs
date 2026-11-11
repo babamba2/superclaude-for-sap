@@ -22,7 +22,7 @@
  *       · GetTableContents
  *       · GetSqlQuery
  *     One narrow exception: a GetSqlQuery that is a DD* repository metadata read
- *     in the shape analyze-cbo-obj Step G3a uses (lib/dd-metadata-query.mjs) is allowed.
+ *     in the shape stock-cbo Step G3a uses (lib/dd-metadata-query.mjs) is allowed.
  *   - Every other tool → no decision (normal permission flow preserved).
  *
  * Kill switch: DISABLE_SC4SAP=1 disables auto-approval.
@@ -78,7 +78,7 @@ async function main() {
 
     const handler = toolName.slice(namespace.length);
     if (handler === 'GetSqlQuery' && isDdMetadataQuery(extractToolInput(input))) {
-      // analyze-cbo-obj G3a: one DD* repository table, explicit columns, output "file".
+      // stock-cbo G3a: one DD* repository table, explicit columns, output "file".
       console.log(
         JSON.stringify({
           continue: true,
@@ -86,7 +86,7 @@ async function main() {
             hookEventName: 'PreToolUse',
             permissionDecision: 'allow',
             permissionDecisionReason:
-              'sc4sap: DD* metadata read (analyze-cbo-obj G3a) auto-approved; other GetSqlQuery calls stay prompt-gated.',
+              'sc4sap: DD* metadata read (stock-cbo G3a) auto-approved; other GetSqlQuery calls stay prompt-gated.',
           },
         })
       );
