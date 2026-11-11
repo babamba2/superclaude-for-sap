@@ -25,11 +25,14 @@
 //   TRDIRT PROG                 TSTCT TRAN   TFTIT FUNC   TLIBT FUGR   SEOCLASSTX CLAS / INTF
 // --only texts plans the texts alone (refresh of an older inventory: write ddic-text-plan.json and collect with
 // collect-ddic-reads.mjs --plan ddic-text-plan.json --out ddic-texts.json).
+// --only appends / --only append-fields plan the two rounds of the field map (customer appends of the standard
+// tables in graph.json): ddic-append-plan.json → ddic-appends.json, then ddic-append-fields-plan.json →
+// ddic-append-fields.json (collect-ddic-reads.mjs --plan … --out …).
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { isCustomName } from './ddic-edges.mjs';
+import { isCustomName, loadDdicReads } from './ddic-edges.mjs';
 
 const up = (s) => String(s ?? '').trim().toUpperCase();
 const MAX_ROWS = 5000; // ZMCP_ADT_DISPATCH TABLE_READ cap
@@ -131,6 +134,39 @@ export function textQueries(walk, { chunk = 50, lang = 'E', graph = null, ecc = 
   return out;
 }
 
+// Field map (extract-fields.mjs): customer appends of the standard tables the package reads or writes, in two
+// rounds — 1) the .APPEND / .INCLUDE rows of those tables (ddic-append-plan.json → ddic-appends.json),
+// 2) the DD03L rows of the customer structures found there (ddic-append-fields-plan.json → ddic-append-fields.json).
+const DD03L_COLS = DD_READS[0].cols;
+
+/** round 1: standard tables that graph.json reads / writes → their include / append rows */
+export function appendQueries(graph, { chunk = 50, ecc = false } = {}) {
+  const tables = new Set();
+  const nodes = new Map((graph?.nodes || []).map((n) => [n.id, n]));
+  for (const e of graph?.edges || []) {
+    if (e.kind !== 'reads' && e.kind !== 'writes') continue;
+    const n = nodes.get(e.to);
+    const name = String(e.to).slice(String(e.to).indexOf(':') + 1);
+    if (!n || n.scope === 'dynamic' || !['TABL', 'VIEW'].includes(n.type) || isCustomName(name)) continue;
+    tables.add(name);
+  }
+  const r = { table: 'DD03L', key: 'TABNAME' };
+  return chunked(r, [...tables].sort(), chunk, "AS4LOCAL = 'A' AND FIELDNAME IN ('.APPEND','.INCLUDE') AND ", 'TABNAME, FIELDNAME, POSITION, PRECFIELD', ecc)
+    .map((q) => ({ ...q, id: q.id.replace(/^dd03l-/, 'dd03l-app-') }));
+}
+
+/** round 2: rows of round 1 (DD03L) → the customer structures' own fields */
+export function appendFieldQueries(appendRows, { fieldsChunk = 20, ecc = false } = {}) {
+  const structs = new Set();
+  for (const row of appendRows || []) {
+    const s = up(row.PRECFIELD);
+    if (s && (isCustomName(s) || /^CI_/.test(s))) structs.add(s);
+  }
+  const r = { table: 'DD03L', key: 'TABNAME' };
+  return chunked(r, [...structs].sort(), fieldsChunk, "AS4LOCAL = 'A' AND ", DD03L_COLS, ecc)
+    .map((q) => ({ ...q, id: q.id.replace(/^dd03l-/, 'dd03l-apf-') }));
+}
+
 /** only: 'ddic' = relations alone, 'texts' = texts alone, else both */
 export function ddicQueries(walk, { chunk = 50, fieldsChunk = 20, lang, graph = null, only, ecc = false } = {}) {
   const out = [];
@@ -157,10 +193,10 @@ function parseArgs(argv) {
     else if (k === '--lang') a.lang = argv[++i];
     else if (k === '--only') {
       a.only = argv[++i];
-      if (!['ddic', 'texts'].includes(a.only)) throw new Error('--only ddic|texts');
+      if (!['ddic', 'texts', 'appends', 'append-fields'].includes(a.only)) throw new Error('--only ddic|texts|appends|append-fields');
     }
   }
-  if (!a.dir) throw new Error('usage: ddic-queries.mjs --dir <inventory dir> [--sap-version ECC|S4] [--out <plan file>] [--chunk n] [--fields-chunk n] [--lang L] [--only ddic|texts]');
+  if (!a.dir) throw new Error('usage: ddic-queries.mjs --dir <inventory dir> [--sap-version ECC|S4] [--out <plan file>] [--chunk n] [--fields-chunk n] [--lang L] [--only ddic|texts|appends|append-fields]');
   const d = CHUNKS[a.sapVersion || 'ECC'];
   a.chunk ??= d.chunk;
   a.fieldsChunk ??= d.fieldsChunk;
@@ -175,7 +211,17 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
     if (!existsSync(p)) throw new Error(`walk.json not found in ${a.dir}`);
     const g = join(a.dir, 'graph.json');
     const graph = existsSync(g) ? JSON.parse(readFileSync(g, 'utf8')) : null;
-    const plan = ddicQueries(JSON.parse(readFileSync(p, 'utf8')), { ...a, graph, ecc: a.sapVersion !== 'S4' });
+    const ecc = a.sapVersion !== 'S4';
+    let plan;
+    if (a.only === 'appends') {
+      if (!graph) throw new Error(`graph.json not found in ${a.dir} — build the graph first`);
+      plan = appendQueries(graph, { chunk: a.chunk, ecc });
+    } else if (a.only === 'append-fields') {
+      const ap = join(a.dir, 'ddic-appends.json');
+      if (!existsSync(ap)) throw new Error(`ddic-appends.json not found in ${a.dir} — collect the --only appends plan first`);
+      const rows = loadDdicReads(JSON.parse(readFileSync(ap, 'utf8')), (f) => JSON.parse(readFileSync(f, 'utf8'))).ddic?.fields || [];
+      plan = appendFieldQueries(rows, { fieldsChunk: a.fieldsChunk, ecc });
+    } else plan = ddicQueries(JSON.parse(readFileSync(p, 'utf8')), { ...a, graph, ecc });
     if (a.out) {
       writeFileSync(a.out, `${JSON.stringify(plan, null, 1)}\n`);
       process.stdout.write(`${JSON.stringify({ plan: a.out, statements: plan.length, slices: slices(plan.length) })}\n`);
