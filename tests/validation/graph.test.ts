@@ -342,6 +342,28 @@ describe('graph-query', () => {
     }
   });
 
+  it('build-package-graph: old walks type includes as bare PROG — held ones are not missing, the rest go to G1b', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sc4sap-old-'));
+    const src = mkdtempSync(join(tmpdir(), 'sc4sap-old-src-'));
+    try {
+      const w = { package: 'ZGT', objects: [
+        { name: 'ZGT_Y', type: 'PROG' }, { name: 'ZGT_Y_TOP', type: 'PROG' }, { name: 'ZGT_UEXIT', type: 'PROG' }, { name: 'ZGT_NOSRC', type: 'PROG' },
+      ] };
+      writeFileSync(join(dir, 'walk.json'), JSON.stringify(w));
+      mkdirSync(join(src, 'zgt_y.prog'));
+      writeFileSync(join(src, 'zgt_y.prog', 'zgt_y.prog.abap'), 'REPORT zgt_y.\nINCLUDE zgt_y_top.\n');
+      writeFileSync(join(src, 'zgt_y.prog', 'zgt_y_top.incl.abap'), 'DATA gv TYPE i.\n');
+      expect(listOrphanIncludes({ dir, src })).toEqual({ orphans: ['ZGT_UEXIT', 'ZGT_NOSRC'], alreadyRead: 0 });
+      writeFileSync(join(src, 'zgt_uexit.incl.abap'), 'SELECT SINGLE * FROM zgt_tab INTO @DATA(ls).\n');
+      const s = buildPackageGraph({ dir, src, system: 'DEV', sapVersion: 'ECC', builtAt: '2026-11-12T00:00:00Z' });
+      expect(s.sourcesMissing).toEqual(['PROG:ZGT_NOSRC']); // ZGT_Y_TOP held by ZGT_Y, ZGT_UEXIT read; ZGT_NOSRC may be a program
+      expect(s.orphanIncludes).toEqual({ read: 1, missing: ['ZGT_NOSRC'] });
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(src, { recursive: true, force: true });
+    }
+  });
+
   it('import-usage: user-submitted QA list (text / xlsx) → usage.json side + source caveat', () => {
     const w = { objects: [{ name: 'ZGT1', type: 'TRAN' }, { name: 'ZGT2', type: 'TRAN' }, { name: 'ZGT_READER', type: 'PROG' }] };
     const st03n = 'Transaction\tSteps\tResp. time\nzgt1\t1,204\t310\nVA01\t88\t200\nZOTHER9\t3\t10\n';

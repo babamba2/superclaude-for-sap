@@ -30,10 +30,14 @@ const readJson = (p) => (existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : n
 export function buildPackageGraph({ dir, src, system, sapVersion, builtAt, fieldsDdic = [] }) {
   const walk = readJson(join(dir, 'walk.json'));
   if (!walk) throw new Error(`walk.json not found in ${dir}`);
-  const { units, missing } = loadMemberFolders(walk, src);
+  const { units, missing: noFolder } = loadMemberFolders(walk, src);
   // includes no fetched program pulls in (user-exit includes of SAP programs, leftovers): own unit, fetched in G1b
   const orphans = loadOrphanIncludes(walk, src, units);
   units.push(...orphans.units);
+  // an old walk types includes as bare PROG: those a folder holds or G1b read are not missing programs (an unread
+  // bare PROG may be a program G1 missed — it stays in both lists)
+  const held = new Set(units.map((u) => String(u.unit).toUpperCase()));
+  const missing = noFolder.filter((id) => !held.has(id.split(':')[1]));
   const reads = loadDdicReads(readJson(join(dir, 'ddic-reads.json')), (p) => JSON.parse(readFileSync(p, 'utf8')));
   const ddic = mergeDdic(
     reads.ddic,
@@ -113,8 +117,10 @@ export function loadOrphanIncludes(walk, src, units) {
   const found = new Map();
   const missing = [];
   for (const o of walk.objects || []) {
-    if (String(o.type || '').toUpperCase() !== 'PROG/I') continue;
+    const type = String(o.type || '').toUpperCase();
     const name = String(o.name).toUpperCase();
+    // PROG/I, or a bare PROG (old walks do not tell includes apart) without a program folder of its own
+    if (type !== 'PROG/I' && !(type === 'PROG' && !existsSync(join(src, `${name.toLowerCase()}.prog`)))) continue;
     if (seen.has(name)) continue;
     seen.add(name);
     const file = includeFile(src, name);
