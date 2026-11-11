@@ -1,6 +1,6 @@
 ---
 name: cbo-relation-map
-description: Draw how the customer objects of one or more CBO packages relate — one self-contained HTML relation map built from the reference graph of /sc4sap:stock-cbo (DDIC typing, check tables, search helps, value tables, row types, view bases, plus includes, calls, submits, transactions, reads and writes from source). Overview with the most connected objects, usage and groups of related objects; a search-driven neighbourhood view drawn like Obsidian's graph (relation presets, filters by kind / type / basis / usage / package); impact of a change up to the TCodes; shortest paths; a table CRUD tab; source lines behind every relation; PNG / CSV export. Customer (Z / Y / namespace) objects only. Collects the graph itself when it is missing (whole package or used TCodes only; eco = map-only collection).
+description: Draw how the customer objects of one or more CBO packages relate — one self-contained HTML relation map built from the reference graph of /sc4sap:stock-cbo (DDIC typing, check tables, search helps, value tables, row types, view bases, plus includes, calls, submits, transactions, reads and writes from source). Overview with the most connected objects, usage and groups of related objects; a search-driven neighbourhood view drawn like Obsidian's graph (relation presets, filters by kind / type / basis / usage / package); impact of a change up to the TCodes; shortest paths; a table CRUD tab; a Fields tab (who creates / reads / updates / deletes each table field, incl. customer appends of standard tables, and the TCodes and jobs that reach the writers); source lines behind every relation; PNG / CSV export. Customer (Z / Y / namespace) objects only. Collects the graph itself when it is missing (whole package or used TCodes only; eco = map-only collection).
 model: inherit
 ---
 
@@ -32,13 +32,13 @@ Settled with the user (2026-11-06) — do not ask again:
 
 | Topic | Decision |
 |---|---|
-| Input | The `graph.json` of `/sc4sap:stock-cbo` (Step G), plus its side files when present: `walk.json` / `inventory.json` (descriptions), `usage-result.json` (used / unused), `ddic-reads.json` (standard check tables, object short texts), `ddic-texts.json` (short texts of a text refresh). Missing graph → collect it per [`collect.md`](collect.md); a graph without short texts → text refresh, [`collect.md`](collect.md) § C |
+| Input | The `graph.json` of `/sc4sap:stock-cbo` (Step G), plus its side files when present: `walk.json` / `inventory.json` (descriptions), `usage-result.json` (used / unused), `ddic-reads.json` (standard check tables, object short texts), `ddic-texts.json` (short texts of a text refresh), `fields.json` (field-level CRUD, written by `build-package-graph` when DD03L was read). Missing graph → collect it per [`collect.md`](collect.md); a graph without short texts → text refresh, [`collect.md`](collect.md) § C |
 | Descriptions | The SAP short text (SE11 / SE38 / SE93 / SE37 / SE80 description; English first, else the logon language) wins over the inventory text. Placeholders (`-`, `No DDIC description available`) are dropped; a TCode whose text only names its program takes that program's description. Every related object in the side panel shows its description |
 | Collection | Scope **whole package** or **used TCodes only** (productive ST03N). Standard = full `/sc4sap:stock-cbo`; eco = map-only collection (Haiku walk + Step G, no scouts, no finalize) |
 | Objects | Customer objects only: in-package members and Z / Y / namespace objects outside the package. Standard and dynamic targets and their relations are never drawn; standard includes inside a Z function group (`LSVIM*`, …) neither. Standard **check tables** appear only as text in the side panel |
 | Includes | Folded into their program / function group by default (relations move to the owner, evidence keeps the include and line); `--includes keep` draws them |
 | Hubs | Ranked by business relations (everything except field typing); typing hubs are a separate list |
-| First screen | Overview → click or search → neighbourhood view (presets Business / All DDIC / Code only / All, depth 1–3, direction, node cap) with side panel; impact; paths (any direction / along the arrows, up to 3 alternatives); Groups tab (Louvain, auto-named); Table CRUD tab |
+| First screen | Overview → click or search → neighbourhood view (presets Business / All DDIC / Code only / All, depth 1–3, direction, node cap) with side panel; impact; paths (any direction / along the arrows, up to 3 alternatives); Groups tab (Louvain, auto-named); Table CRUD tab; Fields tab |
 | Basis | Every relation is `stated in DDIC`, `stated in source` or `inferred` (dashed) |
 | Several packages | One merged page; colour by type or by package; the same package's whole-package graph and used-TCode graph merge into one |
 | Output | One self-contained HTML page per language — no library, no network, light / dark theme. Korean page plus English companion. Rebuilt on every run, no versions. Never published: it holds the customer's object names |
@@ -61,7 +61,7 @@ Tool: `node "<PLUGIN_ROOT>/scripts/relmap/build-relation-map.mjs" --dir <dir> [-
 node -e "const g=require(process.argv[1]);const c={};for(const e of g.edges)c[e.kind]=(c[e.kind]||0)+1;console.log(JSON.stringify({builtAt:g.builtAt,sapVersion:g.sapVersion,parsed:g.coverage?.parsed??0,kinds:c}))" "<dir>/graph.json"
 ```
 
-One line each, only when true (notes, not stops): `parsed` = 0 → DDIC relations only (no code relations, no CRUD tab); no `checks` / `searchHelp` / `rowType` / `basedOn` / `valueTable` → the inventory predates the DDIC relation reads (G3), typing only; `builtAt` older than 30 days → may be out of date — offer [`collect.md`](collect.md).
+One line each, only when true (notes, not stops): `parsed` = 0 → DDIC relations only (no code relations, no CRUD or Fields tab); `parsed` > 0 but no `fields.json` beside `graph.json` and `ddic-reads.json` present → rerun G5 of [`../stock-cbo/graph-usage.md`](../stock-cbo/graph-usage.md) first (seconds, no SAP call) so the Fields tab has data; no `checks` / `searchHelp` / `rowType` / `basedOn` / `valueTable` → the inventory predates the DDIC relation reads (G3), typing only; `builtAt` older than 30 days → may be out of date — offer [`collect.md`](collect.md).
 
 **Step 3 — Build** (one Bash call per language, all folders in one call; `--snippets` when any graph has `parsed` > 0):
 
@@ -94,6 +94,7 @@ What to tell a user who asks how to read the page:
 - **Path** — a second object next to "Path to": shortest chain (any direction or along the arrows), up to 3 alternatives. The address keeps `#n=TYPE:NAME&to=TYPE:NAME` for sharing.
 - **Groups** — Louvain communities, named from shared name prefix and main TCode / program description.
 - **Table CRUD** — per table, which objects create / read / update / delete it (C R U D), most writers first; searchable.
+- **Fields** — per table field (and per customer structure through the tables that include it): C / R / U / D / F (condition) by object, from SQL statements only — `UPDATE SET f` changes that field, writes from a work area count as "whole row"; source line and snippet per reference; for writers the TCodes and jobs that reach them; "never read" / "never written" flags; CSV per table. Search `TABLE-FIELD` jumps straight to a field. Needs `fields.json` (a graph built before it → rebuild with G5, seconds, no SAP call; appends need G6).
 - **Export** — PNG of the drawing, CSV of the drawn relations.
 </Page_Guide>
 

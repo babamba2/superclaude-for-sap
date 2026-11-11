@@ -174,6 +174,10 @@ export function parseWrite(u) {
     const w = /\bWHERE\b(.*)$/.exec(s);
     return w ? tokenize(w[1]).filter((t) => !t.startsWith('@') && !t.includes('-') && /^[A-Z0-9_/]+(~[A-Z0-9_/]+)?$/.test(t)) : [];
   };
+  // cluster tables: the whole row (no field names in the statement)
+  if ((m = new RegExp(`^(IMPORT|EXPORT|DELETE)\\b.*\\b(?:FROM|TO) DATABASE\\s+${T}\\(`).exec(u))) {
+    return { table: m[2], ops: m[1] === 'IMPORT' ? ['R'] : m[1] === 'EXPORT' ? ['C', 'U'] : ['D'], row: true, cond: [] };
+  }
   if (/^INSERT\s+\S+\s+INTO\s+TABLE\b/.test(u) || /^INSERT INTO TABLE\b/.test(u) || /^INSERT LINES\b/.test(u)) return null;
   if ((m = new RegExp(`^INSERT (?:INTO )?${T}(?:\\s+(?:CLIENT SPECIFIED|USING CLIENT \\S+|USING ALL CLIENTS))?(?:\\s+(FROM|VALUES)\\b|$)`).exec(u))) return { table: m[1], ops: ['C'], row: true, cond: [] };
   if ((m = new RegExp(`^UPDATE ${T}\\s+(?:CLIENT SPECIFIED\\s+|USING CLIENT \\S+\\s+)?SET\\b(.*?)(?:\\bWHERE\\b.*)?$`).exec(u))) {

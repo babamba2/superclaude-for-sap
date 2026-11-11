@@ -156,6 +156,138 @@
     $('#crud-q').addEventListener('input', (ev) => render(ev.target.value));
   }
 
+  // ---------- fields: who creates / reads / updates / deletes each field ----------
+  // M.fx rows: tabs [name, scope, node, [[field, key, struct]]] · r [tab, field|-1, op, obj, count, ev, snip, low]
+  const FX = M.fx || null, FX_OPS = ['C', 'R', 'U', 'D', 'F'];
+  const fxRefs = FX ? FX.tabs.map(() => []) : [];
+  if (FX) FX.r.forEach((x, k) => fxRefs[x[0]].push(k));
+  const fxJob = new Set(FX ? FX.job : []);
+  const fxObj = (o) => (FX.oi[o] >= 0 ? nodeLink(FX.oi[o]) : `<span>${esc(FX.o[o].replace(/^[A-Z]+:/, ''))}</span> <small>${esc(FX.o[o].split(':')[0])}</small>`);
+  const fxBadge = (ops) => `<span class="crud">${FX_OPS.filter((c) => ops.includes(c)).map((c) => `<b class="c-${c}">${c}</b>`).join('')}</span>`;
+  const S_FX = { tab: -1, field: -2 };
+  /** per field of table t: { ops: Map(op → [ref k]) } — row refs (field -1) count for every field */
+  function fxFieldOps(t) {
+    const fields = FX.tabs[t][3], rows = fields.map(() => FX_OPS.map(() => []));
+    for (const k of fxRefs[t]) {
+      const x = FX.r[k];
+      if (x[1] >= 0) rows[x[1]][x[2]].push(k);
+      else for (const r of rows) r[x[2]].push(k);
+    }
+    return rows;
+  }
+  // FORM code of a function group belongs to the group, but callers reach its function modules: walk from both
+  const fxKids = new Map();
+  if (FX) for (let i = 0; i < N; i++) if (nParent(i) >= 0) (fxKids.get(nParent(i)) || fxKids.set(nParent(i), []).get(nParent(i))).push(i);
+  const fxWhenMemo = new Map();
+  function fxWhen(o) {
+    if (!fxWhenMemo.has(o)) fxWhenMemo.set(o, fxWhenHtml(o));
+    return fxWhenMemo.get(o);
+  }
+  function fxWhenHtml(o) {
+    const i = FX.oi[o];
+    if (i < 0) return '';
+    const tcs = new Set(nType(i) === 'TRAN' ? [i] : []), jobs = new Set();
+    for (const s of [i, ...(fxKids.get(i) || [])]) {
+      const im = impactOf(s);
+      im.tcodes.forEach((x) => tcs.add(x));
+      [s, ...im.progs].forEach((x) => { if (fxJob.has(x)) jobs.add(x); });
+    }
+    const tc = [...tcs];
+    const parts = [];
+    if (tc.length) parts.push(`${esc(T.fxTcodes)} ${tc.slice(0, 12).map((x) => nodeLink(x)).join(', ')}${tc.length > 12 ? ` <small>+${fmt(tc.length - 12)}</small>` : ''}`);
+    if (jobs.size) parts.push(`${esc(T.fxJobs)} ${[...jobs].slice(0, 8).map((x) => nodeLink(x)).join(', ')}`);
+    return `<div class="when">${parts.join(' · ') || esc(T.fxNoEntry)}</div>`;
+  }
+  function fxEvidence(x) {
+    const head = esc(FX.e[x[5]] || '');
+    if (x[6] < 0 || !M.snip) return head ? `<div class="ev">${head}</div>` : '';
+    const [unit, start, line, text] = M.snip[x[6]];
+    const body = text.split('\n').map((l, n) => `<span class="${start + n === line ? 'hl' : ''}"><i>${start + n}</i>${esc(l)}</span>`).join('\n');
+    return `<details class="ev"><summary>${head}</summary><pre class="snip" title="${esc(unit)}">${body}</pre></details>`;
+  }
+  function fxDetail(t, f) {
+    const box = $('#fx-detail');
+    if (f < 0) { box.innerHTML = ''; return; }
+    const [name, key, s] = FX.tabs[t][3][f], ops = fxFieldOps(t)[f];
+    let html = `<h3>${esc(FX.tabs[t][0])}-${esc(name)}${key ? ` <small>${esc(T.fxKey)}</small>` : ''}${s >= 0 ? ` <small>${esc(T.fxStruct)} ${esc(FX.st[s])}</small>` : ''}</h3>`;
+    FX_OPS.forEach((op, oi) => {
+      const ks = ops[oi];
+      if (!ks.length) return;
+      html += `<h4>${fxBadge(op)} ${esc(T.fxOpName[op])} <small>${fmt(ks.length)}</small></h4><ul class="el">`;
+      for (const k of ks.slice(0, 200)) {
+        const x = FX.r[k];
+        html += `<li>${fxObj(x[3])}${x[1] < 0 ? ` <span class="b">${esc(T.fxRow)}</span>` : ''}${x[7] ? ` <span class="b b2">${esc(T.fxLow)}</span>` : ''}${x[4] > 1 ? ` <small>×${x[4]}</small>` : ''}${op === 'C' || op === 'U' || op === 'D' ? fxWhen(x[3]) : ''}${fxEvidence(x)}</li>`;
+      }
+      if (ks.length > 200) html += `<li class="muted">${esc(T.more.replace('{n}', fmt(ks.length - 200)))}</li>`;
+      html += '</ul>';
+    });
+    box.innerHTML = html;
+  }
+  function fxTable(t) {
+    S_FX.tab = t;
+    const [name, scope, node, fields] = FX.tabs[t], rows = fxFieldOps(t);
+    const objs = (ks) => new Set(ks.map((k) => FX.r[k][3])).size;
+    const body = fields.map(([f, key, s], i) => {
+      const c = rows[i].map(objs), noRead = !c[1] && !c[4], noWrite = !c[0] && !c[2];
+      const flags = [noRead ? `<span class="b b2">${esc(T.fxNoRead)}</span>` : '', noWrite ? `<span class="b b2">${esc(T.fxNoWrite)}</span>` : ''].join(' ');
+      return `<tr data-fx="${i}"><td class="r">${i + 1}</td><td><a href="#">${esc(f)}</a>${key ? ' 🔑' : ''}</td><td>${s >= 0 ? esc(FX.st[s]) : ''}</td>${c.map((v, oi) => `<td class="r">${v ? `<b class="c-${FX_OPS[oi]}">${fmt(v)}</b>` : '·'}</td>`).join('')}<td>${flags}</td></tr>`;
+    }).join('');
+    $('#fx-grid').innerHTML = `<h3>${node >= 0 ? nodeLink(node, true) : esc(name)}${scope ? ` <small>${esc(T.fxAppend)}</small>` : ''}</h3>
+      <table class="fx"><thead><tr><th>#</th><th>${esc(T.fxField)}</th><th>${esc(T.fxStruct)}</th>${FX_OPS.map((c) => `<th class="r"><b class="c-${c}">${c}</b></th>`).join('')}<th></th></tr></thead><tbody>${body}</tbody></table>`;
+    $('#fx-grid tbody').addEventListener('click', (ev) => {
+      const tr = ev.target.closest('tr[data-fx]');
+      if (!tr || ev.target.closest('[data-n]')) return;
+      ev.preventDefault();
+      $('#fx-grid tbody').querySelectorAll('tr').forEach((x) => x.classList.toggle('sel', x === tr));
+      S_FX.field = Number(tr.dataset.fx); fxDetail(t, S_FX.field);
+    });
+    S_FX.field = -1; fxDetail(t, -1);
+  }
+  function fxCsv() {
+    if (S_FX.tab < 0) return;
+    const q = (s) => `"${String(s).replace(/"/g, '""')}"`, [name, , , fields] = FX.tabs[S_FX.tab];
+    const rows = [['table', 'field', 'key', 'structure', 'op', 'object', 'row_level', 'count', 'confidence', 'evidence'].join(',')];
+    const per = fxFieldOps(S_FX.tab);
+    fields.forEach(([f, key, s], i) => FX_OPS.forEach((op, oi) => per[i][oi].forEach((k) => {
+      const x = FX.r[k];
+      rows.push([name, f, key ? 'X' : '', s >= 0 ? FX.st[s] : '', op, FX.o[x[3]], x[1] < 0 ? 'X' : '', x[4], x[7] ? 'low' : '', FX.e[x[5]]].map(q).join(','));
+    })));
+    download(`${name}-fields.csv`, new Blob(['﻿' + rows.join('\r\n')], { type: 'text/csv;charset=utf-8' }));
+  }
+  function fields() {
+    const sec = $('#tab-fields');
+    if (!sec) return;
+    if (!FX) { sec.innerHTML = `<h2>${esc(T.hFields)}</h2><p class="muted">${esc(T.fxNone)}</p>`; return; }
+    const st = FX.stats;
+    sec.innerHTML = `<h2>${esc(T.hFields)}</h2><p class="muted">${esc(T.fxHelp)}</p>
+      <p class="muted">${esc(T.fxStats.replace('{t}', fmt(st.tables)).replace('{f}', fmt(st.fields)).replace('{r}', fmt(st.refs)).replace('{a}', fmt(st.appendTables)))}</p>
+      <div class="bar"><input id="fx-q" type="search" placeholder="${esc(T.fxSearch)}" autocomplete="off"><button id="fx-csv">${esc(T.exportCsv)}</button><small>${esc(T.fxLegend)}</small></div>
+      <div class="cols"><div><ul class="el" id="fx-list"></ul>${FX.idleCount ? `<details class="more"><summary>${esc(T.fxIdle.replace('{n}', fmt(FX.idleCount)))}</summary><p class="muted">${FX.idle.map(esc).join(', ')}</p></details>` : ''}</div>
+      <div><div id="fx-grid"></div><div id="fx-detail"></div></div></div>`;
+    const tabDesc = (t) => (FX.tabs[t][2] >= 0 ? nDesc(FX.tabs[t][2]) : '');
+    const list = (q) => {
+      const Q = q.trim().toUpperCase(), [qt, qf] = Q.includes('-') ? Q.split('-') : [Q, ''];
+      const hit = [];
+      FX.tabs.forEach((x, t) => {
+        const structs = new Set(x[3].map((f) => (f[2] >= 0 ? FX.st[f[2]] : '')));
+        const ok = !Q || x[0].includes(qt) || [...structs].some((s) => s && s.includes(qt)) || (!qf && tabDesc(t).toUpperCase().includes(Q)) || (!qf && x[3].some((f) => f[0] === Q));
+        if (ok && (!qf || x[3].some((f) => f[0].startsWith(qf)))) hit.push(t);
+      });
+      $('#fx-list').innerHTML = hit.slice(0, 300).map((t) => `<li><a href="#" data-fxt="${t}">${esc(FX.tabs[t][0])}</a> <small>${fmt(fxRefs[t].length)}</small>${FX.tabs[t][1] ? ` <small>${esc(T.fxAppend)}</small>` : ''}${tabDesc(t) ? `<div class="desc">${esc(tabDesc(t))}</div>` : ''}</li>`).join('')
+        + (hit.length > 300 ? `<li class="muted">${esc(T.more.replace('{n}', fmt(hit.length - 300)))}</li>` : '') + (hit.length ? '' : `<li class="muted">${esc(T.noMatch)}</li>`);
+      if (!hit.length) { S_FX.tab = -1; $('#fx-grid').innerHTML = ''; $('#fx-detail').innerHTML = ''; }
+      if (qf && hit.length === 1) {
+        fxTable(hit[0]);
+        const fi = FX.tabs[hit[0]][3].findIndex((f) => f[0] === qf);
+        if (fi >= 0) { S_FX.field = fi; fxDetail(hit[0], fi); $(`#fx-grid tr[data-fx="${fi}"]`)?.classList.add('sel'); }
+      }
+    };
+    $('#fx-list').addEventListener('click', (ev) => { const a = ev.target.closest('[data-fxt]'); if (a) { ev.preventDefault(); fxTable(Number(a.dataset.fxt)); } });
+    $('#fx-q').addEventListener('input', (ev) => list(ev.target.value));
+    $('#fx-csv').addEventListener('click', fxCsv);
+    list('');
+  }
+
   // ---------- explore: controls ----------
   function controls() {
     const kc = new Map(); M.edges.forEach((e) => kc.set(e[2], (kc.get(e[2]) || 0) + 1));
@@ -929,7 +1061,7 @@
 
   // ---------- boot ----------
   window.__relmap = { S, G }; // read-only peek for checks (console / automation); the page never reads it
-  overview(); groups(); crud(); controls();
+  overview(); groups(); crud(); fields(); controls();
   const h = new URLSearchParams(location.hash.slice(1));
   if (h.get('dir') === 'out') { S.pathDir = 'out'; $('#path-dir').value = 'out'; }
   const hn = h.get('n') ? resolveName(h.get('n')) : -1, ht = h.get('to') ? resolveName(h.get('to')) : -1;
@@ -939,5 +1071,5 @@
     if (ht >= 0) { S.target = ht; $('#q2').value = nName(ht); findPath(false); }
     else if (h.get('impact')) { S.mode = 'impact'; record(false); draw(); }
   } else if (h.get('g')) focusGroup(Number(h.get('g')) - 1, false);
-  else { history.replaceState({ v: { m: 'none' }, d: 0, back: '' }, '', location.hash || '#'); navUI(); showTab(['groups', 'crud'].includes(h.get('tab')) ? h.get('tab') : 'overview'); }
+  else { history.replaceState({ v: { m: 'none' }, d: 0, back: '' }, '', location.hash || '#'); navUI(); showTab(['groups', 'crud', 'fields'].includes(h.get('tab')) ? h.get('tab') : 'overview'); }
 })();
