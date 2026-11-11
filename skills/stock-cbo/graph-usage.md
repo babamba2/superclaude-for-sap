@@ -8,7 +8,7 @@ Banner: `▶ phase=graph · agent=main + sap-checker×<n> · model=Haiku`. Every
 
 ## G1 — Fetch sources (`sc4sap:sap-checker` × n, `MODE: scout`)
 
-Scope = every `PROG` and `FUGR` in `walk.json → objects[]`, 10 per checker, at most 8 checkers per message. Skip the dispatch when there are none.
+Scope = every `PROG/P` and `FUGR` in `walk.json → objects[]` (`PROG/I` members are includes: read through their owner, or in G1b), 10 per checker, at most 8 checkers per message. Skip the dispatch when there are none.
 
 ```
 MODE: scout
@@ -20,6 +20,16 @@ For each object return exactly one line:
 ```
 
 `<SRC>` = the parent directory of the returned folders (they share one MCP output directory). `ERROR` lines are not retried — `build-package-graph` lists those objects under `sourcesMissing`, and finalize names them in `index.md`.
+
+### G1b — Includes no member program pulls in
+
+User-exit includes (included by SAP programs such as `MV45AFZZ`) and leftovers are package members no G1 folder holds. List them:
+
+```bash
+node "<PLUGIN_ROOT>/scripts/graph/build-package-graph.mjs" --dir "<DIR>" --src "<SRC>" --orphans
+```
+
+It prints `{ orphans: [...], alreadyRead }`. Empty `orphans` → skip. Otherwise `sc4sap:sap-checker` × n, `MODE: scout`, 20 names per checker, at most 8 per message: for each name `GetInclude` with `output: "file"` once, return `key="src" value="ok"` or `value="ERROR <message>"`, never read the source. The files land in `<SRC>` as `<name>.incl.abap`; G5 reads them as units of their own, and its summary reports what is still missing under `orphanIncludes`.
 
 ## G2 — TCodes (main thread)
 

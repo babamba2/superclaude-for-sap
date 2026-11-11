@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -9,7 +9,7 @@ import { extractGraph, discoverUnits, runCli } from '../../scripts/graph/extract
 // @ts-expect-error — plain .mjs script, no type declarations
 import { loadGraph, callers, reach, impact, flow, components, stats, usage, runQuery } from '../../scripts/graph/graph-query.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { buildPackageGraph } from '../../scripts/graph/build-package-graph.mjs';
+import { buildPackageGraph, listOrphanIncludes } from '../../scripts/graph/build-package-graph.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { parseDdicFacts } from '../../scripts/graph/ddic-edges.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -307,6 +307,33 @@ describe('graph-query', () => {
       expect(readFileSync(join(dir, 'usage.md'), 'utf8')).toMatch(/direct 2/);
     } finally {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('build-package-graph: PROG/I members no folder holds are read from <name>.incl.abap (G1b)', () => {
+    const dir = mkdtempSync(join(tmpdir(), 'sc4sap-orph-'));
+    const src = mkdtempSync(join(tmpdir(), 'sc4sap-orph-src-'));
+    try {
+      const w = { package: 'ZGT', objects: [
+        { name: 'ZGT_X', type: 'PROG/P' }, { name: 'ZGT_X_TOP', type: 'PROG/I' },
+        { name: 'ZGT_EXIT', type: 'PROG/I' }, { name: 'ZGT_GONE', type: 'PROG/I' }, { name: 'ZGT_TAB', type: 'TABL/DT' },
+      ] };
+      writeFileSync(join(dir, 'walk.json'), JSON.stringify(w));
+      mkdirSync(join(src, 'zgt_x.prog'));
+      writeFileSync(join(src, 'zgt_x.prog', 'zgt_x.prog.abap'), 'REPORT zgt_x.\nINCLUDE zgt_x_top.\n');
+      writeFileSync(join(src, 'zgt_x.prog', 'zgt_x_top.incl.abap'), 'DATA gv TYPE i.\n');
+      // the orphan's helper list, before G1b
+      expect(listOrphanIncludes({ dir, src })).toEqual({ orphans: ['ZGT_EXIT', 'ZGT_GONE'], alreadyRead: 0 });
+      writeFileSync(join(src, 'zgt_exit.incl.abap'), 'UPDATE zgt_tab SET flag = abap_true WHERE id = 1.\n');
+      expect(listOrphanIncludes({ dir, src })).toEqual({ orphans: ['ZGT_GONE'], alreadyRead: 1 });
+      const s = buildPackageGraph({ dir, src, system: 'DEV', sapVersion: 'ECC', builtAt: '2026-11-12T00:00:00Z' });
+      expect(s.sourcesMissing).toEqual([]); // PROG/I members are not program folders
+      expect(s.orphanIncludes).toEqual({ read: 1, missing: ['ZGT_GONE'] });
+      const g = JSON.parse(readFileSync(join(dir, 'graph.json'), 'utf8'));
+      expect(g.edges.some((e: { from: string; to: string; kind: string }) => e.from === 'PROG:ZGT_EXIT' && e.to.endsWith(':ZGT_TAB') && e.kind === 'writes')).toBe(true);
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+      rmSync(src, { recursive: true, force: true });
     }
   });
 
