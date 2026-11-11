@@ -1,0 +1,53 @@
+재시작했어 
+
+<pasted_content id="8d69">
+
+1. DTEL/DOMA 수정 (끝)
+
+- $TMP 등록 버그를 고쳤어요. DE와 도메인도 $TMP로 만들면 TADIR에 등록되지 않았어요. 테이블 때와 같은 방식으로 고쳐서 HKT-DEV에 반영했어
+  - 확인: 수정 후 다시 저장하니 YMCP_TEST_DOMA_T1과 YMCP_TEST_DTEL_T1이 $TMP로 검색됐어요.
+- DE 삭제 버그를 하나 더 찾았어요. DE 삭제는 지금까지 한 번도 동작하지 않았어요.
+  - RS_DD_DELETE_OBJ는 오브젝트 종류를 한 글자 코드로 받아요 (D=도메인, E=DE, T=테이블, A=table type).
+  - FM은 'DTEL'을 넘겼고, 이게 'D'로 요. 'E'로 고쳤어요.
+  - 수정 후 YMCP_TEST_DTEL_T1 삭제에 성공했어요.
+- 테스트 오브젝트 2개는 모두 지웠어
+
+2. Table type (만들었어요, 실제 시스
+
+SAP 쪽 (HKT-DEV, TR HKDK9A2OKS, 모두
+- 새 FM ZMCP_ADT_DDIC_TTYP
+  - DDIF_TTYP_PUT으로 헤더(DD40V)와 키 필드(DD42V)를 저장해요.
+  - TR 등록, $TMP 등록, SAP 메시지   어요.
+- ZMCP_ADT_DDIC_ACTIVATE에 TTYP 분기를 추가했어요 (DDIF_TTYP_ACTIVATE).
+- OData 클래스 MPC/DPC_EXT에 DdicTtyp 액션을 추가했어요. 기존 DdicTabl 정의를 그대로 복제했고, 바꾸기 전 백업도 받아 뒀어요.
+
+MCP 쪽 (새 도구 2개)
+- CreateTableType: 입력은 row_type, row_kind(structure / data_element / table_type), access_type,
+  key_definition, key_kind, key_comp
+  - S/4는 ADT를 써요 (클라이언트 라이브러리).
+  - ECC는 새 FM을 써요.
+  - 키 필드를 직접 지정하는 방식은 ECC만 지원해요.
+  - hashed 테이블은 unique 키가 필요해서 미리 검사해요.
+- DeleteTableType: S/4와 ECC 모두 지
+- 테스트 10개 추가, 전체 492개 통과, tsc 오류 없음. dist를 캐시에 반영했어요.
+
+3. 같이 찾은 setup 버그 (중요)
+
+setup이 설치하는 OData 클래스에는 Dispatch와 Textpool 액션만 있었어요. 리포의 클래스 파일이 예전 버전이었기 때문이에요. 그래서 setup만 돌린 ECC 사용자는 DDIC 쓰기와 읽기가 전부 실패해요.
+- 지금 HKT-DEV에서 돌고 있는 클래스(TTYP 포함)를 리포에 abap/zcl_zmcp_adt_{mpc,dpc}_ext.clas.abap로
+  저장했어요.
+- setup 문서(odata-classes-install.md)가 이 파일을 쓰도록 바꿨어요.
+- setup Step 9a.2에 TTYP FM을 추가했
+- ecc-ddic-fallback.md와 create-object 지원 목록에 Table type을 넣었어요.
+- sc4sap CI 게이트 통과 (테스트 919개).
+
+다음 할 일
+
+1. 재시작해 주세요. 그 뒤 $TMP에 테스트 table type을 만들어 볼게요: 기본형, sorted + 키 필드 지정형,
+   DE를 행 타입으로 쓰는 형. 다시 읽  할게요.
+   - Gateway가 OData 메타데이터를 캐시에 들고 있으면 새 액션 DdicTtyp를 못 찾을 수 있어요. 그러면
+     캐시를 비워야 해요 (ZMCP_ADT_FLLEANUP).
+2. 아직 커밋하지 않았어요. 요청하시면 제 파일만 골라서 커밋할게요.
+   - MCP: 버전을 4.9.1로 올려요.
+   - sc4sap: 릴리스 버전을 올리고 MCP 고정 버전도 바꿔요.
+</pasted_content id="8d69">
