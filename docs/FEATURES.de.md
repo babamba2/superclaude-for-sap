@@ -20,7 +20,6 @@
 - [Datenextraktions-Blocklist](#-datenextraktions-blocklist)
 - [acknowledge_risk HARD RULE](#-acknowledge_risk--hard-rule)
 - [RFC-Backend-Auswahl](#-rfc-backend-auswahl)
-- [RFC-Gateway (Enterprise)](#-rfc-gateway-enterprise-deployment)
 
 ## 26 SAP-spezialisierte Agenten
 
@@ -357,40 +356,16 @@ Wenn ein `GetTableContents` / `GetSqlQuery`-Permission-Prompt erscheint, **"Allo
 
 ## 🔀 RFC-Backend-Auswahl
 
-Screen / GUI Status / Text Element Operationen dispatchen über RFC-fähige FMs auf SAP. 5 Transport-Backends:
+Screen / GUI Status / Text Element Operationen dispatchen über RFC-fähige FMs auf SAP. 2 Transport-Backends:
 
 | `SAP_RFC_BACKEND` | Wie | Wann verwenden |
 |---|---|---|
 | `odata` (Standard) | HTTPS OData v2 `ZMCP_ADT_SRV` | Funktioniert auf gehärteten Gateway-Installationen; läuft über Standard-Gateway-Autorisierung (S_SERVICE). [docs/odata-backend.md](odata-backend.md) |
 | `soap` | HTTPS `/sap/bc/soap/rfc` | Klassischer Pfad, wenn `/sap/bc/soap/rfc` ICF-Node aktiv ist (wird in Produktion zunehmend deaktiviert) |
-| `native` | `node-rfc` + NW RFC SDK | Niedrigste Latenz; erfordert bezahltes SDK. _Veraltet — `zrfc` verwenden_ |
-| `gateway` | HTTPS zu sc4sap-rfc-gateway Middleware | 10+ Teams, zentralisiert |
-| 🆕 `zrfc` | HTTPS ICF-Handler `/sap/bc/rest/zmcp_rfc` | SOAP zu, OData Gateway schwierig (typisches ECC). Kein SDK, kein Gateway — eine Klasse + ein SICF-Node |
+
+`native`, `gateway` und `zrfc` wurden in MCP 4.10.0 entfernt — mit diesen Werten startet der MCP-Server nicht. Auf `odata` oder `soap` umstellen.
 
 Jederzeit wechseln via `/sc4sap:sap-option`, MCP neu verbinden, mit `/sc4sap:sap-doctor` verifizieren.
-
-## 🏢 RFC-Gateway (Enterprise Deployment)
-
-Für große SAP-Entwicklungsteams (Dutzende Entwickler) unterstützt sc4sap ein **zentrales RFC-Gateway**-Middleware, so dass Entwickler-Laptops nie das SAP NW RFC SDK / MSVC brauchen. Ein Linux-Host betreibt `node-rfc` + SDK; alle MCP-Clients sprechen HTTPS/JSON mit ihm.
-
-**Wann wichtig**:
-- IT-Richtlinie verbietet SAP NW RFC SDK auf Entwicklermaschinen
-- SAP Basis hat `/sap/bc/soap/rfc` firmenweit deaktiviert
-- Zentrales RFC-Logging, Rate Limiting, Entwickler-spezifische Audit-Trails nötig
-
-**Konfiguration**:
-```
-/sc4sap:sap-option
-# SAP_RFC_BACKEND=gateway
-#     SAP_RFC_GATEWAY_URL=https://rfc-gw.company.com
-#     SAP_RFC_GATEWAY_TOKEN=<team-or-per-user-bearer>
-```
-
-Gateway leitet Entwickler-Credentials via `X-SAP-*`-Header weiter — SAP-Audit-Log identifiziert den echten User.
-
-> **Privates Repository.** Gateway-Quellcode in einem privaten Repo — Docker-Image muss gegen das SAP-lizenzierte NW RFC SDK gebaut werden (nicht redistribuierbar). Organisationen kontaktieren den Maintainer für Zugang, klonen, SDK selbst herunterladen (S-User), Image im eigenen Netz bauen. Open-Source-Nutzer: `SAP_RFC_BACKEND=odata` (Standard) oder `zrfc` — beide ohne SDK.
-
-Clientseitiges Design ist öffentlich (`abap-mcp-adt-powerup/src/lib/gatewayRfc.ts`) — der HTTP-Kontrakt ist dokumentiert, jede konforme Middleware (Node/Java/Python) funktioniert.
 
 ---
 

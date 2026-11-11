@@ -15,6 +15,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 - ECC DDIC FMs: objects created in `$TMP` are registered in TADIR (Table, Data Element, Domain); deleting a data element passed the object type `D` (domain) to `RS_DD_DELETE_OBJ` and never worked — now `E`.
 - Integration maps (`cross-module.mjs`): a map that covers several module codes (`model.modules`, e.g. LE + WM) owns the objects of all of them; a called customer function module is followed into its own include of the function group (before, the walk stopped at the function); a customer table that the name prefix assigns to the other map but only this map writes is no longer reported as a hand-off.
 
+### Removed
+- **RFC backends `native`, `gateway`, `zrfc` and the RFC connection `SAP_CONNECTION_TYPE=rfc`** (MCP 4.10.0, pin → `67b8db7`). Setup offers `odata` (default) or `soap`; Step 9d (ZRFC ICF handler) is gone. A profile that still uses a removed value stops the MCP server at boot with the fix; `/sc4sap:sap-doctor` reports it as a BLOCKER (check 6.0) and `/sc4sap:sap-option` offers odata / soap.
+
 ### Security
 - **Blocklist hook covers source uploads.** `block-forbidden-tables.mjs` now also checks `Create*` / `Update*` source tools: a test class (or a source holding `FOR TESTING`) or a CDS view that reads a `deny`-tier table is refused, because running it returns the rows to the agent (ABAP Unit messages, `GetSqlQuery` on the view). Plain business code that reads e.g. KNA1 is unchanged. The hook is now wired in the plugin's `hooks/hooks.json`, so it runs for every install without re-running setup.
 - **No exception route for `deny` tables.** `common/data-extraction-policy.md`: a chat request ("just this once") is not an authorization; no program / class / FM / CDS view may be written to read a `deny` table; only the user can widen the scope by reselecting the blocklist profile. The one-off approval now applies to `warn`-tier tables only.

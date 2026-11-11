@@ -10,10 +10,10 @@
 3. **Render the status snapshot** (see `<Status_Snapshot>` in SKILL.md) — pull `GetSession` and `GetInactiveObjects` via the MCP server, merge with file values, show the compact panel. If the user's intent is status-only (`status` / `show` / `hud`), STOP here.
 
 4. **Display full editor table** of managed key values. **MASK secrets**:
-   - `SAP_PASSWORD`, `SAP_RFC_PASSWD`, `SAP_RFC_GATEWAY_TOKEN`, `XSUAA_CLIENT_SECRET` → show `***` with length in parens (e.g. `*** (11 chars)`)
+   - `SAP_PASSWORD`, `XSUAA_CLIENT_SECRET`, and leftover secrets of removed backends (`SAP_RFC_PASSWD`, `SAP_RFC_GATEWAY_TOKEN`) → show `***` with length in parens (e.g. `*** (11 chars)`)
    - Never echo plaintext secrets, even if the user asks.
    - Commented-out keys (e.g. `# MCP_BLOCKLIST_PROFILE=standard`) → show as *(commented, default: standard)*.
-   - When `SAP_RFC_BACKEND` is unset or `=odata`, show only the OData block (`SAP_RFC_ODATA_*`) and collapse the rest with "RFC backend-specific fields: hidden (backend=odata)". When `=soap`, collapse all backend-specific blocks into "RFC backend-specific fields: hidden (backend=soap)". When `=native`, show only the native block. When `=gateway`, show only the gateway block. When `=zrfc`, show only `SAP_RFC_ZRFC_*`.
+   - When `SAP_RFC_BACKEND` is unset or `=odata`, show only the OData block (`SAP_RFC_ODATA_*`) and collapse the rest with "RFC backend-specific fields: hidden (backend=odata)". When `=soap`, collapse all backend-specific blocks into "RFC backend-specific fields: hidden (backend=soap)". When `=native` / `=gateway` / `=zrfc`, flag it: removed in MCP 4.10.0, offer `odata` / `soap` (see `rfc-managed-keys.md` → Validation rules).
 
 5. **Ask** the user which key(s) to change. Accept:
    - A single key name
@@ -21,7 +21,7 @@
    - "all" — walk each managed key one by one
    - "blocklist" — step through only the `MCP_BLOCKLIST_*` / `MCP_ALLOW_TABLE` group
    - "connection" — step through `SAP_*` credentials only
-   - "rfc" — step through `SAP_RFC_BACKEND` + the backend-specific block (`SAP_RFC_ODATA_*` when backend = `odata` (default), `SAP_RFC_*` when `native`, `SAP_RFC_GATEWAY_*` when `gateway`, `SAP_RFC_ZRFC_*` when `zrfc`; only `SAP_RFC_BACKEND` offered when `soap`)
+   - "rfc" — step through `SAP_RFC_BACKEND` + the backend-specific block (`SAP_RFC_ODATA_*` when backend = `odata` (default); only `SAP_RFC_BACKEND` offered when `soap`)
    - "industry" — shortcut into industry-selection.md flow
    - "modules" — edit `SAP_ACTIVE_MODULES` (comma-separated from `FI,CO,MM,SD,PP,PM,QM,WM,HCM,PS,TR,TM,BW,Ariba`). Show checkbox-style list with current active set highlighted; accept multi-select add/remove. Cross-module implications listed in `common/active-modules.md` are hinted per change (e.g., "activating PS will add WBS integration hints to MM/SD CBOs").
    - "dispatch" / "model" — shortcut into the model-dispatch.md flow (edits `~/.sc4sap/preferences.json`, not `sap.env`)

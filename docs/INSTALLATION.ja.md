@@ -103,12 +103,12 @@ Tier enum (`DEV` / `QA` / `PRD`) が readonly 強制の基準: QA/PRD プロフ�
 | 2 | **SAP バージョン + 業界** | `S4` / `ECC` 選択、ABAP リリース入力、15 業界メニューから選択。SPRO テーブル / BAPI / TCode + ABAP 構文ゲーティング + 業界固有構成パターンを駆動 |
 | 3 | **MCP サーバーインストール** | `abap-mcp-adt-powerup` を `<PLUGIN_ROOT>/vendor/abap-mcp-adt/` にクローン+ビルド。既にインストール済の場合スキップ (`--update` で更新) |
 | **4** | **プロファイル作成 + SAP 接続** | `alias` (`^[A-Z0-9_-]+$`、規約は `{ISO-COUNTRY}-{TIER}` 例: `KR-DEV`)、`SAP_TIER` (`DEV`/`QA`/`PRD`)、オプショナルな同一企業メタコピー、その後接続フィールド (`SAP_URL`, `SAP_CLIENT`, `SAP_AUTH_TYPE`, `SAP_USERNAME`, `SAP_PASSWORD`, `SAP_LANGUAGE`, `SAP_SYSTEM_TYPE`) を 1 項目ずつ収集。書き込みは `sap-profile-cli.mjs add` に委譲 → プロファイル env を `~/.sc4sap/profiles/<alias>/` に、パスワードを OS キーチェーンに、ポインター `<project>/.sc4sap/active-profile.txt=<alias>` を記録。`<project>/.sc4sap/sap.env` と `<project>/.sc4sap/config.json` は **一切作成されません** |
-| 4bis | **RFC バックエンド選択** | `soap` / `native` / `gateway` / `odata` / `zrfc` から選択。すべての `SAP_RFC_*` キーはアクティブプロファイル env に記録。[RFC バックエンド](FEATURES.ja.md#-rfc-バックエンド選択) 参照 |
+| 4bis | **RFC バックエンド選択** | `odata` (デフォルト) / `soap` から選択 (`native` / `gateway` / `zrfc` は MCP 4.10.0 で削除)。すべての `SAP_RFC_*` キーはアクティブプロファイル env に記録。[RFC バックエンド](FEATURES.ja.md#-rfc-バックエンド選択) 参照 |
 | 5 | **MCP 再接続** | `/mcp` を実行。サーバーの `ReloadProfile` ツールがポインター + プロファイル env (キーチェーン解決込み) を読み、キャッシュされた接続を更新 — Claude Code の再起動は不要 |
 | 6 | **接続テスト** | SAP に対する `GetSession` ラウンドトリップ |
 | 7 | **システム情報確認** | システム ID、クライアント、ユーザー、言語を表示。`~/.sc4sap/profiles/<alias>/config.json → systemInfo` に保存 (プロジェクトフォルダーではない) |
 | 8 | **ADT 権限チェック** | `GetInactiveObjects` で ADT 権限検証 |
-| **9** | **ABAP ユーティリティ作成 (tier ゲート)** | **DEV のみインストール可能。** `ZMCP_ADT_UTILS` FG + `ZIF_S4SAP_CM` / `ZCL_S4SAP_CM_*` ALV OOP ハンドラ (+ 4bis で OData / ZRFC 選択時は関連クラス) を作成。システム dedup キーは `SAP_URL + SAP_CLIENT` — 同一システムの sibling DEV プロファイルが既にインストール済なら再利用。**QA / PRD** ではインストールを **拒否** し CTS インポートガイドを出力 — 対応する DEV システムでインストールし標準 TMS ルートで転送 |
+| **9** | **ABAP ユーティリティ作成 (tier ゲート)** | **DEV のみインストール可能。** `ZMCP_ADT_UTILS` FG + `ZIF_S4SAP_CM` / `ZCL_S4SAP_CM_*` ALV OOP ハンドラ (+ 4bis で OData 選択時は関連クラス) を作成。システム dedup キーは `SAP_URL + SAP_CLIENT` — 同一システムの sibling DEV プロファイルが既にインストール済なら再利用。**QA / PRD** ではインストールを **拒否** し CTS インポートガイドを出力 — 対応する DEV システムでインストールし標準 TMS ルートで転送 |
 | 10 | **プロファイル `config.json` 最終化** | `sapVersion`, `abapRelease`, `industry`, `activeModules`, `namingConvention`, `blocklistProfile`, `activeTransport` を `~/.sc4sap/profiles/<alias>/config.json` に記録。プロジェクト `.sc4sap/` にはマルチプロファイルモードで `config.json` が **存在しない** |
 | 11 | **SPRO 抽出 (任意)** | `y/N` — トークン消費は大きいが `<project>/.sc4sap/work/<alias>/spro-config.json` キャッシュで以後のトークン使用量を大幅削減 |
 | 11b | **カスタマイズインベントリ (任意)** | `y/N` — `Z*`/`Y*` 拡張 + アペンド構造をスキャン。`<project>/.sc4sap/work/<alias>/customizations/{MODULE}/{enhancements,extensions}.json` に保存 |

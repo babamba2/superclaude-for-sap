@@ -32,7 +32,7 @@ Switch to the helper report only when Path 1 cannot run. Decide from the first M
 
 | Error | Cause | Say to the user |
 |---|---|---|
-| `requires SAP_RFC_BACKEND=odata` | Profile uses `soap` / `native` / `gateway` (e.g. BASIS 7.31 without Gateway) | DDIC writes need the OData backend; helper report used instead |
+| `requires SAP_RFC_BACKEND=odata` | Profile uses `soap` (e.g. BASIS 7.31 without Gateway) | DDIC writes need the OData backend; helper report used instead |
 | FunctionImport / FM `ZMCP_ADT_DDIC_*` not found | Setup Step 9a.2 not installed on this system | Run `/sc4sap:setup` Step 9 (9a.2 FMs + 9c OData classes, DEV tier) to enable direct creation; helper report used now |
 | `CreateTable is not supported on ECC` | MCP server older than the ECC `CreateTable` branch | Update the MCP server; helper report used now |
 

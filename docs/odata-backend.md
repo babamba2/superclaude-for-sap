@@ -4,19 +4,18 @@ Guide for operating the `SAP_RFC_BACKEND=odata` transport in sc4sap. Since 2026-
 
 ## What this is
 
-The default RFC transport for the Screen / GUI Status / Text Element operations — alternative to `soap`, `native`, `gateway`, `zrfc`. Instead of hitting `/sap/bc/soap/rfc` (SOAP) or spawning node-rfc locally (native) or routing through a middleware (gateway), the client calls a **custom OData v2 service** (`ZMCP_ADT_SRV`) on SAP that internally dispatches to the existing `ZMCP_ADT_DISPATCH` / `ZMCP_ADT_TEXTPOOL` function modules.
+The default RFC transport for the Screen / GUI Status / Text Element operations — the alternative is `soap`. Instead of hitting `/sap/bc/soap/rfc` (SOAP), the client calls a **custom OData v2 service** (`ZMCP_ADT_SRV`) on SAP that internally dispatches to the existing `ZMCP_ADT_DISPATCH` / `ZMCP_ADT_TEXTPOOL` function modules.
 
 ## When to use it
 
 - **Default choice** for fresh installs
 - Your IT policy has **disabled `/sap/bc/soap/rfc`** but permits `/sap/opu/odata/` services (very common in hardened SAP Gateway installs)
 - You want SAP's standard audit / logging pipeline (`/IWFND/ERROR_LOG`, `/IWFND/TRACES`)
-- You do not want to install the NW RFC SDK on developer laptops (same as `gateway` backend, but without running separate middleware infrastructure)
 
 ## When NOT to use it
 
 - S/4HANA Cloud Public — SEGW is not available; pick `soap` if reachable
-- Your organisation cannot grant `/IWBEP/REG_SERVICE` or SEGW `Register Service` auth to anyone and cannot spare a Basis session — registration is required one-time; in that case fall back to `soap` (if ICF node active) or `zrfc` (one class + one SICF node)
+- Your organisation cannot grant `/IWBEP/REG_SERVICE` or SEGW `Register Service` auth to anyone and cannot spare a Basis session — registration is required one-time; in that case fall back to `soap` (if ICF node active)
 
 ## Architecture
 
@@ -224,12 +223,10 @@ SAP's outbound HTTPS destination to itself fails. Not related to our inbound ODa
 
 | Backend | Transport | ABAP-side setup | Enterprise fit |
 |---|---|---|---|
-| `soap` | HTTPS `/sap/bc/soap/rfc` | Just ensure ICF node active | Default — works until Basis disables ICF |
-| `native` | Binary RFC (node-rfc) | None (but SDK on each laptop) | Power users, individual devs |
-| `gateway` | HTTPS JSON middleware | None (gateway has SDK) | Mature enterprises with HTTPS middleware infra |
-| `odata` | HTTPS OData v2 FunctionImport | **SEGW + Basis registration** | Hardened Gateway-only environments |
+| `soap` | HTTPS `/sap/bc/soap/rfc` | Just ensure ICF node active | Works until Basis disables ICF |
+| `odata` | HTTPS OData v2 FunctionImport | **SEGW + Basis registration** | Default — hardened Gateway-only environments |
 
-If your organisation has BOTH SOAP blocked AND is unwilling to install `node-rfc` on laptops AND doesn't want to run a middleware server — then OData is your only HTTPS path, and the one-time Basis registration is unavoidable.
+If SOAP is blocked, OData is the only path, and the one-time Basis registration is unavoidable. `native`, `gateway` and `zrfc` were removed in MCP 4.10.0.
 
 ## Links
 

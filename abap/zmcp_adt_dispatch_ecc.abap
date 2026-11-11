@@ -845,9 +845,9 @@ ENDFORM.
 *& Form BIZ_EXECUTE
 *&---------------------------------------------------------------------*
 * Business actions for backends that only reach ZMCP_ADT_DISPATCH
-* (OData FunctionImport Dispatch, gateway, zrfc). Forwards to the RFC FM
+* (OData FunctionImport Dispatch). Forwards to the RFC FM
 * ZMCP_BIZ_EXECUTE (function group ZMCP_BIZ, sc4sap abap/biz/) and wraps
-* its exports. The SOAP and native backends call ZMCP_BIZ_EXECUTE directly.
+* its exports. The SOAP backend calls ZMCP_BIZ_EXECUTE directly.
 * params: action, mode, params (JSON object as a string), token, idem_key
 * result: {"subrc":n,"message":"..","token":"..","result":<EV_RESULT JSON>}
 * ev_subrc stays 0 when the FM ran: a business refusal (subrc 4 / 8) is

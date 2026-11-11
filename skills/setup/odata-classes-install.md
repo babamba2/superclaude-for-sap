@@ -2,7 +2,7 @@
 
 Referenced by `wizard-steps.md` Step 9c. **Run ONLY when `SAP_RFC_BACKEND=odata`.**
 
-Skip this entirely if backend is `soap`, `native`, or `gateway`.
+Skip this entirely if backend is `soap`.
 
 ## Prerequisite — SEGW project shell (user-side, 5 minutes)
 

@@ -70,7 +70,7 @@ Report counts at the layer level: `9a: 3/3 installed`, `9b: 7/7 installed, 7/7 a
 
 **Layer 6 - RFC Backend (conditional — branches on `SAP_RFC_BACKEND`)**
 
-Per-backend check lists for `soap` / `native` / `gateway` / `odata` live in **[`diagnostic-checks-rfc.md`](diagnostic-checks-rfc.md)**. Resolve `SAP_RFC_BACKEND` from the active profile `sap.env` first (default `odata` when unset), then execute the matching sub-section from that file. Output a one-line banner stating which sub-section was executed.
+Per-backend check lists for `odata` / `soap` (plus the removed-backend BLOCKER check 6.0) live in **[`diagnostic-checks-rfc.md`](diagnostic-checks-rfc.md)**. Resolve `SAP_RFC_BACKEND` from the active profile `sap.env` first (default `odata` when unset), then execute the matching sub-section from that file. Output a one-line banner stating which sub-section was executed.
 
 **Layer 7 - Cache Hygiene**
 

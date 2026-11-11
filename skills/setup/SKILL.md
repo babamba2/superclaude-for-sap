@@ -24,7 +24,7 @@ Setup's happy path runs entirely on the main thread (session model — frontmatt
 
 | Source step(s) | Agent | Model | Why |
 |----------------|-------|-------|-----|
-| **4bis RFC backend** — preflight failure, handler install error, SICF service misconfigured, SM59 test fails, ZRFC ICF handler returns 5xx | **`sap-bc-consultant`** | **Opus** (frontmatter) | Pure Basis domain — RFC destinations, SICF, SM59, transport of handler class. Basis consultant owns this ground. |
+| **4bis RFC backend** — preflight failure, handler install error, SICF service misconfigured, OData / SOAP probe returns 5xx | **`sap-bc-consultant`** | **Opus** (frontmatter) | Pure Basis domain — SICF, Gateway service registration, authorizations. Basis consultant owns this ground. |
 | **5 Reconnect / 6 GetSession / 7 systemInfo persist / 8 GetInactiveObjects** — any failure (HTTP error, auth reject, parse failure, timeout, authorization object missing) | **`general-purpose`** (with `model: "opus"` override) | **Opus** | 3-layer stack (SAP ADT + MCP server + Claude Code plugin). Most errors are cross-layer (MCP framework bugs, Node runtime issues, profile resolution) — pure SAP consultant has a blind spot. general-purpose + Opus spans `Read`/`Grep`/`Bash`/`WebFetch`/`WebSearch` across all three layers. |
 
 Each escalation emits its own phase banner:
@@ -92,7 +92,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 - `wizard-step-12-blocklist-hook.md` — Step 12 installs BOTH L1 PreToolUse hooks: `block-forbidden-tables.mjs` + `tier-readonly-guard.mjs`.
 - `spro-auto-generation.md` — SPRO extraction workflow. Read when the first arg is `spro` or when Step 11 proceeds.
 - `customization-auto-generation.md` — customer Z*/Y* enhancement + extension extraction. Read when the first arg is `customizations` (also `cust` / `enhancements`) or when running wizard step 11b.
-- `rfc-backend-selection.md` — Step 4bis RFC backend selection (soap/native/gateway/odata/zrfc). Writes `SAP_RFC_*` to the ACTIVE PROFILE env, never to the project folder.
+- `rfc-backend-selection.md` — Step 4bis RFC backend selection (odata / soap). Writes `SAP_RFC_*` to the ACTIVE PROFILE env, never to the project folder.
 - `odata-classes-install.md` — Step 9c OData backend classes install (DEV tier only).
 - `hud-statusline.md` — HUD status line spec. HUD reads `<project>/.sc4sap/active-profile.txt` + profile env to render alias + tier badge.
 - **External references**: [`../../docs/multi-profile-design.md`](../../docs/multi-profile-design.md), [`../../docs/multi-profile-setup-gap.md`](../../docs/multi-profile-setup-gap.md), [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md), [`../sap-option/migration.md`](../sap-option/migration.md), [`../sap-option/profile-management.md`](../sap-option/profile-management.md).

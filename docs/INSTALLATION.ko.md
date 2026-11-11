@@ -103,12 +103,12 @@ Tier enum (`DEV` / `QA` / `PRD`)은 readonly 강제의 기준: QA/PRD는 `Create
 | 2 | **SAP 버전 + 산업** | `S4` / `ECC` 선택, ABAP 릴리즈 입력, 15개 산업 메뉴에서 선택. SPRO 테이블/BAPI/TCode + ABAP 문법 게이팅 + 산업별 구성 패턴을 구동 |
 | 3 | **MCP 서버 설치** | `abap-mcp-adt-powerup`을 `<PLUGIN_ROOT>/vendor/abap-mcp-adt/`에 클론+빌드. 이미 설치됐으면 스킵 (`--update`로 갱신) |
 | **4** | **프로필 생성 + SAP 연결** | `alias` (`^[A-Z0-9_-]+$`, `{ISO-COUNTRY}-{TIER}` 권장 예: `KR-DEV`), `SAP_TIER` (`DEV`/`QA`/`PRD`), 선택적 same-company 메타 복사, 그다음 연결 필드 (`SAP_URL`, `SAP_CLIENT`, `SAP_AUTH_TYPE`, `SAP_USERNAME`, `SAP_PASSWORD`, `SAP_LANGUAGE`, `SAP_SYSTEM_TYPE`) 를 한 번에 하나씩 수집. 실제 쓰기는 `sap-profile-cli.mjs add`가 수행 → 프로필 env를 `~/.sc4sap/profiles/<alias>/`에, 비밀번호를 OS 키체인에, pointer `<project>/.sc4sap/active-profile.txt=<alias>`를 기록. `<project>/.sc4sap/sap.env`와 `<project>/.sc4sap/config.json`은 **절대 생성되지 않음** |
-| 4bis | **RFC 백엔드 선택** | `soap` / `native` / `gateway` / `odata` / `zrfc` 중 선택. 모든 `SAP_RFC_*` 키는 활성 프로필 env에 기록. [RFC 백엔드](FEATURES.ko.md#-rfc-백엔드-선택) 참고 |
+| 4bis | **RFC 백엔드 선택** | `odata` (기본) / `soap` 중 선택 (`native` / `gateway` / `zrfc`는 MCP 4.10.0에서 제거됨). 모든 `SAP_RFC_*` 키는 활성 프로필 env에 기록. [RFC 백엔드](FEATURES.ko.md#-rfc-백엔드-선택) 참고 |
 | 5 | **MCP 재연결** | `/mcp` 실행. 서버의 `ReloadProfile` 툴이 pointer + 프로필 env를 읽고 (키체인 해석 포함) 캐시된 연결을 갱신 — Claude Code 재시작 불필요 |
 | 6 | **연결 테스트** | SAP 대상 `GetSession` 왕복 |
 | 7 | **시스템 정보 확인** | 시스템 ID, 클라이언트, 사용자, 언어 표시. `~/.sc4sap/profiles/<alias>/config.json → systemInfo`에 기록 (프로젝트 폴더 아님) |
 | 8 | **ADT 권한 체크** | `GetInactiveObjects`로 ADT 권한 검증 |
-| **9** | **ABAP 유틸 객체 생성 (tier 게이트)** | **DEV만 설치 가능.** `ZMCP_ADT_UTILS` FG + `ZIF_S4SAP_CM` / `ZCL_S4SAP_CM_*` ALV OOP 핸들러 (+ 4bis에서 OData/ZRFC 선택 시 관련 클래스) 생성. 시스템 dedup 키는 `SAP_URL + SAP_CLIENT` — 같은 시스템에 대한 sibling DEV 프로필이 이미 설치했으면 재사용. **QA / PRD**에서는 설치 **거부**하고 CTS import 가이드 출력 — 대응 DEV 시스템에서 설치 후 표준 TMS 루트로 이관 |
+| **9** | **ABAP 유틸 객체 생성 (tier 게이트)** | **DEV만 설치 가능.** `ZMCP_ADT_UTILS` FG + `ZIF_S4SAP_CM` / `ZCL_S4SAP_CM_*` ALV OOP 핸들러 (+ 4bis에서 OData 선택 시 관련 클래스) 생성. 시스템 dedup 키는 `SAP_URL + SAP_CLIENT` — 같은 시스템에 대한 sibling DEV 프로필이 이미 설치했으면 재사용. **QA / PRD**에서는 설치 **거부**하고 CTS import 가이드 출력 — 대응 DEV 시스템에서 설치 후 표준 TMS 루트로 이관 |
 | 10 | **프로필 `config.json` 최종화** | `sapVersion`, `abapRelease`, `industry`, `activeModules`, `namingConvention`, `blocklistProfile`, `activeTransport`를 `~/.sc4sap/profiles/<alias>/config.json`에 기록. 프로젝트 `.sc4sap/`에는 멀티 프로필 모드에서 `config.json`이 **존재하지 않음** |
 | 11 | **SPRO 추출 (선택)** | `y/N` — 토큰 비용 크지만 `<project>/.sc4sap/work/<alias>/spro-config.json` 캐시가 이후 토큰 사용을 크게 줄임 |
 | 11b | **커스터마이징 인벤토리 (선택)** | `y/N` — `Z*`/`Y*` 확장 + 어펜드 구조 스캔. `<project>/.sc4sap/work/<alias>/customizations/{MODULE}/{enhancements,extensions}.json`에 저장 |

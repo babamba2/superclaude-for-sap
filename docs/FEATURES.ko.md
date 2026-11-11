@@ -20,7 +20,6 @@
 - [데이터 추출 블록리스트](#-데이터-추출-블록리스트)
 - [acknowledge_risk HARD RULE](#-acknowledge_risk--hard-rule)
 - [RFC 백엔드 선택](#-rfc-백엔드-선택)
-- [RFC 게이트웨이 (Enterprise)](#-rfc-게이트웨이-enterprise-배포)
 
 ## 26개 SAP 전문 에이전트
 
@@ -357,40 +356,16 @@ export SC4SAP_ALLOW_TABLE=TAB1,TAB2  # 세션 긴급 면제 (로그됨)
 
 ## 🔀 RFC 백엔드 선택
 
-Screen / GUI Status / Text Element 연산은 SAP의 RFC-enabled FM으로 디스패치. 5개 전송 백엔드:
+Screen / GUI Status / Text Element 연산은 SAP의 RFC-enabled FM으로 디스패치. 2개 전송 백엔드:
 
 | `SAP_RFC_BACKEND` | 방식 | 언제 사용 |
 |---|---|---|
 | `odata` (기본) | HTTPS OData v2 `ZMCP_ADT_SRV` | 하드닝된 Gateway 설치 환경에서 동작; 표준 Gateway 권한(S_SERVICE)으로 라우팅. [docs/odata-backend.md](odata-backend.md) |
 | `soap` | HTTPS `/sap/bc/soap/rfc` | `/sap/bc/soap/rfc` ICF 노드가 활성인 클래식 경로 (운영 환경에서 점점 비활성화 추세) |
-| `native` | `node-rfc` + NW RFC SDK | 최저 레이턴시; 유료 SDK 필요. _Deprecated — `zrfc` 사용_ |
-| `gateway` | sc4sap-rfc-gateway 미들웨어로 HTTPS | 10+ 팀, 중앙 배포 |
-| 🆕 `zrfc` | HTTPS ICF 핸들러 `/sap/bc/rest/zmcp_rfc` | SOAP 차단 + OData Gateway 어려움 (전형적 ECC). SDK·Gateway 불필요 — 클래스 + SICF 노드 하나 |
+
+`native`, `gateway`, `zrfc`는 MCP 4.10.0에서 제거됨 — 이 값이 남아 있으면 MCP 서버가 시작되지 않음. `odata` 또는 `soap`으로 전환.
 
 `/sc4sap:sap-option`으로 언제든 전환, MCP 재연결, `/sc4sap:sap-doctor`로 검증.
-
-## 🏢 RFC 게이트웨이 (Enterprise 배포)
-
-대규모 SAP 개발팀(수십 명 개발자)에서 개발자 랩톱이 SAP NW RFC SDK / MSVC를 필요로 하지 않도록 **중앙 RFC Gateway** 미들웨어 지원. Linux 호스트 하나가 `node-rfc` + SDK 운영; 모든 MCP 클라이언트는 HTTPS/JSON으로 통신.
-
-**언제 필요**:
-- IT 정책이 개발자 머신에 SAP NW RFC SDK 설치 금지
-- SAP Basis가 `/sap/bc/soap/rfc`를 회사 전체에 비활성화
-- 중앙 RFC 로깅, 속도 제한, 개발자별 감사 추적 필요
-
-**설정**:
-```
-/sc4sap:sap-option
-# SAP_RFC_BACKEND=gateway
-#     SAP_RFC_GATEWAY_URL=https://rfc-gw.company.com
-#     SAP_RFC_GATEWAY_TOKEN=<team-or-per-user-bearer>
-```
-
-게이트웨이가 개발자 자격증명을 `X-SAP-*` 헤더로 전달 — SAP 감사 로그가 실제 사용자 식별.
-
-> **비공개 저장소.** 게이트웨이 소스는 비공개 저장소에 위치 — Docker 이미지 빌드에 SAP 라이선스 NW RFC SDK 필요 (재배포 불가). 조직은 유지보수자에게 접근 요청, 클론, S-user로 SDK 다운로드, 자사 네트워크에서 이미지 빌드. 오픈소스 사용자: `SAP_RFC_BACKEND=odata` (기본) 또는 `zrfc` 사용 — 모두 SDK 불필요.
-
-클라이언트 설계는 공개 (`abap-mcp-adt-powerup/src/lib/gatewayRfc.ts`) — HTTP 계약은 문서화됨, 호환 가능 미들웨어 (Node/Java/Python)는 모두 동작.
 
 ---
 

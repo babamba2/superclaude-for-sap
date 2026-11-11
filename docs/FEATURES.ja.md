@@ -20,7 +20,6 @@
 - [データ抽出ブロックリスト](#-データ抽出ブロックリスト)
 - [acknowledge_risk HARD RULE](#-acknowledge_risk--hard-rule)
 - [RFC バックエンド選択](#-rfc-バックエンド選択)
-- [RFC ゲートウェイ (Enterprise)](#-rfc-ゲートウェイ-enterprise-デプロイ)
 
 ## 26 の SAP 専門エージェント
 
@@ -357,40 +356,16 @@ export SC4SAP_ALLOW_TABLE=TAB1,TAB2  # セッション緊急免除 (ログ記録
 
 ## 🔀 RFC バックエンド選択
 
-Screen / GUI Status / Text Element 操作は SAP の RFC 有効 FM にディスパッチ。5 つのトランスポートバックエンド:
+Screen / GUI Status / Text Element 操作は SAP の RFC 有効 FM にディスパッチ。2 つのトランスポートバックエンド:
 
 | `SAP_RFC_BACKEND` | 方式 | いつ使うか |
 |---|---|---|
 | `odata` (デフォルト) | HTTPS OData v2 `ZMCP_ADT_SRV` | ハードニング済み Gateway でも動作。標準 Gateway 認可(S_SERVICE)経由。[docs/odata-backend.md](odata-backend.md) |
 | `soap` | HTTPS `/sap/bc/soap/rfc` | `/sap/bc/soap/rfc` ICF ノードが有効な従来経路 (本番環境では無効化される傾向) |
-| `native` | `node-rfc` + NW RFC SDK | 最低レイテンシ、有料 SDK 必要。_非推奨 — `zrfc` 使用_ |
-| `gateway` | sc4sap-rfc-gateway ミドルウェアへ HTTPS | 10+ チーム、中央集約 |
-| 🆕 `zrfc` | HTTPS ICF ハンドラ `/sap/bc/rest/zmcp_rfc` | SOAP 閉鎖 + OData Gateway 困難 (典型的 ECC)。SDK・Gateway 不要 — クラス + SICF ノード 1 つ |
+
+`native`、`gateway`、`zrfc` は MCP 4.10.0 で削除 — これらの値が残っていると MCP サーバーは起動しない。`odata` または `soap` に切替。
 
 `/sc4sap:sap-option` でいつでも切替、MCP 再接続、`/sc4sap:sap-doctor` で検証。
-
-## 🏢 RFC ゲートウェイ (Enterprise デプロイ)
-
-大規模 SAP 開発チーム (数十人の開発者) で、開発者のラップトップに SAP NW RFC SDK / MSVC が不要になる**中央 RFC Gateway** ミドルウェアをサポート。1 台の Linux ホストが `node-rfc` + SDK を運用;すべての MCP クライアントは HTTPS/JSON で通信。
-
-**いつ必要か**:
-- IT ポリシーが開発者マシンへの SAP NW RFC SDK インストールを禁止
-- SAP Basis が `/sap/bc/soap/rfc` を全社で無効化
-- 中央集約 RFC ロギング、レート制限、開発者別監査証跡が必要
-
-**構成**:
-```
-/sc4sap:sap-option
-# SAP_RFC_BACKEND=gateway
-#     SAP_RFC_GATEWAY_URL=https://rfc-gw.company.com
-#     SAP_RFC_GATEWAY_TOKEN=<team-or-per-user-bearer>
-```
-
-Gateway が開発者認証情報を `X-SAP-*` ヘッダーで転送 — SAP 監査ログが実ユーザーを識別。
-
-> **プライベートリポジトリ。** Gateway ソースはプライベートリポジトリ — Docker イメージは SAP ライセンス NW RFC SDK に対してビルドする必要 (再配布不可)。組織はメンテナにアクセス要求、クローン、S-user で SDK ダウンロード、自社ネットワーク内でイメージビルド。オープンソースユーザー: `SAP_RFC_BACKEND=odata` (デフォルト) または `zrfc` 使用 — どちらも SDK 不要。
-
-クライアント側設計は公開 (`abap-mcp-adt-powerup/src/lib/gatewayRfc.ts`) — HTTP 契約は文書化、準拠ミドルウェア (Node/Java/Python) はすべて動作。
 
 ---
 
