@@ -1,0 +1,1 @@
+module-to-process 에서 prd 에서 실제 사용 티코드를 추출했는데, 그 방식도 좋은데, 생각해보니 cbo area menu 를 물어보고, 해당 area menu 의 tree 를 확인해보는게 제일 best 일거같은데.. (둘다 고려하면 딱 좋지 않을가?)
