@@ -1,6 +1,6 @@
 ---
 name: trust-session
-description: INTERNAL-ONLY permission bootstrap. Pre-approves Agent dispatch + `.sc4sap/` state-file I/O for the session so parent-skill pipelines run without prompts. SAP MCP handlers are auto-approved by the `permission-approver` PreToolUse hook (except GetTableContents / GetSqlQuery, which stay prompt-gated — sole exception: analyze-cbo-obj G3a DD* metadata reads). MUST be invoked by a parent skill (create-program, setup, team, analyze-*, create-object) — direct user invocation is rejected with a redirect message.
+description: INTERNAL-ONLY permission bootstrap. Pre-approves Agent dispatch + `.sc4sap/` state-file I/O for the session so parent-skill pipelines run without prompts. SAP MCP handlers are auto-approved by the `permission-approver` PreToolUse hook (except GetTableContents / GetSqlQuery, which stay prompt-gated — sole exception: stock-cbo G3a DD* metadata reads). MUST be invoked by a parent skill (create-program, setup, team, analyze-*, create-object) — direct user invocation is rejected with a redirect message.
 user-invocable: false
 model: inherit
 ---
@@ -12,7 +12,7 @@ Session-scoped permission bootstrap for automated pipelines. When a long-running
 **⚠️ This skill is NOT user-facing.** It exists only as a sub-routine of other skills. `user-invocable: false` hides it from the `/` menu and Claude Code refuses a typed `/sc4sap:trust-session`; the gate in `<Standalone_Invocation_Refusal>` below covers the remaining case — the model invoking it through the Skill tool without a parent skill.
 
 <Permission_Model_Note>
-**SAP MCP handler permissions are NOT managed by this skill anymore.** They are auto-approved at call time by the `permission-approver` PreToolUse hook (`scripts/permission-approver.mjs`, wired in `hooks/hooks.json`), which returns `permissionDecision: "allow"` for every `mcp__plugin_sc4sap_sap__*` / `mcp__mcp-abap-adt__*` tool except the two row-data extraction tools (`GetTableContents`, `GetSqlQuery`), which fall through to normal prompting plus the `block-forbidden-tables` safeguard. One narrow exception: a `GetSqlQuery` that is a DD* repository metadata read in the analyze-cbo-obj Step G3a shape (`scripts/lib/dd-metadata-query.mjs`) is allowed. The hook runs in BOTH the main thread and sub-agents, regardless of session permission mode — this replaces the former `settings.local.json` MCP enumeration and the deprecated `mode: "dontAsk"` Agent-dispatch parameter (ignored by current Claude Code; sub-agents now inherit the parent session's permission mode). trust-session therefore only handles the NON-MCP grants below.
+**SAP MCP handler permissions are NOT managed by this skill anymore.** They are auto-approved at call time by the `permission-approver` PreToolUse hook (`scripts/permission-approver.mjs`, wired in `hooks/hooks.json`), which returns `permissionDecision: "allow"` for every `mcp__plugin_sc4sap_sap__*` / `mcp__mcp-abap-adt__*` tool except the two row-data extraction tools (`GetTableContents`, `GetSqlQuery`), which fall through to normal prompting plus the `block-forbidden-tables` safeguard. One narrow exception: a `GetSqlQuery` that is a DD* repository metadata read in the stock-cbo Step G3a shape (`scripts/lib/dd-metadata-query.mjs`) is allowed. The hook runs in BOTH the main thread and sub-agents, regardless of session permission mode — this replaces the former `settings.local.json` MCP enumeration and the deprecated `mode: "dontAsk"` Agent-dispatch parameter (ignored by current Claude Code; sub-agents now inherit the parent session's permission mode). trust-session therefore only handles the NON-MCP grants below.
 </Permission_Model_Note>
 
 <Purpose>
@@ -27,7 +27,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 **MANDATORY gate — runs as Step 0 before any file write.**
 
 Detect whether this skill is being invoked standalone or by a parent skill:
-- **Parent skill present**: the invocation is chained from `/sc4sap:create-program`, `/sc4sap:setup`, `/sc4sap:analyze-cbo-obj`, `/sc4sap:analyze-code`, `/sc4sap:analyze-symptom`, `/sc4sap:create-object`, `/sc4sap:program-to-spec`, `/sc4sap:package-to-process`, `/sc4sap:module-to-process`, `/sc4sap:compare-programs`, or `/sc4sap:program-to-manual`. The caller passes `parent_skill={name}` as the first argument OR the invocation appears inside another skill's execution trace in the current turn.
+- **Parent skill present**: the invocation is chained from `/sc4sap:create-program`, `/sc4sap:setup`, `/sc4sap:stock-cbo`, `/sc4sap:analyze-code`, `/sc4sap:analyze-symptom`, `/sc4sap:create-object`, `/sc4sap:program-to-spec`, `/sc4sap:module-to-process`, `/sc4sap:compare-programs`, or `/sc4sap:program-to-manual`. The caller passes `parent_skill={name}` as the first argument OR the invocation appears inside another skill's execution trace in the current turn.
 - **Standalone (no parent)**: invoked through the Skill tool outside any parent skill's execution, or the arguments do not identify a known parent. (A user-typed `/sc4sap:trust-session` never reaches this skill — `user-invocable: false` blocks it.)
 
 **On standalone invocation, refuse and redirect**:
@@ -40,7 +40,7 @@ parent skills instead (each auto-invokes trust-session at entry):
 
   • /sc4sap:create-program       — program creation pipeline (invokes at Phase 1)
   • /sc4sap:create-object        — single object creation
-  • /sc4sap:analyze-cbo-obj      — CBO package inventory walk
+  • /sc4sap:stock-cbo      — CBO package inventory walk
   • /sc4sap:analyze-code         — code review
   • /sc4sap:analyze-symptom      — dump / error root-cause analysis
 
@@ -77,7 +77,7 @@ Single-layer, non-MCP permission grant written to `.claude/settings.local.json` 
 
 Idempotent: if an entry already exists, do not duplicate.
 
-**Row-data extraction stays gated**: `GetTableContents` / `GetSqlQuery` (both namespaces) are never auto-approved — except the analyze-cbo-obj G3a DD* metadata reads (`scripts/lib/dd-metadata-query.mjs`) — the hook passes them through to the normal prompt, and `block-forbidden-tables` enforces the blocklist. See `common/data-extraction-policy.md`.
+**Row-data extraction stays gated**: `GetTableContents` / `GetSqlQuery` (both namespaces) are never auto-approved — except the stock-cbo G3a DD* metadata reads (`scripts/lib/dd-metadata-query.mjs`) — the hook passes them through to the normal prompt, and `block-forbidden-tables` enforces the blocklist. See `common/data-extraction-policy.md`.
 </What_This_Skill_Does>
 
 <Execution_Steps>

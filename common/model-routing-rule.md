@@ -90,7 +90,7 @@ A Sonnet- or Haiku-dispatched agent that hits a hard blocker (spec ambiguity, cr
 |---|---|---|
 | `analyze-code` | size scout; > 1,500 lines: detect × N (5 rule groups); evidence verify on every finding | `sap-code-reviewer` → **Opus** (reviewer or judge) |
 | `compare-programs` | facts scout × N (one per program / include batch) | `sap-analyst` → **Opus** |
-| `analyze-cbo-obj`, `package-to-process` | stocking scouts × N (≥ 30 objects): in-package callers + DDIC first pass | `sap-stocker` → **Sonnet** (walk + finalize; re-reads DDIC for the objects it interprets) |
+| `stock-cbo` | stocking scouts × N (≥ 30 objects): in-package callers + DDIC first pass | `sap-stocker` → **Sonnet** (walk + finalize; re-reads DDIC for the objects it interprets) |
 
 ## Reasoning effort (agent frontmatter `effort:`)
 
@@ -154,7 +154,7 @@ Every sc4sap skill (`/sc4sap:*`) MUST cause the main-thread response to begin wi
 
 ## Phase Banner Convention — multi-phase skills
 
-Skills that internally orchestrate **two or more phases** (e.g., `/sc4sap:create-program`, `/sc4sap:program-to-spec`, `/sc4sap:compare-programs`, `/sc4sap:analyze-symptom`, `/sc4sap:analyze-cbo-obj`, `/sc4sap:create-object`) MUST emit a **single-line phase banner** immediately before each phase dispatch, so the user can see which model is doing each step without reading skill internals.
+Skills that internally orchestrate **two or more phases** (e.g., `/sc4sap:create-program`, `/sc4sap:program-to-spec`, `/sc4sap:compare-programs`, `/sc4sap:analyze-symptom`, `/sc4sap:stock-cbo`, `/sc4sap:create-object`) MUST emit a **single-line phase banner** immediately before each phase dispatch, so the user can see which model is doing each step without reading skill internals.
 
 **Format:**
 

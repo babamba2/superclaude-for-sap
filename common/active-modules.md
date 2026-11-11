@@ -96,7 +96,7 @@ Multi-module rules (three-way):
 - Add derivation hooks for active modules (CO cost elem from `CSKB`; PS from `PROJ`/`PRPS`; WM bin from `LAGP`).
 - Pull-in validation: if WBS supplied but PS not in `SAP_ACTIVE_MODULES` → warn user.
 
-### `analyze-cbo-obj`
+### `stock-cbo`
 - When surveying CBO fields, flag **expected-but-missing** integration fields per active module combo.
 - Output section: "Cross-module gap analysis — modules active but no integration field found".
 
@@ -122,4 +122,4 @@ function crossModuleAdvisory(primary, context):
 ```
 
 Skills consuming this: `create-program`, `create-object`, `program-to-spec`,
-`analyze-cbo-obj`, `analyze-code`, all consultant agents.
+`stock-cbo`, `analyze-code`, all consultant agents.

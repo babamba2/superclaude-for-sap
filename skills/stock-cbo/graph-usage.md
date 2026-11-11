@@ -1,6 +1,6 @@
 # CBO Stocking — Step G: Reference Graph + Usage
 
-Runs between Step C (scouts) and Step D (finalize) of [`stocker-fanout.md`](stocker-fanout.md), for both callers (`analyze-cbo-obj`, `package-to-process`). It builds `graph.json` (who calls / includes / submits / reads / writes / types what, from source; how the DDIC objects relate — typing, check tables, search helps, value tables, row types, view bases — from DDIC) and, on ECC, `usage-result.json` (which members are actually used). Finalize then ranks from the graph instead of `GetWhereUsed`, which returns 404 on ECC.
+Runs between Step C (scouts) and Step D (finalize) of [`stocker-fanout.md`](stocker-fanout.md), for both callers (`stock-cbo`). It builds `graph.json` (who calls / includes / submits / reads / writes / types what, from source; how the DDIC objects relate — typing, check tables, search helps, value tables, row types, view bases — from DDIC) and, on ECC, `usage-result.json` (which members are actually used). Finalize then ranks from the graph instead of `GetWhereUsed`, which returns 404 on ECC.
 
 `<DIR>` = the inventory directory from the `WALKED` line. `<PLUGIN_ROOT>` = the folder that holds `skills/`, `scripts/`, `common/` (two levels above this skill's `SKILL.md`, or `$CLAUDE_PLUGIN_ROOT`); quote it in shell commands. `<SAPV>` = `ECC` or `S4` as in `stocker-fanout.md`.
 
@@ -29,7 +29,7 @@ TRAN members → one `GetTransaction` call with `transaction_names: [...]` (batc
 
 Two ways in. G3a reads the DD repository tables once per table kind. G3b is the per-object checker read: it is the fallback for what G3a could not read, and the only way for callers that do not allow `GetSqlQuery` (`module-to-process`). Edge kinds: `types` (field → DTEL, `.INCLUDE` / `.APPEND` → STRU, DTEL → DOMA), `checks` (field → check table, with cardinality), `searchHelp`, `valueTable`, `rowType`, `basedOn` (view → base table), `selects` (search help → selection method), `contains` (collective search help). Only customer (Z / Y / namespace) targets and members become nodes.
 
-### G3a — DD reads (`sc4sap:sap-checker` × n, `MODE: dd-read`, analyze-cbo-obj only)
+### G3a — DD reads (`sc4sap:sap-checker` × n, `MODE: dd-read`, stock-cbo only)
 
 The one exception to "no `GetSqlQuery`" in this skill: **DD\* repository tables and repository short-text tables only** — the statements in the plan file, nothing else, never `acknowledge_risk`. They are metadata about the package's DDIC objects, never business rows. The `permission-approver` hook auto-approves these statements (`output: "file"` is part of the match — never drop it); any other form prompts. Neither the SQL text nor the results pass through the main thread.
 

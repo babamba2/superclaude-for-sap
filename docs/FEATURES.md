@@ -58,11 +58,11 @@
 | `sc4sap:project-dashboard` | SAP project dashboard — one editable HTML page per project (summary, KPIs, milestones, WBS / Gantt, team, history) plus a portfolio page; WRICEF stages per module / development consultant; actuals read from SAP (transports, package objects, dumps) |
 | `sc4sap:role-matrix` | Role & authorization workbook — business roles, PFCG roles, role × T-code F/C/D, user × role, authorization objects, SoD conflict check; new design or read from SAP (user IDs only); paged sheets for large systems |
 | `sc4sap:analyze-code` | ABAP code analysis (Clean ABAP / performance / security) |
-| `sc4sap:analyze-cbo-obj` | Customer Business Object (CBO) inventory scanner with cross-module gap analysis |
-| `sc4sap:cbo-relation-map` | Relation map of one or more packages' customer objects as one HTML page, drawn from the `analyze-cbo-obj` graph — hubs, usage, named groups, Obsidian-style neighbourhood view, impact up to TCodes, paths, table CRUD, source snippets, PNG / CSV; collects the graph when missing (whole package or used TCodes; eco = map-only) |
+| `sc4sap:stock-cbo` | Customer Business Object (CBO) inventory scanner with cross-module gap analysis |
+| `sc4sap:cbo-relation-map` | Relation map of one or more packages' customer objects as one HTML page, drawn from the `stock-cbo` graph — hubs, usage, named groups, Obsidian-style neighbourhood view, impact up to TCodes, paths, table CRUD, source snippets, PNG / CSV; collects the graph when missing (whole package or used TCodes; eco = map-only) |
 | `sc4sap:analyze-symptom` | Step-by-step SAP operational error/symptom analysis (dumps, logs, SAP Note candidates) |
 | `sc4sap:ask-consultant` | Direct user-facing Q&A with a module consultant agent (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC). Read-only — honors the configured SAP environment. |
-| `sc4sap:module-to-process` | One editable HTML process map per module from the TCodes users actually run (productive ST03N): standard L1–L4 backbone with CBO tasks, variants, owners, systems; L3 scenario swimlanes; PDD-style task sheet per L4 with sourced business rules, steps, interfaces and S/4 conversion notes; optional consultant review, BPH reconciliation, English companion. `package-to-process` redirects here for one release |
+| `sc4sap:module-to-process` | One editable HTML process map per module from the TCodes users actually run (productive ST03N): standard L1–L4 backbone with CBO tasks, variants, owners, systems; L3 scenario swimlanes; PDD-style task sheet per L4 with sourced business rules, steps, interfaces and S/4 conversion notes; optional consultant review, BPH reconciliation, English companion |
 | `sc4sap:trust-session` | INTERNAL-ONLY — session-wide MCP permission bootstrap |
 
 ## Skills — Examples & Workflow
@@ -100,16 +100,16 @@ Flow (Phase 0–8):
 → "Review ZCL_SD_ORDER_VALIDATOR for Clean ABAP violations and SELECT * usage"
 ```
 
-### `/sc4sap:analyze-cbo-obj`
+### `/sc4sap:stock-cbo`
 Walks a Z-package, catalogs reusable assets, runs cross-module gap analysis.
 ```
-/sc4sap:analyze-cbo-obj
+/sc4sap:stock-cbo
 → "Scan ZSD_ORDER package for MM module reuse candidates"
 ```
 Flow: `GetPackageTree` → category walk → frequency heuristics → cross-module gap check → `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`.
 
 ### `/sc4sap:cbo-relation-map`
-Draws the reference graph that `analyze-cbo-obj` builds (`graph.json`) as one self-contained HTML page per package, Korean plus English companion. Only customer objects appear — in-package members and Z / Y / namespace objects outside the package; standard targets are left out. Relations: DDIC typing, check tables, search helps, value tables, row types, view bases, collective search helps, and from source includes, calls, submits, transactions, reads and writes — each marked stated in DDIC, stated in source or inferred, with its DD* row or source line. Includes are folded into their program or function group; descriptions (walk / inventory), usage (`usage-result.json`) and standard check tables (DD08L, shown as text only) are added when the inventory folder has them. The overview lists the hubs by business relations (typing hubs apart), usage counts and auto-named Louvain groups; the explore view is drawn like Obsidian's graph (canvas, hover lights the neighbours, names fade in on zoom) with relation presets and filters by kind, type, basis, usage and package; the side panel shows the impact of a change up to the TCodes and every relation with a ±10-line source snippet; paths run in any direction or along the arrows with up to three alternatives; a Table CRUD tab lists who creates, reads, updates and deletes each table; PNG and CSV export. Several packages merge into one page (colour by package). When the graph is missing the skill collects it — whole package (standard: full `analyze-cbo-obj`; eco: Haiku walk + Step G only) or the TCodes users actually run (`usage-scope.mjs`). The page itself makes no SAP call.
+Draws the reference graph that `stock-cbo` builds (`graph.json`) as one self-contained HTML page per package, Korean plus English companion. Only customer objects appear — in-package members and Z / Y / namespace objects outside the package; standard targets are left out. Relations: DDIC typing, check tables, search helps, value tables, row types, view bases, collective search helps, and from source includes, calls, submits, transactions, reads and writes — each marked stated in DDIC, stated in source or inferred, with its DD* row or source line. Includes are folded into their program or function group; descriptions (walk / inventory), usage (`usage-result.json`) and standard check tables (DD08L, shown as text only) are added when the inventory folder has them. The overview lists the hubs by business relations (typing hubs apart), usage counts and auto-named Louvain groups; the explore view is drawn like Obsidian's graph (canvas, hover lights the neighbours, names fade in on zoom) with relation presets and filters by kind, type, basis, usage and package; the side panel shows the impact of a change up to the TCodes and every relation with a ±10-line source snippet; paths run in any direction or along the arrows with up to three alternatives; a Table CRUD tab lists who creates, reads, updates and deletes each table; PNG and CSV export. Several packages merge into one page (colour by package). When the graph is missing the skill collects it — whole package (standard: full `stock-cbo`; eco: Haiku walk + Step G only) or the TCodes users actually run (`usage-scope.mjs`). The page itself makes no SAP call.
 
 ### `/sc4sap:analyze-symptom`
 ```
@@ -359,7 +359,7 @@ Multi-country rollouts: every relevant file loads + cross-country touchpoints (i
 
 Example: MM PO creation in a landscape with **PS active** → suggest account assignment category `P`/`Q` + `PS_POSID` (WBS element); **CO active** → suggest cost center derivation; **QM active** → inspection lot auto-creation on GR.
 
-Configure via `/sc4sap:setup` (Step 4) or `/sc4sap:sap-option modules`. Consumed by `create-program`, `create-object`, `analyze-cbo-obj`, all consultant agents.
+Configure via `/sc4sap:setup` (Step 4) or `/sc4sap:sap-option modules`. Consumed by `create-program`, `create-object`, `stock-cbo`, all consultant agents.
 
 ## SAP Platform Awareness (ECC / S4 On-Prem / Cloud)
 

@@ -20,7 +20,7 @@ Rule files named in prompts are always `<PLUGIN_ROOT>/skills/module-to-process/�
 
 ## Scope directory
 
-`<SCOPE_DIR>` = `<ARTIFACT_BASE>/cbo/<MODULE>/_USED` holds the usage-first scope of Step 2 (`tcodes-all.json`, `used-<k>.txt`, `tran.json`, `jobs.txt`, `walk.json`, `tcodes.json`, `usage.json`, `scope.json`) and the graph built from it (`graph.json`, `usage-result.json`). It is rebuilt when the user asks for a refresh or the usage is older than 30 days (`usage.json → measuredAt`); otherwise reused (`↳ 2 scope reused — measured <date>`). Per-package inventories of `analyze-cbo-obj` are read-only context when they exist (resolution per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) § Read path); this skill never stocks whole packages.
+`<SCOPE_DIR>` = `<ARTIFACT_BASE>/cbo/<MODULE>/_USED` holds the usage-first scope of Step 2 (`tcodes-all.json`, `used-<k>.txt`, `tran.json`, `jobs.txt`, `walk.json`, `tcodes.json`, `usage.json`, `scope.json`) and the graph built from it (`graph.json`, `usage-result.json`). It is rebuilt when the user asks for a refresh or the usage is older than 30 days (`usage.json → measuredAt`); otherwise reused (`↳ 2 scope reused — measured <date>`). Per-package inventories of `stock-cbo` are read-only context when they exist (resolution per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) § Read path); this skill never stocks whole packages.
 
 ## State checkpoints (`<STATE_DIR>`)
 
@@ -60,7 +60,7 @@ Recommend Start over when `<SCOPE_DIR>/graph.json` is newer than `step4.json` �
 
 | `BLOCKED` from | Action |
 |---|---|
-| `sap-checker` source batch | Split + retry once ([`../analyze-cbo-obj/stocker-fanout.md`](../analyze-cbo-obj/stocker-fanout.md) § Step C); objects still missing are listed under open questions (`Source not read: <names>`). |
+| `sap-checker` source batch | Split + retry once ([`../stock-cbo/stocker-fanout.md`](../stock-cbo/stocker-fanout.md) § Step C); objects still missing are listed under open questions (`Source not read: <names>`). |
 | `sap-analyst` Step 4 | STOP and ask (already Opus). |
 | `sap-analyst` Step 5 part | That part's tasks go to `step5.json → failed_tasks`; continue. All parts failed → STOP and ask. |
 | consultant Step 6 | Continue without that module's review; note it under open questions. |

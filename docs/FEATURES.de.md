@@ -52,10 +52,10 @@
 | `sc4sap:config-to-document` | Customizing eines Moduls aus dem laufenden System dokumentiert (zuerst MM) — eine HTML-Datei entlang des IMG-Baums: echte Tabellenwerte auf SM30-ähnlichen Bildern, kundengeänderte Zeilen mit Transporten, Customizing-Prüfungen, SAP-IMG-Dokumentation, von `sap-critic` geprüfte Beraterhinweise, Bearbeitungsmodus für Hinweise, Werte und Änderungshistorie (`--import` übernimmt sie in die nächste Version) |
 | `sc4sap:interface-mapping-spec` | Schnittstellen-Mapping-Spezifikation — eine editierbare HTML-Seite im Vorlagenlayout (Deckblatt, Änderungshistorie, Source → Target-Raster mit R / MAPPING, Antwortblock, Umsetzungsregeln, Extraktions-SQL, Feldhilfe); SAP-Seite aus DDIC / RFC-Signatur oder bei neuen Schnittstellen aus Feldliste / Beratervorschlag; Gegenseite und Umsetzungsregeln vorgeschlagen; Prüfungen in der Seite; versioniert, englische Fassung |
 | `sc4sap:analyze-code` | ABAP-Codeanalyse (Clean ABAP / Performance / Security) |
-| `sc4sap:analyze-cbo-obj` | CBO-Inventarscanner + Cross-Module-Gap-Analyse |
+| `sc4sap:stock-cbo` | CBO-Inventarscanner + Cross-Module-Gap-Analyse |
 | `sc4sap:analyze-symptom` | Schritt-für-Schritt-Analyse von SAP-Betriebsfehlern/-symptomen (Dumps, Logs, SAP-Note-Kandidaten) |
 | `sc4sap:ask-consultant` | Direkte Q&A mit einem Modulberater-Agent (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC). Nur-Lese — Antwortet gegen die konfigurierte SAP-Umgebung. |
-| `sc4sap:module-to-process` | Eine bearbeitbare HTML-Prozesslandkarte je Modul, nur aus den Transaktionen, die Anwender wirklich nutzen (produktives ST03N): Standard-Prozessgerüst L1–L4 mit CBO-Aufgaben, Varianten, Verantwortlichen und Systemen; Swimlanes je L3-Szenario; Aufgabenblatt je L4 im PDD-Format mit belegten Geschäftsregeln, Schritten, Schnittstellen und S/4-Konvertierungshinweisen; optional Berater-Review, BPH-Abgleich und englische Fassung. `package-to-process` leitet für ein Release hierher um |
+| `sc4sap:module-to-process` | Eine bearbeitbare HTML-Prozesslandkarte je Modul, nur aus den Transaktionen, die Anwender wirklich nutzen (produktives ST03N): Standard-Prozessgerüst L1–L4 mit CBO-Aufgaben, Varianten, Verantwortlichen und Systemen; Swimlanes je L3-Szenario; Aufgabenblatt je L4 im PDD-Format mit belegten Geschäftsregeln, Schritten, Schnittstellen und S/4-Konvertierungshinweisen; optional Berater-Review, BPH-Abgleich und englische Fassung |
 | `sc4sap:trust-session` | INTERNAL-ONLY — sessionweiter MCP-Berechtigungs-Bootstrap |
 
 ## Skills — Beispiele & Workflow
@@ -93,10 +93,10 @@ Flow (Phase 0–8):
 → "ZCL_SD_ORDER_VALIDATOR auf Clean-ABAP-Verstöße und SELECT * Nutzung prüfen"
 ```
 
-### `/sc4sap:analyze-cbo-obj`
+### `/sc4sap:stock-cbo`
 Walkt ein Z-Paket, katalogisiert wiederverwendbare Assets, führt Cross-Module-Gap-Analyse durch.
 ```
-/sc4sap:analyze-cbo-obj
+/sc4sap:stock-cbo
 → "ZSD_ORDER-Paket auf MM-Modul-Wiederverwendungskandidaten scannen"
 ```
 Flow: `GetPackageTree` → Kategorie-Walk → Häufigkeitsheuristik → Cross-Module-Gap-Check → `.sc4sap/cbo/<MODULE>/<PACKAGE>/inventory.json`.
@@ -262,7 +262,7 @@ Multi-Country-Rollouts: alle relevanten Dateien werden geladen + länderübergre
 
 Beispiel: MM-PO-Erstellung in einer Landschaft mit **PS aktiv** → Kontierungskategorie `P`/`Q` + `PS_POSID` (PSP-Element) vorschlagen; **CO aktiv** → Kostenstellen-Ableitung vorschlagen; **QM aktiv** → Prüflos-Autoerstellung bei GR.
 
-Konfigurieren via `/sc4sap:setup` (Schritt 4) oder `/sc4sap:sap-option modules`. Konsumiert von `create-program`, `create-object`, `analyze-cbo-obj`, allen Consultant-Agenten.
+Konfigurieren via `/sc4sap:setup` (Schritt 4) oder `/sc4sap:sap-option modules`. Konsumiert von `create-program`, `create-object`, `stock-cbo`, allen Consultant-Agenten.
 
 ## SAP-Plattform-Erkennung (ECC / S4 On-Prem / Cloud)
 

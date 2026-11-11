@@ -1,4 +1,4 @@
-// sc4sap:cbo-relation-map — the page model: graph.json (analyze-cbo-obj Step G) → a compact, customer-only model.
+// sc4sap:cbo-relation-map — the page model: graph.json (stock-cbo Step G) → a compact, customer-only model.
 //
 // Only customer objects become nodes: scope `member` (in the package) and `custom` (Z / Y / namespace outside it).
 // Standard and dynamic targets, and every edge that touches them, are dropped ([[feedback-graph-cbo-only]]) —

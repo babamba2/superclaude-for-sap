@@ -1,6 +1,6 @@
 ---
 name: cbo-relation-map
-description: Draw how the customer objects of one or more CBO packages relate — one self-contained HTML relation map built from the reference graph of /sc4sap:analyze-cbo-obj (DDIC typing, check tables, search helps, value tables, row types, view bases, plus includes, calls, submits, transactions, reads and writes from source). Overview with the most connected objects, usage and groups of related objects; a search-driven neighbourhood view drawn like Obsidian's graph (relation presets, filters by kind / type / basis / usage / package); impact of a change up to the TCodes; shortest paths; a table CRUD tab; source lines behind every relation; PNG / CSV export. Customer (Z / Y / namespace) objects only. Collects the graph itself when it is missing (whole package or used TCodes only; eco = map-only collection).
+description: Draw how the customer objects of one or more CBO packages relate — one self-contained HTML relation map built from the reference graph of /sc4sap:stock-cbo (DDIC typing, check tables, search helps, value tables, row types, view bases, plus includes, calls, submits, transactions, reads and writes from source). Overview with the most connected objects, usage and groups of related objects; a search-driven neighbourhood view drawn like Obsidian's graph (relation presets, filters by kind / type / basis / usage / package); impact of a change up to the TCodes; shortest paths; a table CRUD tab; source lines behind every relation; PNG / CSV export. Customer (Z / Y / namespace) objects only. Collects the graph itself when it is missing (whole package or used TCodes only; eco = map-only collection).
 model: inherit
 ---
 
@@ -8,7 +8,7 @@ model: inherit
 
 > **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): full — only from an existing `graph.json`; collection is blocked.
 
-One **HTML page per package (or set of packages)** that shows how the customer objects hang together: which tables use which data elements and domains, which tables check against which, which programs and function modules read or write which tables, which transactions start what — and what is affected when one of them changes. Drawn from the `graph.json` of `/sc4sap:analyze-cbo-obj`; the page itself needs no SAP call.
+One **HTML page per package (or set of packages)** that shows how the customer objects hang together: which tables use which data elements and domains, which tables check against which, which programs and function modules read or write which tables, which transactions start what — and what is affected when one of them changes. Drawn from the `graph.json` of `/sc4sap:stock-cbo`; the page itself needs no SAP call.
 
 <Purpose>
 Before a change, a conversion or an AMS takeover the first question is "what is connected to this?". The graph exists after an inventory run, but as JSON. This page makes it browsable: start from the most connected objects, a group or a table, centre on any object, follow its relations, see what a change reaches up to the TCodes, ask how two objects are connected — with the DDIC row or source line behind every relation.
@@ -18,11 +18,11 @@ Before a change, a conversion or an AMS takeover the first question is "what is 
 
 <Use_When>
 - "관계도", "객체 관계도", "DDIC 관계도", "CBO 관계", "패키지 관계도", "연관 관계", "영향도", "영향 분석 그림", "테이블 CRUD", "relation map", "dependency graph", "impact of changing", "what is connected to"
-- After `/sc4sap:analyze-cbo-obj` on a package, or to compare / combine several packages
+- After `/sc4sap:stock-cbo` on a package, or to compare / combine several packages
 </Use_When>
 
 <Do_Not_Use_When>
-- Only a list of reusable objects → `/sc4sap:analyze-cbo-obj`
+- Only a list of reusable objects → `/sc4sap:stock-cbo`
 - Business process view → `/sc4sap:module-to-process`
 - One program's internals → `/sc4sap:program-to-spec`; code quality → `/sc4sap:analyze-code`
 </Do_Not_Use_When>
@@ -32,9 +32,9 @@ Settled with the user (2026-11-06) — do not ask again:
 
 | Topic | Decision |
 |---|---|
-| Input | The `graph.json` of `/sc4sap:analyze-cbo-obj` (Step G), plus its side files when present: `walk.json` / `inventory.json` (descriptions), `usage-result.json` (used / unused), `ddic-reads.json` (standard check tables, object short texts), `ddic-texts.json` (short texts of a text refresh). Missing graph → collect it per [`collect.md`](collect.md); a graph without short texts → text refresh, [`collect.md`](collect.md) § C |
+| Input | The `graph.json` of `/sc4sap:stock-cbo` (Step G), plus its side files when present: `walk.json` / `inventory.json` (descriptions), `usage-result.json` (used / unused), `ddic-reads.json` (standard check tables, object short texts), `ddic-texts.json` (short texts of a text refresh). Missing graph → collect it per [`collect.md`](collect.md); a graph without short texts → text refresh, [`collect.md`](collect.md) § C |
 | Descriptions | The SAP short text (SE11 / SE38 / SE93 / SE37 / SE80 description; English first, else the logon language) wins over the inventory text. Placeholders (`-`, `No DDIC description available`) are dropped; a TCode whose text only names its program takes that program's description. Every related object in the side panel shows its description |
-| Collection | Scope **whole package** or **used TCodes only** (productive ST03N). Standard = full `/sc4sap:analyze-cbo-obj`; eco = map-only collection (Haiku walk + Step G, no scouts, no finalize) |
+| Collection | Scope **whole package** or **used TCodes only** (productive ST03N). Standard = full `/sc4sap:stock-cbo`; eco = map-only collection (Haiku walk + Step G, no scouts, no finalize) |
 | Objects | Customer objects only: in-package members and Z / Y / namespace objects outside the package. Standard and dynamic targets and their relations are never drawn; standard includes inside a Z function group (`LSVIM*`, …) neither. Standard **check tables** appear only as text in the side panel |
 | Includes | Folded into their program / function group by default (relations move to the owner, evidence keeps the include and line); `--includes keep` draws them |
 | Hubs | Ranked by business relations (everything except field typing); typing hubs are a separate list |
@@ -98,11 +98,11 @@ What to tell a user who asks how to read the page:
 </Page_Guide>
 
 <MCP_Tools_Used>
-None for the page. Collection ([`collect.md`](collect.md)) uses the tools of `/sc4sap:analyze-cbo-obj` Step G and `/sc4sap:module-to-process` Step 2 (read-only).
+None for the page. Collection ([`collect.md`](collect.md)) uses the tools of `/sc4sap:stock-cbo` Step G and `/sc4sap:module-to-process` Step 2 (read-only).
 </MCP_Tools_Used>
 
 <Related_Skills>
-- `/sc4sap:analyze-cbo-obj` — builds the whole-package `graph.json` and inventory
+- `/sc4sap:stock-cbo` — builds the whole-package `graph.json` and inventory
 - `/sc4sap:module-to-process` — the used-TCode graph laid onto business processes
 - `/sc4sap:program-to-spec` — one program in depth
 </Related_Skills>

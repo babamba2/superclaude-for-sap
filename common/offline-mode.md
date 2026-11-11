@@ -34,7 +34,7 @@ Every skill falls in one class. The class is listed in the table below; a skill 
 | `analyze-code` | degraded | Source pasted or given as a local file; no where-used, no semantic check |
 | `analyze-symptom` | degraded | Dump text / source pasted by the user; no dump feed, no transports |
 | `sap-doctor` | degraded | Plugin and profile layers only; connection layers reported `skipped (offline)` |
-| everything else (`create-program`, `create-object`, `assist`, `program-to-spec`, `program-to-manual`, `compare-programs`, `config-to-document`, `module-to-process`, `package-to-process`, `analyze-cbo-obj`, `smartform-preview`, `smartform-from-pdf`) | blocked | Needs the system to read or write |
+| everything else (`create-program`, `create-object`, `assist`, `program-to-spec`, `program-to-manual`, `compare-programs`, `config-to-document`, `module-to-process`, `stock-cbo`, `smartform-preview`, `smartform-from-pdf`) | blocked | Needs the system to read or write |
 
 ## Local knowledge, in this order
 

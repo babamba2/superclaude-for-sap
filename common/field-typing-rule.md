@@ -96,7 +96,7 @@ Agents facing an unlisted field MUST call `SearchObject` against `DTEL` with 2�
 - `skills/create-object/workflow-steps.md` → Step 5 (standard flow) and Step 4-ECC (helper-program generation) both route field-type decisions through this rule.
 - `skills/create-program/phase4-parallel.md` → Wave 1 sub-step 3 (parallel `CreateTable` / `CreateStructure`) applies this rule per field before emitting `rollname`.
 - `skills/create-program/phase6-review.md` → reviewer fails the plan if any field drops to priority 4 without an inline justification, or if any priority-1 miss is visible (a standard DE existed and the plan still used a primitive).
-- `skills/analyze-cbo-obj/` → CBO inventory `inventory.json` is the source for priority 2 (existing CBO DE). Keep it fresh; stale inventory forces needless priority-3 creations.
+- `skills/stock-cbo/` → CBO inventory `inventory.json` is the source for priority 2 (existing CBO DE). Keep it fresh; stale inventory forces needless priority-3 creations.
 
 ## Enforcement Checklist (per field, before `CreateTable` / `UpdateTable` / ECC helper emission)
 

@@ -122,7 +122,7 @@ describe('offline runtime — bridge, HUD, SessionStart', () => {
 describe('offline-mode rule coverage', () => {
   const rule = readFileSync(join(ROOT, 'common', 'offline-mode.md'), 'utf8');
   // Internal / redirect skills carry no user-facing offline behavior of their own.
-  const exempt = new Set(['trust-session', 'mcp-setup', 'package-to-process']);
+  const exempt = new Set(['trust-session', 'mcp-setup']);
   const skills = readdirSync(join(ROOT, 'skills')).filter((s) => existsSync(join(ROOT, 'skills', s, 'SKILL.md')) && !exempt.has(s));
 
   it.each(skills)('%s points to the offline rule and is named in its class table', (skill) => {

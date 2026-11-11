@@ -79,7 +79,7 @@ When the target program has fewer items than the template's fixed slot count, **
 
 ### Business-process narrative (Sheet 4 처리 로직 + Process Flow PNG)
 
-The reader of the spec is a **functional consultant**, not the original developer. The "처리 로직" sheet and the Process Flow chart must read like the md / `package-to-process` output: *what business step happens and why*, with the technical mechanism kept as a secondary annotation — **business-first + technical-annotated**.
+The reader of the spec is a **functional consultant**, not the original developer. The "처리 로직" sheet and the Process Flow chart must read like the `module-to-process` task sheets: *what business step happens and why*, with the technical mechanism kept as a secondary annotation — **business-first + technical-annotated**.
 
 - **`Event / FORM` column** = the technical anchor only (`INITIALIZATION`, `START-OF-SELECTION`, `FORM get_data`, `lcl_handler~on_link_click`). Keep it short.
 - **`Step` column** = the business-process sentence FIRST, then the technical mechanism in a trailing clause / parentheses. Lead with the business intent, not the ABAP verb.

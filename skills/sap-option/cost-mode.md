@@ -18,7 +18,7 @@ Chooses between `standard` (quality first, current behavior) and `eco` (cost fir
    - `Eco for all skills` — "Cheaper models and effort. Same deliverable."
    - `Per skill` — "Pick skills that run in eco; the rest stay standard."
    Mark the current value with ` (current)`. Accept shorthand from the request in any language (`"eco mode on"`, `"saving mode"`, `"program-to-spec only eco"`) and skip the question.
-4. `Per skill` → second `AskUserQuestion` with `multiSelect: true`, options = the four most-used document/review skills (`program-to-manual`, `package-to-process`, `compare-programs`, `config-to-document`); other skills via "Other" (comma-separated names). Selected → `"eco"`; previously listed but unselected → remove the key.
+4. `Per skill` → second `AskUserQuestion` with `multiSelect: true`, options = the three most-used document/review skills (`program-to-manual`, `compare-programs`, `config-to-document`); other skills via "Other" (comma-separated names). Selected → `"eco"`; previously listed but unselected → remove the key.
 5. Unchanged → say so and stop. Else preview the diff (`costMode: standard → eco`, `costModeBySkill.program-to-spec: + eco`), confirm, then write:
    - Preserve every other key (`modelDispatch`, …); 2-space JSON indent; atomic write (`.tmp` → rename).
    - Write `"costMode": "standard"` explicitly rather than deleting the key.

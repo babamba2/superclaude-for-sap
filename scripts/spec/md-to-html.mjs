@@ -1,4 +1,4 @@
-// sc4sap:program-to-spec / package-to-process — Markdown → HTML converter.
+// sc4sap:program-to-spec — Markdown → HTML converter.
 //
 // The skills write Markdown as their source of truth. When the user also asks
 // for HTML, this helper turns that same .md into ONE self-contained .html page

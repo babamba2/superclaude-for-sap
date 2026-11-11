@@ -165,7 +165,7 @@ Dispatch-summary examples in the prefix:
 
 <Related_Skills>
 - `/sc4sap:compare-programs` — complementary when the consultant's answer references existing variants.
-- `/sc4sap:analyze-cbo-obj` — complementary when the consultant's answer depends on knowing what custom assets already exist.
+- `/sc4sap:stock-cbo` — complementary when the consultant's answer depends on knowing what custom assets already exist.
 </Related_Skills>
 
 <MCP_Tools_Used>

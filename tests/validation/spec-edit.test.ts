@@ -373,7 +373,7 @@ describe('versions', () => {
 });
 
 describe('editable page vs plain page', () => {
-  it('leaves the plain page (package-to-process, other skills) without any edit markup', () => {
+  it('leaves the plain page (other skills) without any edit markup', () => {
     const plain: string = mdToHtml(SPEC, { lang: 'ko' });
     expect(plain).not.toMatch(/data-b=|data-f=|data-src=|spec-source|spec-edit|data-edited|rev-table|ql-editor/);
     expect(plain).toContain('<dl class="facts"><div><dt>lang</dt>');
