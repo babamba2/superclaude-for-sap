@@ -20,6 +20,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 - **RFC backends `native`, `gateway`, `zrfc` and the RFC connection `SAP_CONNECTION_TYPE=rfc`** (MCP 4.10.0, pin → `67b8db7`). Setup offers `odata` (default) or `soap`; Step 9d (ZRFC ICF handler) is gone. A profile that still uses a removed value stops the MCP server at boot with the fix; `/sc4sap:sap-doctor` reports it as a BLOCKER (check 6.0) and `/sc4sap:sap-option` offers odata / soap.
 
+## [0.6.65] — 2026-11-12
+
+### Fixed
+- Reference graph (`/sc4sap:stock-cbo` Step G, `/sc4sap:cbo-relation-map`): includes that no program of the package pulls in — user-exit includes included by SAP programs, leftovers — were never read, so their reads, writes and calls were missing from the graph and the Fields tab. New step G1b lists them (`build-package-graph.mjs --orphans`) and fetches them with `GetInclude`; the build reads each as an object of its own. Include members no longer show up as missing program sources.
+
 ## [0.6.64] — 2026-11-11
 
 ### Changed
