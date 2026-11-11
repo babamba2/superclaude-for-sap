@@ -315,22 +315,27 @@ describe('graph-query', () => {
     const src = mkdtempSync(join(tmpdir(), 'sc4sap-orph-src-'));
     try {
       const w = { package: 'ZGT', objects: [
-        { name: 'ZGT_X', type: 'PROG/P' }, { name: 'ZGT_X_TOP', type: 'PROG/I' },
+        { name: 'ZGT_X', type: 'PROG/P' }, { name: 'ZGT_X_TOP', type: 'PROG/I' }, { name: 'ZGT_X_F01', type: 'PROG/I' },
         { name: 'ZGT_EXIT', type: 'PROG/I' }, { name: 'ZGT_GONE', type: 'PROG/I' }, { name: 'ZGT_TAB', type: 'TABL/DT' },
       ] };
       writeFileSync(join(dir, 'walk.json'), JSON.stringify(w));
       mkdirSync(join(src, 'zgt_x.prog'));
-      writeFileSync(join(src, 'zgt_x.prog', 'zgt_x.prog.abap'), 'REPORT zgt_x.\nINCLUDE zgt_x_top.\n');
+      writeFileSync(join(src, 'zgt_x.prog', 'zgt_x.prog.abap'), 'REPORT zgt_x.\nINCLUDE zgt_x_top.\nINCLUDE zgt_x_f01.\n');
       writeFileSync(join(src, 'zgt_x.prog', 'zgt_x_top.incl.abap'), 'DATA gv TYPE i.\n');
       // the orphan's helper list, before G1b
-      expect(listOrphanIncludes({ dir, src })).toEqual({ orphans: ['ZGT_EXIT', 'ZGT_GONE'], alreadyRead: 0 });
+      expect(listOrphanIncludes({ dir, src })).toEqual({ orphans: ['ZGT_X_F01', 'ZGT_EXIT', 'ZGT_GONE'], alreadyRead: 0 });
+      // the owner's folder came back without ZGT_X_F01 (seen on ECC): fetched alone, it joins ZGT_X
+      writeFileSync(join(src, 'zgt_x_f01.incl.abap'), 'FORM save.\n  DELETE FROM zgt_tab WHERE id = 2.\nENDFORM.\n');
       writeFileSync(join(src, 'zgt_exit.incl.abap'), 'UPDATE zgt_tab SET flag = abap_true WHERE id = 1.\n');
-      expect(listOrphanIncludes({ dir, src })).toEqual({ orphans: ['ZGT_GONE'], alreadyRead: 1 });
+      expect(listOrphanIncludes({ dir, src })).toEqual({ orphans: ['ZGT_GONE'], alreadyRead: 2 });
       const s = buildPackageGraph({ dir, src, system: 'DEV', sapVersion: 'ECC', builtAt: '2026-11-12T00:00:00Z' });
       expect(s.sourcesMissing).toEqual([]); // PROG/I members are not program folders
-      expect(s.orphanIncludes).toEqual({ read: 1, missing: ['ZGT_GONE'] });
+      expect(s.orphanIncludes).toEqual({ read: 2, missing: ['ZGT_GONE'] });
       const g = JSON.parse(readFileSync(join(dir, 'graph.json'), 'utf8'));
       expect(g.edges.some((e: { from: string; to: string; kind: string }) => e.from === 'PROG:ZGT_EXIT' && e.to.endsWith(':ZGT_TAB') && e.kind === 'writes')).toBe(true);
+      const del = g.edges.find((e: { to: string; ops?: string[] }) => e.to.endsWith(':ZGT_TAB') && e.ops?.includes('DELETE'));
+      expect(del?.from).toBe('PROG:ZGT_X'); // the include's write belongs to its owner, no PROG:ZGT_X_F01 object
+      expect(g.edges.some((e: { from: string }) => e.from === 'PROG:ZGT_X_F01')).toBe(false);
     } finally {
       rmSync(dir, { recursive: true, force: true });
       rmSync(src, { recursive: true, force: true });

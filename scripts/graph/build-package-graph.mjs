@@ -100,21 +100,50 @@ function loadMemberFolders(walk, src) {
 /** file name GetInclude output:"file" writes: lower case, namespace slashes as # */
 const includeFile = (src, name) => join(src, `${name.toLowerCase().replace(/\//g, '#')}.incl.abap`);
 
+const INCLUDE_STMT = /^[ \t]*INCLUDE[ \t]+([A-Z0-9_/]+)[ \t]*(?:IF[ \t]+FOUND[ \t]*)?\./gim;
+
 /**
- * PROG/I members that no fetched PROG / FUGR folder holds. Those with a GetInclude file in <src> become units of their
- * own (object PROG:<name>, the member node); the rest are returned as missing — the G1b fetch list.
+ * PROG/I members that no fetched PROG / FUGR folder holds. Those with a GetInclude file in <src> are read: an include
+ * a loaded unit pulls in with INCLUDE (its owner's folder came back without it) joins that owner; the rest — user-exit
+ * includes of SAP programs, leftovers — become objects of their own (PROG:<name>, the member node). Includes without
+ * a file are returned as missing — the G1b fetch list.
  */
 export function loadOrphanIncludes(walk, src, units) {
   const seen = new Set(units.map((u) => String(u.unit).toUpperCase()));
-  const out = { units: [], missing: [] };
+  const found = new Map();
+  const missing = [];
   for (const o of walk.objects || []) {
     if (String(o.type || '').toUpperCase() !== 'PROG/I') continue;
     const name = String(o.name).toUpperCase();
     if (seen.has(name)) continue;
     seen.add(name);
     const file = includeFile(src, name);
-    if (existsSync(file)) out.units.push({ file, unit: name, object: `PROG:${name}`, isMain: true });
-    else out.missing.push(name);
+    if (existsSync(file)) found.set(name, file);
+    else missing.push(name);
+  }
+  // owner = object of the unit holding INCLUDE <name>; nested found includes inherit the owner of their includer
+  const owner = new Map();
+  const scan = (file, object) => {
+    for (const m of readFileSync(file, 'utf8').matchAll(INCLUDE_STMT)) {
+      const n = m[1].toUpperCase();
+      if (found.has(n) && !owner.has(n)) owner.set(n, object);
+    }
+  };
+  if (found.size) for (const u of units) if (u.file) scan(u.file, u.object);
+  const settle = () => {
+    for (let before = -1; before !== owner.size; ) {
+      before = owner.size;
+      for (const [n, file] of found) if (owner.has(n)) scan(file, owner.get(n));
+    }
+  };
+  settle();
+  // includes pulled in by a stand-alone include belong to it
+  for (const [n, file] of found) if (!owner.has(n)) scan(file, `PROG:${n}`);
+  settle();
+  const out = { units: [], missing };
+  for (const [name, file] of found) {
+    const own = owner.get(name);
+    out.units.push(own ? { file, unit: name, object: own, isMain: false } : { file, unit: name, object: `PROG:${name}`, isMain: true });
   }
   return out;
 }

@@ -23,13 +23,13 @@ For each object return exactly one line:
 
 ### G1b — Includes no member program pulls in
 
-User-exit includes (included by SAP programs such as `MV45AFZZ`) and leftovers are package members no G1 folder holds. List them:
+Package includes no G1 folder holds: user-exit includes (included by SAP programs such as `MV45AFZZ`), leftovers, and includes a member program pulls in that its `GetProgFullCode` folder came back without. List them:
 
 ```bash
 node "<PLUGIN_ROOT>/scripts/graph/build-package-graph.mjs" --dir "<DIR>" --src "<SRC>" --orphans
 ```
 
-It prints `{ orphans: [...], alreadyRead }`. Empty `orphans` → skip. Otherwise `sc4sap:sap-checker` × n, `MODE: scout`, 20 names per checker, at most 8 per message: for each name `GetInclude` with `output: "file"` once, return `key="src" value="ok"` or `value="ERROR <message>"`, never read the source. The files land in `<SRC>` as `<name>.incl.abap`; G5 reads them as units of their own, and its summary reports what is still missing under `orphanIncludes`.
+It prints `{ orphans: [...], alreadyRead }`. Empty `orphans` → skip. Otherwise `sc4sap:sap-checker` × n, `MODE: scout`, 20 names per checker, at most 8 per message: for each name `GetInclude` with `output: "file"` once, return `key="src" value="ok"` or `value="ERROR <message>"`, never read the source. The files land in `<SRC>` as `<name>.incl.abap`. G5 joins an include to the member program whose source has `INCLUDE <name>`; the others become objects of their own. Its summary reports what is still missing under `orphanIncludes`.
 
 ## G2 — TCodes (main thread)
 
