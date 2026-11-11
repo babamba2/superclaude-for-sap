@@ -3,6 +3,14 @@
 All notable changes to **SuperClaude for SAP (sc4sap)** will be documented in this file.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning follows [SemVer](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.64] — 2026-11-11
+
+### Changed
+- MCP pin `19eccf7` (4.8.19) → `b089d9f` (4.8.20): adds `GetAreaMenu`, so the `/sc4sap:module-to-process` area menu cross-check of 0.6.63 works on a fresh install. Nothing else changes in the MCP server.
+
+### Fixed
+- The npm package carries every folder the plugin reads at run time (`common/`, `exceptions/`, `industry/`, `country/`, `agent-refs/`, `abap/`, `asset/`, `data/`, `runtime-deps/`); before, a package install missed the rules, the blocklist and the keyring.
+
 ## [0.6.63] — 2026-11-11
 
 ### Added
