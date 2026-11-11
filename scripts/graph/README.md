@@ -11,6 +11,7 @@ Turns ABAP source already saved on disk into `graph.json`: objects as nodes, typ
 | `collect-ddic-reads.mjs` | Step G3a collector: matches the `sap-checker` `dd-read` result files (MCP output `sql/`) to the plan by exact SQL text → `ddic-reads.json` |
 | `build-package-graph.mjs` | one call for the stocker flow's Step G: member PROG / FUGR folders from the MCP output dir + tcodes / DDIC / usage files in the inventory dir → `graph.json`, `usage-result.json`, `usage.md` |
 | `graph-query.mjs` | callers / reach / impact / flow / components / stats / usage over a graph.json |
+| `extract-fields.mjs` | field-level CRUD → `fields.json` (below); `query <fields.json> <T-F \| S-F \| T> [--md]` |
 | `import-usage.mjs` | user-submitted usage from another system (ST03N / SM37 export as .xlsx or text, or a pasted list) → the `tcodes` / `jobs` side of `usage.json`, members only, with `source` |
 
 ## graph.json
@@ -30,6 +31,25 @@ Turns ABAP source already saved on disk into `graph.json`: objects as nodes, typ
 - **FUNC inside a FUGR**: statements between `FUNCTION` and `ENDFUNCTION` belong to `FUNC:<name>` (`parent` = the FUGR); FORMs and TOP code belong to the FUGR. `reach` follows a FUNC's parent edges and adds the parent node.
 - **DDIC node type** is inferred: name in SQL → TABL; `x-comp`, `TABLE OF x`, `INCLUDE STRUCTURE/TYPE x`, `TABLES x` → STRU; plain `TYPE x` → DTEL with `guess: true`. A type given in the member list wins. P2 enrich corrects TABL/VIEW/DDLS and STRU/TTYP/DTEL.
 - **Edges** merge per `(from, kind, to)`: `count` = all hits, `evidence` ≤ 5. `confidence: "low"` marks guesses (see below); absent = high. `srcHash` (sha1/16) per unit and owner allows incremental rebuilds.
+
+## fields.json (field-level CRUD)
+
+`build-package-graph.mjs` writes it next to `graph.json` when DD03L rows exist. SQL statements only — a field "changes" when a database statement writes it; work-area assignments are not traced.
+
+```json
+{ "extractor": "extract-fields@1",
+  "tables": { "ZSDT0431": { "type": "TABL", "scope": "member", "fields": [{ "name": "STATUS", "pos": 3, "key": false, "rollname": "ZSDE_ST", "struct": "ZSDS_EXT" }] },
+              "VBAK": { "type": "TABL", "scope": "append", "fields": [{ "name": "ZZPRIO", "pos": 1, "struct": "ZAVBAK" }] } },
+  "structures": { "ZAVBAK": { "fields": ["ZZPRIO"], "tables": ["VBAK"] } },
+  "refs": [{ "t": "ZSDT0431", "f": "STATUS", "op": "U", "from": "PROG:ZSDR0431", "count": 2, "evidence": [{ "unit": "ZSDR0431F01", "line": 88, "text": "UPDATE …" }] }],
+  "coverage": { "units": 0, "statements": 0, "sql": 0, "dynamic": 0, "tables": 0, "structures": 0, "refs": 0 } }
+```
+
+- **op**: `C` INSERT · `R` SELECT list · `F` WHERE / JOIN ON / GROUP BY / HAVING / ORDER BY · `U` UPDATE SET (that field) or UPDATE … FROM (row) · `D` DELETE · MODIFY = `C` + `U`. Field `*` = the whole row (SELECT *, writes from a work area) and counts for every field.
+- **tables**: member TABL / VIEW with all fields; a standard table only with the fields of its customer `.APPEND` / `.INCLUDE` structures (Z*, Y*, namespace, CI_*), `scope: "append"`. Standard fields are never listed.
+- **structures**: a customer structure included or appended into a table inherits the CRUD of the fields it contributes.
+- **Appends of standard tables** need two DD03L rounds after the graph exists: `ddic-queries.mjs --only appends` (→ `ddic-appends.json`), then `--only append-fields` (→ `ddic-append-fields.json`), each collected with `collect-ddic-reads.mjs --plan … --out …`.
+- **Not caught**: dynamic `FROM (lv)` (counted in `coverage.dynamic`), `EXEC SQL`, SQL in macros, an unqualified column that two joined tables share (kept on both with `confidence: "low"`), a host variable spelled like a field without `@` in a WHERE (counted as a condition read).
 
 ## Edge kinds and their regex limits
 

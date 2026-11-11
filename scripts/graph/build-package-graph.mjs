@@ -10,12 +10,15 @@
 // <MCP output src dir> is where GetProgFullCode output:"file" saved the sources (<name>.prog/, <name>.fugr/).
 // Only folders of PROG / FUGR members are read — other programs in the shared output dir are ignored.
 // Writes graph.json, and usage-result.json + usage.md when usage.json exists. Prints a JSON summary.
+// With DD03L rows (ddic-reads.json / ddic.json, plus ddic-appends.json + ddic-append-fields.json for the customer
+// appends of standard tables) it also writes fields.json — field-level CRUD (extract-fields.mjs).
 
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadDdicReads, mergeDdic, parseDdicFacts } from './ddic-edges.mjs';
 import { discoverUnits, extractGraph } from './extract-edges.mjs';
+import { extractFields } from './extract-fields.mjs';
 import { loadGraph, toMarkdown, usage } from './graph-query.mjs';
 
 const readJson = (p) => (existsSync(p) ? JSON.parse(readFileSync(p, 'utf8')) : null);
@@ -50,6 +53,14 @@ export function buildPackageGraph({ dir, src, system, sapVersion, builtAt }) {
   });
   writeFileSync(join(dir, 'graph.json'), `${JSON.stringify(graph, null, 1)}\n`);
   const summary = { graph: join(dir, 'graph.json'), nodes: graph.nodes.length, edges: graph.edges.length, unresolved: graph.unresolved.length, sourcesMissing: missing };
+  // field map: member tables' DD03L rows + customer appends of standard tables (ddic-queries --only appends / append-fields)
+  const loadReads = (f) => loadDdicReads(readJson(join(dir, f)), (p) => JSON.parse(readFileSync(p, 'utf8'))).ddic?.fields || [];
+  const fieldRows = [...(ddic?.fields || []), ...loadReads('ddic-appends.json'), ...loadReads('ddic-append-fields.json')];
+  if (fieldRows.length) {
+    const fx = extractFields(units, { fieldRows, members: walk, package: walk.package, builtAt: graph.builtAt });
+    writeFileSync(join(dir, 'fields.json'), `${JSON.stringify(fx)}\n`);
+    summary.fields = { tables: fx.coverage.tables, structures: fx.coverage.structures, refs: fx.coverage.refs, dynamic: fx.coverage.dynamic };
+  }
   if (reads.truncated.length || reads.failed.length) summary.ddicReads = { truncated: reads.truncated, failed: reads.failed };
   const usageIn = readJson(join(dir, 'usage.json'));
   if (usageIn) {
