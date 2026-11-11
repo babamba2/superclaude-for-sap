@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildPackageGraph } from '../../scripts/graph/build-package-graph.mjs';
-import { appendFieldQueries, appendQueries } from '../../scripts/graph/ddic-queries.mjs';
+import { appendFieldQueries, appendQueries, packageNamespaces } from '../../scripts/graph/ddic-queries.mjs';
 import { buildFieldModel, extractFields, fieldUsage, parseSelect, parseWrite, sqlSegments } from '../../scripts/graph/extract-fields.mjs';
 
 const members = {
@@ -183,6 +183,12 @@ describe('append read plan', () => {
     const plan = appendFieldQueries([{ TABNAME: 'VBAK', FIELDNAME: '.APPEND', PRECFIELD: 'ZAVBAK' }, { TABNAME: 'MARA', FIELDNAME: '.INCLUDE', PRECFIELD: 'EMARA' }, { TABNAME: 'EKKO', FIELDNAME: '.INCLUDE', PRECFIELD: 'CI_EKKODB' }]);
     expect(plan).toHaveLength(1);
     expect(plan[0].sql).toMatch(/FROM DD03L WHERE AS4LOCAL = 'A' AND TABNAME IN \('CI_EKKODB','ZAVBAK'\)$/);
+  });
+  it('round 2 skips SAP add-on namespaces, keeps the package namespace', () => {
+    const rows = [{ TABNAME: 'MARA', FIELDNAME: '.APPEND', PRECFIELD: '/DSD/SV_MARA_I' }, { TABNAME: 'VBAK', FIELDNAME: '.APPEND', PRECFIELD: '/ACME/VBAK_EXT' }];
+    expect(appendFieldQueries(rows)).toHaveLength(0);
+    const plan = appendFieldQueries(rows, { namespaces: packageNamespaces({ objects: [{ name: '/ACME/R_ORDERS', type: 'PROG' }] }) });
+    expect(plan[0].sql).toMatch(/TABNAME IN \('\/ACME\/VBAK_EXT'\)$/);
   });
 });
 

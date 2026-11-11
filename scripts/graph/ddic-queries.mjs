@@ -155,12 +155,23 @@ export function appendQueries(graph, { chunk = 50, ecc = false } = {}) {
     .map((q) => ({ ...q, id: q.id.replace(/^dd03l-/, 'dd03l-app-') }));
 }
 
-/** round 2: rows of round 1 (DD03L) → the customer structures' own fields */
-export function appendFieldQueries(appendRows, { fieldsChunk = 20, ecc = false } = {}) {
+/** namespaces (/NS/) the package's own objects use — the only namespaces trusted as customer in appends */
+export function packageNamespaces(walk) {
+  const out = new Set();
+  for (const o of walk?.objects || []) { const m = /^(\/[A-Z0-9_]+\/)/.exec(up(o.name)); if (m) out.add(m[1]); }
+  return out;
+}
+
+/**
+ * round 2: rows of round 1 (DD03L) → the customer structures' own fields. Customer = Z* / Y* / CI_* or a
+ * namespace of the package itself; SAP add-on namespaces (/DSD/, /SPE/, /VSO/ …) in standard tables are not.
+ */
+export function appendFieldQueries(appendRows, { fieldsChunk = 20, ecc = false, namespaces = new Set() } = {}) {
   const structs = new Set();
   for (const row of appendRows || []) {
     const s = up(row.PRECFIELD);
-    if (s && (isCustomName(s) || /^CI_/.test(s))) structs.add(s);
+    const ns = /^(\/[A-Z0-9_]+\/)/.exec(s);
+    if (s && (/^[ZY]/.test(s) || /^CI_/.test(s) || (ns && namespaces.has(ns[1])))) structs.add(s);
   }
   const r = { table: 'DD03L', key: 'TABNAME' };
   return chunked(r, [...structs].sort(), fieldsChunk, "AS4LOCAL = 'A' AND ", DD03L_COLS, ecc)
@@ -220,7 +231,7 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
       const ap = join(a.dir, 'ddic-appends.json');
       if (!existsSync(ap)) throw new Error(`ddic-appends.json not found in ${a.dir} — collect the --only appends plan first`);
       const rows = loadDdicReads(JSON.parse(readFileSync(ap, 'utf8')), (f) => JSON.parse(readFileSync(f, 'utf8'))).ddic?.fields || [];
-      plan = appendFieldQueries(rows, { fieldsChunk: a.fieldsChunk, ecc });
+      plan = appendFieldQueries(rows, { fieldsChunk: a.fieldsChunk, ecc, namespaces: packageNamespaces(JSON.parse(readFileSync(p, 'utf8'))) });
     } else plan = ddicQueries(JSON.parse(readFileSync(p, 'utf8')), { ...a, graph, ecc });
     if (a.out) {
       writeFileSync(a.out, `${JSON.stringify(plan, null, 1)}\n`);
