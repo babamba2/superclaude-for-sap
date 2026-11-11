@@ -60,7 +60,8 @@ ol.steps{padding-left:20px}ol.steps li{margin:4px 0}
 .desc{color:var(--muted);font-size:12px}.desc.big{font-size:13px;margin:2px 0 6px}.mono{font-family:Consolas,monospace;font-size:12px;word-break:break-all}
 .u{display:inline-block;font-size:10.5px;line-height:16px;padding:0 6px;border-radius:8px;border:1px solid var(--line);color:var(--muted)}.u.u0{color:#2e9d4e;border-color:#2e9d4e}.u.u1{color:#4f8fc9;border-color:#4f8fc9}.u.u2{color:#d84315;border-color:#d84315}.u.u3{border-style:dashed}
 .card.u0 b{color:#2e9d4e}.card.u1 b{color:#4f8fc9}.card.u2 b{color:#d84315}
-.crud{font-family:Consolas,monospace;font-size:11px;letter-spacing:1px}.crud b{font-weight:700}.c-C{color:#2e9d4e}.c-R{color:#4f8fc9}.c-U{color:#c47f00}.c-D{color:#d84315}
+.crud{font-family:Consolas,monospace;font-size:11px;letter-spacing:1px}.crud b{font-weight:700}.c-C{color:#2e9d4e}.c-R{color:#4f8fc9}.c-U{color:#c47f00}.c-D{color:#d84315}.c-F{color:#6a5acd}
+.when{font-size:12px;margin:2px 0 0 0}table.fx tr[data-fx]{cursor:pointer}table.fx tr.sel td{background:var(--head)}#fx-list{max-height:70vh;overflow:auto}
 pre.snip{margin:4px 0 6px;padding:6px 8px;max-height:280px;overflow:auto;background:var(--head);border-radius:6px;font-size:11.5px;line-height:1.45}pre.snip span{display:block}pre.snip span.hl{background:rgba(255,196,0,.22)}pre.snip i{display:inline-block;width:42px;color:var(--muted);font-style:normal;user-select:none}
 details.ev summary{cursor:pointer;list-style:none}details.ev summary::before{content:'▸ ';color:var(--muted)}details.ev[open] summary::before{content:'▾ '}
 .alts a{display:inline-block;margin:2px 6px 2px 0;padding:1px 8px;border:1px solid var(--line);border-radius:10px;font-size:12px}.alts a.on{background:var(--head);color:var(--fg);font-weight:600}
@@ -95,7 +96,14 @@ export const TEXT = {
     pkgOutside: "합친 패키지 어디에도 속하지 않은 Z/Y 객체예요.",
     cardFocus: '이 객체 그래프 보기', cardClose: '닫기', cardIsCenter: '지금 가운데에 있는 객체예요.', cardNoRel: '거르기와 상관없이 연결이 없는 객체예요.',
     navBack: '뒤로', navBackTo: '이전 보기로 돌아가요: {v}', navBackNone: '돌아갈 이전 보기가 없어요',
-    title: 'CBO 관계도', tOverview: '개요', tExplore: '탐색', tGroups: '그룹', tCrud: '테이블 CRUD', theme: '테마',
+    title: 'CBO 관계도', tOverview: '개요', tExplore: '탐색', tGroups: '그룹', tCrud: '테이블 CRUD', tFields: '필드', theme: '테마',
+    hFields: '필드를 누가 만들고·읽고·고치고·지우나', fxHelp: '소스의 SQL 문을 DDIC 필드 목록과 맞춰 봤어요. 고침(U)은 UPDATE SET에 적힌 필드만이고, work area 전체로 쓰는 INSERT·UPDATE·MODIFY·DELETE는 "행 전체"로 모든 필드에 표시해요. 변수에 값을 넣는 곳은 따라가지 않아요. 고객 구조는 그 구조를 INCLUDE·APPEND한 테이블의 CRUD를 그대로 받아요.',
+    fxNone: '필드 정보(fields.json)가 없어요. stock-cbo로 그래프를 다시 만들면 생겨요.', fxSearch: '테이블·구조·필드 (예: ZSDT0431-STATUS)',
+    fxLegend: 'C 만들기 · R 읽기 · U 고치기 · D 지우기 · F 조건(WHERE·JOIN·ORDER BY) · 숫자 = 객체 수',
+    fxStats: '테이블 {t}개 · 필드 {f}개 · 참조 {r}건 · 표준 테이블 append {a}개', fxIdle: 'SQL에서 쓰이지 않은 테이블 {n}개',
+    fxField: '필드', fxStruct: '구조', fxKey: '키', fxAppend: '고객 append', fxRow: '행 전체', fxLow: '모호(조인 양쪽)',
+    fxNoRead: '읽는 곳 없음', fxNoWrite: '쓰는 곳 없음', fxTcodes: 'TCode', fxJobs: '잡', fxNoEntry: '이 객체까지 오는 TCode·잡을 찾지 못했어요',
+    fxOpName: { C: '만드는 곳', R: '읽는 곳', U: '고치는 곳', D: '지우는 곳', F: '조건으로 쓰는 곳' },
     noteFolded: '인클루드 {n}개는 그 인클루드를 포함한 프로그램·함수 그룹 노드 하나로 합쳐서 보여 줘요. 연결은 소유 객체로 옮기고 근거에는 인클루드 이름과 줄을 남겨요.',
     hTypeHubs: '필드 타입으로 가장 많이 쓰인 객체', typeHubsHelp: '데이터 요소·도메인처럼 필드 타입(types)으로만 많이 이어진 객체예요. 위 순위에서는 뺐어요.',
     colPkg: '패키지', colLabel: '이름', withTypes: '타입 포함',
@@ -146,7 +154,14 @@ export const TEXT = {
     pkgOutside: "Z/Y objects outside every merged package.",
     cardFocus: 'Show its graph', cardClose: 'Close', cardIsCenter: 'This is the object in the middle.', cardNoRel: 'This object has no relations at all.',
     navBack: 'Back', navBackTo: 'Back to {v}', navBackNone: 'No earlier view',
-    title: 'CBO relation map', tOverview: 'Overview', tExplore: 'Explore', tGroups: 'Groups', tCrud: 'Table CRUD', theme: 'Theme',
+    title: 'CBO relation map', tOverview: 'Overview', tExplore: 'Explore', tGroups: 'Groups', tCrud: 'Table CRUD', tFields: 'Fields', theme: 'Theme',
+    hFields: 'Who creates, reads, updates and deletes each field', fxHelp: 'SQL statements in source matched against the DDIC field lists. Update (U) is the fields named in UPDATE SET; INSERT / UPDATE / MODIFY / DELETE from a work area count as "whole row" for every field. Assignments to variables are not traced. A customer structure inherits the CRUD of the tables that include or append it.',
+    fxNone: 'No field data (fields.json). Rebuild the graph with stock-cbo to get it.', fxSearch: 'table, structure or field (e.g. ZSDT0431-STATUS)',
+    fxLegend: 'C create · R read · U update · D delete · F condition (WHERE / JOIN / ORDER BY) · number = objects',
+    fxStats: '{t} tables · {f} fields · {r} references · {a} standard tables with customer appends', fxIdle: '{n} tables not used in SQL',
+    fxField: 'Field', fxStruct: 'Structure', fxKey: 'key', fxAppend: 'customer append', fxRow: 'whole row', fxLow: 'ambiguous (both join sides)',
+    fxNoRead: 'never read', fxNoWrite: 'never written', fxTcodes: 'TCodes', fxJobs: 'Jobs', fxNoEntry: 'no TCode or job found that reaches this object',
+    fxOpName: { C: 'Created by', R: 'Read by', U: 'Updated by', D: 'Deleted by', F: 'Used as a condition by' },
     noteFolded: '{n} includes are folded into the program or function group that owns them. Their relations move to the owner; the evidence keeps the include name and line.',
     hTypeHubs: 'Most used as field types', typeHubsHelp: 'Objects linked mostly as field types (types), such as data elements and domains. Left out of the list above.',
     colPkg: 'Package', colLabel: 'Name', withTypes: 'with types',
@@ -201,7 +216,7 @@ export function renderPage(model, { lang = 'ko' } = {}) {
 <style>${STYLE}</style></head>
 <body>
 <div class="topbar"><div class="t">${esc(T.title)} · ${esc(pkg)}<small>${esc([model.meta.system, model.meta.sapVersion].filter(Boolean).join(' · '))}</small></div><button id="theme">${esc(T.theme)}</button></div>
-<nav class="tabs"><button data-tab="overview">${esc(T.tOverview)}</button><button data-tab="explore">${esc(T.tExplore)}</button><button data-tab="groups">${esc(T.tGroups)}</button><button data-tab="crud">${esc(T.tCrud)}</button></nav>
+<nav class="tabs"><button data-tab="overview">${esc(T.tOverview)}</button><button data-tab="explore">${esc(T.tExplore)}</button><button data-tab="groups">${esc(T.tGroups)}</button><button data-tab="crud">${esc(T.tCrud)}</button><button data-tab="fields">${esc(T.tFields)}</button></nav>
 <main>
 <section class="tab" id="tab-overview"></section>
 <section class="tab" id="tab-explore">
@@ -231,6 +246,7 @@ export function renderPage(model, { lang = 'ko' } = {}) {
 </section>
 <section class="tab" id="tab-groups"></section>
 <section class="tab" id="tab-crud"></section>
+<section class="tab" id="tab-fields"></section>
 </main>
 <script type="application/json" id="relmap-data">${json(model)}</script>
 <script type="application/json" id="relmap-text">${json(T)}</script>

@@ -1,4 +1,8 @@
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { buildPackageGraph } from '../../scripts/graph/build-package-graph.mjs';
 import { appendFieldQueries, appendQueries } from '../../scripts/graph/ddic-queries.mjs';
 import { buildFieldModel, extractFields, fieldUsage, parseSelect, parseWrite, sqlSegments } from '../../scripts/graph/extract-fields.mjs';
 
@@ -96,6 +100,11 @@ describe('SQL parsing', () => {
   it('flags a dynamic FROM', () => {
     expect(parseSelect("SELECT * FROM ( LV_TAB ) INTO TABLE LT").dynamic).toBe(true);
   });
+  it('cluster tables: IMPORT / EXPORT / DELETE FROM DATABASE are row-level', () => {
+    expect(parseWrite('EXPORT CLUSTER_DATA = GT_X TO DATABASE ZFD_CLU(Z1) FROM LS_C ID LV_K')).toMatchObject({ table: 'ZFD_CLU', ops: ['C', 'U'], row: true });
+    expect(parseWrite('IMPORT CLUSTER_DATA = GT_X FROM DATABASE ZFD_CLU(Z1) ID LV_K')).toMatchObject({ table: 'ZFD_CLU', ops: ['R'], row: true });
+    expect(parseWrite('DELETE FROM DATABASE ZFD_CLU(Z1) ID LV_K')).toMatchObject({ table: 'ZFD_CLU', ops: ['D'], row: true });
+  });
   it('ignores internal-table statements', () => {
     expect(parseWrite('MODIFY LT_ITEM FROM LS_ITEM INDEX 1 TRANSPORTING STATUS')).toBeNull();
     expect(parseWrite('INSERT LS_ITEM INTO TABLE LT_ITEM')).toBeNull();
@@ -174,6 +183,30 @@ describe('append read plan', () => {
     const plan = appendFieldQueries([{ TABNAME: 'VBAK', FIELDNAME: '.APPEND', PRECFIELD: 'ZAVBAK' }, { TABNAME: 'MARA', FIELDNAME: '.INCLUDE', PRECFIELD: 'EMARA' }, { TABNAME: 'EKKO', FIELDNAME: '.INCLUDE', PRECFIELD: 'CI_EKKODB' }]);
     expect(plan).toHaveLength(1);
     expect(plan[0].sql).toMatch(/FROM DD03L WHERE AS4LOCAL = 'A' AND TABNAME IN \('CI_EKKODB','ZAVBAK'\)$/);
+  });
+});
+
+describe('build-package-graph writes fields.json', () => {
+  it('own DD03L, or the whole-package folder via fieldsDdic (used-TCode folder)', () => {
+    const root = mkdtempSync(join(tmpdir(), 'fx-build-'));
+    try {
+      const src = join(root, 'src'), pkg = join(root, 'ZFD'), used = join(root, 'ZFD.used');
+      for (const d of [src, join(src, 'zfd_prog.prog'), pkg, used]) mkdirSync(d, { recursive: true });
+      writeFileSync(join(src, 'zfd_prog.prog', 'zfd_prog.prog.abap'), SRC);
+      const rowsFile = join(root, 'dd03l.json');
+      writeFileSync(rowsFile, JSON.stringify({ rows: fieldRows }));
+      writeFileSync(join(pkg, 'walk.json'), JSON.stringify(members));
+      writeFileSync(join(pkg, 'ddic-reads.json'), JSON.stringify([{ id: 'dd03l-1', table: 'DD03L', path: rowsFile, rows: fieldRows.length }]));
+      writeFileSync(join(used, 'walk.json'), JSON.stringify({ package: 'ZFD', objects: [{ name: 'ZFD_PROG', type: 'PROG/P' }] }));
+      const own = buildPackageGraph({ dir: pkg, src, builtAt: 'T' });
+      expect(own.fields.refs).toBeGreaterThan(10);
+      const none = buildPackageGraph({ dir: used, src, builtAt: 'T' });
+      expect(none.fields).toBeUndefined();
+      const via = buildPackageGraph({ dir: used, src, builtAt: 'T', fieldsDdic: [pkg] });
+      expect(via.fields.refs).toBe(own.fields.refs);
+      const fx = JSON.parse(readFileSync(join(used, 'fields.json'), 'utf8'));
+      expect(fx.tables.ZFD_HEAD.fields.map((f: { name: string }) => f.name)).toContain('STATUS');
+    } finally { rmSync(root, { recursive: true, force: true }); }
   });
 });
 

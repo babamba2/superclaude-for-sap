@@ -119,9 +119,24 @@ It keeps only package members, sets every member absent from the file to `false`
 node "<PLUGIN_ROOT>/scripts/graph/build-package-graph.mjs" --dir "<DIR>" --src "<SRC>" --system <SAP system id> --sap-version <SAPV>
 ```
 
-It prints one JSON line `{ graph, nodes, edges, unresolved, sourcesMissing, usage? }` and writes `<DIR>/graph.json` (+ `usage-result.json`, `usage.md` when `usage.json` exists). Exit code ≠ 0 → print the stderr line and continue to Step D without a graph (finalize falls back to the scout facts). Do not read the JSON files into the main context. Finalize reads them.
+It prints one JSON line `{ graph, nodes, edges, unresolved, sourcesMissing, usage?, fields? }` and writes `<DIR>/graph.json` (+ `usage-result.json`, `usage.md` when `usage.json` exists; `fields.json` — field-level CRUD for the relation map's Fields tab — when G3a read DD03L). Exit code ≠ 0 → print the stderr line and continue to Step D without a graph (finalize falls back to the scout facts). Do not read the JSON files into the main context. Finalize reads them.
 
-Progress line after G5: `↳ G graph <nodes> nodes · <edges> edges · used <direct>+<indirect> · unused <unused>`.
+Progress line after G5: `↳ G graph <nodes> nodes · <edges> edges · used <direct>+<indirect> · unused <unused>` (+ ` · fields <refs> refs` when `fields` is present).
+
+## G6 — Customer appends of standard tables (G3a callers only, after G5)
+
+The Fields tab also lists the customer fields appended to the standard tables the package reads or writes (VBAK-ZZ…, CI_ includes). Two small DD03L rounds, same checker contract and hook approval as G3a; skip G6 when G1 parsed no source (no `reads` / `writes` in the graph) or `GetSqlQuery` is not allowed.
+
+```bash
+node "<PLUGIN_ROOT>/scripts/graph/ddic-queries.mjs" --dir "<DIR>" --sap-version <SAPV> --only appends --out "<DIR>/ddic-append-plan.json"
+# checkers on ddic-append-plan.json (MODE: dd-read) → then:
+node "<PLUGIN_ROOT>/scripts/graph/collect-ddic-reads.mjs" --dir "<DIR>" --sql-dir "<SQLDIR>" --plan ddic-append-plan.json --out ddic-appends.json
+node "<PLUGIN_ROOT>/scripts/graph/ddic-queries.mjs" --dir "<DIR>" --sap-version <SAPV> --only append-fields --out "<DIR>/ddic-append-fields-plan.json"
+# checkers on ddic-append-fields-plan.json → then:
+node "<PLUGIN_ROOT>/scripts/graph/collect-ddic-reads.mjs" --dir "<DIR>" --sql-dir "<SQLDIR>" --plan ddic-append-fields-plan.json --out ddic-append-fields.json
+```
+
+`statements` = 0 in either round → stop G6 there (no standard table read, or no customer append). Then rerun G5 — it merges both files into `fields.json`. A failed round only loses the append fields; never fall back to G3b for it. Resume: both files ≤ 7 days old are reused.
 
 ## What finalize does with it
 

@@ -6,7 +6,7 @@
 //
 // Per --dir it reads graph.json and, when present: walk.json / inventory.json (descriptions), usage-result.json
 // (used / unused), ddic-reads.json (standard check tables, shown as text only; repository short texts),
-// ddic-texts.json (short texts of a text refresh). A SAP short text wins over the inventory text. Several --dir → one merged map
+// ddic-texts.json (short texts of a text refresh), fields.json (field-level CRUD → the Fields tab). A SAP short text wins over the inventory text. Several --dir → one merged map
 // (scripts/process/merge-graphs.mjs); default output then <module dir>/_relmap/<A+B+…>-relation-map-<lang>.html,
 // else <dir>/<PACKAGE>-relation-map-<lang>.html. --snippets embeds ±10 source lines per source relation, read
 // from the local MCP output (default <artifactBase>/mcp-output/src) — never from SAP.
@@ -20,6 +20,7 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildModel } from './relmap-model.mjs';
 import { renderPage } from './relmap-page.mjs';
+import { buildFieldBlock, mergeFields } from './relmap-fields.mjs';
 import { isCustomName } from '../graph/ddic-edges.mjs';
 import { mergeGraphs } from '../process/merge-graphs.mjs';
 import { TEXT_READS } from '../graph/ddic-queries.mjs';
@@ -53,7 +54,13 @@ export function readSideInfo(dir, info = { desc: new Map(), usage: new Map(), st
     const id = `${String(o.type).split('/')[0]}:${o.name}`;
     if (o.description) info.desc.set(id, String(o.description).trim());
   }
-  for (const o of readJson(join(dir, 'usage-result.json'))?.objects || []) if (o.id && o.status) info.usage.set(o.id, o.status);
+  info.jobs ||= new Set();
+  for (const o of readJson(join(dir, 'usage-result.json'))?.objects || []) {
+    if (o.id && o.status) info.usage.set(o.id, o.status);
+    if (o.id && (o.reasons || []).some((x) => /^job/.test(x))) info.jobs.add(o.id);
+  }
+  const fx = readJson(join(dir, 'fields.json'));
+  if (fx) (info.fields ||= []).push(fx);
   const reads = readJson(join(dir, 'ddic-reads.json'));
   const listOf = (x) => (Array.isArray(x) ? x : x?.reads) || [];
   // repository short texts (DD02T, TRDIRT, TSTCT, …) from the G3a reads or the text refresh (ddic-texts.json)
@@ -113,7 +120,7 @@ export function snippetReader(srcDir, { around = 10, budget = SNIPPET_BYTES } = 
   };
 }
 
-export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 40, groups = 60, fold = true, snippets = false, src }) {
+export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 40, groups = 60, fold = true, snippets = false, src, fields = [] }) {
   const gs = graphs.map((g) => (typeof g === 'string' ? JSON.parse(readFileSync(g, 'utf8')) : g));
   let graph = gs[0];
   if (gs.length > 1) {
@@ -138,6 +145,8 @@ export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 4
   applyTexts(info);
   const reader = snippets ? snippetReader(src) : null;
   const model = buildModel(graph, { hubs, groups, fold, info, snippets: reader });
+  const fxList = [...(info.fields || []), ...fields];
+  if (fxList.length) model.fx = buildFieldBlock(mergeFields(fxList), model, { snippets: reader, jobs: info.jobs });
   const html = renderPage(model, { lang });
   if (out) { mkdirSync(dirname(out), { recursive: true }); writeFileSync(out, html, 'utf8'); }
   const s = model.stats;
@@ -145,7 +154,7 @@ export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 4
     page: out || null, bytes: Buffer.byteLength(html), nodes: s.nodes, edges: s.edges, members: s.members, custom: s.custom,
     groups: s.groups, isolated: s.isolated, droppedEdges: s.droppedEdges, foldedIncludes: s.foldedIncludes, byBasis: s.byBasis,
     usage: model.meta.hasUsage ? s.usage : null, stdChecks: s.stdChecks, snippets: snippets ? s.snippets : null,
-    sourcesParsed: model.meta.sourcesParsed, packages: model.meta.packages,
+    sourcesParsed: model.meta.sourcesParsed, packages: model.meta.packages, fields: model.fx ? model.fx.stats : null,
     html: out ? undefined : html,
   };
 }
