@@ -24,7 +24,9 @@ Agent({
     6. <PLUGIN_ROOT>/common/active-modules.md, <PLUGIN_ROOT>/industry/<INDUSTRY>.md, <PLUGIN_ROOT>/country/<COUNTRY>.md
     7. (only when intake.json → bph is set) <STATE_DIR>/bph-skeleton.json, sheet <BPH_SHEET> — the customer's existing BPH:
        reuse its business wording for labels where a task clearly matches; keep this document's own numbering
-    8. Sources on disk: <SRC>/<program lowercase>.prog/ (main program, TOP / selection include) — purpose of each entry
+    8. (only when intake.json → menus is set) <SCOPE_DIR>/menu-hints.json — {TCODE: ["<MENU> > folder > …"]}: the customer area
+       menu folders; a hint for L2 / L3 wording and grouping, never a replacement for the backbone (workflow-menu.md)
+    9. Sources on disk: <SRC>/<program lowercase>.prog/ (main program, TOP / selection include) — purpose of each entry
 
     What to do
     - Start from the backbone tree. Place every confirmed entry point on ONE L4 task (the analyst decides;

@@ -70,19 +70,30 @@ function entries(row, ids) {
 /** Objects one L4 touches: { name → { role, type, ev } } (writes beat calls beat reads). */
 function touches(row, adj, nodes, depth = 5) {
   const seen = new Set(), got = new Map();
+  // function group reached through a called function: only the edges recorded in that function's include
+  const via = new Map();
   let front = entries(row, nodes);
   front.forEach(f => seen.add(f));
   const rank = { writes: 3, calls: 2, reads: 1 };
   for (let d = 0; d < depth && front.length; d++) {
     const next = [];
     for (const id of front) for (const e of adj.get(id) || []) {
+      if (via.has(id) && !arr(e.evidence).some(ev => via.get(id).has(ev.unit))) continue;
       const to = nodes.get(e.to);
       if (TOUCH[e.kind] && to && (to.type === 'TABL' || to.type === 'VIEW' || (e.kind === 'calls' && to.type === 'FUNC'))) {
         const prev = got.get(to.name);
         if (!prev || rank[e.kind] > rank[prev.role]) got.set(to.name, { role: e.kind, type: to.type, ev: { from: id.split(':')[1], ...(e.evidence?.[0] ? { unit: e.evidence[0].unit, line: e.evidence[0].line } : {}) } });
       }
       // walk only through customer code (members of the scope or custom objects), never into the standard
-      if (WALK.has(e.kind) && to && to.scope !== 'standard' && !seen.has(e.to)) { seen.add(e.to); next.push(e.to); }
+      if (WALK.has(e.kind) && to && to.scope !== 'standard' && !seen.has(e.to)) {
+        seen.add(e.to); next.push(e.to);
+        // a function's code is recorded on its function group: continue there
+        if (to.type === 'FUNC' && to.parent && to.unit) {
+          if (!via.has(to.parent)) via.set(to.parent, new Set());
+          via.get(to.parent).add(to.unit);
+          if (!seen.has(to.parent)) { seen.add(to.parent); next.push(to.parent); }
+        }
+      }
     }
     front = next;
   }
@@ -128,6 +139,10 @@ export function buildTouchpoints(mods, { pluginRoot, hubShare = 0.12, hubMin = 8
   const codes = moduleCodes(pluginRoot);
   const std = standardOwners(pluginRoot, codes);
   const names = new Set(mods.map(m => m.module));
+  // a map may cover several module codes (model.modules, e.g. LE map = LE + WM): those codes own as the map
+  const alias = new Map();
+  for (const m of mods) for (const c of arr(m.model?.modules)) if (!names.has(c) && !alias.has(c)) alias.set(c, m.module);
+  const ownerOfMap = (name) => { const o = ownerOf(name, codes, std); return alias.get(o) || o; };
   // per module and L4: the objects it touches
   const per = mods.map(m => {
     const nodes = new Map(arr(m.graph.nodes).map(n => [n.id, n]));
@@ -148,9 +163,12 @@ export function buildTouchpoints(mods, { pluginRoot, hubShare = 0.12, hubMin = 8
   }
   const touchpoints = [], hubs = new Map(), stubs = {};
   for (const p of per) for (const [code, t] of p.touch) for (const [name, x] of t) {
-    const owner = ownerOf(name, codes, std);
+    const owner = ownerOfMap(name);
     if (!owner || owner === p.module) continue;
     const all = users.get(name) || [];
+    // a customer table the owner map never touches but this map writes is this map's own data (prefix aside)
+    if (x.type !== 'FUNC' && names.has(owner) && /^[ZY]/.test(name) && !all.some(u => u.module === owner)
+      && all.some(u => u.module === p.module && u.role === 'writes')) continue;
     const readers = all.filter(u => u.role === 'reads').length;
     const callers = all.filter(u => u.role === 'calls').length;
     const hubTable = readers >= hubMin && readers / Math.max(1, per.reduce((n, q) => n + q.l4.length, 0)) >= hubShare;

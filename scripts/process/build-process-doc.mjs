@@ -25,6 +25,7 @@ import { labelsFor, SCRIPT, STYLE } from './process-page.mjs';
 import { EDITOR_SCRIPT, EDITOR_STYLE, editorLabels } from './process-editor.mjs';
 import { caseMap, l3Map, stepLanes } from './swimlane.mjs';
 import { loadIntegrations, moduleSection, taskLinks, XSTYLE } from './integration-view.mjs';
+import { MENU_CSS, menuHeadRow, menuSection } from './menu-view.mjs';
 
 const arr = (v) => (Array.isArray(v) ? v : []);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -110,6 +111,7 @@ function taskSheet(m, T, E, row, views = []) {
     [T.kind, kindBadge(T, row.kind)],
     [T.output, ed(P(c, 'task.output'), t.output), !t.output],
     [T.timing, ed(P(c, 'task.timing'), t.timing), !t.timing],
+    menuHeadRow(m, row),
   ].filter(Boolean);
   const parts = [`<table class="task-head"><tbody>${head.map(([k, v, empty]) => `<tr${empty ? ' class="ed-empty"' : ''}><th>${esc(k)}</th><td>${v}</td></tr>`).join('')}</tbody></table>`];
   parts.push(`<div${t.definition ? '' : ' class="ed-empty"'}><h4>${esc(T.definition)}</h4>${ed(P(c, 'task.definition'), t.definition, 'p')}</div>`);
@@ -284,6 +286,8 @@ export function renderProcessHtml(model, { version, date, history = [], integrat
   }
   if (m.notEvidenced.length) app.push(`<h3 id="ne">${esc(T.notEvidenced)}</h3>${table([T.backbone, T.process, T.reason], m.notEvidenced.map(n => [
     `<code>${esc(n.backbone || '')}</code>`, inline(n.label || n.path || ''), inline(n.reason || '')]))}`);
+  const amenu = menuSection(m);
+  if (amenu) app.push(amenu);
   app.push(`<div${m.openQuestions.length ? '' : ' class="ed-empty"'}><h3 id="oq">${esc(T.openQuestions)}</h3>${edList(E, 'm|openQuestions', 'text', m.openQuestions, (q, i) => ed(strPath('m|openQuestions', q, i), strText(q)))}</div>`);
   app.push(`<div${m.glossary.length ? '' : ' class="ed-empty"'}><h3 id="gl">${esc(T.glossary)}</h3><div class="tw"><table><thead><tr><th>${esc(T.term)}</th><th>${esc(T.meaning)}</th><th class="ed-only-cell"></th></tr></thead>`
     + `${edList(E, 'm|glossary', 'term', m.glossary, (g, i) => `<td>${ed(`m|glossary.${i}.term`, g.term)}</td><td>${ed(`m|glossary.${i}.description`, g.description)}</td>`, { tag: 'tbody', row: 'tr' })}</table></div>`
@@ -300,7 +304,7 @@ export function renderProcessHtml(model, { version, date, history = [], integrat
   return `<!doctype html>
 <html lang="${esc(m.lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} v${esc(version)}</title>
-<style>${STYLE}${EDITOR_STYLE}${XSTYLE}</style></head>
+<style>${STYLE}${EDITOR_STYLE}${XSTYLE}${MENU_CSS}</style></head>
 <body>
 <header class="topbar"><span class="t">${esc(title)} · v${esc(version)}</span><button id="ed-undo" type="button">${esc(E.undo)}</button><button id="ed-save" type="button">${esc(E.save)}</button><button id="ed-edit" type="button">${esc(E.edit)}</button><button id="print-btn" type="button">${esc(T.print)}</button><button id="theme-btn" type="button">${esc(T.theme)}</button></header>
 <div class="ed-bar">${esc(E.hint)}</div>

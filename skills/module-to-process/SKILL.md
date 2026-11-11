@@ -51,6 +51,7 @@ Settled at design time (2026-10-27) — do not ask the user again:
 |---|---|
 | Scope | One module, or one process area of several modules (e.g. SD + MM + LE); one or more CBO packages, plus loose Z TCodes |
 | Usage source | Measured usage is saved under `<SCOPE_DIR>` and can be reused as a submitted file (no live productive-system access needed on later runs) |
+| Area menu | Optional: the customer SE43 area menu (`GetAreaMenu`) widens the scope to TCodes outside the packages, gives folder hints for placement, and adds a cross-check (core / gap / dead / off-menu) to the page. Also adds a menu to an existing map (supplement mode) |
 | Usage-first | **Only TCodes users actually run** (ST03N of the productive system via `SAP_USAGE_RFCDEST`, or a submitted export) are analysed; unused ones are counted per package, never fetched. Batch programs join only from a job list |
 | Hierarchy | BPH form: L1 mega process > L2 process chain > L3 process > L4 task; variants under L4 (org unit / document type / scenario) |
 | Backbone | Standard SAP tree from `configs/<MODULE>/process-backbone.json`; CBO objects attach to L4 tasks; CBO-only tasks are added where no standard task fits |
@@ -75,6 +76,7 @@ Settled at design time (2026-10-27) — do not ask the user again:
 | [`dispatch-review.md`](dispatch-review.md) | Step 6 optional consultant review prompt + Step 7 assemble command |
 | [`model-schema.md`](model-schema.md) | `process-model.json` shape, values, checks |
 | [`workflow-scale.md`](workflow-scale.md) | Scopes with more than 300 used entries: G1 batches, Step 4 placement parts + consolidation + `merge-placements.mjs`, Step 6 review slices, companion after edits |
+| [`workflow-menu.md`](workflow-menu.md) | Optional area menu (asked at Step 1): `GetAreaMenu`, `area-menu.mjs` scope / hints / model annotation, supplement mode for an existing map |
 | [`workflow-integration.md`](workflow-integration.md) | Cross-module integration map (asked at Step 1): boundary stubs, `cross-module.mjs` touchpoints, E2E scenarios (`sap-analyst`), `build-integration-doc.mjs` page |
 </Companion_Files>
 
@@ -94,7 +96,7 @@ Output language chosen at Step 1: `ko` / `en` / `ja` only (page labels and backb
 
 <MCP_Tools_Used>
 - Discovery: `SearchObject` (DEVC, TRAN), `GetPackage`, `GetPackageContents`, `GetObjectInfo`, `GetTransaction`
-- Usage scope: `GetTcodeUsage` (with `destination` = `SAP_USAGE_RFCDEST`), `GetJobUsage` (connected system only), `GetTransaction` (≤ 100 per call)
+- Usage scope: `GetTcodeUsage` (with `destination` = `SAP_USAGE_RFCDEST`), `GetJobUsage` (connected system only), `GetTransaction` (≤ 100 per call); area menu: `GetAreaMenu` (`menu_pattern` to list, `menu` + `output='file'` to read)
 - Through graph-usage G1 / G3: `GetProgFullCode` (sources to files), `GetTable` / `GetStructure` / `GetDataElement` (DDIC)
 - Step 5 on demand: `GetProgram`, `GetInclude`, `GetFunctionModule`, `GetClass`, `GetAbapSemanticAnalysis`
 - **NEVER**: `GetTableContents`, `GetSqlQuery`

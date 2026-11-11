@@ -35,6 +35,8 @@ One HTML page `<M1>-<M2>-integration-v<ver>-<lang>.html` next to `<INT_DIR>`: ov
 ## Notes
 
 - Re-run X1 → X3 after either module map gets a new version; X2 only when the pairs changed a lot (the summary counts tell).
+- Ownership details: a map covering several module codes (`model.modules`, e.g. an LE map with `["LE","WM"]`) owns the objects of all of them; a called customer function is followed into its own include of the function group; a customer table that the prefix assigns to the other map but only this map writes (the other map never touches it) is this map's own data, not a touchpoint. A map whose tasks run mostly standard TCodes pairs few or no tasks — the scenarios then rest on the task maps and the analysts' hand-off notes (`digest.md` says so).
+- Pass the state directories as absolute paths to `cross-module.mjs` — the page builder reads the models from the paths stored in `integration-touchpoints.json`.
 - The integration page is read-only (no edit mode); corrections go into the module maps or `integration-scenarios.json`.
 
 ## X4 — Module pages

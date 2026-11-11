@@ -5,6 +5,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+- `/sc4sap:module-to-process` cross-checks a map against the customer **area menu** (SE43, MCP `GetAreaMenu` — needs MCP with that tool). `area-menu.mjs` sorts every menu TCode by usage and map: *core* (used, in the map), *gap* (used, no task), *elsewhere* (used, documented in another module map — `--other-model`), *dead* (measured, unused), *not measured*, and *off-menu* (used map TCodes no menu carries). The page shows the menu path on each task sheet and an appendix section with the counts, the gap list and the menu tree per top folder with usage and task links. A new run asks for the menu at intake and uses its folders as placement hints; an existing map is supplemented without a rebuild (`workflow-menu.md`).
+- `supplement-model.mjs` places newly found entries into an existing process model: new L2 / L3 / L4 rows with task sheets take the next free number under their parent and land in document order; existing tasks get TCodes, objects, rules and links added. Every entry of a part must be placed or listed as unplaced. A map for a module without one can start from an L1-only model.
+
+### Fixed
+- Integration maps (`cross-module.mjs`): a map that covers several module codes (`model.modules`, e.g. LE + WM) owns the objects of all of them; a called customer function module is followed into its own include of the function group (before, the walk stopped at the function); a customer table that the name prefix assigns to the other map but only this map writes is no longer reported as a hand-off.
+
 ### Security
 - **Blocklist hook covers source uploads.** `block-forbidden-tables.mjs` now also checks `Create*` / `Update*` source tools: a test class (or a source holding `FOR TESTING`) or a CDS view that reads a `deny`-tier table is refused, because running it returns the rows to the agent (ABAP Unit messages, `GetSqlQuery` on the view). Plain business code that reads e.g. KNA1 is unchanged. The hook is now wired in the plugin's `hooks/hooks.json`, so it runs for every install without re-running setup.
 - **No exception route for `deny` tables.** `common/data-extraction-policy.md`: a chat request ("just this once") is not an authorization; no program / class / FM / CDS view may be written to read a `deny` table; only the user can widen the scope by reselecting the blocklist profile. The one-off approval now applies to `warn`-tier tables only.
