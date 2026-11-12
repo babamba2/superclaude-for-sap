@@ -337,6 +337,7 @@ Claude가 파일을 쓰거나 명령을 실행할 때 허락을 구해요. 설�
 | SAP 연결 테스트 실패 (403 / 404) | SICF의 `/sap/bc/adt`가 꺼져 있거나 ADT 권한이 없어요. Basis 담당자에게 요청하세요. |
 | 인증서(SSL) 오류 | 사내 인증서를 쓰는 서버일 수 있어요. 오류 메시지를 Claude에게 그대로 붙여 넣고 물어보세요. |
 | 비밀번호를 바꿨는데 예전 값으로 접속해요 | Claude Code를 완전히 종료한 뒤 다시 실행해요. 연결 서버는 시작할 때 비밀번호를 읽어요. |
+| `UserPromptSubmit hook ... keyword-detector.mjs / skill-injector.mjs timed out` 메시지가 나오거나, setup이 SAP 비밀번호를 채팅으로 물어요 | 옛 sc4sap(0.6.59 이전)이 설치돼 있어요. 지금 버전에는 이 훅이 없고, 비밀번호는 마스킹된 PowerShell 창에서 받아요. [업데이트하는 법](#업데이트하는-법)대로 업데이트하고 다시 시작한 뒤 `/plugin`에서 버전을 확인하세요. 그래도 훅이 남으면 다른 플러그인(예: oh-my-claudecode)의 훅이에요. |
 | 원인을 모르겠어요 | `/sc4sap:sap-doctor`를 실행하고 결과를 Claude에게 보여 주세요. |
 
 ## 업데이트하는 법

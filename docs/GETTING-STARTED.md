@@ -335,6 +335,7 @@ When everything passes, the installation is complete.
 | SAP connection test fails (403 / 404) | `/sap/bc/adt` is inactive in SICF, or ADT authorization is missing. Ask your Basis team. |
 | Certificate (SSL) error | The server may use a company certificate. Paste the error message into Claude and ask. |
 | Password changed but the old one is still used | Quit Claude Code completely and start it again. The connection server reads the password at start. |
+| `UserPromptSubmit hook ... keyword-detector.mjs / skill-injector.mjs timed out`, or setup asks for the SAP password in the chat | An old sc4sap version (before 0.6.59) is installed: current versions have no such hooks and take the password in a masked PowerShell window. Update as under [Updating](#updating), restart, and check the version under `/plugin`. If the hooks remain, another plugin (e.g. oh-my-claudecode) owns them. |
 | No idea what is wrong | Run `/sc4sap:sap-doctor` and show Claude the result. |
 
 ## Updating
