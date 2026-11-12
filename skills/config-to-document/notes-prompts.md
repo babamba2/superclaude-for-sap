@@ -2,11 +2,11 @@
 
 Prompts for Step 4 of [`SKILL.md`](SKILL.md). Fill `<M>` (module), `<m>` (lower case), `<base>` (profile artifact base, absolute), `<bNNN>` / `<tNNN>` / `<fNNN>` (batch), `<lang>` (document language). Every agent saves through `notes.mjs save` from the workspace root (the directory that holds `.sc4sap/`), **no backslash characters** in the text.
 
-**How to save (all prompts):** a whole batch in one heredoc exceeds the Windows command-line limit (`ENAMETOOLONG`). Build the marker text in a file, one or two activities per Bash call — the first call `cat > <file> <<'NOTES_EOF'`, later calls `cat >> <file> <<'NOTES_EOF'` — then save with `node sc4sap/scripts/config/notes.mjs save --module <M> --batch <batch> --kind <kind> --file <file>`. Use a sub-folder of your scratchpad named after the batch and your role (e.g. `b007-writer/b007.draft.txt`) — other agents share the scratchpad, so never write helper files at its top level. Short texts (a review, a few terms) may still go in one heredoc piped to `save` without `--file`.
+**How to save (all prompts):** a whole batch in one heredoc exceeds the Windows command-line limit (`ENAMETOOLONG`, about 32,000 characters). Build the marker text in a file, **up to four activities per Bash call, each call under 20,000 characters** — the first call `cat > <file> <<'NOTES_EOF'`, later calls `cat >> <file> <<'NOTES_EOF'` — then save with `node sc4sap/scripts/config/notes.mjs save --module <M> --batch <batch> --kind <kind> --file <file>`. Use a sub-folder of your scratchpad named after the batch and your role (e.g. `b007-writer/b007.draft.txt`) — other agents share the scratchpad, so never write helper files at its top level. Short texts (a review, a few terms) may still go in one heredoc piped to `save` without `--file`.
 
 ## 1. Writer — `Agent(subagent_type: "sc4sap:sap-<m>-consultant")`
 
-> You write the consultant notes and the reference material of a configuration document for the SAP <M> module of a real system. Read `<base>/config-docs/<M>/notes/_in/<bNNN>.json`: per IMG activity the IMG path, titles, objects (columns, row counts, customer-changed rows, up to 15 sample rows — customer rows first, codes with their fixed-value text in parentheses), check findings and SAP's IMG documentation (`sapDoc`, English).
+> You write the consultant notes and the reference material of a configuration document for the SAP <M> module of a real system. Read `<base>/config-docs/<M>/notes/_in/<bNNN>.json`: per IMG activity the IMG path, titles, objects (columns, row counts, customer-changed rows, sample rows and value profile — see "Reading the data"; codes with their fixed-value text in parentheses), check findings and SAP's IMG documentation (`sapDoc`, English).
 >
 > For EVERY item write, in <lang> (SAP product terms such as Material Block, MRP Area, Plant stay in English):
 > - `## purpose` 1–2 sentences: what the setting controls.
@@ -23,11 +23,43 @@ Prompts for Step 4 of [`SKILL.md`](SKILL.md). Fill `<M>` (module), `<m>` (lower 
 >
 > **Items with `"mode": "system"`** already have their general part (purpose, SAP documentation summary, cases, comparison, checklist, criteria, sources) reviewed in the knowledge base — `kb.purpose` and `kb.cases` show it. For them write ONLY `## impact`, `## cautions` (include check findings) and `## verdicts` with one line per KB case: `CASE n: yes — <evidence from the sample>` or `CASE n: no — <evidence>`. No web research for these items.
 >
-> Reading the data: a **customer row** only means its key was recorded in a customer transport (changed, copied or merely saved) — not that the customer created it; a key that follows SAP's naming (no Z/Y/9 prefix, part of a standard series) is a standard entry. In `snapshot.json`, `_tr` entries that are not `<SID>K` + 6 letters or digits (e.g. `DEVK900133`, `DEVK9A2OEJ`) — SAP command files such as `P30A_C_SFC`, `/SPE/100_CUST`, `SAPK…` — are SAP delivery records, not customer transports. A sample holds at most 15 rows, customer rows first: a row missing from it, or a table showing exactly 1000 rows (the read cap), is never proof that something does not exist. When the sample cannot settle a point, look it up in the full table in `<base>/config-docs/<M>/snapshot.json` (`tables.<NAME>.rows`) with a small `node -e` filter — never print the whole file — and say "unverified" only when the snapshot cannot settle it either.
+> Reading the data: a **customer row** only means its key was recorded in a customer transport (changed, copied or merely saved) — not that the customer created it; a key that follows SAP's naming (no Z/Y/9 prefix, part of a standard series) is a standard entry. In `snapshot.json`, `_tr` entries that are not `<SID>K` + 6 letters or digits (e.g. `DEVK900133`, `DEVK9A2OEJ`) — SAP command files such as `P30A_C_SFC`, `/SPE/100_CUST`, `SAPK…` — are SAP delivery records, not customer transports. Each object carries `sample` — every row when `sampleIsAll` is set, else 15 rows with customer rows first (customer rows show their transports in `_tr`) — plus, for larger views, `profile` (per column over ALL rows: `distinct`, `blank`, and the most frequent values with their row counts) and `customerTransports` (transport → rows). A BAdI activity carries `badis` and `implementations` (every customer implementation: `active`, user, date, method code, empty methods) — judge what this system does from that code; no implementation listed = none in the system. Answer from these first: a value missing from a 15-row sample is not proof it does not exist, but a `profile` showing 3 distinct values is; a table showing exactly 1000 rows (the read cap) or `truncated` is never complete. Only when they cannot settle a point, run ONE query: `node sc4sap/scripts/config/notes.mjs rows --module <M> --table <T> [--where F=V,F2=V2] [--fields F1,F2] [--count-by F|F1+F2] [--limit 50]` (raw table, any table of the snapshot), or `rows --module <M> --de <DATA_ELEMENT>` for F1 text and fixed values. Never load `snapshot.json` yourself and never read the `notes.mjs` source — the format is below. Say "unverified" only when the data cannot settle it.
 >
 > Hard rules: every statement about this system rests on the given data; never invent values, plants or company facts; SAP Note numbers only when the opened page shows them; one or two sentences per bullet.
 >
 > Save as described under "How to save" with `--batch <bNNN> --kind draft`: per item `@@ <activity id>` followed by the sections. Fix and re-save until it prints `"ok":true`. Final message: the printed JSON line, plus any activity whose sample did not let you judge this system.
+>
+> Format of one full item (a system-only item has `## impact`, `## cautions`, `## verdicts` with `CASE 1: yes — …` lines):
+> ```
+> @@ SIMG_EXAMPLE
+> ## purpose
+> One or two sentences.
+> ## impact
+> - Bullet.
+> ## cautions
+> - Bullet.
+> ## refs
+> - OMJJ, table T156.
+> ## sapdoc
+> Two to five sentences.
+> ## cases Which question decides the setup?
+> ### case CASE 1 — Name
+> flow: Step > ? Decision > ! End
+> desc: Two sentences.
+> when: When it fits.
+> this: yes — evidence from the sample
+> ## mix
+> One sentence.
+> ## compare
+> | Aspect | CASE 1 | CASE 2 |
+> | Setup effort | Low | High |
+> ## checklist
+> - Question?
+> ## criteria
+> rev: … (one line each for chain, pre, ind, risk, s4, auth, mig, rec)
+> ## sources
+> - Title | SAP Help Portal | https://help.sap.com/… | One-sentence summary.
+> ```
 
 ## 2. Review — lint, then judgment
 
@@ -36,7 +68,7 @@ Prompts for Step 4 of [`SKILL.md`](SKILL.md). Fill `<M>` (module), `<m>` (lower 
 No Haiku pre-check between lint and reviewer: piloted on b028–b030 (2026-10-15) it cost 130k–170k tokens per batch, did not lower the reviewer's tokens or tool calls, and most of its leads were false alarms the reviewer had to disprove.
 
 **2b. Reviewer — `Agent(subagent_type: "sc4sap:sap-critic")`**
-> Review the notes another agent wrote for the SAP <M> configuration document. Read the input `<base>/config-docs/<M>/notes/_in/<bNNN>.json`, the notes `<base>/config-docs/<M>/notes/<bNNN>.draft.json` and the lint `…/notes/<bNNN>.lint.json`; check what the sample cannot settle in the snapshot (`<base>/config-docs/<M>/snapshot.json`, small `node -e` filters — never print the whole file). The lint already compared count statements with the snapshot (counts it marks `ok: false` and counts on truncated tables are leads to confirm) and resolved every named transaction (IMG activity title, TSTC program or SM30 view — check each fits its use in the note): trust those facts and do not recount what it marks `ok: true`. Spend your effort on what the scripts cannot judge: SAP meaning, ECC vs S/4 mix-ups, wrong cases, misleading conclusions, statements about rows outside the sample. Per activity decide `verdict: ok` or `verdict: fix`; `fix` when: a statement about this system is not backed by the data; a `this: yes/no` contradicts the sample; the SAP meaning is wrong; a check finding is missing; the SAP documentation summary misstates the original; a source is not official SAP documentation (only help.sap.com, SAP Notes / KBAs, learning.sap.com), or its URL does not open or does not support the summary; an SAP Note number is not on its page. Open with WebFetch only the sources the lint marks `new` or `changed` — `verified` ones were opened and accepted by an earlier review with the same summary. One bullet per problem with the correction. Minor wording is not a fix. For items with `"mode": "system"` review only `impact`, `cautions` and the `verdicts` against the sample and `kb.cases`; open no URLs for them.
+> Review the notes another agent wrote for the SAP <M> configuration document. Read the input `<base>/config-docs/<M>/notes/_in/<bNNN>.json`, the notes `<base>/config-docs/<M>/notes/<bNNN>.draft.json` and the lint `…/notes/<bNNN>.lint.json`; the input already holds per object `sample`, `profile` and `customerTransports`, and per BAdI activity `implementations` with their method code. Check what those cannot settle with one query each: `node sc4sap/scripts/config/notes.mjs rows --module <M> --table <T> [--where F=V] [--fields F1,F2] [--count-by F] [--limit 50]` (any raw table of the snapshot) or `rows --module <M> --de <DATA_ELEMENT>` — never load `snapshot.json` yourself. The lint already compared count statements with the snapshot (counts it marks `ok: false` and counts on truncated tables are leads to confirm) and resolved every named transaction (IMG activity title, TSTC program or SM30 view — check each fits its use in the note): trust those facts and do not recount what it marks `ok: true`. Spend your effort on what the scripts cannot judge: SAP meaning, ECC vs S/4 mix-ups, wrong cases, misleading conclusions, statements about rows outside the sample. Per activity decide `verdict: ok` or `verdict: fix`; `fix` when: a statement about this system is not backed by the data; a `this: yes/no` contradicts the sample; the SAP meaning is wrong; a check finding is missing; the SAP documentation summary misstates the original; a source is not official SAP documentation (only help.sap.com, SAP Notes / KBAs, learning.sap.com), or its URL does not open or does not support the summary; an SAP Note number is not on its page. Open with WebFetch only the sources the lint marks `new` or `changed` — `verified` ones were opened and accepted by an earlier review with the same summary. One bullet per problem with the correction. Minor wording is not a fix. For items with `"mode": "system"` review only `impact`, `cautions` and the `verdicts` against the sample and `kb.cases`; open no URLs for them.
 >
 > Save: `node sc4sap/scripts/config/notes.mjs save --module <M> --batch <bNNN> --kind review <<'NOTES_EOF'` with `@@ <id>` / `verdict: …` / `- <problem>` blocks. Final message: the printed JSON line (it lists `fix`).
 

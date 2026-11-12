@@ -16,6 +16,9 @@
 //   node scripts/config/notes.mjs status --module MM
 //   node scripts/config/notes.mjs sources --module MM
 //        → seeds the verified-source cache (notes-sources.mjs) from every reviewed batch
+//   node scripts/config/notes.mjs rows --module MM --table T001W [--where WERKS=1000,LAND1=KR]
+//        [--fields WERKS,NAME1] [--count-by BWKEY|F1+F2] [--limit 50]   |   rows --module MM --de MATNR
+//        → one filtered look at a raw snapshot table, or a data element's F1 text and fixed values
 //
 // Marker format (draft / revised):        Marker format (review):
 //   @@ <IMG activity id>                    @@ <IMG activity id>
@@ -32,12 +35,12 @@ import { atomicWriteFileSync, ensureDirSync } from '../lib/atomic-write.mjs';
 import { buildModel } from './build-config-doc.mjs';
 import { loadRules, runChecks, attachActivities } from './config-checks.mjs';
 import { readSources, recordSources, sourceHints } from './notes-sources.mjs';
+import { ALL_ROWS, sampleRows, profileView, customerTransports, queryRows, badiContext } from './notes-context.mjs';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
-const CONTEXT_ROWS = 15;
 
 function opts(argv) {
-  const o = { cmd: argv[0], module: '', scope: 'custom', size: 12, batch: '', kind: '', redo: false, file: '', ids: [] };
+  const o = { cmd: argv[0], module: '', scope: 'custom', size: 12, batch: '', kind: '', redo: false, file: '', ids: [], table: '', where: [], fields: [], countBy: '', limit: 50, de: '' };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--module') o.module = String(argv[++i]).toUpperCase();
@@ -48,6 +51,12 @@ function opts(argv) {
     else if (a === '--redo') o.redo = true;
     else if (a === '--file') o.file = argv[++i];
     else if (a === '--ids') o.ids = String(argv[++i]).split(',').map((x) => x.trim()).filter(Boolean);
+    else if (a === '--table') o.table = String(argv[++i]);
+    else if (a === '--where') o.where = String(argv[++i]).split(',').map((x) => x.trim()).filter(Boolean);
+    else if (a === '--fields') o.fields = String(argv[++i]).split(',').map((x) => x.trim().toUpperCase()).filter(Boolean);
+    else if (a === '--count-by') o.countBy = String(argv[++i]).toUpperCase();
+    else if (a === '--limit') o.limit = Number(argv[++i]) || 50;
+    else if (a === '--de') o.de = String(argv[++i]);
   }
   if (!o.module) throw new Error('--module is required');
   return o;
@@ -136,17 +145,12 @@ export function parseNotes(text, kind) {
   return { items, errors };
 }
 
-// Sample rows for the writer: customer rows first, codes with their fixed-value text.
-function rowsFor(v, domains) {
-  const order = [...v.cust, ...v.rows.map((_, i) => i).filter((i) => !v.cust.includes(i))].slice(0, CONTEXT_ROWS);
-  // Two columns may share a label (plant / plant name): name them by field then.
-  const seen = v.cols.reduce((m, c) => m.set(c.label, (m.get(c.label) || 0) + 1), new Map());
-  const names = v.cols.map((c) => (seen.get(c.label) > 1 ? `${c.label} [${c.name}]` : c.label));
-  return order.map((i) => Object.fromEntries(v.cols.map((c, j) => {
-    const x = v.rows[i][j];
-    const tx = c.dom && domains[c.dom]?.[x];
-    return [names[j], tx ? `${x} (${tx})` : x];
-  }).filter(([, x]) => x !== '')));
+/** `rows`: one filtered look at a raw snapshot table (or a data element's F1 text and values). */
+function rows(o) {
+  const snap = JSON.parse(readFileSync(join(dirOf(o.module), 'snapshot.json'), 'utf8'));
+  const where = Object.fromEntries(o.where.map((w) => w.split('=')).filter((p) => p.length === 2).map(([f, v]) => [f.trim().toUpperCase(), v]));
+  const res = queryRows(snap, { table: o.table, where, fields: o.fields, countBy: o.countBy, limit: o.limit, de: o.de });
+  process.stdout.write(JSON.stringify(res) + '\n');
 }
 
 function batches(o) {
@@ -205,8 +209,13 @@ function batches(o) {
         // subset field SM30 asks for, shows rows of every value (all countries, all applications).
         objects: a.viewKeys.map((k) => ({ key: k, title: views[k].title, table: views[k].root, rows: views[k].rows.length, customerRows: views[k].cust.length,
           ...(views[k].truncated ? { truncated: true } : {}), ...(views[k].conditionNotApplied ? { conditionNotApplied: views[k].conditionNotApplied } : {}), ...(views[k].subset ? { subset: views[k].subset } : {}),
-          columns: views[k].cols.map((c) => `${c.label} [${c.name}]`), sample: rowsFor(views[k], snap.domains || {}) })),
+          columns: views[k].cols.map((c) => `${c.label} [${c.name}]`),
+          ...(views[k].rows.length <= ALL_ROWS ? { sampleIsAll: true } : {}),
+          sample: sampleRows(views[k], snap.domains || {}),
+          ...(profileView(views[k], snap.domains || {}) ? { profile: profileView(views[k], snap.domains || {}) } : {}),
+          ...(customerTransports(views[k]) ? { customerTransports: customerTransports(views[k]) } : {}) })),
         checks: checks.filter((c) => c.activities.includes(id)).map((c) => ({ severity: c.severity, title: c.title, items: c.items.slice(0, 10) })),
+        ...(a.badis ? { badis: a.badis, implementations: badiContext(snap, a.badis) } : {}),
         ...(kb(id)
           ? { mode: 'system', kb: { purpose: kb(id).purpose, cases: (kb(id).cases?.list || []).map((c, n) => `CASE ${n + 1}: ${c.title} — ${c.desc}`) } }
           : { mode: 'full', sapDoc: docText(id), ...(known.length ? { knownSources: known } : {}) }),
@@ -419,8 +428,8 @@ function status(o) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const o = opts(process.argv.slice(2));
-    const run = { batches, scopes: batches, terms, kb: kbPromote, sources: seedSources, save, status }[o.cmd];
-    if (!run) throw new Error('command: scopes | batches | terms | kb | sources | save | status');
+    const run = { batches, scopes: batches, terms, kb: kbPromote, sources: seedSources, save, status, rows }[o.cmd];
+    if (!run) throw new Error('command: scopes | batches | terms | kb | sources | save | status | rows');
     run(o);
   } catch (e) {
     process.stderr.write(`[notes] ${e.message}\n`);
