@@ -5,6 +5,14 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.66] — 2026-11-12
+
+### Changed
+
+- **`/sc4sap:config-to-document` notes cost less.** Each batch item now carries what the writer used to query from `snapshot.json` itself: sample rows (every row up to 40), a per-column value profile over all rows, customer transports per view, and per BAdI activity the customer implementations with their method code (up to 6000 characters per method). New `notes.mjs rows` gives one filtered look at a raw table or a data element. Writer and reviewer prompts use these and never load the snapshot. Pilot on two MM batches: writer about 70% cheaper (62 → 23–28 turns), reviewer about 45% cheaper, review fix rate 42% (MM average 53%).
+- `docs/GETTING-STARTED` (en, ko): troubleshooting row — `keyword-detector` / `skill-injector` hook timeouts or a setup that asks for the SAP password in the chat mean a version before 0.6.59; update and restart.
+- Setup Step 9 (`skills/setup/`): authorization preflight (S_ADT_RES, S_DEVELOP FUNC), ECC Step 9a.3 installs the DDIC read FMs, DDIC_BADI and ZMCP_WL_*; NCo / sap-doctor list the matching errors.
+
 ### Added
 
 - **ECC DDIC through the MCP tools.** `/sc4sap:create-object` and `/sc4sap:create-program` now create Domain / Data Element / Structure / Table / Table type on ECC with the MCP tools (call shapes in `common/ecc-ddic-fallback.md` § Path 1); the SE38 helper report is only a fallback for the listed errors (§ Path 2). New FM `ZMCP_ADT_DDIC_TTYP` (`abap/zmcp_adt_ddic_ttyp_ecc.abap`, setup Step 9a.2) and a TTYP branch in `ZMCP_ADT_DDIC_ACTIVATE` back the MCP tools `CreateTableType` / `DeleteTableType`. MCP pin → `11eb11c` (4.9.1).
@@ -13,6 +21,7 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Fixed
 
+- Reference graph G1b: an include that a program pulls in (also with chained `INCLUDE: a, b.`) joins that program instead of standing alone; includes typed as bare PROG in older walks are found.
 - **Setup installed OData classes without the DDIC actions.** `odata-classes-install.md` used class sources that had only the Dispatch and Textpool actions, so on a fresh ECC install every DDIC read and write through OData failed. The repo now carries the full `abap/zcl_zmcp_adt_{mpc,dpc}_ext.clas.abap` (all `Ddic*` actions, `DdicTtyp` included) and setup installs those.
 - ECC DDIC FMs: objects created in `$TMP` are registered in TADIR (Table, Data Element, Domain); deleting a data element passed the object type `D` (domain) to `RS_DD_DELETE_OBJ` and never worked — now `E`.
 
