@@ -347,17 +347,22 @@ describe('graph-query', () => {
     const src = mkdtempSync(join(tmpdir(), 'sc4sap-old-src-'));
     try {
       const w = { package: 'ZGT', objects: [
-        { name: 'ZGT_Y', type: 'PROG' }, { name: 'ZGT_Y_TOP', type: 'PROG' }, { name: 'ZGT_UEXIT', type: 'PROG' }, { name: 'ZGT_NOSRC', type: 'PROG' },
+        { name: 'ZGT_Y', type: 'PROG' }, { name: 'ZGT_Y_TOP', type: 'PROG' }, { name: 'ZGT_Y_F01', type: 'PROG' }, { name: 'ZGT_UEXIT', type: 'PROG' }, { name: 'ZGT_NOSRC', type: 'PROG' },
       ] };
       writeFileSync(join(dir, 'walk.json'), JSON.stringify(w));
       mkdirSync(join(src, 'zgt_y.prog'));
-      writeFileSync(join(src, 'zgt_y.prog', 'zgt_y.prog.abap'), 'REPORT zgt_y.\nINCLUDE zgt_y_top.\n');
+      writeFileSync(join(src, 'zgt_y.prog', 'zgt_y.prog.abap'), 'REPORT zgt_y.\nINCLUDE: zgt_y_top,   " data\n         zgt_y_f01.  " forms\nINCLUDE STRUCTURE zgt_s.\n');
       writeFileSync(join(src, 'zgt_y.prog', 'zgt_y_top.incl.abap'), 'DATA gv TYPE i.\n');
-      expect(listOrphanIncludes({ dir, src })).toEqual({ orphans: ['ZGT_UEXIT', 'ZGT_NOSRC'], alreadyRead: 0 });
+      expect(listOrphanIncludes({ dir, src })).toEqual({ orphans: ['ZGT_Y_F01', 'ZGT_UEXIT', 'ZGT_NOSRC'], alreadyRead: 0 });
+      // chained INCLUDE: the folder came back without zgt_y_f01 — fetched alone, it joins ZGT_Y
+      writeFileSync(join(src, 'zgt_y_f01.incl.abap'), 'FORM upd.\n  UPDATE zgt_tab SET flag = abap_true WHERE id = 3.\nENDFORM.\n');
       writeFileSync(join(src, 'zgt_uexit.incl.abap'), 'SELECT SINGLE * FROM zgt_tab INTO @DATA(ls).\n');
       const s = buildPackageGraph({ dir, src, system: 'DEV', sapVersion: 'ECC', builtAt: '2026-11-12T00:00:00Z' });
       expect(s.sourcesMissing).toEqual(['PROG:ZGT_NOSRC']); // ZGT_Y_TOP held by ZGT_Y, ZGT_UEXIT read; ZGT_NOSRC may be a program
-      expect(s.orphanIncludes).toEqual({ read: 1, missing: ['ZGT_NOSRC'] });
+      expect(s.orphanIncludes).toEqual({ read: 2, missing: ['ZGT_NOSRC'] });
+      const g = JSON.parse(readFileSync(join(dir, 'graph.json'), 'utf8'));
+      const upd = g.edges.find((e: { to: string; ops?: string[] }) => e.to.endsWith(':ZGT_TAB') && e.ops?.includes('UPDATE'));
+      expect(upd?.from).toBe('PROG:ZGT_Y');
     } finally {
       rmSync(dir, { recursive: true, force: true });
       rmSync(src, { recursive: true, force: true });

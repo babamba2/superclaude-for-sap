@@ -104,7 +104,20 @@ function loadMemberFolders(walk, src) {
 /** file name GetInclude output:"file" writes: lower case, namespace slashes as # */
 const includeFile = (src, name) => join(src, `${name.toLowerCase().replace(/\//g, '#')}.incl.abap`);
 
-const INCLUDE_STMT = /^[ \t]*INCLUDE[ \t]+([A-Z0-9_/]+)[ \t]*(?:IF[ \t]+FOUND[ \t]*)?\./gim;
+// INCLUDE x. / INCLUDE x IF FOUND. / chained INCLUDE: x, y. (comments between the lines); not INCLUDE STRUCTURE / TYPE
+const INCLUDE_STMT = /^[ \t]*INCLUDE[ \t]*(:?)([^.]*)\./gim;
+const includeNames = (text) => {
+  const out = [];
+  for (const m of text.matchAll(INCLUDE_STMT)) {
+    const body = m[2].replace(/"[^\n]*/g, ' ');
+    const parts = m[1] ? body.split(',') : [body];
+    for (const p of parts) {
+      const t = p.trim().split(/\s+/);
+      if (t[0] && /^[A-Z0-9_/]+$/i.test(t[0]) && !/^(STRUCTURE|TYPE)$/i.test(t[0]) && (t.length === 1 || /^IF$/i.test(t[1]))) out.push(t[0].toUpperCase());
+    }
+  }
+  return out;
+};
 
 /**
  * PROG/I members that no fetched PROG / FUGR folder holds. Those with a GetInclude file in <src> are read: an include
@@ -130,10 +143,7 @@ export function loadOrphanIncludes(walk, src, units) {
   // owner = object of the unit holding INCLUDE <name>; nested found includes inherit the owner of their includer
   const owner = new Map();
   const scan = (file, object) => {
-    for (const m of readFileSync(file, 'utf8').matchAll(INCLUDE_STMT)) {
-      const n = m[1].toUpperCase();
-      if (found.has(n) && !owner.has(n)) owner.set(n, object);
-    }
+    for (const n of includeNames(readFileSync(file, 'utf8'))) if (found.has(n) && !owner.has(n)) owner.set(n, object);
   };
   if (found.size) for (const u of units) if (u.file) scan(u.file, u.object);
   const settle = () => {
