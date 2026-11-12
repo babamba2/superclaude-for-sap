@@ -55,7 +55,7 @@ describe('config-to-document — writer context (notes-context)', () => {
   it('lists the customer implementations of an activity BAdI with their method code', () => {
     const snap = {
       badiImpls: { B1: [{ name: 'ZIMPL', class: 'ZCL_IMPL', active: true, user: 'U', date: '20250304' }] },
-      badiSources: { ZCL_IMPL: { methods: [{ name: 'M1', lines: 3, source: 'x'.repeat(2000) }, { name: 'M2', empty: true }] } },
+      badiSources: { ZCL_IMPL: { methods: [{ name: 'M1', lines: 3, source: 'x'.repeat(7000) }, { name: 'M2', empty: true }] } },
     };
     const [b] = badiContext(snap, ['B1', 'B2']);
     expect(b).toMatchObject({ badi: 'B1', impl: 'ZIMPL', active: true, emptyMethods: ['M2'] });

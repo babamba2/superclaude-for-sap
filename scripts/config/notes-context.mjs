@@ -69,8 +69,10 @@ export function customerTransports(v) {
  * Customer implementations of an activity's BAdIs with their method code (cut per
  * method) — without it a writer cannot say whether an implementation is active or
  * what it does (b035 pilot, 2026-11-12: three of seven review fixes).
+ * 6000 characters per method: at 1500 the MB_DOCUMENT_BADI check lost its logic
+ * (5027 characters) and the reviewer had to read the class itself.
  */
-export function badiContext(snap, badis = [], { maxSource = 1500 } = {}) {
+export function badiContext(snap, badis = [], { maxSource = 6000 } = {}) {
   const out = [];
   for (const badi of badis) {
     for (const x of snap.badiImpls?.[badi] || []) {
