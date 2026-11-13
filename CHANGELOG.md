@@ -5,10 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.67] — 2026-11-13
+
 ### Added
 
 - **Remote table read (`GetRemoteTableContents`, MCP).** Reads rows of one table in another SAP system through an SM59 ABAP destination with the standard `RFC_READ_TABLE`, to build realistic test data. Nothing is installed in the remote system. New dispatcher action `REMOTE_READ` in `abap/zmcp_adt_dispatch.abap` and `abap/zmcp_adt_dispatch_ecc.abap` (not in the 7.31 variant). Business tables are allowed on purpose; credential / user / authorization tables and sub-queries are refused in ABAP, and the table blocklist applies in the MCP server and the PreToolUse hook. The destination is never guessed: without one the tool lists the destinations saved for the profile (`config.json` → `remoteDestinations`, most recent first, max 10), saved after the first successful read. `/sc4sap:sap-option` shows and edits the list (`remote-destinations.md`) and adds a status row.
 - The tool is prompt-gated like `GetTableContents` (`permission-approver`, tool catalog, `common/data-extraction-policy.md`).
+- **Plain chat routes to the right skill.** `common/skill-router.md` is the single source; `scripts/session-start.mjs` injects its digest at session start. `ask-consultant`, `assist`, `analyze-symptom` and `sap-doctor` run directly; skills that write a deliverable, write to SAP or dispatch many agents are proposed in one line and run on yes. Typed slash commands, running skills and plugin-development talk are not routed.
+
+### Changed
+
+- **`/sc4sap:ask-consultant` costs less.** New `scripts/spro-query.mjs` reads the local SPRO cache compactly (`--status` with the active profile's config / env paths, `--find`, `--table` with `--where` / `--fields` / `--limit`). Every consultant dispatch carries a context kit (environment, cache paths and query command, grep-only config reads, customer exits). Multi-module Round 1 asks for the position inline; team files are used only when Round 1 diverges; output is a synthesis plus a short summary per consultant. Measured on an ECC DEV system: single-module question $2.04 → $1.33, two-module question $2.77 → $1.38–2.05.
+- **MCP pin** → abap-mcp-adt-powerup 4.12.0 (`GetRemoteTableContents`).
 
 ### Install note
 
