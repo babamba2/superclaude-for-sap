@@ -327,7 +327,7 @@ async function main() {
   const toolName = payload.tool_name || payload.toolName || '';
   const toolInput = payload.tool_input || payload.toolInput || payload.arguments || {};
   const isSourceUpload = SOURCE_TOOL_RE.test(toolName);
-  if (!/GetTableContents|GetSqlQuery/i.test(toolName) && !isSourceUpload) process.exit(0);
+  if (!/GetTableContents|GetRemoteTableContents|GetSqlQuery/i.test(toolName) && !isSourceUpload) process.exit(0);
   if (isSourceUpload && !sourceIsReadChannel(toolName, toolInput)) process.exit(0);
 
   const { configPath, projectDir } = resolveProjectConfig();

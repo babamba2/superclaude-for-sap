@@ -5,6 +5,15 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+
+- **Remote table read (`GetRemoteTableContents`, MCP).** Reads rows of one table in another SAP system through an SM59 ABAP destination with the standard `RFC_READ_TABLE`, to build realistic test data. Nothing is installed in the remote system. New dispatcher action `REMOTE_READ` in `abap/zmcp_adt_dispatch.abap` and `abap/zmcp_adt_dispatch_ecc.abap` (not in the 7.31 variant). Business tables are allowed on purpose; credential / user / authorization tables and sub-queries are refused in ABAP, and the table blocklist applies in the MCP server and the PreToolUse hook. The destination is never guessed: without one the tool lists the destinations saved for the profile (`config.json` → `remoteDestinations`, most recent first, max 10), saved after the first successful read. `/sc4sap:sap-option` shows and edits the list (`remote-destinations.md`) and adds a status row.
+- The tool is prompt-gated like `GetTableContents` (`permission-approver`, tool catalog, `common/data-extraction-policy.md`).
+
+### Install note
+
+- Upload the dispatcher change on each connected system before using the tool; without it the tool returns an upload hint. **The transport carrying this dispatcher change exposes production data reads (through any SM59 destination of that system) wherever it lands.** Filter on key / indexed fields; mask personal fields before using the rows as test data. Existing hook installs from `scripts/install-hooks.mjs` keep the old matcher until reinstalled.
+
 ## [0.6.66] — 2026-11-12
 
 ### Changed

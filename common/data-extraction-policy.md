@@ -7,6 +7,7 @@
 Before calling any of the following MCP tools:
 
 - `GetTableContents`
+- `GetRemoteTableContents` (rows of another system over an SM59 destination)
 - `GetSqlQuery`
 - `GetTableContents` via composed tools
 - Any tool that returns row data from SAP
@@ -78,7 +79,7 @@ The L3 hook also rejects source uploads that read a blocked table. Only the user
 
 ## ⚠️ The `acknowledge_risk` Parameter — HARD RULE
 
-`GetTableContents` and `GetSqlQuery` accept an `acknowledge_risk: true` parameter that bypasses the MCP server's L4 "ask"-tier confirmation gate. **This flag is an audit boundary, not a convenience flag.** Its value is logged to stderr and represents an attestation that the user has granted per-request authorization.
+`GetTableContents`, `GetRemoteTableContents` and `GetSqlQuery` accept an `acknowledge_risk: true` parameter that bypasses the MCP server's L4 "ask"-tier confirmation gate. **This flag is an audit boundary, not a convenience flag.** Its value is logged to stderr and represents an attestation that the user has granted per-request authorization.
 
 **Agents MUST follow these rules without exception:**
 

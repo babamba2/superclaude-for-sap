@@ -32,6 +32,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 - User says "model dispatch", "dispatch mode", "let me choose the model", "ask me which model", "user-defined model", "auto dispatch" — route to the **Model dispatch** flow (see `<Model_Dispatch>`), which edits `~/.sc4sap/preferences.json` → `modelDispatch`, not `sap.env`.
 - User says "cost mode", "eco mode", "saving mode", "standard mode", "make it cheaper" — route to the **Cost mode** flow (see `<Cost_Mode>`), which edits `~/.sc4sap/preferences.json` → `costMode` / `costModeBySkill`.
 - User says "screen theme", "mockup theme", "signature theme", "pink theme", "화면 테마", "시그니처 테마" — route to the **Screen theme** flow (see `<Screen_Theme>`), which edits the profile `config.json` → `screenTheme`, not `sap.env`.
+- User says "remote destination", "remote read destinations", "saved RFC destinations" — route to the **Remote destinations** flow (see `<Remote_Destinations>`), which edits `config.json` → `remoteDestinations`.
 - User says "hud limit", "5h limit", "weekly limit", "extra limit", "usage budget", "configure limit" — route to the **HUD limits** flow (see `<HUD_Limits>`), which edits `~/.claude/settings.json` → `env`, not `sap.env`.
 </Use_When>
 
@@ -52,6 +53,7 @@ Contents (only show rows you could resolve):
 - **Cost mode**: `<standard (default) | eco>[ · eco: <skills>]` — from `~/.sc4sap/preferences.json` → `costMode` / `costModeBySkill`
 - **Screen theme**: `<screenTheme | signature (default)>` — from `config.json` → `screenTheme`
 - **ALV framework / ABAP SP**: `<alvFramework | none (default)>` · ABAP SP `<abapSp | unset>` — from `config.json` (see `<ALV_Framework>`)
+- **Remote destinations**: `<names | (none)>` — from `config.json` → `remoteDestinations` (see `<Remote_Destinations>`)
 - **sap.env path**: absolute path being edited
 
 If the user's intent is **status-only** (they just said "hud" / "show status"), render the panel and stop. Do not ask follow-up "what to change" questions unless the user continues.
@@ -127,6 +129,10 @@ See [screen-theme.md](screen-theme.md). Theme of the SAP screen mockups in `prog
 <ALV_Framework>
 See [alv-framework.md](alv-framework.md). Triggers: "alv framework", "alv base class", "abap sp", "support package". Edits `config.json` → `alvFramework` (`s4sap-cm` | `custom` | `none`), `alvBaseClass`, `alvGridClass`, `messageClass`, `abapSp` — not `sap.env`.
 </ALV_Framework>
+
+<Remote_Destinations>
+See [remote-destinations.md](remote-destinations.md). SM59 destinations saved by `GetRemoteTableContents` (most recent first, max 10): show, remove, move to top, clear — `config.json` only, not `sap.env`.
+</Remote_Destinations>
 
 <Validation>
 - `SAP_URL`: must match `^https?://[^ ]+` and not end with `/`.

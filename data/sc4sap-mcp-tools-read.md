@@ -2,7 +2,7 @@
 
 Get / Read / List / Search handlers — schema, metadata, object introspection, and navigation. Part of [sc4sap-mcp-tools.md](sc4sap-mcp-tools.md).
 
-**EXCLUDED from this list (prompt-gated, never auto-approved)**: `mcp__plugin_sc4sap_sap__GetTableContents`, `mcp__plugin_sc4sap_sap__GetSqlQuery`. See the index file for the rationale.
+**EXCLUDED from this list (prompt-gated, never auto-approved)**: `mcp__plugin_sc4sap_sap__GetTableContents`, `mcp__plugin_sc4sap_sap__GetSqlQuery`, `mcp__plugin_sc4sap_sap__GetRemoteTableContents`. See the index file for the rationale.
 
 ## Get*
 
