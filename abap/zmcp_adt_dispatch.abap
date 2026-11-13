@@ -30,6 +30,8 @@ FUNCTION zmcp_adt_dispatch
 * BIZ_EXECUTE    - business action, forwards to ZMCP_BIZ_EXECUTE (FORM biz_execute)
 * FM_PROXY       - calls an allow-listed helper FM that is not remote-enabled,
 *                  for RFC clients (NCo backend) (FORM fm_proxy)
+* REMOTE_READ    - read-only rows of one table in another system through an
+*                  SM59 ABAP destination with RFC_READ_TABLE (FORM remote_read)
 
   CLEAR: ev_subrc, ev_message, ev_result.
 
@@ -59,6 +61,9 @@ FUNCTION zmcp_adt_dispatch
         WHEN 'FM_PROXY'.
           PERFORM fm_proxy USING iv_params
                            CHANGING ev_subrc ev_message ev_result.
+        WHEN 'REMOTE_READ'.
+          PERFORM remote_read USING iv_params
+                              CHANGING ev_subrc ev_message ev_result.
         WHEN OTHERS.
           ev_subrc = 4.
           ev_message = |Unknown action: { iv_action }|.
@@ -770,4 +775,221 @@ FORM fm_proxy USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message TY
   ENDLOOP.
   ev_result = |{ lv_json }\}|.
   ev_subrc = 0.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form REMOTE_READ - read-only table rows from another system via RFC
+*&---------------------------------------------------------------------*
+* Reads rows of one table in another SAP system through an RFC
+* destination the user names (SM59 ABAP connection, e.g. PRDCLNT100)
+* with the standard RFC_READ_TABLE, so realistic test data sets can be
+* built without installing anything there.
+* Business tables are allowed on purpose; credential / user master
+* tables stay closed and sub-queries are refused. The caller (MCP tool /
+* CLI) applies the table blocklist before calling.
+* params: destination, table_name, field_list (string table),
+*         options (string table, WHERE lines of at most 72 characters),
+*         max_rows, skip_rows
+* result: destination, table, fields [{name,type,length,text}],
+*         rows (array of objects, values as text), count
+FORM remote_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message TYPE string ev_result TYPE string.
+  TYPES ty_names TYPE STANDARD TABLE OF string WITH DEFAULT KEY.
+  DATA: BEGIN OF ls_input,
+          destination TYPE string,
+          table_name  TYPE string,
+          field_list  TYPE ty_names,
+          options     TYPE ty_names,
+          max_rows    TYPE i,
+          skip_rows   TYPE i,
+        END OF ls_input.
+  DATA: lv_dest     TYPE rfcdest,
+        lv_tab      TYPE tabname,
+        lv_line     TYPE string,
+        lv_all      TYPE string,
+        lv_max      TYPE i,
+        lv_skip     TYPE i,
+        lv_msg(255) TYPE c,
+        lv_val      TYPE string,
+        lv_off      TYPE i,
+        lv_len      TYPE i,
+        lv_num      TYPE string,
+        lv_sep      TYPE string,
+        lv_fsep     TYPE string,
+        lt_opt      TYPE STANDARD TABLE OF rfc_db_opt,
+        ls_opt      TYPE rfc_db_opt,
+        lt_fld      TYPE STANDARD TABLE OF rfc_db_fld,
+        ls_fld      TYPE rfc_db_fld,
+        lt_dat      TYPE STANDARD TABLE OF tab512,
+        ls_dat      TYPE tab512,
+        lt_json     TYPE ty_names.
+  DATA lv_rfctype TYPE rfcdes-rfctype.
+  " Destinations must be ABAP connections (SM59 type 3): RFC_READ_TABLE
+  " exists only in an SAP system.
+  CONSTANTS lc_abap_conn TYPE rfcdes-rfctype VALUE '3'.
+  " Row cap per call (same as TABLE_READ); larger extracts page with skip_rows.
+  CONSTANTS lc_max_rows TYPE i VALUE 5000.
+  " Rows when the caller sends none: enough to see the data shape.
+  CONSTANTS lc_default_rows TYPE i VALUE 100.
+  " RFC_READ_TABLE OPTIONS line width (RFC_DB_OPT-TEXT is CHAR 72).
+  CONSTANTS lc_option_width TYPE i VALUE 72.
+  " RFC_READ_TABLE data line width (TAB512-WA is CHAR 512).
+  CONSTANTS lc_data_width TYPE i VALUE 512.
+
+  /ui2/cl_json=>deserialize( EXPORTING json = iv_params CHANGING data = ls_input ).
+
+  " The caller names the destination (the tool asks the user); it must be an
+  " ABAP connection maintained in SM59.
+  lv_dest = condense( ls_input-destination ).
+  IF lv_dest IS INITIAL.
+    ev_subrc = 4. ev_message = 'REMOTE_READ: destination is required'. ev_result = '{}'.
+    RETURN.
+  ENDIF.
+  SELECT SINGLE rfctype FROM rfcdes INTO lv_rfctype WHERE rfcdest = lv_dest.
+  IF sy-subrc <> 0.
+    ev_subrc = 4. ev_message = |REMOTE_READ: destination { lv_dest } is not defined in SM59|. ev_result = '{}'.
+    RETURN.
+  ENDIF.
+  IF lv_rfctype <> lc_abap_conn.
+    ev_subrc = 4. ev_message = |REMOTE_READ: destination { lv_dest } is not an ABAP connection (type { lv_rfctype })|. ev_result = '{}'.
+    RETURN.
+  ENDIF.
+
+  lv_tab = to_upper( condense( ls_input-table_name ) ).
+  IF lv_tab IS INITIAL.
+    ev_subrc = 4. ev_message = 'REMOTE_READ: table_name is required'. ev_result = '{}'.
+    RETURN.
+  ENDIF.
+  " Credentials, user master and security tables stay closed whatever the purpose.
+  IF lv_tab = 'RFCDES' OR lv_tab = 'RSECTAB' OR lv_tab = 'RSECACTB'
+     OR lv_tab CP 'USR*' OR lv_tab CP 'UST*' OR lv_tab CP 'AGR_*'
+     OR lv_tab CP 'SSF_PSE*' OR lv_tab CP 'STRUST*' OR lv_tab CP 'SNC*'
+     OR lv_tab CP 'TRUSTED*' OR lv_tab CP 'RSAU*'.
+    ev_subrc = 4. ev_message = |REMOTE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
+    RETURN.
+  ENDIF.
+
+  " WHERE lines: width check, and no sub-queries (checked on the joined text,
+  " so a keyword split across two lines is still caught).
+  LOOP AT ls_input-options INTO lv_line.
+    IF strlen( lv_line ) > lc_option_width.
+      ev_subrc = 4. ev_message = |REMOTE_READ: options lines must be at most { lc_option_width } characters|. ev_result = '{}'.
+      RETURN.
+    ENDIF.
+    CONCATENATE lv_all lv_line INTO lv_all.
+    CLEAR ls_opt.
+    ls_opt-text = lv_line.
+    APPEND ls_opt TO lt_opt.
+  ENDLOOP.
+  lv_all = to_upper( lv_all ).
+  IF lv_all CS 'SELECT' OR lv_all CS 'JOIN'.
+    ev_subrc = 4. ev_message = 'REMOTE_READ: sub-queries are not allowed in the condition'. ev_result = '{}'.
+    RETURN.
+  ENDIF.
+
+  LOOP AT ls_input-field_list INTO lv_line.
+    CLEAR ls_fld.
+    ls_fld-fieldname = to_upper( condense( lv_line ) ).
+    APPEND ls_fld TO lt_fld.
+  ENDLOOP.
+
+  lv_max = ls_input-max_rows.
+  IF lv_max <= 0. lv_max = lc_default_rows. ENDIF.
+  IF lv_max > lc_max_rows. lv_max = lc_max_rows. ENDIF.
+  lv_skip = ls_input-skip_rows.
+  IF lv_skip < 0. lv_skip = 0. ENDIF.
+
+  CALL FUNCTION 'RFC_READ_TABLE'
+    DESTINATION lv_dest
+    EXPORTING
+      query_table           = lv_tab
+      rowcount              = lv_max
+      rowskips              = lv_skip
+    TABLES
+      options               = lt_opt
+      fields                = lt_fld
+      data                  = lt_dat
+    EXCEPTIONS
+      table_not_available   = 1
+      table_without_data    = 2
+      option_not_valid      = 3
+      field_not_valid       = 4
+      not_authorized        = 5
+      data_buffer_exceeded  = 6
+      system_failure        = 7 MESSAGE lv_msg
+      communication_failure = 8 MESSAGE lv_msg
+      OTHERS                = 9.
+  CASE sy-subrc.
+    WHEN 0.
+    WHEN 1. ev_subrc = 4. ev_message = |REMOTE_READ: table { lv_tab } is not available on { lv_dest }|.
+    WHEN 2. ev_subrc = 4. ev_message = |REMOTE_READ: { lv_tab } has no database table on { lv_dest }|.
+    WHEN 3. ev_subrc = 4. ev_message = 'REMOTE_READ: the WHERE condition is not valid'.
+    WHEN 4. ev_subrc = 4. ev_message = |REMOTE_READ: a requested field is not on { lv_tab }|.
+    WHEN 5. ev_subrc = 4. ev_message = |REMOTE_READ: the RFC user of { lv_dest } may not read { lv_tab } (S_TABU_DIS)|.
+    WHEN 6. ev_subrc = 4. ev_message = |REMOTE_READ: a row is longer than { lc_data_width } characters - choose fewer fields|.
+    WHEN 7. ev_subrc = 8. ev_message = |REMOTE_READ: system failure on { lv_dest }: { lv_msg }|.
+    WHEN 8. ev_subrc = 8. ev_message = |REMOTE_READ: communication failure to { lv_dest }: { lv_msg }|.
+    WHEN OTHERS. ev_subrc = 8. ev_message = |REMOTE_READ: RFC_READ_TABLE failed, sy-subrc { sy-subrc }|.
+  ENDCASE.
+  IF ev_subrc <> 0.
+    ev_result = '{}'.
+    RETURN.
+  ENDIF.
+
+  " Field list: name, ABAP type, length and short text.
+  APPEND |\{"destination":"{ lv_dest }","table":"{ lv_tab }","fields":[| TO lt_json.
+  CLEAR lv_sep.
+  LOOP AT lt_fld INTO ls_fld.
+    lv_val = ls_fld-fieldtext.
+    PERFORM remote_read_escape CHANGING lv_val.
+    lv_len = ls_fld-length.
+    lv_num = lv_len.
+    CONDENSE lv_num.
+    APPEND |{ lv_sep }\{"name":"{ ls_fld-fieldname }","type":"{ ls_fld-type }","length":{ lv_num },"text":"{ lv_val }"\}| TO lt_json.
+    lv_sep = ','.
+  ENDLOOP.
+
+  " Rows: each field cut from the fixed-width data line at its offset.
+  APPEND '],"rows":[' TO lt_json.
+  CLEAR lv_sep.
+  LOOP AT lt_dat INTO ls_dat.
+    APPEND |{ lv_sep }\{| TO lt_json.
+    CLEAR lv_fsep.
+    LOOP AT lt_fld INTO ls_fld.
+      lv_off = ls_fld-offset.
+      lv_len = ls_fld-length.
+      IF lv_off + lv_len > lc_data_width.
+        lv_len = lc_data_width - lv_off.
+      ENDIF.
+      CLEAR lv_val.
+      IF lv_len > 0.
+        lv_val = ls_dat-wa+lv_off(lv_len).
+        SHIFT lv_val LEFT DELETING LEADING space.
+        PERFORM remote_read_escape CHANGING lv_val.
+      ENDIF.
+      APPEND |{ lv_fsep }"{ ls_fld-fieldname }":"{ lv_val }"| TO lt_json.
+      lv_fsep = ','.
+    ENDLOOP.
+    APPEND '}' TO lt_json.
+    lv_sep = ','.
+  ENDLOOP.
+
+  lv_num = lines( lt_dat ).
+  CONDENSE lv_num.
+  APPEND |],"count":{ lv_num }\}| TO lt_json.
+  CONCATENATE LINES OF lt_json INTO ev_result.
+  ev_subrc = 0.
+  ev_message = 'OK'.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form REMOTE_READ_ESCAPE - escape a text value for a JSON string
+*&---------------------------------------------------------------------*
+FORM remote_read_escape CHANGING cv_text TYPE string.
+  DATA lv_cr TYPE c LENGTH 1.
+  lv_cr = cl_abap_char_utilities=>cr_lf. " first character = carriage return
+  REPLACE ALL OCCURRENCES OF `\` IN cv_text WITH `\\`.
+  REPLACE ALL OCCURRENCES OF `"` IN cv_text WITH `\"`.
+  REPLACE ALL OCCURRENCES OF cl_abap_char_utilities=>horizontal_tab IN cv_text WITH `\t`.
+  REPLACE ALL OCCURRENCES OF cl_abap_char_utilities=>newline IN cv_text WITH `\n`.
+  REPLACE ALL OCCURRENCES OF lv_cr IN cv_text WITH `\r`.
 ENDFORM.

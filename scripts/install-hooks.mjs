@@ -52,7 +52,7 @@ function resolveHookScript(basename) {
 const HOOKS = [
   {
     marker: 'block-forbidden-tables.mjs',
-    matcher: 'mcp__.*__(GetTableContents|GetSqlQuery)',
+    matcher: 'mcp__.*__(GetTableContents|GetRemoteTableContents|GetSqlQuery)',
     testHint:
       'Test it with a dry-run MCP GetTableContents on BNKA — the call should be denied.',
   },

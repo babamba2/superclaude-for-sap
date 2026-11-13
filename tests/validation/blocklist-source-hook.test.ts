@@ -31,6 +31,16 @@ CLASS ltcl IMPLEMENTATION.
   ENDMETHOD.
 ENDCLASS.`;
 
+describe('blocklist hook — remote table read', () => {
+  it('denies a deny-tier table read over an RFC destination', () => {
+    expect(run('GetRemoteTableContents', { table_name: 'USR02', destination: 'PRDCLNT100' })).toBe('deny');
+  });
+
+  it('lets an unlisted table through', () => {
+    expect(run('GetRemoteTableContents', { table_name: 'T001', destination: 'PRDCLNT100' })).toBeNull();
+  });
+});
+
 describe('blocklist hook — source uploads', () => {
   it('denies a test class that reads a deny-tier table', () => {
     const src = probe(`SELECT SINGLE persnumber FROM usr21 WHERE bname = 'X' INTO @DATA(lv).`);

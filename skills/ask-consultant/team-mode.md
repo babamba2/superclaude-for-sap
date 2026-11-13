@@ -17,8 +17,8 @@ Full per-round spawn shapes, divergence rules, and arbitration logic are in [`te
 
 Transport is return-based ([`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md) § Transport): consultants return blocks, the lead (this skill, main thread) writes every task file.
 
-- **Round 1** (always runs) — N consultants dispatched in parallel, each returns a POSITION block (+ full answer); lead writes `10-*-position.md`.
-- **Divergence check** — lead parses POSITIONs. Aligned → exit to § Synthesis. Divergent → Round 2.
+- **Round 1** (always runs, `SKILL.md` Step 4) — N consultants dispatched in parallel, each returns a POSITION block (+ full answer). No team files and no team docs at this point.
+- **Divergence check** (`SKILL.md` Step 4) — aligned → one line in `~/.claude/tasks/ask-consultant-r1.log`, then `SKILL.md` Step 5 legacy synthesis. Divergent → lead writes `00-charter.md` + `10-*-position.md` from the returns, then Round 2.
 - **Round 2** — re-dispatch with peer POSITIONs inline; each returns CHALLENGEs + REFINEMENT; lead writes `20-*` / `30-*`.
 - **Divergence check 2** — refined POSITIONs aligned (incl. via explicit withdrawal) → § Synthesis. Else Round 3.
 - **Round 3** — each member returns CONCUR or ESCALATE; lead appends them to `40-consensus.md`.

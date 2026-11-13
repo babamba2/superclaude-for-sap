@@ -6,7 +6,7 @@ Companion to [`team-mode.md`](team-mode.md). Contains detailed spawn shapes, div
 
 ### Round 1 — POSITION (always runs)
 
-Replaces `SKILL.md` Step 4. The lead:
+Round 1 itself is dispatched by `SKILL.md` Step 4 (POSITION block inline, no team files) — this file is read only after the Divergence check there found a divergence. The lead then persists Round 1 retroactively from the returns it already holds (steps 1–3 and 5 below; step 4 is not re-run):
 
 1. Generate a run ID `team_name` = `ask-consultant-<YYYYMMDD-HHMMSS>` — a directory name only, never passed to `Agent(...)` (transport is return-based per the protocol § Transport).
 2. Create the shared task directory: `~/.claude/tasks/<team_name>/`.
@@ -51,7 +51,7 @@ Replaces `SKILL.md` Step 4. The lead:
 
 Lead parses each `POSITION`'s `recommendation` + `assumption` fields. Divergence rule:
 
-- **Aligned** — all N members agree on the same core action verb on the same core object AND no member's `assumption` contradicts another's. Example: both MM and FI recommend "MIGO → MIRO with 3-way match". → **exit teamMode**, go to `team-mode.md` § Synthesis.
+- **Aligned** — all N members agree on the same core action verb on the same core object AND no member's `assumption` contradicts another's. Example: both MM and FI recommend "MIGO → MIRO with 3-way match". → **exit teamMode** (after Round 1: `SKILL.md` Step 5; this file is not read then — after Round 2: `team-mode.md` § Synthesis).
 - **Divergent** — at least one pair disagrees on action, object, or an asserted precondition. Example: MM says "MIGO → MIRO always", FI says "MIRO-only when GR/IR suppressed by industry config". → **continue to Round 2**.
 - **Edge case — one `low` confidence + others `high`**: treat as aligned if low-confidence member does not contradict the high-confidence majority.
 
