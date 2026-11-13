@@ -7,9 +7,23 @@
  */
 
 import { existsSync, readFileSync } from 'fs';
-import { join } from 'path';
+import { dirname, join } from 'path';
+import { fileURLToPath } from 'url';
 import { readStdin } from './lib/stdin.mjs';
 import { offlineReminder } from './lib/offline-reminder.mjs';
+
+const PLUGIN_ROOT = dirname(dirname(fileURLToPath(import.meta.url)));
+
+// Plain-chat → skill routing digest; single source is common/skill-router.md.
+function skillRouterDigest(root = PLUGIN_ROOT) {
+  try {
+    const md = readFileSync(join(root, 'common', 'skill-router.md'), 'utf-8');
+    const m = md.match(/<!-- skill-router:start -->\r?\n([\s\S]*?)\r?\n<!-- skill-router:end -->/);
+    return m ? m[1].trim() : '';
+  } catch {
+    return '';
+  }
+}
 
 async function main() {
   try {
@@ -33,6 +47,9 @@ async function main() {
 
 ---
 `);
+
+    const router = skillRouterDigest();
+    if (router) messages.push(`<system-reminder>\n${router}\n</system-reminder>\n`);
 
     const offline = offlineReminder(directory);
     if (offline) messages.push(offline);

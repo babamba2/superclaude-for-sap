@@ -8,7 +8,7 @@
 //   node spro-query.mjs --module SD --table T683V             all rows (capped by --limit)
 //   node spro-query.mjs --module SD --table T683V --where VKORG=1100,AUART=RE|RK --fields AUART,KALVG,KALSM
 //   node spro-query.mjs --module SD --find KALSM              tables of the module that have this field
-//   node spro-query.mjs --status SD,MM                        per module: SPRO cache file + customizations dir (or none)
+//   node spro-query.mjs --status SD,MM                        profile config / env paths, then per module: SPRO cache file + customizations dir (or none)
 //
 // Options: --cwd <dir> (workspace, default process.cwd()), --limit <n> (default 200), --json.
 // Filters: FIELD=v1|v2 (any of), FIELD!=v (not), FIELD~text (contains, case-insensitive); comma = AND.
@@ -16,7 +16,9 @@
 
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { resolveArtifactBase, resolveWorkspaceRoot } from './lib/profile-resolve.mjs';
+import {
+  readActiveAlias, resolveArtifactBase, resolveConfigJsonPath, resolveSapEnvPath, resolveWorkspaceRoot,
+} from './lib/profile-resolve.mjs';
 
 export function parseArgs(argv) {
   const out = { limit: 200 };
@@ -73,6 +75,8 @@ export function loadModule(cwd, module) {
 // One line per module: SPRO cache + customizations cache, with exact paths (for dispatch prompts).
 export function status(cwd, modules, print = console.log) {
   const base = resolveArtifactBase(cwd);
+  // Where the environment lives (multi-profile: ~/.sc4sap/profiles/<alias>/, legacy: <workspace>/.sc4sap/).
+  print(`profile=${readActiveAlias(cwd) || 'none'}\tconfig=${resolveConfigJsonPath(cwd)?.path || 'none'}\tenv=${resolveSapEnvPath(cwd)?.path || 'none'}`);
   for (const m of modules) {
     const hit = loadModule(cwd, m);
     const custom = [join(base, 'customizations', m), join(resolveWorkspaceRoot(cwd), '.sc4sap', 'customizations', m)]

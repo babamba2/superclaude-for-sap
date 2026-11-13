@@ -71,6 +71,7 @@ describe('spro-query', () => {
     mkdirSync(join(project, '.sc4sap', 'work', 'DEV1', 'customizations', 'SD'), { recursive: true });
     const r = run(['--status', 'sd,MM']);
     expect(r.status).toBe(0);
+    expect(r.stdout.split(/\r?\n/)[0]).toMatch(/^profile=DEV1\tconfig=\S+\tenv=\S+/);
     expect(r.stdout).toMatch(/SD\tspro=.*spro-config-SD\.json \(snapshot 2026-11-01T00:00:00Z\)\tcustomizations=.*customizations[\\/]SD/);
     expect(r.stdout).toContain('MM\tspro=none\tcustomizations=none');
   });
