@@ -1,0 +1,19 @@
+sc4sap_hanta 에만 적용한 read_remote 에 대해 아래 파일 참고해서 sc4sap + enterprise 에도 같이 적용해줘~ 
+
+<pasted_content id="f1a1">
+    • 폴더:  C:\Users\pssps\Documents\Projects\sc4sap_project\_handoff\remote-read
+    •  C:\Users\pssps\Documents\Projects\sc4sap_project\_handoff\remote-read\PROMPT.md
+    • 기능 설명, 적용 순서, 검증 표, 주의사항을 담은 작업 지시서입니다.
+    •
+       C:\Users\pssps\Documents\Projects\sc4sap_project\_handoff\remote-read\remote_read.abap
+
+    • S/4용과 ECC용 디스패처 두 벌에 넣을 분기 한 줄과 FORM 두 개입니다.
+    • FORM 본문은 HKD에서 실제로 돌고 있는 코드 그대로입니다. 바꾼 것은 고객 이름이 들어간
+      머리 주석뿐입니다.
+    •
+       C:\Users\pssps\Documents\Projects\sc4sap_project\_handoff\remote-read\handleGetRemoteT
+      ableContents.ts
+    • sc4sap은 hanta CLI 대신 MCP 서버를 쓰므로, CLI 도구를  abap-mcp-adt-powerup 의 읽기
+      핸들러 형식으로 옮긴 초안입니다.
+    • WHERE 줄 분할, 저장된 목적지 안내와 저장, blocklist 검사를 담았습니다.
+</pasted_content id="f1a1">
