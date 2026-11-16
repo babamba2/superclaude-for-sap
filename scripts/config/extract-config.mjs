@@ -38,7 +38,7 @@ const ROOT_TEXT = {
   LE: 'Logistics Execution', PS: 'Project System', CO: 'Controlling',
 };
 const LANG_KEY = { ko: '3', en: 'E', ja: 'J', de: 'D', zh: '1' };
-// Customer requests are <SID>K<6 characters> (HKDK900133, HKDK9A2OEJ); SAP delivery
+// Customer requests are <SID>K<6 characters> (DEVK900133, DEVK9A2OEJ); SAP delivery
 // records (SAPK…, command files such as P30A_C_SFC) are skipped so they never count as customer rows.
 const CUSTOMER_TR = /^(?!SAP)[A-Z][A-Z0-9]{2}K[A-Z0-9]{6}$/;
 

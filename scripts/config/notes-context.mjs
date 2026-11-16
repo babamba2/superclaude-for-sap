@@ -1,6 +1,6 @@
 // config-to-document — what the notes writer needs from the snapshot, computed up
 // front into the batch input, so the writer does not load snapshot.json (50–200 MB)
-// with ad-hoc `node -e` filters. Measured on HKT-DEV (2026-10): writers spent about a
+// with ad-hoc `node -e` filters. Measured on an ECC DEV system (2026-10): writers spent about a
 // quarter of their Bash calls on such filters, each a full agent turn.
 //
 //   sampleRows(view, domains)   rows for the writer — all of them up to ALL_ROWS

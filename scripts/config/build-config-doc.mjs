@@ -56,7 +56,7 @@ const T = {
 
 const show = (v) => (v === true ? 'X' : v === false || v == null ? '' : String(v));
 // A customer request is named <SID>K<6 characters> (digits, then letters once
-// 999999 is used up: HKDK9A2OEJ). SAP's own delivery records (SAPK…, command
+// 999999 is used up: DEVK9A2OEJ). SAP's own delivery records (SAPK…, command
 // files like P30A_C_SFC, /SPE/100_CUST) are not customer changes.
 export const isCustomerTr = (t) => /^[A-Z][A-Z0-9]{2}K[A-Z0-9]{6}$/.test(String(t)) && !String(t).startsWith('SAP');
 const custTr = (r) => (r._tr || []).filter(isCustomerTr);
