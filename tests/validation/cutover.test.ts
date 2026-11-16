@@ -9,6 +9,8 @@ import { cmdCutover, parseWindow, ctsRequests, prdStop, loadCutoverTemplate } fr
 // @ts-expect-error — plain .mjs script, no type declarations
 import { computeCutover, PRD_CONFIRM } from '../../scripts/project/cutover-run.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
+import { buildProject } from '../../scripts/project/build-project-doc.mjs';
+// @ts-expect-error — plain .mjs script, no type declarations
 import { readJobs, JOBS_WHERE } from '../../scripts/project/cutover-jobs.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { renderCutoverTab } from '../../scripts/project/cutover-tab.mjs';
@@ -322,10 +324,10 @@ describe('computeCutover (shared by the CLI and the web workbench)', () => {
       const { m, act, cts, bad } = inputs(root);
       const jobs = { ok: true, rows: [{ job: 'ZPT_NIGHT', status: 'released', next: '', event: '', program: 'ZPT_PROG', period: '1d' }], stepsRead: true };
       const cli = await cmdCutover({ code: 'P2X', root, seed: true, window: '2027-01-02 18:00/2027-01-04 06:00', freezeCode: '2026-12-21', freezeConfig: '2026-12-24',
-        rehearsal: 'R1', actuals: act, evidence: [cts, bad], jobs: true, tier: 'DEV', today: '2026-12-20', lang: 'ko', readJobsFn: async () => jobs });
+        rehearsal: 'R1', actuals: act, evidence: [cts, bad], jobs: true, tier: 'DEV', today: '2026-12-20', lang: 'ko', readJobsFn: async () => jobs, buildProject });
       const before = JSON.stringify(m);
       const run = computeCutover(m, { seed: true, window: '2027-01-02 18:00/2027-01-04 06:00', freeze: { code: '2026-12-21', config: '2026-12-24' }, rehearsal: 'R1',
-        actualsText: readFileSync(act, 'utf8'), evidence: [{ name: cts, text: readFileSync(cts, 'utf8') }, { name: bad, error: 'ENOENT' }],
+        actualsText: readFileSync(act, 'utf8'), evidence: [{ name: cts, text: readFileSync(cts, 'utf8') }, { name: bad, result: { ok: false, kind: 'unknown', code: 'read-error', reason: 'ENOENT' } }],
         jobs: { ...jobs, at: '2026-12-20', system: cli.jobs.ok ? JSON.parse(readFileSync(join(root, 'P2X', 'P2X-project.json'), 'utf8')).cutover.jobsRead.system : '' }, today: '2026-12-20', lang: 'ko' });
       expect(JSON.stringify(m)).toBe(before); // the input model is not changed
       expect(JSON.parse(readFileSync(join(root, 'P2X', 'P2X-project.json'), 'utf8'))).toEqual(JSON.parse(JSON.stringify(run.model)));

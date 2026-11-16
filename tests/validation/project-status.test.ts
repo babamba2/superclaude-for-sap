@@ -7,7 +7,7 @@ import { checkModel, normalizeModel, viewModel } from '../../scripts/project/pro
 // @ts-expect-error — plain .mjs script, no type declarations
 import { instantiate, addWricef } from '../../scripts/project/project-template.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { readEvidence, statusEntry, logStatus, previousOf, delta, gateCheck, suggestions, weekEndOf, LOG_WEEKS } from '../../scripts/project/project-status.mjs';
+import { readEvidence, statusEntry, logStatus, previousOf, delta, gateCheck, suggestions, weekEndOf, LOG_WEEKS, computeStatus } from '../../scripts/project/project-status.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { renderPage } from '../../scripts/project/project-page.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -252,5 +252,35 @@ describe('weekly status — command (two weeks on a fictitious project)', () => 
     const r2 = addWricef(r1.model, [{ label: 'From gap v2', kind: 'R', module: 'SD', source: { ...src, version: '1.1' } }, { label: 'Other', kind: 'R', module: 'SD' }]);
     expect(r2.skipped).toEqual([{ item: 'From gap v2', reason: 'already imported' }]);
     expect(r2.added).toHaveLength(1);
+  });
+});
+
+describe('weekly status — computeStatus is the CLI run without files (web workbench parity)', () => {
+  it('same model, page and summary as build-project-doc status for the same inputs; stale week and unknown gate stop', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'pst-par-'));
+    try {
+      writeFileSync(join(root, 'a.json'), JSON.stringify({ code: 'DEMO1', name: 'Demo', type: 'implementation', start: '2027-01-04', goLive: '2027-06-01', modules: ['SD'], team: TEAM }));
+      cmdInit({ answers: join(root, 'a.json'), root });
+      const mf = join(root, 'DEMO1', 'DEMO1-project.json');
+      const before = JSON.parse(readFileSync(mf, 'utf8'));
+      writeFileSync(join(root, 'cts.json'), JSON.stringify(CTS));
+      const uatDir = join(root, 'uat'); mkdirSync(join(uatDir, 'DEMO-UAT'), { recursive: true });
+      writeFileSync(join(uatDir, 'DEMO-UAT', 'DEMO-UAT-uat.json'), JSON.stringify(UAT()));
+      const gate = before.milestones.find((x: any) => x.kind === 'qgate').id;
+      const cli = await cmdStatus({ code: 'DEMO1', root, weekEnd: '2027-03-05', gate, evidence: [join(root, 'cts.json'), join(root, 'missing.json')], uat: ['DEMO-UAT', '../x'], uatDir, today: '2027-03-06' });
+      const web = computeStatus(before, { weekEnd: '2027-03-05', gateId: gate, today: '2027-03-06', evidence: [
+        { name: 'cts.json', text: JSON.stringify(CTS) }, { name: 'missing.json', result: { ok: false, kind: 'unknown', code: 'read-error', reason: 'x' } },
+        { name: 'DEMO-UAT', text: JSON.stringify(UAT()) }, { name: '../x', result: { ok: false, kind: 'uat', id: '../x', code: 'bad-id', reason: 'not a UAT set id' } }] });
+      const { html, dashboard, warnings, ...cliSummary } = cli;
+      expect(web.summary).toEqual(cliSummary);
+      expect(web.model).toEqual(JSON.parse(readFileSync(mf, 'utf8')));
+      // the page differs only in the reason text of the unreadable file (a file path on the CLI)
+      expect(web.html.replace(/read-error[^<]*/g, '')).toBe(readFileSync(html, 'utf8').replace(/read-error[^<]*/g, ''));
+      expect(() => computeStatus(web.model, { weekEnd: '2027-02-26', today: '2027-03-06' })).toThrow(/stale dashboard/);
+      expect(() => computeStatus(web.model, { weekEnd: '2027-03-12', gateId: 'NO-SUCH', today: '2027-03-12' })).toThrow(/gate "NO-SUCH" not found/);
+      expect(before.statusLog || []).toEqual([]); // the input model is not changed
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
   });
 });

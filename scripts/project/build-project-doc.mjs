@@ -32,11 +32,10 @@ import { resolveArtifactBase } from '../lib/profile-resolve.mjs';
 import { jsonTexts, jsonApply } from '../lib/humanize.mjs';
 import { checkModel, normalizeModel, viewModel, withSnapshot, reassign, isActive, iso, arr, UAT_SET_ID } from './project-model.mjs';
 import { instantiate, addWricef } from './project-template.mjs';
-import { renderPage } from './project-page.mjs';
+import { renderPage, modelFromPage } from './project-page.mjs';
 import { esc, labelsFor } from './project-render.mjs';
 import { withResponsive } from '../lib/responsive.mjs';
-import { readEvidence, statusEntry, logStatus, previousOf, delta, gateCheck, suggestions, weekEndOf } from './project-status.mjs';
-import { renderStatusPage } from './status-page.mjs';
+import { computeStatus } from './project-status.mjs';
 
 const readJson = (f, d) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : d);
 const writeJson = (f, o) => writeFileSync(f, `${JSON.stringify(o, null, 2)}\n`, 'utf8');
@@ -101,10 +100,9 @@ export function cmdInit({ answers, root, force = false }) {
 
 /** Model saved from the page's edit mode → model file + history entries (source: 'edit'), rebuilt as that version. */
 export function cmdImport({ html, root }) {
-  const text = readFileSync(html, 'utf8');
-  const mm = /<script type="application\/json" id="project-model">([\s\S]*?)<\/script>/.exec(text);
-  if (!mm) throw new Error(`${html} has no embedded project model — was it saved from the page's edit mode?`);
-  const { model, version, history = [] } = JSON.parse(mm[1]);
+  let page;
+  try { page = modelFromPage(readFileSync(html, 'utf8')); } catch (e) { throw new Error(`${html}: ${e.message}`); }
+  const { model, version, history } = page;
   const lang = model.lang || 'ko', code = model.project?.code;
   if (!CODE_RE.test(code || '')) throw new Error('embedded model has no valid project.code');
   const f = files(root, code, lang);
@@ -141,31 +139,22 @@ export async function cmdStatus({ code, root, weekEnd = '', gate = '', evidence 
   const f = files(root, code);
   const model = normalizeModel(readJson(f.model) || {});
   if (!model.project?.code) throw new Error(`no model for ${code} — import the dashboard page first`);
-  const week = weekEnd || weekEndOf(today);
-  const view = viewModel(model, week < today ? week : today);
-  const read = (p) => { try { return readEvidence(readFileSync(p, 'utf8')); } catch (e) { return { ok: false, kind: 'unknown', code: 'read-error', reason: e.message }; } };
+  // files → evidence texts; the run itself is computeStatus (project-status.mjs), shared with the web workbench
+  const read = (p) => { try { return { name: p, text: readFileSync(p, 'utf8') }; } catch (e) { return { name: p, result: { ok: false, kind: 'unknown', code: 'read-error', reason: e.message } }; } };
   // UAT sets of the project (project.uatSets, or --uat): <artifact base>/uat/<ID>/<ID>-uat.json (+ <ID>-defects.json)
   const ids = uat.length ? uat : arr(model.project.uatSets).map((x) => (typeof x === 'string' ? x : x?.id)).filter(Boolean);
   const ur = uatDir || (ids.length ? join(resolveArtifactBase(process.cwd()), 'uat') : '');
   const uatEv = ids.flatMap((id) => {
     // the UAT builder's own id rule: a set id is never a path
-    if (!UAT_SET_ID.test(id)) return [{ ok: false, kind: 'uat', id: String(id).slice(0, 40), code: 'bad-id', reason: 'not a UAT set id' }];
+    if (!UAT_SET_ID.test(id)) return [{ name: String(id).slice(0, 40), result: { ok: false, kind: 'uat', id: String(id).slice(0, 40), code: 'bad-id', reason: 'not a UAT set id' } }];
     const f = join(ur, id, `${id}-uat.json`), d = join(ur, id, `${id}-defects.json`);
-    return existsSync(f) ? [read(f), ...(existsSync(d) ? [read(d)] : [])] : [{ ok: false, kind: 'uat', id, code: 'not-found', reason: `${f} not found` }]; });
-  const ev = [...evidence.map(read), ...uatEv];
-  const entry = statusEntry(view, ev, week);
-  const prev = previousOf(model.statusLog, week);
-  model.statusLog = logStatus(model.statusLog, entry); // stops on an older dashboard page
-  const ms = gate ? model.milestones.find((x) => x.id === gate) || model.milestones.find((x) => String(x.label).toLowerCase() === String(gate).toLowerCase()) : null;
-  if (gate && !ms) throw new Error(`gate "${gate}" not found — milestones: ${model.milestones.map((x) => x.id).join(', ')}`);
-  const d = delta(prev, entry, view), g = ms ? gateCheck(ms, entry, view) : null;
-  writeJson(f.model, model);
+    return existsSync(f) ? [read(f), ...(existsSync(d) ? [read(d)] : [])] : [{ name: id, result: { ok: false, kind: 'uat', id, code: 'not-found', reason: `${f} not found` } }]; });
+  const run = computeStatus(model, { weekEnd, gateId: gate, evidence: [...evidence.map(read), ...uatEv], lang, today });
+  writeJson(f.model, run.model);
   const r = buildProject({ modelPath: f.model, root, sameVersion: true, today });
-  const l = lang || model.lang || 'ko', out = join(f.dir, `${code}-status-${week}-${l}.html`);
-  writeFileSync(out, renderStatusPage({ view, entry, delta: d, gate: g, evidence: ev, suggestions: suggestions(view, g, l), lang: l }), 'utf8');
-  return { html: out, dashboard: r.html, weekEnd: week, first: d.first, moved: d.first ? 0 : d.moved.length, ...(d.weeks > 1 ? { baselineWeeks: d.weeks } : {}),
-    risksOpen: entry.risks.length, decisionsOpen: entry.decisions.length, ...(g ? { gate: { suggest: g.suggest, met: g.met, unmet: g.unmet, manual: g.manual } } : {}),
-    evidence: ev.map((e) => ({ kind: e.kind, ok: e.ok })), warnings: r.warnings };
+  const out = join(f.dir, `${code}-status-${run.summary.weekEnd}-${run.lang}.html`);
+  writeFileSync(out, run.html, 'utf8');
+  return { html: out, dashboard: r.html, ...run.summary, warnings: r.warnings };
 }
 
 // Keys that are never translated: ids, codes, people, enums, dates.

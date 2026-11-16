@@ -4,6 +4,8 @@
 // and copy, dependency arrows, change marks, undo / redo, drafts, and Save that overwrites the same file.
 var DATA = JSON.parse(document.getElementById('project-model').textContent);
 var model = DATA.model, history = DATA.history || [], ORIG = JSON.parse(JSON.stringify(DATA.model));
+// Inside the web workbench (renderPage embed) the workbench stores every change: no Save, no drafts, no leave warning.
+var EMBED = !!DATA.embed;
 var undo = [], redo = [], edits = 0, dirty = false, editing = false, lastDraft = '', savedAt = '';
 var L = labelsFor(model.lang);
 var today = new Date().toISOString().slice(0, 10);
@@ -204,7 +206,7 @@ function get(o, f) { return f.split('.').reduce(function (x, k) { return x == nu
 function set(o, f, v) { var ks = f.split('.'), x = o; for (var i = 0; i < ks.length - 1; i++) { x[ks[i]] = x[ks[i]] || {}; x = x[ks[i]]; } x[ks[ks.length - 1]] = v; }
 function snap() { undo.push(JSON.stringify(model)); if (undo.length > 300) undo.shift(); redo = []; edits++; dirty = true; queueDraft(); }
 var draftTimer = null;
-function queueDraft() { clearTimeout(draftTimer); draftTimer = setTimeout(function () { store(key, JSON.stringify({ model: model, history: history })); lastDraft = hhmm(); updateState(); }, 400); }
+function queueDraft() { if (EMBED) return; clearTimeout(draftTimer); draftTimer = setTimeout(function () { store(key, JSON.stringify({ model: model, history: history })); lastDraft = hhmm(); updateState(); }, 400); }
 function doUndo() { if (!undo.length) return; redo.push(JSON.stringify(model)); model = JSON.parse(undo.pop()); edits = Math.max(0, edits - 1); dirty = true; queueDraft(); draw(); }
 function doRedo() { if (!redo.length) return; undo.push(JSON.stringify(model)); model = JSON.parse(redo.pop()); edits++; dirty = true; queueDraft(); draw(); }
 $('#undo').onclick = doUndo;
@@ -679,7 +681,7 @@ function commands() {
     [E.newPhase, addPhase], [E.openAll, function () { closed = {}; tab('wbs'); applyView(); }], [E.closeAll, function () { tab('wbs'); $('#f-close').click(); }],
     [E.toToday, toToday], [E.late, function () { tab('wbs'); $('#f-late').checked = !$('#f-late').checked; filt.late = $('#f-late').checked; applyView(); }],
     [E.changes, function () { tab('wbs'); $('#f-chg').checked = !$('#f-chg').checked; showChanges = $('#f-chg').checked; applyView(); updateState(); }],
-    [E.csv, exportCsv], [E.baseline, setBaseline], [E.help + ' (?)', toggleHelp], [E.theme, function () { $('#theme').click(); }], [E.print, function () { window.print(); }]].forEach(function (x) { c.push({ k: 'act', label: x[0], run: x[1] }); });
+    [E.csv, exportCsv], [E.baseline, setBaseline], [E.help + ' (?)', toggleHelp], [E.theme, function () { $('#theme').click(); }], [E.print, function () { window.print(); }]].filter(function (x) { return !(EMBED && x[1] === save); }).forEach(function (x) { c.push({ k: 'act', label: x[0], run: x[1] }); });
   view.rows.forEach(function (r) { c.push({ k: 'row', label: r.num + ' ' + r.label, sub: [r.ws, L.status[r.status]].filter(Boolean).join(' · '), run: function () { goRow(r.id); } }); });
   model.milestones.forEach(function (m) { c.push({ k: 'ms', label: '◆ ' + m.label, sub: m.forecast || m.base, run: function () { tab('ms'); } }); });
   model.team.forEach(function (t) { c.push({ k: 'tm', label: '👤 ' + t.name, sub: L.role[t.role] || t.role, run: function () { tab('wbs'); $('#f-owner').value = t.id; filt.owner = t.id; applyView(); } }); });
@@ -710,7 +712,7 @@ $('#help').addEventListener('click', function (e) { if (e.target.id === 'help' |
 document.addEventListener('keydown', function (e) {
   var typing = /INPUT|SELECT|TEXTAREA/.test((e.target || {}).tagName || ''), k = e.key, mod = e.ctrlKey || e.metaKey;
   if (mod && k.toLowerCase() === 'k') { e.preventDefault(); $('#pal').classList.contains('on') ? closePalette() : openPalette(); return; }
-  if (mod && k.toLowerCase() === 's') { e.preventDefault(); save(); return; }
+  if (mod && k.toLowerCase() === 's') { e.preventDefault(); if (!EMBED) save(); return; }
   if (typing) return;
   if (mod && (k.toLowerCase() === 'y' || (e.shiftKey && k.toLowerCase() === 'z'))) { e.preventDefault(); doRedo(); return; }
   if (mod && k.toLowerCase() === 'z') { e.preventDefault(); doUndo(); return; }
@@ -727,7 +729,7 @@ document.addEventListener('keydown', function (e) {
   if (k === 'Delete') { e.preventDefault(); delRows(pickedIds().length > 1 ? pickedIds() : [current]); return; }
   if (k === 'F2' || k === 'Enter') { e.preventDefault(); openEditor($('.wbs .ed[data-f="w|' + cssq(current) + '|label"]')); }
 });
-window.addEventListener('beforeunload', function (e) { if (dirty) { e.preventDefault(); e.returnValue = E.unsaved; } });
+window.addEventListener('beforeunload', function (e) { if (dirty && !EMBED) { e.preventDefault(); e.returnValue = E.unsaved; } });
 
 // ---------- toast ----------
 var toastTimer = null;
@@ -738,12 +740,13 @@ function toast(msg, withUndo) {
 }
 
 // ---------- draft ----------
-var d0 = load(key);
+var d0 = EMBED ? null : load(key);
 if (d0) { var dr = $('#draft'); dr.classList.add('on'); $('#resume').onclick = function () { var x = JSON.parse(d0); model = x.model; history = x.history || history; dirty = true; edits = 1; dr.classList.remove('on'); draw(); }; $('#discard').onclick = function () { store(key); dr.classList.remove('on'); }; }
 
 // ---------- save: one revision per editing session; overwrite the chosen file where the browser allows ----------
 function nextV() { var last = (history[history.length - 1] || {}).version || DATA.version || '1.0'; var p = String(last).split('.'); return p[0] + '.' + ((+p[1] || 0) + 1); }
 function save() { var dlg = $('#save-dlg'); $('#s-author').value = load('sc4sap-pd-author') || ''; var last = history[history.length - 1]; $('#s-note').value = last && last.session === session ? last.note : E.noteDefault; dlg.showModal(); ($('#s-author').value ? $('#s-note') : $('#s-author')).focus(); }
+if (!EMBED) {
 $('#save').onclick = save;
 $('#s-cancel').onclick = function () { $('#save-dlg').close(); };
 $('#s-ok').onclick = function () {
@@ -765,6 +768,10 @@ $('#s-ok').onclick = function () {
     .then(function (h) { fileHandle = h; return h.createWritable(); }).then(function (w) { return w.write(html).then(function () { return w.close(); }); }).then(done, function (e) { if (e && e.name === 'AbortError') return; download(); });
   else download();
 };
+}
+
+// ---------- bridge for the web workbench: the live model (every edit, undo and tab writes this variable) and edit mode ----------
+window.SC4SAP_PAGE = { kind: 'project', model: function () { return model; }, edit: function (on) { if (!!on !== editing) setEditing(!!on); }, editing: function () { return editing; } };
 
 bindTools();
 setMobileView(load('sc4sap-pd-mview') || 'gantt');

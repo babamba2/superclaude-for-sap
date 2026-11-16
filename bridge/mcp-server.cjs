@@ -27,6 +27,15 @@
 
 'use strict';
 
+// --- 0. Remote mode ---------------------------------------------------------
+// A hosted session reaches SAP only through a backend MCP relay and holds no SAP secrets: with both variables set
+// the bridge is a stdio ↔ HTTP pipe (remote.cjs) and nothing below runs — no sap.env / profile read, no version
+// check, no vendor build or install, no launcher.
+if (process.env.SC4SAP_MCP_REMOTE_URL && process.env.SC4SAP_MCP_REMOTE_TOKEN) {
+  require('./remote.cjs').run();
+  return;
+}
+
 const path = require('path');
 const fs = require('fs');
 const os = require('os');

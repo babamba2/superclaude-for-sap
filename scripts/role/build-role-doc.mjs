@@ -24,7 +24,8 @@ import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveArtifactBase } from '../lib/profile-resolve.mjs';
 import { normalizeModel, deriveView, nextVersion, arr } from './role-model.mjs';
-import { renderPage } from './role-page.mjs';
+import { renderPage, modelFromPage } from './role-page.mjs';
+import { modelFromDraft, addSodRules } from './role-ops.mjs';
 import { checkLayout, columnCatalog, loadLayout } from './role-layout.mjs';
 
 /** One text per document language (ko / en / ja). */
@@ -65,8 +66,7 @@ export function cmdInit({ root, code, from, doc = {}, lang = 'ko', force = false
   const f = files(root, code);
   if (existsSync(f.model) && !force) throw new Error(`${f.model} exists — use build, or --force to start over`);
   const draft = from ? readJson(from) : {};
-  const model = normalizeModel({ ...draft, lang: draft.lang || lang, doc: { mode: 'new', ...(draft.doc || {}), ...Object.fromEntries(Object.entries(doc).filter(([, x]) => x)), code } });
-  model.revisions = [];
+  const model = modelFromDraft(draft, { ...doc, code }, lang);
   mkdirSync(f.dir, { recursive: true });
   writeJson(f.model, model);
   return buildDoc({ root, code, note: say(lang, '최초 작성', 'First draft', '初版作成') });
@@ -119,17 +119,8 @@ function keepShared(old, fresh) {
 export function cmdSod({ root, code, modules }) {
   const f = files(root, code);
   const model = normalizeModel(readJson(f.model));
-  const lib = readJson(join(here, 'sod-library.json')).rules;
-  const lang = ['en', 'ja'].includes(model.lang) ? model.lang : 'ko';
-  const want = modules.map((m) => m.toUpperCase());
-  let n = 0;
-  for (const r of lib.filter((x) => want.includes(x.module))) {
-    if (model.sod.some((s) => s.kind === (r.kind[lang] || r.kind.en))) continue;
-    model.sod.push({ id: `SOD-${String(model.sod.length + 1).padStart(2, '0')}`, a: '', b: '', kind: r.kind[lang] || r.kind.en, risk: r.risk[lang] || r.risk.en, level: r.level, mitigation: '', approver: '',
-      status: 'open', note: `A: ${r.tcodesA.join(', ')} / B: ${r.tcodesB.join(', ')}`, tcodesA: r.tcodesA, tcodesB: r.tcodesB });
-    n++;
-  }
-  writeJson(f.model, model);
+  const { model: next, added: n } = addSodRules(model, modules, model.lang);
+  writeJson(f.model, next);
   return { ...buildDoc({ root, code, sameVersion: true }), added: n };
 }
 
@@ -178,10 +169,9 @@ export async function cmdImportForm({ root, code, file, layoutFile, doc = {}, la
 
 /** Page saved in edit mode → model, rebuilt as the version it was saved as. */
 export function cmdImport({ html, root }) {
-  const text = readFileSync(html, 'utf8');
-  const mm = /<script type="application\/json" id="role-model">([\s\S]*?)<\/script>/.exec(text);
-  if (!mm) throw new Error(`${html} has no embedded role model — was it saved from the page?`);
-  const { model } = JSON.parse(mm[1]);
+  let page;
+  try { page = modelFromPage(readFileSync(html, 'utf8')); } catch (e) { throw new Error(`${html}: ${e.message}`); }
+  const { model } = page;
   const code = model?.doc?.code;
   if (!CODE_RE.test(code || '')) throw new Error('embedded model has no valid doc.code');
   const f = files(root, code);

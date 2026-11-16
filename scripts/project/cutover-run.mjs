@@ -3,7 +3,7 @@
 // the rehearsal actuals text and (optionally) the jobs (cutover-jobs.mjs readJobs) and passes them in.
 //
 //   computeCutover(model, { seed, window, freeze, rehearsal, actualsText, evidence, jobs, lang, today, template })
-//     → { model, html, summary, warnings }
+//     → { model (normalized + today's snapshot, = the CLI file after its dashboard rebuild), html, summary, lang, warnings }
 //
 //   model       the project model (normalized here; not changed in place)
 //   seed        true → add the template tasks / go-no-go items not in the model yet (a model without a runbook is always seeded)
@@ -11,7 +11,7 @@
 //   freeze      { code?, config? } (YYYY-MM-DD)
 //   rehearsal   rehearsal id (R1, R2 …) or "live"; with actualsText the times go into the tasks under that id
 //   actualsText CSV "task id,start,end" or JSON [{ id, start, end }]
-//   evidence    [{ name, text }] — CTS check page / model.json, UAT page / set JSON / defect feed, operations report;
+//   evidence    [{ name, text } | { name, result } | { name, error }] — CTS check page / model.json, UAT page / set JSON / defect feed, operations report;
 //               an entry with `error` instead of `text` is shown as not read
 //   jobs        null (keep the last read in the model) or a readJobs result { ok, rows, error?, stepsRead? } plus
 //               { system, at } — written to model.cutover.jobsRead
@@ -21,7 +21,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { checkModel, normalizeModel, viewModel, iso, arr } from './project-model.mjs';
+import { checkModel, normalizeModel, viewModel, withSnapshot, iso, arr } from './project-model.mjs';
 import { readEvidence, statusEntry, gateCheck, weekEndOf } from './project-status.mjs';
 import { normalizeCutover, checkCutover, seedCutover, rehearsalFit, goNoGoView, taskChecks, importList, tMinus, parseActuals, applyActuals } from './cutover-model.mjs';
 import { renderCutoverPage } from './cutover-page.mjs';
@@ -54,8 +54,10 @@ export function ctsRequests(text) {
 
 /** Evidence texts → the readEvidence summaries and the CTS request lists (shared with the weekly status if wanted). */
 export function readEvidenceTexts(evidence = []) {
-  const read = arr(evidence).map((x) => (x?.error != null || typeof x?.text !== 'string'
-    ? { ok: false, kind: 'unknown', code: 'read-error', reason: x?.error || 'no text' } : readEvidence(x.text)));
+  // { name, text } is read here; { name, result } is a summary the caller already has (e.g. a not-found / bad-id failure,
+  // the computeStatus convention); { name, error } is a read failure
+  const read = arr(evidence).map((x) => (x?.result && typeof x.result === 'object' ? x.result
+    : x?.error != null || typeof x?.text !== 'string' ? { ok: false, kind: 'unknown', code: 'read-error', reason: x?.error || 'no text' } : readEvidence(x.text)));
   const cts = arr(evidence).map((x) => (typeof x?.text === 'string' ? ctsRequests(x.text) : null)).filter(Boolean);
   return { read, cts };
 }
@@ -113,5 +115,7 @@ export function computeCutover(input, { seed = false, window = '', freeze = {}, 
     jobs: jobsRead ? { ok: jobsRead.ok, n: jobsRead.rows.length, released: jobsRead.rows.filter((j) => j.status === 'released').length } : { ok: false, n: null, notAsked: true },
     late: tm.late.length, seeded, applied, evidence: read.map((e) => ({ kind: e.kind, ok: e.ok })),
   };
-  return { model, html, summary, warnings: [...checkModel(model).warnings, ...checkCutover(model.cutover, model.team).warnings] };
+  // the returned model carries today's snapshot (progress + auto KPIs), as the CLI file does after its dashboard rebuild
+  const warnings = [...checkModel(model).warnings, ...checkCutover(model.cutover, model.team).warnings];
+  return { model: withSnapshot(model, today), html, summary, lang: L, warnings };
 }

@@ -157,11 +157,16 @@ function withCodes(E, L) {
 }
 
 /** The whole page for a model. */
-export function renderPage(model, { version, date }) {
+/**
+ * The editable workbook page. embed: the page runs inside the web workbench, which stores every change and every
+ * version itself — no Save button / dialog, no draft banner or local drafts, no leave warning (window.SC4SAP_PAGE is
+ * the bridge, role-client.js). Without embed the output is the CLI page.
+ */
+export function renderPage(model, { version, date, embed = false }) {
   const { v, L, ...tabs } = renderAll(model, { version, date });
   const E = withCodes(EDIT[v.m.lang] || EDIT.en, L);
   const d = v.m.doc;
-  const data = JSON.stringify({ model, version, builtFrom: version }).replace(/</g, '\\u003c');
+  const data = JSON.stringify(embed ? { model, version, builtFrom: version, embed: true } : { model, version, builtFrom: version }).replace(/</g, '\\u003c');
   const sec = (t) => `<section class="tab" id="tab-${t}">${t === 'cover' ? '' : tools(t, E, L)}<div class="body">${tabs[t]}</div></section>`;
   const shown = ['cover', ...sheetsOf(L)];
   const logo = /^data:image\//.test(L.layout?.theme?.logo || '') ? `<img class="logo" alt="" src="${esc(L.layout.theme.logo)}">` : '';
@@ -172,17 +177,31 @@ export function renderPage(model, { version, date }) {
 <body>
 <div class="topbar">${logo}<div class="t">${esc(d.code)} · ${esc(d.project || L.title)} <small><span id="ver">v${esc(version)}</span> · ${esc(date)}${d.system ? ` · ${esc(d.system)}` : ''}</small></div>
 <span id="selinfo" class="state"></span><span id="state" class="state"></span><button data-go="cover" title="${esc(E.checks)}">${esc(E.checks)}<span id="chk-n"></span></button><button id="help-b">${esc(E.help)}</button>
-<button id="edit">${esc(E.edit)}</button><button id="undo" title="${esc(E.undo)} (Ctrl+Z)">↶<span class="tx"> ${esc(E.undo)}</span></button><button id="save" title="${esc(E.save)} (Ctrl+S)">💾<span class="tx"> ${esc(E.save)}</span></button><button id="print">${esc(E.print)}</button><button id="theme">${esc(E.theme)}</button></div>
+<button id="edit">${esc(E.edit)}</button><button id="undo" title="${esc(E.undo)} (Ctrl+Z)">↶<span class="tx"> ${esc(E.undo)}</span></button>${embed ? '' : `<button id="save" title="${esc(E.save)} (Ctrl+S)">💾<span class="tx"> ${esc(E.save)}</span></button>`}<button id="print">${esc(E.print)}</button><button id="theme">${esc(E.theme)}</button></div>
 <nav class="tabs">${shown.map((k) => `<button data-t="${k}">${esc(L.tabs[k])}</button>`).join('')}</nav>
 <div class="banner hint">${esc(E.hint)}</div>
-<div class="banner" id="draft">${esc(E.draft)} <button id="resume">${esc(E.resume)}</button> <button id="discard">${esc(E.discard)}</button></div>
-<main>${shown.map(sec).join('\n')}</main>
+${embed ? '' : `<div class="banner" id="draft">${esc(E.draft)} <button id="resume">${esc(E.resume)}</button> <button id="discard">${esc(E.discard)}</button></div>
+`}<main>${shown.map(sec).join('\n')}</main>
 <datalist id="dl"></datalist>
-<dialog id="save-dlg"><h3>${esc(E.saveTitle)} <small id="s-ver"></small></h3><label>${esc(E.author)}<input id="s-author"></label><label>${esc(E.note)}<input id="s-note"></label>
+${embed ? '' : `<dialog id="save-dlg"><h3>${esc(E.saveTitle)} <small id="s-ver"></small></h3><label>${esc(E.author)}<input id="s-author"></label><label>${esc(E.note)}<input id="s-note"></label>
 <div><button id="s-ok">${esc(E.ok)}</button> <button id="s-cancel">${esc(E.cancel)}</button></div></dialog>
-<script type="application/json" id="role-model">${data}</script>
+`}<script type="application/json" id="role-model">${data}</script>
 <div id="toast" role="status"></div>
 <div id="help"><div class="hbox"><button class="hx">✕</button><h3>${esc(E.help)}</h3><table class="t-touch">${E.touch.map(([k, x]) => `<tr><th>${esc(k)}</th><td>${esc(x)}</td></tr>`).join('')}</table><table class="t-keys">${E.keys.map(([k, x]) => `<tr><th>${esc(k)}</th><td>${esc(x)}</td></tr>`).join('')}</table></div></div>
 <script>${clientScript(E)}</script>
 </body></html>`);
+}
+
+/**
+ * The model a workbook page carries (<script id="role-model">): { model, version }. Used by build-role-doc import and
+ * the web workbench import. Throws when the page has none or no valid doc.code.
+ */
+export function modelFromPage(html) {
+  const mm = /<script type="application\/json" id="role-model">([\s\S]*?)<\/script>/.exec(String(html || ''));
+  if (!mm) throw new Error('no embedded role model — was the page saved from the role workbook?');
+  let data;
+  try { data = JSON.parse(mm[1]); } catch { throw new Error('the embedded role model is not valid JSON'); }
+  const { model, version } = data || {};
+  if (!model || typeof model !== 'object' || !/^[A-Za-z0-9_-]{1,30}$/.test(model.doc?.code || '')) throw new Error('embedded model has no valid doc.code');
+  return { model, version: version || '' };
 }

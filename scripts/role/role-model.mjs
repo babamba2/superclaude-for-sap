@@ -149,6 +149,20 @@ export function nextVersion(last, { major = false } = {}) {
   return major ? `${a + 1}.0` : `${a}.${b + 1}`;
 }
 
+/**
+ * A new version of the document: a change-history row (sheet 7) and the document date — what the page's Save does,
+ * and what the web workbench does for "save a version". `version` is the current one (else the last history row).
+ * Returns { model (a new object), version }.
+ */
+export function addRevision(model, { author = '', note = '', major = false, version = '', date = '' } = {}) {
+  const m = normalizeModel(JSON.parse(JSON.stringify(model || {})));
+  const last = version || String(arr(m.revisions).at(-1)?.ver || '').replace(/^v/i, '');
+  const nv = nextVersion(last, { major });
+  m.revisions.push({ ver: `v${nv}`, date, author, change: note, approver: '', note: '' });
+  m.doc.date = date;
+  return { model: m, version: nv };
+}
+
 /** RFC 4180 CSV with a BOM so Excel opens Korean text correctly. */
 export function toCsv(head, rows) {
   const q = (v) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };

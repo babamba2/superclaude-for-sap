@@ -15,7 +15,8 @@
 // No tag or an unknown one → manual (the PM judges). Suggestions never overwrite a value the PM set.
 
 import { normalize as normalizeUat, progress } from '../uat/uat-model.mjs';
-import { arr, days, STAGES } from './project-model.mjs';
+import { arr, days, STAGES, normalizeModel, viewModel, withSnapshot, checkModel } from './project-model.mjs';
+import { renderStatusPage } from './status-page.mjs';
 
 export const LOG_WEEKS = 26;
 
@@ -205,4 +206,32 @@ export function suggestions(v, gate, lang = 'ko') {
   for (const x of v.milestones.filter((m) => m.rag === 'red' && !m.actual)) risks.push({ text: S.ms(x), impact: 'H', from: 'milestone' });
   const decisions = gate && ['fail', 'conditional'].includes(gate.suggest) ? [{ text: S.gate(gate), from: 'gate' }] : [];
   return { risks, decisions };
+}
+
+/**
+ * One weekly status run without files — the CLI (build-project-doc status) and the web workbench both use it.
+ *   evidence: [{ name, text }] page / JSON text, or [{ name, result }] a summary read elsewhere (e.g. a set not found)
+ * Returns { model (statusLog with the week, today's snapshot), html (the status page), summary (the CLI's line
+ * without file paths), entry, warnings }. An older dashboard (the log already has a later week) or an unknown
+ * gate → Error, nothing changed.
+ */
+export function computeStatus(model0, { weekEnd = '', gateId = '', evidence = [], lang = '', today }) {
+  const model = normalizeModel(model0 || {});
+  if (!model.project?.code) throw new Error('no project model');
+  const week = weekEnd || weekEndOf(today);
+  const view = viewModel(model, week < today ? week : today);
+  const ev = arr(evidence).map((e) => (e && e.result ? e.result : (() => { try { return readEvidence(e?.text); } catch (x) { return { ok: false, kind: 'unknown', code: 'read-error', reason: x.message }; } })()));
+  const entry = statusEntry(view, ev, week);
+  const prev = previousOf(model.statusLog, week);
+  model.statusLog = logStatus(model.statusLog, entry); // stops on an older dashboard page
+  const ms = gateId ? model.milestones.find((x) => x.id === gateId) || model.milestones.find((x) => String(x.label).toLowerCase() === String(gateId).toLowerCase()) : null;
+  if (gateId && !ms) throw new Error(`gate "${gateId}" not found — milestones: ${model.milestones.map((x) => x.id).join(', ')}`);
+  const d = delta(prev, entry, view), g = ms ? gateCheck(ms, entry, view) : null;
+  const l = lang || model.lang || 'ko';
+  const html = renderStatusPage({ view, entry, delta: d, gate: g, evidence: ev, suggestions: suggestions(view, g, l), lang: l });
+  const summary = { weekEnd: week, first: d.first, moved: d.first ? 0 : d.moved.length, ...(d.weeks > 1 ? { baselineWeeks: d.weeks } : {}),
+    risksOpen: entry.risks.length, decisionsOpen: entry.decisions.length, ...(g ? { gate: { suggest: g.suggest, met: g.met, unmet: g.unmet, manual: g.manual } } : {}),
+    evidence: ev.map((e) => ({ kind: e.kind, ok: e.ok })) };
+  const out = withSnapshot(model, today);
+  return { model: out, html, summary, entry, lang: l, warnings: checkModel(out).warnings };
 }

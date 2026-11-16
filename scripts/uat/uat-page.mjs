@@ -90,10 +90,12 @@ const CLIENT = String.raw`
 const $=(s)=>document.querySelector(s);const L=JSON.parse($('#uat-labels').textContent);let D=normalize(JSON.parse($('#uat-model').textContent));
 const E=(s)=>String(s==null?'':s).replace(/[&<>"']/g,(c)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 let EDIT=false,dirty=false,TAB='dash',Q='',F='all';const undo=[];const KEY='sc4sap-uat:'+D.id;
+// inside the web workbench (pageHtml embed) the workbench stores every change: no Save, no drafts, no leave warning
+const EMB=!!document.getElementById('uat-embed');
 const RES={pass:'O',fail:'X',blocked:'△','n/a':'N/A','':'–'};
 function getAt(o,p){return p.split('.').reduce((a,k)=>a==null?a:a[k],o)}
 function setAt(o,p,v){const ks=p.split('.');const last=ks.pop();const t=ks.reduce((a,k)=>a[k],o);t[last]=v}
-function change(fn){undo.push(JSON.stringify(D));if(undo.length>200)undo.shift();fn();D=normalize(D);dirty=true;try{localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}render()}
+function change(fn){undo.push(JSON.stringify(D));if(undo.length>200)undo.shift();fn();D=normalize(D);dirty=true;try{if(!EMB)localStorage.setItem(KEY,JSON.stringify(D))}catch(e){}render()}
 const list=(a)=>a&&a.length?'<ul class="l">'+a.map((x)=>'<li>'+E(x)+'</li>').join('')+'</ul>':'';
 const fld=(p,v,kind)=>{if(!EDIT)return kind==='list'?list(v):E(v);if(kind==='list')return '<textarea rows="3" data-p="'+p+'" data-k="list">'+E((v||[]).join('\n'))+'</textarea>';if(kind==='area')return '<textarea rows="2" data-p="'+p+'">'+E(v)+'</textarea>';return '<input data-p="'+p+'" value="'+E(v)+'">'};
 const sel=(p,v,opts)=>'<select data-p="'+p+'">'+opts.map(([k,l])=>'<option value="'+E(k)+'"'+(k===v?' selected':'')+'>'+E(l)+'</option>').join('')+'</select>';
@@ -150,18 +152,23 @@ $('#th').onclick=()=>setTheme(isDark()?'light':'dark');
 window.addEventListener('message',(e)=>{if(e.data&&e.data.type==='theme'&&(e.data.theme==='dark'||e.data.theme==='light')){ROOT.setAttribute('data-theme',e.data.theme);paintTheme()}});
 paintTheme();
 $('#un').onclick=()=>{const u=undo.pop();if(!u)return;D=normalize(JSON.parse(u));dirty=true;render()};
-window.addEventListener('beforeunload',(e)=>{if(dirty){e.preventDefault();e.returnValue=L.unsaved}});
-$('#sv').onclick=()=>{const doc=document.documentElement.cloneNode(true);doc.querySelector('#uat-model').textContent=JSON.stringify(D).replace(/</g,'\\u003c');
+window.addEventListener('beforeunload',(e)=>{if(dirty&&!EMB){e.preventDefault();e.returnValue=L.unsaved}});
+if(!EMB)$('#sv').onclick=()=>{const doc=document.documentElement.cloneNode(true);doc.querySelector('#uat-model').textContent=JSON.stringify(D).replace(/</g,'\\u003c');
 ['#t-dash','#t-scen','#t-iss','#t-chk'].forEach((s)=>{doc.querySelector(s).innerHTML=''});doc.querySelector('body').className='';doc.querySelectorAll('.draft').forEach((x)=>x.remove());
 const a=document.createElement('a');a.download=D.id+'-uat-edited.html';a.href=URL.createObjectURL(new Blob(['<!doctype html>\n'+doc.outerHTML],{type:'text/html'}));document.body.appendChild(a);a.click();a.remove();
 dirty=false;try{localStorage.removeItem(KEY)}catch(e){}render();const t=document.createElement('div');t.className='draft';t.textContent=L.saved;document.body.appendChild(t);setTimeout(()=>t.remove(),4000)};
-try{const d=localStorage.getItem(KEY);if(d&&d!==JSON.stringify(D)){const b=document.createElement('div');b.className='draft';b.innerHTML='<span>'+E(L.draft)+'</span><button data-r="1">'+E(L.resume)+'</button><button data-r="0">'+E(L.discard)+'</button>';document.body.appendChild(b);
+try{const d=EMB?null:localStorage.getItem(KEY);if(d&&d!==JSON.stringify(D)){const b=document.createElement('div');b.className='draft';b.innerHTML='<span>'+E(L.draft)+'</span><button data-r="1">'+E(L.resume)+'</button><button data-r="0">'+E(L.discard)+'</button>';document.body.appendChild(b);
 b.onclick=(e)=>{const r=e.target.dataset.r;if(r==null)return;b.remove();if(r==='1'){D=normalize(JSON.parse(d));dirty=true;EDIT=true;render()}else localStorage.removeItem(KEY)}}}catch(e){}
 render();
+// bridge for the web workbench: the live set (every edit and undo replaces D) and edit mode
+window.SC4SAP_PAGE={kind:'uat',model:()=>D,edit:(on)=>{if(!!on!==EDIT){EDIT=!!on;render()}},editing:()=>EDIT};
 `;
 
-/** The page of one set. `lang` picks the labels (the set's own language by default). */
-export function pageHtml(set, lang = set.lang) {
+/**
+ * The page of one set. `lang` picks the labels (the set's own language by default). embed: the page runs inside the
+ * web workbench — no Save button, no drafts, no leave warning (window.SC4SAP_PAGE is the bridge).
+ */
+export function pageHtml(set, lang = set.lang, { embed = false } = {}) {
   const L = LABELS[String(lang || '').slice(0, 2)] || LABELS.en;
   const labels = { ...L, failedText: undefined };
   const failed = String(L.failedText('§')).replace('§', '');
@@ -173,13 +180,13 @@ export function pageHtml(set, lang = set.lang) {
 <style>${STYLE}</style></head>
 <body>
 <div class="topbar m-bar"><div class="t">${esc(set.title || set.id)}<small>${kind} · ${esc(set.id)} · ${esc(set.module)} · v${esc(set.version)}</small></div>
-<span class="state" id="st"></span><button id="ed"></button><button id="un">${esc(L.undo)}</button><button id="sv">${esc(L.save)}</button><button id="pr">${esc(L.print)}</button><button id="th" type="button"></button></div>
+<span class="state" id="st"></span><button id="ed"></button><button id="un">${esc(L.undo)}</button>${embed ? '' : `<button id="sv">${esc(L.save)}</button>`}<button id="pr">${esc(L.print)}</button><button id="th" type="button"></button></div>
 <nav class="tabs"><button data-t="dash">${esc(L.dash)}</button><button data-t="scen">${esc(L.scen)}</button><button data-t="iss">${esc(L.issues)}<span class="n" id="niss"></span></button><button data-t="chk">${esc(L.checks)}<span class="chk-n" id="nchk"></span></button></nav>
 <main><p class="hint">${esc(L.hint)}</p>
 <section class="tab" id="t-dash"></section><section class="tab" id="t-scen"></section><section class="tab" id="t-iss"></section><section class="tab" id="t-chk"></section></main>
 <script type="application/json" id="uat-model">${json(set)}</script>
 <script type="application/json" id="uat-labels">${json(labels)}</script>
-<script>
+${embed ? '<script type="application/json" id="uat-embed">true</script>\n' : ''}<script>
 ${inline('uat-model.mjs')}
 L_FAILED=${json(failed)};
 </script>

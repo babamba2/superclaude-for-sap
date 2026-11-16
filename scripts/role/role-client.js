@@ -12,6 +12,8 @@ var $ = function (s, r) { return (r || document).querySelector(s); };
 var $$ = function (s, r) { return Array.prototype.slice.call((r || document).querySelectorAll(s)); };
 var DATA = JSON.parse($('#role-model').textContent);
 var model = normalizeModel(DATA.model), version = DATA.version || '0.1', built = JSON.stringify(model);
+// Inside the web workbench (renderPage embed) the workbench stores every change and version: no Save, no drafts, no leave warning.
+var EMBED = !!DATA.embed;
 var view = null, L = labelsFor(model.lang, model.layout), VS = sheetsOf(L), cur = 'cover', editing = false, undoS = [], redoS = [], dirty = 0, fileHandle = null;
 var sel = null; // { s: sheet, r0, c0, r1, c1 } — indexes into the visible rows / columns of the sheet's table
 var ed = null;  // the open cell editor { input, s, i, k }
@@ -19,7 +21,7 @@ var queries = {}, filters = {}; // filters[sheet][column key] = { vals: [...] } 
 var DRAFT = 'sc4sap-role-' + model.doc.code + '-' + version;
 var touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
 
-function store(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
+function store(k, v) { if (EMBED && k === DRAFT) return; try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch (e) { /* private mode */ } }
 function load(k) { try { return localStorage.getItem(k); } catch (e) { return null; } }
 function toast(t) { var el = $('#toast'); el.textContent = t; el.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(function () { el.classList.remove('on'); }, 2600); }
 function fmt(s, o) { return String(s).replace(/\{(\w+)\}/g, function (_, k) { return o[k]; }); }
@@ -448,9 +450,9 @@ function isField(el) { return el && (el.tagName === 'INPUT' || el.tagName === 'T
 
 // ---------- keys ----------
 document.addEventListener('keydown', function (ev) {
-  if ($('#save-dlg').open) return;
+  if ($('#save-dlg') && $('#save-dlg').open) return;
   var k = ev.key, mod = ev.ctrlKey || ev.metaKey;
-  if (mod && k.toLowerCase() === 's') { ev.preventDefault(); save(); return; }
+  if (mod && k.toLowerCase() === 's') { ev.preventDefault(); if (!EMBED) save(); return; }
   if (pop) {
     if (k === 'Escape') { ev.preventDefault(); closePop(); return; }
     var bs = $$('.lvm button', pop), at = bs.indexOf(document.activeElement);
@@ -513,27 +515,28 @@ function csv() {
 
 // ---------- draft, save ----------
 (function () {
+  if (EMBED) return;
   var d = load(DRAFT); if (!d || d === built) return;
   $('#draft').classList.add('on');
   $('#resume').onclick = function () { model = normalizeModel(JSON.parse(d)); dirty = 1; $('#draft').classList.remove('on'); setEditing(true); draw(); };
   $('#discard').onclick = function () { store(DRAFT, null); $('#draft').classList.remove('on'); };
 })();
-window.addEventListener('beforeunload', function (ev) { if (dirty) { ev.preventDefault(); ev.returnValue = E.unsaved; } });
-$('#save').onclick = save;
+window.addEventListener('beforeunload', function (ev) { if (dirty && !EMBED) { ev.preventDefault(); ev.returnValue = E.unsaved; } });
+if (!EMBED) $('#save').onclick = save;
 function save() {
   closeEditor();
   var dlg = $('#save-dlg'); $('#s-author').value = load('sc4sap-role-author') || model.doc.author || ''; $('#s-note').value = ''; $('#s-note').placeholder = E.noteDefault;
   $('#s-ver').textContent = 'v' + nextVersion(version); dlg.showModal(); $('#s-note').focus();
 }
-$('#s-cancel').onclick = function () { $('#save-dlg').close(); };
-$('#s-ok').onclick = function () {
+if (!EMBED) $('#s-cancel').onclick = function () { $('#save-dlg').close(); };
+if (!EMBED) $('#s-ok').onclick = function () {
   var author = $('#s-author').value.trim(), note = $('#s-note').value.trim() || E.noteDefault;
   if (!author) { $('#s-author').focus(); toast(E.needAuthor); return; }
   store('sc4sap-role-author', author); $('#save-dlg').close();
-  var nv = nextVersion(version), d = today();
-  model.revisions.push({ ver: 'v' + nv, date: d, author: author, change: note, approver: '', note: '' });
-  model.doc.date = d; var prev = version; version = nv;
-  viewOf = null; // the revision row was added in place
+  // the change-history row, the document date and the next version: role-model.mjs addRevision (the web workbench uses it too)
+  var d = today(), r = addRevision(model, { author: author, note: note, version: version, date: d }), nv = r.version;
+  model = r.model; var prev = version; version = nv;
+  viewOf = null;
   $('#ver').textContent = 'v' + nv; document.title = document.title.replace(/v[\d.]+$/, 'v' + nv);
   draw();
   var html = pageHtml(prev);
@@ -565,6 +568,9 @@ function write(html, name) {
   return download(html, name);
 }
 function download(html, name) { var a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([html], { type: 'text/html' })); a.download = name; a.click(); return Promise.resolve(); }
+
+// ---------- bridge for the web workbench: the live model (every edit, undo and paste writes this variable) and edit mode ----------
+window.SC4SAP_PAGE = { kind: 'roles', model: function () { return model; }, edit: function (on) { if (!!on !== editing) setEditing(!!on); }, editing: function () { return editing; } };
 
 // ---------- help, theme, print ----------
 $('#help-b').onclick = function () { $('#help').classList.add('on'); };

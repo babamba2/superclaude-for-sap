@@ -182,11 +182,16 @@ const wbsTools = (E) => `<div class="wtools"><span class="mv"><button data-v="ga
 <label class="eo"><input id="f-shift" type="checkbox" checked> ${esc(E.autoShift)}</label><button class="eo" id="f-base">${esc(E.baseline)}</button><button class="eo" id="f-phase">+ ${esc(E.newPhase)}</button></div>`;
 
 /** The whole page for a model. */
-export function renderPage(model, { version, date, history = [], today, companion = '' }) {
+/**
+ * The editable dashboard page. embed: the page runs inside the web workbench, which stores every change itself —
+ * no Save button / dialog, no draft banner or local drafts (window.SC4SAP_PAGE is the bridge, project-client.js).
+ * Without embed the output is the CLI page.
+ */
+export function renderPage(model, { version, date, history = [], today, companion = '', embed = false }) {
   const { v, L, ...tabs } = renderAll(model, { history, today });
   const E = EDIT[String(v.m.lang).slice(0, 2)] || EDIT.en;
   const p = v.m.project;
-  const data = JSON.stringify({ model, version, history }).replace(/</g, '\\u003c');
+  const data = JSON.stringify(embed ? { model, version, history, embed: true } : { model, version, history }).replace(/</g, '\\u003c');
   const sec = (t, extra = '') => `<section class="tab" id="tab-${t}">${extra}<div class="body">${tabs[t]}</div></section>`;
   return withResponsive(`<!doctype html>
 <html lang="${esc(v.m.lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -195,16 +200,16 @@ export function renderPage(model, { version, date, history = [], today, companio
 <div class="topbar"><div class="t">${esc(p.code)} · ${esc(p.name)} <small>v${esc(version)} · ${esc(date)} · Go-Live ${esc(p.goLive)}</small></div>
 <span id="state" class="state"></span><span id="overall" class="rag rag-${v.overall}">${esc(L.rag[v.overall])}</span><button id="cmd" title="${esc(E.cmd)}">⌘K</button>
 ${companion ? `<a href="${esc(companion)}">${v.m.lang === 'en' ? '한국어' : 'English'}</a>` : ''}
-<button id="edit">${E.edit}</button><button id="undo" title="${E.undo} (Ctrl+Z)"><span class="ic">↶</span><span class="tx">${E.undo}</span></button><button id="save" title="${E.save} (Ctrl+S)"><span class="ic">💾</span><span class="tx">${E.save}</span></button><button id="print">${E.print}</button><button id="theme">${E.theme}</button></div>
+<button id="edit">${E.edit}</button><button id="undo" title="${E.undo} (Ctrl+Z)"><span class="ic">↶</span><span class="tx">${E.undo}</span></button>${embed ? '' : `<button id="save" title="${E.save} (Ctrl+S)"><span class="ic">💾</span><span class="tx">${E.save}</span></button>`}<button id="print">${E.print}</button><button id="theme">${E.theme}</button></div>
 <nav class="tabs">${Object.entries(L.tabs).map(([k, t]) => `<button data-t="${k}">${esc(t)}</button>`).join('')}</nav>
 <div class="banner hint">${esc(E.hint)}</div>
-<div class="banner" id="draft">${esc(E.draft)} <button id="resume">${E.resume}</button> <button id="discard">${E.discard}</button></div>
-<main>
+${embed ? '' : `<div class="banner" id="draft">${esc(E.draft)} <button id="resume">${E.resume}</button> <button id="discard">${E.discard}</button></div>
+`}<main>
 ${sec('sum')}${sec('kpi', `<div class="tools"><button id="add-kpi">${E.addKpi}</button></div>`)}${sec('ms', `<div class="tools"><button id="add-ms">${E.addMs}</button></div>`)}${sec('risk', `<div class="tools"><button id="add-rk">${E.addRisk}</button> <button id="add-dc">${E.addDecision}</button></div>`)}${sec('cut', `<div class="tools"><button id="add-ct">${E.addCt}</button></div>`)}${sec('wbs', wbsTools(E))}${sec('sap')}${sec('team', `<div class="tools"><button id="add-tm">${E.addTm}</button></div>`)}${sec('hist')}
 </main>
-<dialog id="save-dlg"><h3>${E.saveTitle}</h3><label>${E.author}<input id="s-author"></label><label>${E.note}<input id="s-note"></label>
+${embed ? '' : `<dialog id="save-dlg"><h3>${E.saveTitle}</h3><label>${E.author}<input id="s-author"></label><label>${E.note}<input id="s-note"></label>
 <div><button id="s-ok">${E.ok}</button> <button id="s-cancel">${E.cancel}</button></div></dialog>
-<script type="application/json" id="project-model">${data}</script>
+`}<script type="application/json" id="project-model">${data}</script>
 <div id="toast" role="status"></div>
 <aside id="drawer" aria-label="detail"></aside>
 <div id="bulk"></div>
@@ -213,6 +218,20 @@ ${sec('sum')}${sec('kpi', `<div class="tools"><button id="add-kpi">${E.addKpi}</
 <svg id="linksvg"><line id="linkline"/></svg>
 <script>${clientScript(E)}</script>
 </body></html>`);
+}
+
+/**
+ * The model a dashboard page carries (<script id="project-model">): { model, version, history }. Used by
+ * build-project-doc import and the web workbench import. Throws when the page has none or no valid project.code.
+ */
+export function modelFromPage(html) {
+  const mm = /<script type="application\/json" id="project-model">([\s\S]*?)<\/script>/.exec(String(html || ''));
+  if (!mm) throw new Error('no embedded project model — was the page saved from the dashboard\'s edit mode?');
+  let data;
+  try { data = JSON.parse(mm[1]); } catch { throw new Error('the embedded project model is not valid JSON'); }
+  const { model, version, history = [] } = data || {};
+  if (!model || typeof model !== 'object' || !/^[A-Za-z0-9_-]{1,30}$/.test(model.project?.code || '')) throw new Error('embedded model has no valid project.code');
+  return { model, version, history: Array.isArray(history) ? history : [] };
 }
 
 export { labelsFor };

@@ -9,7 +9,7 @@ import { instantiate, addWricef } from '../../scripts/project/project-template.m
 // @ts-expect-error — plain .mjs script, no type declarations
 import { mapTransports, throughput, wricefEvidence, weekOf } from '../../scripts/project/sap-actuals.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { renderPage } from '../../scripts/project/project-page.mjs';
+import { renderPage, modelFromPage } from '../../scripts/project/project-page.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { renderMilestones, labelsFor } from '../../scripts/project/project-render.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -159,5 +159,48 @@ describe('project-dashboard — milestone timeline', () => {
     const spans = [...html.matchAll(/class="tl-ms[^"]*" style="left:([\d.]+)%"[^>]*><i><\/i><span style="top:(\d+)px/g)].map((x) => [Number(x[1]), Number(x[2])]);
     expect(spans.length).toBe(v.milestones.length);
     expect(new Set(spans.map((x) => x[1])).size).toBeGreaterThan(1);
+  });
+});
+
+describe('project-dashboard — web workbench bridge (embed page, model from page)', () => {
+  const opts = { version: '1.0', date: '2026-03-01', history: [{ version: '1.0', date: '2026-03-01', author: 'A', note: 'n' }], today: '2026-03-01' };
+
+  it('embed drops Save, the save dialog and the draft banner; without embed the page is the CLI page', () => {
+    const m = base();
+    const cli = renderPage(m, opts);
+    expect(renderPage(m, { ...opts, embed: false })).toBe(cli);
+    for (const x of ['<button id="save"', '<dialog id="save-dlg"', '<div class="banner" id="draft"']) expect(cli).toContain(x);
+    expect(cli).not.toContain('"embed":true');
+    const web = renderPage(m, { ...opts, embed: true });
+    for (const x of ['<button id="save"', '<dialog id="save-dlg"', '<div class="banner" id="draft"']) expect(web).not.toContain(x);
+    expect(web).toContain('<button id="undo"');
+    expect(web).toContain('"embed":true');
+    // the same page apart from those parts
+    const strip = (h: string) => h.replace(/<button id="save"[\s\S]*?<\/button>|<dialog id="save-dlg">[\s\S]*?<\/dialog>\n|<div class="banner" id="draft">[\s\S]*?<\/div>\n|,"embed":true/g, '');
+    expect(strip(web)).toBe(strip(cli));
+  });
+
+  it('the page script exposes the bridge and keeps Save / drafts / the leave warning off in embed', () => {
+    const client = readFileSync(join(__dirname, '..', '..', 'scripts', 'project', 'project-client.js'), 'utf8');
+    expect(client).toContain("window.SC4SAP_PAGE = { kind: 'project', model: function () { return model; }, edit: function (on) { if (!!on !== editing) setEditing(!!on); }, editing: function () { return editing; } };");
+    expect(client).toMatch(/var EMBED = !!DATA\.embed;/);
+    expect(client).toMatch(/function queueDraft\(\) \{ if \(EMBED\) return;/);
+    expect(client).toMatch(/var d0 = EMBED \? null : load\(key\);/);
+    expect(client).toMatch(/if \(dirty && !EMBED\)/);
+    expect(client).toMatch(/if \(!EMBED\) \{\r?\n\$\('#save'\)\.onclick = save;/);
+    // every model change goes through the one `model` variable the bridge reads (undo / redo / draft resume reassign it)
+    expect(client.match(/\bmodel = /g)!.length).toBeGreaterThan(0);
+    expect(client).not.toMatch(/\b(var|let|const) model\b(?! = DATA\.model)/);
+  });
+
+  it('modelFromPage reads the model a saved page carries, and refuses a page without one', () => {
+    const m = base();
+    const got = modelFromPage(renderPage(m, opts));
+    expect(got.model).toEqual(JSON.parse(JSON.stringify(m)));
+    expect(got).toMatchObject({ version: '1.0', history: opts.history });
+    expect(modelFromPage(renderPage(m, { ...opts, embed: true })).model).toEqual(got.model);
+    expect(() => modelFromPage('<html></html>')).toThrow(/no embedded project model/);
+    expect(() => modelFromPage('<script type="application/json" id="project-model">{bad</script>')).toThrow(/not valid JSON/);
+    expect(() => modelFromPage(`<script type="application/json" id="project-model">${JSON.stringify({ model: { project: { code: '../x' } } })}</script>`)).toThrow(/project\.code/);
   });
 });
