@@ -27,6 +27,7 @@ Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<lab
 - User says "create", "new class", "new program", "create object", "add a function module", "new table", etc.
 - A new ABAP development artifact needs to be created from scratch
 - User knows what they want to build but needs the creation scaffolded correctly
+- RAP / CDS on S/4: "RAP stack", "RAP 스택", "business object", "Fiori app from a table", "OData service", "CDS view", "custom entity", "table function", "metadata extension", "behavior definition" → [`rap-stack.md`](rap-stack.md)
 </Use_When>
 
 <Do_Not_Use_When>
@@ -58,13 +59,21 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 | Table Type | `CreateTableType` | DDIC table type (row type, access mode, primary key) |
 | Data Element | `CreateDataElement` | Domain-based data element |
 | Domain | `CreateDomain` | Value domain with fixed values or ranges |
-| CDS View | `CreateView` | Core Data Services view |
-| Service Definition | `CreateServiceDefinition` | OData service definition |
-| Service Binding | `CreateServiceBinding` | OData service binding (UI5/API) |
-| Behavior Definition | `CreateBehaviorDefinition` | RAP behavior definition |
+| CDS View / View Entity / Projection / Custom Entity / Table Function | `CreateView` + `UpdateView` | DDL source decides the kind; custom entity + query class, table function + AMDP class (`CreateClass`) — S/4 only |
+| Metadata Extension | `CreateMetadataExtension` + `UpdateMetadataExtension` | DDLX (Fiori UI annotations) — S/4 only |
+| Service Definition | `CreateServiceDefinition` | OData service definition — S/4 only |
+| Service Binding | `CreateServiceBinding` (`ValidateServiceBinding` fails on 8xx: GET not supported) | OData V2 / V4 binding; publish is manual — S/4 only |
+| Behavior Definition | `CreateBehaviorDefinition` + `UpdateBehaviorDefinition` | RAP managed / unmanaged / projection — S/4 only |
+| Behavior Pool | `CreateBehaviorImplementation` + `UpdateBehaviorImplementation` | RAP behavior implementation class — S/4 only |
+| CDS Unit Test | `CreateClass` + `UpdateLocalTestClass` (rap-stack.mjs single) | test class with CDS test doubles — S/4 only |
+| RAP Stack | plan of the above | table → views → BDEF + pool → projection BDEF → DDLX → SRVD → SRVB ([`rap-stack.md`](rap-stack.md)) |
 | Screen | `CreateScreen` | Dynpro screen (selection screen or dialog) |
 | GUI Status | `CreateGuiStatus` | PF-Status (menu bar, toolbar, function keys) |
 </Supported_Object_Types>
+
+<RAP_Objects>
+**MANDATORY** for any CDS / RAP type: read [`rap-stack.md`](rap-stack.md). Gate first (§ 1): on ECC every CDS / RAP object is refused with the gate message and no MCP call; on S/4 each type has a minimum release. A RAP stack is built from `scripts/create-object/rap-stack.mjs plan` (names, sources, order) and run step by step by `sap-executor`; publish, binding category and access control (DCLS) are manual (no MCP tool).
+</RAP_Objects>
 
 <ECC_DDIC_Fallback>
 **MANDATORY** on ECC: read [`../../common/ecc-ddic-fallback.md`](../../common/ecc-ddic-fallback.md) before creating any Table / Structure / Data Element / Domain. Path 1 (default): the normal MCP tools with the ECC call shapes (`CreateTable` / `CreateStructure` with `fields`, `CreateDataElement` with a domain) — created, transported and activated through the `ZMCP_ADT_DDIC_*` FMs. Path 2 (fallback, only on the listed errors): helper report in `$TMP` from the templates under `ecc/`, run by the user in SE38.
@@ -123,7 +132,7 @@ At Step 2 (metadata collection) — when the object belongs to a specific SAP mo
 The reference file covers:
 - General rules (prefix, case, character set, length limits)
 - Module codes (SD/MM/FI/CO/...) for the `Z{MODULE}_...` pattern
-- Object-specific patterns — Classes (ZCL_/ZIF_/ZCX_), Programs (ZR_), Function Groups/Modules, Data Dictionary (ZT_/ZDE_/ZDO_), UI (Dynpro/GUI Status), OData/RAP (Z_I_/Z_C_/Z_BP_/Z_SB_), Enhancements, IDoc/ALE
+- Object-specific patterns — Classes (ZCL_/ZIF_/ZCX_), Programs (ZR_), Function Groups/Modules, Data Dictionary (ZT_/ZDE_/ZDO_), UI (Dynpro/GUI Status), OData/RAP (ZR_/ZI_/ZC_ views, BDEF = root entity, ZBP_R_ pool, ZUI_/ZAPI_ service definition, _O4/_O2 binding), Enhancements, IDoc/ALE
 - Code-level naming (variables: LV_/LS_/LT_/IV_/EV_/MV_; constants GC_/LC_; types TY_; methods)
 - Validation rules (uppercase, Z/Y prefix, character set, max length, non-generic)
 
@@ -143,6 +152,7 @@ If the user-provided name violates any rule, suggest a compliant alternative bas
 - `ListTransports` — list available transports
 - `GetPackage` — verify package existence
 - `CreateClass` / `CreateInterface` / `CreateProgram` / `CreateFunctionGroup` / `CreateFunctionModule` / `CreateTable` / `CreateStructure` / `CreateDataElement` / `CreateDomain` / `CreateView` / `CreateServiceDefinition` / `CreateServiceBinding` / `CreateBehaviorDefinition` / `CreateScreen` / `CreateGuiStatus`
+- RAP / CDS (S/4 only): `UpdateView` / `UpdateTable` (DDL) / `UpdateBehaviorDefinition` / `CreateBehaviorImplementation` + `UpdateBehaviorImplementation` / `CreateMetadataExtension` + `UpdateMetadataExtension` / `CreateServiceDefinition` + `UpdateServiceDefinition` / `UpdateLocalTestClass` / `ActivateObjects` (in the order of the plan — rap-stack.md)
 - `UpdateClass` / `UpdateProgram` / `UpdateScreen` / `UpdateGuiStatus` / etc. — write initial implementation
 - `GetInactiveObjects` — verify activation
 - **ECC DDIC:** `CreateTable` / `CreateStructure` / `CreateDataElement` / `CreateDomain` first (ECC shapes per `common/ecc-ddic-fallback.md`); the helper-report fallback (`CreateProgram` + `UpdateProgram` in `$TMP`) only after a Path 2 error.

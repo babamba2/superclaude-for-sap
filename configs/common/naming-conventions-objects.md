@@ -64,8 +64,8 @@ When an FM belongs to an existing FG, the FM purpose string should remain short 
 | Search Help | `ZSH_{MODULE}_{NAME}` | `ZSH_SD_ORDER` |
 | Lock Object | `EZ_{MODULE}_{NAME}` | `EZ_SD_ORDER` (system prefix `E` for locks) |
 | View | `ZV_{MODULE}_{NAME}` | `ZV_SD_ORDER_HDR` |
-| CDS View | `Z_I_{ENTITY}` (interface), `Z_C_{ENTITY}` (consumption) | `Z_I_SALESORDER`, `Z_C_SALESORDER_UI` |
-| CDS Behavior | `Z_BP_{ENTITY}` | `Z_BP_SALESORDER` |
+| CDS View | `ZI_{MODULE}_{Entity}` (basic), `ZR_{MODULE}_{Entity}` (RAP root), `ZC_{MODULE}_{Entity}` (projection / consumption) | `ZI_SD_SalesNote`, `ZC_SD_SalesNote` |
+| CDS Behavior | same name as its root entity — see § OData / RAP | `ZR_SD_SalesNote` |
 | Table Function | `ZTF_{NAME}` | `ZTF_SALES_AGG` |
 
 ### UI / Dynpro
@@ -81,11 +81,16 @@ When an FM belongs to an existing FG, the FM purpose string should remain short 
 
 | Type | Pattern | Example |
 |------|---------|---------|
-| Service Definition | `Z_SD_{ENTITY}` or `Z_API_{ENTITY}` | `Z_SD_SALESORDER` |
-| Service Binding | `Z_SB_{ENTITY}_{PROTOCOL}` | `Z_SB_SALESORDER_UI`, `Z_SB_SALESORDER_V2` |
-| Behavior Definition | `Z_BP_{ENTITY}` | `Z_BP_SALESORDER` |
-| Behavior Implementation | `ZCL_BP_{ENTITY}` | `ZCL_BP_SALESORDER` |
-| Projection View | `Z_P_{ENTITY}` | `Z_P_SALESORDER` |
+| Root View (RAP) | `ZR_{MODULE}_{Entity}` | `ZR_SD_SalesNote` |
+| Basic / Interface View | `ZI_{MODULE}_{Entity}` | `ZI_SD_SalesNote` |
+| Projection / Consumption View | `ZC_{MODULE}_{Entity}` | `ZC_SD_SalesNote` |
+| Behavior Definition | **same name as its root entity** (SAP rule) | `ZR_SD_SalesNote`, projection BDEF `ZC_SD_SalesNote` |
+| Behavior Implementation (pool) | `ZBP_R_{MODULE}_{Entity}` | `ZBP_R_SD_SalesNote` |
+| Metadata Extension (DDLX) | same name as the projection view | `ZC_SD_SalesNote` |
+| Service Definition | `ZUI_{MODULE}_{Entity}` (UI) / `ZAPI_{MODULE}_{Entity}` (API) | `ZUI_SD_SalesNote` |
+| Service Binding | `{SRVD}_O4` (OData V4) / `{SRVD}_O2` (OData V2), ≤ 26 characters | `ZUI_SD_SalesNote_O4` |
+
+Tables of a RAP object keep the table convention. With draft, every CDS element name is also a draft-table column (≤ 16 characters). Generator and checks: `scripts/create-object/rap-stack.mjs` (`skills/create-object/rap-stack.md`).
 
 ### Enhancements / 향상
 

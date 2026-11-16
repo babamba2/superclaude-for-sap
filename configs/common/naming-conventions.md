@@ -124,4 +124,4 @@ Before creating any object, verify:
 - For local objects inside programs, use `LCL_`, `LIF_`, `LTCL_`
 - Avoid `Y` prefix for production code — reserve for prototypes that will be renamed
 - Respect character limits — truncate the `{NAME}` portion if needed, never the prefix
-- In S/4HANA, follow RAP naming for OData/Fiori artifacts: `Z_I_`, `Z_C_`, `Z_SD_`, `Z_SB_`, `Z_BP_`
+- In S/4HANA, follow RAP naming for OData/Fiori artifacts: `ZR_` / `ZI_` / `ZC_` views, BDEF = root entity name, `ZBP_R_` behavior pool, DDLX = projection name, `ZUI_` / `ZAPI_` service definition, `_O4` / `_O2` service binding (naming-conventions-objects.md § OData / RAP)
