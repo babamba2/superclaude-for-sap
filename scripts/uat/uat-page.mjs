@@ -18,7 +18,7 @@ const json = (o) => JSON.stringify(o).replace(/</g, '\\u003c');
 
 const LABELS = {
   ko: {
-    dash: '대시보드', scen: '시나리오', issues: '이슈', checks: '확인할 점', edit: '편집', done: '편집 끝', save: '저장', print: '인쇄', undo: '되돌리기',
+    dash: '대시보드', scen: '시나리오', issues: '이슈', checks: '확인할 점', edit: '편집', done: '편집 끝', save: '저장', print: '인쇄', undo: '되돌리기', dark: '다크 모드', light: '라이트 모드',
     search: '검색 (활동, T-code, 모듈)', all: '전체', onlyFail: '실패만', onlyOpen: '미실행만',
     scenarios: '시나리오', steps: '단계', cycle: '회차', pass: 'Pass', fail: 'Fail', blocked: 'Blocked', na: 'N/A', open: '미실행',
     perModule: '주관 모듈별', perCompany: '법인별', plan: '계획', due: '오늘까지 예정', tested: '실행', rate: '진척', participation: '모듈 참여',
@@ -32,7 +32,7 @@ const LABELS = {
     nothing: '확인할 점이 없어요.', noIssues: '등록된 이슈가 없어요.', failedText: (a) => `${a} 실패`,
   },
   en: {
-    dash: 'Dashboard', scen: 'Scenarios', issues: 'Issues', checks: 'Checks', edit: 'Edit', done: 'Done', save: 'Save', print: 'Print', undo: 'Undo',
+    dash: 'Dashboard', scen: 'Scenarios', issues: 'Issues', checks: 'Checks', edit: 'Edit', done: 'Done', save: 'Save', print: 'Print', undo: 'Undo', dark: 'Dark mode', light: 'Light mode',
     search: 'Search (activity, T-code, module)', all: 'All', onlyFail: 'Failed', onlyOpen: 'Not run',
     scenarios: 'Scenarios', steps: 'Steps', cycle: 'Cycle', pass: 'Pass', fail: 'Fail', blocked: 'Blocked', na: 'N/A', open: 'Open',
     perModule: 'Per lead module', perCompany: 'Per company', plan: 'Plan', due: 'Due by today', tested: 'Tested', rate: 'Progress', participation: 'Module participation',
@@ -138,6 +138,15 @@ if(el.value==='skip'){scope=scope.filter((y)=>y!==c);st.results[c]=''}else{if(!s
 if(el.dataset.p){const p=el.dataset.p;const v=el.dataset.k==='list'?el.value.split(/\r?\n/).map((x)=>x.trim()).filter(Boolean):el.value;if(JSON.stringify(getAt(D,p))===JSON.stringify(v))return;change(()=>setAt(D,p,v))}});
 document.addEventListener('input',(e)=>{if(e.target.id==='q'){Q=e.target.value;const pos=e.target.selectionStart;render();const q=$('#q');q.focus();q.setSelectionRange(pos,pos)}});
 $('#ed').onclick=()=>{EDIT=!EDIT;render()};$('#pr').onclick=()=>window.print();
+// Theme: the saved choice, else the system's; the button names the mode it switches to. A host page (the web
+// workbench) can set it too: postMessage({type:'theme',theme:'dark'|'light'}).
+const ROOT=document.documentElement;const isDark=()=>ROOT.getAttribute('data-theme')==='dark'||(!ROOT.getAttribute('data-theme')&&matchMedia('(prefers-color-scheme: dark)').matches);
+const paintTheme=()=>{$('#th').textContent=isDark()?'☀ '+L.light:'☾ '+L.dark};
+const setTheme=(t)=>{ROOT.setAttribute('data-theme',t);try{localStorage.setItem('sc4sap-uat-theme',t)}catch(e){}paintTheme()};
+try{const t=localStorage.getItem('sc4sap-uat-theme');if(t==='dark'||t==='light')ROOT.setAttribute('data-theme',t)}catch(e){}
+$('#th').onclick=()=>setTheme(isDark()?'light':'dark');
+window.addEventListener('message',(e)=>{if(e.data&&e.data.type==='theme'&&(e.data.theme==='dark'||e.data.theme==='light')){ROOT.setAttribute('data-theme',e.data.theme);paintTheme()}});
+paintTheme();
 $('#un').onclick=()=>{const u=undo.pop();if(!u)return;D=normalize(JSON.parse(u));dirty=true;render()};
 window.addEventListener('beforeunload',(e)=>{if(dirty){e.preventDefault();e.returnValue=L.unsaved}});
 $('#sv').onclick=()=>{const doc=document.documentElement.cloneNode(true);doc.querySelector('#uat-model').textContent=JSON.stringify(D).replace(/</g,'\\u003c');
@@ -162,7 +171,7 @@ export function pageHtml(set, lang = set.lang) {
 <style>${STYLE}</style></head>
 <body>
 <div class="topbar"><div class="t">${esc(set.title || set.id)}<small>${kind} · ${esc(set.id)} · ${esc(set.module)} · v${esc(set.version)}</small></div>
-<span class="state" id="st"></span><button id="ed"></button><button id="un">${esc(L.undo)}</button><button id="sv">${esc(L.save)}</button><button id="pr">${esc(L.print)}</button></div>
+<span class="state" id="st"></span><button id="ed"></button><button id="un">${esc(L.undo)}</button><button id="sv">${esc(L.save)}</button><button id="pr">${esc(L.print)}</button><button id="th" type="button"></button></div>
 <nav class="tabs"><button data-t="dash">${esc(L.dash)}</button><button data-t="scen">${esc(L.scen)}</button><button data-t="iss">${esc(L.issues)}<span class="n" id="niss"></span></button><button data-t="chk">${esc(L.checks)}<span class="chk-n" id="nchk"></span></button></nav>
 <main><p class="hint">${esc(L.hint)}</p>
 <section class="tab" id="t-dash"></section><section class="tab" id="t-scen"></section><section class="tab" id="t-iss"></section><section class="tab" id="t-chk"></section></main>
