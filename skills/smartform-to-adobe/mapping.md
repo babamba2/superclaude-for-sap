@@ -46,7 +46,7 @@ Abbreviations: ctx = context node, sf = XFT subform. "Flatten" = the children ar
 | RP page root | `MIGRATE_PAGE_ROOT` + `CONVERT_SF2XFT_PAGELIST` | pageSet (0..1) with pageAreas along NEXTPAGE: self-loop → max −1; a page reached again → nested pageSet (0..−1) (layout) | Pages not reached from the first page are not migrated (silent) |
 | PA page | `MIGRATE_PAGE` | pageArea medium from TSP08 (format + orientation), stock A3/A4/A5/letter/legal/executive/Japanese postcard (layout) | **m12 E** for other formats |
 | WI main window | `MIGRATE_WINDOW` (+ `MIGRATE_OUTATTR`) | contentArea at the window box on every page; one flow sf `lr-tb` in the root (first page only); ctx folder (window or condition_data); content migrated **once** | — |
-| WI other windows (secondary / graphic / address / copies / final) | `MIGRATE_WINDOW` | sf `<PAGE>_<WINDOW>` as prototype + reference per page; ctx folder per page; content migrated again on every page | Final window ("at the end") and copies window lose that meaning (silent) |
+| WI other windows (secondary / graphic / address / copies / final) | `MIGRATE_WINDOW` | sf `<PAGE>_<WINDOW>` as prototype + reference per page; ctx folder per page; content migrated again on every page Final window: SmartForms fills it after the main window (page X of Y); the Adobe context is filled before the layout (silent) → page-number fields `$layout.page(ref($))` / `$layout.pageCount()` on the master page. Copies window: Adobe copies are identical spool copies, no copy counter, `SFSY-COPYCOUNT` unsupported (silent) → the print program calls the form once per copy with a copy flag parameter |
 | RC control root | dispatcher | children only | — |
 | TI text element (TTYPE blank) | `MIGRATE_TEXT_ELEMENT` | draw with XHTML from ITF (`CL_SSF_XFA_XHTML`, style by name); a wrapping sf when output options / conditions / text_append apply; per `&field&`: hidden field declarations and a ctx data node (text_placeholder or text_binding); a ctx folder for binding or a data condition (text) | **m04 W** unsupported field, **m05 E** unknown field, **m15 E** style error |
 | TI include text (I) | `MIGRATE_TEXT_INCLUDE` | field (textEdit) + ctx text-include (text) | — |
@@ -61,14 +61,14 @@ Abbreviations: ctx = context node, sf = XFT subform. "Flatten" = the children ar
 | EV true / false | `MIGRATE_EVENT_TRUE` / `_FALSE` | branch sf (0..1) under the alternative (alternative_all) | FALSE skipped with alternative_true |
 | SE folder (F) | `MIGRATE_FOLDER` | sf `lr-tb` + ctx folder (folder) | — |
 | SE loop (L) | `MIGRATE_LOOP` | sf tb → sf work area (position) → `layout_top_to_bottom`; ctx loop (table, work area, from / to, WHERE) (table); a table inside an active work area is a nested loop | **m09 E** calculations, **m10 E** sort, **m05 E** + **m13 E** unknown table (stop) |
-| SE 4.6C table (T) | `MIGRATE_TABLE_46C` | then `MIGRATE_LOOP` | **m07 E** always |
+| SE 4.6C table (T) | `MIGRATE_TABLE_46C` | then `MIGRATE_LOOP`: the loop and its fields stay, the 4.6C formatting (line types, cells, widths, borders, shading) is dropped | **m07 E** always → rebuild as a Designer table, widths / borders from the old line types |
 | SE table (C) | `MIGRATE_CTABLE` | like a loop, table width from the line types (table) | **m09 E**, **m10 E** |
 | SE template (S) | `MIGRATE_TEMPLATE` | sf table layout with cell subforms (template); cells filled through output options (line / cell no.) | **m01 E** cell referenced twice |
 | SE row (R) / cell (E) | `MIGRATE_ROW` / `_CELL` | sf row layout + ctx folder / cell sf (table) | — |
 | SE complex (blank) | `MIGRATE_COMPLEX_SECTION` | sf + ctx folder | **m08 E** always |
-| EV header / footer | `MIGRATE_EVENT_HEADER` / `_FOOTER` | sf `<name>-header` / `-footer`, position layout, keep, prototype; output flag A → start + overflow leader / trailer, B / E → start / end only, P → overflow only (header_footer **and** the table / folder option) | Never migrated until some section with that output flag was migrated before (the method's `CHECK`) — the area and all its nodes are lost (silent) |
+| EV header / footer | `MIGRATE_EVENT_HEADER` / `_FOOTER` | sf `<name>-header` / `-footer`, position layout, keep, prototype; output flag A → start + overflow leader / trailer, B / E → start / end only, P → overflow only (header_footer **and** the table / folder option) No output flag on the table: SmartForms never prints the area — SAP skips it (`CHECK` on the anchor) or, when an earlier table left its anchor (`xft_section_ev_header` / `_footer` are never cleared), builds an unplaced prototype: **info row, not a gap**. With header_footer / table option off and a stale anchor the area prints once — a gap. Flag A / P with fields: SmartForms prints the values at each page break (running total); the Adobe trailer shows the end value (silent) → sum the rows of the page in FormCalc / JavaScript |
 | EV body | `MIGRATE_EVENT_BODY` | tbody sf (table) | — |
-| EV sort begin / end, others | dispatcher `WHEN OTHERS` | flatten into the table body | Prints for every row (silent) |
+| EV sort begin / end, others | dispatcher `WHEN OTHERS` | flatten into the table body | Begin: heading prints and its program lines run (and reset totals) for every row; end: prints after every row with that row's values (silent). Each code node inside gets its own gap row → group the data in the interface initialization, nested context loops, subtotal in the outer subform (or FormCalc `Sum(items[*].field)`); a context condition cannot see the previous row |
 
 ## 3. Conditions
 
@@ -77,7 +77,8 @@ Abbreviations: ctx = context node, sf = XFT subform. "Flatten" = the children ar
   - An empty OR row joins the next row with OR.
 - **Layout condition** (`SET_XFT_CONDITION`, condition_layout): a hidden field with a FormCalc calculate.
   - Only "first page" (`$layout.absPage(ref($)) == "1"`) and "not first page" (`!= "1"`) are written.
-  - LPAGE, NLPAGE, a page name and other flags are dropped (silent).
+  - LPAGE, NLPAGE, PAGENAME, HEADER, FOOTER, PAGEBREAK are dropped (silent). SAP still adds the hidden field with an empty calculate, so the node prints on every page.
+  - Rebuild: NLPAGE → presence script `if ($layout.page(ref($)) == $layout.pageCount()) then $.presence = "hidden" endif` (LPAGE with `<>`); in the main window flow prefer a data condition on a flag from interface code (a presence change reflows the pages). HEADER / FOOTER / PAGEBREAK: SSFOCOND has no fixed values — confirm the meaning in the Form Builder before rebuilding.
 - A node kind whose method takes no condition loses it (silent). With the option off, every condition is lost.
 - The plan lists each such loss under the node (`data condition not migrated …`, `layout condition … not migrated`).
 
@@ -117,7 +118,8 @@ Abbreviations: ctx = context node, sf = XFT subform. "Flatten" = the children ar
 
 ## 8. Gaps → the gap list
 
-The report's gap list has one row per node and loss: node, kind, reason, manual action, logged (SAP message) or silent.
+The report's gap list has one row per node and loss: node path, kind, reason, manual action, logged (SAP message) or silent.
+- Info rows (`infos`): a difference that changes nothing at runtime (an area SmartForms never prints either). They are not gaps.
 - "Silently dropped" means SAP loses the node or part of it without a message. The plan names every such case.
 - The P1 gate: every inventory node is either mapped or in the gap list.
 - `sc4sap:sap-critic` reviews the gap list for SAP meaning (spec §10).

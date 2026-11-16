@@ -97,11 +97,22 @@ describe('smartform-to-adobe — plan (full options)', () => {
     expect(node('ROW_B').status).toBe('warning');
   });
 
-  it('silent gaps carry a reason and an action: sort event, skipped footer, layout condition, dynamic graphic, BTF text, break target', () => {
+  it('silent gaps carry a reason, an action and the node path: group begin, layout condition, dynamic graphic, BTF text, break target', () => {
     const silent = plan.gaps.filter((g: any) => !g.logged).map((g: any) => g.node);
-    expect(silent).toEqual(expect.arrayContaining(['%EV_S', '%EV_F', 'T_FOOT', 'T_INTRO', 'G_LOGO', 'T_BTF', 'CMD_NEXT']));
-    for (const g of plan.gaps) expect(g.reason.length > 10 && g.action.length > 5).toBe(true);
-    expect(plan.gaps.find((g: any) => g.node === 'T_INTRO' && !g.logged).reason).toMatch(/LPAGE/);
+    expect(silent).toEqual(expect.arrayContaining(['%EV_S', 'T_INTRO', 'G_LOGO', 'T_BTF', 'CMD_NEXT']));
+    for (const g of plan.gaps) expect(g.reason.length > 10 && g.action.length > 5 && g.path.length > 0).toBe(true);
+    const lp = plan.gaps.find((g: any) => g.node === 'T_INTRO' && !g.logged);
+    expect(lp.reason).toMatch(/LPAGE/);
+    expect(lp.action).toMatch(/\$layout\.page\(ref\(\$\)\) <> \$layout\.pageCount\(\)/);
+    expect(lp.action).toMatch(/main window: a presence change/); // T_INTRO flows in the main window
+    expect(plan.gaps.find((g: any) => g.node === '%EV_S').reason).toMatch(/group begin \(MATNR\).*every row/);
+    expect(plan.gaps.find((g: any) => g.node === 'OLD_TAB').action).toMatch(/Designer table/);
+  });
+
+  it('a footer whose table has no footer flag never prints in SmartForms either: an info row, not a gap', () => {
+    expect(plan.gaps.map((g: any) => g.node)).not.toContain('%EV_F');
+    expect(plan.infos.map((i: any) => i.node)).toEqual(expect.arrayContaining(['%EV_F', 'T_FOOT']));
+    expect(node('%EV_F').status).toBe('mapped');
   });
 
   it('interface: every parameter incl. the standard ones, global data, init coding; windows: main once, secondary per page', () => {
@@ -127,6 +138,31 @@ describe('smartform-to-adobe — plan (other options and form types)', () => {
     expect(reasons).toMatch(/ALT_PAY: alternative: both branches are migrated and print unconditionally/);
     expect(p.log.map((m: any) => m.code)).not.toContain('m09');
     expect(p.nodes).toHaveLength(37);
+  });
+
+  it('page-break footer values, code in a group area, an earlier table\'s footer anchor reused, copies window', () => {
+    // two tables: the first has a footer "always" with a total, the second a footer without flag (the anchor stays)
+    const T = (name: string, text: string) => `<sf:NODE><NODETYPE>TI</NODETYPE><sf:OBJ><sf:TEXT><NAME><INAME>${name}</INAME></NAME><TEXT><item><TDFORMAT>AS</TDFORMAT><TDLINE>${text}</TDLINE></item></TEXT></sf:TEXT></sf:OBJ><sf:SUCC/></sf:NODE>`;
+    const EV = (name: string, t: string, inner: string, extra = '') => `<sf:NODE><NODETYPE>EV</NODETYPE><sf:OBJ><sf:EVENT><NAME><INAME>${name}</INAME></NAME><EVTYPE>${t}</EVTYPE>${extra}</sf:EVENT></sf:OBJ><sf:SUCC>${inner}</sf:SUCC></sf:NODE>`;
+    const LOOP = (name: string, footer: string, inner: string) => `<sf:NODE><NODETYPE>SE</NODETYPE><sf:OBJ><sf:SECTION><NAME><INAME>${name}</INAME></NAME><SECTTYPE>L</SECTTYPE><TABNAME>IT_ITEMS</TABNAME><TABHEADER>GS_ITEM</TABHEADER>${footer ? `<OTABFOOTER>${footer}</OTABFOOTER>` : ''}</sf:SECTION></sf:OBJ><sf:SUCC>${inner}</sf:SUCC></sf:NODE>`;
+    const CODE = '<sf:NODE><NODETYPE>CO</NODETYPE><sf:OBJ><sf:CODE><NAME><INAME>C_RESET</INAME></NAME></sf:CODE></sf:OBJ><sf:SUCC/></sf:NODE>';
+    const xml = `<?xml version="1.0"?><sf:SMARTFORM xmlns:sf="x"><HEADER><FORMNAME>ZDEMO_T2</FORMNAME></HEADER><INTERFACE><item><IOTYPE>T</IOTYPE><NAME>IT_ITEMS</NAME></item></INTERFACE><GDATA><item><NAME>GS_ITEM</NAME></item><item><NAME>GV_SUM</NAME></item></GDATA>
+<sf:VARHEADER><sf:item><PAGEFORMAT>DINA4</PAGEFORMAT><sf:PAGETREE><sf:NODE><NODETYPE>RP</NODETYPE><sf:SUCC><sf:NODE><NODETYPE>PA</NODETYPE><sf:OBJ><sf:PAGE><NAME><INAME>P1</INAME></NAME><NEXTPAGE><INAME>P1</INAME></NEXTPAGE></sf:PAGE></sf:OBJ><sf:SUCC>
+<sf:NODE><NODETYPE>WI</NODETYPE><sf:OBJ><sf:WINDOW ID="1"><NAME><INAME>MAIN</INAME></NAME><WTYPE>M</WTYPE><sf:PROC_CTRL><sf:NODE><NODETYPE>RC</NODETYPE><sf:SUCC>
+${LOOP('L1', 'A', EV('%F1', 'F', T('T_SUM', 'Carry forward &amp;GV_SUM&amp;')) + EV('%S1', 'S', CODE, '<SFIELD>MATNR</SFIELD>'))}
+${LOOP('L2', '', EV('%F2', 'F', T('T_STALE', 'never printed')))}
+</sf:SUCC></sf:NODE></sf:PROC_CTRL></sf:WINDOW></sf:OBJ><sf:SUCC/></sf:NODE>
+<sf:NODE><NODETYPE>WI</NODETYPE><sf:OBJ><sf:WINDOW ID="2"><NAME><INAME>COPY</INAME></NAME><WTYPE>C</WTYPE></sf:WINDOW></sf:OBJ><sf:SUCC/></sf:NODE>
+</sf:SUCC></sf:NODE></sf:SUCC></sf:NODE></sf:PAGETREE></sf:item></sf:VARHEADER></sf:SMARTFORM>`;
+    const full = planMigration(loadSmartForm(xml), { options: 'full' });
+    const g = (n: string) => full.gaps.find((x: any) => x.node === n);
+    expect(g('%F1').reason).toMatch(/at page breaks shows GV_SUM.*end value/);
+    expect(g('C_RESET').reason).toMatch(/run for every row/);
+    expect(full.infos.find((i: any) => i.node === '%F2').note).toMatch(/prototype subform that is placed nowhere.*L1/);
+    expect(g('COPY').action).toMatch(/once per copy/);
+    // with header_footer off the same stale anchor makes the area print once — SmartForms never prints it
+    const off = planMigration(loadSmartForm(xml), { options: { ...OPTION_PRESETS.full, header_footer: false } });
+    expect(off.gaps.find((x: any) => x.node === '%F2').reason).toMatch(/never prints it, but SAP migrates its content into the flow/);
   });
 
   it('alternative_true keeps only the TRUE branch', () => {

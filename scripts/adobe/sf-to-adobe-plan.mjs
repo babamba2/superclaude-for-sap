@@ -123,7 +123,7 @@ export function planMigration(model, { options = 'full', formName = '', interfac
   const log = [];
   const entries = new Map(); // node id → plan entry
   const entry = (n) => {
-    if (!entries.has(n.id)) entries.set(n.id, { id: n.id, kind: n.kind, name: n.name, path: n.path, method: METHOD[n.kind] || '', status: 'mapped', context: [], layout: [], messages: [], gaps: [] });
+    if (!entries.has(n.id)) entries.set(n.id, { id: n.id, kind: n.kind, name: n.name, path: n.path, method: METHOD[n.kind] || '', status: 'mapped', context: [], layout: [], messages: [], gaps: [], infos: [] });
     return entries.get(n.id);
   };
   let aborted = null;
@@ -134,6 +134,7 @@ export function planMigration(model, { options = 'full', formName = '', interfac
     const e = entry(n); e.messages.push(m);
     e.status = type === 'E' ? 'gap' : (e.status === 'gap' ? 'gap' : 'warning');
   };
+  const info = (n, note) => { entry(n).infos.push(note); };
   const gap = (n, reason, action) => { const e = entry(n); e.gaps.push({ reason, action, logged: false }); e.status = 'gap'; };
   const ctx = (parent, type, name, from, extra = {}) => { const c = { type, name, from: from?.id || '', children: [], ...extra }; parent.children.push(c); if (from) entry(from).context.push(`${type}:${name}`); return c; };
   const lay = (parent, el, name, from, extra = {}) => { const c = { el, name, from: from?.id || '', children: [], ...extra }; parent.children.push(c); if (from) entry(from).layout.push(`${el}:${name}`); return c; };
@@ -184,7 +185,20 @@ export function planMigration(model, { options = 'full', formName = '', interfac
     if (lc.NFPAGE === 'X') parts.push('$layout.absPage(ref($)) != "1"');
     if (parts.length) xNode.layoutCondition = parts.join(' & ');
     const lost = Object.keys(lc).filter((k) => lc[k] && !['FPAGE', 'NFPAGE'].includes(k));
-    if (lost.length) gap(n, `layout condition ${lost.join(', ')} is not migrated (SET_XFT_CONDITION writes only first page / not first page)`, 'add a presence script for the condition in the Adobe layout');
+    if (lost.length) gap(n, `layout condition ${lost.join(', ')} is not migrated (SET_XFT_CONDITION writes only first page / not first page; SAP adds the hidden condition field with an empty calculate, so the node prints on every page)`, layoutAction(n, lost));
+  };
+  const inMainWindow = (n) => model.nodes.some((w) => w.kind === 'window-main' && w.name === n.window);
+  // the Adobe way to rebuild a lost layout condition (SSFOCOND flags)
+  const layoutAction = (n, flags) => {
+    const out = [];
+    if (flags.includes('NLPAGE')) out.push('not on the last page: FormCalc presence script on layout:ready — if ($layout.page(ref($)) == $layout.pageCount()) then $.presence = "hidden" endif');
+    if (flags.includes('LPAGE')) out.push('only on the last page: FormCalc presence script on layout:ready — if ($layout.page(ref($)) <> $layout.pageCount()) then $.presence = "hidden" endif');
+    if (flags.includes('PAGENAME')) out.push('only on a named page: put the node on that page area (master page) instead of a script');
+    const table = flags.filter((f) => ['HEADER', 'FOOTER', 'PAGEBREAK'].includes(f));
+    if (table.length) out.push(`${table.join(' / ')}: confirm in the Form Builder (Conditions tab) which table event the flag means — SSFOCOND has no fixed values; if it is "only at the table start", move the node out of the header subform (reused as overflow leader) into a plain subform before the table, not behind a page-number script`);
+    if (!out.length) out.push('add a presence script for the condition in the Adobe layout');
+    if (inMainWindow(n) && (flags.includes('NLPAGE') || flags.includes('LPAGE'))) out.push('the node flows in the main window: a presence change on layout:ready reflows the pages and can change the page count it tests — prefer a data condition on a flag set in interface code, and check what the SmartForm prints today');
+    return out.join('; ');
   };
   const outattr = (n, xNode) => {
     if (!n.outattr || !o.output_option || !xNode || !o.layout) return;
@@ -247,8 +261,8 @@ export function planMigration(model, { options = 'full', formName = '', interfac
         if (!n.ref) go(cp, xp);
         else for (const c of node.children) visit({ ...c, id: c.id }, cp, xp); // content again, inside this page's window
       } else if (main && n.ref) e.layout.push('contentArea only (the main window content is migrated once)');
-      if (k === 'window-final') gap(n, 'final window: processed like any other window — SAP does not keep "print at the end" (SFSY-FORMPAGES / totals known only at the end)', 'check page totals and page counts in the Adobe preview');
-      if (k === 'window-copies') gap(n, 'copies window: migrated as a plain window — no original / copy distinction', 'add a copy-number condition in the Adobe layout');
+      if (k === 'window-final') gap(n, 'final window: SmartForms fills it after the main window (page X of Y, totals); the Adobe form fills the context in order before the layout, and page numbers exist only in the layout', 'use Designer page-number fields on the master page ($layout.page(ref($)) / $layout.pageCount()); compute any value taken from main-window processing in the interface initialization code');
+      if (k === 'window-copies') gap(n, 'copies window: Adobe copies are identical spool copies (SFPOUTPUTPARAMS-COPIES) — there is no copy counter in the layout, and SFSY-COPYCOUNT is not supported (m04)', 'the print program calls the form once per copy and passes a copy-number / original flag in a new interface parameter; put a context condition or presence script on it');
       if (main) state.mainDone = true;
       return;
     }
@@ -330,6 +344,7 @@ export function planMigration(model, { options = 'full', formName = '', interfac
     if (k === 'code') {
       if (!o.coding) { gap(n, 'program lines dropped (option coding off)', 'move the code into the interface initialization or the print program'); return; }
       const c = ctx(cParent, 'program-lines', encodeName(n.name), n);
+      if (state.sortEvent) gap(n, 'program lines inside a group begin / end area that SAP flattens into the table body: they now run for every row, so totals and counters are reset or added per row', 'move the group logic into the interface initialization code (grouped tables, precomputed subtotals)');
       for (const p of n.attrs.params) {
         if (!fieldSupported(p.name)) { say(n, 'm04', p.name); continue; }
         if (!p.name) { say(n, 'm14'); continue; }
@@ -365,9 +380,19 @@ export function planMigration(model, { options = 'full', formName = '', interfac
     if (k === 'event-header' || k === 'event-footer') {
       const sec = state.sections[state.sections.length - 1];
       const flagSet = k === 'event-header' ? sec?.attrs.header : sec?.attrs.footer;
-      if (!flagSet && !(k === 'event-header' ? state.evHeader : state.evFooter)) { gap(n, `${k === 'event-header' ? 'header' : 'footer'} area: the table has no ${k === 'event-header' ? 'header' : 'footer'} output flag, so SAP skips this area and everything in it`, 'set the output flag in the SmartForm or rebuild the area'); markAll(n); return; }
+      const area = k === 'event-header' ? 'header' : 'footer';
+      const anchor = k === 'event-header' ? state.evHeader : state.evFooter;
       let flag = false;
       if (o.header_footer) flag = sec?.kind === 'ctable' || sec?.kind === 'loop' ? o.table : sec?.kind === 'folder' ? o.folder : true;
+      if (!flagSet) {
+        // SmartForms never prints an area whose table has no output flag
+        if (!anchor) { info(n, `${area} area: the table has no ${area} output flag, so SmartForms never prints it; SAP skips it as well (CHECK on the ${area} anchor) — nothing is lost`); markInfo(n); return; }
+        // the anchor of an earlier table is never cleared (xft_section_ev_${area})
+        if (flag && o.layout) { info(n, `${area} area without output flag: SAP builds it as a prototype subform that is placed nowhere (the anchor of the earlier table ${anchor.name} is reused, but no break is set) — it does not print, as in SmartForms`); const xp = lay(xParent, 'subform', `${encodeName(n.name)}-${area}`, n, { prototype: true, placed: false }); return go(cParent, xp); }
+        gap(n, `${area} area without output flag: SmartForms never prints it, but SAP migrates its content into the flow (the anchor of the earlier table ${anchor.name} is never cleared and the ${area} option is off) — it prints once`, 'delete the area from the Adobe layout');
+        return go(cParent, xParent);
+      }
+      if (['A', 'P'].includes(flagSet) && fieldsIn(n).length) gap(n, `${area} area at page breaks shows ${fieldsIn(n).slice(0, 4).join(', ')}: SmartForms prints the values current at each page break (running total, carry-forward); the Adobe form fills the context before the layout, so the overflow ${area === 'header' ? 'leader' : 'trailer'} shows the end value`, 'compute the page value in the layout: FormCalc / JavaScript sum of the rows on the current page (or a carry-forward script) in the overflow ' + (area === 'header' ? 'leader' : 'trailer'));
       let xp = xParent;
       if (flag && o.layout) {
         const when = flagSet === 'A' ? 'always (start + overflow ' + (k === 'event-header' ? 'leader' : 'trailer') + ')' : flagSet === 'B' ? 'at the start' : flagSet === 'E' ? 'at the end' : flagSet === 'P' ? 'at a page break (overflow)' : flagSet;
@@ -380,14 +405,20 @@ export function planMigration(model, { options = 'full', formName = '', interfac
       return go(cParent, xp);
     }
     if (k === 'event-sort-begin' || k === 'event-sort-end' || k === 'event-other') {
-      gap(n, `${k === 'event-sort-begin' ? 'sort level begin' : k === 'event-sort-end' ? 'sort level end' : 'event'} area: no own branch in the migration — its content is placed in the table body and prints for every row`, 'rebuild the group change with a context condition or script');
-      return go(cParent, xParent);
+      if (k === 'event-sort-begin') gap(n, `group begin (${n.attrs.sortField || 'sort field'}): no own branch in the migration — the area is placed in the table body, so its heading prints for every row and its program lines run (and reset) for every row`, 'group the data in the interface initialization (outer table per group, inner items, subtotal precomputed) and use nested context loops with the heading in the outer subform; a context condition cannot see the previous row — only a first-in-group flag filled by interface code works');
+      else if (k === 'event-sort-end') gap(n, `group end (${n.attrs.sortField || 'sort field'}): no own branch in the migration — the area is placed in the table body, so it prints after every row with the values of that row, not the group subtotal`, 'put the subtotal row in the outer group subform after the items (value from interface code or FormCalc Sum(items[*].field)), or condition it on a last-in-group flag set by interface code');
+      else gap(n, 'event area: no own branch in the migration — its content is placed in the table body and prints for every row', 'rebuild the event with a context condition or script');
+      state.sortEvent = (state.sortEvent || 0) + 1;
+      go(cParent, xParent);
+      state.sortEvent--;
+      return;
     }
     gap(n, `node type ${n.nodetype || k} has no branch in the migration`, 'rebuild by hand');
     go(cParent, xParent);
   };
 
-  const markAll = (n) => { for (const c of n.children) { entry(c); gap(c, 'inside an area SAP skips', 'rebuild with its area'); markAll(c); } };
+  const markInfo = (n) => { for (const c of n.children) { info(c, 'inside an area that prints neither in SmartForms nor in the Adobe form'); markInfo(c); } };
+  const fieldsIn = (n) => [...new Set([...(n.attrs?.fields || []), ...n.children.flatMap((c) => fieldsIn(c))])];
 
   const section = (n, cParent, xParent) => {
     const k = n.kind;
@@ -400,6 +431,7 @@ export function planMigration(model, { options = 'full', formName = '', interfac
       if (o.condition_data && o.folder) condData(n, cp);
       if (o.folder) condLayout(n, xp !== xParent ? xp : null);
       if (!o.folder) gap(n, 'folder not kept as its own subform / context folder (option folder off); its content moves up a level', 'migrate with folder');
+      if (a.header) state.evHeader = n; if (a.footer) state.evFooter = n;
     } else if (k === 'loop' || k === 'table46' || k === 'ctable') {
       if (k === 'table46') say(n, 'm07');
       const table = o.table;
@@ -466,27 +498,28 @@ export function planMigration(model, { options = 'full', formName = '', interfac
     const a = applied.get(n.id) || {};
     if (n.cond.data.length && !a.data) gap(n, `data condition not migrated (${o.condition_data ? `${METHOD[n.kind] || 'this node'} takes none here` : 'option condition_data off'}): the node prints unconditionally`, 'add the condition in the context');
     const lc = Object.keys(n.cond.layout || {}).filter((k) => n.cond.layout[k]);
-    if (lc.length && !a.layout) gap(n, `layout condition ${lc.join(', ')} not migrated (${o.condition_layout ? `${METHOD[n.kind] || 'this node'} takes none here` : 'option condition_layout off'})`, 'add a presence script in the Adobe layout');
+    if (lc.length && !a.layout) gap(n, `layout condition ${lc.join(', ')} not migrated (${o.condition_layout ? `${METHOD[n.kind] || 'this node'} takes none here` : 'option condition_layout off'})`, layoutAction(n, lc));
   }
   // every node exactly once: anything the walk did not reach (should not happen) is a gap, never left out
   for (const n of model.nodes) if (!entries.has(n.id)) { entry(n); gap(n, 'not reached by the migration walk', 'check the node in the SmartForm'); }
   const nodes = model.nodes.map((n) => entries.get(n.id));
   // a window shown again on a later page is the same node; its occurrences are listed apart
   const windowRefs = [...entries.values()].filter((e) => model.byId.get(e.id)?.ref).map((e) => ({ ...e, of: model.byId.get(e.id).ref, page: model.byId.get(e.id).page }));
-  for (const r of windowRefs) { const first = entries.get(r.of); if (first) { first.layout.push(...r.layout); first.context.push(...r.context); first.messages.push(...r.messages); first.gaps.push(...r.gaps); if (r.status === 'gap' || (r.status === 'warning' && first.status === 'mapped')) first.status = r.status; } }
-  const gaps = nodes.flatMap((e) => [...e.messages.filter((m) => m.type === 'E').map((m) => ({ node: e.name || e.kind, kind: e.kind, reason: m.text, action: ACTION[m.code] || 'rework in the Adobe form', logged: true, code: m.code })),
-    ...e.gaps.map((g) => ({ node: e.name || e.kind, kind: e.kind, ...g }))]);
+  for (const r of windowRefs) { const first = entries.get(r.of); if (first) { first.layout.push(...r.layout); first.context.push(...r.context); first.messages.push(...r.messages); first.gaps.push(...r.gaps); first.infos.push(...r.infos); if (r.status === 'gap' || (r.status === 'warning' && first.status === 'mapped')) first.status = r.status; } }
+  const gaps = nodes.flatMap((e) => [...e.messages.filter((m) => m.type === 'E').map((m) => ({ node: e.name || e.kind, path: e.path, kind: e.kind, reason: m.text, action: ACTION[m.code] || 'rework in the Adobe form', logged: true, code: m.code })),
+    ...e.gaps.map((g) => ({ node: e.name || e.kind, path: e.path, kind: e.kind, ...g }))]);
+  const infos = nodes.flatMap((e) => [...new Set(e.infos)].map((note) => ({ node: e.name || e.kind, path: e.path, kind: e.kind, note })));
   const count = (s) => nodes.filter((e) => e.status === s).length;
   return {
     form: model.form, formType: model.formType, options: o, names: { form: fpForm, interface: fpIntf }, result: aborted ? 'aborted' : 'migrated', aborted,
-    interface: iface, context, layout, log, nodes, windowRefs: windowRefs.map((r) => ({ id: r.id, of: r.of, page: r.page, layout: r.layout })), gaps,
+    interface: iface, context, layout, log, nodes, windowRefs: windowRefs.map((r) => ({ id: r.id, of: r.of, page: r.page, layout: r.layout })), gaps, infos,
     completeness: { nodes: nodes.length, mapped: count('mapped'), warning: count('warning'), gap: count('gap'), silent: gaps.filter((g) => !g.logged).length,
       byKind: Object.fromEntries([...new Set(nodes.map((e) => e.kind))].map((kk) => [kk, { mapped: nodes.filter((e) => e.kind === kk && e.status !== 'gap').length, gap: nodes.filter((e) => e.kind === kk && e.status === 'gap').length }])) },
   };
 }
 
 const ACTION = {
-  m01: 'give each template cell one output node', m05: 'declare the field in the interface or global data', m07: 'rebuild the table as a loop / table in the Adobe layout',
+  m01: 'give each template cell one output node', m05: 'declare the field in the interface or global data', m07: 'the context loop and its fields are kept; only the 4.6C formatting is lost (line types, cells, widths, borders, shading — MIGRATE_TABLE_46C treats the table as a loop): rebuild it as a Designer table with a repeating body row bound to the loop, widths and borders from the old line types',
   m08: 'rebuild the section by hand', m09: 'calculate totals in the interface code or the print program', m10: 'sort in the print program or the interface code',
   m12: 'pick a supported page format (A3 / A4 / A5 / letter / legal / executive / Japanese postcard)',
 };
