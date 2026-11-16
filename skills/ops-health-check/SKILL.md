@@ -68,7 +68,7 @@ node "<PLUGIN_ROOT>/scripts/ops/build-ops-check.mjs" build --in "<out>/collect.j
 ```
 It prints the verdict and a short summary (the same text as the `.md` file); the report is `ops-report-<to>-<lang>.html`.
 
-**Step 4 — Report.** Relay the summary in the user's language and give the report path; say that author, owners, due dates and comments can be filled in the page (Edit → Save) before it is sent. Then offer the next steps the report lists, one line each — for a dump group: run `/sc4sap:analyze-symptom` with its error, program and time (Recommended for red); for jobs / updates / IDocs: the TCode. Do not start them unasked.
+**Step 4 — Report.** Relay the summary in the user's language and give the report path; say that author, owners, due dates and comments can be filled in the page (Edit → Save) before it is sent. Then offer the next steps the report lists, one line each — for a dump group: run `/sc4sap:analyze-symptom` with its error, program and time (Recommended for red); for an aborted job: `/sc4sap:analyze-symptom job <name>` (or SM37); for IDocs in error: `/sc4sap:analyze-symptom idoc <message type>` with the partner when there is one (or WE02 / BD87); for updates: SM13. Do not start them unasked.
 </Workflow>
 
 <Output_Format>

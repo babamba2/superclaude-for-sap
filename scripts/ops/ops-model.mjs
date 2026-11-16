@@ -237,11 +237,29 @@ export function issuesOf(m) {
     else if (g.isNew) out.push({ ...base, kind: 'dumpNew', severity: g.count >= 5 ? 'high' : 'medium', action });
     else if (g.previous !== null && g.count > g.previous) out.push({ ...base, kind: 'dumpRising', severity: 'medium', action });
   }
-  for (const g of m.jobs.groups.slice(0, 5)) out.push({ area: 'jobs', kind: 'job', severity: g.count >= 3 ? 'high' : 'medium', job: g.job, program: g.program, count: g.count, action: 'SM37' });
+  for (const g of m.jobs.groups.slice(0, 5)) out.push({ area: 'jobs', kind: 'job', severity: g.count >= 3 ? 'high' : 'medium', job: g.job, program: g.program, count: g.count, action: 'SM37', command: incidentCommand('job', g), next: incidentNext('job', g) });
   for (const g of m.updates.groups.slice(0, 5)) out.push({ area: 'updates', kind: 'update', severity: 'high', tcode: g.tcode, program: g.report, count: g.count, action: 'SM13' });
-  for (const g of m.idocs.groups.slice(0, 5)) out.push({ area: 'idocs', kind: 'idoc', severity: 'medium', mestyp: g.mestyp, status: g.status, direction: g.direction, count: g.count, action: 'WE02 / BD87' });
+  for (const g of m.idocs.groups.slice(0, 5)) out.push({ area: 'idocs', kind: 'idoc', severity: 'medium', mestyp: g.mestyp, status: g.status, direction: g.direction, count: g.count, action: 'WE02 / BD87', command: incidentCommand('idoc', g), next: incidentNext('idoc', g) });
   for (const s of Object.keys(FALLBACK_TCODE)) if (!m[s].ok) out.push({ area: 'unread', kind: 'unread', severity: 'medium', section: s, action: FALLBACK_TCODE[s] });
   return out.sort((a, b) => RANK[a.severity] - RANK[b.severity]).slice(0, 20);
+}
+
+/**
+ * Prefill mark for the web viewer (data-sc4sap-next): the analyze-symptom form of a job or an IDoc failure. Labels are
+ * the web form's field labels; values are the job name / message type / partner / date only.
+ */
+export function incidentNext(kind, g) {
+  const date = String(g.last || '').slice(0, 10);
+  const fill = kind === 'job'
+    ? { 'Incident type': 'Background job', 'Job name': g.job }
+    : { 'Incident type': 'IDoc', 'Message type': g.mestyp, ...(arr(g.partners).length === 1 ? { Partner: g.partners[0] } : {}) };
+  if (/^\d{4}-\d{2}-\d{2}$/.test(date)) fill['Incident date'] = date;
+  return { skill: 'analyze-symptom', fill };
+}
+
+/** The analyze-symptom command of a job / IDoc failure (the TCode stays the fallback). */
+export function incidentCommand(kind, g) {
+  return kind === 'job' ? `/sc4sap:analyze-symptom job ${g.job}` : `/sc4sap:analyze-symptom idoc ${g.mestyp}${arr(g.partners).length === 1 ? ` partner ${g.partners[0]}` : ''}`;
 }
 
 /** What to do next, most urgent first — each a skill or a transaction. */
@@ -250,9 +268,9 @@ export function nextSteps(m) {
   for (const g of m.dumps.groups.filter((x) => x.suspects.length || x.isNew).slice(0, 5)) {
     out.push({ kind: 'dump', text: `${g.error} in ${g.program || '?'}`, action: `/sc4sap:analyze-symptom ${g.error} in ${g.program || '?'} at ${g.last}` });
   }
-  for (const g of m.jobs.groups.slice(0, 3)) out.push({ kind: 'job', text: `${g.job} aborted ${g.count}×`, action: 'SM37 → job log' });
+  for (const g of m.jobs.groups.slice(0, 3)) out.push({ kind: 'job', text: `${g.job} aborted ${g.count}×`, action: `${incidentCommand('job', g)} (or SM37 → job log)`, next: incidentNext('job', g) });
   for (const g of m.updates.groups.slice(0, 3)) out.push({ kind: 'update', text: `${g.tcode || g.report} update error ×${g.count}`, action: 'SM13' });
-  for (const g of m.idocs.groups.slice(0, 3)) out.push({ kind: 'idoc', text: `${g.mestyp} status ${g.status} ×${g.count}`, action: 'BD87' });
+  for (const g of m.idocs.groups.slice(0, 3)) out.push({ kind: 'idoc', text: `${g.mestyp} status ${g.status} ×${g.count}`, action: `${incidentCommand('idoc', g)} (or WE02 / BD87)`, next: incidentNext('idoc', g) });
   for (const [s, t] of Object.entries(FALLBACK_TCODE)) if (!m[s].ok) out.push({ kind: 'unread', text: `${s} not readable here`, action: t });
   return out;
 }

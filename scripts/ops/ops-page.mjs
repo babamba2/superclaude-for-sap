@@ -312,7 +312,9 @@ export function renderHtml(m, lang = 'en', opts = {}) {
   const issues = m.issues.length
     ? table([t.no, t.sev, t.areaCol, t.finding, t.impact, t.action, t.owner, t.due], m.issues.map((i, n) => {
       const w = issueText(i, lang);
-      const tool = i.action && i.kind.startsWith('dump') ? `<br><code class="cmd">${esc(i.action)}</code>` : '';
+      // job / IDoc: the analyze-symptom command, marked for the web viewer's prefill link (data-sc4sap-next)
+      const tool = i.action && i.kind.startsWith('dump') ? `<br><code class="cmd">${esc(i.action)}</code>`
+        : i.next ? `<br><code class="cmd" data-sc4sap-next="${esc(JSON.stringify(i.next))}">${esc(i.command)}</code>` : '';
       return `<tr><td class="n">${n + 1}</td><td><span class="sev ${i.severity}">${esc(t.severity[i.severity])}</span></td><td>${esc(t.area[i.area])}</td><td>${esc(w.finding)}</td><td>${esc(w.impact)}</td><td>${esc(w.action)}${tool}</td><td class="ed" data-e="owner-${n + 1}"></td><td class="ed nw" data-e="due-${n + 1}"></td></tr>`;
     }), 'issues')
     : `<p class="muted">${esc(t.noIssues)}</p>`;

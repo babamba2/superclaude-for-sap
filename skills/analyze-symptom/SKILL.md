@@ -99,8 +99,8 @@ Evidence collection strategy — prefer MCP auto-query, fall back to manual TCod
 | System log | (MCP not supported) | SM21 |
 | Update error | (MCP not supported) | SM13 |
 | RFC / tRFC / qRFC | (MCP not supported) | SM58, SMQ1, SMQ2 |
-| Background job | (MCP not supported) | SM37 · aborted jobs of a period: `/sc4sap:ops-health-check` |
-| IDoc | (MCP not supported) | WE02, WE05, BD87 · IDocs in error of a period: `/sc4sap:ops-health-check` |
+| Background job | Facts first — runs, steps, concurrent aborts, dumps, changing requests — per [`job-idoc.md`](job-idoc.md) (`scripts/ops/incident.mjs`, read-only; no job log in phase 1) | SM37 · aborted jobs of a period: `/sc4sap:ops-health-check` |
+| IDoc | Facts first — header, status text, volume of the type + partner, changing requests — per [`job-idoc.md`](job-idoc.md) (`scripts/ops/incident.mjs`, read-only; no status records in phase 1) | WE02, WE05, BD87 · IDocs in error of a period: `/sc4sap:ops-health-check` |
 | OData / Fiori | (MCP not supported) | /IWFND/ERROR_LOG, /IWBEP/ERROR_LOG |
 
 **Rule**: For any MCP-supported item, never ask the user — query it directly.
