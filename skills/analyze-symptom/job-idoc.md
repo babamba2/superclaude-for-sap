@@ -11,6 +11,8 @@ Referenced from `SKILL.md` → `<Evidence_Collection_Matrix>` (rows *Background 
 
 ## Step 1b — Collect the facts (main thread, after Step 1)
 
+**The main thread runs `collect` and `build` itself (Bash), before any dispatch.** `collect` needs the main thread's active profile, run folder and approval (a sub-agent may lack the shell or the profile, depending on the host): never dispatch `sap-debugger` (or any agent) to run these commands — it receives `facts.json`, never the commands.
+
 Take the values from ARGUMENTS / label lines; ask once only for what is missing (one free-text ask): job name and the failure date (optional — default: the newest aborted run in 30 days), or the IDoc number, or the message type + partner + date. Then:
 
 ```
@@ -41,11 +43,15 @@ What `collect` reads (explicit field lists, never `SELECT *`):
 
 Result handling:
 
+- `collect` or `build` failed, or no `facts.json` was written → **stop**: say which command failed and its error, give the TCodes (SM37 / WE02 / BD87), and do not run Step 2 without facts.
+
 - `dispatcherClosed: true` (BASIS < 7.50 dispatcher without the job / IDoc tables, e.g. 7.31) → tell the user "this system's dispatcher does not support job / IDoc reads", give SM37 / WE02 / BD87, and continue Step 2 only with the user's own clues.
 - A section in `notRead` or `skipped` is never "no problem" — name it and its TCode. A flag `null` means unknown (its facts were not read or there was nothing to compare); never read it as "not the cause".
 - No failed run / no IDoc in error found → say so with what was searched (job name, window, status) and ask for the exact name / number before Step 2.
 
 ## Step 2 — Hand the facts to the debugger round
+
+Only with a `facts.json` from Step 1b. The dispatch carries its content as data; it never asks the agent to collect.
 
 Add to `<CLUES>` of the Step 2 dispatch (`workflow-steps.md`), as data:
 
