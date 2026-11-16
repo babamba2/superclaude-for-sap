@@ -24,6 +24,11 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { pathToFileURL } from 'node:url';
 
 // the literal of a text line without its character format tags and <(> protections
+/** [width, height] in mm of the spec's page — its page format turned for landscape. */
+export function pageSizeOf(spec) {
+  const [w, h] = { DINA4: [210, 297], DINA3: [297, 420], DINA5: [148, 210], LETTER: [215.9, 279.4], LEGAL: [215.9, 355.6] }[spec.pageFormat] || [210, 297];
+  return spec.orientation === 'L' ? [h, w] : [w, h];
+}
 const plainOf = (t) => String(t).replace(/<\(>(.)<\)>/g, '$1').replace(/<\/?[A-Z0-9]{0,2}>/g, '');
 // a field in place of a line's text, in the character format the planner chose
 const withField = (line, field) => {
@@ -147,7 +152,9 @@ function textItems(out, it) {
   const bottom = it.footer ? it.footer[1] : it.items[1];
   // the main window reaches down to the next window below it (page footer texts)
   const below = out.windows.filter((w) => !all.includes(w) && w.type !== 'M' && w.y >= bottom - 0.05 && w.x < right && w.x + w.w > left).map((w) => w.y);
-  const pageBottom = Math.min(...below, 287);
+  // 10 mm above the page's real bottom: 287 on A4 portrait, 200 on A4 landscape (measured 2026-11-16 —
+  // a landscape form's MAIN reached 287 mm, past its 210 mm page).
+  const pageBottom = Math.min(...below, pageSizeOf(out)[1] - 10);
   out.windows = out.windows.filter((w) => !all.includes(w) && !(w.type === 'M' && !(w.nodes || []).length));
   out.windows.push({ name: 'MAIN', type: 'M', caption: 'Items', x: r2(left), y: r2(top), w: r2(right - left + 0.5), h: r2(pageBottom - top - 0.5), nodes });
   return { textItems: it.data, header: head.length, itemTexts: items.length, footer: foot.length, removed: all.length - head.length - items.length - foot.length };
@@ -175,8 +182,7 @@ export function shapeForm(spec, shape) {
 
   // a window whose text became a field was as wide as the sample: it grows the way its text
   // is aligned — up to the next window on the line (or the page edge) — so a longer value fits
-  const PW = { DINA4: [210, 297], DINA3: [297, 420], DINA5: [148, 210], LETTER: [215.9, 279.4], LEGAL: [215.9, 355.6] }[out.pageFormat] || [210, 297];
-  const pageW = out.orientation === 'L' ? PW[1] : PW[0];
+  const pageW = pageSizeOf(out)[0];
   // what a neighbour's text covers (its window may be wider than its text)
   const extent = (o) => {
     const n = o.nodes?.length === 1 && o.nodes[0].kind === 'text' ? o.nodes[0] : null;

@@ -162,3 +162,12 @@ describe('shape-form', () => {
     expect(out.interface).toEqual([{ name: 'IS_HEAD', type: 'ZTEST_S_HEAD' }]);
   });
 });
+
+describe('shape-form page size', () => {
+  it('turns the page format for landscape, so a landscape MAIN window stops on the page', async () => {
+    const { pageSizeOf } = await import('../../scripts/smartform/shape-form.mjs');
+    expect(pageSizeOf({ pageFormat: 'DINA4', orientation: 'P' })).toEqual([210, 297]);
+    expect(pageSizeOf({ pageFormat: 'DINA4', orientation: 'L' })).toEqual([297, 210]);
+    expect(pageSizeOf({})).toEqual([210, 297]);
+  });
+});
