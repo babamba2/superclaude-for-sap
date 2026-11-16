@@ -11,7 +11,7 @@
 //   unit(v, dflt)               → a measurement ("10mm", "0.5in", "2cm", "12pt") in mm
 //   textOf(el)                  → the concatenated text of an element
 //
-// Context node kinds (CL_FP_*): context, structure, data, loop, loop-data, single-record, text-module, text,
+// Context node kinds (CL_FP_*): context, structure, folder, data, loop, loop-data, single-record, text-module, text,
 // address, graphic, alternative, unknown. Inactive nodes (STATE I) stay in the tree with active = false.
 
 const ENT = { lt: '<', gt: '>', amp: '&', quot: '"', apos: "'" };
@@ -120,7 +120,7 @@ const KIND = {
   CL_FP_CONTEXT: 'context', CL_FP_STRUCTURE: 'structure', CL_FP_DATA: 'data', CL_FP_LOOP: 'loop',
   CL_FP_LOOP_DATA: 'loop-data', CL_FP_SINGLE_RECORD: 'single-record', CL_FP_TEXT_MODULE: 'text-module',
   CL_FP_TEXT: 'text', CL_FP_INCLUDE_TEXT: 'text', CL_FP_ADDRESS: 'address', CL_FP_GRAPHIC: 'graphic',
-  CL_FP_ALTERNATIVE: 'alternative',
+  CL_FP_ALTERNATIVE: 'alternative', CL_FP_FOLDER: 'folder',
 };
 
 function conditionsOf(c) {

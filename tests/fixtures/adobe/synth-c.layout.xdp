@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Synthetic test layout (written for the sc4sap tests, no SAP content): the rich-text shape SAP's SmartForm
+     migration writes (CL_SSF_XFA_XHTML / CL_SSF_CSS) — div paragraphs with "prop : value ;" CSS, line-height,
+     margins, tab stops, xfa-tab-count spans, hidden and raised spans, and fields embedded by a relative SOM path. -->
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/">
+<template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform layout="tb" name="data">
+  <pageSet>
+    <pageArea name="P1">
+      <contentArea x="20mm" y="20mm" w="170mm" h="250mm"/>
+      <medium short="210mm" long="297mm" stock="a4"/>
+      <field name="TODAY" x="150mm" y="5mm" w="40mm" h="6mm">
+        <ui><textEdit><margin/></textEdit></ui>
+        <font typeface="Arial"/>
+        <bind match="none"/>
+        <event activity="initialize"><script contentType="application/x-formcalc">$.format.picture = DateFmt(2, $.locale);
+$.ui.picture = DateFmt(2, $.locale);
+$.assist.toolTip.oneOfChild.value = LocalDateFmt(2, $.locale);
+$ = Num2Date( date(), $.format.picture );</script></event>
+      </field>
+    </pageArea>
+  </pageSet>
+  <subform layout="tb" name="INFO" w="170mm">
+    <subform name="CUSTOMER">
+      <field name="NAME" presence="hidden"><ui><textEdit/></ui><bind match="dataRef" ref="$record.CUSTOMER.NAME"/></field>
+      <field name="AMOUNT" presence="hidden"><ui><textEdit/></ui><bind match="dataRef" ref="$record.CUSTOMER.AMOUNT"/></field>
+    </subform>
+    <draw name="INFO_TEXT" w="170mm" minH="0mm">
+      <ui><textEdit/></ui>
+      <value><exData contentType="text/html"><body xmlns="http://www.w3.org/1999/xhtml" xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/"><div style="font-family : 'Courier New' ; font-size : 12pt ; line-height : 5mm ; text-align : left ; clear : both ; tab-stop : left 3.5cm ;"><span style="font-family : 'Arial' ; font-size : 8pt ;">Clerk<span style="xfa-tab-count : 1 ;"/></span>Mr. Sample</div><div style="font-family : 'Arial' ; font-size : 10pt ; line-height : 6mm ; margin-left : 2mm ; clear : both ; tab-stop : decimal 4cm right 8cm ;"><span style="xfa-tab-count : 1 ;"/><span xfa:embed="CUSTOMER.AMOUNT"/><span style="xfa-tab-count : 1 ;"/><span xfa:embed="CUSTOMER.NAME"/></div><div style="font-family : 'Arial' ; font-size : 10pt ; line-height : 6mm ; clear : both ;">A<span style="visibility : hidden ;">HIDDEN</span>B<span style="vertical-align : super ;">2</span><span style="xfa-tab-count : 1 ;"/>C</div></body></exData></value>
+      <margin topInset="0mm" bottomInset="0mm" leftInset="0mm" rightInset="0mm"/>
+    </draw>
+  </subform>
+  <subform layout="tb" name="TABLE" w="170mm">
+    <subform layout="tb" name="WA" w="170mm">
+      <occur min="0" max="-1"/>
+      <bind match="dataRef" ref="$record.ITEMS.WA[*]"/>
+      <field name="NAME" w="60mm" h="6mm"><ui><textEdit><margin/></textEdit></ui><font typeface="Arial"/><bind match="dataRef" ref="$record.ITEMS.WA[*].NAME"/></field>
+      <field name="DAT" w="60mm" h="6mm"><ui><textEdit><margin/></textEdit></ui><font typeface="Arial"/><bind match="dataRef" ref="$record.ITEMS.WA[*].DAT"/>
+        <event activity="initialize"><script contentType="application/x-formcalc">$.format.picture = DateFmt(1, $.locale);</script></event>
+      </field>
+    </subform>
+  </subform>
+</subform>
+</template>
+</xdp:xdp>

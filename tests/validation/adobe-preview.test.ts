@@ -6,7 +6,7 @@ import { readContext, readInterface, readXdp, parseXml, unit } from '../../scrip
 // @ts-expect-error — plain .mjs script
 import { buildRecord, toXmlValue, itfParagraphs, textsFromTables, evalConditions, ddicFromDdl, contextFields } from '../../scripts/adobe/adobe-data.mjs';
 // @ts-expect-error — plain .mjs script
-import { layoutForm, imageSize } from '../../scripts/adobe/adobe-layout.mjs';
+import { layoutForm, imageSize, tabStops } from '../../scripts/adobe/adobe-layout.mjs';
 // @ts-expect-error — plain .mjs script
 import { formatValue } from '../../scripts/adobe/picture.mjs';
 // @ts-expect-error — plain .mjs script
@@ -45,6 +45,21 @@ describe('adobe-preview: readers', () => {
     expect(loop.where).toEqual([{ lop: '', op1: 'AMT', cop: 'NE', op2: 'INITIAL' }]);
     expect(loop.children[0].children.map((c: any) => [c.name, c.active])).toEqual([['NAME', true], ['DAT', true], ['AMT', true], ['MANDT', false]]);
     expect(contextFields(context).map((f: any) => f.path)).toEqual(['TITLE', 'ITEMS.DATA.NAME', 'ITEMS.DATA.DAT', 'ITEMS.DATA.AMT', 'FOOT']);
+  });
+
+  it('treats a context folder as a data group with its condition', () => {
+    const xml = '<?xml version="1.0"?><asx:abap xmlns:asx="http://www.sap.com/abapxml"><asx:values><INTERFACE>ZT</INTERFACE><CONTEXT href="#o1"/></asx:values><asx:heap xmlns:cls="x">'
+      + '<cls:CL_FP_CONTEXT id="o1"><CL_FP_NODE><NAME>CONTEXT</NAME><STATE>A</STATE><CONDITION/><CHILD href="#o2"/></CL_FP_NODE></cls:CL_FP_CONTEXT>'
+      + '<cls:CL_FP_FOLDER id="o2"><CL_FP_NODE><NAME>WIN1</NAME><STATE>A</STATE><CONDITION href="#c2"/><SUCCESSOR href="#o4"/><CHILD href="#o3"/></CL_FP_NODE><CL_FP_FOLDER/></cls:CL_FP_FOLDER>'
+      + '<cls:CL_FP_CONDITION id="c2"><CL_FP_CONDITION><CONDITIONS><SFPCONDITION><LOPERATOR/><OPERAND1>FLAG</OPERAND1><COPERATOR>EQ</COPERATOR><OPERAND2>\'X\'</OPERAND2></SFPCONDITION></CONDITIONS></CL_FP_CONDITION></cls:CL_FP_CONDITION>'
+      + '<cls:CL_FP_DATA id="o3"><CL_FP_NODE><NAME>NAME</NAME><STATE>A</STATE><CONDITION/><CHILD/></CL_FP_NODE><CL_FP_DATA><FIELD>NAME</FIELD></CL_FP_DATA></cls:CL_FP_DATA>'
+      + '<cls:CL_FP_FOLDER id="o4"><CL_FP_NODE><NAME>WIN2</NAME><STATE>A</STATE><CONDITION href="#c4"/><CHILD/></CL_FP_NODE><CL_FP_FOLDER/></cls:CL_FP_FOLDER>'
+      + '<cls:CL_FP_CONDITION id="c4"><CL_FP_CONDITION><CONDITIONS><SFPCONDITION><LOPERATOR/><OPERAND1>FLAG</OPERAND1><COPERATOR>NE</COPERATOR><OPERAND2>\'X\'</OPERAND2></SFPCONDITION></CONDITIONS></CL_FP_CONDITION></cls:CL_FP_CONDITION>'
+      + '</asx:heap></asx:abap>';
+    const { context } = readContext(xml);
+    expect(context.children.map((c: any) => c.kind)).toEqual(['folder', 'folder']);
+    const { record } = buildRecord(context, { values: { FLAG: 'X', NAME: 'Sample' } });
+    expect(record.children).toEqual([{ name: 'WIN1', children: [{ name: 'NAME', value: 'Sample', field: 'NAME' }] }]);
   });
 
   it('reads interface parameters, globals, references and coding', () => {
@@ -184,7 +199,7 @@ describe('adobe-preview: layout (XFA 2.1 legacy)', () => {
   const png = Buffer.alloc(33);
   Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 13, 0x49, 0x48, 0x44, 0x52]).copy(png);
   png.writeUInt32BE(2, 16); png.writeUInt32BE(4, 20);
-  const record = { name: 'data', children: [{ name: 'CODE', value: 'A-100' }, { name: 'LOGO', value: png.toString('base64'), image: true }] };
+  const record = { name: 'data', children: [{ name: 'CODE', value: 'A-100' }, { name: 'TINY', value: 'B-200' }, { name: 'LOGO', value: png.toString('base64'), image: true }] };
   const out = layoutForm(template, record, {});
   const t = texts(out.pages[0]);
 
@@ -203,12 +218,92 @@ describe('adobe-preview: layout (XFA 2.1 legacy)', () => {
     close(cap.y, val.y);
   });
 
+  it('starts a legacy field value 1/32 inch down when its line box does not fit the box', () => {
+    const posTop = 20 + VMETRICS.line * EM10 + 6 * PT;
+    const tiny = t.find((x: any) => x.text === 'B-200');
+    // h 5, margins 1: 3 mm < one 1.15 em line (4.06 mm) → top-aligned 1/32 inch below the content top
+    close(tiny.y, posTop + 12 + 1 + 25.4 / 32 + (VMETRICS.gap + VMETRICS.ascent + 0.125) * EM10);
+  });
+
   it('fits images by aspect and draws rounded boxes', () => {
     expect(imageSize(png.toString('base64'))).toMatchObject({ mime: 'image/png', w: 2, h: 4 });
     const img = out.pages[0].items.find((x: any) => x.type === 'image');
     close(img.w, 15); close(img.h, 30); close(img.x, 110);
     const box = out.pages[0].items.find((x: any) => x.type === 'rect' && x.stroke);
     expect(box).toMatchObject({ x: 120, y: 10, w: 60, h: 20, r: 3 });
+  });
+});
+
+describe('adobe-preview: SmartForm migration rich text (CSS divs, tabs, SOM embeds)', () => {
+  const { template } = readXdp(read('synth-c.layout.xdp'));
+  const record = { name: 'data', children: [
+    { name: 'CUSTOMER', children: [{ name: 'NAME', value: 'Example Ltd' }, { name: 'AMOUNT', value: '1234.50' }] },
+    { name: 'ITEMS', children: ['First', 'Second', 'Third'].map((n, i) => ({ name: 'WA', children: [{ name: 'NAME', value: n }, { name: 'DAT', value: `2027-03-1${i}` }] })) },
+  ] };
+  const out = layoutForm(template, record, { today: '2026-01-31' });
+  const t = texts(out.pages[0]);
+  const at = (s: string) => t.find((x: any) => x.text === s);
+
+  it('reads "prop : value ;" CSS: fonts, line-height, margins; Courier is monospaced', () => {
+    expect(tabStops('left 3.5cm decimal 4cm right 8cm')).toEqual([{ align: 'left', pos: 35 }, { align: 'decimal', pos: 40 }, { align: 'right', pos: 80 }]);
+    expect(at('Clerk')).toMatchObject({ pt: 8, font: 'Arial' });
+    expect(at('Mr. Sample')).toMatchObject({ pt: 12, font: 'Courier New' });
+    close(textWidthMm('abc', 10, { face: 'Courier New' }), 3 * 0.6 * EM10);
+    // the first paragraph is one 5 mm line (its own line-height); each baseline sits the line's ascent below its top
+    close(at('1234.50').y - at('Clerk').y, 5 + 0.728 * (10 - 12) * PT);
+  });
+
+  it('places tab stops: left, decimal (radix on the stop) and right, relative to the paragraph margin', () => {
+    close(at('Mr. Sample').x, 20 + 35);
+    close(at('1234.50').x + textWidthMm('1234', 10), 20 + 2 + 40);
+    close(at('Example Ltd').x + textWidthMm('Example Ltd', 10), 20 + 2 + 80);
+    expect(at('1234.50').role).toBe('field');
+  });
+
+  it('keeps hidden spans out but their room in, raises superscript, reports the default tab distance', () => {
+    expect(t.some((x: any) => /HIDDEN/.test(x.text))).toBe(false);
+    const a = t.find((x: any) => x.text === 'A');
+    const b = t.find((x: any) => x.text === 'B');
+    close(b.x, a.x + textWidthMm('AHIDDEN', 10));
+    expect(t.find((x: any) => x.text === '2').y).toBeLessThan(b.y);
+    expect(out.report.approximations.join(' ')).toMatch(/default distance 12.7 mm/);
+    expect(out.report.approximations.join(' ')).toMatch(/superscript/);
+    const c = t.find((x: any) => x.text === 'C');
+    close(c.x, 20 + 12.7 * Math.ceil((textWidthMm('AHIDDENB2', 10) + 0.001) / 12.7));
+  });
+});
+
+describe('adobe-preview: repeated rows with absolute [*] paths, FormCalc date patterns', () => {
+  const { template } = readXdp(read('synth-c.layout.xdp'));
+  const record = { name: 'data', children: [
+    { name: 'CUSTOMER', children: [{ name: 'NAME', value: 'X' }, { name: 'AMOUNT', value: '1' }] },
+    { name: 'ITEMS', children: ['First', 'Second', 'Third'].map((n, i) => ({ name: 'WA', children: [{ name: 'NAME', value: n }, { name: 'DAT', value: `2027-03-1${i}` }] })) },
+  ] };
+  const out = layoutForm(template, record, { today: '2026-01-31' });
+  const all = texts(out.pages[0]).map((x: any) => x.text);
+
+  it('gives every instance its own row: $record.ITEMS.WA[*].NAME inside WA[i] → WA[i]', () => {
+    expect(all.filter((s: string) => ['First', 'Second', 'Third'].includes(s))).toEqual(['First', 'Second', 'Third']);
+  });
+
+  it('reports a locale without tables instead of using en_US silently', () => {
+    const ko = layoutForm(template, record, { today: '2026-01-31', locale: 'ko_KR' });
+    expect(ko.report.approximations.join(' ')).toMatch(/locale ko_KR: no date \/ number tables here — en_US patterns used/);
+    expect(ko.report.approximations.join(' ')).toMatch(/locale ko_KR: no date \/ time patterns here/);
+    expect(out.report.approximations.join(' ')).not.toMatch(/locale/);
+  });
+
+  it('reports time() as an approximation (no silent 00:00)', () => {
+    const tpl = readXdp(read('synth-c.layout.xdp').replace('$ = Num2Date( date(), $.format.picture );', '$ = Num2Time( time(), TimeFmt(1) );')).template;
+    const r = layoutForm(tpl, record, { today: '2026-01-31' });
+    expect(r.report.approximations.join(' ')).toMatch(/time\(\): 00:00:00 used/);
+    expect(texts(r.pages[0]).map((x: any) => x.text)).toContain('12:00 AM');
+  });
+
+  it('runs DateFmt / Num2Date / date() and $.format.picture, also in master content', () => {
+    expect(all).toEqual(expect.arrayContaining(['3/10/27', '3/11/27', '3/12/27']));
+    expect(all).toContain('Jan 31, 2026'); // the master field: Num2Date(date(), DateFmt(2)) with the sample date
+    expect(out.report.approximations.join(' ')).not.toMatch(/not run|ui.picture|toolTip/);
   });
 });
 
@@ -234,6 +329,46 @@ describe('adobe-preview: score v2', () => {
     expect(r.metrics.PAGES).toBe(0);
     expect(r.passed).toBe(false);
     expect(r.failures.P1mm[0]).toMatchObject({ text: 'Fixed', error: 1.5 });
+  });
+
+  it('leaves lines in a fallback font out on both sides and lists them', () => {
+    const ref = { pages: [{ texts: [{ x: 20, y: 50, w: 20, text: 'Total ß', pt: 10, font: 'Helvetica' }, { x: 41, y: 50, w: 1, text: '€', pt: 10, font: 'MyriadPro-Regular' }, { x: 43, y: 50, w: 5, text: '100', pt: 10, font: 'Helvetica' }, { x: 20, y: 30, w: 10, text: 'Fixed', pt: 10, font: 'Helvetica' }], lines: [], rects: [], images: [] }] };
+    const cand = { pages: [{ texts: [{ x: 20, y: 49.9, w: 30, text: 'Total ß € 100', pt: 10 }, { x: 20, y: 30, w: 10, text: 'Fixed', pt: 10 }], lines: [], rects: [], images: [] }] };
+    const r = scoreLayouts(ref, cand, {});
+    expect(r.metrics).toMatchObject({ P1mm: 1, EXTRA: 0 });
+    expect(r.excluded).toEqual([{ page: 1, y: 50, text: 'Total ß € 100', font: 'MyriadPro-Regular', reason: 'reference uses a fallback font on this line' }]);
+    expect(r.counts.excluded).toBe(1);
+  });
+
+  it('never excludes a page set in another font, and measuring nothing is no pass', () => {
+    const line = (y: number, text: string, font: string, x = 20) => ({ x, y, w: 30, text, pt: 10, font });
+    // a whole form in a non-listed font: nothing excluded, a wrong candidate fails
+    const ko = { pages: [{ texts: [line(30, '주문서', 'ABCDEF+MalgunGothic'), line(40, '품목', 'ABCDEF+MalgunGothic'), line(50, '금액', 'ABCDEF+MalgunGothic-Bold')], lines: [], rects: [], images: [] }] };
+    const wrong = { pages: [{ texts: [line(30, 'other', 'Arial', 90), line(40, 'texts', 'Arial', 90), line(50, 'here', 'Arial', 90)], lines: [], rects: [], images: [] }] };
+    const r1 = scoreLayouts(ko, wrong, {});
+    expect(r1.excluded).toEqual([]);
+    expect(r1.passed).toBe(false);
+    // no reference text at all → not measurable
+    const r2 = scoreLayouts({ pages: [{ texts: [], lines: [], rects: [], images: [] }] }, { pages: [{ texts: [], lines: [], rects: [], images: [] }] }, {});
+    expect(r2.notMeasurable[0].error).toMatch(/no reference text/);
+    expect(r2.passed).toBe(false);
+    // more than a tenth of the lines excluded → not measurable
+    const mixed = (y: number) => [line(y, 'Total', 'Helvetica'), line(y, '€', 'MyriadPro-Regular', 40)];
+    const ref3 = { pages: [{ texts: [...mixed(30), ...mixed(40), line(50, 'Fine', 'Helvetica')], lines: [], rects: [], images: [] }] };
+    const r3 = scoreLayouts(ref3, { pages: [{ texts: [line(50, 'Fine', 'Arial')], lines: [], rects: [], images: [] }] }, {});
+    expect(r3.counts.excluded).toBe(2);
+    expect(r3.notMeasurable[0].error).toMatch(/more than 10 %/);
+    expect(r3.passed).toBe(false);
+  });
+
+  it('keeps a deliberate short value in another font measured (only beyond-Latin-1 substitutions are excluded)', () => {
+    const line = (y: number, text: string, font: string, x = 20) => ({ x, y, w: 10, text, pt: 10, font });
+    const ref = { pages: [{ texts: [line(30, 'Qty', 'Helvetica'), line(30, '12', 'Courier', 60), line(40, 'Fine', 'Helvetica')], lines: [], rects: [], images: [] }] };
+    const cand = { pages: [{ texts: [line(30, 'Qty', 'Arial'), line(30, '99', 'Courier', 90), line(40, 'Fine', 'Arial')], lines: [], rects: [], images: [] }] };
+    const r = scoreLayouts(ref, cand, {});
+    expect(r.excluded).toEqual([]);
+    expect(r.passed).toBe(false);
+    expect(r.failures.P1mm.map((f: any) => f.text)).toContain('12');
   });
 
   it('marks unreadable pages as not measurable instead of zero', () => {

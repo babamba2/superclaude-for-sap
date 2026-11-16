@@ -39,8 +39,21 @@ export function buildModel({ formXml, interfaceXml, layoutXdp }, sample = {}) {
   const iface = interfaceXml ? readInterface(interfaceXml) : { references: [] };
   const { template } = readXdp(layoutXdp);
   const { record, missingTexts } = buildRecord(context, sample, { references: iface.references });
-  const out = layoutForm(template, record, { locale: sample.locale || 'en_US' });
-  return { interface: ifName, pages: out.pages, report: out.report, missingTexts };
+  const out = layoutForm(template, record, { locale: sample.locale || 'en_US', today: sample.system?.['SFPSY-DATE'] });
+  // system fields the preview filled: the date is the caller's input (or today), never the SAP server's
+  const usesSystem = JSON.stringify(context || {}).match(/"field":"SFPSY-[A-Z]+"/g) || [];
+  const system = {};
+  for (const m of new Set(usesSystem)) {
+    const k = m.slice(9, -1);
+    const given = Object.keys(sample.system || {}).find((x) => x.toUpperCase() === k);
+    system[k] = given !== undefined ? { value: sample.system[given], source: 'values.json' } : { value: k === 'SFPSY-DATE' ? todayIso() : '', source: 'default' };
+  }
+  return { interface: ifName, pages: out.pages, report: out.report, missingTexts, system };
+}
+
+function todayIso() {
+  const d = new Date();
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 }
 
 function itemSvg(it, inspect) {
@@ -117,7 +130,9 @@ function main(argv) {
   writeFileSync(`${base}.html`, renderHtml(model, { inspect: argv.includes('--inspect'), title: `${f.name} preview` }));
   writeFileSync(`${base}.model.json`, JSON.stringify({ form: f.name, interface: model.interface, pages: model.pages.map((p) => ({ w: p.w, h: p.h, name: p.name, items: p.items.map((it) => (it.type === 'image' ? { ...it, data: it.data ? `[${it.data.length} base64]` : '' } : it)) })) }, null, 1));
   const report = { html: `${base}.html`, model: `${base}.model.json`, pages: model.pages.length, missingTexts: model.missingTexts,
-    approximations: [...new Set(model.report.approximations)], unbound: [...new Set(model.report.unbound)], overflow: model.report.overflow };
+    approximations: [...new Set(model.report.approximations)], unbound: [...new Set(model.report.unbound)], overflow: model.report.overflow,
+    system: model.system };
+  if (model.system['SFPSY-DATE']) report.notes = [`SFPSY-DATE = ${model.system['SFPSY-DATE'].value} (${model.system['SFPSY-DATE'].source}): the date is your input — SAP prints its own server date; give the same date in values.json "system" to compare with SAP's PDF`];
   if (argv.includes('--pdf') || argv.includes('--jpg')) {
     const browser = findBrowser();
     if (!browser) report.browser = 'no Chrome / Edge / Chromium found (set SC4SAP_CHROME): HTML only';

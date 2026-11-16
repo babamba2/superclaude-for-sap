@@ -85,7 +85,7 @@ node scripts/adobe/build-adobe-preview.mjs fields "<dir>"
 ```
 node scripts/adobe/build-adobe-preview.mjs build "<dir>" --values "<out>/values.json" --out-dir "<out>" --pdf --jpg [--inspect]
 ```
-Report JSON: `pages`, `missingTexts`, `approximations` (scripts not run, unsupported elements), `unbound` (bindings without data), `overflow`.
+Report JSON: `pages`, `missingTexts`, `approximations` (scripts not run, unsupported elements), `unbound` (bindings without data), `overflow`, `system` + `notes` (the date used is your input — SAP prints its server date).
 
 **Step 8 — Check and show.** `Read` the JPG before answering: empty areas, overlapping boxes, missing images, values cut off. Fix `values.json` and rebuild for value problems; report layout findings — never "fix" the form in the drawing.
 
@@ -93,7 +93,7 @@ Report JSON: `pages`, `missingTexts`, `approximations` (scripts not run, unsuppo
 ```
 node scripts/adobe/score-forms.mjs "<sap.pdf>" "<out>/<FORM>-preview.pdf" --model "<out>/<FORM>-preview.model.json" --profile A
 ```
-Show the metric vector (P1mm, P2mm, FIELD, FIXED, PAGES, ROWBRK, WRAP, FONT, RULE, IMG, EXTRA) and the top failures — never a single score. The thresholds are in [`../../common/adobe-forms-verification.md`](../../common/adobe-forms-verification.md).
+Show the metric vector (P1mm, P2mm, FIELD, FIXED, PAGES, ROWBRK, WRAP, FONT, RULE, IMG, EXTRA), `maxError` / `meanError`, the `excluded` lines (SAP used a fallback font — not measurable) and the top failures — never a single score. Give the SAP render the same `system` date as the preview. The thresholds are in [`../../common/adobe-forms-verification.md`](../../common/adobe-forms-verification.md).
 </Workflow>
 
 <Data_Rules>

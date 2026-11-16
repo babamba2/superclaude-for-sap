@@ -12,18 +12,22 @@
 // and alternatives joined with '|'. Unknown symbols print as they are.
 
 export const LOCALES = {
-  en_US: { months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+  en_US: { dates: ['M/D/YY', 'MMM D, YYYY', 'MMMM D, YYYY', 'EEEE, MMMM D, YYYY'], times: ['h:MM A', 'h:MM:SS A', 'h:MM:SS A Z', 'h:MM:SS A Z'], months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], ampm: ['AM', 'PM'],
     date: 'MMM D, YYYY', time: 'h:MM:SS A', group: ',', radix: '.', currency: '$' },
-  en_GB: { months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
+  en_GB: { dates: ['DD/MM/YY', 'D MMM YYYY', 'D MMMM YYYY', 'EEEE, D MMMM YYYY'], times: ['HH:MM', 'HH:MM:SS', 'HH:MM:SS Z', 'HH:MM:SS Z'], months: ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'],
     days: ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'], ampm: ['AM', 'PM'],
     date: 'D MMM YYYY', time: 'HH:MM:SS', group: ',', radix: '.', currency: '£' },
-  de_DE: { months: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
+  de_DE: { dates: ['DD.MM.YY', 'DD.MM.YYYY', 'D. MMMM YYYY', 'EEEE, D. MMMM YYYY'], times: ['HH:MM', 'HH:MM:SS', 'HH:MM:SS Z', 'HH:MM:SS Z'], months: ['Januar', 'Februar', 'März', 'April', 'Mai', 'Juni', 'Juli', 'August', 'September', 'Oktober', 'November', 'Dezember'],
     days: ['Sonntag', 'Montag', 'Dienstag', 'Mittwoch', 'Donnerstag', 'Freitag', 'Samstag'], ampm: ['AM', 'PM'],
     date: 'DD.MM.YYYY', time: 'HH:MM:SS', group: '.', radix: ',', currency: '€' },
 };
 
 const loc = (l) => LOCALES[l] || LOCALES.en_US;
+
+/** FormCalc DateFmt / TimeFmt: 0 default (medium), 1 short, 2 medium, 3 long, 4 full — with the category. */
+export function datePattern(n, locale) { const d = loc(locale).dates; return `date{${d[[1, 0, 1, 2, 3][Number(n) || 0] ?? 1]}}`; }
+export function timePattern(n, locale) { const t = loc(locale).times; return `time{${t[[1, 0, 1, 2, 3][Number(n) || 0] ?? 1]}}`; }
 const pad = (n, k) => String(n).padStart(k, '0');
 
 function parseDate(raw) {

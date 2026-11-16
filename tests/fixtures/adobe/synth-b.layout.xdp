@@ -29,6 +29,13 @@
         <caption reserve="25mm"><font typeface="Arial"/><para vAlign="middle"/><value><text>Code</text></value></caption>
         <bind match="dataRef" ref="$record.CODE"/>
       </field>
+      <field name="TINY" x="0mm" y="12mm" w="80mm" h="5mm">
+        <ui><textEdit><margin/></textEdit></ui>
+        <font typeface="Arial"/>
+        <margin topInset="1mm" bottomInset="1mm" leftInset="1mm" rightInset="1mm"/>
+        <para vAlign="middle"/>
+        <bind match="dataRef" ref="$record.TINY"/>
+      </field>
       <field name="LOGO" x="100mm" y="0mm" w="40mm" h="30mm">
         <ui><imageEdit/></ui>
         <value><image aspect="fit"/></value>

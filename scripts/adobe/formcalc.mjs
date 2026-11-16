@@ -8,12 +8,19 @@
 // FormCalc subset: var, assignment, if / then / elseif / else / endif, for … upto | downto … step … do … endfor,
 // while … do … endwhile, expressions (+ - * / & | and or not, eq ne lt gt le ge == <> < > <= >=), strings, numbers,
 // calls Concat Len Upper Lower Left Right Substr Sum Abs Round Floor Ceil Max Min Num2Str Str HasValue Exists,
+// DateFmt TimeFmt LocalDateFmt LocalTimeFmt (patterns with their category) Num2Date Num2Time Date2Num date() time(),
 // SOM references ($, $form, names, name[i], .all, .length, .rawValue, .presence, .break.before / startNew,
-// .occur.min, .instanceManager.removeInstance(i) / .count).
+// .occur.min, .instanceManager.removeInstance(i) / .count, .format.picture, .locale; ui.* / assist.* are ignored).
 // JavaScript: this.rawValue = xfa.layout.page(this) / xfa.layout.pageCount(); anything else is reported as an
 // approximation (not run).
 
 import { kids, kid, textOf } from './read-adobe.mjs';
+import { datePattern, formatPicture, LOCALES, timePattern } from './picture.mjs';
+
+/** FormCalc day numbers count from 1900-01-01 = 1. */
+const DAY0 = Date.UTC(1899, 11, 31);
+const isoOf = (day) => new Date(DAY0 + day * 86400000).toISOString().slice(0, 10);
+const dayOf = (iso) => Math.round((Date.UTC(Number(iso.slice(0, 4)), Number(iso.slice(-5, -3)) - 1, Number(iso.slice(-2))) - DAY0) / 86400000);
 
 // ── tokens ──
 function lex(src) {
@@ -223,6 +230,20 @@ class Interp {
       case 'num2str': case 'str': return String(a[0] ?? '');
       case 'hasvalue': return String(a[0] ?? '').trim() ? 1 : 0;
       case 'exists': return a[0] !== undefined && a[0] !== '' ? 1 : 0;
+      // date / time patterns of the locale (returned with their category) and today's date / the time
+      case 'datefmt': case 'localdatefmt': this.knownLocale(a[1]); return datePattern(a[0], a[1] || this.L.locale);
+      case 'timefmt': case 'localtimefmt': this.knownLocale(a[1]); return timePattern(a[0], a[1] || this.L.locale);
+      case 'date': {
+        const t = this.L.today ? this.L.today.replace(/^(\d{4})-?(\d{2})-?(\d{2})$/, '$1-$2-$3') : new Date().toISOString().slice(0, 10);
+        if (!this.L.today) this.report.approximations.push('FormCalc date(): today of this computer (no SFPSY-DATE in the sample)');
+        return dayOf(t);
+      }
+      case 'time': this.report.approximations.push('FormCalc time(): 00:00:00 used (the preview has no clock time)'); return 0;
+      case 'num2date': return formatPicture(isoOf(Number(a[0]) || 0), String(a[1] || datePattern(0, this.L.locale)), 'date', this.L.locale);
+      case 'num2time': { const ms = Number(a[0]) || 0; const h = Math.floor(ms / 3600000), mi = Math.floor(ms / 60000) % 60, se = Math.floor(ms / 1000) % 60;
+        const p2 = (v) => String(v).padStart(2, '0');
+        return formatPicture(`${p2(h)}:${p2(mi)}:${p2(se)}`, String(a[1] || timePattern(0, this.L.locale)), 'time', this.L.locale); }
+      case 'date2num': return dayOf(String(a[0] || ''));
       default: throw new Error(`FormCalc: function ${name} not supported`);
     }
   }
@@ -258,7 +279,7 @@ class Interp {
       if (!isNode(cur)) return '';
       if (nm === 'all') { cur = { list: this.siblings(cur) }; continue; }
       if (nm === 'rawValue' || nm === 'presence' || nm === 'formattedValue') { cur = { node: cur, prop: nm }; continue; }
-      if (['break', 'occur', 'instanceManager', 'keep', 'border', 'font', 'para'].includes(nm)) { cur = { node: cur, prop: nm }; continue; }
+      if (['break', 'occur', 'instanceManager', 'keep', 'border', 'font', 'para', 'format', 'ui', 'assist', 'locale'].includes(nm)) { cur = { node: cur, prop: nm }; continue; }
       if (nm === 'index') return cur.index || 0;
       if (nm === 'name') return cur.name;
       const kids2 = cur.children.filter((c) => c.name === nm && !c.removed);
@@ -286,6 +307,8 @@ class Interp {
     if (prop === 'instanceManager.count') return this.siblings(node).length;
     if (prop === 'occur.min') return node.over.occurMin ?? '';
     if (prop === 'break.before') return node.over.breakBefore ?? 'auto';
+    if (prop === 'format.picture') return node.over.picture ?? textOf(kid(kid(node.t, 'format'), 'picture')).trim();
+    if (prop === 'locale') return this.L.locale;
     return '';
   }
   method({ node, prop, args }) {
@@ -315,9 +338,14 @@ class Interp {
       case 'break.before': n.over.breakBefore = String(value); break;
       case 'break.startNew': n.over.startNew = String(value) === '1'; break;
       case 'occur.min': n.over.occurMin = Number(value); break;
-      default: this.unsupported(`set ${holder.prop}`);
+      case 'format.picture': n.over.picture = String(value); break;
+      default:
+        // the input picture and tool tips do not print
+        if (/^(ui|assist)\./.test(holder.prop)) break;
+        this.unsupported(`set ${holder.prop}`);
     }
   }
+  knownLocale(l) { const k = String(l || this.L.locale || ''); if (k && !LOCALES[k]) this.report.approximations.push(`locale ${k}: no date / time patterns here — en_US used`); }
   unsupported(what) { this.report.approximations.push(`script: ${what} not run`); }
 }
 

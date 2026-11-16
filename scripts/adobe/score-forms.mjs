@@ -15,6 +15,8 @@
 // FIELD (bound values found and matched ≤ 2 mm), FIXED (fixed texts found ≤ 2 mm), PAGES, ROWBRK (repeated row values
 // on the same page), WRAP (lines of multi-line texts), FONT (size ± 0.5 pt, bold equal), RULE (lines: direction,
 // position ≤ 0.5 mm, length ± 1 mm), IMG (IoU ≥ 0.9), EXTRA (candidate texts the reference does not have).
+// Lines where SAP's PDF uses a fallback font (a character its font lacks) are not measurable: left out on both
+// sides and listed under `excluded`; counts carry maxError / meanError of the matched texts.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -85,6 +87,35 @@ const iou = (p, q) => {
   return i / (p.w * p.h + q.w * q.h - i || 1);
 };
 
+// font family of a PDF text piece: subset prefix and style suffix dropped (ABCDEF+Helvetica-Bold → Helvetica)
+const family = (f) => String(f || '').replace(/^[A-Z]{6}\+/, '').replace(/[-,](Bold|Italic|Oblique|BoldItalic|BoldOblique|Regular|Roman|MT|PS|PSMT)+$/i, '').replace(/(MT|PSMT|PS)$/, '').toLowerCase();
+
+/** Baselines of a reference page where ADS substituted a fallback font for a few characters: a line that mixes
+ *  two font families, the minority family covering at most 3 characters with one beyond Latin-1 (measured: '€' in Helvetica printed in
+ *  Myriad Pro). A page set entirely in another font (a Korean form, a corporate font) is never excluded. */
+function fallbackLines(page) {
+  const out = [];
+  const texts = (page?.texts || []).filter((t) => norm(t.text));
+  const seen = new Set();
+  for (const t of texts) {
+    if (seen.has(t)) continue;
+    const line = texts.filter((x) => Math.abs(x.y - t.y) < 0.6);
+    for (const x of line) seen.add(x);
+    const chars = new Map();
+    for (const x of line) chars.set(family(x.font), (chars.get(family(x.font)) || 0) + norm(x.text).replace(/\s/g, '').length);
+    if (chars.size < 2) continue;
+    const fams = [...chars.entries()].sort((a, b) => b[1] - a[1]);
+    // a substitution only: the minority piece carries a character beyond Latin-1 (a glyph the main font lacks:
+    // '€', '₩', CJK …); a deliberate short value in another font ('12' in Courier) stays measured
+    const beyond = (fam) => line.some((x) => family(x.font) === fam && [...norm(x.text)].some((ch) => ch.codePointAt(0) > 0xff));
+    const minority = fams.slice(1).filter(([fam, n]) => n <= 3 && beyond(fam));
+    if (!minority.length) continue;
+    const piece = line.find((x) => family(x.font) === minority[0][0]);
+    out.push({ y: t.y, text: norm(line.sort((a, b) => a.x - b.x).map((x) => x.text).join(' ')), font: piece.font });
+  }
+  return out;
+}
+
 const ratio = (ok, n) => (n ? ok / n : 1);
 
 export function scoreLayouts(ref, cand, { model = null, profile = 'A' } = {}) {
@@ -95,17 +126,25 @@ export function scoreLayouts(ref, cand, { model = null, profile = 'A' } = {}) {
   let refTexts = 0, p1 = 0, p2 = 0, fontOk = 0, fontN = 0, extra = 0;
   let fieldN = 0, fieldOk = 0, fixedN = 0, fixedOk = 0, rowN = 0, rowOk = 0, wrapN = 0, wrapOk = 0;
   let ruleN = 0, ruleOk = 0, imgN = 0, imgOk = 0;
+  let errSum = 0, errMax = 0, errN = 0;
+  const excluded = [];
   for (let p = 0; p < n; p++) {
     // a page only one side has: its texts count as unmatched / extra (PAGES says the counts differ)
     const rp = ref.pages[p] || { texts: [], lines: [], rects: [], images: [] }, cp = cand.pages[p] || { texts: [], lines: [], rects: [], images: [] };
     if (rp.error || cp.error) { notMeasurable.push({ page: p + 1, error: rp.error || cp.error }); continue; }
-    const R = runsOf(rp), C = runsOf(cp);
+    // lines where the reference uses a fallback font (ADS prints a character its font lacks, e.g. '€' in
+    // Helvetica, in Myriad Pro with other widths): not measurable — left out on both sides and listed
+    const fb = fallbackLines(rp);
+    const onFb = (y) => fb.some((f) => Math.abs(f.y - y) < 0.6);
+    for (const f of fb) excluded.push({ page: p + 1, y: f.y, text: f.text.slice(0, 60), font: f.font, reason: 'reference uses a fallback font on this line' });
+    const R = runsOf(rp).filter((r) => !onFb(r.y)), C = runsOf(cp).filter((c) => !onFb(c.y));
     const pairs = pairTexts(R, C);
     const byRef = new Map(pairs.map((q) => [q.i, q]));
     const byCand = new Map(pairs.map((q) => [q.j, q]));
     refTexts += R.length;
     R.forEach((r, i) => {
       const q = byRef.get(i);
+      if (q) { errSum += q.d; errMax = Math.max(errMax, q.d); errN++; }
       if (q && q.d <= 1.0) p1++;
       if (q && q.d <= 2.0) p2++;
       if (!q || q.d > 1.0) failures.P1mm.push({ page: p + 1, text: r.text.slice(0, 60), expected: [r.x, r.y], actual: q ? [C[q.j].x, C[q.j].y] : null, error: q ? +q.d.toFixed(2) : null });
@@ -121,7 +160,7 @@ export function scoreLayouts(ref, cand, { model = null, profile = 'A' } = {}) {
     const items = (model?.pages?.[p]?.items || []).filter((t) => t.type === 'text');
     const found = (t, tol) => R.some((r) => r.text.includes(norm(t.text)) && Math.abs(r.x - t.x) <= tol + (r.text === norm(t.text) ? 0 : 200) && Math.abs(r.y - t.y) <= tol);
     for (const t of items) {
-      if (!norm(t.text)) continue;
+      if (!norm(t.text) || onFb(t.y)) continue;
       if (t.role === 'field') {
         fieldN++;
         if (found(t, 2)) fieldOk++; else failures.FIELD.push({ page: p + 1, som: t.som, text: norm(t.text).slice(0, 40), at: [+t.x.toFixed(2), +t.y.toFixed(2)] });
@@ -152,11 +191,16 @@ export function scoreLayouts(ref, cand, { model = null, profile = 'A' } = {}) {
     PAGES: ref.pages.length === cand.pages.length ? 1 : 0, ROWBRK: ratio(rowOk, rowN), WRAP: ratio(wrapOk, wrapN),
     FONT: ratio(fontOk, fontN), RULE: ratio(ruleOk, ruleN), IMG: ratio(imgOk, imgN), EXTRA: extra,
   };
-  const counts = { refTexts, fieldN, fixedN, rowN, wrapN, fontN, ruleN, imgN, refPages: ref.pages.length, candPages: cand.pages.length };
+  const counts = { excluded: excluded.length, maxError: +errMax.toFixed(3), meanError: errN ? +(errSum / errN).toFixed(3) : 0, refTexts, fieldN, fixedN, rowN, wrapN, fontN, ruleN, imgN, refPages: ref.pages.length, candPages: cand.pages.length };
   const pass = {};
   for (const [k, v] of Object.entries(th)) pass[k] = k === 'EXTRA' ? metrics.EXTRA <= v : metrics[k] >= v - 1e-9;
   for (const k of Object.keys(failures)) failures[k] = failures[k].slice(0, 20);
-  return { profile, pages: n, metrics, counts, pass, passed: Object.values(pass).every(Boolean) && !notMeasurable.length, failures, notMeasurable };
+  // a score that measured (almost) nothing is no pass: no reference text left, or more than a tenth of the reference
+  // lines excluded as fallback-font lines
+  const refLines = Math.max(1, refTexts + excluded.length);
+  if (notMeasurable.length) { /* already not measurable */ } else if (refTexts === 0) notMeasurable.push({ page: 0, error: 'no reference text left to measure' });
+  else if (excluded.length / refLines > 0.1) notMeasurable.push({ page: 0, error: `${excluded.length} of ${refLines} reference lines excluded (fallback fonts) — more than 10 %` });
+  return { profile, pages: n, metrics, counts, excluded: excluded.slice(0, 50), pass, passed: Object.values(pass).every(Boolean) && !notMeasurable.length, failures, notMeasurable };
 }
 
 function main(argv) {

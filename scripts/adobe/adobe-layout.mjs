@@ -16,11 +16,12 @@
 // fields), images (base64 or data image fields); scripts via formcalc.mjs (the subset there), else approximation.
 
 import { kids, kid, textOf, unit } from './read-adobe.mjs';
-import { formatValue } from './picture.mjs';
+import { formatValue, LOCALES } from './picture.mjs';
 import { runScripts } from './formcalc.mjs';
 import { textWidthMm, VMETRICS } from '../forms-common/metrics.mjs';
 
 const PT = 25.4 / 72;
+const LEGACY_VINSET = 25.4 / 32; // XFA 2.1 field values: 1/32 inch above and below the text
 const CONTAINERS = new Set(['subform', 'subformSet', 'field', 'draw', 'exclGroup', 'area', 'pageSet', 'pageArea', 'contentArea']);
 
 // ── template access ────────────────────────────────────────────────────────────────
@@ -52,7 +53,7 @@ function fontOf(el) {
   const f = prop(el, 'font');
   return {
     face: attr(f, 'typeface', 'Arial'),
-    pt: unit(attr(f, 'size', '10pt'), 10 * PT) / PT,
+    pt: Math.round((unit(attr(f, 'size', '10pt'), 10 * PT) / PT) * 1000) / 1000,
     bold: attr(f, 'weight', 'normal') === 'bold',
     italic: attr(f, 'posture', 'normal') === 'italic',
     underline: attr(f, 'underline', '0') !== '0',
@@ -136,6 +137,15 @@ function breakOf(el) {
 }
 
 // ── data tree helpers ─────────────────────────────────────────────────────────────
+// parents of the data tree's nodes (the record has no back links; set in layoutForm)
+const DATA_PARENT = new WeakMap();
+function setDataParents(n) { for (const c of n.children || []) { DATA_PARENT.set(c, n); setDataParents(c); } }
+/** Is `node` the data context or one of its ancestors? */
+function inChain(ctx, node) {
+  for (let p = ctx; p; p = DATA_PARENT.get(p)) if (p === node) return true;
+  return false;
+}
+
 function resolveRef(ref, ctx, root, starIndex) {
   let r = String(ref || '').trim();
   if (!r) return [];
@@ -157,6 +167,10 @@ function resolveRef(ref, ctx, root, starIndex) {
     for (const n of cur) {
       const hits = (n.children || []).filter((c) => c.name === m[1]);
       if (m[2] === '*') {
+        // inside a repeated instance, a [*] step of an absolute path takes that instance (ADS: the current
+        // instance of the enclosing repeated subform), e.g. $record.TABLE.WA[*].FIELD in row 3 → WA[2]
+        const own = hits.find((h) => inChain(ctx, h));
+        if (own) { next.push(own); stars++; continue; }
         if (stars === 0 && starIndex !== undefined) { if (hits[starIndex]) next.push(hits[starIndex]); }
         else next.push(...hits);
         stars++;
@@ -288,14 +302,31 @@ function parseStyle(s) {
 
 function runFont(base, st) {
   const f = { ...base };
-  if (st['font-size']) f.pt = unit(st['font-size'], f.pt * PT) / PT;
+  if (st['font-size']) f.pt = Math.round((unit(st['font-size'], f.pt * PT) / PT) * 1000) / 1000;
   if (st['font-weight']) f.bold = /bold|[6-9]00/.test(st['font-weight']);
   if (st['font-style']) f.italic = /italic|oblique/.test(st['font-style']);
   if (st['font-family']) f.face = st['font-family'].replace(/['"]/g, '').split(',')[0].trim();
   if (st.color) f.color = st.color;
   if (st['text-decoration']) f.underline = /underline/.test(st['text-decoration']);
+  if (st['vertical-align']) f.valign = /super|top/.test(st['vertical-align']) ? 'super' : /sub|bottom/.test(st['vertical-align']) ? 'sub' : '';
+  if (st.visibility) f.hidden = /hidden/.test(st.visibility);
   return f;
 }
+
+/** CSS tab stops ("tab-stop : left 3.5cm decimal 4cm …") → [{ align, pos (mm) }] sorted by position. */
+export function tabStops(css) {
+  const out = [];
+  const t = String(css || '').trim().split(/\s+/);
+  for (let i = 0; i + 1 < t.length; i += 2) {
+    const align = /^(left|right|center|decimal)$/i.test(t[i]) ? t[i].toLowerCase() : 'left';
+    const pos = unit(t[i + 1], NaN);
+    if (Number.isFinite(pos)) out.push({ align, pos });
+  }
+  return out.sort((a, b) => a.pos - b.pos);
+}
+
+/** The XFA default tab distance is not known from SAP's sources; half an inch is used and reported. */
+const DEFAULT_TAB = 12.7;
 
 /** Paragraphs of a rich data value (text modules): a newline is a line break, style a CSS string. */
 function dataParagraphs(rich, font) {
@@ -312,7 +343,7 @@ function dataParagraphs(rich, font) {
 function richParagraphs(body, font, para, lookup) {
   const paras = [];
   let cur = null;
-  const startPara = (st) => { cur = { runs: [], st }; paras.push(cur); };
+  const startPara = (st) => { cur = { runs: [], st, tabs: tabStops(st['tab-stop']) }; paras.push(cur); };
   const walk = (el, f, hard) => {
     for (const c of el.children || []) {
       if (c.tag === '#text') {
@@ -331,6 +362,12 @@ function richParagraphs(body, font, para, lookup) {
       } else if (tag === 'br') {
         if (!cur) startPara({});
         cur.runs.push({ br: true, font: f });
+      } else if (tag === 'span' && st['xfa-tab-count'] !== undefined) {
+        // SAP's migration writes every ",," as its own <span style="xfa-tab-count : 1 ;"/>
+        if (!cur) startPara({});
+        const k = Math.max(1, Math.min(20, Number(st['xfa-tab-count']) || 1));
+        for (let i = 0; i < k; i++) cur.runs.push({ tab: true, text: '', font: runFont(f, st) });
+        walk(c, runFont(f, st), hard);
       } else if (tag === 'span' && (c.attrs['xfa:embed'] || c.attrs.embed)) {
         if (!cur) startPara({});
         cur.runs.push({ text: lookup(String(c.attrs['xfa:embed'] || c.attrs.embed)), font: runFont(f, st), embed: true });
@@ -353,7 +390,7 @@ function richParagraphs(body, font, para, lookup) {
   }
   // trim the collapsible blanks HTML white space adds at paragraph starts / ends
   for (const p of paras) {
-    while (p.runs.length && !p.runs[0].br && !p.runs[0].embed && !p.runs[0].text.replace(/ /g, '')) p.runs.shift();
+    while (p.runs.length && !p.runs[0].br && !p.runs[0].embed && !p.runs[0].tab && !p.runs[0].text.replace(/ /g, '')) p.runs.shift();
     if (p.runs[0] && p.runs[0].text) p.runs[0] = { ...p.runs[0], text: p.runs[0].text.replace(/^ +/, '') };
     const l = p.runs[p.runs.length - 1];
     if (l && l.text) p.runs[p.runs.length - 1] = { ...l, text: l.text.replace(/ +$/, '') };
@@ -368,24 +405,36 @@ function trimTail(line) {
   if (!last || last.br) return;
   const t = last.text.replace(/[  ]+$/, '');
   if (t !== last.text) {
-    line.w -= textWidthMm(last.text.slice(t.length), last.font.pt, { bold: last.font.bold });
+    line.w -= textWidthMm(last.text.slice(t.length), last.font.pt, { bold: last.font.bold, face: last.font.face });
     if (t) last.text = t; else line.runs.pop();
   }
 }
 
 /** Break paragraphs into lines for a width: [{ runs: [{ text, font }], w, para }] */
-function wrapParagraphs(paras, width, wrap) {
+function wrapParagraphs(paras, width0, wrap) {
   const lines = [];
   for (const p of paras) {
+    const st = p.st || {};
+    const width = width0 - (st['margin-left'] ? unit(st['margin-left']) : 0) - (st['margin-right'] ? unit(st['margin-right']) : 0);
     let line = { runs: [], w: 0, para: p, first: true };
     const push = () => { lines.push(line); line = { runs: [], w: 0, para: p, first: false }; };
     for (const r of p.runs) {
       line.font0 = line.font0 || r.font;
       if (r.br) { trimTail(line); push(); line.font0 = r.font; continue; }
+      if (r.tab) {
+        // the tab takes the room up to the next stop (exact alignment of right / centre / decimal stops is done
+        // when the line is placed); past the last stop the default distance
+        const stop = (p.tabs || []).find((t) => t.pos > line.w + 0.01);
+        const pos = stop ? stop.pos : (Math.floor(line.w / DEFAULT_TAB) + 1) * DEFAULT_TAB;
+        const tw = Math.max(0, pos - line.w);
+        line.runs.push({ tab: true, text: '', font: r.font, stop: stop || { align: 'left', pos, dflt: true } });
+        line.w += tw;
+        continue;
+      }
       const words = String(r.text).split(/( +)/);
       for (const w of words) {
         if (w === '') continue;
-        const ww = textWidthMm(w, r.font.pt, { bold: r.font.bold });
+        const ww = textWidthMm(w, r.font.pt, { bold: r.font.bold, face: r.font.face });
         const space = /^ +$/.test(w);
         if (wrap && !space && line.w + ww > width + 0.01 && line.w > 0) {
           // drop trailing blanks of the full line
@@ -397,14 +446,14 @@ function wrapParagraphs(paras, width, wrap) {
           // a word longer than the line breaks by characters
           let chunk = '';
           for (const ch of w) {
-            const cw = textWidthMm(chunk + ch, r.font.pt, { bold: r.font.bold });
-            if (cw > width && chunk) { line.runs.push({ text: chunk, font: r.font }); line.w += textWidthMm(chunk, r.font.pt, { bold: r.font.bold }); push(); chunk = ch; } else chunk += ch;
+            const cw = textWidthMm(chunk + ch, r.font.pt, { bold: r.font.bold, face: r.font.face });
+            if (cw > width && chunk) { line.runs.push({ text: chunk, font: r.font }); line.w += textWidthMm(chunk, r.font.pt, { bold: r.font.bold, face: r.font.face }); push(); chunk = ch; } else chunk += ch;
           }
-          if (chunk) { line.runs.push({ text: chunk, font: r.font }); line.w += textWidthMm(chunk, r.font.pt, { bold: r.font.bold }); }
+          if (chunk) { line.runs.push({ text: chunk, font: r.font }); line.w += textWidthMm(chunk, r.font.pt, { bold: r.font.bold, face: r.font.face }); }
           continue;
         }
         const prev = line.runs[line.runs.length - 1];
-        if (prev && prev.font === r.font) prev.text += w; else line.runs.push({ text: w, font: r.font });
+        if (prev && !prev.tab && prev.font === r.font && !!prev.embed === !!r.embed) prev.text += w; else line.runs.push({ text: w, font: r.font, ...(r.embed ? { embed: true } : {}) });
         line.w += ww;
       }
     }
@@ -473,7 +522,7 @@ function contentOf(n, ctx) {
   if (n.kind === 'draw') text = String(raw ?? '');
   else {
     const type = vi.type === 'text' || vi.type === 'exData' ? 'text' : vi.type;
-    const pic = pictureOf(t, 'format');
+    const pic = n.over.picture ?? pictureOf(t, 'format');
     text = formatValue(raw, { type, picture: pic, fracDigits: vi.fracDigits, locale: ctx.locale });
     if (vi.maxChars > 0 && text.length > vi.maxChars) text = text.slice(0, vi.maxChars);
   }
@@ -492,8 +541,10 @@ function shapeText(content, width, multi, factor = VMETRICS.line) {
   lines.forEach((l, i) => {
     const pt = fpt(l);
     // Arial (TrueType) lines are 1.15 em; the PDF standard Helvetica (Type 1, no line gap) 1.2 em
-    const lh = para.lineHeight > 0 ? para.lineHeight : (/^helvetica$/i.test(face(l)) ? 1.2 : factor) * pt * PT;
     const st = l.para.st || {};
+    // a paragraph's own CSS line-height (SAP's migration: the SmartStyle line spacing) wins
+    const lh = st['line-height'] && unit(st['line-height'], 0) > 0 ? unit(st['line-height'])
+      : para.lineHeight > 0 ? para.lineHeight : (/^helvetica$/i.test(face(l)) ? 1.2 : factor) * pt * PT;
     const above = l.first ? (st['margin-top'] ? unit(st['margin-top']) : 0) + (st['space-before'] ? unit(st['space-before']) : 0) + (i > 0 || para.spaceAbove ? para.spaceAbove : 0) : 0;
     h += above;
     out.push({ ...l, pt, top: h, lh });
@@ -585,12 +636,32 @@ class Layout {
   }
 
   embed(ref, n) {
-    const id = String(ref).replace(/^#/, '');
-    const hit = this.byTemplateId?.get(id) || this.findField(id, n);
+    const r = String(ref);
+    const id = r.replace(/^#/, '');
+    const hit = (!r.startsWith('#') && this.somFind(r, n)) || this.byTemplateId?.get(id) || this.findField(id, n);
     if (!hit) return '';
     if (hit.over.rawValue !== undefined) return String(hit.over.rawValue);
     const c = contentOf(hit, this);
     return c.text ?? '';
+  }
+
+  /** A relative SOM path (SAP's migration: <span xfa:embed="WA_BOOKING.FORCURAM"/>) from the node's parent up. */
+  somFind(path, from) {
+    const segs = String(path).replace(/^\$\.?/, '').split('.').filter(Boolean).map((sg) => {
+      const m = /^([^[\]]+)(?:\[(\d+)\])?$/.exec(sg);
+      return m ? { name: m[1], idx: m[2] === undefined ? 0 : Number(m[2]) } : null;
+    });
+    if (!segs.length || segs.some((sg) => !sg)) return null;
+    for (let p = from?.parent; p; p = p.parent) {
+      let cur = p;
+      for (const sg of segs) {
+        const hits = (cur.children || []).filter((c) => c.name === sg.name);
+        cur = hits[sg.idx] || null;
+        if (!cur) break;
+      }
+      if (cur && cur !== p) return cur;
+    }
+    return null;
   }
 
   findField(id, from) {
@@ -646,7 +717,7 @@ class Layout {
       if (h === null) {
         // grown height: the text block (last line to its descent), plus the line gap a plain multi-line field starts with
         const lead = n.kind === 'field' && ui.multiLine && !content.rich && n.shape?.lines.length ? VMETRICS.gap * n.shape.lines[0].pt * PT : 0;
-        const textH = content.image ? 0 : this.legacy ? n.shape.h : blockHeight(n.shape) + lead + (n.shape?.after || 0);
+        const textH = content.image ? 0 : this.legacy ? n.shape.h + (n.kind === 'field' ? 2 * LEGACY_VINSET : 0) : blockHeight(n.shape) + lead + (n.shape?.after || 0);
         h = Math.min(maxH, Math.max(minH, textH + m.t + m.b + capH + um.t + um.b));
       }
       n.w = w; n.h = h;
@@ -820,6 +891,9 @@ class Layout {
       // top; a field's value and caption sit 1/8 em lower still (measured on SAP's PDFs)
       const blockH = shape.h - (shape.after || 0);
       asc = (VMETRICS.gap + VMETRICS.ascent) * em + (n?.kind === 'field' ? 0.125 * em : 0);
+      // a legacy field value keeps 1/32 inch above and below: centred text does not move, text that fills or
+      // overflows its box starts 1/32 inch lower (measured: rows and a grown rich-text field, 10 pt and 6 pt)
+      if (n?.kind === 'field' && !caption) { cy += LEGACY_VINSET; ch -= 2 * LEGACY_VINSET; }
       if (para.vAlign === 'middle') top = cy + Math.max(0, (ch - blockH) / 2);
       else if (para.vAlign === 'bottom') top = cy + Math.max(0, ch - blockH);
       else top = cy;
@@ -842,8 +916,11 @@ class Layout {
       const text = l.runs.map((r) => r.text).join('');
       if (!text.trim()) continue;
       const baseline = top + l.top + (l === first ? asc : (this.legacy ? asc / em * l.pt * PT : VMETRICS.ascent * l.pt * PT));
-      const avail = cw - para.marginLeft - para.marginRight - (l.first ? para.textIndent : 0);
-      let x = cx + para.marginLeft + (l.first ? para.textIndent : 0);
+      const pst = l.para.st || {};
+      const pml = pst['margin-left'] ? unit(pst['margin-left']) : 0, pmr = pst['margin-right'] ? unit(pst['margin-right']) : 0;
+      const avail = cw - para.marginLeft - para.marginRight - pml - pmr - (l.first ? para.textIndent : 0);
+      let x = cx + para.marginLeft + pml + (l.first ? para.textIndent : 0);
+      const left0 = x;
       const lead0 = l.runs[0]?.text.match(/^ */)[0] || '';
       const lw = l.w;
       const st = l.para.st || {};
@@ -856,25 +933,49 @@ class Layout {
         const ri = s.indexOf('.');
         const intPart = ri < 0 ? s : s.slice(0, ri);
         const f0 = l.runs[0].font;
-        x = cx + cw - para.radixOffset - textWidthMm(intPart, f0.pt, { bold: f0.bold });
+        x = cx + cw - para.radixOffset - textWidthMm(intPart, f0.pt, { bold: f0.bold, face: f0.face });
       }
       let rx = x;
       const merged = [];
       for (const r of l.runs) {
         const prev = merged[merged.length - 1];
-        if (prev && prev.font.pt === r.font.pt && prev.font.bold === r.font.bold && prev.font.italic === r.font.italic && prev.font.face === r.font.face && prev.font.color === r.font.color && !!prev.font.underline === !!r.font.underline) prev.text += r.text;
+        if (r.tab) { merged.push({ tab: true, text: '', font: r.font, stop: r.stop }); continue; }
+        if (prev && !prev.tab && prev.font.pt === r.font.pt && !!prev.font.hidden === !!r.font.hidden && (prev.font.valign || '') === (r.font.valign || '') && prev.font.bold === r.font.bold && prev.font.italic === r.font.italic && prev.font.face === r.font.face && prev.font.color === r.font.color && !!prev.font.underline === !!r.font.underline) prev.text += r.text;
         else merged.push({ text: r.text, font: r.font });
       }
-      for (const r of merged) {
+      for (let mi = 0; mi < merged.length; mi++) {
+        const r = merged[mi];
+        if (r.tab) {
+          // the text up to the next tab is aligned on the stop: left starts, right / centre end / centre there,
+          // decimal puts the radix there; text already past a stop is not pulled back
+          const seg = [];
+          for (let k = mi + 1; k < merged.length && !merged[k].tab; k++) seg.push(merged[k]);
+          const segText = seg.map((q) => q.text).join('');
+          const segW = seg.reduce((sum, q) => sum + textWidthMm(q.text, q.font.pt, { bold: q.font.bold, face: q.font.face }), 0);
+          const pos = left0 + r.stop.pos;
+          let start = pos;
+          if (r.stop.align === 'right') start = pos - segW;
+          else if (r.stop.align === 'center') start = pos - segW / 2;
+          else if (r.stop.align === 'decimal') {
+            const ri = segText.search(/[.,](?=\d+\D*$)/);
+            const f0 = seg[0]?.font || r.font;
+            start = pos - textWidthMm(ri < 0 ? segText.replace(/\s+$/, '') : segText.slice(0, ri), f0.pt, { bold: f0.bold, face: f0.face });
+          }
+          if (r.stop.dflt) this.report.approximations.push('tab past the last tab stop: default distance 12.7 mm assumed');
+          rx = Math.max(rx, start);
+          continue;
+        }
         const piece = r.text;
-        const pw = textWidthMm(piece, r.font.pt, { bold: r.font.bold });
+        const pw = textWidthMm(piece, r.font.pt, { bold: r.font.bold, face: r.font.face });
         const trimmed = piece.replace(/^ +/, '');
         const skip = piece.length - trimmed.length;
-        const sx = rx + textWidthMm(piece.slice(0, skip), r.font.pt, { bold: r.font.bold });
-        if (trimmed.trim()) items.push({ type: 'text', x: sx, y: baseline, text: trimmed.replace(/ +$/, '').replace(/ /g, ' '), pt: r.font.pt, bold: r.font.bold, italic: r.font.italic, font: r.font.face, color: r.font.color, som, ...(n?.data?.field ? { bind: n.data.field } : {}), role, ...(row ? { row: true } : {}), lines: lines.length });
+        const sx = rx + textWidthMm(piece.slice(0, skip), r.font.pt, { bold: r.font.bold, face: r.font.face });
+        if (r.font.valign) this.report.approximations.push(`${r.font.valign}script text: raised / lowered by 1/3 em (not measured)`);
+        const vshift = r.font.valign === 'super' ? -0.33 * r.font.pt * PT : r.font.valign === 'sub' ? 0.2 * r.font.pt * PT : 0;
+        if (trimmed.trim() && !r.font.hidden) items.push({ type: 'text', x: sx, y: baseline + vshift, text: trimmed.replace(/ +$/, '').replace(/ /g, ' '), pt: r.font.pt, bold: r.font.bold, italic: r.font.italic, font: r.font.face, color: r.font.color, som, ...(n?.data?.field ? { bind: n.data.field } : {}), role, ...(row ? { row: true } : {}), lines: lines.length });
         if (r.font.underline && trimmed.trim()) {
           // measured on ADS output: 0.09 em below the baseline, 0.033 em thick
-          const uw = textWidthMm(trimmed.replace(/[  ]+$/, ''), r.font.pt, { bold: r.font.bold });
+          const uw = textWidthMm(trimmed.replace(/[  ]+$/, ''), r.font.pt, { bold: r.font.bold, face: r.font.face });
           items.push({ type: 'line', x1: sx, y1: baseline + 0.09 * r.font.pt * PT, x2: sx + uw, y2: baseline + 0.09 * r.font.pt * PT, th: 0.033 * r.font.pt * PT, color: r.font.color || '#000000' });
         }
         rx += pw;
@@ -921,6 +1022,10 @@ export function layoutForm(template, record, opts = {}) {
   const pageAreas = kids(pageSet, 'pageArea').map((p) => resolveUse(p, L.ids));
   if (!pageAreas.length) return { pages: [], report: { ...L.report, error: 'no pageArea' } };
   // the root's data context is the record itself
+  // a locale without its own tables formats with en_US patterns — reported, never silent
+  if (!LOCALES[L.locale]) L.report.approximations.push(`locale ${L.locale}: no date / number tables here — en_US patterns used`);
+  setDataParents(record);
+  L.today = opts.today && /^\d{4}-?\d{2}-?\d{2}$/.test(String(opts.today)) ? String(opts.today) : null;
   const form = formNode(rootT, 'subform', record);
   for (const c of kids(rootT)) {
     const cu = resolveUse(c, L.ids);
@@ -1061,6 +1166,8 @@ export function layoutForm(template, record, opts = {}) {
     p.masters = masters;
     const mark = (n) => { n.page = p; for (const c of n.children) mark(c); };
     for (const mn of masters) { setParents(mn, null); mark(mn); }
+    // master content runs its initialize / ready $form scripts too (a date set by script in a page header)
+    if (opts.scripts !== false) for (const mn of masters) runScripts(L, mn, 'form', L.report);
   });
   if (opts.scripts !== false) runScripts(L, form, 'layout', L.report, pages);
   for (const p of pages) {

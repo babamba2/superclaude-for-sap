@@ -3,7 +3,7 @@
 // centre alignment). ADS writes Arial text as the standard 14 fonts Helvetica / Helvetica-Bold, whose
 // widths are the published AFM metrics below. Characters outside the table count as an 'n'.
 //
-//   textWidthMm(text, pt, { bold })   → width in mm
+//   textWidthMm(text, pt, { bold, face }) → width in mm (face Courier*: monospaced 600 / 1000 em)
 //   charWidth(ch, bold)               → 1/1000 em
 //   VMETRICS                          → vertical metrics in em (Arial OS/2 typo ascent / descent / gap, hhea line)
 
@@ -60,8 +60,10 @@ export function charWidth(ch, bold = false) {
   return ASCII[k]['n'.charCodeAt(0) - 32];
 }
 
-export function textWidthMm(text, pt, { bold = false } = {}) {
+export function textWidthMm(text, pt, { bold = false, face = '' } = {}) {
   let w = 0;
+  // Courier / Courier New: every character 600 / 1000 em
+  if (/courier/i.test(String(face))) { for (const ch of String(text)) w += ch.codePointAt(0) >= 0x1100 ? 1000 : 600; return (w / 1000) * pt * (25.4 / 72); }
   for (const ch of String(text)) w += charWidth(ch, bold);
   return (w / 1000) * pt * (25.4 / 72);
 }

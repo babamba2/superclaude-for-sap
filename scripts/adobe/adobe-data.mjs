@@ -11,7 +11,7 @@
 //            system: { 'SFPSY-DATE': '2026-01-31' },   system fields (defaults: today, 00:00:00, user SAMPLE)
 //            texts:  { SF_ADRS_SENDER: ['line', …] } } text modules / include texts (paragraph strings or
 //                                                      { text, style } objects) — unknown texts are reported
-// Kinds handled: structure, data, loop (+ WHERE, FIRST / LAST line), loop-data, single-record (+ key), text-module,
+// Kinds handled: structure, folder (a data group like a structure), data, loop (+ WHERE, FIRST / LAST line), loop-data, single-record (+ key), text-module,
 // text, graphic content / URL (unknown class names keep their field in attrs), conditions on every node.
 
 // ISO 4217 currencies SAP keeps with other than two decimals (TCURX defaults)
@@ -248,6 +248,9 @@ export function buildRecord(context, sample = {}, { references = [] } = {}) {
       case 'context':
         for (const c of n.children) walk(c, parent);
         return;
+      // a folder (migrated SmartForms: windows, texts, rows) is a data group named like the folder; its own
+      // condition was checked above
+      case 'folder':
       case 'structure': {
         const el = { name: n.name, children: [] };
         parent.children.push(el);
