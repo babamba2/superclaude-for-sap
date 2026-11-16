@@ -7,6 +7,8 @@ import { seedCutover, criticalPath, rehearsalFit, goNoGoView, importList, tMinus
 // @ts-expect-error — plain .mjs script, no type declarations
 import { cmdCutover, parseWindow, ctsRequests, prdStop, loadCutoverTemplate } from '../../scripts/project/cutover-cli.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
+import { computeCutover, PRD_CONFIRM } from '../../scripts/project/cutover-run.mjs';
+// @ts-expect-error — plain .mjs script, no type declarations
 import { readJobs, JOBS_WHERE } from '../../scripts/project/cutover-jobs.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { renderCutoverTab } from '../../scripts/project/cutover-tab.mjs';
@@ -300,6 +302,53 @@ describe('cutover command (offline, fake project)', () => {
     const v = viewModel(normalizeModel(project()), '2026-12-20');
     expect(renderCutoverTab(v, { ...labelsFor('ko') })).toMatch(/cutover --seed/);
     expect(existsSync(join(ROOT, 'scripts/project/cutover-tab.mjs'))).toBe(true);
+  });
+});
+
+describe('computeCutover (shared by the CLI and the web workbench)', () => {
+  const inputs = (root: string) => {
+    const m = project();
+    m.actuals = { transports: [{ trkorr: 'DEVK900001', side: 'F', status: 'released', date: '2026-12-01', text: '[MM] cfg', ws: 'MM' }] };
+    mkdirSync(join(root, 'P2X'), { recursive: true });
+    writeFileSync(join(root, 'P2X', 'P2X-project.json'), JSON.stringify(m));
+    const act = join(root, 'r1.csv'), cts = join(root, 'cts.json'), bad = join(root, 'missing.html');
+    writeFileSync(act, 'task id,start,end\nCT.WIN.07,2027-01-03 01:00,2027-01-03 10:00\n');
+    writeFileSync(cts, JSON.stringify({ summary: { total: 1, blocked: 1 }, requests: [{ trkorr: 'DEVK900001', verdict: 'blocked', findings: [{ kind: 'dependency' }] }] }));
+    return { m, act, cts, bad };
+  };
+  it('golden: the CLI and computeCutover give the same model, summary and page for the same inputs', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'cutgold-'));
+    try {
+      const { m, act, cts, bad } = inputs(root);
+      const jobs = { ok: true, rows: [{ job: 'ZPT_NIGHT', status: 'released', next: '', event: '', program: 'ZPT_PROG', period: '1d' }], stepsRead: true };
+      const cli = await cmdCutover({ code: 'P2X', root, seed: true, window: '2027-01-02 18:00/2027-01-04 06:00', freezeCode: '2026-12-21', freezeConfig: '2026-12-24',
+        rehearsal: 'R1', actuals: act, evidence: [cts, bad], jobs: true, tier: 'DEV', today: '2026-12-20', lang: 'ko', readJobsFn: async () => jobs });
+      const before = JSON.stringify(m);
+      const run = computeCutover(m, { seed: true, window: '2027-01-02 18:00/2027-01-04 06:00', freeze: { code: '2026-12-21', config: '2026-12-24' }, rehearsal: 'R1',
+        actualsText: readFileSync(act, 'utf8'), evidence: [{ name: cts, text: readFileSync(cts, 'utf8') }, { name: bad, error: 'ENOENT' }],
+        jobs: { ...jobs, at: '2026-12-20', system: cli.jobs.ok ? JSON.parse(readFileSync(join(root, 'P2X', 'P2X-project.json'), 'utf8')).cutover.jobsRead.system : '' }, today: '2026-12-20', lang: 'ko' });
+      expect(JSON.stringify(m)).toBe(before); // the input model is not changed
+      expect(JSON.parse(readFileSync(join(root, 'P2X', 'P2X-project.json'), 'utf8'))).toEqual(JSON.parse(JSON.stringify(run.model)));
+      const { html, dashboard, warnings, ...cliSummary } = cli;
+      expect(cliSummary).toEqual(run.summary);
+      expect(readFileSync(html, 'utf8')).toBe(run.html);
+      expect(run.summary).toMatchObject({ suggest: 'nogo', fit: 'fits', criticalH: 29.5, jobs: { ok: true, n: 1, released: 1 }, evidence: [{ kind: 'cts', ok: true }, { kind: 'unknown', ok: false }] });
+    } finally { rmSync(root, { recursive: true, force: true }); }
+  });
+  it('reads nothing itself: errors throw before any jobs read; window as object; no runbook → seeded', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'cutpure-'));
+    try {
+      const { m } = inputs(root);
+      expect(computeCutover(m, { today: '2026-12-20', window: { start: '2027-01-02 18:00', end: '2027-01-04 06:00' } }).summary.seeded).toMatchObject({ type: 'implementation' });
+      const broken = { ...m, cutover: { tasks: [win('A', 1, ['B']), win('B', 1, ['A'])], goNoGo: [] } };
+      expect(() => computeCutover(broken, { today: '2026-12-20' })).toThrow(/loop/);
+      writeFileSync(join(root, 'P2X', 'P2X-project.json'), JSON.stringify(broken));
+      let read = false;
+      await expect(cmdCutover({ code: 'P2X', root, jobs: true, tier: 'DEV', readJobsFn: async () => { read = true; return { ok: true, rows: [] }; } })).rejects.toThrow(/loop/);
+      expect(read).toBe(false);
+      expect(() => computeCutover(m, { actualsText: 'a,b,c', today: '2026-12-20' })).toThrow(/--rehearsal/);
+      expect(PRD_CONFIRM.ko).toMatch(/TBTCO/);
+    } finally { rmSync(root, { recursive: true, force: true }); }
   });
 });
 

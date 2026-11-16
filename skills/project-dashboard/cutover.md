@@ -1,6 +1,6 @@
 # project-dashboard — Cutover readiness
 
-Referenced by [`workflow.md`](workflow.md) § Operations. `<B>` = `node "<PLUGIN_ROOT>/scripts/project/build-project-doc.mjs"`. Logic: `scripts/project/cutover-model.mjs` (no I/O, no SAP); runbook template: `scripts/project/cutover-tasks.json`; page: `scripts/project/cutover-page.mjs`; dashboard tab: `scripts/project/cutover-tab.mjs`; jobs read: `scripts/project/cutover-jobs.mjs`.
+Referenced by [`workflow.md`](workflow.md) § Operations. `<B>` = `node "<PLUGIN_ROOT>/scripts/project/build-project-doc.mjs"`. Logic: `scripts/project/cutover-model.mjs` (no I/O, no SAP); one run: `scripts/project/cutover-run.mjs` `computeCutover` (pure, shared with the web workbench `/pm`; `cutover-cli.mjs` only reads / writes the files and the jobs); runbook template: `scripts/project/cutover-tasks.json`; page: `scripts/project/cutover-page.mjs`; dashboard tab: `scripts/project/cutover-tab.mjs`; jobs read: `scripts/project/cutover-jobs.mjs`.
 
 The command keeps a cutover runbook in the project model (`cutover`), rebuilds the dashboard (same version; the runbook is edited in its **Cutover** tab) and writes one read-only page `<CODE>-cutover-<lang>.html` (A4 landscape, phone layout): D-day, the go / no-go suggestion with each item's evidence, window fit (window / plan / rehearsal), critical path, T-minus runbook, jobs to suspend, the transport request list, open risks and decisions.
 
