@@ -108,7 +108,7 @@ Reply in the user's language.
 <Limits>
 - No layout drawing yet — a predicted preview needs the Adobe renderer (`adobe-preview`).
 - Border, fill and margin details and the XHTML of texts are not modelled (mapping.md §7).
-- Rules read from the ECC release of `CL_SSF_MIGRATION`; confirm the S/4 release before P2.
+- Rules read from `CL_SSF_MIGRATION` on ECC and S/4 DEV systems (identical source); re-check after a SAP_BASIS upgrade.
 </Limits>
 
 <MCP_Tools_Used>

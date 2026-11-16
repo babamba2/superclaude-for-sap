@@ -10,7 +10,7 @@ file names the method behind every rule, so a reviewer can check each rule again
 - `CL_SSF_XFA_XHTML=>ENCODE_SF_NAME`
 - the constants include `RSTXSFCDEF`
 
-The S/4 DEV system must show the same methods before P2 (spec §10, P1 first step). Read the class there and diff it.
+**Same on S/4.** Read on an S/4HANA DEV system as well (2026-11-17), the four classes and the include are identical to the ECC read: `CL_SSF_MIGRATION`, `CL_SSF_FB_NODE`, `CL_SSF_FB_SMART_FORM`, `CL_SSF_XFA_XHTML` and `RSTXSFCDEF` (only a trailing line break differs). `SSFMEXPROPERTIES` has the same 22 flags in the same order, and `SSFOCOND` the same condition flags. So one rule set serves both releases. Re-read the classes when a system gets a newer SAP_BASIS support package.
 
 ## 1. The call and its options
 
