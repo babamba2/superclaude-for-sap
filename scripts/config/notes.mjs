@@ -16,7 +16,7 @@
 //   node scripts/config/notes.mjs status --module MM
 //   node scripts/config/notes.mjs kb --module MM [--redo]
 //        → general part of reviewed notes into ~/.sc4sap/kb/config (system rows / names scrubbed; flagged ones redone)
-//   node scripts/config/notes.mjs kb-scrub [--kb <dir>] [--snapshots <a.json,b.json>] [--apply] [--default-sap-version ECC]
+//   node scripts/config/notes.mjs kb-scrub [--kb <dir>] [--snapshots <a.json,b.json>] [--decisions <file>] [--apply] [--default-sap-version ECC]
 //        → dry run: counts of system rows / sentences / flags in a KB tree; --apply writes (back it up first)
 // Knowledge base lookup: own KB (~/.sc4sap/kb/config) first, then a read-only seed
 // (SC4SAP_KB_SEED=<dir holding config/<M>/<lang>/…>). Seed entries carry no SAP documentation summary —
@@ -43,7 +43,7 @@ import { buildModel } from './build-config-doc.mjs';
 import { loadRules, runChecks, attachActivities } from './config-checks.mjs';
 import { readSources, recordSources, sourceHints } from './notes-sources.mjs';
 import { ALL_ROWS, sampleRows, profileView, customerTransports, queryRows, badiContext } from './notes-context.mjs';
-import { contextFromSnapshots, scrubEntry, scrubTree } from './kb-scrub.mjs';
+import { contextFromSnapshots, scrubEntry, scrubTree, readDecisions } from './kb-scrub.mjs';
 import { createHash } from 'crypto';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
@@ -69,6 +69,7 @@ function opts(argv) {
     else if (a === '--kb') o.kbDir = String(argv[++i]);
     else if (a === '--snapshots') o.snapshots = String(argv[++i]).split(',').map((x) => x.trim()).filter(Boolean);
     else if (a === '--apply') o.apply = true;
+    else if (a === '--decisions') o.decisions = String(argv[++i]);
     else if (a === '--default-sap-version') o.defaultSapVersion = String(argv[++i]);
   }
   if (!o.module && o.cmd !== 'kb-scrub') throw new Error('--module is required');
@@ -515,7 +516,8 @@ function kbScrub(o) {
     });
   }
   const ctx = contextFromSnapshots(files.map((f) => JSON.parse(readFileSync(f, 'utf8'))));
-  const r = scrubTree(dir, ctx, { apply: o.apply, defaultSapVersion: o.defaultSapVersion });
+  const decisions = o.decisions ? readDecisions(JSON.parse(readFileSync(o.decisions, 'utf8'))) : null;
+  const r = scrubTree(dir, ctx, { apply: o.apply, defaultSapVersion: o.defaultSapVersion, decisions });
   process.stdout.write(JSON.stringify({ ...r, snapshots: files.length, facts: ctx.counts }, null, 1) + '\n');
 }
 

@@ -3,7 +3,7 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { contextFromSnapshots, scrubContext, scrubEntry, scrubTree, systemHit } from '../../scripts/config/kb-scrub.mjs';
+import { contextFromSnapshots, scrubContext, scrubEntry, scrubTree, systemHit, readDecisions } from '../../scripts/config/kb-scrub.mjs';
 import { generalPart, kbRead, loadNotes, parseNotes, valueHash, withKb } from '../../scripts/config/notes.mjs';
 
 const ROOT = join(__dirname, '..', '..');
@@ -137,6 +137,28 @@ describe('kb-scrub over a KB tree', () => {
     expect(after.criteria).toEqual({ rev: 'Yes.' });
     expect(readFileSync(join(kb, 'sources-ko.json'), 'utf8')).toMatch(/AB12/); // not a KB entry: untouched
     expect(scrubTree(join(tmp, 'kb', 'config'), ctx).changed).toBe(0);
+  });
+
+  it('decisions: kept words are no longer flagged, listed edits generalise or drop, unknown edits are counted', () => {
+    const d = join(tmp, 'kb2', 'config', 'FI', 'ko');
+    mkdirSync(d, { recursive: true });
+    writeFileSync(join(d, 'C.json'), JSON.stringify({ activity: 'C', purpose: 'Payment terms ZTERM and ZSCHF. Template YMIGDLV stays. Cut-over 2020 rows only. Incoterms 2020.', compare: [], checklist: ['Is YMIGDLV used?'], criteria: {} }));
+    const root = join(tmp, 'kb2', 'config');
+    const flagsOf = (r: any) => Object.values(r.totals).reduce((n: number, t: any) => n + t.flags, 0);
+    const ctx2 = scrubContext({ orgKeys: ['2020'] });
+    expect(flagsOf(scrubTree(root, ctx2))).toBeGreaterThan(0);
+    const decisions = readDecisions({
+      keep: ['ZTERM', 'ZSCHF', '2020'],
+      edits: [{ file: 'FI/ko/C.json', find: 'YMIGDLV', replace: 'a customer template' }, { file: 'FI/ko/C.json', find: 'Cut-over 2020 rows', replace: null }, { file: 'FI/ko/X.json', find: 'nothing', replace: '' }],
+    });
+    const dry = scrubTree(root, ctx2, { decisions });
+    expect(dry).toMatchObject({ changed: 1, edits: { listed: 3, applied: 2, notFound: 1 }, keep: 3 });
+    expect(flagsOf(dry)).toBe(0);
+    scrubTree(root, ctx2, { decisions, apply: true });
+    const after = JSON.parse(readFileSync(join(d, 'C.json'), 'utf8'));
+    expect(after.purpose).toBe('Payment terms ZTERM and ZSCHF. Template a customer template stays. Incoterms 2020.');
+    expect(after.checklist).toEqual(['Is a customer template used?']);
+    expect(flagsOf(scrubTree(root, ctx2, { decisions }))).toBe(0);
   });
 });
 

@@ -9,7 +9,8 @@
 //     BAdI / CMOD implementation names)                                            → sentence / row removed
 //   · other Z / Y-looking words (may be standard: ZTERM, ZLSCH …)                   → only counted as flags
 //
-//   node scripts/config/notes.mjs kb-scrub [--kb <dir>] [--snapshots <file,file>] [--apply] [--default-sap-version ECC]
+//   node scripts/config/notes.mjs kb-scrub [--kb <dir>] [--snapshots <file,file>] [--decisions <file>] [--apply] [--default-sap-version ECC]
+// --decisions: the reviewed flag decisions (readDecisions) — kept words stop being flagged, listed edits are applied.
 // --default-sap-version stamps entries written before the version meta with the release they came from.
 // --apply refuses a directory inside the read-only seed (SC4SAP_KB_SEED).
 // Dry run by default: prints counts per field (removed rows / sentences, flags) and never a value.
@@ -93,7 +94,39 @@ let weakCtx = null;
 function flagWeak(text, tally) {
   Z_WEAK.lastIndex = 0;
   const t = String(text || '');
-  tally.flags += (t.match(Z_WEAK) || []).length + (weakCtx?.orgWeak && weakCtx.orgWeak.test(t) ? 1 : 0);
+  const keep = weakCtx?.keep;
+  const left = (list) => list.filter((w) => !(keep && keep.has(w))).length;
+  const org = weakCtx?.orgWeak ? t.match(new RegExp(weakCtx.orgWeak.source, 'g')) || [] : [];
+  tally.flags += left(t.match(Z_WEAK) || []) + left(org);
+}
+
+/**
+ * Reviewed decisions on the flagged words (local file, never committed): { keep: [word], edits: [{ file, find, replace }] }.
+ * keep: standard names, releases, years — no longer flagged. edits: per KB file (path relative to the tree, "/"),
+ * `find` replaced by `replace` in every text of the entry; `replace: null` drops each sentence holding `find`.
+ */
+export function readDecisions(json) {
+  const d = json || {};
+  return { keep: new Set((d.keep || []).map(String)), edits: (d.edits || []).filter((e) => e && e.file && e.find) };
+}
+
+function applyEdits(entry, edits, hit) {
+  const edit = (s) => {
+    let t = s;
+    for (const e of edits) {
+      if (!t.includes(e.find)) continue;
+      hit.add(e);
+      t = e.replace === null ? sentences(t).filter((x) => !x.includes(e.find)).join(' ') : t.split(e.find).join(e.replace);
+    }
+    return t;
+  };
+  const walk = (v) => {
+    if (typeof v === 'string') return edit(v);
+    if (Array.isArray(v)) return v.map(walk).filter((x) => typeof x !== 'string' || x.trim());
+    if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
+    return v;
+  };
+  return walk(entry);
 }
 
 /** Any value of a field the scrubber has no rule for: every string at any depth (arrays, nested objects). */
@@ -183,15 +216,20 @@ export function kbFiles(dir) {
 }
 
 /** Scrub a KB tree: { files, changed, totals per field }. Writes only with apply. */
-export function scrubTree(dir, ctx, { apply = false, defaultSapVersion = '' } = {}) {
+export function scrubTree(dir, ctx, { apply = false, defaultSapVersion = '', decisions = null } = {}) {
   const totals = {};
   let files = 0, changed = 0, versionSet = 0;
+  const dec = decisions || { keep: new Set(), edits: [] };
+  const hit = new Set();
+  ctx = { ...ctx, keep: dec.keep };
   for (const f of kbFiles(dir)) {
     const raw = readFileSync(f, 'utf8');
     let entry;
     try { entry = JSON.parse(raw); } catch { continue; }
     files++;
-    const { entry: out, tally } = scrubEntry(entry, ctx);
+    const rel = f.slice(dir.length + 1).replace(/\\/g, '/');
+    const mine = dec.edits.filter((e) => e.file === rel);
+    const { entry: out, tally } = scrubEntry(mine.length ? applyEdits(entry, mine, hit) : entry, ctx);
     // entries from before the version meta: the release they were written on (S/4 IMG differs from ECC)
     if (defaultSapVersion && !out.sapVersion) { out.sapVersion = defaultSapVersion; versionSet++; }
     for (const [k, v] of Object.entries(tally)) {
@@ -205,5 +243,6 @@ export function scrubTree(dir, ctx, { apply = false, defaultSapVersion = '' } = 
       if (apply) atomicWriteFileSync(f, next);
     }
   }
-  return { dir, apply, files, changed, ...(defaultSapVersion ? { versionSet } : {}), totals };
+  const edits = dec.edits.length ? { edits: { listed: dec.edits.length, applied: hit.size, notFound: dec.edits.length - hit.size }, keep: dec.keep.size } : {};
+  return { dir, apply, files, changed, ...(defaultSapVersion ? { versionSet } : {}), ...edits, totals };
 }
