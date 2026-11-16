@@ -279,9 +279,11 @@ function openEditor(el) {
     inp = document.createElement('select');
     opts.forEach(function (x) { var op = document.createElement('option'); op.value = x[0]; op.textContent = x[1]; if (x[0] === (cur || '')) op.selected = true; inp.appendChild(op); });
   } else {
-    inp = document.createElement('input'); inp.type = kind === 'pct' || kind === 'num' ? 'number' : 'text';
-    if (kind === 'num') inp.step = 'any'; if (kind === 'pct') { inp.min = 0; inp.max = 100; }
+    inp = document.createElement('input'); inp.type = 'text';
+    // numbers as text with a number keypad: a browser number field turns letters into an empty value (= cleared)
+    if (kind === 'num') inp.inputMode = 'decimal'; if (kind === 'pct') inp.inputMode = 'numeric';
     if (kind === 'date') inp.placeholder = E.datePh;
+    if (kind === 'datetime') inp.placeholder = 'YYYY-MM-DD HH:MM';
     if (kind === 'deps') { inp.placeholder = E.depsPh; cur = (cur || []).map(function (d) { return nums[d] || d; }).join(', '); }
     inp.value = kind === 'list' ? (cur || []).join(' · ') : cur == null ? '' : cur;
     inp.size = Math.max(kind === 'date' ? 11 : 6, String(inp.value).length + 2);
@@ -299,16 +301,22 @@ function openEditor(el) {
   inp.focus(); if (inp.select && !opts) inp.select();
   function value() {
     var v = inp.value;
+    if (kind === 'pct' || kind === 'num') { v = parseNumber(v); if (v === null) return null; } // project-model.mjs
     if (kind === 'pct') return Math.max(0, Math.min(100, Math.round(+v || 0)));
-    if (kind === 'num') return v === '' ? '' : +v;
+    if (kind === 'num') return v;
     if (kind === 'list') return v.split(/\s*[·,;]\s*/).filter(Boolean);
+    // cutover freeze dates (scope cf) must be real calendar days (2027-13-40 stays in the field); other date cells unchanged
+    if (kind === 'date' && p[0] === 'cf') { var cd = parseDate(v, cur); return cd && !cutDT(cd + 'T00:00') ? null : cd; }
     if (kind === 'date') return parseDate(v, cur);
+    // cutover window times: "YYYY-MM-DD HH:MM" (or with T) only; anything else keeps the old value (null = stay in the field)
+    if (kind === 'datetime') return v.trim() === '' ? '' : cutDT(v) || null;
     if (kind === 'deps') return v.split(/[\s,;]+/).filter(Boolean).map(function (n) { return ids[n] || n; }).filter(function (d) { return d !== p[1] && find('w', d); });
     return v;
   }
   function finish(save, move) {
     if (done) return; var v = save ? value() : undefined;
-    if (save && v === null) { inp.classList.add('bad-in'); inp.focus(); return; }
+    // A value that does not parse never traps the user in the cell (phones have no Esc): the old value stays and a toast says so.
+    if (save && v === null) { save = false; move = null; toast(kind === 'datetime' ? E.badDt : p[0] === 'cf' ? E.badDay : kind === 'date' ? E.badDate : E.badVal, false); }
     done = true;
     var target = move ? neighbour(el, move) : null;
     var before = get(o, p[2]); before = before == null ? (kind === 'deps' || kind === 'list' ? [] : '') : before;
@@ -345,6 +353,8 @@ document.addEventListener('click', function (ev) {
   if (num) { var id = num.parentNode.dataset.id; var multi = ev.ctrlKey || ev.metaKey || selectMode; select(id, ev.shiftKey ? 'range' : multi ? 'toggle' : ''); if (!ev.shiftKey && !multi) openDrawer(id); return; }
   var lnk = t.closest('[data-go]'); if (lnk) { goRow(lnk.dataset.go); return; }
   var el = t.closest('.ed'); if (editing && el) { openEditor(el); return; }
+  // A tap beside the name in a WBS name cell (phones: the cell is wider than the name) edits the name too.
+  var lc = editing && t.closest('.wbs td.lbl'); if (lc && !t.closest('button,input,select')) { var le = $('.ed', lc); if (le) { openEditor(le); return; } }
   var tr = t.closest('.wbs tr.wr[data-id]');
   if (tr && !t.closest('button,input,select,.gb')) {
     select(tr.dataset.id, ev.shiftKey ? 'range' : ev.ctrlKey || ev.metaKey || selectMode ? 'toggle' : '');

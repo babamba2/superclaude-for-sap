@@ -43,6 +43,24 @@ export const STAGE_PCT ={ req: 0, fs: 15, ts: 25, build: 50, ut: 65, fut: 80, si
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export const UAT_SET_ID = /^[A-Za-z0-9_-]{1,30}$/; // same rule as scripts/uat/build-uat.mjs
 
+/**
+ * A number typed into a dashboard cell: '' (empty), a number, or null (not a number — the editor keeps the old value).
+ * Commas in 3-digit groups after a non-zero lead are thousands ("1,500" → 1500, "1,500,000.5" → 1500000.5); one comma not followed by
+ * exactly 3 digits — or after a whole part of 0 — is a decimal comma ("1,5" → 1.5, "0,500" → 0.5); any other comma
+ * ("1,50,0", "00,500") is no number.
+ */
+export function parseNumber(text) {
+  let t = String(text ?? '').trim().replace(/\s+/g, '');
+  if (t === '') return '';
+  if (/^[-+]?[1-9]\d{0,2}(,\d{3})+(\.\d+)?$/.test(t)) t = t.replace(/,/g, '');
+  else {
+    // a decimal comma: "1,5", "12,34"; with exactly 3 digits after it only when the whole part is 0 ("0,500" → 0.5)
+    const d = /^[-+]?(0|[1-9]\d*)?,(\d+)$/.exec(t);
+    if (d && (d[2].length !== 3 || !d[1] || d[1] === '0')) t = t.replace(',', '.');
+  }
+  return /^[-+]?(\d+\.?\d*|\.\d+)$/.test(t) ? +t : null;
+}
+
 /** Fills defaults, keeps unknown fields. Returns a new model. */
 export function normalizeModel(m) {
   const out = JSON.parse(JSON.stringify(m || {}));

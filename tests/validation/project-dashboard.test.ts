@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from 'fs
 import { tmpdir } from 'os';
 import { join } from 'path';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { checkModel, viewModel, reassign, kpiRag, withSnapshot, STAGE_PCT } from '../../scripts/project/project-model.mjs';
+import { checkModel, viewModel, reassign, kpiRag, withSnapshot, STAGE_PCT, parseNumber } from '../../scripts/project/project-model.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { instantiate, addWricef } from '../../scripts/project/project-template.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -50,6 +50,16 @@ describe('project-dashboard — template', () => {
 });
 
 describe('project-dashboard — figures', () => {
+  it('reads numbers typed into a cell: thousands commas, a decimal comma, else no number', () => {
+    const cases: [string, number | string | null][] = [['1,500', 1500], ['1,5', 1.5], ['1,500,000', 1500000], ['12.5', 12.5], ['1,50,0', null],
+      ['1,500.25', 1500.25], ['-1,500', -1500], ['', ''], ['abc', null], ['1,000,0', null], ['0,5', 0.5],
+      // a leading-zero group is never thousands
+      ['0,500', 0.5], ['00,500', null], ['01,500', null], ['1234,567', null]];
+    for (const [t, want] of cases) expect(parseNumber(t), t).toBe(want);
+    // the dashboard editor reads its number cells through it (inlined project-model.mjs)
+    expect(readFileSync(join(__dirname, '..', '..', 'scripts', 'project', 'project-client.js'), 'utf8')).toMatch(/v = parseNumber\(v\); if \(v === null\) return null;/);
+  });
+
   it('rolls up, flags late rows, builds the hand-off queue and finds orphans', () => {
     let m = addWricef(base(), [{ label: 'A', kind: 'C', module: 'SD', stage: 'fs' }, { label: 'B', kind: 'R', module: 'MM', stage: 'ut' }]).model;
     m.wbs.find((w: { label: string }) => w.label === 'A').wricef.stageDates = { fs: '2026-06-01' };

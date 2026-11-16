@@ -92,9 +92,31 @@ describe('cutover — window times typed in the tab', () => {
     expect(cutWindowTimes(c, f.plan.schedule)).toEqual({});
     expect(() => tMinus('2026-12-20', c, '2027-01-04')).not.toThrow();
     expect(checkCutover(c, TEAM).errors.join(' ')).toMatch(/window\.start must be YYYY-MM-DD HH:MM \(is "Saturday evening"\)/);
+    // freeze dates: a real calendar day, not only the shape
+    for (const bad of ['2027-13-40', '2027-02-30']) expect(checkCutover({ ...c, window: {}, freeze: { code: bad } }, TEAM).errors.join(' ')).toMatch(/freeze\.code must be YYYY-MM-DD/);
+    expect(checkCutover({ ...c, window: {}, freeze: { code: '2027-02-28', config: '2028-02-29' } }, TEAM).errors).toEqual([]);
     const m = normalizeModel(seeded()); m.cutover = c;
     const html = renderCutoverTab(viewModel(m, '2026-12-20'), { ...labelsFor('ko') });
     expect(html).toContain('<span class="bad">Saturday evening');
+    expect(html).toContain('data-f="cw|window|start" data-k="datetime"');
+  });
+  it('the dashboard editor keeps the old value on a bad date-time (datetime kind)', () => {
+    const client = readFileSync(join(ROOT, 'scripts/project/project-client.js'), 'utf8');
+    expect(client).toMatch(/kind === 'datetime'\) return v\.trim\(\) === '' \? '' : cutDT\(v\) \|\| null/);
+    // an invalid value closes the editor and keeps the old value (P1e: no refocus trap on phones), with the matching toast
+    expect(client).toMatch(/if \(save && v === null\) \{ save = false; move = null; toast\(kind === 'datetime' \? E\.badDt : p\[0\] === 'cf' \? E\.badDay/);
+    // freeze dates (scope cf): a real calendar day, else the old value is kept
+    expect(client).toMatch(/kind === 'date' && p\[0\] === 'cf'\) \{ var cd = parseDate\(v, cur\); return cd && !cutDT\(cd \+ 'T00:00'\) \? null : cd; \}/);
+    const page = readFileSync(join(ROOT, 'scripts/project/project-page.mjs'), 'utf8');
+    expect(page).toMatch(/badDt: '형식이 맞지 않아 이전 값으로 되돌렸어요/);
+    expect(page).toMatch(/badDay: '달력에 없는 날짜라 이전 값으로 되돌렸어요/);
+  });
+  it('a stored freeze date that is not a calendar day is marked in the tab', () => {
+    const m = normalizeModel(seeded());
+    m.cutover.freeze = { code: '2027-13-40', config: '2026-12-24' };
+    const html = renderCutoverTab(viewModel(m, '2026-12-20'), { ...labelsFor('ko') });
+    expect(html).toContain('<span class="bad">2027-13-40 — 날짜 형식이 아니에요 (YYYY-MM-DD)</span>');
+    expect(html).toContain('data-f="cf|freeze|config" data-k="date">2026-12-24<');
   });
 });
 

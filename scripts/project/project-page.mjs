@@ -29,7 +29,7 @@ a{color:var(--link)}.muted{color:var(--muted)}.bad{color:var(--red);font-weight:
 .topbar .t{font-weight:700;flex:1;min-width:180px}.topbar .t small{font-weight:400;margin-left:8px}
 .topbar button,.tools button,.rowtools button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);cursor:pointer}
 .tabs{position:sticky;top:45px;z-index:5;display:flex;gap:2px;overflow-x:auto;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--line)}
-.tabs button{font:inherit;border:0;border-bottom:3px solid transparent;background:none;color:var(--muted);padding:9px 14px;cursor:pointer;white-space:nowrap}
+.tabs button{font:inherit;border:0;border-bottom:3px solid transparent;background:none;color:var(--muted);padding:9px 14px;cursor:pointer;white-space:nowrap;flex:none}
 .tabs button[aria-selected=true]{color:var(--fg);border-bottom-color:var(--accent);font-weight:600}
 main{max-width:1680px;margin:0 auto;padding:12px 16px 64px}section.tab{display:none}section.tab.on{display:block}
 h3{font-size:16px;margin:22px 0 8px}h4{font-size:14px;margin:12px 0 6px;color:var(--muted)}
@@ -98,9 +98,9 @@ body.dw main,body.dw .banner{padding-right:min(436px,94vw);transition:padding .1
 @media (pointer: coarse){.t-touch{display:table}.t-keys{display:none}.gb .hc,.gb .hp{display:none!important}}
 @media (max-width: 760px){
  .topbar{gap:6px;padding:6px 10px}.topbar .t{min-width:0;flex-basis:100%;font-size:14px}.topbar .t small{display:block;margin:0}#print,#theme,.state{display:none}
- .topbar button,.wtools button,.wtools select,.wtools input{min-height:34px}.tabs{top:auto;position:static}main{padding:8px 10px 80px}
+ .topbar button,.wtools button,.wtools select,.wtools input:not([type=checkbox]){min-height:44px}.wtools label{display:inline-flex;align-items:center;gap:6px;min-height:44px}.wtools input[type=checkbox]{width:22px;height:22px;margin:0}.tabs{top:auto;position:static}main{padding:8px 10px 80px}
  .mv{display:inline-flex}.mo{display:inline-block}.wtools > input,.wtools > select,.wtools > label,.wtools > button:not(.mo),.wtools .sep{display:none}.wtools.open > input,.wtools.open > select,.wtools.open > label,.wtools.open > button{display:inline-block}.editing .wtools.open .eo{display:inline-block}
- .wbs-w{max-height:none}.wbs .lbl{min-width:0;max-width:36vw;overflow:hidden;text-overflow:ellipsis}.wbs td,.wbs th{padding:4px 6px}.wbs td:nth-child(1),.wbs th:nth-child(1){min-width:34px;font-size:11.5px}.wbs td:nth-child(2),.wbs th:nth-child(2){left:34px}.wbs .lbl .wk{display:none}
+ .wbs-w{max-height:none}.wbs .lbl{min-width:0;max-width:36vw;overflow:hidden;text-overflow:ellipsis}.editing td.lbl{max-width:50vw;text-overflow:clip}.editing td.lbl .ed{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;line-height:34px}.editing td.lbl .tg~.ed{max-width:calc(100% - 48px)}.wbs td,.wbs th{padding:4px 6px}.wbs td:nth-child(1),.wbs th:nth-child(1){min-width:34px;font-size:11.5px}.wbs td:nth-child(2),.wbs th:nth-child(2){left:34px}.wbs .lbl .wk{display:none}
  body.m-gantt .wbs th:nth-child(n+3):nth-child(-n+9),body.m-gantt .wbs td:nth-child(n+3):nth-child(-n+9){display:none}
  body.m-table .wbs th.gantt-h,body.m-table .wbs td.gantt,body.m-table #arr{display:none}
  .wbs td.gantt{height:38px}.gb{top:10px;height:18px}.gb-phase{top:9px;height:20px}.gms{top:12px;width:14px;height:14px}.gbase{top:30px}.rowtools{display:none!important}
@@ -171,8 +171,8 @@ const EDIT = {
 Object.assign(EDIT.ko, { addRisk: '+ 리스크', addDecision: '+ 결정 사항', newRisk: '새 리스크', newDecision: '새 결정 사항' });
 Object.assign(EDIT.en, { addRisk: '+ Risk', addDecision: '+ Decision', newRisk: 'New risk', newDecision: 'New decision' });
 // cutover runbook tab (cutover-tab.mjs)
-Object.assign(EDIT.ko, { addCt: '+ 컷오버 작업', newCt: '새 컷오버 작업' });
-Object.assign(EDIT.en, { addCt: '+ Cutover task', newCt: 'New cutover task' });
+Object.assign(EDIT.ko, { addCt: '+ 컷오버 작업', newCt: '새 컷오버 작업', badDt: '형식이 맞지 않아 이전 값으로 되돌렸어요 (YYYY-MM-DD HH:MM).', badDay: '달력에 없는 날짜라 이전 값으로 되돌렸어요 (YYYY-MM-DD).', badDate: '날짜 형식이 맞지 않아 이전 값으로 되돌렸어요 (YYYY-MM-DD).', badVal: '형식이 맞지 않아 이전 값으로 되돌렸어요.' });
+Object.assign(EDIT.en, { addCt: '+ Cutover task', newCt: 'New cutover task', badDt: 'Not a date and time — the previous value is kept (YYYY-MM-DD HH:MM).', badDay: 'Not a calendar date — the previous value is kept (YYYY-MM-DD).', badDate: 'Not a date — the previous value is kept (YYYY-MM-DD).', badVal: 'Not a valid value — the previous value is kept.' });
 
 /** WBS toolbar: filters and zoom for everyone, auto-shift in edit mode. */
 const wbsTools = (E) => `<div class="wtools"><span class="mv"><button data-v="gantt">${esc(E.vGantt)}</button><button data-v="table">${esc(E.vTable)}</button></span><button id="f-sel" class="mo" aria-pressed="false">${esc(E.select)}</button><button id="f-more" class="mo">${esc(E.filters)} ▾</button><input id="f-q" type="search" placeholder="${esc(E.search)}"><select id="f-ws"></select><select id="f-owner"></select>

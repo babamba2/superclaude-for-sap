@@ -36,7 +36,9 @@ export function normalizeCutover(c) {
 export function checkCutover(c, team = []) {
   const errors = [], warnings = [];
   if (!c) return { errors, warnings };
-  const D = /^\d{4}-\d{2}-\d{2}$/;
+  // a real calendar day (2027-02-30 / 2027-13-40 fail), not only the shape
+  const realDay = (s) => /^\d{4}-\d{2}-\d{2}$/.test(s) && cutDT(`${s}T00:00`) !== '';
+  const D = { test: realDay };
   for (const k of ['start', 'end']) if (c.window?.[k] && !cutDT(c.window[k])) errors.push(`cutover.window.${k} must be YYYY-MM-DD HH:MM (is "${String(c.window[k]).slice(0, 40)}")`);
   if (cutDT(c.window?.start) && cutDT(c.window?.end) && cutDT(c.window.end) <= cutDT(c.window.start)) errors.push('cutover.window.end must be after its start');
   for (const k of ['code', 'config']) if (c.freeze?.[k] && !D.test(c.freeze[k])) errors.push(`cutover.freeze.${k} must be YYYY-MM-DD`);
