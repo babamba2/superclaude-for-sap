@@ -25,14 +25,17 @@ table.m-kv>tbody>tr,table.m-kv>thead>tr,table.m-kv>tfoot>tr{display:contents}
 table.m-kv th,table.m-kv td{width:auto!important;min-width:0!important;max-width:none!important;white-space:normal!important;overflow-wrap:anywhere;word-break:normal}
 table.m-kv th[colspan]:not([colspan="1"]),table.m-kv .m-full{grid-column:1/-1}
 table.m-kv .m-hide{display:none!important}
-.m-scroll{overflow-x:auto;max-width:100%;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.m-scroll{overflow-x:auto;max-width:100%;box-sizing:border-box;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
 .m-scroll>table{min-width:var(--m-min,560px)}
 .m-scroll tr>th:first-child:not([colspan]),.m-scroll tr>td:first-child:not([colspan]){position:sticky;left:0;z-index:2;background-color:var(--m-sticky-bg,#fff);box-shadow:1px 0 0 rgba(0,0,0,.12)}
 .m-bar{flex-wrap:wrap!important;row-gap:6px;height:auto!important}
 .m-bar button,.m-bar a,.m-bar select,.m-bar label{min-height:44px;min-width:44px;box-sizing:border-box}
 button,select,input[type=button],input[type=submit]{min-height:44px;min-width:44px}
-input,select,textarea{font-size:16px!important}
+input,select,textarea{font-size:16px!important;max-width:100%}
 input:not([type=checkbox]):not([type=radio]):not([type=hidden]),textarea{min-height:44px;box-sizing:border-box}
+[contenteditable]:not([contenteditable=false]){font-size:16px!important;min-height:44px!important;min-width:44px!important;box-sizing:border-box}
+span[contenteditable]:not([contenteditable=false]),small[contenteditable]:not([contenteditable=false]),b[contenteditable]:not([contenteditable=false]),i[contenteditable]:not([contenteditable=false]),em[contenteditable]:not([contenteditable=false]),strong[contenteditable]:not([contenteditable=false]),a[contenteditable]:not([contenteditable=false]),label[contenteditable]:not([contenteditable=false]),code[contenteditable]:not([contenteditable=false]){display:inline-block;vertical-align:middle}
+td[contenteditable]:not([contenteditable=false]),th[contenteditable]:not([contenteditable=false]){height:44px!important}
 }
 @media (max-width:380px){
 table.m-kv>tbody,table.m-kv>thead,table.m-kv>tfoot{grid-template-columns:minmax(0,1fr)}
@@ -94,6 +97,13 @@ function mobileLayer() {
       t.style.minWidth = next + 'px';
     }
   }
+  // wider than the box's content (clientWidth counts the padding), or reaching past the viewport
+  function wider(t, box) {
+    var cs = getComputedStyle(box);
+    var content = box.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+    var r = t.getBoundingClientRect();
+    return t.scrollWidth > content + 0.5 || r.width > content + 0.5 || r.right > document.documentElement.clientWidth + 0.5;
+  }
   var busy = false;
   function scan() {
     if (!mq.matches || busy) return;
@@ -108,7 +118,7 @@ function mobileLayer() {
       var widen = tight ? Math.max(560, cols(t) * 90) + 'px' : '';
       if (scrolls(t)) { if (widen && !t.style.minWidth) grow(t, widen); continue; }
       var box = t.parentElement;
-      if (box && (tight || t.scrollWidth > box.clientWidth + 2)) {
+      if (box && (tight || wider(t, box))) {
         var w = document.createElement('div');
         w.className = 'm-scroll';
         box.insertBefore(w, t);
