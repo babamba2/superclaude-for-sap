@@ -66,7 +66,7 @@ const commands = {
     const out = o['out-dir'] || join(o.dir, set.id);
     mkdirSync(out, { recursive: true });
     const file = join(out, `${set.id}-uat-${layout}.xlsx`);
-    writeFileSync(file, layout === 'A' ? layoutA(set) : layoutB(set));
+    writeFileSync(file, layout === 'A' ? layoutA(set, progress(set)) : layoutB(set, progress(set)));
     return { file };
   },
   show(o) {

@@ -55,7 +55,7 @@ describe('uat-scenarios model', () => {
     expect(steps[0].results['1st']).toBe('pass');
     expect(next.scenarios[1].id).toBe('MM02');
     expect(set.scenarios[0].steps).toHaveLength(3); // the original is untouched
-    expect(progress(next).byCycle['1st']).toEqual({ pass: 1, fail: 0, blocked: 0, open: 4 });
+    expect(progress(next).byCycle['1st']).toEqual({ pass: 1, fail: 0, blocked: 0, 'n/a': 0, open: 4 });
   });
 });
 
@@ -66,22 +66,22 @@ describe('uat-scenarios xlsx', () => {
   };
 
   it('layout A has a schedule, the activities and one sheet per scenario', () => {
-    const files = sheetText(layoutA(normalize(sample())));
-    expect(files['xl/workbook.xml']).toMatch(/name="Schedule".*name="Activities".*name="MM01"/);
-    expect(files['xl/worksheets/sheet3.xml']).toContain('Test Procedure');
-    expect(files['xl/worksheets/sheet3.xml']).toContain('■ Document type NB');
+    const files = sheetText(layoutA(normalize(sample()), progress(normalize(sample()))));
+    expect(files['xl/workbook.xml']).toMatch(/name="Dashboard".*name="Scenario List".*name="Schedule".*name="Activities".*name="MM01".*name="Issue List"/);
+    expect(files['xl/worksheets/sheet5.xml']).toContain('Test Procedure');
+    expect(files['xl/worksheets/sheet5.xml']).toContain('■ Document type NB');
   });
 
   it('layout B is one flat list with a cycle column each and a test-user sheet of IDs', () => {
-    const files = sheetText(layoutB(normalize(sample())));
+    const files = sheetText(layoutB(normalize(sample()), progress(normalize(sample()))));
     expect(files['xl/worksheets/sheet1.xml']).toContain('STEP-003');
     expect(files['xl/worksheets/sheet1.xml']).toContain('>1st<');
-    expect(files['xl/worksheets/sheet2.xml']).toContain('MMTEST01');
+    expect(files['xl/worksheets/sheet4.xml']).toContain('MMTEST01');
   });
 
   it('escapes XML and keeps sheet names valid', () => {
     const set = normalize({ ...sample(), scenarios: [{ id: 'A/B', title: '<x> & "y"', steps: [{ activity: 'a\u0001b', tcode: 'X' }] }] });
-    const files = sheetText(layoutA(set));
+    const files = sheetText(layoutA(set, progress(set)));
     expect(files['xl/workbook.xml']).toContain('name="A B"');
     expect(files['xl/worksheets/sheet3.xml']).toContain('&lt;x&gt; &amp; &quot;y&quot;');
     expect(files['xl/worksheets/sheet3.xml']).not.toContain('\u0001');
@@ -140,9 +140,56 @@ describe('uat-scenarios integration test (sit)', () => {
   });
 
   it('exports the module column and an integration-test title', () => {
-    const files = Object.fromEntries(unzipEntries(layoutB(sit())).map((f: { name: string; data: Buffer }) => [f.name, f.data.toString('utf8')]));
+    const files = Object.fromEntries(unzipEntries(layoutB(sit(), progress(sit()))).map((f: { name: string; data: Buffer }) => [f.name, f.data.toString('utf8')]));
     expect(files['xl/worksheets/sheet1.xml']).toContain('Order to cash');
     expect(files['xl/worksheets/sheet1.xml']).toContain('>Module<');
     expect(files['xl/worksheets/sheet1.xml']).toContain('>LE<');
+  });
+});
+
+describe('uat-scenarios — phases, cycle scope, issues, dashboard', () => {
+  const sit = () => normalize({
+    id: 'O2C-SIT', kind: 'sit', module: 'SD', cycles: ['1st', '2nd', '3rd'],
+    scenarios: [
+      { id: 'E-100', title: 'Domestic order', company: '1000', leadModule: 'sd', date: '2026-11-01', actualDate: '2026-11-02', result: 'pass',
+        steps: [
+          { phase: 'I. Order intake', module: 'SD', activity: 'Create order', tcode: 'VA01', checks: ['order saved'], cycles: ['2nd', '3rd', 'bogus'] },
+          { phase: 'II. Delivery', module: 'LE', activity: 'Delivery', tcode: 'VL01N', checks: ['delivery created'], results: { '1st': 'fail' } },
+        ] },
+      { id: 'E-200', title: 'Export order', company: '2000', date: '2099-01-01', steps: [{ module: 'SD', activity: 'Order', tcode: 'VA01', checks: ['x'], results: { '1st': 'n/a' } }] },
+    ],
+    issues: [{ scenario: 'E-100', step: 'STEP-002', module: 'le', text: 'Route not found', state: 'bogus' }],
+  });
+
+  it('keeps phases and cycle scope, numbers issues, and counts only the cycles a step runs in', () => {
+    const set = sit();
+    expect(set.scenarios[0].steps[0]).toMatchObject({ phase: 'I. Order intake', cycles: ['2nd', '3rd'] });
+    expect(set.issues[0]).toMatchObject({ id: 'ISS-0001', module: 'LE', state: 'open' });
+    const p = progress(set, '2026-11-16');
+    expect(p.byCycle['1st']).toEqual({ pass: 0, fail: 1, blocked: 0, 'n/a': 1, open: 0 });
+    expect(p.byModule.SD).toEqual({ plan: 2, due: 1, tested: 1, pass: 1, fail: 0 });
+    expect(p.byCompany['2000']).toEqual({ plan: 1, due: 0, tested: 0, pass: 0, fail: 0 });
+    expect(p.participation[0]).toEqual({ scenario: 'E-100', modules: ['LE', 'SD'] });
+    expect(p.issues.open).toBe(1);
+  });
+
+  it('flags a passed scenario with a failed step and a failure with no issue', () => {
+    const set = sit();
+    expect(validate(set).map((i) => i.text)).toContain('scenario passed but a step failed in 1st');
+    const noIssue = { ...set, issues: [] };
+    expect(validate(noIssue).some((i) => i.text === 'failed without a logged issue')).toBe(true);
+  });
+
+  it('adds, changes and removes issues; issues follow their step when steps move', () => {
+    const { set, applied } = applyPatch(sit(), [
+      { op: 'add-issue', issue: { scenario: 'E-100', step: 'STEP-001', text: 'Price missing', type: 'data' } },
+      { op: 'add-step', scenario: 'E-100', after: undefined, step: { activity: 'Billing', tcode: 'VF01' } },
+      { op: 'remove-step', scenario: 'E-100', step: 'STEP-001' },
+      { op: 'set-issue', issue: 'ISS-0001', field: 'state', value: 'done' },
+    ]);
+    expect(applied).toEqual([0, 1, 2, 3]);
+    expect(set.issues.map((i) => [i.id, i.step, i.state])).toEqual([['ISS-0001', 'STEP-001', 'done'], ['ISS-0002', '', 'open']]);
+    const removed = applyPatch(set, [{ op: 'remove-issue', issue: 'ISS-0002' }]).set;
+    expect(removed.issues).toHaveLength(1);
   });
 });

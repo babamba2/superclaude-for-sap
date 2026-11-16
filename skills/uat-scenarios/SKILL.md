@@ -32,11 +32,13 @@ Test teams keep UAT scenarios in large workbooks that drift: steps without T-cod
 <Decisions_Fixed>
 | Topic | Decision |
 |---|---|
-| Model | set → scenarios → steps (`scripts/uat/uat-model.mjs`); step IDs `STEP-001…` renumbered after every change |
+| Model | set → scenarios → steps, plus an issue list (`scripts/uat/uat-model.mjs`); step IDs `STEP-001…` renumbered after every change (issues follow their step); scenarios carry company / channel / product group / lead module / key check point / earlier scenario ID / planned and actual date / result; steps carry a phase (section) and the cycles they run in |
 | Kind | `uat` (user acceptance, one module or process area) or `sit` (integration test: end-to-end across modules — every step carries its module, a scenario must cross modules, and the step where the work changes hands checks what arrived: a document, a posting, a status) |
-| Proposals | Patch operations `set-scenario`, `set-step`, `add-step`, `remove-step`, `add-scenario` ([`proposal-prompt.md`](proposal-prompt.md)); shown as a numbered list, applied only for the numbers the user accepts; an operation that names something missing is skipped with its reason |
+| Proposals | Patch operations `set-scenario`, `set-step`, `add-step`, `remove-step`, `add-scenario`, `add-issue`, `set-issue`, `remove-issue` ([`proposal-prompt.md`](proposal-prompt.md)); shown as a numbered list, applied only for the numbers the user accepts; an operation that names something missing is skipped with its reason |
 | T-codes | Every SAP step's T-code is checked with `GetTransaction`; unknown ones are reported, never replaced on a guess. Customer programs and RFC entry points may stand in a T-code column — checked with `SearchObject` |
-| Cycles | Default `1st`, `2nd`, `3rd`; results `pass` / `fail` / `blocked` per cycle |
+| Cycles | Default `1st`, `2nd`, `3rd`; results `pass` / `fail` / `blocked` / `n/a` per cycle; a step may run in some cycles only |
+| Issues | `ISS-0001…` per set: scenario, step, module, type, text, raised on / by, follow-up, state `open` / `waiting` / `done` / `n/a`, owner; a failed step without a follow-up or a logged issue is flagged |
+| Dashboard | Per lead module and per company: planned, due by today, tested, pass, fail; steps per cycle; open issues; module participation matrix — in `show` / `check` and as the first sheet of both exports (plus Scenario List and Issue List sheets) |
 | Test data | Inputs name the fields and the kind of value ("a vendor with a release strategy"), not real business partners. Real document or master data numbers only when the user gives them |
 | People | Owner and consultant are typed by the user; test users are user IDs — never names |
 | Output | `<artifact-base>/uat/<ID>/<ID>-uat.json`, exports `<ID>-uat-A.xlsx` (integrated test: schedule, activities, one sheet per scenario) / `<ID>-uat-B.xlsx` (flat list + test-user IDs) |
