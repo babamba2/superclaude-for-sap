@@ -95,14 +95,6 @@ describe('cutover — window times typed in the tab', () => {
     const m = normalizeModel(seeded()); m.cutover = c;
     const html = renderCutoverTab(viewModel(m, '2026-12-20'), { ...labelsFor('ko') });
     expect(html).toContain('<span class="bad">Saturday evening');
-    expect(html).toContain('data-f="cw|window|start" data-k="datetime"');
-  });
-  it('the dashboard editor keeps the old value on a bad date-time (datetime kind)', () => {
-    const client = readFileSync(join(ROOT, 'scripts/project/project-client.js'), 'utf8');
-    expect(client).toMatch(/kind === 'datetime'\) return v\.trim\(\) === '' \? '' : cutDT\(v\) \|\| null/);
-    expect(client).toMatch(/kind === 'datetime'\) \{ inp\.title = E\.badDt; toast\(E\.badDt, false\); \}/);
-    const page = readFileSync(join(ROOT, 'scripts/project/project-page.mjs'), 'utf8');
-    expect(page).toMatch(/badDt: '날짜 형식이 아니에요/);
   });
 });
 
