@@ -392,6 +392,7 @@ export function planMigration(model, { options = 'full', formName = '', interfac
     if (k === 'code') {
       if (!o.coding) { gap(n, 'program lines dropped (option coding off)', 'move the code into the interface initialization or the print program'); return; }
       const c = ctx(cParent, 'program-lines', encodeName(n.name), n);
+      if (state.tableArea && !state.sortEvent) gap(n, 'program lines inside a table header / footer area: in the context they sit under the loop data of the table, so they run for every row (before the layout), not once at a page break or at the table end — totals collected there show running or per-row values, and the area prints the value of the row it binds to, not the page / grand total (no message)', 'compute the totals in the interface initialization (or a FormCalc Sum over the rows in the trailer) and drop the program lines from the area');
       if (state.sortEvent) gap(n, 'program lines inside a group begin / end area that SAP flattens into the table body: they now run for every row, so totals and counters are reset or added per row', 'move the group logic into the interface initialization code (grouped tables, precomputed subtotals)');
       for (const p of n.attrs.params) {
         if (!fieldSupported(p.name)) { say(n, 'm04', p.name); continue; }
@@ -446,7 +447,12 @@ export function planMigration(model, { options = 'full', formName = '', interfac
         const when = flagSet === 'A' ? 'always (start + overflow ' + (k === 'event-header' ? 'leader' : 'trailer') + ')' : flagSet === 'B' ? 'at the start' : flagSet === 'E' ? 'at the end' : flagSet === 'P' ? 'at a page break (overflow)' : flagSet;
         xp = lay(xParent, 'subform', `${encodeName(n.name)}-${k === 'event-header' ? 'header' : 'footer'}`, n, { layout: 'position', keep: 'contentArea', occur: ['1', '1'], prototype: true, output: when });
       } else gap(n, `${k === 'event-header' ? 'header' : 'footer'} area printed in the flow once, not repeated at page breaks (option header_footer off or the table not migrated)`, 'make it an overflow leader / trailer in the Adobe layout');
-      return go(cParent, xp);
+      // the area's nodes go into the context under the table's loop data (the walk's parent): its program lines run for
+      // every row in the context, not once at the page break / table end
+      state.tableArea = (state.tableArea || 0) + 1;
+      go(cParent, xp);
+      state.tableArea--;
+      return;
     }
     if (k === 'event-body') {
       const xp = o.table && o.layout ? lay(xParent, 'subform', encodeName(n.name), n, { layout: 'tb', body: true }) : xParent;

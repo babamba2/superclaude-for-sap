@@ -163,7 +163,7 @@ describe('smartform-to-adobe — plan (other options and form types)', () => {
     const xml = `<?xml version="1.0"?><sf:SMARTFORM xmlns:sf="x"><HEADER><FORMNAME>ZDEMO_T2</FORMNAME></HEADER><INTERFACE><item><IOTYPE>T</IOTYPE><NAME>IT_ITEMS</NAME></item></INTERFACE><GDATA><item><NAME>GS_ITEM</NAME></item><item><NAME>GV_SUM</NAME></item></GDATA>
 <sf:VARHEADER><sf:item><PAGEFORMAT>DINA4</PAGEFORMAT><sf:PAGETREE><sf:NODE><NODETYPE>RP</NODETYPE><sf:SUCC><sf:NODE><NODETYPE>PA</NODETYPE><sf:OBJ><sf:PAGE><NAME><INAME>P1</INAME></NAME><NEXTPAGE><INAME>P1</INAME></NEXTPAGE></sf:PAGE></sf:OBJ><sf:SUCC>
 <sf:NODE><NODETYPE>WI</NODETYPE><sf:OBJ><sf:WINDOW ID="1"><NAME><INAME>MAIN</INAME></NAME><WTYPE>M</WTYPE><sf:PROC_CTRL><sf:NODE><NODETYPE>RC</NODETYPE><sf:SUCC>
-${LOOP('L1', 'A', EV('%F1', 'F', T('T_SUM', 'Carry forward &amp;GV_SUM&amp;')) + EV('%S1', 'S', CODE, '<SFIELD>MATNR</SFIELD>'))}
+${LOOP('L1', 'A', EV('%F1', 'F', T('T_SUM', 'Carry forward &amp;GV_SUM&amp;') + CODE.replace('C_RESET', 'C_TOTAL')) + EV('%S1', 'S', CODE, '<SFIELD>MATNR</SFIELD>'))}
 ${LOOP('L2', '', EV('%F2', 'F', T('T_STALE', 'never printed')))}
 </sf:SUCC></sf:NODE></sf:PROC_CTRL></sf:WINDOW></sf:OBJ><sf:SUCC/></sf:NODE>
 <sf:NODE><NODETYPE>WI</NODETYPE><sf:OBJ><sf:WINDOW ID="2"><NAME><INAME>COPY</INAME></NAME><WTYPE>C</WTYPE></sf:WINDOW></sf:OBJ><sf:SUCC/></sf:NODE>
@@ -172,6 +172,9 @@ ${LOOP('L2', '', EV('%F2', 'F', T('T_STALE', 'never printed')))}
     const g = (n: string) => full.gaps.find((x: any) => x.node === n);
     expect(g('%F1').reason).toMatch(/at page breaks shows GV_SUM.*end value/);
     expect(g('C_RESET').reason).toMatch(/run for every row/);
+    // program lines in a table footer: under the loop data in the context, so they run per row, not at the page break / end
+    expect(g('C_TOTAL').reason).toMatch(/table header \/ footer area.*every row.*not once at a page break/);
+    expect(g('C_TOTAL').logged).toBe(false);
     expect(full.infos.find((i: any) => i.node === '%F2').note).toMatch(/prototype subform that is placed nowhere.*L1/);
     expect(g('COPY').action).toMatch(/once per copy/);
     // with header_footer off the same stale anchor makes the area print once — SmartForms never prints it
