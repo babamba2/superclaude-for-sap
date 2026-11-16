@@ -1,6 +1,6 @@
 ---
 name: uat-scenarios
-description: UAT test scenarios for a module or process area, built and kept as an editable scenario set — scenarios (process chain / process / task) with STEP rows (activity, system, T-code, check points, input data, expected output, test user, result per test cycle, follow-up, issue). The module consultant proposes scenarios and steps as a patch the user accepts or rejects item by item; T-codes are checked in the system; progress per cycle is tracked; exported to Excel in the integrated-test layout or the flat scenario-list layout. Korean requests too — UAT 시나리오, 통합 테스트 시나리오, 테스트 케이스, 테스트 결과 정리.
+description: UAT and integration test (SIT) scenarios for a module, a process area or an end-to-end flow across modules, built and kept as an editable scenario set — scenarios (process chain / process / task) with STEP rows (activity, system, T-code, check points, input data, expected output, test user, result per test cycle, follow-up, issue). The module consultant proposes scenarios and steps as a patch the user accepts or rejects item by item; T-codes are checked in the system; progress per cycle is tracked; exported to Excel in the integrated-test layout or the flat scenario-list layout. Korean requests too — UAT 시나리오, 통합 테스트(통테) 시나리오, SIT, 테스트 케이스, 테스트 결과 정리.
 model: inherit
 ---
 
@@ -33,6 +33,7 @@ Test teams keep UAT scenarios in large workbooks that drift: steps without T-cod
 | Topic | Decision |
 |---|---|
 | Model | set → scenarios → steps (`scripts/uat/uat-model.mjs`); step IDs `STEP-001…` renumbered after every change |
+| Kind | `uat` (user acceptance, one module or process area) or `sit` (integration test: end-to-end across modules — every step carries its module, a scenario must cross modules, and the step where the work changes hands checks what arrived: a document, a posting, a status) |
 | Proposals | Patch operations `set-scenario`, `set-step`, `add-step`, `remove-step`, `add-scenario` ([`proposal-prompt.md`](proposal-prompt.md)); shown as a numbered list, applied only for the numbers the user accepts; an operation that names something missing is skipped with its reason |
 | T-codes | Every SAP step's T-code is checked with `GetTransaction`; unknown ones are reported, never replaced on a guess. Customer programs and RFC entry points may stand in a T-code column — checked with `SearchObject` |
 | Cycles | Default `1st`, `2nd`, `3rd`; results `pass` / `fail` / `blocked` per cycle |
@@ -44,7 +45,7 @@ Test teams keep UAT scenarios in large workbooks that drift: steps without T-cod
 <Workflow>
 Paths: `<base>` = artifact base ([`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md)), `<dir>` = `<base>/uat`, `<B>` = `node "<PLUGIN_ROOT>/scripts/uat/build-uat.mjs"`.
 
-**Step 1 — Which set.** An existing set named or found under `<dir>` → Step 5. New set: one message asking for what is missing of: module, process scope (process chains or processes), set ID (≤ 30 letters, digits, `_` `-`), cycles, language (from `config.json`, default `ko`). If a process map exists (`processes/<MODULE>/`, module-to-process) offer it as the scope.
+**Step 1 — Which set.** An existing set named or found under `<dir>` → Step 5. New set: one message asking for what is missing of: kind (UAT or integration test), module (for an integration test the leading module and the modules it crosses), process scope (process chains or processes), set ID (≤ 30 letters, digits, `_` `-`), cycles, language (from `config.json`, default `ko`). If a process map exists (`processes/<MODULE>/`, module-to-process) offer it as the scope.
 
 **Step 2 — Draft.** Dispatch `sc4sap:sap-<module>-consultant` with [`proposal-prompt.md`](proposal-prompt.md) § Draft. It returns the set as JSON (scenarios with steps). Write it to `<dir>/_answers/<ID>.json` and run `<B> init --answers <that file> --dir <dir>`.
 

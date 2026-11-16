@@ -106,3 +106,43 @@ describe('uat-scenarios CLI', () => {
     }
   });
 });
+
+describe('uat-scenarios integration test (sit)', () => {
+  const sit = () => normalize({
+    id: 'O2C-SIT', kind: 'sit', module: 'SD', title: 'Order to cash',
+    scenarios: [
+      {
+        id: 'SIT01', title: 'Standard order to payment',
+        steps: [
+          { module: 'SD', activity: 'Create sales order', tcode: 'VA01', outputs: ['Order number'] },
+          { module: 'LE', activity: 'Delivery and goods issue', tcode: 'VL01N', outputs: ['Delivery number'] },
+          { module: 'FI', activity: 'Check the goods issue posting', tcode: 'FB03', checks: ['COGS line posted'] },
+        ],
+      },
+      { id: 'SIT02', title: 'One module only', steps: [{ activity: 'Billing', tcode: 'VF01', outputs: ['Invoice'] }] },
+    ],
+  });
+
+  it('keeps the kind and gives every step a module, the set\'s by default', () => {
+    const set = sit();
+    expect(set.kind).toBe('sit');
+    expect(set.scenarios[1].steps[0].module).toBe('SD');
+    expect(normalize({ kind: 'nonsense' }).kind).toBe('uat');
+  });
+
+  it('flags a scenario that stays in one module and a hand-off without a check point', () => {
+    const texts = validate(sit()).map((i) => `${i.path} ${i.text}`);
+    expect(texts).toContain('SIT02 integration scenario stays in one module');
+    expect(texts).toContain('SIT01/STEP-002 hand-off SD → LE without a check point');
+    expect(texts.some((t) => t.startsWith('SIT01/STEP-003 hand-off'))).toBe(false);
+    // A UAT set is not held to the integration rules.
+    expect(validate(normalize({ ...sit(), kind: 'uat' })).some((i) => /hand-off|one module/.test(i.text))).toBe(false);
+  });
+
+  it('exports the module column and an integration-test title', () => {
+    const files = Object.fromEntries(unzipEntries(layoutB(sit())).map((f: { name: string; data: Buffer }) => [f.name, f.data.toString('utf8')]));
+    expect(files['xl/worksheets/sheet1.xml']).toContain('Order to cash');
+    expect(files['xl/worksheets/sheet1.xml']).toContain('>Module<');
+    expect(files['xl/worksheets/sheet1.xml']).toContain('>LE<');
+  });
+});

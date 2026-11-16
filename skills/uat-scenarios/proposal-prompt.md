@@ -14,9 +14,12 @@ Return ONLY one JSON object, no prose:
 { "id": "<ID>", "module": "<MODULE>", "title": "...", "lang": "<lang>", "cycles": [...],
   "scenarios": [ { "id": "<MODULE>01", "theme": "<process chain>", "process": "<process>", "task": "<task>",
     "title": "...", "description": "one or two sentences: what the scenario proves",
-    "variant": "", "steps": [ { "activity": "...", "system": "SAP | <other system>", "tcode": "...",
+    "variant": "", "steps": [ { "module": "<module>", "activity": "...", "system": "SAP | <other system>", "tcode": "...",
       "checks": ["what the tester verifies"], "inputs": ["field: kind of value"], "outputs": ["document or result expected"] } ] } ] }
 
+Integration test (kind sit): end-to-end flows across the named modules (order to cash, procure to pay,
+record to report …); every step carries "module"; each hand-off to another module has a check point
+for what arrived (document flow, FI / CO posting, status). Return "kind": "sit" in the object.
 Rules: 4–12 steps per scenario; every SAP step has a T-code; checks and outputs are concrete (a field,
 a document, a status), never "works correctly"; inputs name fields and the kind of value, never real
 business partner names or numbers; no person names (owner, consultant, users stay empty).

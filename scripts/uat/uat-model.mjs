@@ -1,10 +1,11 @@
 // sc4sap:uat-scenarios — the model of one UAT scenario set, and the operations on it. Pure: no I/O.
 //
-// set       { id, project, module, title, lang, cycles: ['1st','2nd','3rd'], systems: ['SAP', …],
+// set       { id, kind ('uat' | 'sit' — user acceptance or integration test), project, module, title, lang,
+//             cycles: ['1st','2nd','3rd'], systems: ['SAP', …],
 //             schedule: { from, to, place }, version, scenarios: [...] }
 // scenario  { id, theme (L2 process chain), process (L3), task (L4), title, description, variant,
 //             owner (business PI), consultant, date, time, place, steps: [...] }
-// step      { id ('STEP-001'), activity, system, tcode, checks: [..], inputs: [..], outputs: [..],
+// step      { id ('STEP-001'), module (SD, MM, FI … — who runs it; an integration test crosses them), activity, system, tcode, checks: [..], inputs: [..], outputs: [..],
 //             user (test user ID), results: { '1st': 'pass' | 'fail' | 'blocked' | '' }, status,
 //             followUp, issue }
 //
@@ -12,11 +13,12 @@
 // one by one — see `applyPatch`. Nothing in the model is a person's name except `owner` / `consultant`,
 // which the reader types; test users are IDs.
 
-export const STEP_FIELDS = ['activity', 'system', 'tcode', 'checks', 'inputs', 'outputs', 'user', 'status', 'followUp', 'issue'];
+export const STEP_FIELDS = ['module', 'activity', 'system', 'tcode', 'checks', 'inputs', 'outputs', 'user', 'status', 'followUp', 'issue'];
 export const LIST_FIELDS = new Set(['checks', 'inputs', 'outputs']);
 export const SCENARIO_FIELDS = ['theme', 'process', 'task', 'title', 'description', 'variant', 'owner', 'consultant', 'date', 'time', 'place'];
 export const RESULTS = ['pass', 'fail', 'blocked', ''];
 export const STATUSES = ['open', 'in-progress', 'done', 'on-hold'];
+export const KINDS = ['uat', 'sit'];
 const DEFAULT_CYCLES = ['1st', '2nd', '3rd'];
 
 const arr = (v) => (Array.isArray(v) ? v : []);
@@ -32,7 +34,8 @@ const stepId = (n) => `STEP-${String(n).padStart(3, '0')}`;
 export function normalize(set) {
   const cycles = arr(set?.cycles).length ? arr(set.cycles).map(str) : DEFAULT_CYCLES;
   const out = {
-    id: str(set?.id) || 'UAT', project: str(set?.project), module: str(set?.module).toUpperCase(),
+    id: str(set?.id) || 'UAT', kind: KINDS.includes(str(set?.kind)) ? str(set.kind) : 'uat',
+    project: str(set?.project), module: str(set?.module).toUpperCase(),
     title: str(set?.title), lang: str(set?.lang) || 'en', cycles,
     systems: arr(set?.systems).length ? arr(set.systems).map(str) : ['SAP'],
     schedule: { from: str(set?.schedule?.from), to: str(set?.schedule?.to), place: str(set?.schedule?.place) },
@@ -50,6 +53,8 @@ export function normalize(set) {
       const step = { id: stepId(j + 1) };
       for (const f of STEP_FIELDS) step[f] = LIST_FIELDS.has(f) ? listOf(st?.[f]) : str(st?.[f]);
       step.tcode = step.tcode.toUpperCase();
+      // A step without its own module belongs to the set's.
+      step.module = (step.module || out.module).toUpperCase();
       if (!STATUSES.includes(step.status)) step.status = 'open';
       step.results = Object.fromEntries(cycles.map((c) => {
         const r = str(st?.results?.[c]).toLowerCase();
@@ -79,6 +84,17 @@ export function validate(set) {
       if (!st.outputs.length && !st.checks.length) add('warn', p, 'nothing to check: no expected output and no check point');
       if (st.status === 'done' && set.cycles.every((c) => !st.results[c])) add('warn', p, 'done but no cycle result');
       if (set.cycles.some((c) => st.results[c] === 'fail') && !st.followUp) add('warn', p, 'failed without a follow-up action');
+    }
+    // An integration test proves the hand-offs: it crosses modules, and the step where the work
+    // changes hands checks what arrived (a document, a posting, a status).
+    if (set.kind === 'sit' && s.steps.length) {
+      const modules = new Set(s.steps.map((st) => st.module).filter(Boolean));
+      if (modules.size < 2) add('warn', s.id, 'integration scenario stays in one module');
+      s.steps.forEach((st, j) => {
+        if (j > 0 && st.module && st.module !== s.steps[j - 1].module && !st.checks.length) {
+          add('warn', `${s.id}/${st.id}`, `hand-off ${s.steps[j - 1].module} → ${st.module} without a check point`);
+        }
+      });
     }
   }
   return issues;

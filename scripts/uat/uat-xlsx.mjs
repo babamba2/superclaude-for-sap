@@ -81,10 +81,11 @@ export function workbook(sheets) {
 
 const H = (v) => ({ v, s: 1 });
 const RESULT = { pass: 'O', fail: 'X', blocked: '△', '': '' };
+const KIND_TITLE = { uat: 'UAT', sit: 'Integration test' };
 
 /** Layout A — integrated test workbook. */
 export function layoutA(set) {
-  const title = set.title || `${set.module} UAT`;
+  const title = set.title || `${set.module} ${KIND_TITLE[set.kind] || 'UAT'}`;
   const schedule = {
     name: 'Schedule',
     widths: [12, 26, 26, 30, 16, 18, 14, 10, 16],
@@ -97,16 +98,16 @@ export function layoutA(set) {
   };
   const activities = {
     name: 'Activities',
-    widths: [10, 24, 26, 30, 14, 40, 18, 12, 14, 30],
+    widths: [10, 24, 26, 30, 8, 14, 40, 18, 12, 14, 30],
     rows: [
-      [H('Scenario'), H('Process (L3)'), H('Task (L4)'), H('Activity'), H('T-code'), H('Description'), H('Process owner'), H('Test date'), H('Result'), H('Follow-up')],
-      ...set.scenarios.flatMap((s) => s.steps.map((st) => [s.id, s.process, s.task || s.title, `${st.id} ${st.activity}`, st.tcode, bullets(st.checks), s.owner, s.date,
+      [H('Scenario'), H('Process (L3)'), H('Task (L4)'), H('Activity'), H('Module'), H('T-code'), H('Description'), H('Process owner'), H('Test date'), H('Result'), H('Follow-up')],
+      ...set.scenarios.flatMap((s) => s.steps.map((st) => [s.id, s.process, s.task || s.title, `${st.id} ${st.activity}`, st.module, st.tcode, bullets(st.checks), s.owner, s.date,
         set.cycles.map((c) => (st.results[c] ? `${c} ${RESULT[st.results[c]]}` : '')).filter(Boolean).join(' / '), st.followUp].map((v) => ({ v, s: 0 })))),
     ],
   };
   const perScenario = set.scenarios.map((s) => ({
     name: s.id,
-    widths: [10, 6, 26, 36, 14, 34, 30, 26, 12, ...set.cycles.map(() => 8), 26],
+    widths: [10, 6, 8, 26, 36, 14, 34, 30, 26, 12, ...set.cycles.map(() => 8), 26],
     merges: ['A1:F1', 'A4:B4', 'C4:J4', 'A5:B5', 'C5:J5'],
     rows: [
       [{ v: `${s.id} ${s.title}`, s: 2 }],
@@ -116,8 +117,8 @@ export function layoutA(set) {
       [{ v: 'Description', s: 3 }, null, { v: s.description, s: 0 }],
       [],
       [{ v: 'Test Procedure', s: 3 }],
-      [H('Scenario #'), H('Seq.'), H('Step'), H('Description'), H('T-code'), H('Check points'), H('Input data'), H('Expected output'), H('User'), ...set.cycles.map((c) => H(`${c} (O/X)`)), H('Remarks')],
-      ...s.steps.map((st, j) => [j === 0 ? s.id : '', j + 1, st.activity, st.system && st.system !== 'SAP' ? `[${st.system}]` : '', st.tcode, bullets(st.checks), bullets(st.inputs), bullets(st.outputs), st.user,
+      [H('Scenario #'), H('Seq.'), H('Module'), H('Step'), H('Description'), H('T-code'), H('Check points'), H('Input data'), H('Expected output'), H('User'), ...set.cycles.map((c) => H(`${c} (O/X)`)), H('Remarks')],
+      ...s.steps.map((st, j) => [j === 0 ? s.id : '', j + 1, st.module, st.activity, st.system && st.system !== 'SAP' ? `[${st.system}]` : '', st.tcode, bullets(st.checks), bullets(st.inputs), bullets(st.outputs), st.user,
         ...set.cycles.map((c) => RESULT[st.results[c]]), [st.followUp, st.issue].filter(Boolean).join('\n')].map((v) => ({ v, s: 0 }))),
     ],
   }));
@@ -126,20 +127,20 @@ export function layoutA(set) {
 
 /** Layout B — flat scenario list. */
 export function layoutB(set) {
-  const heads = ['Theme', 'Scenario / No.', 'Activity', 'Test case (variant)', 'System', 'T-code', ...set.cycles, 'Test date', 'Check', 'PIC', 'Status', 'Input', 'Output & check list', 'Result & follow-up', 'Issue'];
-  const rows = [[{ v: set.title || `${set.module} UAT scenarios`, s: 2 }], heads.map(H)];
+  const heads = ['Theme', 'Scenario / No.', 'Activity', 'Test case (variant)', 'Module', 'System', 'T-code', ...set.cycles, 'Test date', 'Check', 'PIC', 'Status', 'Input', 'Output & check list', 'Result & follow-up', 'Issue'];
+  const rows = [[{ v: set.title || `${set.module} ${KIND_TITLE[set.kind] || 'UAT'} scenarios`, s: 2 }], heads.map(H)];
   const merges = [];
   set.scenarios.forEach((s, i) => {
     rows.push([{ v: String(i + 1), s: 3 }, { v: `${s.id} ${s.title}`, s: 3 }, ...heads.slice(2).map(() => ({ v: '', s: 3 }))]);
     merges.push(`B${rows.length}:${col(heads.length - 1)}${rows.length}`);
     for (const st of s.steps) {
-      rows.push([s.theme, st.id, st.activity, s.variant, st.system || 'SAP', st.tcode, ...set.cycles.map((c) => RESULT[st.results[c]]),
+      rows.push([s.theme, st.id, st.activity, s.variant, st.module, st.system || 'SAP', st.tcode, ...set.cycles.map((c) => RESULT[st.results[c]]),
         s.date, bullets(st.checks), st.user, st.status, bullets(st.inputs), bullets(st.outputs), st.followUp, st.issue].map((v) => ({ v, s: 0 })));
     }
   });
   const users = [...new Set(set.scenarios.flatMap((s) => s.steps.map((st) => st.user)).filter(Boolean))];
   return workbook([
-    { name: `${set.module || 'UAT'} scenarios`, rows, merges: ['A1:F1', ...merges], widths: [16, 14, 36, 22, 10, 18, ...set.cycles.map(() => 7), 12, 34, 10, 12, 30, 30, 30, 22] },
+    { name: `${set.module || 'UAT'} scenarios`, rows, merges: ['A1:F1', ...merges], widths: [16, 14, 36, 22, 8, 10, 18, ...set.cycles.map(() => 7), 12, 34, 10, 12, 30, 30, 30, 22] },
     { name: 'Test users', widths: [12, 18], rows: [[H('Module'), H('Test user ID')], ...users.map((u) => [{ v: set.module, s: 0 }, { v: u, s: 0 }])] },
   ]);
 }
