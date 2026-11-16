@@ -75,6 +75,10 @@ Edit in the browser: Edit → Save → build-gap-doc.mjs --import
 
 **WRICEF → project dashboard.** A project exists under `<ARTIFACT_BASE>/projects/` → ask `Import the <n> WRICEF candidates into project <CODE>?` (`Import` / `Not now`). On yes: `node "<PLUGIN_ROOT>/scripts/project/build-project-doc.mjs" add-wricef --project <CODE> --file "<wricef.json>"` and relay `added` / `skipped`. Each item carries `source` (`doc: gap`, module, code, version) so the dashboard can recognise items already imported.
 
+## Blank document and workbench fields
+
+No process map, or a new implementation scoped from requirements → `node "<PLUGIN_ROOT>/scripts/process/build-gap-doc.mjs" --blank --module <M> --scope <conversion|new> [--lang ko|en|ja] [--title "…"] --out-dir "<PROC_DIR>"`. The page opens without rows; in edit mode ＋ adds an L1 row, a row under a group or a variant under a task, ✕ deletes a row a person added; Save → `--import` as below. Every task row also takes the to-be requirement (`req`: id, text, source, priority H / M / L), the effort in man-days (`effortMd`) and an owner (free text); these columns show on a blank document, in the web workbench and once any row uses them (a document without them renders as before). Rows people added and these fields survive a later derivation from a process map (G2 / G4), matched by code. The workbook export is `scripts/process/gap-xlsx.mjs` (`gapXlsx`); the web workbench (`/gap`) uses the same page with `embed` and suggests changes as allowlisted ops (`applyOps` — never owner, decision, the WBS link, usage or coverage).
+
 ## Edited page → next version
 
 1. `node "<PLUGIN_ROOT>/scripts/process/build-gap-doc.mjs" --import "<…-edited.html>" "<STATE_DIR>/gap-model.json" "<PROC_DIR>/<MODULE>-gap-<lang>.history.json"`

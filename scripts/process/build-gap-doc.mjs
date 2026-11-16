@@ -7,6 +7,8 @@
 //    only the decisions — disposition, WRICEF switch and kind — are carried across languages)
 //   node build-gap-doc.mjs --import <edited.html> <gap.json to write> [<history.json>]
 //   node build-gap-doc.mjs --wricef <gap.json | edited.html> --out <items.json> [--version X.Y]
+//   node build-gap-doc.mjs --blank --module <M> [--scope conversion|new] [--lang ko|en|ja] [--title "…"] [--out-dir DIR]
+//        a gap document without a process map: no rows yet; the page's edit mode adds L1–L4 rows (＋ / ✕), Save → --import
 //
 // Offline: no SAP call. A process model (module-to-process) is turned into a gap model (gap-model.mjs → deriveGap);
 // the consultant's edits of the previous version (latest _src/*.gap.json of the same language, or --prev) are carried by
@@ -28,8 +30,8 @@ import { STYLE } from './process-page.mjs';
 import { EDITOR_SCRIPT, EDITOR_STYLE, editorLabels } from './process-editor.mjs';
 import { importEditedHtml, nextVersion } from './build-process-doc.mjs';
 import { anchorId } from './process-model.mjs';
-import { applyPatch, checkGap, deriveGap, DISPOSITIONS, FITS, gapStats, WRICEF, wricefItems } from './gap-model.mjs';
-import { GAP_SCRIPT, GAP_STYLE, gapLabels } from './gap-page.mjs';
+import { applyPatch, blankGap, checkGap, deriveGap, DISPOSITIONS, FITS, gapStats, modelFromPage, PRIORITIES, WRICEF, wricefItems } from './gap-model.mjs';
+import { GAP_SCRIPT, GAP_STYLE, gapLabels, wbLabels, WB_STYLE, WB_EMBED_STYLE, WB_PRE, WB_SCRIPT } from './gap-page.mjs';
 
 const arr = (v) => (Array.isArray(v) ? v : []);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -38,6 +40,8 @@ const embedJson = (o) => JSON.stringify(o).replace(/</g, '\\u003c');
 const today = () => new Date().toISOString().slice(0, 10);
 const slug = (s) => String(s || 'MODULE').toUpperCase().replace(/[^A-Z0-9_-]+/g, '_');
 const readJson = (p) => JSON.parse(readFileSync(p, 'utf8'));
+// gap-model.mjs as page script (exports stripped; it has no imports) — the embed page's row tools use addRow / removeRow
+const gapModelInline = () => readFileSync(fileURLToPath(new URL('./gap-model.mjs', import.meta.url)), 'utf8').replace(/^export (const|function|let|async function)/gm, '$1').replace(/<\/script/gi, '<\\/script');
 const P = (code, sub) => `row:${code}|${sub}`;
 const ed = (p, text, tag = 'span') => `<${tag} data-p="${esc(p)}">${inline(text ?? '')}</${tag}>`;
 const codes = (list) => arr(list).map(x => `<code>${esc(x)}</code>`).join(' ');
@@ -59,33 +63,50 @@ const select = (T, path, field, values, cur, prefix) => `<select data-p="${esc(p
 const cover = (T, r) => arr(r.coverage).map(o => `${usageMark(T, o.usage, o)} <code>${esc(o.name)}</code>${o.type ? ` <span class="est">${esc(o.type)}</span>` : ''}`).join('<br>');
 const edMark = (T, g, code, f) => (arr(g.edited?.[code]).includes(f) ? `<span class="edmark" title="${esc(T.edited)}">✎</span>` : '');
 
-function matrix(g, T) {
+// Workbench columns (requirement, effort, owner): shown in the web workbench (embed), for a blank document, and
+// whenever a row uses them — a document that never used them renders exactly as before.
+const usesWb = (g) => g.blank || g.rows.some(r => r.req || (r.effortMd != null && r.effortMd !== '') || r.owner || r.decision || r.wbs);
+// row tools (edit mode, workbench only): add a row under a group / a variant under a task, remove a row a person added
+const rowTools = (W, r) => `<span class="ed-only wbt">${r.level < 4 ? `<button type="button" class="edx wb-add" data-parent="${esc(r.code)}" title="${esc(W.addChild)}">＋</button>`
+  : r.level === 4 ? `<button type="button" class="edx wb-add" data-parent="${esc(r.code)}" data-level="5" title="${esc(W.addVariant)}">＋</button>` : ''}`
+  + `${r.manual ? `<button type="button" class="edx wb-del" data-code="${esc(r.code)}" title="${esc(W.removeRow)}">✕</button>` : ''}</span>`;
+
+function groupRowHtml(g, T, r, { wb = false, W = null, tools = false } = {}) {
+  const kids = g.rows.some(x => x.code !== r.code && (x.code.startsWith(`${r.code}.`) || x.parent === r.code));
+  const tg = kids ? `<span class="tg" role="button" tabindex="0" data-code="${esc(r.code)}" data-level="${r.level}" aria-label="toggle">▾</span>` : '';
+  return `<tr class="lv${r.level}" data-code="${esc(r.code)}" data-level="${r.level}"><td><code>${esc(r.code)}</code></td>`
+    + `<td class="p" colspan="${wb ? 11 : 8}"><span style="padding-left:${(r.level - 1) * 16}px">${tg}${ed(P(r.code, 'label'), r.label)}</span>${tools ? rowTools(W, r) : ''}</td></tr>`;
+}
+
+function taskRowHtml(g, T, r, { wb = false, W = null, tools = false } = {}) {
+  const fit = r.fit === 'fit';
+  const w = fit ? '' : `<label class="won"><input type="checkbox" data-p="${esc(P(r.code, 'wricef.on'))}" data-f="won" disabled${r.wricef?.on ? ' checked' : ''} aria-label="${esc(T.include)}"></label> `
+    + `${select(T, P(r.code, 'wricef.kind'), 'kind', WRICEF, r.wricef?.kind, 'k_')}${edMark(T, g, r.code, 'wricef.kind')}`;
+  const wbCells = wb ? `<td class="rq">${ed(P(r.code, 'req.text'), r.req?.text)} ${select(W, P(r.code, 'req.priority'), 'priority', PRIORITIES, r.req?.priority || 'M', 'pr_')}</td>`
+    + `<td class="num">${ed(P(r.code, 'effortMd'), r.effortMd ?? '')}</td><td>${ed(P(r.code, 'owner'), r.owner)}</td>` : '';
+  return `<tr class="lv${r.level}" data-code="${esc(r.code)}" data-level="${r.level}" data-fit="${esc(r.fit)}" data-usage="${esc(r.usage)}">`
+    + `<td><code>${esc(r.code)}</code></td>`
+    + `<td class="p">${r.level === 5 ? `└ ${esc(T.variant)}: ` : ''}${ed(P(r.code, 'label'), r.label)}${fit ? '' : ` <a class="go" href="#${anchorId(`g-${r.code}`)}">↘</a>`}${tools ? rowTools(W, r) : ''}</td>`
+    + `<td>${fitBadge(T, r.fit)}</td><td>${usageMark(T, r.usage, r)}</td><td>${codes(r.tcodes)}</td><td class="cov">${cover(T, r)}</td>`
+    + `<td>${select(T, P(r.code, 'disposition'), 'disposition', DISPOSITIONS, r.disposition, 'd_')}${edMark(T, g, r.code, 'disposition')}</td>`
+    + `<td>${w}</td>${wbCells}<td class="nt">${ed(P(r.code, 'note'), r.note)}</td></tr>`;
+}
+
+function matrix(g, T, { wb = false, W = null, tools: rt = false } = {}) {
   const body = [];
-  for (const r of g.rows) {
-    const kids = g.rows.some(x => x.code !== r.code && (x.code.startsWith(`${r.code}.`) || x.parent === r.code));
-    const tg = r.level < 4 && kids ? `<span class="tg" role="button" tabindex="0" data-code="${esc(r.code)}" data-level="${r.level}" aria-label="toggle">▾</span>` : '';
-    if (r.level < 4) {
-      body.push(`<tr class="lv${r.level}" data-code="${esc(r.code)}" data-level="${r.level}"><td><code>${esc(r.code)}</code></td>`
-        + `<td class="p" colspan="8"><span style="padding-left:${(r.level - 1) * 16}px">${tg}${ed(P(r.code, 'label'), r.label)}</span></td></tr>`);
-      continue;
-    }
-    const fit = r.fit === 'fit';
-    const w = fit ? '' : `<label class="won"><input type="checkbox" data-p="${esc(P(r.code, 'wricef.on'))}" data-f="won" disabled${r.wricef?.on ? ' checked' : ''} aria-label="${esc(T.include)}"></label> `
-      + `${select(T, P(r.code, 'wricef.kind'), 'kind', WRICEF, r.wricef?.kind, 'k_')}${edMark(T, g, r.code, 'wricef.kind')}`;
-    body.push(`<tr class="lv${r.level}" data-code="${esc(r.code)}" data-level="${r.level}" data-fit="${esc(r.fit)}" data-usage="${esc(r.usage)}">`
-      + `<td><code>${esc(r.code)}</code></td>`
-      + `<td class="p">${r.level === 5 ? `└ ${esc(T.variant)}: ` : ''}${ed(P(r.code, 'label'), r.label)}${fit ? '' : ` <a class="go" href="#${anchorId(`g-${r.code}`)}">↘</a>`}</td>`
-      + `<td>${fitBadge(T, r.fit)}</td><td>${usageMark(T, r.usage, r)}</td><td>${codes(r.tcodes)}</td><td class="cov">${cover(T, r)}</td>`
-      + `<td>${select(T, P(r.code, 'disposition'), 'disposition', DISPOSITIONS, r.disposition, 'd_')}${edMark(T, g, r.code, 'disposition')}</td>`
-      + `<td>${w}</td><td class="nt">${ed(P(r.code, 'note'), r.note)}</td></tr>`);
-  }
+  for (const r of g.rows) body.push(r.level < 4 ? groupRowHtml(g, T, r, { wb, W, tools: rt }) : taskRowHtml(g, T, r, { wb, W, tools: rt }));
   const opt = (vals, prefix) => `<option value="">${esc(T.all)}</option>` + vals.map(v => `<option value="${esc(v)}">${esc(T[`${prefix}${v}`] || v)}</option>`).join('');
   const tools = `<div class="gtools m-bar"><input id="g-q" type="search" placeholder="${esc(T.filter)}" aria-label="${esc(T.filter)}">`
     + `<select id="g-fit" aria-label="${esc(T.fit)}">${opt(FITS, 'f_')}</select><select id="g-use" aria-label="${esc(T.usage)}">${opt(['used', 'unused', 'unknown'], 'u_')}</select>`
     + `<select id="g-disp" aria-label="${esc(T.disposition)}">${opt(DISPOSITIONS, 'd_')}</select><label><input id="g-w" type="checkbox"> ${esc(T.onlyWricef)}</label>`
     + `<button type="button" id="g-collapse">${esc(T.collapse)}</button><button type="button" id="g-expand">${esc(T.expand)}</button><button type="button" id="g-csv">${esc(T.csvBtn)}</button></div>`;
-  return tools + `<div class="tw"><table class="gm"><thead><tr>${[T.code, T.process, T.fit, T.usage, T.stdTcodes, T.coverage, T.disposition, T.wkind, T.note]
-    .map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></div>`;
+  const heads = [T.code, T.process, T.fit, T.usage, T.stdTcodes, T.coverage, T.disposition, T.wkind, ...(wb ? [W.req, W.effort, W.owner] : []), T.note];
+  // workbench: add an L1 row; templates of a new group / task row (the page script fills the code and label)
+  const add = rt ? `<div class="ed-only wbtop"><button type="button" class="edadd wb-add" data-parent="" title="${esc(W.addTop)}">${esc(W.addTop)}</button></div>` : '';
+  const tpl = rt ? [1, 4, 5].map((lv) => { const r = { code: '__CODE__', level: lv, label: '__LABEL__', manual: true, fit: 'gap', usage: 'unknown', disposition: 'review', wricef: { on: false, kind: 'R' }, tcodes: [], coverage: [], note: '' };
+    return `<template data-wb-level="${lv}">${lv < 4 ? groupRowHtml(g, T, r, { wb, W, tools: true }) : taskRowHtml(g, T, r, { wb, W, tools: true })}</template>`; }).join('') : '';
+  return tools + add + `<div class="tw"><table class="gm"><thead><tr>${heads
+    .map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></div>${tpl}`;
 }
 
 /** "PRD · productive (PRD) ST03N · 12 months (measured 6) · 2026-11-01" */
@@ -97,8 +118,16 @@ function basisText(T, b) {
   return esc([b.system, tier, b.destination ? `${T.destination} ${b.destination}` : '', months, b.measuredAt].filter(Boolean).join(' · '));
 }
 
-function gapCard(g, T, r) {
+function gapCard(g, T, r, { wb = false, W = null } = {}) {
   const parts = [`<h4>${esc(r.code)} ${esc(r.label)} ${fitBadge(T, r.fit)} ${usageText(T, r)}</h4>`];
+  if (wb) {
+    const q = r.req || {};
+    parts.push(`<h5>${esc(W.req)}</h5><p>${q.id ? `<code>${esc(q.id)}</code> ` : ''}${ed(P(r.code, 'req.text'), q.text)}${q.priority ? ` <span class="est">${esc(W.priority)} ${esc(W[`pr_${q.priority}`] || q.priority)}</span>` : ''}${q.source ? ` <span class="est">${esc(W.reqSource)} ${esc(q.source)}</span>` : ''}</p>`);
+    const facts = [[W.effort, r.effortMd != null && r.effortMd !== '' ? `${esc(r.effortMd)} MD` : ''], [W.owner, esc(r.owner || '')],
+      [W.decision, r.decision ? esc([r.decision.by, r.decision.at].filter(Boolean).join(' · ')) : ''],
+      [W.wbs, r.wbs?.rowId ? esc([r.wbs.projectId, r.wbs.rowId, r.wbsStatus?.stage || r.wbsStatus?.status || ''].filter(Boolean).join(' · ')) : '']].filter(([, v]) => v);
+    if (facts.length) parts.push(`<p class="est">${facts.map(([k, v]) => `${esc(k)}: ${v}`).join(' · ')}</p>`);
+  }
   parts.push(`<h5>${esc(T.statement)}${edMark(T, g, r.code, 'statement')}</h5>${ed(P(r.code, 'statement'), r.statement, 'p')}`);
   if (arr(r.why).length) parts.push(`<h5>${esc(T.why)}</h5><ul>${r.why.map(w => `<li>${inline(w.text)}${w.source ? `<span class="src">[<code>${esc([w.source.object, w.source.unit !== w.source.object ? w.source.unit : '', w.source.line ? `:${w.source.line}` : ''].filter(Boolean).join(' '))}</code>]</span>` : ''}</li>`).join('')}</ul>`);
   if (arr(r.coverage).length) parts.push(`<h5>${esc(T.coverage)}</h5><p>${arr(r.coverage).map(o => `${usageMark(T, o.usage, o)} <code>${esc(o.name)}</code>${o.desc ? ` ${inline(o.desc)}` : ''}`).join('<br>')}</p>`);
@@ -108,12 +137,22 @@ function gapCard(g, T, r) {
   return `<section class="gap-card fit-l-${esc(r.fit)}" id="${anchorId(`g-${r.code}`)}">${parts.join('')}</section>`;
 }
 
-export function renderGapHtml(gap, { version, date, history = [], mapHref = '' }) {
+/**
+ * embed: the page runs inside the web workbench, which stores every change — no file Save, no browser drafts, no
+ * leave warning; window.SC4SAP_PAGE = { kind: 'gap', model, edit, editing } and the row tools (add / remove rows).
+ * Without embed (and without workbench fields in the model) the output is the CLI page, byte for byte.
+ */
+export function renderGapHtml(gap, { version, date, history = [], mapHref = '', embed = false }) {
   const g = { ...gap, rows: arr(gap.rows), packages: arr(gap.packages), notEvidenced: arr(gap.notEvidenced), openQuestions: arr(gap.openQuestions) };
   const T = gapLabels(g.lang);
   const E = { ...editorLabels(g.lang), hint: T.edHint };
   const title = g.title || `${g.module} ${T.doc}`;
   const st = gapStats(g);
+  const W = wbLabels(g.lang);
+  const wb = embed || usesWb(g);
+  if (embed) E.hint = W.edHint; // the workbench saves by itself: no Save / --import in the hint
+  // row tools: in the workbench, and on a blank document's CLI page (rows can only be added by hand there)
+  const rt = embed || !!g.blank;
   const toc = [], sec = [];
   const meta = [[T.version, `v${esc(version)}`], [T.date, esc(date)], [T.scope, esc(T[`sc_${g.scope}`] || g.scope)],
     g.system && [T.system, esc(g.system)], g.sapVersion && ['SAP', esc(g.sapVersion)],
@@ -142,12 +181,12 @@ export function renderGapHtml(gap, { version, date, history = [], mapHref = '' }
 
   // 2. Matrix
   toc.push(['matrix', `2. ${T.matrix}`]);
-  sec.push(`<section id="matrix" class="page-break"><h2>2. ${esc(T.matrix)}</h2>${matrix(g, T)}</section>`);
+  sec.push(`<section id="matrix" class="page-break"><h2>2. ${esc(T.matrix)}</h2>${matrix(g, T, { wb, W, tools: rt })}</section>`);
 
   // 3. Gap register (everything that is not a plain fit)
   const gaps = g.rows.filter(r => r.level >= 4 && r.fit !== 'fit');
   toc.push(['register', `3. ${T.register}`]);
-  sec.push(`<section id="register" class="page-break"><h2>3. ${esc(T.register)}</h2>${gaps.length ? gaps.map(r => gapCard(g, T, r)).join('') : `<p>${esc(T.none)}</p>`}</section>`);
+  sec.push(`<section id="register" class="page-break"><h2>3. ${esc(T.register)}</h2>${gaps.length ? gaps.map(r => gapCard(g, T, r, { wb, W })).join('') : `<p>${esc(T.none)}</p>`}</section>`);
 
   // 4. WRICEF candidates
   const cand = wricefItems(g, version);
@@ -177,7 +216,7 @@ export function renderGapHtml(gap, { version, date, history = [], mapHref = '' }
   return withResponsive(`<!doctype html>
 <html lang="${esc(g.lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} v${esc(version)}</title>
-<style>${STYLE}${EDITOR_STYLE}${GAP_STYLE}</style></head>
+<style>${STYLE}${EDITOR_STYLE}${GAP_STYLE}${rt ? WB_STYLE : ''}${embed ? WB_EMBED_STYLE : ''}</style></head>
 <body>
 <header class="topbar m-bar"><span class="t">${esc(title)} · v${esc(version)}</span>${mapHref ? `<a href="${esc(mapHref)}">${esc(T.openMap)}</a>` : ''}<button id="ed-undo" type="button">${esc(E.undo)}</button><button id="ed-save" type="button">${esc(E.save)}</button><button id="ed-edit" type="button">${esc(E.edit)}</button><button id="print-btn" type="button">${esc(T.print)}</button><button id="theme-btn" type="button">${esc(T.theme)}</button></header>
 <div class="ed-bar">${esc(E.hint)}</div>
@@ -185,12 +224,16 @@ export function renderGapHtml(gap, { version, date, history = [], mapHref = '' }
 ${sec.join('\n')}
 <footer class="doc-end"><strong>${esc(T.endOfDoc)}</strong></footer>
 </main></div>
-<script type="application/json" id="process-model">${embedJson({ model: gap, version, history })}</script>
+<script type="application/json" id="process-model">${embedJson(embed ? { model: gap, version, history, embed: true } : { model: gap, version, history })}</script>
 <script type="application/json" id="editor-labels">${embedJson(E)}</script>
 <script type="application/json" id="gap-labels">${embedJson(T)}</script>
-<script>${EDITOR_SCRIPT}</script>
+${rt ? `<script type="application/json" id="wb-labels">${embedJson(W)}</script>
+` : ''}${embed ? `<script>${WB_PRE}</script>
+` : ''}<script>${EDITOR_SCRIPT}</script>
 <script>${GAP_SCRIPT}</script>
-</body></html>
+${rt ? `<script>${gapModelInline()}
+${WB_SCRIPT}</script>
+` : ''}</body></html>
 `);
 }
 
@@ -264,10 +307,9 @@ function deriveFromGap(gap, patch) {
 export function readGap(path) {
   const text = readFileSync(path, 'utf8');
   if (/\.html?$/i.test(path)) {
-    const mm = /<script type="application\/json" id="process-model">([\s\S]*?)<\/script>/.exec(text);
-    if (!mm) throw new Error(`${path} has no embedded gap model`);
-    const d = JSON.parse(mm[1]);
-    return { gap: d.model, version: d.version || d.model?.version || '' };
+    const d = modelFromPage(text); // shared with the web workbench (library import)
+    if (!d) throw new Error(`${path} has no embedded gap model`);
+    return { gap: d.model, version: d.version };
   }
   const gap = JSON.parse(text);
   return { gap, version: gap.version || versionOf(path) };
@@ -282,6 +324,17 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
       const [, htmlPath, outPath, historyPath] = args;
       if (!htmlPath || !outPath) { console.error('Usage: node build-gap-doc.mjs --import <edited.html> <gap.json to write> [<history.json>]'); process.exit(2); }
       console.log(JSON.stringify(importEditedHtml(resolve(htmlPath), resolve(outPath), historyPath ? resolve(historyPath) : undefined), null, 2));
+    } else if (args[0] === '--blank') {
+      const module = String(get('--module') || '').toUpperCase();
+      if (!/^[A-Z][A-Z0-9_-]{0,19}$/.test(module)) { console.error('Usage: node build-gap-doc.mjs --blank --module <M> [--scope conversion|new] [--lang ko|en|ja] [--title "…"] [--out-dir DIR]'); process.exit(2); }
+      const lang = ['ko', 'en', 'ja'].includes(get('--lang')) ? get('--lang') : 'ko';
+      const gap = blankGap({ module, scope: get('--scope') || 'conversion', lang, title: get('--title') || '' });
+      const dir = get('--out-dir') ? resolve(get('--out-dir')) : join(resolveArtifactBase(process.cwd()), 'processes', slug(module));
+      mkdirSync(join(dir, '_src'), { recursive: true });
+      const seed = join(dir, '_src', `${slug(module)}-gap-blank-${lang}.gap.json`);
+      writeFileSync(seed, `${JSON.stringify(gap, null, 2)}\n`, 'utf8');
+      const res = buildGapDoc({ input: seed, outDir: dir });
+      console.log(JSON.stringify({ ...res, warnings: res.warnings.length }, null, 2));
     } else if (args[0] === '--wricef') {
       const out = get('--out');
       if (!args[1] || !out) { console.error('Usage: node build-gap-doc.mjs --wricef <gap.json | edited.html> --out <items.json> [--version X.Y]'); process.exit(2); }

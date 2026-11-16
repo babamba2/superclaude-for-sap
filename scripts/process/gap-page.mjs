@@ -128,6 +128,7 @@ table.gm input[type=checkbox]:disabled{opacity:.8}
 table.gm label.won{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;vertical-align:middle;cursor:pointer}table.gm label.won input{width:20px;height:20px;margin:0}
 @media (max-width:600px){a.cl,.topbar a,.cover .meta a{min-width:44px;min-height:44px;display:inline-flex;align-items:center}table.gm label.won,table.gm a.go{min-width:44px;min-height:44px;display:inline-flex;align-items:center;justify-content:center}table.gm a.go{margin-left:0}}
 table.gm .tg{cursor:pointer;color:var(--muted);display:inline-block;width:1.2em;user-select:none}
+@media (max-width:600px){table.gm .tg{display:inline-flex;align-items:center;justify-content:center;min-width:44px;min-height:44px;width:auto}}
 .gtools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0}
 .gtools input[type=search],.gtools select{font:inherit;font-size:14px;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
 .gtools input[type=search]{flex:1 1 180px;max-width:300px;min-width:0}
@@ -228,5 +229,98 @@ export const GAP_SCRIPT = String.raw`
   }
   var ACTIONS = { 'g-collapse': collapseAll, 'g-expand': expandAll, 'g-json': wricefJson, 'g-csv': csv };
   document.addEventListener('click', function(e){ var b = e.target.closest && e.target.closest('button[id]'); if (b && ACTIONS[b.id]) ACTIONS[b.id](); });
+})();
+`;
+
+// ── web workbench (embed) and the workbench columns ──
+// Kept apart from GAP_LABELS / GAP_STYLE / GAP_SCRIPT so a page without them stays byte-identical.
+export const WB_LABELS = {
+  ko: { req: '요구사항 (to-be)', effort: '공수 (MD)', owner: '담당', decision: '결정', wbs: 'WBS 연결', reqId: '요구 ID', reqSource: '출처', priority: '우선순위',
+    pr_H: '높음', pr_M: '보통', pr_L: '낮음', addTop: '+ L1 행 추가', addChild: '하위 행 추가', addVariant: '변형 추가', removeRow: '이 행과 하위 행 삭제', newRow: '새 항목',
+    edHint: '편집 모드: 글자를 눌러 고쳐요. 처리 방안, WRICEF, 우선순위는 목록에서 골라요. ＋로 행을 추가하고 ✕로 직접 추가한 행을 지워요. 바뀐 내용은 자동으로 저장돼요.' },
+  en: { req: 'Requirement (to-be)', effort: 'Effort (MD)', owner: 'Owner', decision: 'Decision', wbs: 'WBS link', reqId: 'Req. ID', reqSource: 'Source', priority: 'Priority',
+    pr_H: 'High', pr_M: 'Medium', pr_L: 'Low', addTop: '+ Add an L1 row', addChild: 'Add a row under it', addVariant: 'Add a variant', removeRow: 'Delete this row and its children', newRow: 'New item',
+    edHint: 'Edit mode: tap a text to change it. Pick the disposition, WRICEF and priority from the lists. ＋ adds a row, ✕ deletes a row you added. Changes are saved automatically.' },
+  ja: { req: '要件 (to-be)', effort: '工数 (人日)', owner: '担当', decision: '決定', wbs: 'WBS 連携', reqId: '要件 ID', reqSource: '出所', priority: '優先度',
+    pr_H: '高', pr_M: '中', pr_L: '低', addTop: '+ L1 行を追加', addChild: '下位行を追加', addVariant: 'バリアントを追加', removeRow: 'この行と下位行を削除', newRow: '新しい項目',
+    edHint: '編集モード: 文字をタップして修正します。対応方針・WRICEF・優先度はリストから選びます。＋で行を追加、✕で追加した行を削除します。変更は自動で保存されます。' },
+};
+export const wbLabels = (lang) => WB_LABELS[String(lang || '').slice(0, 2).toLowerCase()] || WB_LABELS.en;
+
+export const WB_STYLE = `
+table.gm td.rq{white-space:normal;min-width:200px}
+.wbt{margin-left:4px;gap:2px}.wbtop{margin:6px 0}
+@media (max-width:600px){.wbt .edx{min-width:44px;min-height:44px}}
+`;
+/** Embed only: the workbench stores the model, so the file Save button goes. */
+export const WB_EMBED_STYLE = `#ed-save{display:none!important}`;
+
+// Runs before the editor script in an embed page: the workbench stores every change, so no leave warning and no
+// browser drafts (the sandboxed frame has no storage of its own anyway).
+export const WB_PRE = String.raw`
+(function(){
+  var add = window.addEventListener;
+  window.addEventListener = function(t, f, o){ if (t === 'beforeunload') return; return add.call(window, t, f, o); };
+  try { Object.defineProperty(window, 'indexedDB', { value: undefined, configurable: true }); } catch (e) {}
+})();
+`;
+
+// Runs after the editor script in an embed page: the page contract (SC4SAP_PAGE) and the row tools.
+// gap-model.mjs is inlined in front of it (addRow / removeRow work on the editor's model object).
+export const WB_SCRIPT = String.raw`
+(function(){
+  var W = JSON.parse(document.getElementById('wb-labels').textContent);
+  var body = document.body;
+  function model(){ return window.sc4sapEditModel ? window.sc4sapEditModel() : JSON.parse(document.getElementById('process-model').textContent).model; }
+  window.SC4SAP_PAGE = {
+    kind: 'gap',
+    model: model,
+    edit: function(on){ if (!!on !== body.classList.contains('editing')) document.getElementById('ed-edit').click(); },
+    editing: function(){ return body.classList.contains('editing'); }
+  };
+  function arm(root){
+    var on = body.classList.contains('editing');
+    root.querySelectorAll('[data-p]').forEach(function(el){
+      if (/^(SELECT|INPUT)$/.test(el.tagName)) { el.disabled = !on; return; }
+      if (on) { el.setAttribute('contenteditable', 'plaintext-only'); el.setAttribute('spellcheck', 'false'); } else el.removeAttribute('contenteditable');
+    });
+  }
+  function replaceRows(m, rows){ m.rows.splice.apply(m.rows, [0, m.rows.length].concat(rows)); }
+  function rowEl(code){ return document.querySelector('table.gm tbody tr[data-code="' + CSS.escape(code) + '"]'); }
+  function lastUnder(code){
+    var all = Array.prototype.slice.call(document.querySelectorAll('table.gm tbody tr[data-code]'));
+    var hit = null;
+    all.forEach(function(tr){ var c = tr.dataset.code; if (c === code || c.indexOf(code + '.') === 0 || (c.indexOf(code) === 0 && /^[a-z]+$/.test(c.slice(code.length)))) hit = tr; });
+    return hit;
+  }
+  document.addEventListener('click', function(e){
+    if (!body.classList.contains('editing')) return;
+    var a = e.target.closest && e.target.closest('.wb-add'), d = e.target.closest && e.target.closest('.wb-del');
+    if (a) {
+      var m = model(), parent = a.dataset.parent || '', lv = Number(a.dataset.level) || 0;
+      var r;
+      try { r = addRow(m, { parent: parent, level: lv, label: W.newRow }); } catch (err) { return; }
+      replaceRows(m, r.gap.rows);
+      var row = r.gap.rows.filter(function(x){ return x.code === r.code; })[0];
+      var t = document.querySelector('template[data-wb-level="' + (row.level < 4 ? 1 : row.level) + '"]');
+      var html = t.innerHTML.split('__CODE__').join(r.code).split('--CODE--').join(r.code.replace(/[^A-Za-z0-9]+/g, '-')).split('__LABEL__').join(W.newRow)
+        .replace(/class="lv1"/, 'class="lv' + row.level + '"').replace(/data-level="1"/g, 'data-level="' + row.level + '"').replace(/padding-left:0px/, 'padding-left:' + ((row.level - 1) * 16) + 'px');
+      var tb = document.createElement('tbody'); tb.innerHTML = html;
+      var tr = tb.firstElementChild;
+      var go = tr.querySelector('a.go'); if (go) go.remove();
+      var after = parent ? lastUnder(parent) : null;
+      var list = document.querySelector('table.gm tbody');
+      if (after) after.after(tr); else list.appendChild(tr);
+      arm(tr);
+      var f = tr.querySelector('[data-p$="|label"]'); if (f) { f.focus(); try { document.getSelection().selectAllChildren(f); } catch (x) {} }
+      return;
+    }
+    if (d) {
+      var m2 = model(), code = d.dataset.code, res;
+      try { res = removeRow(m2, code); } catch (err) { return; }
+      replaceRows(m2, res.gap.rows);
+      res.removed.forEach(function(c){ var el = rowEl(c); if (el) el.remove(); var card = document.getElementById('p-g-' + c.replace(/[^A-Za-z0-9]+/g, '-')); if (card) card.remove(); });
+    }
+  });
 })();
 `;
