@@ -25,7 +25,10 @@ export const GNG_STATUS = ['open', 'go', 'nogo', 'waived'];
 /** Defaults filled (status, deps, lists); a model without a cutover stays without one. */
 export function normalizeCutover(c) {
   if (!c) return c;
-  return { ...c, window: { ...c.window }, freeze: { ...c.freeze }, rehearsals: arr(c.rehearsals),
+  // window times typed with a space ("2027-01-02 18:00") are stored with T; anything unreadable stays as typed (checkCutover reports it)
+  const w = { ...c.window };
+  for (const k of ['start', 'end']) if (w[k] && cutDT(w[k])) w[k] = cutDT(w[k]);
+  return { ...c, window: w, freeze: { ...c.freeze }, rehearsals: arr(c.rehearsals),
     tasks: arr(c.tasks).map(t => ({ status: 'planned', deps: [], ...t })), goNoGo: arr(c.goNoGo).map(g => ({ status: 'open', ...g })) };
 }
 
@@ -33,9 +36,9 @@ export function normalizeCutover(c) {
 export function checkCutover(c, team = []) {
   const errors = [], warnings = [];
   if (!c) return { errors, warnings };
-  const DT = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/, D = /^\d{4}-\d{2}-\d{2}$/;
-  for (const k of ['start', 'end']) if (c.window?.[k] && !DT.test(c.window[k])) errors.push(`cutover.window.${k} must be YYYY-MM-DDTHH:MM`);
-  if (c.window?.start && c.window?.end && c.window.end <= c.window.start) errors.push('cutover.window.end must be after its start');
+  const D = /^\d{4}-\d{2}-\d{2}$/;
+  for (const k of ['start', 'end']) if (c.window?.[k] && !cutDT(c.window[k])) errors.push(`cutover.window.${k} must be YYYY-MM-DD HH:MM (is "${String(c.window[k]).slice(0, 40)}")`);
+  if (cutDT(c.window?.start) && cutDT(c.window?.end) && cutDT(c.window.end) <= cutDT(c.window.start)) errors.push('cutover.window.end must be after its start');
   for (const k of ['code', 'config']) if (c.freeze?.[k] && !D.test(c.freeze[k])) errors.push(`cutover.freeze.${k} must be YYYY-MM-DD`);
   const ids = new Set(arr(c.tasks).map(t => t.id)), seen = new Set(), people = new Set(arr(team).map(t => t.id));
   for (const t of arr(c.tasks)) {
@@ -54,7 +57,13 @@ export function checkCutover(c, team = []) {
 }
 
 export const CUT_TIGHT_PCT = 10;
-/** Window length that ends 06:00 on go-live; the template sets the start (days before, time). */
+/** "YYYY-MM-DDTHH:MM" of a window time typed with T or a space; '' when it is not a real date-time (free text, 2027-13-40 …). */
+export const cutDT = (s) => {
+  const x = String(s ?? '').trim().replace(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}:\d{2})(:\d{2})?$/, '$1T$2');
+  if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(x)) return '';
+  const t = Date.parse(`${x}:00Z`);
+  return Number.isNaN(t) || new Date(t).toISOString().slice(0, 16) !== x ? '' : x;
+};
 export const CUT_WARN = {
   en: 'Release order, not a verified import order — check the order with the transport team (dependencies, overlapping objects).',
   ko: '릴리스 순서 목록이지 검증된 이관 순서가 아닙니다. 순서는 이관 담당과 확인하세요 (의존성, 겹치는 객체).',
@@ -171,7 +180,8 @@ export const cutActualH = (t, rid) => { const a = t.actual?.[rid]; return a?.sta
 
 /** Plan and the latest (or given) rehearsal against the window: fits / tight (slack < 10 %) / exceeds. */
 export function rehearsalFit(c, rehearsalId = '') {
-  const windowH = c?.window?.start && c?.window?.end ? cutR1(cutHours(c.window.start, c.window.end)) : null;
+  const ws = cutDT(c?.window?.start), we = cutDT(c?.window?.end);
+  const windowH = ws && we && we > ws ? cutR1(cutHours(ws, we)) : null; // an unreadable window = no window (never NaN)
   const verdict = (h) => (windowH == null ? 'unknown' : h > windowH ? 'exceeds' : (windowH - h) / windowH * 100 < CUT_TIGHT_PCT ? 'tight' : 'fits');
   const slack = (h) => (windowH ? cutR1((windowH - h) / windowH * 100) : null);
   const plan = criticalPath(c?.tasks);
@@ -264,7 +274,7 @@ export function tMinus(today, c, goLive) {
   const late = [];
   for (const t of arr(c?.tasks)) {
     if (!cutOpen(t)) continue;
-    const due = t.phase === 'window' ? (c.window?.end || '').slice(0, 10) : cutDueOf(t, c, goLive);
+    const due = t.phase === 'window' ? cutDT(c.window?.end).slice(0, 10) : cutDueOf(t, c, goLive);
     if (due && due < today) late.push({ id: t.id, label: t.label, phase: t.phase, due });
   }
   return { dDay: goLive ? days(today, goLive) : null, late };
@@ -273,8 +283,9 @@ export function tMinus(today, c, goLive) {
 /** Planned start / finish of window tasks as date-times (window start + earliest start). */
 export function cutWindowTimes(c, schedule) {
   const out = {};
-  if (!c?.window?.start) return out;
-  for (const [id, s] of Object.entries(schedule || {})) out[id] = { start: cutAddHours(c.window.start, s.es), end: cutAddHours(c.window.start, s.ef) };
+  const ws = cutDT(c?.window?.start);
+  if (!ws) return out; // an unreadable start (free text typed in the tab) gives no times instead of an Invalid Date error
+  for (const [id, s] of Object.entries(schedule || {})) out[id] = { start: cutAddHours(ws, s.es), end: cutAddHours(ws, s.ef) };
   return out;
 }
 

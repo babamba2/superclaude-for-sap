@@ -3,7 +3,7 @@ import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync, existsSync
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { seedCutover, criticalPath, rehearsalFit, goNoGoView, importList, tMinus, parseActuals, applyActuals, checkCutover, cutDueOf, cutEvalRule, CUT_WARN } from '../../scripts/project/cutover-model.mjs';
+import { seedCutover, criticalPath, rehearsalFit, goNoGoView, importList, tMinus, parseActuals, applyActuals, checkCutover, cutDueOf, cutEvalRule, CUT_WARN, cutDT, normalizeCutover, cutWindowTimes } from '../../scripts/project/cutover-model.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { cmdCutover, parseWindow, ctsRequests, prdStop, loadCutoverTemplate } from '../../scripts/project/cutover-cli.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -73,6 +73,36 @@ describe('cutover — seed', () => {
     expect(text).not.toMatch(/\b[ZY][A-Z0-9_]{3,}\b/);
     expect(text).not.toMatch(/HKT|BXD|ES-DEV|S4-DEV|HKD|PRD\d/);
     expect(text).not.toMatch(/작업 창/); // the reviewed wording is 작업 시간대
+  });
+});
+
+describe('cutover — window times typed in the tab', () => {
+  it('accepts a space or T, rejects free text and impossible dates', () => {
+    expect(cutDT('2027-01-02 18:00')).toBe('2027-01-02T18:00');
+    expect(cutDT('2027-01-02T18:00')).toBe('2027-01-02T18:00');
+    expect(cutDT('next saturday')).toBe('');
+    expect(cutDT('2027-13-40 18:00')).toBe('');
+    expect(normalizeCutover({ window: { start: '2027-01-02 18:00', end: 'soon' } }).window).toEqual({ start: '2027-01-02T18:00', end: 'soon' });
+  });
+  it('free text in the window gives no window and no times — never an Invalid Date error — and the command check names it', () => {
+    const c = { ...seeded().cutover, window: { start: 'Saturday evening', end: '2027-01-04T06:00' } };
+    const f = rehearsalFit(c);
+    expect(f.windowH).toBeNull();
+    expect(f.verdict).toBe('unknown');
+    expect(cutWindowTimes(c, f.plan.schedule)).toEqual({});
+    expect(() => tMinus('2026-12-20', c, '2027-01-04')).not.toThrow();
+    expect(checkCutover(c, TEAM).errors.join(' ')).toMatch(/window\.start must be YYYY-MM-DD HH:MM \(is "Saturday evening"\)/);
+    const m = normalizeModel(seeded()); m.cutover = c;
+    const html = renderCutoverTab(viewModel(m, '2026-12-20'), { ...labelsFor('ko') });
+    expect(html).toContain('<span class="bad">Saturday evening');
+    expect(html).toContain('data-f="cw|window|start" data-k="datetime"');
+  });
+  it('the dashboard editor keeps the old value on a bad date-time (datetime kind)', () => {
+    const client = readFileSync(join(ROOT, 'scripts/project/project-client.js'), 'utf8');
+    expect(client).toMatch(/kind === 'datetime'\) return v\.trim\(\) === '' \? '' : cutDT\(v\) \|\| null/);
+    expect(client).toMatch(/kind === 'datetime'\) \{ inp\.title = E\.badDt; toast\(E\.badDt, false\); \}/);
+    const page = readFileSync(join(ROOT, 'scripts/project/project-page.mjs'), 'utf8');
+    expect(page).toMatch(/badDt: '날짜 형식이 아니에요/);
   });
 });
 
