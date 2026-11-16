@@ -5,6 +5,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.68] — 2026-11-16
+
 ### Added
 - **Japanese role workbook and relation map.** `/sc4sap:role-matrix` (`--lang ja`: sheets, edit mode, help, SoD library texts; `sync` reads SAP texts in Japanese and falls back to English where the system has none) and `/sc4sap:cbo-relation-map` (`--lang ja`) build Japanese pages next to ko / en.
 - **Config notes show whether they were checked against this system.** A note reviewed against the system's rows shows "이 시스템 값으로 검증됨" (system · snapshot date); if the rows changed since, "검증 후 값이 바뀜" instead (the value hash is language-independent, so ko / en / ja pages agree); a note with only the knowledge base's general part shows "일반 설명만". notes-lint lists case verdicts without evidence and "yes" verdicts that quote none of the activity's data (single-character tokens do not count).
