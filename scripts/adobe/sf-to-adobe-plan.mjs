@@ -140,6 +140,9 @@ export function planMigration(model, { options = 'full', formName = '', interfac
   const lay = (parent, el, name, from, extra = {}) => { const c = { el, name, from: from?.id || '', children: [], ...extra }; parent.children.push(c); if (from) entry(from).layout.push(`${el}:${name}`); return c; };
 
   const declared = new Set(['SFSY', 'SY', ...Object.values(model.interface).flat().map((p) => p.name), ...model.globals.data.map((d) => d.name)].map((s) => s.toUpperCase()));
+  // GET_XFT_FIELD_TYPE: these get a '$' type (current date / time / page / page count / space) — no context data
+  const SYSTEM_TYPED = new Set(['SFSY-DATE', 'SY-DATUM', 'SFSY-TIME', 'SY-UZEIT', 'SFSY-PAGE', 'SFSY-FORMPAGES', 'SPACE']);
+  const declaredPlain = new Set([...Object.values(model.interface).flat().map((x) => x.name), ...model.globals.data.map((x) => x.name)].map((x) => x.toUpperCase()));
   const state = { mainDone: false, page: '', activeWas: [], sections: [], evHeader: null, evFooter: null, templates: [] };
   const fpForm = formName || encodeName(model.form);
   const fpIntf = interfaceName || encodeName(model.form);
@@ -280,12 +283,57 @@ export function planMigration(model, { options = 'full', formName = '', interfac
         let cp = cParent;
         if ((fields.length && o.text_binding) || (n.cond && o.condition_data)) cp = ctx(cParent, 'folder', encodeName(n.name), n);
         condData(n, cp !== cParent ? cp : null);
-        for (const f of fields) {
-          if (!fieldSupported(f.toUpperCase())) { say(n, 'm04', f); continue; }
-          const inWa = state.activeWas.find((w) => f.toUpperCase().startsWith(w.toUpperCase()));
-          if (inWa) { entry(n).context.push(`field:${f} (loop work area ${inWa})`); continue; }
-          if (!declared.has(fieldHead(f))) { say(n, 'm05', f); log[log.length - 1].predicted = true; continue; }
-          if (o.text_placeholder || o.text_binding) ctx(cp, 'data', f.toUpperCase(), n, { field: f.toUpperCase() });
+        // MIGRATE_TEXT_ELEMENT: with text_placeholder every &field& becomes the literal "{FIELD}" in the text — no
+        // field, no context node, no check; with text_binding a hidden field per &field& (parts as subforms) bound to a
+        // context data node (parts as folders, under the text's folder) or to the loop work area it belongs to
+        const sorted = [...new Set(fields.map((f) => f.toUpperCase()))].sort();
+        if (o.text_placeholder) {
+          if (sorted.length) gap(n, `fields print as literal placeholders {…} (option text_placeholder): ${sorted.slice(0, 4).join(', ')}${sorted.length > 4 ? ' …' : ''}`, 'migrate with text_binding, or bind each placeholder to a context field by hand');
+        } else {
+          // loop 1 (layout): m04 for an unsupported field, else its hidden field declaration — a subform per leading
+          // part, shared with the previous field when the part names match, and a hidden field for the last part
+          let lprev = [];
+          for (const f of sorted) {
+            if (!fieldSupported(f)) { say(n, 'm04', f); continue; }
+            if (!o.layout) continue;
+            const lparts = f.split(/[-.]/).map((x) => (/^<.*>$/.test(x) ? `X3C_${x.slice(1, -1)}` : x));
+            let lparent = xp;
+            const lnow = [];
+            lparts.forEach((part, i) => {
+              if (i === lparts.length - 1) { lay(lparent, 'field', part, n, { presence: 'hidden', bind: f }); return; }
+              const reuse = lprev[i] && lprev[i].name === part ? lprev[i].node : null;
+              const node = reuse || lay(lparent, 'subform', part, n);
+              lnow.push({ name: part, node });
+              lparent = node;
+            });
+            lprev = lnow;
+          }
+          // loop 2 (context): GET_XFT_FIELD_TYPE — system fields ('$' types) and fields that are no parameter of the
+          // interface / global data (empty type) are skipped; work-area fields too (bound through the loop); the rest
+          // get folders + data. A field skipped for an empty type keeps its hidden field, bound to nothing.
+          let prev = [];
+          for (const f of sorted) {
+            if (!fieldSupported(f)) continue; // the context side (no message here; loop 1 logged m04)
+            if (SYSTEM_TYPED.has(f)) continue;
+            // SY / SFSY fields other than the '$' ones are no parameters either (an Adobe interface has none of them)
+            if (!declaredPlain.has(fieldHead(f))) {
+              gap(n, `field ${f} is not a parameter of the interface or the global data: GET_XFT_FIELD_TYPE finds no type, so SAP creates no context node — the hidden field stays bound to nothing and prints empty (no message)`, 'declare the field in the interface / global data, or bind the hidden field by hand');
+              continue;
+            }
+            if (state.activeWas.some((w) => f.startsWith(w.toUpperCase()))) { entry(n).context.push(`field:${f} (loop work area)`); continue; }
+            // folders for the leading parts are shared with the previous field when the names match (SAP's queue)
+            const parts = f.split(/[-.]/);
+            let parent = cp;
+            const now = [];
+            parts.forEach((part, i) => {
+              if (i === parts.length - 1) { ctx(parent, 'data', /^<.*>$/.test(part) ? `X3C_${part.slice(1, -1)}` : part, n, { field: f }); return; }
+              const reuse = prev[i] && prev[i].name === part ? prev[i].node : null;
+              const node = reuse || ctx(parent, 'folder', part, n);
+              now.push({ name: part, node });
+              parent = node;
+            });
+            prev = now;
+          }
         }
       } else if (k === 'text-include') {
         if (o.layout) lay(xp, 'field', encodeName(n.name), n, { ui: 'textEdit' });
@@ -450,9 +498,12 @@ export function planMigration(model, { options = 'full', formName = '', interfac
           if (!aborted) { aborted = { node: n.name, reason: `loop table ${tname} is not declared in the interface or the global data` }; say(n, 'm13'); }
         }
         else cp = ctx(cParent, 'loop', encodeName(n.name), n, { table: tname, workArea: a.workArea, firstLine: a.firstLine, lastLine: a.lastLine, where: a.where.map((w) => [w.LOP || '', w.OP1 || '', w.COP || '', w.OP2 || ''].join(' ').trim()) });
+        // MIGRATE_LOOP: the loop data node is named after the work area (ENCODE_FS_NAME) and holds the rows
+        const loopNode = cp !== cParent ? cp : null;
+        if (loopNode) cp = ctx(cp, 'loop-data', /^<.*>$/.test(a.workArea) ? `X3C_${a.workArea.slice(1, -1)}` : a.workArea, n);
         if (a.calc.length) say(n, 'm09');
         if (a.sort.length) say(n, 'm10');
-        condData(n, cp !== cParent ? cp : null);
+        condData(n, loopNode);
         condLayout(n, xp !== xParent ? xp : null);
       } else {
         gap(n, 'table / loop not migrated as a repeating node (option table off): its content is migrated once, without the loop', 'migrate with table or build the loop by hand');

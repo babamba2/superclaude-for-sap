@@ -84,11 +84,25 @@ describe('smartform-to-adobe — plan (full options)', () => {
 
   it('predicts the SAP log in walk order, with the m05 guesses marked', () => {
     expect(plan.log.map((m: any) => `${m.code}:${m.node}`)).toEqual([
-      'm04:T_INTRO', 'm05:T_INTRO', 'm09:TAB_ITEMS', 'm10:TAB_ITEMS', 'm04:ROW_B', 'm04:ROW_B', 'm04:ROW_B', 'm14:C_SUM', 'm04:C_SUM', 'm03:C_SUM',
+      'm04:T_INTRO', 'm09:TAB_ITEMS', 'm10:TAB_ITEMS', 'm04:ROW_B', 'm04:ROW_B', 'm04:ROW_B', 'm14:C_SUM', 'm04:C_SUM', 'm03:C_SUM',
       'm07:OLD_TAB', 'm05:BAD_LOOP', 'm13:BAD_LOOP', 'm06:CMD_NEXT', 'm02:A_CUST', 'm02:A_CUST']);
     expect(plan.log.filter((m: any) => m.code === 'm05').every((m: any) => m.predicted)).toBe(true);
     expect(plan.result).toBe('aborted');
     expect(plan.aborted.node).toBe('BAD_LOOP');
+  });
+
+  it('MIGRATE_TEXT_ELEMENT: loop 1 lays out every supported field, loop 2 builds context only for typed, non-work-area fields', () => {
+    // GV_UNDECLARED-X: no parameter → no type → no context node and no m05; its hidden field stays, bound to nothing
+    expect(plan.log.some((m: any) => m.code === 'm05' && m.node === 'T_INTRO')).toBe(false);
+    expect(plan.gaps.find((g: any) => g.node === 'T_INTRO' && /GV_UNDECLARED-X/.test(g.reason)).logged).toBe(false);
+    const lay = JSON.stringify(plan.layout);
+    expect(lay).toContain('"el":"subform","name":"GV_UNDECLARED"');
+    // SFSY-PAGE has a '$' type: hidden field yes, context data no
+    expect(lay).toContain('"name":"PAGE","from":"n5","children":[],"presence":"hidden"');
+    const ctx = JSON.stringify(plan.context);
+    expect(ctx).not.toContain('"name":"SFSY"');
+    expect(ctx).toContain('"field":"IS_HEAD-VBELN"');
+    // m04 (loop 1) always before any m05 of the same text (loop 2)
   });
 
   it('SET_FP_CONDITION reads the previous row: after an unsupported field every later row is dropped', () => {
