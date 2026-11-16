@@ -17,15 +17,16 @@
 //   node scripts/assist/values.mjs merge <Value | ACTION.ID.param> --keys <result.json> --texts <result.json>
 //                                        [--lang KO|3] [--find-file <words.txt>] [--max 30]
 //   The user's words never go on the command line (a shell would run $(…) or backticks inside quotes): the
-//   caller writes them to a file with its file tool and passes --find-file.
+//   caller writes them to a file with its file tool and passes --find-file. The file must sit directly in an MCP
+//   output sql folder (<…>/.sc4sap/work/<alias>/mcp-output/sql/<file>); --max is 1–3 digits. Else exit 2.
 //
 // plan prints { value, statements: [{ role: "keys", sql }, { role: "texts", sql }] }.
 // merge reads the two GetSqlQuery results (inline answer saved to a file, or the file of output "file") and
 // prints { value, total, shown, choices: [{ n, key, text, textEn }] } — text in the logon language, English
 // beside it when it differs (texts maintained in only one language are common), keys without a text kept.
 
-import { existsSync, readdirSync, readFileSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { existsSync, readdirSync, readFileSync, realpathSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { textLangs } from '../graph/ddic-queries.mjs';
 
@@ -37,6 +38,13 @@ const FIELD = /^[A-Z][A-Z0-9_]{0,29}$/;
 // Filter: FIELD = 'literal' joined by AND — nothing else reaches the SQL text
 const FILTER = /^[A-Z][A-Z0-9_]{0,29} = '[A-Z0-9_ ]{1,20}'( AND [A-Z][A-Z0-9_]{0,29} = '[A-Z0-9_ ]{1,20}')*$/;
 const CUSTOMIZING = new Set(['C', 'G']);
+
+/** true when the file sits directly in <…>/.sc4sap/work/<alias>/mcp-output/sql/ (symlinks resolved) */
+export function inMcpSqlDir(file) {
+  let p = resolve(String(file || ''));
+  try { p = realpathSync(p); } catch { /* not there yet: judge the path as given */ }
+  return /[\\/]\.sc4sap[\\/]work[\\/][^\\/]+[\\/]mcp-output[\\/]sql[\\/][^\\/]+$/.test(p);
+}
 
 const cells = (line) => line.trim().slice(1, -1).split('|').map((c) => c.trim());
 
@@ -172,8 +180,11 @@ export function main(argv, { out = console.log, err = console.error } = {}) {
     if (!keys) { err('merge needs --keys <file>'); return 2; }
     if (argv.includes('--find')) { err('--find is not accepted: write the words to a file and pass --find-file'); return 2; }
     const findFile = arg(argv, '--find-file', '');
+    if (findFile && !inMcpSqlDir(findFile)) { err('--find-file must be a file in .sc4sap/work/<alias>/mcp-output/sql/'); return 2; }
+    const maxArg = arg(argv, '--max', '30');
+    if (!/^\d{1,3}$/.test(maxArg)) { err('--max must be 1–3 digits'); return 2; }
     const find = findFile ? readFileSync(findFile, 'utf8').slice(0, 200) : '';
-    out(JSON.stringify(mergeValues(r, rowsOf(keys), texts ? rowsOf(texts) : [], { lang, find, max: Number(arg(argv, '--max', '30')) })));
+    out(JSON.stringify(mergeValues(r, rowsOf(keys), texts ? rowsOf(texts) : [], { lang, find, max: Number(maxArg) })));
     return 0;
   } catch (e) {
     err(e.message);

@@ -1,9 +1,9 @@
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
-import { findValue, loadValueTables, mergeValues, parseValueTables, planValue, rowProblems } from '../../scripts/assist/values.mjs';
+import { findValue, inMcpSqlDir, loadValueTables, mergeValues, parseValueTables, planValue, rowProblems } from '../../scripts/assist/values.mjs';
 import { loadCatalogs } from '../../scripts/assist/catalog.mjs';
 
 const ROOT = join(__dirname, '..', '..');
@@ -130,13 +130,35 @@ describe('assist value tables — CLI', () => {
   it('user words come from --find-file only; an inline --find is refused (no user text on a shell line)', () => {
     writeFileSync(join(tmp, 'k2.json'), JSON.stringify({ rows: [{ LIFSP: 'Z1' }, { LIFSP: 'Z2' }] }));
     writeFileSync(join(tmp, 't2.json'), JSON.stringify({ rows: [{ SPRAS: 'E', LIFSP: 'Z1', VTEXT: 'Credit $(whoami) check' }, { SPRAS: 'E', LIFSP: 'Z2', VTEXT: 'Date check' }] }));
-    writeFileSync(join(tmp, 'find.txt'), '$(whoami) credit');
+    const sql = join(tmp, '.sc4sap', 'work', 'DEV', 'mcp-output', 'sql');
+    mkdirSync(sql, { recursive: true });
+    writeFileSync(join(sql, 'find.txt'), '$(whoami) credit');
     const base = [CLI, 'merge', 'SD_DELIVERY_BLOCK', '--keys', join(tmp, 'k2.json'), '--texts', join(tmp, 't2.json'), '--lang', 'EN'];
-    const ok = spawnSync(process.execPath, [...base, '--find-file', join(tmp, 'find.txt')], { encoding: 'utf8' });
+    const ok = spawnSync(process.execPath, [...base, '--find-file', join(sql, 'find.txt')], { encoding: 'utf8' });
     expect(ok.status).toBe(0);
     expect(JSON.parse(ok.stdout).choices.map((c: any) => c.key)).toEqual(['Z1']);
     const inline = spawnSync(process.execPath, [...base, '--find', 'credit'], { encoding: 'utf8' });
     expect(inline.status).toBe(2);
     expect(inline.stderr).toMatch(/--find-file/);
+  });
+
+  it('--find-file only from an MCP output sql folder; --max only 1–3 digits (else exit 2)', () => {
+    const sql = join(tmp, '.sc4sap', 'work', 'DEV', 'mcp-output', 'sql');
+    mkdirSync(sql, { recursive: true });
+    writeFileSync(join(tmp, 'outside.txt'), 'credit');
+    expect(inMcpSqlDir(join(sql, 'find.txt'))).toBe(true);
+    expect(inMcpSqlDir(join(tmp, 'outside.txt'))).toBe(false);
+    expect(inMcpSqlDir(join(sql, '..', '..', 'find.txt'))).toBe(false);
+    expect(inMcpSqlDir(join(sql, 'sub', 'find.txt'))).toBe(false);
+    const base = [CLI, 'merge', 'SD_DELIVERY_BLOCK', '--keys', join(tmp, 'k2.json'), '--texts', join(tmp, 't2.json'), '--lang', 'EN'];
+    const outside = spawnSync(process.execPath, [...base, '--find-file', join(tmp, 'outside.txt')], { encoding: 'utf8' });
+    expect(outside.status).toBe(2);
+    expect(outside.stderr).toMatch(/mcp-output/);
+    for (const bad of ['1000', '-1', '3e2', '30;ls', '']) {
+      expect(spawnSync(process.execPath, [...base, '--max', bad], { encoding: 'utf8' }).status, bad).toBe(2);
+    }
+    const ok = spawnSync(process.execPath, [...base, '--max', '1'], { encoding: 'utf8' });
+    expect(ok.status).toBe(0);
+    expect(JSON.parse(ok.stdout)).toMatchObject({ total: 2, shown: 1 });
   });
 });

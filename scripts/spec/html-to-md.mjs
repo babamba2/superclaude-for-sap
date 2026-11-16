@@ -23,7 +23,15 @@
 // (`<name>-edited.<ext>`), returned in `assets` for the caller to write.
 //
 // Zero external deps.
+//
+// CLI — a spec page as the input of /sc4sap:create-program (an attached specification):
+//   node html-to-md.mjs <page.html> [--plain] [--out <file.md>] [--max-chars 60000]
+// Prints the Markdown, or with --out writes it and prints { out, chars, truncated }. Longer than --max-chars →
+// cut there with a closing line that says so. Images are not written (paths stay as links). Never calls SAP.
 
+import { readFileSync, writeFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { renderInlinePlain } from './md-to-html.mjs';
 
 // ── HTML parsing (well-formed page HTML: ours, or a browser's serialization of it) ──
@@ -495,4 +503,34 @@ export function htmlToMd(html, { plain = false, exists = () => false, mdStem = '
     j = end;
   }
   return { md: out.join('\n'), changed, missing, assets, source: S };
+}
+
+/** Markdown of a page for a reader (no assets written), cut at maxChars with a closing note */
+export function pageToMarkdown(html, { plain = false, maxChars = 60000 } = {}) {
+  const md = htmlToMd(html, { plain }).md;
+  if (md.length <= maxChars) return { md, chars: md.length, truncated: false };
+  const cut = md.slice(0, maxChars);
+  const end = cut.lastIndexOf('\n') > 0 ? cut.lastIndexOf('\n') : maxChars;
+  const note = `> [cut: the specification is longer than ${maxChars} characters — the rest is not included]`;
+  return { md: `${cut.slice(0, end)}\n\n${note}\n`, chars: md.length, truncated: true };
+}
+
+if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  const argv = process.argv.slice(2);
+  const opt = (k, d) => { const i = argv.indexOf(k); return i >= 0 && i + 1 < argv.length ? argv[i + 1] : d; };
+  const file = argv.find((x, i) => !x.startsWith('--') && !['--out', '--max-chars'].includes(argv[i - 1]));
+  const maxArg = opt('--max-chars', '60000');
+  if (!file || !/^\d{3,7}$/.test(maxArg)) {
+    console.error('usage: html-to-md.mjs <page.html> [--plain] [--out <file.md>] [--max-chars 60000]');
+    process.exit(2);
+  }
+  try {
+    const r = pageToMarkdown(readFileSync(file, 'utf8'), { plain: argv.includes('--plain'), maxChars: Number(maxArg) });
+    const out = opt('--out', '');
+    if (out) { writeFileSync(out, r.md, 'utf8'); console.log(JSON.stringify({ out: resolve(out), chars: r.chars, truncated: r.truncated })); }
+    else process.stdout.write(r.md);
+  } catch (e) {
+    console.error(e.message);
+    process.exit(1);
+  }
 }
