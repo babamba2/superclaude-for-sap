@@ -220,14 +220,59 @@ function extractTables(toolName, toolInput) {
   for (const key of ['sql', 'query', 'sql_query', 'statement']) {
     const sql = toolInput[key];
     if (typeof sql !== 'string') continue;
-    const re = /\b(?:FROM|JOIN)\s+([A-Z0-9_\/]+)/gi;
-    let m;
-    while ((m = re.exec(sql)) !== null) tables.add(m[1].toUpperCase());
+    for (const t of tablesFromSql(sql)) tables.add(t);
   }
   if (SOURCE_TOOL_RE.test(toolName) && sourceIsReadChannel(toolName, toolInput)) {
     for (const t of tablesFromSource(toolInput)) tables.add(t);
   }
   return tables;
+}
+
+/** Keywords that end a FROM clause (at the FROM's own bracket depth). */
+const FROM_END_RE = /^(?:WHERE|GROUP|ORDER|HAVING|UNION|EXCEPT|INTERSECT|INTO|APPENDING|UP|FIELDS|FOR|OFFSET|LIMIT|BYPASSING|CLIENT|USING|WITH)$/i;
+
+/**
+ * Table names of a free-style SQL statement (same walk as the MCP server's
+ * extractTablesFromSql): every name of every FROM clause counts — `FROM a`,
+ * `JOIN b`, the old comma join `FROM a, b` / `FROM a AS x, b y` and bracketed
+ * sources `FROM ( a ), b`. Over-collecting is safe: a name that is not a
+ * table never matches the blocklist. The first FROM name comes first.
+ */
+export function tablesFromSql(sql) {
+  const out = new Set();
+  const tokens = String(sql ?? '').match(/[A-Za-z0-9_/~]+|\(|\)|,|'(?:[^']|'')*'|\S/g) ?? [];
+  const isName = (t) => !!t && /^[A-Za-z0-9_/]+$/.test(t) && !/^SELECT$/i.test(t);
+  const nameAt = (i) => {
+    let j = i;
+    while (tokens[j] === '(') j++;
+    return isName(tokens[j]) ? tokens[j].toUpperCase() : undefined;
+  };
+  for (let i = 0; i < tokens.length; i++) {
+    const t = tokens[i];
+    if (/^JOIN$/i.test(t)) {
+      const n = nameAt(i + 1);
+      if (n) out.add(n);
+      continue;
+    }
+    if (!/^FROM$/i.test(t)) continue;
+    const first = nameAt(i + 1);
+    if (first) out.add(first);
+    // walk the FROM clause: a top-level comma starts another source
+    let depth = 0;
+    for (let j = i + 1; j < tokens.length; j++) {
+      const u = tokens[j];
+      if (u === '(') depth++;
+      else if (u === ')') {
+        if (depth === 0) break; // end of a sub-query's FROM
+        depth--;
+      } else if (depth === 0 && FROM_END_RE.test(u)) break;
+      else if (u === ',' && depth === 0) {
+        const n = nameAt(j + 1);
+        if (n) out.add(n);
+      }
+    }
+  }
+  return [...out];
 }
 
 // Tools that upload ABAP / CDS source.

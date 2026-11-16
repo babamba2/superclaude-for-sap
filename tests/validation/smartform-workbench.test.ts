@@ -155,6 +155,19 @@ describe('preview workbench — fields and samples', () => {
     expect(sampleOf('Q', { type: 'QUAN', length: 13, decimals: 3 }, 0, { numberFormat: 'de' })).toMatch(/^ *[\d.]+,\d{3}$/);
     expect(sampleOf('D', { type: 'DATS' }, 0, { dateFormat: 'DD.MM.YYYY' })).toMatch(/^\d{2}\.\d{2}\.2026$/);
   });
+
+  it('sampleOf: document / partner / address keys are impossible ZZ keys (render-safe)', () => {
+    for (const [name, len] of [['IS_BIL_INVOICE-HD_GEN-BIL_NUMBER', 10], ['IS_NAST-OBJKY', 30], ['GS_HD_ADR-ADDR_NO', 10], ['GS_HEAD-VBELN', 10], ['GS_HD_GEN-PAYER', 10], ['X-SND_IBAN', 34]] as const) {
+      const v = sampleOf(name, { type: 'CHAR', length: len });
+      expect(v).toMatch(/^ZZ\d+$/);
+      expect(v).toHaveLength(len);
+      expect(sampleOf(name, { type: 'CHAR', length: len })).toBe(v);
+    }
+    expect(sampleOf('IS_NAST-OBJKY', {})).toMatch(/^ZZ\d{8}$/);
+    // NUMC keys and non-key fields keep their usual values
+    expect(sampleOf('GS_POS-VBELN', { type: 'NUMC', length: 10 })).toMatch(/^\d{10}$/);
+    expect(sampleOf('GS_HEAD-NAME1', { type: 'CHAR', length: 35 })).not.toMatch(/^ZZ/);
+  });
 });
 
 describe('preview workbench — sample operations', () => {

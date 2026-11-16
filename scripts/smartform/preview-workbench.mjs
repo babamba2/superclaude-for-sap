@@ -94,6 +94,9 @@ const hash = (s) => { let h = 2166136261; for (const c of String(s)) { h ^= c.co
 const NUMBER_TYPES = new Set(['CURR', 'QUAN', 'DEC', 'FLTP', 'P']), INT_TYPES = new Set(['INT1', 'INT2', 'INT4', 'INT8', 'I']);
 
 const group = (intPart, sep) => intPart.replace(/\B(?=(\d{3})+(?!\d))/g, sep);
+/** Last-component names of document / partner / address keys — same list as ZMCP_SSF_RENDER's lc_key_re. */
+export const DOCUMENT_KEY_RE = /^(?:VBELN.*|BIL_NUMBER|OBJKY|ADDR_NO|ADRNR|ADDRNUMBER|ADDR_NUMB|PERS_NO|PERSNUMBER|DELIV_NUMB|ORDER_NUMB|PAYER|SOLD_TO|SHIP_TO|BILL_TO|KUNNR|KUNAG|KUNRG|KUNWE|PARTN_NUMB|PARNR|MNDID|.*IBAN)$/;
+export const isDocumentKey = (name) => DOCUMENT_KEY_RE.test(up(String(name ?? '').split('-').pop()));
 /** One invented value of a field, as printed. `seed` makes it repeatable; `row` varies loop rows. */
 export function sampleOf(name, f = {}, row = 0, opts = {}) {
   const h = hash(`${name}#${row}`);
@@ -120,6 +123,12 @@ export function sampleOf(name, f = {}, row = 0, opts = {}) {
     // printed right-justified in its output length (digits, separators, sign)
     const width = len ? len + Math.floor(Math.max(len - dec - 1, 0) / 3) + (dec ? 1 : 0) + (signed ? 1 : 0) : text.length;
     return text.padStart(width);
+  }
+  // document / partner / address keys: 'ZZ…' never matches a real document (SD numbers are numeric), so the
+  // same values can feed a SAP render whose program lines read by these keys (ZMCP_SSF_RENDER requires it)
+  if (isDocumentKey(name) && (len === 0 || len >= 4)) {
+    const n = (len || 10) - 2;
+    return `ZZ${String(h).padStart(n, '0').slice(-n)}`;
   }
   // CHAR / STRING / unknown: a code for short fields, invented words for text fields (50–90 % of the length)
   const max = len || 20;

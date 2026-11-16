@@ -1,6 +1,6 @@
 ---
 name: smartform-to-adobe
-description: Plan the conversion of a SmartForm to an Adobe form (SFP) the way SAP's own migration (CL_SSF_MIGRATION) does it — inventory of every node, what each becomes in the Adobe interface / context / layout, and a gap list of what SAP would log or silently lose, with the manual step for each. Read-only today; running the migration on DEV is awaiting approval.
+description: Plan the conversion of a SmartForm to an Adobe form (SFP) the way SAP's own migration (CL_SSF_MIGRATION) does it — inventory of every node, what each becomes in the Adobe interface / context / layout, and a gap list of what SAP would log or silently lose, with the manual step for each. Read-only; optionally runs the migration of a SAP example SmartForm on DEV into new $TMP objects.
 model: inherit
 ---
 
@@ -43,7 +43,7 @@ Before anyone runs the migration (it saves at once, has no test mode and overwri
 | Options | `full` by default (every migration flag); `sap-default` = what MIGRATE does without options. The report prints the options — a later SAP run must use the same |
 | Scope | One form per run. A text module (FORMTYPE T) is reported as "not a form" |
 | Data | Form definitions only; no business tables; sample values for previews are invented |
-| Writes | **None.** Running the migration on DEV is P2, awaiting approval (helper `ZMCP_FP_WRITE` not installed) |
+| Writes | Steps 1–6: none. Step 7 (DEV only, `CreateAdobeFormFromSmartForm`): a NEW form and interface `ZSC4SAP_AFM_*` in `$TMP` from a SAP-delivered SmartForm; nothing is overwritten or deleted |
 | Output | `<artifact-base>/smartforms/<FORM>/` — `<FORM>.xml` (from GetSmartFormContent), `inventory.json`, `adobe-plan.json`, `adobe-plan.md` |
 </Decisions_Fixed>
 
@@ -87,7 +87,7 @@ Read `completeness`, `log`, `gaps`, `result`:
 
 Print the summary (Output_Format).
 
-**Step 7 — Run on DEV (P2, awaiting approval).** Not available. Tell the user it needs the approved write helper, a new Z name for form and interface (SAP deletes an existing target), and the same options as the plan. Do not suggest running the migration from SFP by hand on a form someone else owns.
+**Step 7 — Run on DEV (optional, SAP example SmartForms only).** On the user's yes, `CreateAdobeFormFromSmartForm(source, form_name, interface_name)` with new names `ZSC4SAP_AFM_*` (an existing name is refused). It runs SAP's migration steps with the `full` options, saves both objects in `$TMP` and activates them; it needs FM `ZMCP_FP_MIGRATE` and the dispatcher action `FP_MIGRATE` (see `abap/README.md`). Report `complete`, `active`, SAP's `log` next to the plan's gap list, and the result file. Known difference to SAP's own run: the description ends with ` [sc4sap]` (the form type *migrated* is set as SAP sets it, through the public form-upload path). When the tool fails after a save, its error names the objects left behind — delete them only with the user's approval. Customer forms: plan only; do not suggest running the migration from SFP by hand on a form someone else owns.
 </Workflow>
 
 <Data_Rules>
