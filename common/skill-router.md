@@ -12,6 +12,7 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
   - how / why / configuration / process / design question → ask-consultant
   - data of specific documents or a change to them (open POs, post GI, release, block, reverse …) → assist (it confirms before any write)
   - dump / short dump / error / "why does it fail" for a run in the system → analyze-symptom
+  - daily check / system health / "what broke since yesterday" / failed jobs, update errors, IDoc errors → ops-health-check
   - connection or plugin not working → sap-doctor
 - PROPOSE in one line (skill + target + what it produces), run on yes:
   - build a program / report / ALV / batch → create-program · one DDIC object, class, FM → create-object
@@ -21,6 +22,7 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
   - CBO package inventory → stock-cbo · how custom objects relate → cbo-relation-map
   - SmartForm print preview → smartform-preview · SmartForm from a PDF / image → smartform-from-pdf
   - project dashboard → project-dashboard · roles & authorizations → role-matrix
+  - UAT / integration test scenarios, test results per cycle → uat-scenarios
   - connect / add a SAP system → setup · MCP install → mcp-setup · settings / cost mode → sap-option
 - Do NOT route: a slash command the user typed (it wins); a skill already running (its rules apply); questions about the plugin itself or its development; small talk or general programming unrelated to the SAP system.
 - Ambiguous between two skills: ask one question naming both. Offline profile: only skills marked full / degraded in common/offline-mode.md.
@@ -30,7 +32,7 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
 
 | Mode | Skills | Reason |
 |---|---|---|
-| Run | `ask-consultant`, `assist`, `analyze-symptom`, `sap-doctor` | Answer-shaped, read-only or self-confirming, finish in minutes. Asking first only adds a turn. |
+| Run | `ask-consultant`, `assist`, `analyze-symptom`, `ops-health-check`, `sap-doctor` | Answer-shaped, read-only or self-confirming, finish in minutes. Asking first only adds a turn. |
 | Propose | every skill that writes a deliverable file, writes to SAP, or dispatches many agents | Takes minutes and money, or changes the system. The user should see the target and the output before it starts. |
 
 `assist` stays in Run: its own flow previews every write and waits for an explicit yes ([`intent-router.md`](intent-router.md) § 4).

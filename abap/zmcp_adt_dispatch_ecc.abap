@@ -33,7 +33,8 @@ FUNCTION zmcp_adt_dispatch
 *   CUA_DELETE     — delete GUI status (RS_CUA_DELETE)
 *   TABLE_READ     — read-only SELECT on a customizing / system table
 *                    (delivery class C, G, E, S, W) or a listed repository
-*                    table (CMOD, TSTC, DDIC metadata, transport keys); the
+*                    table (CMOD, TSTC, DDIC metadata, transport keys, job /
+*                    update / IDoc headers for ops-health-check); the
 *                    MCP server's GetSqlQuery / GetTableContents fallback, as
 *                    ECC has no ADT data preview
 
@@ -618,6 +619,10 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
   " composite contents, menu T-codes, authorization values, org levels)
   " and the role-user assignment (user ID and validity) are readable -
   " for role-matrix documents.
+  " For ops-health-check the operations headers are listed by name though
+  " their class is L / A: job headers and steps (TBTCO, TBTCP), update
+  " request headers (VBHDR) and IDoc control records (EDIDC). Job logs,
+  " update data (VBDATA, VBMOD) and IDoc data / status texts stay closed.
   IF lv_tab = 'RFCDES' OR lv_tab = 'RSECTAB' OR lv_tab = 'RSECACTB'
      OR lv_tab CP 'USR*' OR lv_tab CP 'UST*'
      OR ( lv_tab CP 'AGR_*' AND lv_tab <> 'AGR_DEFINE' AND lv_tab <> 'AGR_TEXTS'
@@ -639,7 +644,8 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
      AND lv_tab <> 'TVDIR' AND lv_tab <> 'OBJH' AND lv_tab <> 'OBJS' AND lv_tab <> 'OBJT'
      AND lv_tab <> 'E070' AND lv_tab <> 'E07T' AND lv_tab <> 'E071' AND lv_tab <> 'E071K'
      AND lv_tab <> 'SXS_ATTR' AND lv_tab <> 'SXC_EXIT' AND lv_tab <> 'SXC_ATTR'
-     AND lv_tab <> 'SXC_CLASS' AND lv_tab <> 'ENHHEADER'.
+     AND lv_tab <> 'SXC_CLASS' AND lv_tab <> 'ENHHEADER'
+     AND lv_tab <> 'TBTCO' AND lv_tab <> 'TBTCP' AND lv_tab <> 'VBHDR' AND lv_tab <> 'EDIDC'.
     SELECT SINGLE contflag FROM dd02l INTO lv_class
       WHERE tabname = lv_tab AND as4local = 'A' AND as4vers = '0000'
         AND tabclass IN ('TRANSP','POOL','CLUSTER').

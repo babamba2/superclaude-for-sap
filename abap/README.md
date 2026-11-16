@@ -16,6 +16,8 @@ JSON-based dispatcher for Screen (Dynpro) and GUI Status (CUA) operations.
 | EV_MESSAGE | STRING | Export | Error/info message |
 | EV_RESULT | STRING | Export | JSON string with result data |
 
+**`TABLE_READ` operations headers (ECC / 7.40, 2026-11-16).** `/sc4sap:ops-health-check` reads the job headers and steps (`TBTCO`, `TBTCP`), update request headers (`VBHDR`) and IDoc control records (`EDIDC`). Their delivery class is L / A, so `FORM table_read` lists them by name (`zmcp_adt_dispatch_ecc.abap`); job logs, update data (`VBDATA`, `VBMOD`) and IDoc data stay closed. On a system whose live dispatcher has other branches added, do not replace it: read and back up the live `ZMCP_ADT_DISPATCH`, add `AND lv_tab <> 'TBTCO' AND lv_tab <> 'TBTCP' AND lv_tab <> 'VBHDR' AND lv_tab <> 'EDIDC'` to the name list in front of the `SELECT SINGLE contflag FROM dd02l`, activate.
+
 ### ZMCP_ADT_TEXTPOOL
 Dedicated text pool (text elements) read/write function.
 

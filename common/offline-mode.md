@@ -27,6 +27,7 @@ Every skill falls in one class. The class is listed in the table below; a skill 
 |---|---|---|
 | `project-dashboard` | full | No SAP actuals (transports, package objects, dumps); plan and edit mode as usual |
 | `role-matrix` | full | New design only; T-codes not narrowed by ST03N; `sync` is blocked |
+| `uat-scenarios` | full | The consultant drafts and patches without a connection; T-codes are marked unchecked |
 | `interface-mapping-spec` | full | New interfaces from a field list or the consultant's proposal; DDIC types and lengths are proposals, marked unchecked; reading an existing object is blocked |
 | `cbo-relation-map` | full | Only from an existing `graph.json` (copied from an online run); collection is blocked |
 | `setup`, `sap-option`, `eco` | full | Local configuration only |
@@ -34,7 +35,7 @@ Every skill falls in one class. The class is listed in the table below; a skill 
 | `analyze-code` | degraded | Source pasted or given as a local file; no where-used, no semantic check |
 | `analyze-symptom` | degraded | Dump text / source pasted by the user; no dump feed, no transports |
 | `sap-doctor` | degraded | Plugin and profile layers only; connection layers reported `skipped (offline)` |
-| everything else (`create-program`, `create-object`, `assist`, `program-to-spec`, `program-to-manual`, `compare-programs`, `config-to-document`, `module-to-process`, `stock-cbo`, `smartform-preview`, `smartform-from-pdf`) | blocked | Needs the system to read or write |
+| everything else (`create-program`, `create-object`, `assist`, `program-to-spec`, `program-to-manual`, `compare-programs`, `config-to-document`, `module-to-process`, `stock-cbo`, `smartform-preview`, `smartform-from-pdf`, `ops-health-check`) | blocked | Needs the system to read or write |
 
 ## Local knowledge, in this order
 
