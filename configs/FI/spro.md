@@ -66,3 +66,12 @@
 | Define Tax Codes | V_T007A | Tax Codes definition / 세금 코드 정의 |
 | Assign Tax Codes for Non-Taxable Transactions | V_T007B | Tax Codes for Non-Taxable Transactions / 비과세 거래 세금 코드 배정 |
 | Define Tax Accounts | V_OBCN | Tax Accounts definition / 세금 계정 정의 |
+
+## Value tables (assistant choices)
+Read by `scripts/assist/values.mjs` for `/sc4sap:assist`: the codes a write action asks for, offered as numbered choices from the connected system. Customizing tables only (Class = DD02L-CONTFLAG C / G, checked on an ECC 7.40 system 2026-11-16). Text table key = SPRAS + key field.
+
+| Value | System | Table/View | Key field | Filter | Text table | Text field | Text filter | Class | Used by | Description |
+|---|---|---|---|---|---|---|---|---|---|---|
+| FI_REVERSAL_REASON | ECC, S4 | T041C | STGRD | | T041CT | TXT40 | | C / C | FI.DOC.REVERSE.reason | Reversal reasons |
+| FI_PAYMENT_BLOCK | ECC, S4 | T008 | ZAHLS | | T008T | TEXTL | | C / C | FI.ITEM.SET_PAYMENT_BLOCK.block_key | Payment block keys |
+| FI_DOCUMENT_TYPE | ECC, S4 | T003 | BLART | | T003T | LTEXT | | C / C | FI.GL.POST.doc_type | Accounting document types |

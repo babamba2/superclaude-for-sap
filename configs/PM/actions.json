@@ -804,7 +804,8 @@
         {
           "param": "qmart",
           "ask": "Which notification type (for example M1 or M2)?",
-          "when": "qmart is missing"
+          "when": "qmart is missing",
+          "values": "PM_NOTIFICATION_TYPE"
         },
         {
           "param": "equnr",
@@ -1101,7 +1102,8 @@
         {
           "param": "auart",
           "ask": "Which maintenance order type (for example PM01)?",
-          "when": "auart is missing"
+          "when": "auart is missing",
+          "values": "PM_ORDER_TYPE"
         },
         {
           "param": "werks",

@@ -17,6 +17,17 @@ Companion of [`SKILL.md`](SKILL.md). Rules here refine the workflow steps; they 
 - After every answer, re-check which `clarify` entries are still open; stop asking as soon as all required parameters are known.
 - Ambiguous term (catalog `ambiguity`): ask its `ask` text first; the answer picks the action, then continue with that action's clarify list.
 
+## Value lists
+
+A clarify entry with `values` asks for a customizing code (delivery / billing block reason, rejection reason, pricing condition type, reversal reason, payment block key, document type, shipment type, notification / order type). Offer the codes of the connected system instead of asking blind:
+
+1. `node scripts/assist/values.mjs plan <values> --lang <SAP_LANGUAGE> --family <ECC|S4>` → two single-table SELECTs (keys, texts) on customizing tables of the `configs/<M>/spro.md` § Value tables map.
+2. Run each with `GetSqlQuery`, `output: "file"`, unchanged.
+3. `node scripts/assist/values.mjs merge <values> --keys <keys file> --texts <texts file> --lang <SAP_LANGUAGE> [--find-file <words file>]` → `{ total, shown, choices[{ n, key, text, textEn }] }`.
+4. Four choices or fewer → one `AskUserQuestion` with one option per code (`key — text`); the user can still type another code. More → a numbered list in plain text, `n. key — text (English text when it differs)`, answered with a number or a code. `total` ≤ 30 → no `--find-file`: the user picks from the list, and a word they type is matched against it in the conversation. `total` > `shown` → show the first ones and ask for words or the code; to narrow, `Write` the user's words to `<mcp-output>/sql/find-<values>.txt` and run merge again with `--find-file` that file. **Never put the user's words on the command line**, not even quoted. `Write` not available or refused (e.g. the web's business profile) → run merge once more with `--max 300` and match the user's word against that list in the conversation; still more than 300 → ask for the exact code. The user's code or number is the value; a code not in the list → say so and ask again.
+
+`GetSqlQuery` not offered (MCP `SAP_TOOL_PROFILE=biz`), a read error, or no rows → ask plainly as before; never invent codes. The list is read again per conversation, not stored.
+
 ## Preferences
 
 - Answers hold for the conversation ("same as before" reuses them).
