@@ -85,6 +85,30 @@ describe('phone layer for HTML deliverables', () => {
     expect(withResponsive('<p>fragment</p>')).toBe('<p>fragment</p>');
   });
 
+  // Reverse check: every script that writes an HTML page imports the layer — except these, which are not pages a
+  // person reads on a phone. Add a script here only with its reason.
+  const NOT_PHONE_PAGES: Record<string, string> = {
+    // in-page "Save" of an open page: re-serialises the page it runs in, which already carries the layer
+    'config/config-doc-editor.mjs': 'saves the open config page',
+    'interface/if-spec-editor.mjs': 'saves the open interface spec page',
+    'manual/manual-editor.mjs': 'saves the open manual page',
+    'process/process-editor.mjs': 'saves the open process page',
+    'spec/flow-editor.mjs': 'saves the open spec page (flow editor)',
+    'spec/spec-editor.mjs': 'saves the open spec page',
+    // drawn at print size and turned into an image or compared pixel by pixel — never opened as a page
+    'smartform/build-preview.mjs': 'SmartForm print preview rendered to a JPG at mm size',
+    'smartform/otf-draw.mjs': 'SmartForm print drawn for an image comparison',
+    'spec/screen-image-renderer.mjs': 'SAP screen mock-ups rendered to images',
+  };
+  it('every script that writes an HTML page imports the layer (or is a listed non-phone page)', () => {
+    const writers = scripts(SCRIPTS).filter((f) => !f.endsWith(join('lib', 'responsive.mjs')) && /<!doctype html/i.test(readFileSync(f, 'utf8')))
+      .map((f) => relative(SCRIPTS, f).replace(/\\/g, '/'));
+    expect(writers.length).toBeGreaterThan(10);
+    const missing = writers.filter((f) => !BUILDERS.includes(f) && !(f in NOT_PHONE_PAGES));
+    expect(missing, 'pages without the phone layer: import withResponsive, or list the script with its reason').toEqual([]);
+    for (const f of Object.keys(NOT_PHONE_PAGES)) expect(writers, `${f} no longer writes HTML: drop it from the list`).toContain(f);
+  });
+
   it('discovers the page builders (at least the ones shipped with the layer)', () => {
     for (const f of ['interface/if-spec-page.mjs', 'uat/uat-page.mjs', 'spec/md-to-html.mjs', 'project/project-page.mjs', 'transport/tr-page.mjs', 'project/status-page.mjs'])
       expect(BUILDERS).toContain(f);
