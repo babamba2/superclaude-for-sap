@@ -62,3 +62,33 @@ describe('transport-readiness model', () => {
     expect(referenceNames({})).toEqual([]);
   });
 });
+
+describe('sap-reader environment', () => {
+  it('passes the sc4sap settings (the account home) to the MCP child', async () => {
+    const { sc4sapEnv } = await import('../../scripts/config/sap-reader.mjs');
+    expect(sc4sapEnv({ SC4SAP_HOME_DIR: '/acct/home', SC4SAP_MCP_BRIDGE: 'b.cjs', PATH: '/bin', ANTHROPIC_API_KEY: 'x' })).toEqual({ SC4SAP_HOME_DIR: '/acct/home', SC4SAP_MCP_BRIDGE: 'b.cjs' });
+  });
+});
+
+describe('interface sap-fields on S/4HANA answers', () => {
+  it('reads fields from DDL source past annotations, and data elements from ADT XML', async () => {
+    const { parseDdlFields, parseDdlIncludes, dtelFromXml } = await import('../../scripts/interface/sap-fields.mjs');
+    const ddl = `@EndUserText.label : 'Delivery item'
+define table lips {
+  key mandt : mandt not null
+    with foreign key [0..*,1] t000 where mandt = lips.mandt;
+  @AbapCatalog.foreignKey.screenCheck : true
+  key vbeln : vbeln_vl not null;
+  @AbapCatalog.foreignKey.keyType : #NON_KEY
+  matnr : matnr
+    with foreign key [0..*,0..1] mara where matnr = lips.matnr;
+  lfimg : lfimg;
+  brgew : abap.quan(15,3);
+  node_data : include tds_node;
+}`;
+    expect(parseDdlFields(ddl).map((f) => `${f.fieldname}:${f.type}${f.key ? ':K' : ''}`)).toEqual(['MANDT:mandt:K', 'VBELN:vbeln_vl:K', 'MATNR:matnr', 'LFIMG:lfimg', 'BRGEW:abap.quan(15,3)']);
+    expect(parseDdlIncludes(ddl)).toEqual(['TDS_NODE']);
+    const xml = '<blue:wbobj adtcore:description="Delivery"><dtel:typeKind>domain</dtel:typeKind><dtel:typeName>VBELN</dtel:typeName><dtel:dataType>CHAR</dtel:dataType><dtel:dataTypeLength>000010</dtel:dataTypeLength><dtel:mediumFieldLabel>Delivery</dtel:mediumFieldLabel></blue:wbobj>';
+    expect(dtelFromXml(xml)).toMatchObject({ datatype: 'CHAR', leng: '10', description: 'Delivery', domname: 'VBELN' });
+  });
+});

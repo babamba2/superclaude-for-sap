@@ -25,10 +25,20 @@ const BRIDGE = process.env.SC4SAP_MCP_BRIDGE || resolve(ROOT, 'bridge', 'mcp-ser
 export const TABLE_NAME_RE = /^(?=.{2,30}$)(\/[A-Z0-9_]+\/)?[A-Z][A-Z0-9_]*$/;
 const MAX_ROWS = 5000;
 
+/**
+ * The sc4sap settings of this process, which the SDK's minimal environment leaves out — above all
+ * SC4SAP_HOME_DIR, where a hosted account keeps its profiles (measured 2026-11-16: on the web, a
+ * profile that exists only in the account's home could not be read by any plugin script —
+ * "MCP error -32000: Connection closed", the bridge found no config).
+ */
+export function sc4sapEnv(source = process.env) {
+  return Object.fromEntries(Object.entries(source).filter(([k, v]) => /^SC4SAP_/.test(k) && typeof v === 'string'));
+}
+
 // allowTables: audited one-off blocklist bypass for this server only. The SDK
 // starts the server with a minimal environment, so it goes in explicitly.
 export async function connect(name = 'config-to-document', { allowTables = [] } = {}) {
-  const env = { ...getDefaultEnvironment(), ...(allowTables.length ? { MCP_ALLOW_TABLE: allowTables.join(',') } : {}) };
+  const env = { ...getDefaultEnvironment(), ...sc4sapEnv(), ...(allowTables.length ? { MCP_ALLOW_TABLE: allowTables.join(',') } : {}) };
   const transport = new StdioClientTransport({ command: 'node', args: [BRIDGE], stderr: 'ignore', env });
   const client = new Client({ name, version: '1.0.0' });
   await client.connect(transport);
