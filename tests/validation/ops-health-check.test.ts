@@ -3,8 +3,8 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { describe, expect, it } from 'vitest';
-import { buildModel, groupDumps, groupIdocs, objectKeysOf, suspectsFor, verdictOf } from '../../scripts/ops/ops-model.mjs';
-import { renderHtml, renderSummary } from '../../scripts/ops/ops-page.mjs';
+import { buildModel, daysOf, groupDumps, groupIdocs, objectKeysOf, suspectsFor, verdictOf } from '../../scripts/ops/ops-model.mjs';
+import { editsFromPage, renderHtml, renderSummary, summarySentences } from '../../scripts/ops/ops-page.mjs';
 import { dumpsOf, readDumpRange } from '../../scripts/ops/build-ops-check.mjs';
 
 const dump = (error: string, program: string, date: string, time: string, user = 'PERSON1', include = '') =>
@@ -96,16 +96,84 @@ describe('ops-health-check model', () => {
   });
 });
 
+describe('ops-health-check report model', () => {
+  it('counts dumps per day over both periods, with zero days', () => {
+    const m = buildModel(collect());
+    expect(daysOf('2026-11-15', '2026-11-16')).toEqual(['2026-11-15', '2026-11-16']);
+    expect(m.dumps.byDay).toEqual([{ date: '2026-11-15', count: 2 }, { date: '2026-11-16', count: 6 }]);
+    expect(m.dumps.prevByDay).toEqual([{ date: '2026-11-13', count: 1 }, { date: '2026-11-14', count: 0 }]);
+    expect(buildModel({ ...collect(), prevDumps: { ok: false, rows: [], error: 'x' } }).dumps.prevByDay).toBeNull();
+  });
+
+  it('builds KPI tiles with the change, and no change for a figure whose previous period was not read', () => {
+    const c = collect();
+    const m = buildModel({ ...c, idocs: { ...c.idocs, prevRows: [{ docnum: '9', status: '51', mestyp: 'ORDERS', direct: '2', date: '2026-11-13' }] } });
+    const k = Object.fromEntries(m.kpis.map((x: { key: string }) => [x.key, x]));
+    expect(k.dumps).toMatchObject({ value: 8, previous: 1, delta: 7 });
+    expect(k.dumpGroups).toMatchObject({ value: 3, previous: 1, delta: 2 });
+    expect(k.newGroups).toMatchObject({ value: 2, delta: null });
+    expect(k.jobs).toMatchObject({ ok: false, value: null });
+    expect(k.updates).toMatchObject({ value: 0, previous: null, delta: null });
+    expect(k.idocs).toMatchObject({ value: 2, previous: 1, delta: 1 });
+  });
+
+  it('lists issues most severe first, with the worst area and the unread areas', () => {
+    const m = buildModel(collect());
+    expect(m.issues[0]).toMatchObject({ area: 'dumps', kind: 'dumpChanged', severity: 'high', trkorr: ['DEVK900100'] });
+    expect(m.issues.some((i: { kind: string; section?: string }) => i.kind === 'unread' && i.section === 'jobs')).toBe(true);
+    expect(m.issues.some((i: { kind: string }) => i.kind === 'idoc')).toBe(true);
+    expect(m.worst).toBe('dumps');
+    expect(JSON.stringify(m)).not.toMatch(/PERSON\d|host_SID/);
+  });
+});
+
 describe('ops-health-check page', () => {
   it('renders the sections, the unreadable fallback and no user names, in ko and en', () => {
     const m = buildModel(collect());
     const ko = renderHtml(m, 'ko');
-    expect(ko).toContain('SAP 운영 점검');
+    expect(ko).toContain('운영 보고서');
     expect(ko).toContain('DEVK900100');
     expect(ko).toContain('SM37');
     expect(ko).toContain('prefers-color-scheme:dark');
     expect(ko).not.toMatch(/PERSON\d/);
-    expect(renderSummary(m, 'en')).toMatch(/^SAP operations health check · DEV · 2026-11-15 – 2026-11-16 · Needs action/);
+    expect(renderSummary(m, 'en')).toMatch(/^Operations report · DEV · 2026-11-15 – 2026-11-16 · Action required/);
+  });
+
+  it('is a report: cover, sections 1–7, KPI tiles, trend chart, editable cells, theme button, scripts that parse', () => {
+    const c = collect();
+    const m = buildModel({ ...c, updates: { ok: true, rows: [], prevRows: [{ tcode: 'VA01', report: 'SAPMV45A', date: '2026-11-13' }] } });
+    for (const lang of ['ko', 'en', 'ja']) {
+      const html = renderHtml(m, lang);
+      for (const id of ['s1', 's2', 's3', 's4', 's5', 's6', 's7']) expect(html).toContain(`<section id="${id}">`);
+      expect(html).toContain('id="theme-btn"');
+      expect(html).toContain('<svg viewBox');
+      expect(html.match(/class="kpi[ "]/g)).toHaveLength(6);
+      for (const k of ['author', 'owner-1', 'due-1', 'comments']) expect(html).toContain(`data-e="${k}"`);
+      expect(html).toContain('<script type="application/json" id="ops-model">');
+      expect(editsFromPage(html)).toEqual({});
+      for (const s of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) expect(() => new Function(s[1])).not.toThrow();
+      expect(html).not.toMatch(/PERSON\d/);
+      expect(html).not.toContain('host_SID');
+      expect(html).toContain('@page{size:A4');
+    }
+    const ko = renderHtml(m, 'ko');
+    expect(ko).toContain('운영 보고서');
+    expect(ko).toContain('이슈 및 조치 사항');
+    // Unread jobs → section 6 names the T-code.
+    expect(ko).toMatch(/<section id="s6">[\s\S]*SM37[\s\S]*<\/section>/);
+    expect(renderHtml(m, 'ja')).toContain('運用レポート');
+  });
+
+  it('writes 3–5 summary sentences with the change against the previous period', () => {
+    const m = buildModel(collect());
+    const ko = summarySentences(m, 'ko');
+    expect(ko.length).toBeGreaterThanOrEqual(3);
+    expect(ko.length).toBeLessThanOrEqual(5);
+    expect(ko[0]).toContain('조치 필요');
+    expect(ko[1]).toContain('이전 기간 1건 대비 7건 증가');
+    const en = summarySentences(m, 'en');
+    expect(en.join(' ')).toContain('aborted jobs not read');
+    expect(en.join(' ')).toMatch(/most attention is short dumps/);
   });
 
   it('escapes SAP texts', () => {
@@ -149,8 +217,8 @@ describe('ops-health-check collect parsing', () => {
       const out = execFileSync(process.execPath, [join(__dirname, '..', '..', 'scripts', 'ops', 'build-ops-check.mjs'), 'build', '--in', join(dir, 'collect.json'), '--out-dir', dir, '--lang', 'en'], { encoding: 'utf8' });
       const result = JSON.parse(out);
       expect(result).toMatchObject({ ok: true, verdict: 'red' });
-      expect(readFileSync(join(dir, 'ops-check-2026-11-16-en.html'), 'utf8')).toContain('<!doctype html>');
-      expect(readFileSync(join(dir, 'ops-check-2026-11-16-en.md'), 'utf8')).toContain('Short dumps (ST22): 8');
+      expect(readFileSync(join(dir, 'ops-report-2026-11-16-en.html'), 'utf8')).toContain('<!doctype html>');
+      expect(readFileSync(join(dir, 'ops-report-2026-11-16-en.md'), 'utf8')).toContain('Short dumps (ST22): 8');
     } finally {
       rmSync(dir, { recursive: true, force: true });
     }

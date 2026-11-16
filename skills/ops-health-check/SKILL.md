@@ -1,14 +1,14 @@
 ---
 name: ops-health-check
-description: Daily operations health check of the connected SAP system for SM / AMS operations — short dumps grouped by runtime error and program and compared with the period before, the transport requests that changed a dumping program, aborted background jobs, update errors and IDocs in an error status — as one HTML report with a verdict and the next steps (which dump to analyze, which TCode to open). Read-only. Korean requests too — 운영 점검, 시스템 점검, 아침 점검, 덤프 현황, 잡 실패, 업데이트 오류, IDoc 오류.
+description: Operations report of the connected SAP system for SM / AMS — short dumps grouped by runtime error and program and compared with the period before, the transport requests that changed a dumping program, aborted background jobs, update errors and IDocs in an error status — as one document-style HTML report to hand to the customer or the PMO (cover, executive summary, KPI tiles with the change, dump trend, sections per area, issues & actions with owner and due, areas not read, appendix; editable and printable). Read-only. Korean requests too — 운영 보고서, 운영 점검, 시스템 점검, 아침 점검, 덤프 현황, 잡 실패, 업데이트 오류, IDoc 오류.
 model: inherit
 ---
 
-# SC4SAP Operations Health Check
+# SC4SAP Operations Report
 
 > **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): blocked — reply with the stop line there and stop.
 
-Reads what the connected system records about its own health for a period (default: since yesterday) and writes **one HTML report**: a verdict (healthy / look at it / needs action), the next steps, and one section per signal. A dump that started after a transport changed its program is shown next to that request — the first thing an operations team asks after an import.
+Reads what the connected system records about its own health for a period (default: since yesterday) and writes **one operations report** (HTML document) that an SM / AMS lead hands to the customer or the PMO: a verdict (stable / attention / action required), an executive summary, key figures against the previous period, and the issues with recommended actions. A dump that started after a transport changed its program is shown next to that request — the first thing an operations team asks after an import.
 
 <Purpose>
 SM / AMS operations open ST22, SM37, SM13 and WE02 every morning and compare by memory. This skill reads them in one pass, groups and compares them with the previous period, links dumps to recent changes, and hands each finding to the skill or TCode that resolves it. It never fixes anything.
@@ -19,7 +19,8 @@ SM / AMS operations open ST22, SM37, SM13 and WE02 every morning and compare by 
 <Team_Mode>**No teamMode integration.** Reading and drawing are scripted; the main thread reads the result and relays it.</Team_Mode>
 
 <Use_When>
-- "daily check", "system health", "what broke since yesterday", "dumps this week", "failed jobs", "운영 점검", "아침 점검", "시스템 상태 점검", "덤프 현황", "잡 실패 확인", "運用チェック"
+- "operations report", "daily check", "system health", "what broke since yesterday", "dumps this week", "failed jobs", "운영 보고서", "운영 보고서 작성", "운영 점검", "아침 점검", "시스템 상태 점검", "덤프 현황", "잡 실패 확인", "運用レポート", "運用チェック"
+- Weekly / monthly operations report to the customer or the PMO (period "this week" / "last 30 days")
 - After a transport import, to see whether new dumps follow it
 - Hypercare after a go-live (use a period of a few days)
 </Use_When>
@@ -37,10 +38,12 @@ SM / AMS operations open ST22, SM37, SM13 and WE02 every morning and compare by 
 | Period | `--from` / `--to` dates; default yesterday → today; at most 31 days. The previous period of the same length is read for the comparison |
 | Dumps | `RuntimeListDumps` (ECC: the ADT feed covers 24 h, older dumps come from the ST22 list) — grouped by runtime error + program; "new" = no dump of that group in the previous period |
 | Changes | Requests (E070, not tasks) from 7 days before the period on, their texts (E07T) and code objects (E071: PROG, REPS, FUGR, CLAS, FUNC, METH, LIMU …). A dump group whose program, include, function group (`SAPL<FG>`) or class pool matches an object of a request dated on or before its last dump lists that request |
-| Jobs / updates / IDocs | TBTCO status A (+ TBTCP first step), VBHDR return code ≠ 0, EDIDC error statuses (02 04 05 25 26 29 51 56 60 61 63 65) created in the period |
+| Jobs / updates / IDocs | TBTCO status A (+ TBTCP first step), VBHDR return code ≠ 0, EDIDC error statuses (02 04 05 25 26 29 51 56 60 61 63 65) — read for the period and the previous period (`prevRows`) so the key figures show the change |
 | Not readable | A table the system refuses is shown as *not readable — check in SM37 / SM13 / WE02*, never as "none". On BASIS < 7.50 the reads go through the `ZMCP_ADT_DISPATCH` action `TABLE_READ`; a dispatcher installed before 2026-11-16 refuses TBTCO / TBTCP / VBHDR / EDIDC — reinstall `abap/zmcp_adt_dispatch_ecc.abap` (`/sc4sap:setup`, DEV helpers) |
-| Verdict | red: a new dump group with ≥ 5 dumps, a dump group with a matching request, a job aborted ≥ 3×, or any update error · amber: anything else found, or a section not readable · green: nothing found and everything read |
-| Output | `<artifact-base>/ops-check/<to>/ops-check-<to>-<lang>.{html,md}` + `collect.json` + `model.json` (artifact base per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md)) |
+| Verdict | red (action required): a new dump group with ≥ 5 dumps, a dump group with a matching request, a job aborted ≥ 3×, or any update error · amber (attention): anything else found, or a section not readable · green (stable): nothing found and everything read |
+| Report | Cover (title, system, period, prepared date, author) · 1 executive summary (3–5 sentences from the model) · 2 KPI tiles (dumps, dump groups, new groups, aborted jobs, update errors, IDoc errors, each with the change) · 3 dumps per day (bars, previous and this period) · 4 sections per area · 5 issues & actions (area, finding, impact, recommended action, owner, due) + comments · 6 areas not read with their T-code · 7 appendix (sources, period definitions, verdict rules). Formal report style (Korean: formal declarative and noun endings). A4 portrait print, light / dark with a theme button |
+| Editing | Author, owner, due and comments are editable in the page (Edit); Save downloads `<file>-edited.html` with the edits in `<script id="ops-edits">` |
+| Output | `<artifact-base>/ops-check/<to>/ops-report-<to>-<lang>.{html,md}` + `collect.json` + `model.json` (artifact base per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md)) |
 </Decisions_Fixed>
 
 <Data_Rules>
@@ -62,20 +65,20 @@ It prints one JSON line with the count per section, or `not readable`. An error 
 ```
 node "<PLUGIN_ROOT>/scripts/ops/build-ops-check.mjs" build --in "<out>/collect.json" --out-dir "<out>" --lang <lang>
 ```
-It prints the verdict and a short summary (the same text as the `.md` file).
+It prints the verdict and a short summary (the same text as the `.md` file); the report is `ops-report-<to>-<lang>.html`.
 
-**Step 4 — Report.** Relay the summary in the user's language and give the HTML path. Then offer the next steps the report lists, one line each — for a dump group: run `/sc4sap:analyze-symptom` with its error, program and time (Recommended for red); for jobs / updates / IDocs: the TCode. Do not start them unasked.
+**Step 4 — Report.** Relay the summary in the user's language and give the report path; say that author, owners, due dates and comments can be filled in the page (Edit → Save) before it is sent. Then offer the next steps the report lists, one line each — for a dump group: run `/sc4sap:analyze-symptom` with its error, program and time (Recommended for red); for jobs / updates / IDocs: the TCode. Do not start them unasked.
 </Workflow>
 
 <Output_Format>
 ```
-SAP operations health check · <SID> · 2026-11-15 – 2026-11-16 · Needs action
-- Short dumps: 12 (4 groups, 2 new)
-- Aborted jobs: 3 · Update errors: 0 · IDocs in error: 5
+Operations report · <SID> · 2026-11-15 – 2026-11-16 · Action required
+- Short dumps: 12 (4 groups, 2 new, previous 7)
+- Aborted jobs: 3 (previous 1) · Update errors: 0 · IDocs in error: 5
 - Transports in the period: 8
 1. MESSAGE_TYPE_X in ZSDR_EXAMPLE — changed by <request> on 2026-11-15 → /sc4sap:analyze-symptom …
 2. ZJOB_EXAMPLE aborted 3× → SM37 → job log
-Report: .sc4sap/work/<alias>/ops-check/2026-11-16/ops-check-2026-11-16-ko.html
+Report: .sc4sap/work/<alias>/ops-check/2026-11-16/ops-report-2026-11-16-ko.html
 ```
 Reply in the user's language. Name a matching request as a lead to check, not as the proven cause.
 </Output_Format>
@@ -92,9 +95,9 @@ Through `scripts/ops/build-ops-check.mjs collect` only (its own MCP client): `Ru
 </MCP_Tools_Used>
 
 <Files>
-- `scripts/ops/build-ops-check.mjs` — `collect` (SAP → `collect.json`) and `build` (HTML, Markdown summary, `model.json`)
-- `scripts/ops/ops-model.mjs` — grouping, previous-period comparison, dump ↔ request matching, verdict, next steps
-- `scripts/ops/ops-page.mjs` — the page (ko / en / ja, light and dark, A4 landscape print)
+- `scripts/ops/build-ops-check.mjs` — `collect` (SAP → `collect.json`) and `build` (report HTML, Markdown summary, `model.json`)
+- `scripts/ops/ops-model.mjs` — grouping, previous-period comparison, per-day dumps, KPIs, dump ↔ request matching, verdict, issues, next steps
+- `scripts/ops/ops-page.mjs` — the report (ko / en / ja, light and dark with a theme button, edit + save, A4 portrait print)
 </Files>
 
 <Related_Skills>

@@ -2,20 +2,23 @@
 // sc4sap:transport-readiness — is a transport request ready to move on? Read-only.
 //
 //   node scripts/transport/build-tr-check.mjs collect (--requests K1,K2 | --owner <USER> | --text "<like pattern>")
-//        --out-dir <dir> [--system SID] [--target QAS]
+//        --out-dir <dir> [--system SID] [--target QAS] [--target-dest <SM59 destination>]
 //   node scripts/transport/build-tr-check.mjs build --in <dir>/collect.json --out-dir <dir> [--lang ko|en|ja]
 //
 // collect — through the sc4sap MCP server (config/sap-reader.mjs): the requests (E070 / E07T), their tasks,
 //   their objects (E071, tasks folded into the request), the same objects in OTHER open requests, inactive
 //   objects (DWINACTV, else ADT's list for the connection user — marked partial), the objects' packages
 //   (TADIR), and DDIC objects of other open requests that this request's code uses (GetWhereUsed, ≤ 40
-//   objects). A read the system refuses is recorded as not read, never as "none".
+//   objects). With --target-dest: the target merge check (tr-target.mjs) — the target's TADIR / VRSD read
+//   through GetRemoteTableContents over that SM59 destination. A read the system refuses is recorded as
+//   not read, never as "none".
 // build — offline: tr-check-<lang>.html, tr-check-<lang>.md, model.json.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { buildModel } from './tr-model.mjs';
 import { renderHtml, renderSummary } from './tr-page.mjs';
+import { collectTarget } from './tr-target.mjs';
 
 const TR = /^[A-Z0-9]{3}K[A-Z0-9]{6}$/;
 const arr = (v) => (Array.isArray(v) ? v : []);
@@ -66,7 +69,7 @@ async function collect(o) {
     const ids = reqRows.map((r) => r.TRKORR);
     const texts = await readIn(client, 'E07T', 'TRKORR', ids);
     const text = new Map(arr(texts.rows).map((r) => [r.TRKORR, r.AS4TEXT]));
-    const requests = reqRows.map((r) => ({ trkorr: r.TRKORR, kind: KIND[r.TRFUNCTION] || r.TRFUNCTION, status: STATUS[r.TRSTATUS] || r.TRSTATUS, owner: r.AS4USER, date: r.AS4DATE, text: text.get(r.TRKORR) || '' }));
+    const requests = reqRows.map((r) => ({ trkorr: r.TRKORR, kind: KIND[r.TRFUNCTION] || r.TRFUNCTION, status: STATUS[r.TRSTATUS] || r.TRSTATUS, owner: r.AS4USER, date: r.AS4DATE, time: r.AS4TIME || '', text: text.get(r.TRKORR) || '' }));
 
     // 2. Tasks and objects (task objects belong to their request).
     const taskRows = arr((await readIn(client, 'E070', 'STRKORR', ids)).rows);
@@ -134,11 +137,20 @@ async function collect(o) {
       }
     }
 
-    const out = { system: o.system || '', target: o.target || '', readAt: new Date().toISOString().slice(0, 16).replace('T', ' '), requests, tasks, objects, others, inactive, tadir, deps };
+    // 7. Target merge check (only with a destination; read-only on the target).
+    let targetSystem = null;
+    if (o['target-dest'] !== undefined) {
+      const dest = String(o['target-dest'] === true ? '' : o['target-dest']).trim();
+      if (!/^[A-Za-z0-9_.%-]{1,32}$/.test(dest)) throw new Error('--target-dest: an SM59 destination name');
+      targetSystem = await collectTarget({ client, readIn }, { requests, objects, deps }, { dest, label: o.target || '' });
+    }
+
+    const out = { system: o.system || '', target: o.target || '', readAt: new Date().toISOString().slice(0, 16).replace('T', ' '), requests, tasks, objects, others, inactive, tadir, deps, targetSystem };
     mkdirSync(o['out-dir'], { recursive: true });
     const file = join(o['out-dir'], 'collect.json');
     writeFileSync(file, JSON.stringify(out, null, 1));
-    return { file, requests: requests.length, objects: objects.length, others: others.rows.length, inactive: inactive.ok ? `${inactive.rows.length} (${inactive.scope})` : 'not read', deps: deps.rows.length };
+    return { file, requests: requests.length, objects: objects.length, others: others.rows.length, inactive: inactive.ok ? `${inactive.rows.length} (${inactive.scope})` : 'not read', deps: deps.rows.length,
+      ...(targetSystem ? { target: targetSystem.ok ? { dest: targetSystem.dest, checked: targetSystem.checked, inTarget: targetSystem.tadir.length, versions: targetSystem.versions.length, used: targetSystem.needs.length, notes: targetSystem.notes } : { dest: targetSystem.dest, ok: false, error: targetSystem.error } } : {}) };
   } finally {
     await client.close().catch(() => {});
   }
@@ -168,7 +180,7 @@ function build(o) {
   return { html: `${base}.html`, md: `${base}.md`, summary: model.summary, text: summary };
 }
 
-const USAGE = 'usage: build-tr-check.mjs collect (--requests K1,K2 | --owner USER | --text PATTERN) --out-dir <dir> [--system SID] [--target QAS] | build --in <dir>/collect.json --out-dir <dir> [--lang ko|en|ja]';
+const USAGE = 'usage: build-tr-check.mjs collect (--requests K1,K2 | --owner USER | --text PATTERN) --out-dir <dir> [--system SID] [--target QAS] [--target-dest DEST] | build --in <dir>/collect.json --out-dir <dir> [--lang ko|en|ja]';
 
 if (process.argv[1] && /build-tr-check\.mjs$/.test(process.argv[1])) {
   const o = args(process.argv.slice(2));

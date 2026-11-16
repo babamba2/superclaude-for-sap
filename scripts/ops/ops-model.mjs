@@ -6,9 +6,11 @@
 //     prevDumps:  { ok, rows: [...] },
 //     transports: { ok, rows: [{ trkorr, kind, status, date, text }], error? },
 //     objects:    { ok, rows: [{ trkorr, object, name }], error? },
-//     jobs:       { ok, rows: [{ job, count, program, endDate, endTime }], error? },
-//     updates:    { ok, rows: [{ key, date, tcode, report, rc }], error? },
-//     idocs:      { ok, rows: [{ docnum, status, mestyp, direct, partner, date }], error? } }
+//     jobs:       { ok, rows: [{ job, count, program, endDate, endTime }], prevRows?, error? },
+//     updates:    { ok, rows: [{ key, date, tcode, report, rc }], prevRows?, error? },
+//     idocs:      { ok, rows: [{ docnum, status, mestyp, direct, partner, date }], prevRows?, error? } }
+// `prevRows` (the same read for the previous period) is missing in a collect.json written before 2026-11-16:
+// the report then shows no change for that figure, never a made-up one.
 // A section with ok:false was not readable on this system (e.g. the BASIS < 7.50 dispatcher reads
 // customizing / system tables only); the page says where to look instead, never "no problems".
 
@@ -149,6 +151,32 @@ export function verdictOf(m) {
   return amber ? 'amber' : 'green';
 }
 
+/** Every date from `from` to `to` (YYYY-MM-DD), at most 62. */
+export function daysOf(from, to) {
+  const out = [];
+  if (!from || !to) return out;
+  for (let t = Date.parse(`${from}T00:00:00Z`), end = Date.parse(`${to}T00:00:00Z`); t <= end && out.length < 62; t += 86400000) {
+    out.push(new Date(t).toISOString().slice(0, 10));
+  }
+  return out;
+}
+
+/** Dumps per day over `days`, zero for a day without one. */
+export function perDay(rows, days) {
+  const n = new Map(days.map((d) => [d, 0]));
+  for (const r of arr(rows)) if (n.has(r.date)) n.set(r.date, n.get(r.date) + 1);
+  return days.map((date) => ({ date, count: n.get(date) }));
+}
+
+/** Rows of the previous period, or null when the collector did not read it (older collect.json, read failed). */
+const prevOf = (s) => (s?.ok && Array.isArray(s.prevRows) ? s.prevRows : null);
+
+/** One KPI tile: the figure, the previous period's (null = not read) and the change. */
+const kpi = (key, value, previous, ok = true) => ({
+  key, ok, value: ok ? value : null, previous: ok ? previous : null,
+  delta: ok && previous !== null && previous !== undefined ? value - previous : null,
+});
+
 /** The model the page is drawn from. */
 export function buildModel(c) {
   const section = (s) => ({ ok: !!s?.ok, error: s?.ok ? '' : String(s?.error || 'not read') });
@@ -158,16 +186,62 @@ export function buildModel(c) {
     .map((g) => ({ ...g, suspects: c.transports?.ok && c.objects?.ok ? suspectsFor(g, transports, objects) : [] }));
   const m = {
     system: c.system || '', sapVersion: c.sapVersion || '', from: c.from, to: c.to,
-    prevFrom: c.prevFrom || '', prevTo: c.prevTo || '', readAt: c.readAt || '',
+    prevFrom: c.prevFrom || '', prevTo: c.prevTo || '', lookbackFrom: c.lookbackFrom || '', readAt: c.readAt || '',
     dumps: { ...section(c.dumps), total: arr(c.dumps?.rows).length, previousTotal: c.prevDumps?.ok ? arr(c.prevDumps.rows).length : null, groups },
     transports: { ...section(c.transports), list: transports.filter((t) => t.date >= c.from) },
     jobs: { ...section(c.jobs), groups: groupJobs(c.jobs?.rows) },
     updates: { ...section(c.updates), groups: groupUpdates(c.updates?.rows) },
     idocs: { ...section(c.idocs), groups: groupIdocs(c.idocs?.rows) },
   };
+  // Per-day dumps for the trend chart: the previous period (when read) and this one, on one time axis.
+  const days = daysOf(m.from, m.to);
+  m.dumps.byDay = perDay(c.dumps?.rows, days);
+  m.dumps.prevByDay = c.prevDumps?.ok ? perDay(c.prevDumps.rows, daysOf(m.prevFrom, m.prevTo)) : null;
+  m.dumps.previousGroups = c.prevDumps?.ok ? groupDumps(c.prevDumps.rows, []).length : null;
+  const total = (groups) => groups.reduce((s, g) => s + g.count, 0);
+  m.jobs.total = total(m.jobs.groups);
+  m.updates.total = total(m.updates.groups);
+  m.idocs.total = total(m.idocs.groups);
+  const prevTotal = (s, group) => (prevOf(s) ? total(group(prevOf(s))) : null);
+  m.jobs.previousTotal = prevTotal(c.jobs, groupJobs);
+  m.updates.previousTotal = prevTotal(c.updates, groupUpdates);
+  m.idocs.previousTotal = prevTotal(c.idocs, groupIdocs);
+  m.kpis = [
+    kpi('dumps', m.dumps.total, m.dumps.previousTotal, m.dumps.ok),
+    kpi('dumpGroups', m.dumps.groups.length, m.dumps.previousGroups, m.dumps.ok),
+    // "New" is itself a comparison — it has no previous figure of its own.
+    kpi('newGroups', m.dumps.groups.filter((g) => g.isNew).length, null, m.dumps.ok && m.dumps.previousTotal !== null),
+    kpi('jobs', m.jobs.total, m.jobs.previousTotal, m.jobs.ok),
+    kpi('updates', m.updates.total, m.updates.previousTotal, m.updates.ok),
+    kpi('idocs', m.idocs.total, m.idocs.previousTotal, m.idocs.ok),
+  ];
   m.verdict = verdictOf(m);
   m.next = nextSteps(m);
+  m.issues = issuesOf(m);
+  m.worst = m.issues.find((i) => i.area !== 'unread')?.area || null;
   return m;
+}
+
+const RANK = { high: 0, medium: 1, low: 2 };
+
+/**
+ * The issues & actions of the report, most severe first. Each names its area, a severity and the figures the
+ * page words in the reader's language (`kind` picks the wording); `action` is the skill or TCode to use.
+ */
+export function issuesOf(m) {
+  const out = [];
+  for (const g of m.dumps.groups.slice(0, 15)) {
+    const base = { area: 'dumps', error: g.error, program: g.program, count: g.count, previous: g.previous, last: g.last };
+    const action = `/sc4sap:analyze-symptom ${g.error} in ${g.program || '?'} at ${g.last}`;
+    if (g.suspects.length) out.push({ ...base, kind: 'dumpChanged', severity: 'high', trkorr: g.suspects.map((s) => s.trkorr).slice(0, 3), action });
+    else if (g.isNew) out.push({ ...base, kind: 'dumpNew', severity: g.count >= 5 ? 'high' : 'medium', action });
+    else if (g.previous !== null && g.count > g.previous) out.push({ ...base, kind: 'dumpRising', severity: 'medium', action });
+  }
+  for (const g of m.jobs.groups.slice(0, 5)) out.push({ area: 'jobs', kind: 'job', severity: g.count >= 3 ? 'high' : 'medium', job: g.job, program: g.program, count: g.count, action: 'SM37' });
+  for (const g of m.updates.groups.slice(0, 5)) out.push({ area: 'updates', kind: 'update', severity: 'high', tcode: g.tcode, program: g.report, count: g.count, action: 'SM13' });
+  for (const g of m.idocs.groups.slice(0, 5)) out.push({ area: 'idocs', kind: 'idoc', severity: 'medium', mestyp: g.mestyp, status: g.status, direction: g.direction, count: g.count, action: 'WE02 / BD87' });
+  for (const s of Object.keys(FALLBACK_TCODE)) if (!m[s].ok) out.push({ area: 'unread', kind: 'unread', severity: 'medium', section: s, action: FALLBACK_TCODE[s] });
+  return out.sort((a, b) => RANK[a.severity] - RANK[b.severity]).slice(0, 20);
 }
 
 /** What to do next, most urgent first — each a skill or a transaction. */

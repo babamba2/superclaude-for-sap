@@ -8,11 +8,22 @@
 //     others:    { ok, rows: [{ trkorr, status, owner, object, name }] },     — the same objects in OTHER open requests
 //     inactive:  { ok, scope: 'all' | 'own', rows: [{ object, name, user }] },
 //     tadir:     { ok, rows: [{ object, name, package }] },
-//     deps:      { ok, rows: [{ trkorr, object, name, needs: 'TABL ZX', in: 'K900123', status }] } }
+//     deps:      { ok, rows: [{ trkorr, object, name, needs: 'TABL ZX', in: 'K900123', status }] },
+//     targetSystem (optional, tr-target.mjs): { label, dest, ok, error, checked, truncated, vrsdOk, needsOk,
+//       tadir: [{ object, name, package }],
+//       versions: [{ objtype, objname, korrnum, date, inSource, sourceDate }],   — latest target version per part
+//       needs: [{ trkorr, object, name, by, inTarget, releasedIn }] } }          — customer DDIC the code uses
 //
 // Findings per request, each with a severity:
 //   block — open task, inactive object, object in a local package ($…), needs a DDIC object of an unreleased request
 //   warn  — object also in another open request (order of import), released already, inactive list partial
+// Target merge (with targetSystem):
+//   block — target-diverged: the target's latest version came from a request the source does not know
+//           (changed in the target directly or by another route — the import would overwrite it)
+//   block — missing-in-target: a customer DDIC object the code uses is neither in the target, in this
+//           request, nor in a released request (warn when only a released request holds it: import that first)
+//   warn  — older-than-target: the target's latest version came from a later source request (roll-back)
+//   warn  — target-unread: the destination did not answer — nothing is claimed about the target
 
 const arr = (v) => (Array.isArray(v) ? v : []);
 const up = (s) => String(s ?? '').trim().toUpperCase();
@@ -58,7 +69,37 @@ export function findingsFor(req, c) {
   if (c.deps && !c.deps.ok) add('warn', 'dependency-unread', 'dependencies on other requests could not be checked');
 
   if (!objs.length && !open.length) add('warn', 'empty', 'no objects in the request or its tasks');
+  if (c.targetSystem) targetFindings(req, objs, c.targetSystem, add);
   return out;
+}
+
+/** Target merge check of one request: what the import would do to the target system. */
+export function targetMerge(req, objs, t) {
+  const names = new Set(objs.map((o) => String(o.name ?? '').trimEnd()));
+  const reqStamp = `${String(req.date ?? '').replace(/\D/g, '')}${String(req.time ?? '').replace(/\D/g, '')}`;
+  const parts = arr(t.versions).filter((v) => names.has(v.objname) || names.has(String(v.objname).split(/\s+/)[0]));
+  const diverged = parts.filter((v) => v.korrnum && v.korrnum !== req.trkorr && v.inSource === false);
+  const older = parts.filter((v) => v.korrnum && v.korrnum !== req.trkorr && v.inSource && v.sourceDate && reqStamp && v.sourceDate.slice(0, reqStamp.length) > reqStamp);
+  const needs = arr(t.needs).filter((n) => n.trkorr === req.trkorr && n.inTarget === false);
+  const inTarget = new Set(arr(t.tadir).map((x) => key(x.object, x.name)));
+  return {
+    label: t.label || '', dest: t.dest || '', ok: !!t.ok, error: t.error || '',
+    checked: new Set(objs.map((o) => key(o.object, o.name))).size, existing: new Set(objs.filter((o) => up(o.pgmid) === 'R3TR' && inTarget.has(key(o.object, o.name))).map((o) => key(o.object, o.name))).size,
+    diverged: diverged.map((v) => `${v.objtype} ${v.objname} ← ${v.korrnum}${v.targetText ? ` "${v.targetText}"` : ''} (${v.date || '?'})`),
+    older: older.map((v) => `${v.objtype} ${v.objname} ← ${v.korrnum}`),
+    missing: needs.filter((n) => !n.releasedIn).map((n) => `${n.object} ${n.name} ← ${n.by}`),
+    pending: needs.filter((n) => n.releasedIn).map((n) => `${n.object} ${n.name} → ${n.releasedIn}`),
+  };
+}
+
+function targetFindings(req, objs, t, add) {
+  if (!t.ok) { add('warn', 'target-unread', `target ${t.label || t.dest} could not be read through ${t.dest}${t.error ? ` — ${t.error}` : ''}`); return; }
+  const m = targetMerge(req, objs, t);
+  if (m.diverged.length) add('block', 'target-diverged', `${m.diverged.length} object(s) were changed in the target by a request the source does not know — the import would overwrite them`, m.diverged);
+  if (m.missing.length) add('block', 'missing-in-target', `${m.missing.length} customer DDIC object(s) the code uses are not in the target and not in a released request`, m.missing);
+  if (m.pending.length) add('warn', 'missing-in-target', `${m.pending.length} customer DDIC object(s) the code uses reach the target only with another released request — import it first`, m.pending);
+  if (m.older.length) add('warn', 'older-than-target', `${m.older.length} object(s) have a later version in the target — the import would roll it back`, m.older);
+  if (t.vrsdOk === false || t.needsOk === false || t.truncated) add('warn', 'target-partial', 'target merge check partial (version directory or used objects not fully read)');
 }
 
 /** `ready` (nothing), `check` (warnings only), `blocked` (any block). */
@@ -67,7 +108,9 @@ export const verdictOf = (findings) => (findings.some((f) => f.level === 'block'
 export function buildModel(c) {
   const requests = arr(c.requests).map((r) => {
     const findings = findingsFor(r, c);
-    return { ...r, objects: objectsOf(c.objects, r.trkorr).length, findings, verdict: verdictOf(findings) };
+    const objs = objectsOf(c.objects, r.trkorr);
+    const merge = c.targetSystem ? targetMerge(r, objs, c.targetSystem) : null;
+    return { ...r, objects: objs.length, findings, verdict: verdictOf(findings), ...(merge ? { merge } : {}) };
   });
   const count = (v) => requests.filter((r) => r.verdict === v).length;
   return {

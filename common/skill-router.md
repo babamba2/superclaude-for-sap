@@ -13,7 +13,7 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
   - data of specific documents or a change to them (open POs, post GI, release, block, reverse …) → assist (it confirms before any write)
   - dump / short dump / error / "why does it fail" for a run in the system → analyze-symptom
   - daily check / system health / "what broke since yesterday" / failed jobs, update errors, IDoc errors → ops-health-check
-  - can these transport requests go to QA / PRD, open tasks, import order → transport-readiness
+  - can these transport requests go to QA / PRD, open tasks, import order, will they merge cleanly into the target (CTS check) → transport-readiness
   - connection or plugin not working → sap-doctor
 - PROPOSE in one line (skill + target + what it produces), run on yes:
   - build a program / report / ALV / batch → create-program · one DDIC object, class, FM → create-object

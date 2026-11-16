@@ -6,10 +6,12 @@
 //
 // collect — read-only, through the sc4sap MCP server (config/sap-reader.mjs): RuntimeListDumps for the period and
 //   the period before it; E070 / E07T / E071 for requests from 7 days before the period on; TBTCO / TBTCP aborted
-//   jobs, VBHDR update requests with an error, EDIDC IDocs in an error status. A table the system will not read
+//   jobs, VBHDR update requests with an error, EDIDC IDocs in an error status — each over the period and the period
+//   before it (`prevRows`), so the report can show the change. A table the system will not read
 //   (BASIS < 7.50 reads customizing / system tables only) is recorded as not readable, never as empty.
 //   No business document rows, no user names in the output (dump users are counted only).
-// build — offline: ops-check-<to>-<lang>.html, ops-check-<to>-<lang>.md (summary) and model.json.
+// build — offline: the operations report ops-report-<to>-<lang>.html, its summary ops-report-<to>-<lang>.md
+//   and model.json.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -147,29 +149,32 @@ async function collect(o) {
       };
     }
 
-    // Aborted jobs (status A) that ended in the period, with the program of their first step.
-    const tbtco = await readTable(client, 'TBTCO', { where: `STATUS = 'A' AND ENDDATE >= '${sap(o.from)}' AND ENDDATE <= '${sap(o.to)}'`, fields: ['JOBNAME', 'JOBCOUNT', 'ENDDATE', 'ENDTIME'], maxRows: 5000 });
-    const jobs = { ok: tbtco.ok, rows: [], error: tbtco.error };
+    // Aborted jobs (status A) that ended in the period or the one before, with the program of their first step.
+    const split = (rows, dateOf) => ({ rows: rows.filter((r) => dateOf(r) >= o.from), prevRows: rows.filter((r) => dateOf(r) < o.from) });
+    const tbtco = await readTable(client, 'TBTCO', { where: `STATUS = 'A' AND ENDDATE >= '${sap(prevFrom)}' AND ENDDATE <= '${sap(o.to)}'`, fields: ['JOBNAME', 'JOBCOUNT', 'ENDDATE', 'ENDTIME'], maxRows: 5000 });
+    let jobs = { ok: tbtco.ok, rows: [], error: tbtco.error };
     if (tbtco.ok) {
-      const steps = await readIn(client, 'TBTCP', 'JOBCOUNT', arr(tbtco.rows).map((r) => r.JOBCOUNT), { fields: ['JOBNAME', 'JOBCOUNT', 'STEPCOUNT', 'PROGNAME'] });
+      const current = arr(tbtco.rows).filter((r) => iso(r.ENDDATE) >= o.from);
+      const steps = await readIn(client, 'TBTCP', 'JOBCOUNT', current.map((r) => r.JOBCOUNT), { fields: ['JOBNAME', 'JOBCOUNT', 'STEPCOUNT', 'PROGNAME'] });
       const prog = new Map();
       for (const s of arr(steps.rows).sort((a, b) => Number(a.STEPCOUNT) - Number(b.STEPCOUNT))) {
         const k = `${s.JOBNAME}|${s.JOBCOUNT}`;
         if (!prog.has(k)) prog.set(k, s.PROGNAME);
       }
-      jobs.rows = arr(tbtco.rows).map((r) => ({ job: r.JOBNAME, program: prog.get(`${r.JOBNAME}|${r.JOBCOUNT}`) || '', endDate: iso(r.ENDDATE), endTime: hhmm(r.ENDTIME) }));
+      const all = arr(tbtco.rows).map((r) => ({ job: r.JOBNAME, program: prog.get(`${r.JOBNAME}|${r.JOBCOUNT}`) || '', endDate: iso(r.ENDDATE), endTime: hhmm(r.ENDTIME) }));
+      jobs = { ...jobs, ...split(all, (r) => r.endDate) };
     }
 
-    // Update requests that failed (return code ≠ 0) in the period. The user field is not read.
-    const vbhdr = await readTable(client, 'VBHDR', { where: `VBRC <> 0 AND VBDATE >= '${sap(o.from)}000000' AND VBDATE <= '${sap(o.to)}235959'`, fields: ['VBKEY', 'VBDATE', 'VBTCODE', 'VBREPORT', 'VBRC'], maxRows: 5000 });
-    const updates = { ok: vbhdr.ok, error: vbhdr.error, rows: arr(vbhdr.rows).map((r) => ({ key: r.VBKEY, date: iso(r.VBDATE), tcode: r.VBTCODE, report: r.VBREPORT, rc: r.VBRC })) };
+    // Update requests that failed (return code ≠ 0) in the period or the one before. The user field is not read.
+    const vbhdr = await readTable(client, 'VBHDR', { where: `VBRC <> 0 AND VBDATE >= '${sap(prevFrom)}000000' AND VBDATE <= '${sap(o.to)}235959'`, fields: ['VBKEY', 'VBDATE', 'VBTCODE', 'VBREPORT', 'VBRC'], maxRows: 5000 });
+    const updates = { ok: vbhdr.ok, error: vbhdr.error, ...split(arr(vbhdr.rows).map((r) => ({ key: r.VBKEY, date: iso(r.VBDATE), tcode: r.VBTCODE, report: r.VBREPORT, rc: r.VBRC })), (r) => r.date) };
 
-    // IDocs created in the period that sit in an error status.
+    // IDocs created in the period or the one before that sit in an error status.
     const statuses = [...IDOC_ERROR_STATUS].map((s) => `'${s}'`).join(', ');
-    const edidc = await readTable(client, 'EDIDC', { where: `CREDAT >= '${sap(o.from)}' AND CREDAT <= '${sap(o.to)}' AND STATUS IN (${statuses})`, fields: ['DOCNUM', 'STATUS', 'MESTYP', 'DIRECT', 'RCVPRN', 'SNDPRN', 'CREDAT'], maxRows: 5000 });
+    const edidc = await readTable(client, 'EDIDC', { where: `CREDAT >= '${sap(prevFrom)}' AND CREDAT <= '${sap(o.to)}' AND STATUS IN (${statuses})`, fields: ['DOCNUM', 'STATUS', 'MESTYP', 'DIRECT', 'RCVPRN', 'SNDPRN', 'CREDAT'], maxRows: 5000 });
     const idocs = {
       ok: edidc.ok, error: edidc.error,
-      rows: arr(edidc.rows).map((r) => ({ docnum: r.DOCNUM, status: r.STATUS, mestyp: r.MESTYP, direct: r.DIRECT, partner: String(r.DIRECT) === '2' ? r.SNDPRN : r.RCVPRN, date: iso(r.CREDAT) })),
+      ...split(arr(edidc.rows).map((r) => ({ docnum: r.DOCNUM, status: r.STATUS, mestyp: r.MESTYP, direct: r.DIRECT, partner: String(r.DIRECT) === '2' ? r.SNDPRN : r.RCVPRN, date: iso(r.CREDAT) })), (r) => r.date),
     };
 
     const out = {
@@ -192,8 +197,9 @@ function build(o) {
   const lang = ['ko', 'en', 'ja'].includes(o.lang) ? o.lang : 'en';
   const model = buildModel(JSON.parse(readFileSync(o.in, 'utf8')));
   mkdirSync(o['out-dir'], { recursive: true });
-  const base = join(o['out-dir'], `ops-check-${model.to}-${lang}`);
-  writeFileSync(`${base}.html`, renderHtml(model, lang));
+  // Renamed from ops-check-<to>-<lang> (2026-11-16): the output is now an operations report.
+  const base = join(o['out-dir'], `ops-report-${model.to}-${lang}`);
+  writeFileSync(`${base}.html`, renderHtml(model, lang, { file: `ops-report-${model.to}-${lang}` }));
   const summary = renderSummary(model, lang);
   writeFileSync(`${base}.md`, `${summary}\n`);
   writeFileSync(join(o['out-dir'], 'model.json'), JSON.stringify(model, null, 1));
