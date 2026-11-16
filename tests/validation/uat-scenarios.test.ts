@@ -200,3 +200,29 @@ describe('uat-scenarios — phases, cycle scope, issues, dashboard', () => {
     expect(removed.issues).toHaveLength(1);
   });
 });
+
+describe('uat-scenarios editable page', () => {
+  it('embeds the set, inlines the model, and reads an edited page back through import', async () => {
+    const { pageHtml, setFromPage } = await import('../../scripts/uat/uat-page.mjs');
+    const set = normalize(sample());
+    const html = pageHtml(set, 'ko');
+    expect(html).toContain('id="uat-model"');
+    expect(html).toContain('function normalize(');
+    expect(html).toContain('대시보드');
+    for (const [, js] of html.matchAll(/<script>([\s\S]*?)<\/script>/g)) expect(() => new Function(js)).not.toThrow();
+    expect(setFromPage(html).id).toBe(set.id);
+
+    const dir = mkdtempSync(join(tmpdir(), 'uat-page-'));
+    const cli = (...a: string[]) => JSON.parse(execFileSync(process.execPath, [join(__dirname, '..', '..', 'scripts', 'uat', 'build-uat.mjs'), ...a], { encoding: 'utf8' }));
+    try {
+      const edited = html.replace(/("owner":)"[^"]*"/, '$1"Edited in browser"');
+      writeFileSync(join(dir, 'edited.html'), edited);
+      const out = cli('import', join(dir, 'edited.html'), '--dir', dir);
+      expect(out.page).toMatch(/MM-UAT-uat\.html$/);
+      expect(out.xlsx).toHaveLength(2);
+      expect(JSON.parse(readFileSync(join(dir, 'MM-UAT', 'MM-UAT-uat.json'), 'utf8')).scenarios[0].owner).toBe('Edited in browser');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});

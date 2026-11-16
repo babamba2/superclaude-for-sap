@@ -6,16 +6,20 @@
 //   node scripts/uat/build-uat.mjs patch  --dir <dir> --id <ID> --patch <ops.json> [--no-xlsx]
 //   node scripts/uat/build-uat.mjs export --dir <dir> --id <ID> --layout A|B|both [--out-dir <dir>]
 //   node scripts/uat/build-uat.mjs show   --dir <dir> --id <ID>
+//   node scripts/uat/build-uat.mjs page   --dir <dir> --id <ID> [--out-dir <dir>]
+//   node scripts/uat/build-uat.mjs import <edited.html> --dir <dir> [--no-xlsx]
 //
 // The set lives in <dir>/<ID>/<ID>-uat.json (model: uat-model.mjs). `patch` applies a proposal — the
 // module consultant's, or edits made elsewhere — and reports what it applied and what it skipped.
-// `init` and `patch` also write both workbooks, <ID>-uat-A.xlsx and -B.xlsx, next to the JSON, so the
+// `init`, `patch` and `import` also write the editable page <ID>-uat.html (uat-page.mjs) and both workbooks,
+// <ID>-uat-A.xlsx and -B.xlsx, next to the JSON, so the
 // Excel in the folder is never older than the set; `export` writes them elsewhere (uat-xlsx.mjs). Every command prints one JSON line. Offline: no SAP.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { applyPatch, normalize, progress, validate } from './uat-model.mjs';
 import { layoutA, layoutB } from './uat-xlsx.mjs';
+import { pageHtml, setFromPage } from './uat-page.mjs';
 
 const ID = /^[A-Za-z0-9_-]{1,30}$/;
 
@@ -52,6 +56,18 @@ function writeXlsx(out, set, layouts = ['A', 'B']) {
   });
 }
 
+/** The editable page next to the set (user, 2026-11-16: HTML first, Excel as well). */
+function writePage(out, set) {
+  mkdirSync(out, { recursive: true });
+  const file = join(out, `${set.id}-uat.html`);
+  writeFileSync(file, pageHtml(set));
+  return file;
+}
+const outputs = (o, set) => ({
+  page: writePage(join(o.dir, set.id), set),
+  xlsx: o['no-xlsx'] ? [] : writeXlsx(join(o.dir, set.id), set),
+});
+
 const commands = {
   init(o) {
     if (!o.answers || !o.dir) throw new Error('--answers and --dir are required');
@@ -59,7 +75,7 @@ const commands = {
     if (!ID.test(set.id)) throw new Error(`id ${set.id}: letters, digits, _ - only, ≤ 30`);
     if (existsSync(fileOf(o.dir, set.id)) && !o.force) throw new Error(`${set.id} exists — use patch, or --force to start over`);
     const file = save(o.dir, set);
-    return { file, xlsx: o['no-xlsx'] ? [] : writeXlsx(join(o.dir, set.id), set), issues: validate(set), progress: progress(set) };
+    return { file, ...outputs(o, set), issues: validate(set), progress: progress(set) };
   },
   check(o) {
     const set = load(o);
@@ -71,8 +87,24 @@ const commands = {
     const raw = JSON.parse(readFileSync(o.patch, 'utf8'));
     const { set: next, applied, skipped } = applyPatch(set, Array.isArray(raw) ? raw : raw.ops);
     const file = save(o.dir, next);
-    // The workbooks follow the set, so the Excel in the folder is never older than the JSON.
-    return { file, xlsx: o['no-xlsx'] ? [] : writeXlsx(join(o.dir, next.id), next), applied: applied.length, skipped, issues: validate(next) };
+    // The page and the workbooks follow the set, so nothing in the folder is older than the JSON.
+    return { file, ...outputs(o, next), applied: applied.length, skipped, issues: validate(next) };
+  },
+  /** The page again (after a plugin update), or into another folder. */
+  page(o) {
+    const set = load(o);
+    return { page: writePage(o['out-dir'] || join(o.dir, set.id), set) };
+  },
+  /** A page edited in the browser and saved: its set becomes the set; page and workbooks are rewritten. */
+  import(o) {
+    const html = o._[1];
+    if (!html || !o.dir) throw new Error('usage: import <edited.html> --dir <dir>');
+    const raw = setFromPage(readFileSync(html, 'utf8'));
+    if (!raw) throw new Error(`${html} has no scenario set in it — was it saved from the page's Save button?`);
+    const set = normalize(raw);
+    if (!ID.test(set.id)) throw new Error(`id ${set.id}: letters, digits, _ - only, ≤ 30`);
+    const file = save(o.dir, set);
+    return { file, ...outputs(o, set), issues: validate(set), progress: progress(set) };
   },
   export(o) {
     const set = load(o);
