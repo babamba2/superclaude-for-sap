@@ -34,8 +34,8 @@
 //   ## impact
 //   - <bullet>            (also: ## cautions, ## refs)
 
-import { readFileSync, existsSync, readdirSync } from 'fs';
-import { join, resolve, dirname } from 'path';
+import { readFileSync, existsSync, readdirSync, realpathSync } from 'fs';
+import { join, resolve, dirname, basename, sep } from 'path';
 import { fileURLToPath } from 'url';
 import { resolveArtifactBase, sc4sapHome } from '../lib/profile-resolve.mjs';
 import { atomicWriteFileSync, ensureDirSync } from '../lib/atomic-write.mjs';
@@ -424,11 +424,26 @@ function writeFlags(module, lang, flags) { ensureDirSync(ownKbPath(kbDir(module,
 
 /** Every KB write goes through here: never into the read-only seed (SC4SAP_KB_SEED), whatever an entry's origin. */
 export function ownKbPath(p) {
-  const seed = process.env.SC4SAP_KB_SEED ? resolve(process.env.SC4SAP_KB_SEED).toLowerCase() : '';
-  const t = resolve(p).toLowerCase();
-  const inside = seed && (t === seed || t.startsWith(`${seed}\\`) || t.startsWith(`${seed}/`));
+  if (!process.env.SC4SAP_KB_SEED) return p;
+  // compare real locations: a junction or symlink from the own KB into the seed must not pass
+  const seed = realLocation(process.env.SC4SAP_KB_SEED).toLowerCase();
+  const t = realLocation(p).toLowerCase();
+  const inside = t === seed || t.startsWith(`${seed}${sep}`) || t.startsWith(`${seed}/`);
   if (inside) throw new Error(`refusing to write into the read-only KB seed (${p})`);
   return p;
+}
+
+/** Real path of p; for a path that does not exist yet, the real path of its nearest existing parent + the rest. */
+export function realLocation(p) {
+  let cur = resolve(p);
+  const rest = [];
+  for (;;) {
+    try { return join(realpathSync.native(cur), ...rest); } catch { /* not there yet */ }
+    const up = dirname(cur);
+    if (up === cur) return join(cur, ...rest);
+    rest.unshift(basename(cur));
+    cur = up;
+  }
 }
 
 /** Hash of the rows behind one activity: a change re-queues its reviewed note. */

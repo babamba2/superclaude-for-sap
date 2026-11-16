@@ -96,6 +96,11 @@ function flagWeak(text, tally) {
   tally.flags += (t.match(Z_WEAK) || []).length + (weakCtx?.orgWeak && weakCtx.orgWeak.test(t) ? 1 : 0);
 }
 
+// fields of a note that describe one system: dropped from a KB entry
+const SYSTEM_ONLY = ['impact', 'cautions', 'verdicts', 'verifiedAgainst', 'kbFlag', 'thisSystem', 'review', 'issues'];
+// fields scrubbed field by field above, or metadata that is not text about a system
+const HANDLED = new Set(['purpose', 'sapdoc', 'mix', 'compare', 'checklist', 'criteria', 'cases', 'sources', 'activity', 'module', 'lang', 'savedAt', 'sapVersion']);
+
 const newTally = () => ({ rows: 0, sentences: 0, items: 0, flags: 0, why: {} });
 
 /** The general part of one note / KB entry with everything system-specific taken out. */
@@ -131,16 +136,27 @@ export function scrubEntry(entry, ctx = {}) {
   if (out.cases?.list) {
     out.cases = {
       title: scrubText(out.cases.title, ctx, t('cases')),
+      // every text of a case (title, name, desc, when, any later field) and every flow step
       list: out.cases.list.map(({ thisSystem, svg, ...c }) => {
-        const x = { ...c, desc: scrubText(c.desc, ctx, t('cases')), when: scrubText(c.when, ctx, t('cases')) };
-        x.flow = (c.flow || []).filter((step) => { const why = systemHit(step, ctx); if (why) t('cases').items++; return !why; });
-        flagWeak(`${x.desc} ${x.when}`, t('cases'));
+        const x = {};
+        for (const [k, v] of Object.entries(c)) {
+          if (typeof v === 'string') { x[k] = scrubText(v, ctx, t('cases')); flagWeak(x[k], t('cases')); }
+          else if (Array.isArray(v) && v.every((s) => typeof s === 'string')) x[k] = v.filter((step) => { const why = systemHit(step, ctx); if (why) t('cases').items++; return !why; });
+          else x[k] = v;
+        }
         return x;
       }),
     };
   }
   if (Array.isArray(out.sources)) {
-    out.sources = out.sources.map((s) => ({ ...s, summary: scrubText(s.summary, ctx, t('sources')) }));
+    out.sources = out.sources.map((s) => ({ ...s, title: scrubText(s.title, ctx, t('sources')), summary: scrubText(s.summary, ctx, t('sources')) }));
+  }
+  // system-only parts never belong in a KB entry; any other text field is scrubbed like the rest
+  for (const k of SYSTEM_ONLY) if (k in out) { delete out[k]; t('systemOnly').items++; }
+  for (const [k, v] of Object.entries(out)) {
+    if (HANDLED.has(k)) continue;
+    if (typeof v === 'string') out[k] = scrubText(v, ctx, t(k));
+    else if (Array.isArray(v) && v.every((s) => typeof s === 'string')) out[k] = v.map((s) => scrubText(s, ctx, t(k))).filter((s) => s.trim());
   }
   return { entry: out, tally };
 }

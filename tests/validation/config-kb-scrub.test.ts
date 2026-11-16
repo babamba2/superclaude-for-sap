@@ -54,6 +54,46 @@ describe('notes KB — system-specific parts stay out', () => {
     expect(JSON.stringify(g)).not.toMatch(/AB12|PL01|ZXOR|ZX_|YX_|TST|this system/i);
   });
 
+  it('every text of a case and any other field is scrubbed; system-only fields are dropped', () => {
+    const { entry, tally } = scrubEntry({
+      activity: 'A', sapVersion: 'ECC',
+      cases: { title: 'q', list: [{ title: 'CASE 1 — Standard', name: 'Used by plant PL01.', desc: 'General.', flow: ['Create', 'Post in AB12'], extra: 'Uses ZX_IMPL_ONE.' }] },
+      refs: ['VOV8', 'See YX_PROG_A.'], note: 'This system differs.', impact: ['AB12 rows'], verdicts: [{ n: 1, value: 'yes' }], verifiedAgainst: { system: 'TST' },
+    }, ctx);
+    expect(entry.cases.list[0]).toEqual({ title: 'CASE 1 — Standard', name: '', desc: 'General.', flow: ['Create'], extra: '' });
+    expect(entry.refs).toEqual(['VOV8']);
+    expect(entry.note).toBe('');
+    expect(entry).not.toHaveProperty('impact');
+    expect(entry).not.toHaveProperty('verdicts');
+    expect(entry).not.toHaveProperty('verifiedAgainst');
+    expect(entry).toMatchObject({ activity: 'A', sapVersion: 'ECC' });
+    expect(tally.systemOnly.items).toBe(3);
+    expect(JSON.stringify(entry)).not.toMatch(/AB12|PL01|ZX_|YX_|TST|this system/i);
+  });
+
+  it('walks every string of an entry: none of them keeps a system fact after the scrub', () => {
+    // every field a KB entry can hold (notes.mjs parseNote + generalPart + metadata), each carrying a system fact
+    const bad = 'Plant PL01 in this system.';
+    const fixture = {
+      activity: 'A', module: 'SD', lang: 'ko', savedAt: '2026-11-16', sapVersion: 'ECC',
+      purpose: bad, sapdoc: bad, mix: bad, refs: [bad, 'VOV8'], note: bad,
+      compare: [['Aspect', 'CASE 1'], [bad, 'x'], ['Effort', bad]],
+      checklist: [bad, 'General?'], criteria: { rev: bad, rec: 'Keep.' },
+      cases: { title: bad, list: [{ title: bad, name: bad, desc: bad, when: bad, flow: [bad, 'Step'], thisSystem: bad, svg: bad, extra: bad }] },
+      sources: [{ title: bad, source: 'SAP Help Portal', url: 'https://help.sap.com/x', summary: bad }],
+      impact: [bad], cautions: [bad], verdicts: [{ n: 1, value: bad }], kbFlag: bad, verifiedAgainst: { system: bad },
+    };
+    const { entry } = scrubEntry(JSON.parse(JSON.stringify(fixture)), ctx);
+    const strings: string[] = [];
+    const walk = (x: unknown) => { if (typeof x === 'string') strings.push(x); else if (x && typeof x === 'object') Object.values(x).forEach(walk); };
+    walk(entry);
+    expect(strings.length).toBeGreaterThan(5);
+    expect(strings.filter((s) => /PL01|this system/i.test(s))).toEqual([]);
+    expect(entry.compare.some((r: string[]) => r[0] === 'Effort')).toBe(false); // a row with the fact in any cell goes
+    expect(entry.checklist).toEqual(['General?']);
+    expect(entry.criteria).toEqual({ rec: 'Keep.' });
+  });
+
   it('a this-system row is dropped even without known facts', () => {
     const { entry, tally } = scrubEntry({ compare: [['Aspect', 'A'], ['이 시스템', 'yes'], ['Effort', 'low']] }, scrubContext());
     expect(entry.compare).toEqual([['Aspect', 'A'], ['Effort', 'low']]);
@@ -122,6 +162,24 @@ describe('KB seed, verification and re-queue', () => {
     const r = spawnSync(process.execPath, [NOTES, 'kb-scrub', '--kb', join(tmp, 'seed', 'config'), '--snapshots', join(tmp, 'none.json'), '--apply'], { encoding: 'utf8', env: { ...process.env } });
     expect(r.status).toBe(1);
     expect(r.stderr).toMatch(/read-only KB seed/);
+  });
+
+  it('a junction / symlink from the own KB into the seed is refused too (real paths compared)', async () => {
+    const { ownKbPath, realLocation } = await import('../../scripts/config/notes.mjs');
+    const { symlinkSync } = await import('node:fs');
+    mkdirSync(join(tmp, 'home', 'kb', 'config'), { recursive: true });
+    const link = join(tmp, 'home', 'kb', 'config', 'LINKED');
+    // a junction on Windows (no admin right needed), a directory symlink elsewhere
+    symlinkSync(join(tmp, 'seed', 'config', 'PP'), link, process.platform === 'win32' ? 'junction' : 'dir');
+    expect(realLocation(join(link, 'ko', 'A.json')).toLowerCase()).toContain(join('seed', 'config', 'PP').toLowerCase());
+    expect(() => ownKbPath(join(link, 'ko', 'A.json'))).toThrow(/read-only KB seed/);       // existing file behind the link
+    expect(() => ownKbPath(join(link, 'ko', 'NEW', 'B.json'))).toThrow(/read-only KB seed/); // not there yet: nearest parent resolved
+    expect(() => ownKbPath(link)).toThrow(/read-only KB seed/);
+    expect(ownKbPath(join(tmp, 'home', 'kb', 'config', 'PP', 'ko', 'A.json'))).toMatch(/home/);
+    const { unlinkSync, rmdirSync, existsSync: exists } = await import('node:fs');
+    try { unlinkSync(link); } catch { rmdirSync(link); } // removes the link only, never what it points to
+    expect(exists(link)).toBe(false);
+    expect(exists(join(tmp, 'seed', 'config', 'PP', 'ko', 'A.json'))).toBe(true);
   });
 
   it('entries from before the version meta get the release they came from', () => {
