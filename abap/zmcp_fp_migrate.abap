@@ -41,6 +41,12 @@ FUNCTION zmcp_fp_migrate
 *    cell FOLDER), the non-DATA node is renamed <NAME>_<n> before the form is
 *    saved (FORM g1_walk; listed in "renamed"); a node with children, or a
 *    bound path without a DATA twin, stops the run before the form is saved;
+*  - gap G4: MIGRATE leaves the placeholder layout cache info
+*    0$0$0$0$v1.0$? (all migrated forms then share one ADS template cache
+*    slot and print each other's layouts): the layout gets a new layout id,
+*    hashes and cache info (CL_FP_HELPER=>SET_NEW_LAYOUT_ID / _HASH /
+*    SET_NEW_CACHE_INFO, as a Designer save does) before the form is saved;
+*    still the placeholder afterwards -> the run stops, form not saved;
 *  - the form description (the SmartForm caption, as MIGRATE sets it) ends
 *    with the marker " [sc4sap]" (caption cut to fit 60 characters): RENDER
 *    prints ZSC4SAP_AFM_* forms only with it.
@@ -64,7 +70,7 @@ FUNCTION zmcp_fp_migrate
 *
 * Result {"source","form","interface","options":{...},"raised":bool,
 * "error","saved":[...],"left":[...],"active":[...],"renamed":[{"path","from",
-* "to","type"}],"log":[{"type","text"}]}.
+* "to","type"}],"cacheInfo","log":[{"type","text"}]}.
 *----------------------------------------------------------------------*
   DATA: lv_cat       TYPE t000-cccategory,
         lv_src       TYPE tdsfname,
@@ -95,6 +101,8 @@ FUNCTION zmcp_fp_migrate
         lv_xdps      TYPE string,
         lt_renamed   TYPE string_table,
         lv_g1err     TYPE string,
+        lv_cache     TYPE string,
+        lv_sfpf      TYPE string,
         lv_prog      TYPE syrepid,
         lv_incl      TYPE syrepid,
         lv_line      TYPE i,
@@ -304,6 +312,19 @@ FUNCTION zmcp_fp_migrate
         RAISE EXCEPTION TYPE cx_fp_api_usage.    " -> CATCH below; lv_g1err is the text
       ENDIF.
 
+      " Gap G4: MIGRATE leaves the layout with the placeholder cache info
+      " 0$0$0$0$v1.0$? - every migrated form then shares one ADS template cache slot
+      " and prints another form's layout. Give the layout what a Designer save gives
+      " it (public CL_FP_HELPER methods): a new layout id, hashes and cache info.
+      cl_fp_helper=>set_new_layout_id( CHANGING c_form = lo_form ).
+      cl_fp_helper=>set_new_layout_hash( CHANGING c_form = lo_form ).
+      cl_fp_helper=>set_new_cache_info( CHANGING c_form = lo_form ).
+      lv_cache = lo_form->get_layout( )->get_cache_info( ).
+      IF lv_cache IS INITIAL OR lv_cache CS '0$0$0$0$'.
+        lv_g1err = |layout cache info not renewed ("{ lv_cache }")|.
+        RAISE EXCEPTION TYPE cx_fp_api_usage.    " -> CATCH below, form not saved
+      ENDIF.
+
       lo_wbf->save( ).
       APPEND |SFPF { lv_form }| TO lt_saved.
       lo_mig->log_save( ).
@@ -359,7 +380,13 @@ FUNCTION zmcp_fp_migrate
       ENDWHILE.
       lv_error = lv_chain.
       IF lv_g1err IS NOT INITIAL.
-        lv_error = |duplicate context node names not fixed: { lv_g1err } - form not saved|.
+        lv_error = |{ lv_g1err } - form not saved|.
+      ENDIF.
+      " renames that were never saved are not reported
+      lv_sfpf = |SFPF { lv_form }|.
+      READ TABLE lt_saved TRANSPORTING NO FIELDS WITH KEY table_line = lv_sfpf.
+      IF sy-subrc <> 0.
+        CLEAR lt_renamed.
       ENDIF.
       TRY.
           IF lo_mig IS BOUND.
@@ -433,7 +460,8 @@ FUNCTION zmcp_fp_migrate
   IF lv_list IS NOT INITIAL. lv_list = |"{ lv_list }"|. ENDIF.
   lv_actmsg = escape( val = lv_actmsg format = cl_abap_format=>e_json_string ).
   CONCATENATE LINES OF lt_renamed INTO lv_str SEPARATED BY `,`.
-  ev_result = ev_result && |"active":[{ lv_list }],"activation":"{ lv_actmsg }","renamed":[{ lv_str }],"log":[{ lv_log }]\}|.
+  lv_cache = escape( val = lv_cache format = cl_abap_format=>e_json_string ).
+  ev_result = ev_result && |"active":[{ lv_list }],"activation":"{ lv_actmsg }","renamed":[{ lv_str }],"cacheInfo":"{ lv_cache }","log":[{ lv_log }]\}|.
   " The dispatcher caller throws on EV_SUBRC <> 0 and never sees EV_RESULT:
   " the message itself names what was left and what is not active.
   CONCATENATE LINES OF lt_left INTO lv_list SEPARATED BY `, `.
@@ -487,7 +515,8 @@ FORM g1_walk USING io_parent TYPE REF TO if_fp_node
         lv_n     TYPE i,
         lv_path  TYPE string,
         lv_ref   TYPE string,
-        lv_cut   TYPE i.
+        lv_cut   TYPE i,
+        lx_err   TYPE REF TO cx_root.
   FIELD-SYMBOLS <ls_k> TYPE ty_kid.
 
   IF cv_err IS NOT INITIAL OR io_parent IS NOT BOUND.
@@ -526,13 +555,13 @@ FORM g1_walk USING io_parent TYPE REF TO if_fp_node
         CONTINUE.
       ENDIF.
       IF ls_kid-node->get_child( ) IS BOUND.
-        cv_err = |{ lv_path } (type { ls_kid-type }) has children - bindings below it would change|.
+        cv_err = |duplicate context node names not fixed: { lv_path } (type { ls_kid-type }) has children - bindings below it would change|.
         RETURN.
       ENDIF.
       IF lv_data = abap_false.
         lv_ref = |$record.{ lv_path }|.
         IF iv_xdp CS |{ lv_ref }"| OR iv_xdp CS |{ lv_ref }.| OR iv_xdp CS |{ lv_ref }[|.
-          cv_err = |{ lv_path } is bound in the layout and has no DATA twin - which node is meant is unclear|.
+          cv_err = |duplicate context node names not fixed: { lv_path } is bound in the layout and has no DATA twin - which node is meant is unclear|.
           RETURN.
         ENDIF.
       ENDIF.
@@ -551,7 +580,12 @@ FORM g1_walk USING io_parent TYPE REF TO if_fp_node
           EXIT.
         ENDIF.
       ENDDO.
-      ls_kid-node->set_name( i_name = lv_new ).
+      TRY.
+          ls_kid-node->set_name( i_name = lv_new ).
+        CATCH cx_root INTO lx_err.
+          cv_err = |duplicate context node names not fixed: { lv_path } -> { lv_new }: { lx_err->get_text( ) }|.
+          RETURN.
+      ENDTRY.
       <ls_k>-name = lv_new.
       APPEND |\{"path":"{ lv_path }","from":"{ ls_grp-name }","to":"{ lv_new }","type":{ ls_kid-type }\}| TO ct_ren.
     ENDLOOP.
