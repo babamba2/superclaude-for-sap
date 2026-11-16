@@ -56,6 +56,7 @@ Print the Output_Format block (SKILL.md). Name what needs attention first: items
 | Cutover / "컷오버" / go-no-go / "리허설" / rehearsal | [`cutover.md`](cutover.md): one question for window, freeze dates, rehearsal actuals, evidence and the jobs read, then `<B> cutover --project <CODE> …`; the runbook is edited in the dashboard's Cutover tab |
 | Risks and decisions by chat | `Edit` the model (`risks[]` `{ id RKn, text, impact H/M/L, owner, due, status open/closed }`, `decisions[]` `{ id DCn, text, owner, due, status open/decided, decided, note }`), `<B> check`, `<B> build` — or the risks & decisions tab in edit mode |
 | "포트폴리오" / all projects | Step 5 and print one line per project (RAG, progress, next milestone, needs-owner count) |
+| Portfolio weekly status / "포트폴리오 주간 현황" | `<B> portfolio-status [--week-end <date>] [--lang <lang>]` → `portfolio-status-<weekEnd>-<lang>.{html,json,xlsx}`; last week's `.json` in the folder is the comparison (`--prev <file>` to choose one); print the summary line it returns. No SAP read, no agent |
 
 ## Rules
 

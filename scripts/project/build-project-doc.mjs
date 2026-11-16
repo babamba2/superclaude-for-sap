@@ -17,6 +17,8 @@
 //   node build-project-doc.mjs texts --project <CODE>                         Korean texts to translate → _i18n/texts.json
 //   node build-project-doc.mjs companion --project <CODE> [--texts <translated.json>]   English model + page (same version)
 //   node build-project-doc.mjs portfolio [--lang ko]
+//   node build-project-doc.mjs portfolio-status [--week-end YYYY-MM-DD] [--prev <last week's .json>] [--lang ko|en]
+//        portfolio weekly status portfolio-status-<weekEnd>-<lang>.{html,json,xlsx} (project-portfolio.mjs); offline
 //   node build-project-doc.mjs check --project <CODE>
 //   node build-project-doc.mjs status --project <CODE> [--week-end YYYY-MM-DD] [--gate <id|label>] [--evidence <file>]… [--uat <ID>]… [--uat-dir <dir>] [--refresh] [--lang ko|en]
 //        weekly status page <CODE>-status-<weekEnd>-<lang>.html + statusLog in the model (project-status.mjs); offline unless --refresh
@@ -35,7 +37,8 @@ import { instantiate, addWricef } from './project-template.mjs';
 import { renderPage, modelFromPage } from './project-page.mjs';
 import { esc, labelsFor } from './project-render.mjs';
 import { withResponsive } from '../lib/responsive.mjs';
-import { computeStatus } from './project-status.mjs';
+import { computeStatus, weekEndOf } from './project-status.mjs';
+import { peopleAcross, portfolioStatus, renderPortfolioStatusPage, portfolioXlsx } from './project-portfolio.mjs';
 
 const readJson = (f, d) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : d);
 const writeJson = (f, o) => writeFileSync(f, `${JSON.stringify(o, null, 2)}\n`, 'utf8');
@@ -218,18 +221,8 @@ export function cmdPortfolio({ root, lang = 'ko', today = iso(Date.now()) }) {
 <td>${next ? `${esc(next.label)} · ${esc(next.date)} ${chip(next.rag)}` : ''}</td><td class="num">${v.late.length || ''}</td><td class="num">${v.wricef.done}/${v.wricef.total}</td>
 <td class="num">${v.handoff.toDev.length + v.handoff.toFn.length || ''}</td><td class="num">${v.orphans.length || ''}</td><td class="num">${watch || ''}</td><td>${esc(ver)}</td></tr>`;
   }).join('');
-  // People across projects: the same person by SAP user (else by name), active and with open items in two or more.
-  const people = new Map();
-  for (const { v } of views) for (const t of v.m.team) {
-    if (!isActive(t, today)) continue;
-    const key = (t.sapUser || t.name || t.id).toUpperCase();
-    const open = v.rows.filter(r => r.leaf && r.status !== 'done' && [r.owner, r.fnOwner, r.devOwner].includes(t.id));
-    const x = people.get(key) || { name: t.name, sapUser: t.sapUser || '', roles: new Set(), projects: [] };
-    x.roles.add(L.role[t.role] || t.role);
-    x.projects.push({ code: v.m.project.code, open: open.length, late: open.filter(r => r.rag === 'red').length });
-    people.set(key, x);
-  }
-  const multi = [...people.values()].filter(x => x.projects.length > 1).sort((a, b) => b.projects.length - a.projects.length);
+  // People across projects: the same person by SAP user (else by name), active, in two or more (project-portfolio.mjs).
+  const multi = peopleAcross(views.map(({ v }) => ({ view: v })), today).map(x => ({ ...x, roles: new Set(x.roles.map(r => L.role[r] || r)) }));
   const prow = multi.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.sapUser)}</td><td>${esc([...x.roles].join(', '))}</td>
 <td>${x.projects.map(p => `${esc(p.code)} <small>(${p.open}${p.late ? `, <span class="bad">${p.late}</span>` : ''})</small>`).join(' · ')}</td>
 <td class="num">${x.projects.reduce((s, p) => s + p.open, 0)}</td></tr>`).join('');
@@ -245,6 +238,32 @@ export function cmdPortfolio({ root, lang = 'ko', today = iso(Date.now()) }) {
   return { html: out, projects: views.length, sharedPeople: multi.length };
 }
 const name = (v, id) => v.m.team.find(t => t.id === id)?.name;
+
+/**
+ * The portfolio weekly status of every project in the folder (plugin view): portfolio-status-<weekEnd>-<lang>.html,
+ * .json (the result — next week's `prev`) and .xlsx. prev: the given JSON file, else the latest earlier week's JSON
+ * of the folder (same language); none → no comparison.
+ */
+export function cmdPortfolioStatus({ root, lang = 'ko', weekEnd = '', prev = '', today = iso(Date.now()) }) {
+  lang = lang === 'en' ? 'en' : 'ko'; // goes into file names
+  const we = weekEndOf(/^\d{4}-\d{2}-\d{2}$/.test(weekEnd) ? weekEnd : today);
+  const codes = existsSync(root) ? readdirSync(root, { withFileTypes: true }).filter(d => d.isDirectory() && !d.name.startsWith('_')).map(d => d.name).sort() : [];
+  const items = [];
+  for (const c of codes) {
+    const f = files(root, c, lang);
+    const m = readJson(lang === 'en' && existsSync(f.en) ? f.en : f.model);
+    if (m?.project) items.push({ ref: m.project.code || c, model: m, view: viewModel(m, today) });
+  }
+  const re = new RegExp(`^portfolio-status-(\\d{4}-\\d{2}-\\d{2})-${lang === 'en' ? 'en' : 'ko'}\\.json$`);
+  const prevFile = prev || (existsSync(root) ? readdirSync(root).map(n => [n, re.exec(n)?.[1]]).filter(([, w]) => w && w < we).sort((a, b) => (a[1] < b[1] ? -1 : 1)).map(([n]) => join(root, n)).at(-1) || '' : '');
+  const res = portfolioStatus(items, { weekEnd: we, lang, today, prev: prevFile ? readJson(prevFile, null) : null, viewSource: 'plugin', at: today });
+  mkdirSync(root, { recursive: true });
+  const base = join(root, `portfolio-status-${res.weekEnd}-${lang}`);
+  writeFileSync(`${base}.html`, renderPortfolioStatusPage(res, lang), 'utf8');
+  writeJson(`${base}.json`, res);
+  writeFileSync(`${base}.xlsx`, portfolioXlsx(res, lang));
+  return { html: `${base}.html`, json: `${base}.json`, xlsx: `${base}.xlsx`, weekEnd: res.weekEnd, projects: res.summary.projects, prev: prevFile, summary: res.summary.sentence };
+}
 const PORT = {
   ko: { title: 'SAP 프로젝트 포트폴리오', projects: '개 프로젝트', type: { implementation: '신규 구축', conversion: 'S/4 전환', rollout: '롤아웃', ams: '운영·개선', task: '과제' },
     cols: ['상태', '코드', '프로젝트', '유형', '모듈', 'PM', 'Go-Live', '진척 (실적/계획)', '다음 마일스톤', '지연', 'WRICEF', '인계 대기', '담당 공백', '주의 KPI', '버전'],
@@ -281,6 +300,7 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
     } else if (cmd === 'texts') r = cmdTexts({ code: need(), root });
     else if (cmd === 'companion') r = cmdCompanion({ code: need(), root, texts: get('--texts') ? resolve(get('--texts')) : undefined });
     else if (cmd === 'portfolio') r = cmdPortfolio({ root, lang: get('--lang') || 'ko' });
+    else if (cmd === 'portfolio-status') r = cmdPortfolioStatus({ root, lang: get('--lang') || 'ko', weekEnd: get('--week-end') || '', prev: get('--prev') ? resolve(get('--prev')) : '' });
     else if (cmd === 'check') r = checkModel(normalizeModel(readJson(files(root, need()).model)));
     else if (cmd === 'status') r = await cmdStatus({ code: need(), root, weekEnd: get('--week-end') || '', gate: get('--gate') || '', refresh: args.includes('--refresh'), lang: get('--lang') || '',
       evidence: args.flatMap((a, i) => (a === '--evidence' && args[i + 1] ? [resolve(args[i + 1])] : [])),
@@ -290,7 +310,7 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
       jobs: args.includes('--jobs'), confirmPrd: args.includes('--confirm-prd'), lang: get('--lang') || '',
       evidence: args.flatMap((a, i) => (a === '--evidence' && args[i + 1] ? [resolve(args[i + 1])] : [])),
       uat: args.flatMap((a, i) => (a === '--uat' && args[i + 1] ? [args[i + 1]] : [])), uatDir: get('--uat-dir') ? resolve(get('--uat-dir')) : '' });
-    else { console.error('Usage: node build-project-doc.mjs init|build|refresh|import|add-wricef|reassign|texts|companion|portfolio|check|status|cutover … (see the header)'); process.exit(2); }
+    else { console.error('Usage: node build-project-doc.mjs init|build|refresh|import|add-wricef|reassign|texts|companion|portfolio|portfolio-status|check|status|cutover … (see the header)'); process.exit(2); }
     if (r?.warnings?.length) for (const w of r.warnings) console.error(`⚠ project-dashboard: ${w}`);
     console.log(JSON.stringify({ ...r, warnings: r?.warnings?.length ?? 0 }));
   })().catch((e) => { console.error(`build-project-doc: ${e.message}`); process.exit(1); });

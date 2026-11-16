@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+- **Portfolio weekly status.** `/sc4sap:project-dashboard` `portfolio-status` puts every project of the folder on one weekly page: projects by RAG with the change against last week, progress and its change, late items, go-live and cutover D-days, milestones and Q-gates of this week and next week (Monday … Sunday), open high risks and pending decisions with overdue marks, WRICEF stages with hand-offs, and team load across projects (overloaded = more than 20 open items or more effort left than the next two weeks' working days). Output is HTML (A4 landscape, cards on phones), JSON (next week's comparison) and Excel. `scripts/project/project-portfolio.mjs` is shared with the web workbench, which passes its own project views. The existing portfolio page is unchanged.
+
 ## [0.6.68] — 2026-11-16
 
 ### Added
