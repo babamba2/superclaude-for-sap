@@ -18,8 +18,8 @@ Role design is a project deliverable that changes every week: business roles are
 <Target_Object>Roles are read on the active profile's system only. Not found → stop and ask per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) § Target object not on the active system.</Target_Object>
 
 <Use_When>
-- "권한 매트릭스", "Role 매트릭스", "역할 설계", "권한 설계서", "PFCG 역할 정리", "SoD 점검", "사용자 권한 배정표", "role matrix", "authorization concept", "SoD"
-- A project needs its role & authorization document (new design), or an existing system's roles must be documented / reviewed
+- "권한 매트릭스", "Role 매트릭스", "역할 설계", "권한 설계서", "PFCG 역할 정리", "SoD 점검", "권한 감사", "사용자 권한 배정표", "role matrix", "authorization concept", "SoD", "role audit"
+- A project needs its role & authorization document (new design), or an existing system's roles must be documented / reviewed (audit, SoD review — read from SAP)
 </Use_When>
 
 <Do_Not_Use_When>
@@ -50,6 +50,10 @@ Settled with the user (2026-10-28) — do not ask again:
 <Paths>
 `<RM>` = `<artifactBase>/roles` ([`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md)). Per document `<RM>/<CODE>/`: `<CODE>-roles.json` (model), `<CODE>-role-matrix-v<ver>-<lang>.html`, `_src/`. Tool: `node "<PLUGIN_ROOT>/scripts/role/build-role-doc.mjs" <cmd> … --dir <RM>` (the header of that file lists every command).
 </Paths>
+
+<Language>
+A `Language: Korean | English` line (or "Write the report in …") sets the document language: Korean → `--lang ko`, English → `--lang en` on `init` / `sync`. None → the profile `config.json` `language`. **Japanese is not available yet** — build English and say so in one line.
+</Language>
 
 <Workflow>
 MUST read [`workflow.md`](workflow.md) before Step 1. Model fields: [`model-schema.md`](model-schema.md) — read before writing a draft or editing a model file.

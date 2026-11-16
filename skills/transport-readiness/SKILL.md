@@ -21,7 +21,7 @@ Imports fail, or break QA, for a handful of repeat reasons: a task still open, a
 <Use_When>
 - "Are these requests ready for QA?", "check K900123 before import", "my open requests", "release check for project [SD]", "CTS 점검", "이관 전 점검", "운영 이관 가능 여부", "릴리스 전에 확인해줘"
 - "Can it go into QAS / PRD without breaking anything?", "QAS에 들어가도 되나", "운영에 병합돼도 되나" — add the target merge check
-- Before a release window; before a hand-over to the basis team
+- Before a release window; before a hand-over to the basis team; tonight's import list for SM operations ("오늘 밤 이관 목록")
 </Use_When>
 
 <Do_Not_Use_When>
@@ -45,9 +45,9 @@ Imports fail, or break QA, for a handful of repeat reasons: a task still open, a
 <Workflow>
 `<B>` = `node "<PLUGIN_ROOT>/scripts/transport/build-tr-check.mjs"`, `<out>` = `<base>/transport/<today>`.
 
-**Step 1 — Which requests.** From ARGUMENTS: request numbers, "my requests" (owner = the profile's user), or a project tag / text pattern. Target system (QAS / PRD) if named. Missing → ask once.
+**Step 1 — Which requests.** From ARGUMENTS: request numbers, "my requests" (owner = the profile's user), or a project tag / text pattern. Target system (QAS / PRD) if named. Target destination if named (`Target destination: <DEST>` line, `--target-dest <DEST>`, "destination QASCLNT100", "대상 RFC QASCLNT100") → pass it as `--target-dest`; a blank line counts as not named. Report language if named (Korean / English / Japanese → `ko` / `en` / `ja`), else the profile `config.json` `language`, else `ko`. Requests missing → ask once.
 
-**Step 1b — Target destination** (only when the user names a target system or asks whether the requests can go into it, e.g. "QAS에 들어가도 되나"). Call `GetRemoteTableContents` with `table_name: "TADIR"` and **no** destination: the error lists the SM59 destinations saved for the profile. Show them and let the user pick one or name another; never guess. Nothing saved and none given → run without the merge check and say so.
+**Step 1b — Target destination** (when a target system is named or the user asks whether the requests can go into it, e.g. "QAS에 들어가도 되나"; skip when ARGUMENTS already name the destination). Ask for it clearly in one line — the SM59 destination of the target, so the run also finds changes made only there that the import would overwrite. Call `GetRemoteTableContents` with `table_name: "TADIR"` and **no** destination: the error lists the SM59 destinations saved for the profile. Show them and let the user pick one or name another; never guess. Nothing saved and none given → run without the merge check and say so.
 
 **Step 2 — Collect** (read-only, one call):
 ```

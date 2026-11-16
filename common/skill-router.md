@@ -11,18 +11,18 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
 - RUN directly (Skill tool, reuse the user's sentence):
   - how / why / configuration / process / design question → ask-consultant
   - data of specific documents or a change to them (open POs, post GI, release, block, reverse …) → assist (it confirms before any write)
-  - dump / short dump / error / "why does it fail" for a run in the system → analyze-symptom
-  - daily check / system health / "what broke since yesterday" / failed jobs, update errors, IDoc errors → ops-health-check
-  - can these transport requests go to QA / PRD, open tasks, import order, will they merge cleanly into the target (CTS check) → transport-readiness
+  - dump / short dump / error / "why does it fail" for a run in the system → analyze-symptom (aborted jobs / IDocs in error of a period: ops-health-check lists them)
+  - daily check / system health / "what broke since yesterday" / failed jobs, update errors, IDoc errors / weekly, monthly or hypercare operations report (two dates allowed) → ops-health-check
+  - can these transport requests go to QA / PRD, open tasks, import order, tonight's import list, will they merge cleanly into the target (CTS check; asks for the target's SM59 destination) → transport-readiness
   - connection or plugin not working → sap-doctor
 - PROPOSE in one line (skill + target + what it produces), run on yes:
   - build a program / report / ALV / batch → create-program · one DDIC object, class, FM → create-object
   - review or check ABAP code → analyze-code · spec of a program → program-to-spec · user manual → program-to-manual
   - compare 2–5 similar programs → compare-programs · interface mapping spec → interface-mapping-spec
   - document a module's configuration → config-to-document · how a module runs (process map) → module-to-process
-  - CBO package inventory → stock-cbo · how custom objects relate → cbo-relation-map
+  - CBO package inventory → stock-cbo · how custom objects relate, what a table / field change affects → cbo-relation-map
   - SmartForm print preview → smartform-preview · SmartForm from a PDF / image → smartform-from-pdf
-  - project dashboard → project-dashboard · roles & authorizations → role-matrix
+  - project dashboard, weekly status, Q-gates, WRICEF progress → project-dashboard · roles & authorizations, SoD review of live roles → role-matrix
   - UAT / integration test scenarios, test results per cycle → uat-scenarios
   - connect / add a SAP system → setup · MCP install → mcp-setup · settings / cost mode → sap-option
 - Do NOT route: a slash command the user typed (it wins); a skill already running (its rules apply); questions about the plugin itself or its development; small talk or general programming unrelated to the SAP system.

@@ -7,6 +7,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ### Changed
 - MCP pin → abap-mcp-adt-powerup 4.12.1 (`c027f3a`): `RuntimeListDumps` follows the feed's time cursor back to `date_from` and reports `paging`; `ops-health-check` gets a complete week of dumps on S/4HANA.
+- **Skill intake matches the web forms.** `transport-readiness` takes the target's SM59 destination from the request (`--target-dest`, "destination …") and otherwise asks for it clearly whenever a target system is named; report language from the request. `ops-health-check` takes two dates (a month-end or hypercare window, at most 31 days) and a language. `role-matrix` asks the document language (Korean / English) and passes `--lang`; the two modes say what each is for (project blueprint / audit of live roles).
+- **Skill router** sends weekly status and Q-gates to `project-dashboard`, SoD review of live roles to `role-matrix`, field-change impact to `cbo-relation-map`, weekly / monthly / hypercare operations reports and tonight's import list to `ops-health-check` / `transport-readiness`; `analyze-symptom` points aborted jobs and IDocs in error to `ops-health-check`.
 
 ## [0.6.67] — 2026-11-13
 

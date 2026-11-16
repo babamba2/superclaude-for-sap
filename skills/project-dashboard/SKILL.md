@@ -18,8 +18,8 @@ SAP projects split the work between **module consultants** (requirements, FS, co
 <Target_Object>Packages and transports are read on the active profile's system only. Not found → stop and ask per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) § Target object not on the active system.</Target_Object>
 
 <Use_When>
-- "프로젝트 대시보드", "WBS 관리", "마일스톤 관리", "PMO 보고", "프로젝트 현황", "project dashboard", "SAP project plan", "go-live readiness", "WRICEF 진척", "포트폴리오"
-- A new SAP project (implementation, S/4 conversion, rollout, AMS release, small project) needs a plan, or an existing one needs status
+- "프로젝트 대시보드", "WBS 관리", "마일스톤 관리", "PMO 보고", "프로젝트 현황", "project dashboard", "SAP project plan", "go-live readiness", "WRICEF 진척", "포트폴리오", "주간 보고", "주간 현황", "weekly status", "Q-gate"
+- A new SAP project (implementation, S/4 conversion, rollout, AMS release, small project) needs a plan, or an existing one needs status — each week: hand the saved page back (import) and refresh the SAP actuals
 - The PMO wants all projects on one page, or the load of people working on several projects
 - A team member leaves or joins; WRICEF items change owner
 </Use_When>

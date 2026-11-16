@@ -20,7 +20,8 @@ SM / AMS operations open ST22, SM37, SM13 and WE02 every morning and compare by 
 
 <Use_When>
 - "operations report", "daily check", "system health", "what broke since yesterday", "dumps this week", "failed jobs", "운영 보고서", "운영 보고서 작성", "운영 점검", "아침 점검", "시스템 상태 점검", "덤프 현황", "잡 실패 확인", "運用レポート", "運用チェック"
-- Weekly / monthly operations report to the customer or the PMO (period "this week" / "last 30 days")
+- Weekly / monthly operations report to the customer or the PMO (period "this week" / "last 30 days"; "주간 운영 보고서", "월간 운영 보고서")
+- A fixed window: a month-end close or a hypercare window given as two dates ("2027-03-01 – 2027-03-15")
 - After a transport import, to see whether new dumps follow it
 - Hypercare after a go-live (use a period of a few days)
 </Use_When>
@@ -53,7 +54,7 @@ Only operations metadata is read: dump headers (error, program, include, time), 
 <Workflow>
 Paths: `<base>` = artifact base, `<out>` = `<base>/ops-check/<to>`. Read `<base>`'s `config.json` for `sapVersion`, the SID and the language (`language`, default `ko`).
 
-**Step 1 — Period.** From ARGUMENTS: "today" (today → today), "since yesterday" (default), "this week", "last N days", or two dates. More than 31 days → ask once to narrow it. Dates as `YYYY-MM-DD`.
+**Step 1 — Period and language.** From ARGUMENTS: "today" (today → today), "since yesterday" (default), "this week" (Monday → today), "last 7 days", "last 30 days" / "last N days", or two dates (`2027-03-01 – 2027-03-15`, `from … to …`, `--from` / `--to`). **Given dates override the period choice**: a `Dates: <from> – <to>` line (en dash or hyphen) wins over a `Period:` line sent with it and maps to `--from` / `--to`. Dates as `YYYY-MM-DD`; a reversed pair is swapped. More than 31 days → ask once to narrow it. Language named in ARGUMENTS (Korean / English / Japanese → `ko` / `en` / `ja`) overrides the profile's.
 
 **Step 2 — Collect** (read-only; one call, through the plugin's MCP server):
 ```
