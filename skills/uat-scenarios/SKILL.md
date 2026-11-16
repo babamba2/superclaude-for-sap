@@ -21,6 +21,7 @@ Test teams keep UAT scenarios in large workbooks that drift: steps without T-cod
 <Use_When>
 - "UAT scenarios for MM purchasing", "integration test scenarios", "test cases for order to cash", "UAT 시나리오 만들어줘", "통합 테스트 시나리오", "테스트 결과 정리", "2차 테스트 결과 반영"
 - Before a test cycle (draft), during it (results, follow-ups), after it (export, open items)
+- Defects and their fixes: which request fixes ISS-0003, is the fix CTS-ready, what to retest ("결함 수정 요청 연결", "재테스트 대상") → [`defects.md`](defects.md)
 </Use_When>
 
 <Do_Not_Use_When>
@@ -37,7 +38,7 @@ Test teams keep UAT scenarios in large workbooks that drift: steps without T-cod
 | Proposals | Patch operations `set-scenario`, `set-step`, `add-step`, `remove-step`, `add-scenario`, `add-issue`, `set-issue`, `remove-issue` ([`proposal-prompt.md`](proposal-prompt.md)); shown as a numbered list, applied only for the numbers the user accepts; an operation that names something missing is skipped with its reason |
 | T-codes | Every SAP step's T-code is checked with `GetTransaction`; unknown ones are reported, never replaced on a guess. Customer programs and RFC entry points may stand in a T-code column — checked with `SearchObject` |
 | Cycles | Default `1st`, `2nd`, `3rd`; results `pass` / `fail` / `blocked` / `n/a` per cycle; a step may run in some cycles only |
-| Issues | `ISS-0001…` per set: scenario, step, module, type, text, raised on / by, follow-up, state `open` / `waiting` / `done` / `n/a`, owner; a failed step without a follow-up or a logged issue is flagged |
+| Issues | `ISS-0001…` per set: scenario, step, module, type, text, raised on / by, follow-up, state `open` / `waiting` / `done` / `n/a`, owner, fixing requests (`transports`, `<SID>K<6>`), retest cycle; a failed step without a follow-up or a logged issue is flagged, a closed defect without a fixing request too |
 | Dashboard | Per lead module and per company: planned, due by today, tested, pass, fail; steps per cycle; open issues; module participation matrix — in `show` / `check` and as the first sheet of both exports (plus Scenario List and Issue List sheets) |
 | Test data | Inputs name the fields and the kind of value ("a vendor with a release strategy"), not real business partners. Real document or master data numbers only when the user gives them |
 | People | Owner and consultant are typed by the user; test users are user IDs — never names |
@@ -60,6 +61,8 @@ Paths: `<base>` = artifact base ([`../../common/multi-profile-artifact-resolutio
 **Step 6 — An edited page comes back.** A page saved from its edit mode: `<B> import <edited.html> --dir <dir>` — the set, page and workbooks are rewritten; report the new issue count.
 
 **Step 7 — Export elsewhere.** The workbooks are already next to the set (Step 2 / 5). Into another folder: `<B> export --dir <dir> --id <ID> --layout A|B|both --out-dir <folder>`. Give the paths.
+
+**Step 8 — Defects and fixes** ([`defects.md`](defects.md)): fixing request, its CTS verdict and the retest per defect, plus the dashboard feed.
 </Workflow>
 
 <Output_Format>
@@ -82,7 +85,8 @@ Reply in the user's language.
 - `scripts/uat/uat-model.mjs` — model, `validate`, `progress`, `applyPatch`
 - `scripts/uat/uat-xlsx.mjs` — layouts A and B
 - `scripts/uat/uat-page.mjs` — the editable page (model inlined, edit mode, Save)
-- `scripts/uat/build-uat.mjs` — `init`, `check`, `patch`, `import`, `page`, `export`, `show`
+- `scripts/uat/build-uat.mjs` — `init`, `check`, `patch`, `import`, `page`, `export`, `show`, `defects`
+- `scripts/uat/uat-defects.mjs`, `uat-defects-page.mjs` — defect ↔ request ↔ retest rows, proposed links, KPI feed, the page
 </Files>
 
 <Related_Skills>

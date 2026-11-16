@@ -14,7 +14,8 @@
 //             cycles: [..] (the test cycles the step runs in; empty = every cycle),
 //             results: { '1st': 'pass' | 'fail' | 'blocked' | 'n/a' | '' }, status, followUp, issue }
 // issue     { id ('ISS-0001'), scenario, step, module, type (defect | change | data | authorization |
-//             interface | question), text, raisedOn, raisedBy, followUp, state (open | waiting | done | n/a), owner }
+//             interface | question), text, raisedOn, raisedBy, followUp, state (open | waiting | done | n/a), owner,
+//             transports: [request numbers that fix it, <SID>K<6>], retest (the cycle the fix is retested in) }
 //
 // A proposal (the AI's, or anybody's) is a patch: a list of operations the reader accepts or rejects
 // one by one — see `applyPatch`. Nothing in the model is a person's name except `owner` / `consultant`,
@@ -25,7 +26,11 @@ export const LIST_FIELDS = new Set(['checks', 'inputs', 'outputs', 'cycles']);
 export const SCENARIO_FIELDS = ['theme', 'process', 'task', 'title', 'description', 'variant', 'company', 'channel', 'productGroup', 'leadModule', 'focus', 'legacyId', 'owner', 'consultant', 'date', 'actualDate', 'time', 'place', 'result'];
 export const RESULTS = ['pass', 'fail', 'blocked', 'n/a', ''];
 export const SCENARIO_RESULTS = ['pass', 'fail', ''];
-export const ISSUE_FIELDS = ['scenario', 'step', 'module', 'type', 'text', 'raisedOn', 'raisedBy', 'followUp', 'state', 'owner'];
+export const ISSUE_FIELDS = ['scenario', 'step', 'module', 'type', 'text', 'raisedOn', 'raisedBy', 'followUp', 'state', 'owner', 'transports', 'retest'];
+/** A transport request number of any system: <SID>K<6>. */
+export const TRKORR_RE = /^[A-Z0-9]{3}K[A-Z0-9]{6}$/;
+/** Request numbers from a list or a string (comma, space, slash or new line between them), upper case, once each. */
+export const requestsOf = (v) => [...new Set((Array.isArray(v) ? v : [v]).flatMap((x) => String(x ?? '').split(/[\s,;/]+/)).map((x) => x.trim().toUpperCase()).filter(Boolean))];
 export const ISSUE_TYPES = ['defect', 'change', 'data', 'authorization', 'interface', 'question'];
 export const ISSUE_STATES = ['open', 'waiting', 'done', 'n/a'];
 export const STATUSES = ['open', 'in-progress', 'done', 'on-hold'];
@@ -47,7 +52,7 @@ export const runsIn = (step, cycle) => !step.cycles?.length || step.cycles.inclu
 /** An issue with every field present; state and type from their lists. */
 export function normalizeIssue(raw, id) {
   const out = { id: str(raw?.id) || id };
-  for (const f of ISSUE_FIELDS) out[f] = str(raw?.[f]);
+  for (const f of ISSUE_FIELDS) out[f] = f === 'transports' ? requestsOf(raw?.[f]) : str(raw?.[f]);
   out.module = out.module.toUpperCase();
   if (!ISSUE_STATES.includes(out.state)) out.state = 'open';
   if (out.type && !ISSUE_TYPES.includes(out.type)) out.type = 'defect';
@@ -144,6 +149,9 @@ export function validate(set) {
     if (i.scenario && !set.scenarios.some((s) => s.id === i.scenario)) add('warn', `issue:${i.id}`, `issue names an unknown scenario ${i.scenario}`);
     if (!i.text) add('warn', `issue:${i.id}`, 'issue has no description');
     if (i.state === 'done' && !i.followUp) add('warn', `issue:${i.id}`, 'closed without a follow-up');
+    for (const t of i.transports) if (!TRKORR_RE.test(t)) add('warn', `issue:${i.id}`, `${t} is not a transport request number`);
+    if (i.type === 'defect' && i.state === 'done' && !i.transports.length) add('warn', `issue:${i.id}`, 'defect closed without a fixing request');
+    if (i.retest && !set.cycles.includes(i.retest)) add('warn', `issue:${i.id}`, `retest cycle ${i.retest} is not a cycle of the set`);
   }
   return issues;
 }

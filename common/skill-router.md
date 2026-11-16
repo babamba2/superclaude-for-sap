@@ -14,6 +14,7 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
   - dump / short dump / error / "why does it fail" for a run in the system → analyze-symptom (aborted jobs / IDocs in error of a period: ops-health-check lists them)
   - daily check / system health / "what broke since yesterday" / failed jobs, update errors, IDoc errors / weekly, monthly or hypercare operations report (two dates allowed) → ops-health-check
   - can these transport requests go to QA / PRD, open tasks, import order, tonight's import list, will they merge cleanly into the target (CTS check; asks for the target's SM59 destination) → transport-readiness
+  - change notes for the CAB / change advisory board before a PRD import → transport-readiness (cab mode)
   - connection or plugin not working → sap-doctor
 - PROPOSE in one line (skill + target + what it produces), run on yes:
   - build a program / report / ALV / batch → create-program · one DDIC object, class, FM → create-object
@@ -23,7 +24,7 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
   - CBO package inventory → stock-cbo · how custom objects relate, what a table / field change affects → cbo-relation-map
   - SmartForm print preview → smartform-preview · SmartForm from a PDF / image → smartform-from-pdf
   - project dashboard, weekly status, Q-gates, WRICEF progress → project-dashboard · roles & authorizations, SoD review of live roles → role-matrix · authorization error / SU53 of one user + T-code → role-matrix (triage)
-  - UAT / integration test scenarios, test results per cycle → uat-scenarios
+  - UAT / integration test scenarios, test results per cycle, which request fixes a UAT defect and when to retest → uat-scenarios
   - connect / add a SAP system → setup · MCP install → mcp-setup · settings / cost mode → sap-option
 - Do NOT route: a slash command the user typed (it wins); a skill already running (its rules apply); questions about the plugin itself or its development; small talk or general programming unrelated to the SAP system.
 - Ambiguous between two skills: ask one question naming both. Offline profile: only skills marked full / degraded in common/offline-mode.md.

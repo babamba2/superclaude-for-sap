@@ -8,11 +8,15 @@
 //   node scripts/uat/build-uat.mjs show   --dir <dir> --id <ID>
 //   node scripts/uat/build-uat.mjs page   --dir <dir> --id <ID> [--out-dir <dir>]
 //   node scripts/uat/build-uat.mjs import <edited.html> --dir <dir> [--no-xlsx]
+//   node scripts/uat/build-uat.mjs defects --dir <dir> --id <ID> [--tr <transport-readiness model.json>] [--lang ko|en] [--at YYYY-MM-DD]
 //
 // The set lives in <dir>/<ID>/<ID>-uat.json (model: uat-model.mjs). `patch` applies a proposal — the
 // module consultant's, or edits made elsewhere — and reports what it applied and what it skipped.
 // `init`, `patch` and `import` also write the editable page <ID>-uat.html (uat-page.mjs) and both workbooks,
 // <ID>-uat-A.xlsx and -B.xlsx, next to the JSON, so the
+// `defects` (uat-defects.mjs) links each defect to its fixing requests, their CTS verdict (the model.json of a
+// transport-readiness run, e.g. `collect --text "%ISS-%"`) and the retest cycle: <ID>-defects-<lang>.html, the
+// dashboard feed <ID>-defects.json, and _patch/<ID>-links.json (links found in request texts — a proposal only).
 // Excel in the folder is never older than the set; `export` writes them elsewhere (uat-xlsx.mjs). Every command prints one JSON line. Offline: no SAP.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -20,6 +24,8 @@ import { join } from 'node:path';
 import { applyPatch, normalize, progress, validate } from './uat-model.mjs';
 import { layoutA, layoutB } from './uat-xlsx.mjs';
 import { pageHtml, setFromPage } from './uat-page.mjs';
+import { defectRows, kpiFeed, proposeLinks } from './uat-defects.mjs';
+import { renderDefects, renderDefectSummary } from './uat-defects-page.mjs';
 
 const ID = /^[A-Za-z0-9_-]{1,30}$/;
 
@@ -37,7 +43,10 @@ function load(o) {
   if (!o.dir || !ID.test(String(o.id || ''))) throw new Error('--dir and --id (letters, digits, _ -) are required');
   const f = fileOf(o.dir, o.id);
   if (!existsSync(f)) throw new Error(`no scenario set ${o.id} in ${o.dir}`);
-  return normalize(JSON.parse(readFileSync(f, 'utf8')));
+  const set = normalize(JSON.parse(readFileSync(f, 'utf8')));
+  // every output path is built from set.id: the id inside the file must be the one asked for
+  if (set.id !== o.id || !ID.test(set.id)) throw new Error(`${f} holds set id "${String(set.id).slice(0, 40)}", not ${o.id}`);
+  return set;
 }
 function save(dir, set) {
   mkdirSync(join(dir, set.id), { recursive: true });
@@ -117,13 +126,40 @@ const commands = {
     writeFileSync(file, layout === 'A' ? layoutA(set, progress(set)) : layoutB(set, progress(set)));
     return { file };
   },
+  /** Defects ↔ fixing requests ↔ retest; the dashboard feed; text-found links as a proposed patch. */
+  defects(o) {
+    const set = load(o);
+    const lang = ['ko', 'en'].includes(o.lang) ? o.lang : 'en';
+    const tr = o.tr && o.tr !== true ? JSON.parse(readFileSync(o.tr, 'utf8')) : null;
+    if (tr && !Array.isArray(tr.requests)) throw new Error(`${o.tr} is not a transport-readiness model.json`);
+    const rows = defectRows(set, tr);
+    const at = /^\d{4}-\d{2}-\d{2}$/.test(String(o.at)) ? o.at : new Date().toISOString().slice(0, 10);
+    const feed = kpiFeed(set, rows, at);
+    const proposals = tr ? proposeLinks(set, tr) : [];
+    const out = o['out-dir'] || join(o.dir, set.id);
+    mkdirSync(out, { recursive: true });
+    const view = { set, rows, feed, proposals, trLabel: tr ? `${tr.system || ''}${tr.readAt ? ` ${tr.readAt}` : ''}`.trim() : '' };
+    const page = join(out, `${set.id}-defects-${lang}.html`);
+    writeFileSync(page, renderDefects(view, lang));
+    const feedFile = join(out, `${set.id}-defects.json`);
+    writeFileSync(feedFile, `${JSON.stringify(feed, null, 1)}
+`);
+    let patch = null;
+    if (proposals.length) {
+      mkdirSync(join(o.dir, '_patch'), { recursive: true });
+      patch = join(o.dir, '_patch', `${set.id}-links.json`);
+      writeFileSync(patch, `${JSON.stringify(proposals, null, 1)}
+`);
+    }
+    return { page, feed: feedFile, patch, kpi: feed.kpi, proposals: proposals.length, text: renderDefectSummary(view, lang) };
+  },
   show(o) {
     const set = load(o);
     return { set, issues: validate(set), progress: progress(set) };
   },
 };
 
-const USAGE = 'usage: build-uat.mjs init|check|patch|export|show — see the header of this file';
+const USAGE = 'usage: build-uat.mjs init|check|patch|export|show|page|import|defects — see the header of this file';
 
 if (process.argv[1] && /build-uat\.mjs$/.test(process.argv[1])) {
   try {

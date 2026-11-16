@@ -119,10 +119,10 @@ function dashboard(set, p) {
 function issueSheet(set) {
   return {
     name: 'Issue List',
-    widths: [11, 12, 10, 8, 12, 44, 11, 14, 40, 10, 14],
+    widths: [11, 12, 10, 8, 12, 44, 11, 14, 40, 10, 14, 16, 8],
     rows: [
-      [H('Issue No.'), H('Scenario'), H('Step'), H('Module'), H('Type'), H('Issue'), H('Raised on'), H('Raised by'), H('Follow-up'), H('State'), H('Owner')],
-      ...set.issues.map((i) => [i.id, i.scenario, i.step, i.module, i.type, i.text, i.raisedOn, i.raisedBy, i.followUp, i.state, i.owner].map((v) => ({ v, s: 0 }))),
+      [H('Issue No.'), H('Scenario'), H('Step'), H('Module'), H('Type'), H('Issue'), H('Raised on'), H('Raised by'), H('Follow-up'), H('State'), H('Owner'), H('Fix request'), H('Retest')],
+      ...set.issues.map((i) => [i.id, i.scenario, i.step, i.module, i.type, i.text, i.raisedOn, i.raisedBy, i.followUp, i.state, i.owner, (i.transports || []).join(', '), i.retest || ''].map((v) => ({ v, s: 0 }))),
     ],
   };
 }
