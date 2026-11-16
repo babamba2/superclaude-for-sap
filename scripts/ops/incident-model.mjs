@@ -126,7 +126,9 @@ export function jobFacts(c) {
   const state = { runs: sectionState(c.runs), steps: sectionState(c.steps), others: sectionState(c.others), dumps: sectionState(c.dumps), changes };
   return {
     kind: 'job', job: up(c.job), state, failure, lastOk, steps, programs,
-    history: { runs: runs.length, aborted: runs.filter((r) => r.status === 'A').length, finished: runs.filter((r) => r.status === 'F').length,
+    // cut: the 30-day read hit the row limit — counts are lower bounds; recentCut: even the re-read of the aborted runs /
+    // the finished runs around the failure did
+    history: { cut: !!c.runs?.truncated, recentCut: !!c.runs?.recentTruncated, runs: runs.length, aborted: runs.filter((r) => r.status === 'A').length, finished: runs.filter((r) => r.status === 'F').length,
       abortedInRow: (() => { let n = 0; for (const r of window) { if (r.status === 'A') n++; else if (r.status === 'F') break; } return n; })(),
       periodic: runs.some((r) => r.periodic), period: runs.find((r) => r.period)?.period || '' },
     recent: runs.slice(0, 10),

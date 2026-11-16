@@ -61,7 +61,9 @@ export async function selectFields(client, table, fields, where, maxRows = 5000)
     const text = res?.content?.[0]?.text ?? '';
     if (res?.isError) return { ok: false, rows: [], error: text.slice(0, 300) };
     const data = JSON.parse(text);
-    return { ok: true, truncated: !!data.truncated, rows: arr(data.rows).map((r) => Object.fromEntries(fields.map((f) => [f, r[f] ?? '']))) };
+    // a full page counts as cut off: the ADT data preview does not always say `truncated` (S/4, measured 2026-11-16)
+    const rows = arr(data.rows);
+    return { ok: true, truncated: !!data.truncated || rows.length >= maxRows, rows: rows.map((r) => Object.fromEntries(fields.map((f) => [f, r[f] ?? '']))) };
   } catch (e) {
     return { ok: false, rows: [], error: String(e?.message ?? e).slice(0, 300) };
   }
@@ -131,6 +133,29 @@ async function collect(o, deps = {}) {
     if (kind === 'job') {
       c.job = o.job;
       c.runs = await selectFields(client, 'TBTCO', FIELDS.TBTCO, `JOBNAME = ${sq(o.job)} AND STRTDATE >= '${sap(addDays(to, -30))}' AND STRTDATE <= '${sap(to)}'`);
+      // A job running every minute has more runs than one read returns, and the rows come in no set order. Then the
+      // aborted runs are read on their own (few), and the finished runs of the failure day and the day before, so the
+      // failure and the last good run are not lost; the history counts are marked as cut off (lower bounds).
+      if (c.runs.ok && c.runs.truncated) {
+        const seen = new Set(c.runs.rows.map((r) => r.JOBCOUNT));
+        const add = (r) => { if (r.ok) for (const x of r.rows) if (!seen.has(x.JOBCOUNT)) { seen.add(x.JOBCOUNT); c.runs.rows.push(x); } };
+        const aborted = await selectFields(client, 'TBTCO', FIELDS.TBTCO, `JOBNAME = ${sq(o.job)} AND STATUS = 'A' AND STRTDATE >= '${sap(addDays(to, -30))}' AND STRTDATE <= '${sap(to)}'`);
+        add(aborted);
+        const fail = failureOf(jobRuns(c.runs.rows), o.date || '');
+        let near = { ok: true, rows: [], truncated: false };
+        if (fail?.startDate) {
+          // the two hours before the failure on its day (a job running every minute has ~120 there); before 02:00, the day
+          // before and the failure day
+          const hhmm = Number((fail.startTime || '00:00').replace(':', ''));
+          const from = String(Math.max(0, hhmm - 200)).padStart(4, '0');
+          const cond = hhmm >= 200
+            ? `STRTDATE = '${sap(fail.startDate)}' AND STRTTIME >= '${from}00' AND STRTTIME <= '${String(hhmm).padStart(4, '0')}59'`
+            : inList('STRTDATE', [addDays(fail.startDate, -1), fail.startDate].map(sap));
+          near = await selectFields(client, 'TBTCO', FIELDS.TBTCO, `JOBNAME = ${sq(o.job)} AND STATUS = 'F' AND ${cond}`);
+          add(near);
+        }
+        c.runs.recentTruncated = !aborted.ok || !!aborted.truncated || !near.ok || !!near.truncated;
+      }
       const runs = jobRuns(c.runs.rows);
       const failure = failureOf(runs, o.date || '');
       const lastOk = lastOkBefore(runs, failure);

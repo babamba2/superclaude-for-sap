@@ -9,6 +9,7 @@ const arr = (v) => (Array.isArray(v) ? v : []);
 const L = {
   en: {
     jobTitle: 'Job failure facts', idocTitle: 'IDoc facts', system: 'System', readAt: 'Read', failure: 'Failed run', lastOk: 'Last good run', none: 'none found',
+    historyCut: 'The 30-day history has more runs than one read returns (5000): counts are at least these. The aborted runs and the finished runs around the failure were read again in full.', recentCut: 'Even the aborted runs or the runs around the failure exceed one read: the failed run or the last good run may be missing — check SM37.',
     history: 'History (30 days)', runs: 'runs', aborted: 'aborted', finished: 'finished', inRow: 'aborted in a row', periodic: 'periodic', every: 'every',
     steps: 'Steps of the failed run', step: 'Step', program: 'Program', variant: 'Variant', external: 'External program', status: 'Status',
     flags: 'Signals (facts, not a verdict)', flag: {
@@ -29,6 +30,7 @@ const L = {
   },
   ko: {
     jobTitle: '잡 실패 사실', idocTitle: 'IDoc 사실', system: '시스템', readAt: '읽은 시각', failure: '실패한 실행', lastOk: '마지막 정상 실행', none: '찾지 못함',
+    historyCut: '30일 실행 수가 한 번에 읽는 상한(5000)을 넘어요. 건수는 최소값이에요. 중단된 실행과 실패 전후의 완료 실행은 다시 전부 읽었어요.', recentCut: '중단된 실행이나 실패 전후 실행도 상한을 넘어요. 실패한 실행이나 마지막 정상 실행이 빠졌을 수 있어요. SM37에서 확인해요.',
     history: '이력 (30일)', runs: '실행', aborted: '중단', finished: '완료', inRow: '연속 중단', periodic: '주기 잡', every: '주기',
     steps: '실패한 실행의 스텝', step: '스텝', program: '프로그램', variant: '변형', external: '외부 프로그램', status: '상태',
     flags: '신호 (사실이며 판정이 아니에요)', flag: {
@@ -72,7 +74,8 @@ export function renderIncidentMd(f) {
   if (f.kind === 'job' && f.state?.runs === 'notRead') lines.push(`# ${t.jobTitle} · ${f.job}`, '', `- ${t.failure}: ${t.notReadSec}`);
   else if (f.kind === 'job') {
     lines.push(`# ${t.jobTitle} · ${f.job}`, '', `- ${t.failure}: ${f.failure ? `${f.failure.endDate} ${f.failure.endTime}` : t.none} · ${t.lastOk}: ${f.lastOk ? `${f.lastOk.startDate} ${f.lastOk.startTime}` : t.none}`,
-      `- ${t.history}: ${f.history.runs} ${t.runs}, ${f.history.aborted} ${t.aborted}, ${f.history.abortedInRow} ${t.inRow}`,
+      ...(f.history.cut ? [`- ${f.history.recentCut ? t.recentCut : t.historyCut}`] : []),
+      `- ${t.history}: ${f.history.cut ? '≥' : ''}${f.history.runs} ${t.runs}, ${f.history.aborted} ${t.aborted}, ${f.history.abortedInRow} ${t.inRow}`,
       `- ${t.steps}: ${f.steps.map((s) => `${s.step} ${s.program || s.external}${s.variant ? ` (${s.variant})` : ''}`).join('; ') || (f.state?.steps === 'read' ? t.none : f.state?.steps === 'notRead' ? t.notReadSec : t.skippedSec)}`);
   } else if (f.focus) {
     lines.push(`# ${t.idocTitle} · ${f.focus.docnum}`, '', `- ${f.focus.mestyp} / ${f.focus.idoctp} · ${f.focus.direction} · ${t.partner} ${f.focus.partner} · ${t.status} ${f.focus.status} ${f.focus.statusText}`,
@@ -103,7 +106,8 @@ export function renderIncidentPage(f) {
   if (f.kind === 'job') {
     parts.push(`<h1>${esc(t.jobTitle)} · ${esc(f.job)}</h1>`);
     if (gap(f, 'runs', t)) parts.push(gap(f, 'runs', t));
-    else parts.push(`<p>${t.failure}: ${run(f.failure, t)}<br>${t.lastOk}: ${run(f.lastOk, t)}<br>${t.history}: ${f.history.runs} ${t.runs} · ${f.history.aborted} ${t.aborted} · ${f.history.finished} ${t.finished} · ${f.history.abortedInRow} ${t.inRow}${f.history.periodic ? ` · ${t.periodic} (${t.every} ${esc(f.history.period)})` : ''}</p>`);
+    if (f.history?.cut) parts.push(`<p class="warn">${esc(f.history.recentCut ? t.recentCut : t.historyCut)}</p>`);
+    if (gap(f, 'runs', t)) { /* shown above */ } else parts.push(`<p>${t.failure}: ${run(f.failure, t)}<br>${t.lastOk}: ${run(f.lastOk, t)}<br>${t.history}: ${f.history.runs} ${t.runs} · ${f.history.aborted} ${t.aborted} · ${f.history.finished} ${t.finished} · ${f.history.abortedInRow} ${t.inRow}${f.history.periodic ? ` · ${t.periodic} (${t.every} ${esc(f.history.period)})` : ''}</p>`);
     parts.push(`<h2>${t.flags}</h2>${flagList(f, t)}`);
     parts.push(`<h2>${t.steps}</h2><div class="box">${orNone(f, 'steps', t, table([t.step, t.program, t.variant, t.external, t.status], f.steps.map((s) => [s.step, esc(s.program), esc(s.variant), esc(s.external), esc(s.status)])))}</div>`);
     parts.push(`<h2>${t.dumps}</h2><div class="box">${orNoneSteps(f, 'dumps', t, table([t.at, t.error, t.program, t.matched], f.dumps.map((d) => [`${esc(d.date)} ${esc(d.time)}`, esc(d.error), esc(d.program), d.matched ? t.yes : t.no])))}</div>`);

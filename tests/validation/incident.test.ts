@@ -214,3 +214,57 @@ describe('incident — P3b: steps refused', () => {
     expect(/<h2>Dumps around the failure<\/h2>(.*?)<h2>/s.exec(en)![1]).toContain('could not check — steps unknown');
   });
 });
+
+describe('incident — P3e: history cut off at the row limit', () => {
+  it('marks the history as cut, counts as lower bounds, warns when even the last 2 days are cut', () => {
+    const f = buildFacts(jobCollect({ lang: 'ko', runs: { ok: true, truncated: true, rows: RUNS } }));
+    expect(f.history).toMatchObject({ cut: true, recentCut: false, runs: 4 });
+    const html = renderIncidentPage(f);
+    expect(html).toContain('최소값');
+    expect(html).toMatch(/≥4 실행/);
+    const worse = renderIncidentPage(buildFacts(jobCollect({ runs: { ok: true, truncated: true, recentTruncated: true, rows: RUNS } })));
+    expect(worse).toContain('may be missing');
+    expect(buildFacts(jobCollect()).history.cut).toBe(false);
+  });
+
+  it('collect re-reads the aborted runs and the finished runs around the failure when the 30-day read is cut', async () => {
+    const sqls: string[] = [];
+    const client = {
+      callTool: async ({ name, arguments: a }: { name: string; arguments: { sql_query?: string } }) => {
+        if (name === 'RuntimeListDumps') return { content: [{ text: JSON.stringify({ dumps: [], paging: { reached: true } }) }] };
+        const sql = a.sql_query || '';
+        sqls.push(sql);
+        const t = /FROM (\w+)/.exec(sql)![1];
+        if (t === 'TBTCO' && /JOBNAME = 'Z_TEST_JOB'/.test(sql)) {
+          // 30-day read: cut, holds only the two oldest (finished) runs; aborted re-read: both aborted runs;
+          // finished re-read of the failure day and the day before: the run of 11-12 is aborted, so none — empty
+          if (/STATUS = 'A'/.test(sql)) return { content: [{ text: JSON.stringify({ rows: RUNS.filter((r) => r.STATUS === 'A') }) }] };
+          if (/STATUS = 'F'/.test(sql)) return { content: [{ text: JSON.stringify({ rows: [] }) }] };
+          return { content: [{ text: JSON.stringify({ rows: RUNS.slice(0, 2), truncated: true }) }] };
+        }
+        return { content: [{ text: JSON.stringify({ rows: t === 'TBTCP' ? STEPS : [] }) }] };
+      },
+    };
+    const dir = mkdtempSync(join(tmpdir(), 'incident-cut-'));
+    try {
+      const r = await _collect({ job: 'Z_TEST_JOB', date: '2026-11-13', 'out-dir': dir }, { client });
+      expect(r.failure).toBe('2026-11-13 02:04'); // found through the aborted-runs re-read
+      const own = sqls.filter((s) => s.startsWith('SELECT JOBNAME, JOBCOUNT, STATUS, STRTDATE') && s.includes("JOBNAME = 'Z_TEST_JOB'"));
+      expect(own).toHaveLength(3);
+      expect(own[2]).toContain("STATUS = 'F' AND STRTDATE = '20261113' AND STRTTIME >= '000000' AND STRTTIME <= '020059'");
+      const c = JSON.parse(readFileSync(join(dir, 'collect.json'), 'utf8'));
+      expect(c.runs).toMatchObject({ truncated: true, recentTruncated: false });
+      expect(c.runs.rows).toHaveLength(4);
+    } finally { rmSync(dir, { recursive: true, force: true }); }
+  });
+});
+
+describe('incident — P3e: a full page counts as cut off', () => {
+  it('selectFields marks rows.length >= maxRows as truncated even without the flag', async () => {
+    // @ts-expect-error — plain .mjs script, no type declarations
+    const { selectFields } = await import('../../scripts/ops/incident.mjs');
+    const client = { callTool: async () => ({ content: [{ text: JSON.stringify({ rows: [{ A: '1' }, { A: '2' }] }) }] }) };
+    expect((await selectFields(client, 'T', ['A'], '', 2)).truncated).toBe(true);
+    expect((await selectFields(client, 'T', ['A'], '', 3)).truncated).toBe(false);
+  });
+});
