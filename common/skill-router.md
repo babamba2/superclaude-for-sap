@@ -22,7 +22,7 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
   - document a module's configuration → config-to-document · how a module runs (process map) → module-to-process
   - CBO package inventory → stock-cbo · how custom objects relate, what a table / field change affects → cbo-relation-map
   - SmartForm print preview → smartform-preview · SmartForm from a PDF / image → smartform-from-pdf
-  - project dashboard, weekly status, Q-gates, WRICEF progress → project-dashboard · roles & authorizations, SoD review of live roles → role-matrix
+  - project dashboard, weekly status, Q-gates, WRICEF progress → project-dashboard · roles & authorizations, SoD review of live roles → role-matrix · authorization error / SU53 of one user + T-code → role-matrix (triage)
   - UAT / integration test scenarios, test results per cycle → uat-scenarios
   - connect / add a SAP system → setup · MCP install → mcp-setup · settings / cost mode → sap-option
 - Do NOT route: a slash command the user typed (it wins); a skill already running (its rules apply); questions about the plugin itself or its development; small talk or general programming unrelated to the SAP system.

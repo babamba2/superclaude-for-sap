@@ -56,7 +56,10 @@ export function whereOf(cond = {}) {
     if (!/^[A-Z][A-Z0-9_]*$/.test(field)) throw new Error(`bad field name ${field}`);
     if (Array.isArray(value)) {
       if (!value.length) return null;
-      parts.push(`${field} IN (${value.map(quote).join(', ')})`);
+      // A long list goes one value per line: the S/4 ADT data preview rejects a SQL line over ~255 characters
+      // (HTTP 400; measured on S/4 816 with 14 role names). ECC TABLE_READ accepts both forms. Short lists stay on one line.
+      const one = `${field} IN (${value.map(quote).join(', ')})`;
+      parts.push(one.length <= 200 ? one : `${field} IN (${value.map(quote).join(',\n')})`);
     } else if (value && typeof value === 'object' && 'like' in value) {
       parts.push(`${field} LIKE ${quote(value.like)}`);
     } else {

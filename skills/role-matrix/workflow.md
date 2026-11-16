@@ -5,11 +5,11 @@ Referenced by `SKILL.md`. `<B>` = `node "<PLUGIN_ROOT>/scripts/role/build-role-d
 ## Step 1 — Which document
 
 1. Confirm the active profile in one line (alias, SID, tier). List the folders under `<RM>` (code, project, version from each `<CODE>-roles.json`).
-2. An existing document → **Operations** below. A new one → Step 2.
+2. An existing document → **Operations** below. A new one → Step 2. A user + T-code authorization error (ARGUMENTS name a user and a T-code, or "SU53" / "no authorization") → [`triage.md`](triage.md), not this workflow.
 
 ## Step 2 — Intake
 
-One `AskUserQuestion` (2 options): **새로 설계 (new design)** — a project's role blueprint / **SAP 권한 연동 (read from SAP)** — an audit or SoD review of the live roles. A mode already named in ARGUMENTS skips it. Then one free-text ask, with an example filled in:
+One `AskUserQuestion` (3 options): **새로 설계 (new design)** — a project's role blueprint / **SAP 권한 연동 (read from SAP)** — an audit or SoD review of the live roles / **권한 오류 분석 (triage)** — one user's "no authorization" in one T-code → [`triage.md`](triage.md). A mode already named in ARGUMENTS skips it. Then one free-text ask, with an example filled in:
 
 - code (letters, digits, `_` `-`, ≤ 30), project name, system / module (`PRD / PM`), author, reviewer
 - modules in scope (`PM`, or `MM, SD`)

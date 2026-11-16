@@ -94,7 +94,7 @@ Evidence collection strategy — prefer MCP auto-query, fall back to manual TCod
 | System / session info | `GetSession` | /n (status), /o SM04 |
 | Table schema (not rows) | `GetTable`, `GetStructure`, `GetView`, `GetDataElement`, `GetDomain` | SE11 |
 | Unit test results | `GetUnitTestResult`, `RunUnitTest` | SE80 → test class |
-| Authorization error | (MCP not supported) | SU53, STAUTHTRACE |
+| Authorization error | Hand off to `/sc4sap:role-matrix triage` (user ID, T-code, SU53 screen capture attached) — missing object / values, roles that grant them, SoD impact; read-only | SU53, STAUTHTRACE |
 | Application log | (MCP not supported) | SLG1 |
 | System log | (MCP not supported) | SM21 |
 | Update error | (MCP not supported) | SM13 |

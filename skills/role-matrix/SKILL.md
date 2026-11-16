@@ -1,12 +1,12 @@
 ---
 name: role-matrix
-description: SAP role & authorization document for a project — one editable HTML workbook (cover with checks, business roles, technical PFCG roles, business role × T-code matrix F/C/D, user × role assignment, authorization objects, SoD rules with automatic conflict check, change history). New design (module consultant proposes roles, T-codes, authorization objects and SoD rules; T-codes narrowed to the ones users run when ST03N usage is available) or read from the connected SAP system (PFCG roles, T-codes, authorization values, org levels, user–role assignment by user ID). Spreadsheet-style editing in the browser, CSV per sheet, versioned.
+description: SAP role & authorization document for a project — one editable HTML workbook (cover with checks, business roles, technical PFCG roles, business role × T-code matrix F/C/D, user × role assignment, authorization objects, SoD rules with automatic conflict check, change history). New design (module consultant proposes roles, T-codes, authorization objects and SoD rules; T-codes narrowed to the ones users run when ST03N usage is available) or read from the connected SAP system (PFCG roles, T-codes, authorization values, org levels, user–role assignment by user ID). Spreadsheet-style editing in the browser, CSV per sheet, versioned. Also triages one user's "no authorization" in a T-code (SU53): missing object / values, roles that would grant them, SoD impact.
 model: inherit
 ---
 
 # SC4SAP Role Matrix
 
-> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): full — new design only (no ST03N narrowing); `sync` is blocked.
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): full — new design only (no ST03N narrowing); `sync` and triage are blocked.
 
 One **editable HTML workbook per role design** — the classic SAP role-matrix workbook (seven sheets and a cover) as a page the security owner, module consultants and the business edit together. Built new from a consultant's proposal, or read from the roles that already exist in SAP.
 
@@ -19,6 +19,7 @@ Role design is a project deliverable that changes every week: business roles are
 
 <Use_When>
 - "권한 매트릭스", "Role 매트릭스", "역할 설계", "권한 설계서", "PFCG 역할 정리", "SoD 점검", "권한 감사", "사용자 권한 배정표", "role matrix", "authorization concept", "SoD", "role audit"
+- **Triage** — "권한 오류", "권한 없음 분석", "no authorization", "SU53", "어떤 롤을 줘야", "authorization error": one user gets "no authorization" in one T-code → [`triage.md`](triage.md)
 - A project needs its role & authorization document (new design), or an existing system's roles must be documented / reviewed (audit, SoD review — read from SAP)
 </Use_When>
 
@@ -40,7 +41,7 @@ Settled with the user (2026-10-28) — do not ask again:
 | Layout | The classic workbook: cover (document info, sheet guide, legend, computed summary, checks), 1 business roles, 2 technical roles, 3 business role × T-code (F/C/D), 4 user × business role (X), 5 authorization objects, 6 SoD, 7 change history |
 | Company form | Forms differ by company. The workbook above is the default; on request a **company layout** ([`layout.md`](layout.md)) read from the company's own form (.html / .docx) sets sheet titles and order, columns and headers, own columns, level codes, cover fields, colours, font and logo — editing, CSV, checks and SoD stay the same |
 | Output | ONE self-contained HTML page per document with spreadsheet-style editing (range select, F/C/D/X typed over a range, Excel copy / paste, fill down, undo, rename an ID everywhere) and CSV per sheet. No xlsx |
-| Mode | Always ask: **new design** or **read from SAP** |
+| Mode | Always ask: **new design** or **read from SAP**; a third mode **triage** (one user + one T-code authorization error) runs [`triage.md`](triage.md) — no workbook is built |
 | SAP reads | Role design tables (AGR_DEFINE, AGR_TEXTS, AGR_FLAGS, AGR_AGRS, AGR_TCODES, AGR_1251, AGR_1252) and the assignment table AGR_USERS (**user ID and validity only**). Names, departments and positions of users are typed in the page. USR* tables are never read |
 | New design | The module consultant proposes business roles, T-codes with levels, technical roles (master + derived per org value), authorization objects (SU24 view) and SoD rules; narrowed to the T-codes users run when ST03N usage is available |
 | SoD | Rules by business-role pair or by T-code sets (library `scripts/role/sod-library.json`); conflicts are computed per user and inside a single role |
@@ -56,7 +57,7 @@ A `Language: Korean | English` line (or "Write the report in …") sets the docu
 </Language>
 
 <Workflow>
-MUST read [`workflow.md`](workflow.md) before Step 1. Model fields: [`model-schema.md`](model-schema.md) — read before writing a draft or editing a model file.
+Triage (user + T-code + error) → MUST read [`triage.md`](triage.md) and follow it instead. Otherwise MUST read [`workflow.md`](workflow.md) before Step 1. Model fields: [`model-schema.md`](model-schema.md) — read before writing a draft or editing a model file.
 </Workflow>
 
 <Output_Format>
