@@ -96,6 +96,7 @@ describe('phone layer for HTML deliverables', () => {
     'spec/flow-editor.mjs': 'saves the open spec page (flow editor)',
     'spec/spec-editor.mjs': 'saves the open spec page',
     // drawn at print size and turned into an image or compared pixel by pixel — never opened as a page
+    'adobe/build-adobe-preview.mjs': 'Adobe form print preview: A4 pages at mm size, printed to PDF / JPG for the score',
     'smartform/build-preview.mjs': 'SmartForm print preview rendered to a JPG at mm size',
     'smartform/otf-draw.mjs': 'SmartForm print drawn for an image comparison',
     'spec/screen-image-renderer.mjs': 'SAP screen mock-ups rendered to images',

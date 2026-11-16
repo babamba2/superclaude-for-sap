@@ -19,7 +19,7 @@ const own = (o, k) => o !== null && typeof o === 'object' && Object.prototype.ha
 export const MAX_ROWS = 50;
 
 export function renderPreview(content, sample = {}, { inspect = false, page = 1, fields = {}, graphics = {} } = {}) {
-  const r = new Renderer(content, sample || {}, { inspect, graphics: graphics && typeof graphics === 'object' ? graphics : {} });
+  const r = new Renderer(content, sample || {}, { inspect, graphics: graphics && typeof graphics === 'object' ? graphics : {}, fields: fields && typeof fields === 'object' ? fields : {} });
   const pg = r.page(Math.max(0, (Number(page) || 1) - 1));
   let { html } = pg;
   if (inspect) {

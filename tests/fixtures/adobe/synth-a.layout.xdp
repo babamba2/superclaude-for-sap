@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Synthetic test layout (written for the sc4sap tests, no SAP content): XFA 2.4 template with a master page,
+     a page number, a flowed title, a table of rows bound to DATA[*] with an overflow leader, pictures and a
+     FormCalc script that hides rows. -->
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/">
+<template xmlns="http://www.xfa.org/schema/xfa-template/2.4/">
+<subform layout="tb" name="data">
+  <pageSet>
+    <pageArea name="Page1" id="Page1">
+      <contentArea x="20mm" y="30mm" w="170mm" h="60mm"/>
+      <medium short="210mm" long="297mm" stock="a4"/>
+      <draw name="HeadText" x="20mm" y="10mm" w="100mm" h="8mm">
+        <ui><textEdit/></ui>
+        <value><text>Sample Company Header</text></value>
+        <font typeface="Arial" size="12pt" weight="bold"/>
+      </draw>
+      <field name="PageNo" id="PageNo" presence="hidden" x="0mm" y="0mm" w="20mm" h="6mm">
+        <ui><textEdit/></ui>
+        <bind match="none"/>
+        <event activity="ready" ref="$layout"><script contentType="application/x-javascript">this.rawValue = xfa.layout.page(this)</script></event>
+      </field>
+      <field name="PageCount" id="PageCount" presence="hidden" x="0mm" y="0mm" w="20mm" h="6mm">
+        <ui><textEdit/></ui>
+        <bind match="none"/>
+        <event activity="ready" ref="$layout"><script contentType="application/x-javascript">this.rawValue = xfa.layout.pageCount()</script></event>
+      </field>
+      <draw name="PageText" x="150mm" y="12mm" w="40mm" h="6mm">
+        <ui><textEdit/></ui>
+        <value><exData contentType="text/html"><body xmlns="http://www.w3.org/1999/xhtml" xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/"><p>Page<span style="xfa-spacerun:yes"> </span>
+          <span xfa:embed="#PageNo" xfa:embedMode="raw" xfa:embedType="uri"/> /
+          <span xfa:embed="#PageCount" xfa:embedMode="raw" xfa:embedType="uri"/></p></body></exData></value>
+        <font typeface="Arial"/>
+        <para hAlign="right"/>
+      </draw>
+    </pageArea>
+  </pageSet>
+  <subform layout="tb" name="Main" w="170mm">
+    <field name="TITLE" w="170mm" h="10mm">
+      <ui><textEdit><margin/></textEdit></ui>
+      <font typeface="Arial" size="12pt"/>
+      <para vAlign="middle"/>
+      <bind match="dataRef" ref="$record.TITLE"/>
+    </field>
+    <subform layout="table" name="Items" w="110mm" columnWidths="40mm 30mm 40mm">
+      <bind match="dataRef" ref="$record.ITEMS"/>
+      <break overflowLeader="#Hdr"/>
+      <border><edge thickness="0.2mm"/></border>
+      <subform layout="row" name="Hdr" id="Hdr">
+        <occur max="-1"/>
+        <draw name="H1" minH="8mm"><ui><textEdit/></ui><value><text>Name</text></value><font typeface="Arial" weight="bold"/><margin topInset="1mm" bottomInset="1mm" leftInset="1mm" rightInset="1mm"/><para vAlign="middle"/></draw>
+        <draw name="H2" minH="8mm"><ui><textEdit/></ui><value><text>Date</text></value><font typeface="Arial" weight="bold"/><margin topInset="1mm" bottomInset="1mm" leftInset="1mm" rightInset="1mm"/><para vAlign="middle"/></draw>
+        <draw name="H3" minH="8mm"><ui><textEdit/></ui><value><text>Amount</text></value><font typeface="Arial" weight="bold"/><margin topInset="1mm" bottomInset="1mm" leftInset="1mm" rightInset="1mm"/><para vAlign="middle"/></draw>
+      </subform>
+      <subform layout="row" name="Row">
+        <occur max="-1"/>
+        <bind match="dataRef" ref="DATA[*]"/>
+        <field name="NAME" minH="8mm"><ui><textEdit><margin/></textEdit></ui><font typeface="Arial"/><margin topInset="1mm" bottomInset="1mm" leftInset="1mm" rightInset="1mm"/><para vAlign="middle"/><bind match="dataRef" ref="NAME"/></field>
+        <field name="DAT" minH="8mm"><ui><dateTimeEdit><margin/></dateTimeEdit></ui><font typeface="Arial"/><margin topInset="1mm" bottomInset="1mm" leftInset="1mm" rightInset="1mm"/><para vAlign="middle"/><value><date/></value><bind match="dataRef" ref="DAT"/></field>
+        <field name="AMT" minH="8mm"><ui><numericEdit><margin/></numericEdit></ui><font typeface="Arial"/><margin topInset="1mm" bottomInset="1mm" leftInset="1mm" rightInset="1mm"/><para vAlign="middle" hAlign="radix" radixOffset="10mm"/><value><decimal fracDigits="-1"/></value><format><picture>zzz,zz9.99</picture></format><bind match="dataRef" ref="AMT"/></field>
+      </subform>
+    </subform>
+  </subform>
+  <event activity="ready" ref="$form"><script>// hide the rows whose name is HIDE
+var n = $form.data.Main.Items.Row.all.length
+for i = 0 upto (n - 1) step 1 do
+  if ($form.data.Main.Items.Row[i].NAME eq "HIDE") then
+    $form.data.Main.Items.Row[i].presence = "hidden"
+  endif
+endfor</script></event>
+</subform>
+</template>
+</xdp:xdp>

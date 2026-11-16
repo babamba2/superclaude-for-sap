@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Synthetic test layout (written for the sc4sap tests, no SAP content): an XFA 2.1 (Designer 6 era) template with
+     positioned fields with captions, a top-aligned draw with paragraph spacing, a rounded box and an image field. -->
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/">
+<template xmlns="http://www.xfa.org/schema/xfa-template/2.1/">
+<subform layout="tb" name="data">
+  <pageSet>
+    <pageArea name="P1">
+      <contentArea x="10mm" y="20mm" w="190mm" h="250mm"/>
+      <medium short="210mm" long="297mm" stock="a4"/>
+      <subform name="Box" x="120mm" y="10mm" w="60mm" h="20mm">
+        <border><fill><color value="230,230,230"/></fill><edge thickness="0.25mm"/><corner join="round" radius="3mm"/></border>
+      </subform>
+    </pageArea>
+  </pageSet>
+  <subform layout="tb" name="Body" w="190mm">
+    <draw name="Intro" w="190mm" minH="3mm">
+      <ui><textEdit/></ui>
+      <value><text>Legacy start text</text></value>
+      <font typeface="Arial"/>
+      <para spaceBelow="6pt"/>
+    </draw>
+    <subform name="Pos" w="190mm" h="30mm">
+      <field name="CODE" x="0mm" y="0mm" w="80mm" h="9mm">
+        <ui><textEdit><margin/></textEdit></ui>
+        <font typeface="Arial"/>
+        <margin topInset="1mm" bottomInset="1mm" leftInset="1mm" rightInset="1mm"/>
+        <para vAlign="middle"/>
+        <caption reserve="25mm"><font typeface="Arial"/><para vAlign="middle"/><value><text>Code</text></value></caption>
+        <bind match="dataRef" ref="$record.CODE"/>
+      </field>
+      <field name="LOGO" x="100mm" y="0mm" w="40mm" h="30mm">
+        <ui><imageEdit/></ui>
+        <value><image aspect="fit"/></value>
+        <bind match="dataRef" ref="$record.LOGO"/>
+      </field>
+    </subform>
+  </subform>
+</subform>
+</template>
+</xdp:xdp>

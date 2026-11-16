@@ -22,7 +22,7 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
   - compare 2–5 similar programs → compare-programs · interface mapping spec → interface-mapping-spec
   - document a module's configuration → config-to-document · how a module runs (process map) → module-to-process
   - CBO package inventory → stock-cbo · how custom objects relate, what a table / field change affects → cbo-relation-map
-  - SmartForm print preview → smartform-preview · SmartForm from a PDF / image → smartform-from-pdf · SmartForm → Adobe form conversion plan → smartform-to-adobe · Adobe form from a PDF (awaiting approval) → adobe-from-pdf
+  - SmartForm print preview → smartform-preview · Adobe form print preview → adobe-preview · SmartForm from a PDF / image → smartform-from-pdf · SmartForm → Adobe form conversion plan → smartform-to-adobe · Adobe form from a PDF (awaiting approval) → adobe-from-pdf
   - project dashboard, weekly status, Q-gates, WRICEF progress → project-dashboard · roles & authorizations, SoD review of live roles → role-matrix · authorization error / SU53 of one user + T-code → role-matrix (triage)
   - UAT / integration test scenarios, test results per cycle, which request fixes a UAT defect and when to retest → uat-scenarios
   - connect / add a SAP system → setup · MCP install → mcp-setup · settings / cost mode → sap-option

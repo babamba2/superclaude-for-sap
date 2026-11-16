@@ -166,6 +166,43 @@ describe('smartform-preview: rendering', () => {
     expect(html).toContain('class="ZOTHER-STYLE"');  // output options over the text's own style
   });
 
+  it('reads protected text and pre / post texts the SAPscript way', () => {
+    const c = JSON.parse(JSON.stringify(CONTENT));
+    c.pages[0].windows[1].content = [
+      text('%TEXT2', 'C8', "<(>&<)>GV_LIT& &GV_NO&&'/ 'GV_DATE& &'('GV_QTY(C)')'&"),
+      text('%TEXT5', 'C8', "X&' - 'GV_EMPTY&Y"),
+    ];
+    const names = listSymbols(c).symbols.map((s: any) => s.name);
+    expect(names).toEqual(expect.arrayContaining(['GV_NO', 'GV_DATE', 'GV_QTY', 'GV_EMPTY']));
+    expect(names).not.toContain('GV_LIT');
+    expect(names.some((n: string) => n.includes("'") || n.startsWith('<'))).toBe(false);
+    const html = new Renderer(c, { values: { GV_NO: '42', GV_DATE: '2026.01.31', GV_QTY: '  5 ', GV_EMPTY: '' } }).page().html as string;
+    const plain = html.replace(/<[^>]*>/g, '').replace(/&amp;/g, '&');
+    expect(plain).toContain('&GV_LIT& 42/ 2026.01.31 (5 )');
+    expect(plain).toContain('XY'); // initial value: no pre / post text
+  });
+
+  it('treats a zero of a numeric / date DDIC type as initial and && as a literal ampersand', () => {
+    const c = JSON.parse(JSON.stringify(CONTENT));
+    c.pages[0].windows[1].content = [
+      text('%TEXT2', 'C8', "A&' EUR 'GV_AMT&B &' / 'GV_DAT&C &' # 'GV_TXT&D"),
+      text('%TEXT5', 'C8', "R&&D &GV_NO& &&GV_NO& &' * 'GV_ZERO&E"),
+    ];
+    const fields = { GV_AMT: { type: 'CURR' }, GV_DAT: { type: 'DATS' }, GV_TXT: { type: 'CHAR' } };
+    const values = { values: { GV_AMT: '0.00', GV_DAT: '00000000', GV_TXT: '0', GV_NO: '42', GV_ZERO: 0 } };
+    const plainOf = (r: any) => (r.page().html as string).replace(/<[^>]*>/g, '').replace(/&amp;/g, '&');
+    const typed = plainOf(new Renderer(c, values, { fields }));
+    expect(typed).toContain('A0.00B'); // CURR 0.00 is initial: no " EUR "
+    expect(typed).toContain('B 00000000C'); // DATS 00000000 is initial: no ' / '
+    expect(typed).toContain('C  # 0D'); // CHAR "0" is not initial
+    expect(typed).toContain('R&D 42 &GV_NO&'); // && prints '&'; "&&GV_NO&" is no symbol
+    expect(typed).toContain('&GV_NO& 0E'); // the number 0 is initial without a type: no ' * '
+    expect(typed).not.toContain(' * ');
+    const untyped = plainOf(new Renderer(c, values));
+    expect(untyped).toContain('A EUR 0.00B'); // without the DDIC type a "0.00" string is not taken as initial
+    expect(listSymbols(c).symbols.map((s: any) => s.name)).not.toContain('GV_NO& ');
+  });
+
   it('appends an APPMODE A text to the paragraph before it, and keeps a bar code of nested formats', () => {
     const c = JSON.parse(JSON.stringify(CONTENT));
     const unit = Object.assign(text('%TEXT8', '*', 'EA'), { attrs: { APPMODE: 'A' } });
