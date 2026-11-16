@@ -5,6 +5,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Changed
+- MCP pin → abap-mcp-adt-powerup 4.12.1 (`c027f3a`): `RuntimeListDumps` follows the feed's time cursor back to `date_from` and reports `paging`; `ops-health-check` gets a complete week of dumps on S/4HANA.
+
 ## [0.6.67] — 2026-11-13
 
 ### Added
