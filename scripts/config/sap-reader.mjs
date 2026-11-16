@@ -96,7 +96,9 @@ async function runSql(client, sql, maxRows) {
     const text = res?.content?.[0]?.text ?? '';
     if (res?.isError) return { ok: false, rows: [], error: text.slice(0, 400) };
     const data = JSON.parse(text);
-    return { ok: true, rows: data.rows || [], truncated: !!data.truncated };
+    // Not every answer says it was cut (GetSqlQuery on S/4 sends no flag): a read that came back full is taken as cut.
+    const rows = data.rows || [];
+    return { ok: true, rows, truncated: !!data.truncated || rows.length >= maxRows };
   } catch (e) {
     return { ok: false, rows: [], error: String(e?.message ?? e).slice(0, 400) };
   }
@@ -113,14 +115,16 @@ export async function readIn(client, table, field, values, { extra = {}, fields 
   const uniq = all.filter((v) => !GUARD.test(String(v)));
   const out = [];
   const errors = [];
+  // A chunk that hits the row limit is read again in halves; a single value that still hits it is reported.
+  const truncated = [];
   for (const v of all.filter((x) => GUARD.test(String(x)))) {
     const like = String(v).replace(/SELECT/gi, 'SELEC_').replace(/JOIN/gi, 'JOI_').replace(/ FROM /gi, ' FRO_ ');
     const r = await readTable(client, table, { where: { ...extra, [field]: { like } }, fields });
     if (r.ok) out.push(...r.rows.filter((row) => String(row[field]) === String(v)));
     else errors.push(r.error);
+    // the LIKE read of one value hit the row limit: its rows may be incomplete — said like any other value
+    if (r.ok && r.truncated) truncated.push(v);
   }
-  // A chunk that hits the row limit is read again in halves; a single value that still hits it is reported.
-  const truncated = [];
   const grab = async (vals) => {
     const r = await readTable(client, table, { where: { ...extra, [field]: vals }, fields });
     if (!r.ok) { errors.push(r.error); return; }
