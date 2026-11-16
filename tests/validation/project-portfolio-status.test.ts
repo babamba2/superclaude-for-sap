@@ -85,6 +85,23 @@ describe('portfolio weekly status — plugin part', () => {
     expect(renderPortfolioStatusPage(r, 'ko')).toContain('웹 (/wbs)');
   });
 
+  it('owner (PM): the view\'s pm when given, else the team member named by project.pm; in the page and the workbook', () => {
+    const ms = clone();
+    ms['DEMO-A'].project.pm = 'PM1'; // a team member id
+    const its = items(ms).map((x: any) => ({ ...x, view: viewModel(x.model, TODAY) }));
+    its.find((x: any) => x.ref === 'DEMO-B').view.pm = 'Web PM';
+    const r = portfolioStatus(its, { today: TODAY });
+    const pm = (c: string) => r.projects.find((x: any) => x.code === c).pm;
+    expect(pm('DEMO-B')).toBe('Web PM');
+    expect(pm('DEMO-A')).toBe('Park PM');
+    expect(pm('DEMO-C')).toBe(''); // no pm in the model, none in the view
+    const html = renderPortfolioStatusPage(r, 'en');
+    expect(html).toContain('<th>Owner</th>');
+    expect(html).toContain('data-label="Owner"><span>Web PM</span>');
+    expect(r.minimal[0]).not.toHaveProperty('pm');
+    expect(portfolioXlsx(r, 'ko').subarray(0, 2).toString()).toBe('PK');
+  });
+
   it('overload limits: open items > 20 or effort left > working days of the next two weeks (boundary not overloaded)', () => {
     const P = (open: number, remaining: number) => ({ name: `P${open}-${remaining}`, sapUser: '', roles: ['dev'], projects: [{ code: 'DEMO-A', open, late: 0, remaining }, { code: 'DEMO-B', open: 0, late: 0, remaining: 0 }] });
     const r = portfolioStatus(items(), { today: TODAY, people: [P(20, 10), P(21, 0), P(0, 10.5)] });

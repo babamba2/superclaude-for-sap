@@ -8,7 +8,8 @@
 //       overall, progress { actual, planned }, milestones [{ id, label, kind, date, rag, status }],
 //       late [{ id, label, finish }], wricef { total, done, byKind { <kind>: { <stage>: n } } },
 //       handoff { toDev, toFn } (missing → from rows), rows [{ leaf, status, rag, owner, fnOwner, devOwner,
-//       effortPlan?, effortActual? }], m (the normalized model; missing → normalizeModel(model)), today.
+//       effortPlan?, effortActual? }], m (the normalized model; missing → normalizeModel(model)), today,
+//       pm (the project manager's name; missing → the team member named by project.pm).
 //     people: people on two or more projects, already computed by the caller ([{ name, sapUser, roles,
 //       projects [{ code, open, late, remaining }] }] — the web's sharedPeople); missing → peopleAcross(…, merge).
 //     prev: last week's result (its `minimal` rows are enough) → RAG ▲▼, progress change, new and gone projects.
@@ -110,6 +111,7 @@ export function portfolioStatus(items, opts = {}) {
     const cut = String(m.cutover?.window?.start || '').slice(0, 10);
     projects.push({
       ref, code, name: p.name || '', type: p.type || '', overall,
+      pm: String(v.pm || arr(m.team).find((t) => t.id === p.pm)?.name || ''),
       prevOverall: before ? ragOf(before.overall) : null,
       move: !before ? (hasPrev ? 'new' : null) : RANK[overall] > RANK[ragOf(before.overall)] ? 'up' : RANK[overall] < RANK[ragOf(before.overall)] ? 'down' : 'same',
       progress, progressDelta: before?.progress ? { actual: progress.actual - num(before.progress.actual), planned: progress.planned - num(before.progress.planned) } : null,
@@ -185,7 +187,7 @@ const T = {
   ko: { title: '포트폴리오 주간 현황', week: '주 종료', scope: '범위', tiles: { goLive30: '30일 안 go-live', gates: '이번 주 Q-gate', risks: '열린 H 리스크', decisions: '결정 대기', overloaded: '과부하 인원' },
     vsPrev: '지난주 대비', noPrev: '지난주 출력이 없어 비교하지 않았어요', first: '새 프로젝트', gone: '지난주에 있었고 이번 주에 없는 프로젝트',
     s1: '프로젝트', s2: '이번 주 / 다음 주 마일스톤과 Q-gate', s3: '열린 H 리스크와 결정 대기', s4: 'WRICEF 단계', s5: '팀 부하', s6: '출처',
-    pcols: ['상태', '코드', '프로젝트', '진척 (실적 / 계획)', '변화', '지연 작업', 'Go-Live', '컷오버', '마지막 현황 주'],
+    pcols: ['상태', '코드', '프로젝트', '담당', '진척 (실적 / 계획)', '변화', '지연 작업', 'Go-Live', '컷오버', '마지막 현황 주'],
     mcols: ['주', '날짜', '프로젝트', '마일스톤', '종류', 'RAG', '상태'], thisWeek: '이번 주', nextWeek: '다음 주',
     risks: '열린 H 리스크', decisions: '결정 대기', rcols: ['프로젝트', 'ID', '내용', '담당', '기한'], overdue: '기한 지남',
     wcols: ['프로젝트', '합계', '인계 대기'], pplcols: ['이름', 'SAP ID', '역할', '프로젝트 (열린 / 지연 / 남은 MD)', '열린 항목', '지연', '남은 공수 (MD)', '과부하'],
@@ -195,7 +197,7 @@ const T = {
   en: { title: 'Portfolio weekly status', week: 'Week ending', scope: 'Scope', tiles: { goLive30: 'Go-lives in 30 days', gates: 'Q-gates this week', risks: 'Open high risks', decisions: 'Decisions pending', overloaded: 'People overloaded' },
     vsPrev: 'vs last week', noPrev: 'No output of last week — nothing compared', first: 'new project', gone: 'Projects of last week no longer in the scope',
     s1: 'Projects', s2: 'Milestones and Q-gates this week / next week', s3: 'Open high risks and pending decisions', s4: 'WRICEF stages', s5: 'Team load', s6: 'Source',
-    pcols: ['Status', 'Code', 'Project', 'Progress (actual / plan)', 'Change', 'Late items', 'Go-live', 'Cutover', 'Last status week'],
+    pcols: ['Status', 'Code', 'Project', 'Owner', 'Progress (actual / plan)', 'Change', 'Late items', 'Go-live', 'Cutover', 'Last status week'],
     mcols: ['Week', 'Date', 'Project', 'Milestone', 'Kind', 'RAG', 'Status'], thisWeek: 'This week', nextWeek: 'Next week',
     risks: 'Open high risks', decisions: 'Decisions pending', rcols: ['Project', 'ID', 'Text', 'Owner', 'Due'], overdue: 'overdue',
     wcols: ['Project', 'Total', 'Hand-offs'], pplcols: ['Name', 'SAP user', 'Roles', 'Projects (open / late / MD left)', 'Open items', 'Late', 'Effort left (MD)', 'Overloaded'],
@@ -236,7 +238,7 @@ export function renderPortfolioStatusPage(res, lang = res?.lang || 'ko') {
   ].join('');
   const proj = res.projects.map(p => [
     H(`${chip(p.overall)}${p.move === 'up' ? ' <span class="up">▲</span>' : p.move === 'down' ? ' <span class="down">▼</span>' : p.move === 'new' ? ` <small>${esc(S.first)}</small>` : ''}`),
-    p.code, p.name, N(`${p.progress.actual}% / ${p.progress.planned}%`),
+    p.code, p.name, p.pm, N(`${p.progress.actual}% / ${p.progress.planned}%`),
     H(p.progressDelta ? `${delta(p.progressDelta.actual)} / ${delta(p.progressDelta.planned)}` : ''),
     H(p.late ? `<b class="bad">${p.late}</b> <small>${esc(p.lateTop.join(', '))}${p.late > p.lateTop.length ? ' …' : ''}</small>` : ''),
     H(day(p.goLive, p.goLiveD)), H(day(p.cutoverStart, p.cutoverD)), p.lastStatusWeek,
@@ -266,12 +268,12 @@ export function renderPortfolioStatusPage(res, lang = res?.lang || 'ko') {
 const X = {
   ko: { sheets: ['요약', '프로젝트', '마일스톤', 'H 리스크', '결정 대기', 'WRICEF', '팀 부하'], kv: ['항목', '값'],
     sum: { weekEnd: '주 종료', projects: '프로젝트', red: '빨강', amber: '노랑', green: '초록', goLive30: '30일 안 go-live', gates: '이번 주 Q-gate', risks: '열린 H 리스크', decisions: '결정 대기', overloaded: '과부하 인원', sentence: '요약' },
-    proj: ['코드', '프로젝트', '상태', '지난주', '실적(%)', '계획(%)', '실적 변화', '계획 변화', '지연', '지연 상위', 'Go-Live', 'Go-Live D', '컷오버', '컷오버 D', '마지막 현황 주', 'WRICEF 완료', 'WRICEF 합계', '인계 대기'],
+    proj: ['코드', '프로젝트', '담당', '상태', '지난주', '실적(%)', '계획(%)', '실적 변화', '계획 변화', '지연', '지연 상위', 'Go-Live', 'Go-Live D', '컷오버', '컷오버 D', '마지막 현황 주', 'WRICEF 완료', 'WRICEF 합계', '인계 대기'],
     ms: ['주', '날짜', '프로젝트', 'ID', '마일스톤', '종류', 'RAG', '상태'], rd: ['프로젝트', 'ID', '내용', '담당', '기한', '기한 지남'], wr: ['프로젝트', ...STAGES, '합계', '인계 대기'],
     ppl: ['이름', 'SAP ID', '역할', '프로젝트', '열린 항목', '지연', '남은 공수(MD)', '과부하'] },
   en: { sheets: ['Summary', 'Projects', 'Milestones', 'High risks', 'Decisions', 'WRICEF', 'Team load'], kv: ['Item', 'Value'],
     sum: { weekEnd: 'Week ending', projects: 'Projects', red: 'Red', amber: 'Amber', green: 'Green', goLive30: 'Go-lives in 30 days', gates: 'Q-gates this week', risks: 'Open high risks', decisions: 'Decisions pending', overloaded: 'People overloaded', sentence: 'Summary' },
-    proj: ['Code', 'Project', 'Status', 'Last week', 'Actual (%)', 'Plan (%)', 'Actual change', 'Plan change', 'Late', 'Late (top)', 'Go-live', 'Go-live D', 'Cutover', 'Cutover D', 'Last status week', 'WRICEF done', 'WRICEF total', 'Hand-offs'],
+    proj: ['Code', 'Project', 'Owner', 'Status', 'Last week', 'Actual (%)', 'Plan (%)', 'Actual change', 'Plan change', 'Late', 'Late (top)', 'Go-live', 'Go-live D', 'Cutover', 'Cutover D', 'Last status week', 'WRICEF done', 'WRICEF total', 'Hand-offs'],
     ms: ['Week', 'Date', 'Project', 'ID', 'Milestone', 'Kind', 'RAG', 'Status'], rd: ['Project', 'ID', 'Text', 'Owner', 'Due', 'Overdue'], wr: ['Project', ...STAGES, 'Total', 'Hand-offs'],
     ppl: ['Name', 'SAP user', 'Roles', 'Projects', 'Open items', 'Late', 'Effort left (MD)', 'Overloaded'] },
 };
@@ -283,7 +285,7 @@ export function portfolioXlsx(res, lang = res?.lang || 'ko') {
   const s = res.summary, n = (v) => (v == null ? '' : v);
   const sum = [H(K.kv), [K.sum.weekEnd, res.weekEnd], [K.sum.projects, s.projects], ...RAGS.map(r => [K.sum[r], s.rag[r]]),
     [K.sum.goLive30, s.goLive30], [K.sum.gates, s.gatesThisWeek], [K.sum.risks, s.risksHigh], [K.sum.decisions, s.decisionsOpen], [K.sum.overloaded, s.overloaded], [K.sum.sentence, res.summaryText || s.sentence]];
-  const proj = [H(K.proj), ...res.projects.map(p => [p.code, p.name, p.overall, n(p.prevOverall), p.progress.actual, p.progress.planned, n(p.progressDelta?.actual), n(p.progressDelta?.planned),
+  const proj = [H(K.proj), ...res.projects.map(p => [p.code, p.name, p.pm, p.overall, n(p.prevOverall), p.progress.actual, p.progress.planned, n(p.progressDelta?.actual), n(p.progressDelta?.planned),
     p.late, p.lateTop.join(', '), p.goLive, n(p.goLiveD), p.cutoverStart, n(p.cutoverD), p.lastStatusWeek, p.wricef.done, p.wricef.total, p.handoff])];
   const ms = [H(K.ms), ...res.milestones.map(x => [x.week, x.date, x.code, x.id, x.label, x.kind, x.rag, x.status])];
   const rd = (list) => [H(K.rd), ...list.map(x => [x.code, x.id, x.text, x.owner, x.due, x.overdue ? 'X' : ''])];
@@ -291,7 +293,7 @@ export function portfolioXlsx(res, lang = res?.lang || 'ko') {
   const ppl = [H(K.ppl), ...res.people.map(x => [x.name, x.sapUser, x.roles.join(', '), x.projects.map(p => `${p.code} (${p.open}/${p.late}/${p.remaining})`).join(', '), x.open, x.late, x.remaining, x.why.join(', ')])];
   return workbook([
     { name: K.sheets[0], rows: sum, widths: [24, 90] },
-    { name: K.sheets[1], rows: proj, widths: [14, 30, 8, 9, 9, 9, 10, 10, 7, 40, 11, 9, 11, 9, 12, 10, 10, 9] },
+    { name: K.sheets[1], rows: proj, widths: [14, 30, 18, 8, 9, 9, 9, 10, 10, 7, 40, 11, 9, 11, 9, 12, 10, 10, 9] },
     { name: K.sheets[2], rows: ms, widths: [7, 11, 14, 10, 34, 10, 8, 11] },
     { name: K.sheets[3], rows: rd(res.risks), widths: [14, 8, 50, 16, 11, 9] },
     { name: K.sheets[4], rows: rd(res.decisions), widths: [14, 8, 50, 16, 11, 9] },
