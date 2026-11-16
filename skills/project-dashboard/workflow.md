@@ -52,6 +52,8 @@ Print the Output_Format block (SKILL.md). Name what needs attention first: items
 | WRICEF list | `Write` `_wricef.json` (`[{ label, kind, module, stage?, objects?: [Z names] }]`), `<B> add-wricef --project <CODE> --file <it>` |
 | A member leaves / is replaced | Edit the model: set the leaver's `to`, add the newcomer (new id, `from`); then `<B> reassign --project <CODE> --from <old> --to <new> [--side F\|D]`; finished items keep the old owner |
 | Move dates, milestones, KPI values by chat | `Edit` the model per [`model-schema.md`](model-schema.md), `<B> check`, then `<B> build --project <CODE> --note "<what>"` |
+| Weekly status / "주간 보고" / "Q-gate 점검" | [`status.md`](status.md): one question for week, gate and evidence, then `<B> status --project <CODE> …` |
+| Risks and decisions by chat | `Edit` the model (`risks[]` `{ id RKn, text, impact H/M/L, owner, due, status open/closed }`, `decisions[]` `{ id DCn, text, owner, due, status open/decided, decided, note }`), `<B> check`, `<B> build` — or the risks & decisions tab in edit mode |
 | "포트폴리오" / all projects | Step 5 and print one line per project (RAG, progress, next milestone, needs-owner count) |
 
 ## Rules

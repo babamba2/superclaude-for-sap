@@ -39,6 +39,16 @@ function mergeBlock(g, t) {
   return `<div class="merge">${head}${items ? `<ul>${items}</ul>` : `<p class="none">${esc(L.clean)}</p>`}</div>`;
 }
 
+/**
+ * The verdicts the page carries for other tools (the project dashboard's weekly status reads a CTS page as
+ * evidence): system, target, read time, summary and request → verdict. No object lists.
+ */
+export function trSummary(m) {
+  const s = { system: m.system || '', target: m.target || '', readAt: m.readAt || '', summary: m.summary,
+    requests: (m.requests || []).map((r) => ({ trkorr: r.trkorr, verdict: r.verdict })) };
+  return JSON.stringify(s).replace(/</g, '\\u003c');
+}
+
 export function renderHtml(m, lang = 'en') {
   const t = T[lang] || T.en;
   const cards = m.requests.map((r) => `<section class="req ${r.verdict}">
@@ -69,7 +79,9 @@ li.block b{color:var(--red)}.merge{border-top:1px dashed var(--line);margin-top:
 <p class="sum"><span>${esc(t.verdict.ready)} ${m.summary.ready}</span><span>${esc(t.verdict.check)} ${m.summary.check}</span><span>${esc(t.verdict.blocked)} ${m.summary.blocked}</span></p>
 ${cards}
 <p class="note">${esc(t.note)}</p>
-</main></body></html>
+</main>
+<script type="application/json" id="tr-summary">${trSummary(m)}</script>
+</body></html>
 `);
 }
 

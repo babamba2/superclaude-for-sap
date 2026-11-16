@@ -68,6 +68,7 @@ Status <RAG> · progress <actual>% / plan <planned>% · milestones <passed>/<n> 
 Hand-offs: to development <n> · to FUT <n> · needs a new owner <n> · KPIs to watch <n>
 SAP actuals: <n> requests (configuration <n> / development <n>) · <n> package objects · read <date>
 Page: <html> · English: <html> · Portfolio: <PRJ>/portfolio-<lang>.html
+Weekly status (status.md): <CODE>-status-<weekEnd>-<lang>.html · <RAG> · moves <n> · gate <suggest>
 Next: edit in the browser → Save → "import <file>", "실적 갱신", "WRICEF 추가", "<사람> 담당 이관"
 ```
 </Output_Format>

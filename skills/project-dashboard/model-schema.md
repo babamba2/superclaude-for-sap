@@ -14,6 +14,10 @@ Referenced by `SKILL.md` and `workflow.md`. Source of truth: `scripts/project/pr
 | `milestones[]` | `id`, `label`, `kind` (`qgate` · `golive` · `cutover` · `signoff` · `other`), `phase`, `base`, `forecast`, `actual`, `status` (`planned` · `passed` · `conditional` · `failed`), `approver`, `criteria[]` |
 | `kpis[]` | manual KPIs: `id`, `label`, `group` (`quality` · `data` · `ocm` · `cost` · `other`), `unit`, `target`, `actual`, `dir` (`up` · `down`), `history[{ date, value }]` |
 | `actuals` | written by `refresh` only — do not edit |
+| `risks[]` | `id` (RK1 …), `text`, `impact` (H · M · L), `owner` (team id), `due`, `raised`, `status` (`open` · `closed`) |
+| `decisions[]` | `id` (DC1 …), `text`, `owner`, `due`, `status` (`open` = decision needed · `decided`), `decided`, `note` |
+| `status` | the PM's weekly call: `overall` (`red` · `amber` · `green`; empty = computed), `wsRag { ws: rag }`, `comment` |
+| `statusLog[]` | written by `status` only — do not edit (one entry per week, 26 kept: RAG, item stages, milestones, KPIs, evidence figures) |
 | `snapshots[]` | one per build day: planned / actual % and auto KPI values (the trends) — do not edit |
 
 ## WBS row

@@ -64,6 +64,24 @@ export const LABELS = {
     dumps: 'Dumps per day after go-live', readAt: 'Read at', errors: 'Read errors', workload: 'Workload', history: 'Revision history', version: 'Version', date: 'Date', author: 'Author', note: 'Change',
   },
 };
+// Weekly status: the risks & decisions tab (after the milestones) and the PM's own status call on the summary.
+Object.assign(LABELS.ko, {
+  rd: { risks: '리스크', decisions: '결정 필요 사항', text: '내용', impact: '영향', owner: '담당', due: '기한', raised: '등록일', decided: '결정일', note: '메모', status: '상태',
+    call: '주간 판정 (PM)', overall: '전체 상태 (비우면 계산값)', comment: '주간 코멘트', weekEnd: '마지막 현황 주' },
+  impact: { H: '높음', M: '보통', L: '낮음' }, riskStatus: { open: '열림', closed: '닫힘' }, decStatus: { open: '결정 필요', decided: '결정됨' },
+  ragManual: { '': '계산값 사용', red: '위험', amber: '주의', green: '정상' },
+});
+Object.assign(LABELS.en, {
+  rd: { risks: 'Risks', decisions: 'Decisions needed', text: 'Text', impact: 'Impact', owner: 'Owner', due: 'Due', raised: 'Raised', decided: 'Decided', note: 'Note', status: 'Status',
+    call: 'Weekly call (PM)', overall: 'Overall status (blank = computed)', comment: 'Weekly comment', weekEnd: 'Last status week' },
+  impact: { H: 'High', M: 'Medium', L: 'Low' }, riskStatus: { open: 'Open', closed: 'Closed' }, decStatus: { open: 'Open', decided: 'Decided' },
+  ragManual: { '': 'Use computed', red: 'Red', amber: 'Amber', green: 'Green' },
+});
+for (const [lg, t] of [['ko', '리스크·결정'], ['en', 'Risks & decisions']]) {
+  const o = LABELS[lg].tabs;
+  LABELS[lg].tabs = { sum: o.sum, kpi: o.kpi, ms: o.ms, risk: t, wbs: o.wbs, sap: o.sap, team: o.team, hist: o.hist };
+}
+
 export const labelsFor = (lang) => LABELS[String(lang || '').slice(0, 2)] || LABELS.en;
 
 export const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
@@ -99,7 +117,11 @@ export function renderSummary(v, L) {
     v.orphans.map(o => [o.num, esc(o.label), esc(o.ws || ''), `${o.side ? `${esc(L.side[o.side])}: ` : ''}${esc(o.name)}`, esc(o.left)]))}` : '';
   const alert = v.kpis.filter(k => k.rag === 'red' || k.rag === 'amber');
   const kp = alert.length ? `<h3>${L.kpiAlert}</h3><div class="tiles">${alert.slice(0, 8).map(k => `<div class="tile"><div class="k">${esc(k.auto ? L.kpiName[k.id] || k.id : k.label)}</div><div class="v">${kpiVal(k, L)} <small>/ ${esc(k.target ?? '')}${esc(k.unit || '')}</small> ${chip(k.rag, L)}</div></div>`).join('')}</div>` : '';
-  return `<div class="tiles">${tiles}</div>${kp}${orph}
+  const st = v.m.status || {}, R = L.rd;
+  const call = `<div class="tiles"><div class="tile"><div class="k">${esc(R.overall)}</div><div class="v">${ed('s', 'status', 'overall', 'enum:ragManual', st.overall ? chip(st.overall, L) : `<small class="muted">${esc(L.ragManual[''])}</small>`)}</div></div>`
+    + `<div class="tile" style="grid-column:span 2"><div class="k">${esc(R.comment)}</div><div class="v"><small>${ed('s', 'status', 'comment', 'text', esc(st.comment || ''))}</small></div></div>`
+    + `<div class="tile"><div class="k">${esc(R.weekEnd)}</div><div class="v"><small>${esc(arr(v.m.statusLog).at(-1)?.weekEnd || '—')}</small></div></div></div>`;
+  return `<div class="tiles">${tiles}</div><h3>${esc(R.call)}</h3>${call}${kp}${orph}
 <div class="grid2"><section><h3>${L.curve}</h3>${sCurveSvg(v, L)}</section><section><h3>${L.upcoming}</h3>${up}</section></div>
 <h3>${L.handoff}</h3><div class="grid2"><section><h4>${L.toDev}</h4>${q(v.handoff.toDev)}</section><section><h4>${L.toFn}</h4>${q(v.handoff.toFn)}</section></div>
 <div class="grid2"><section><h3>${L.heat}</h3>${heat}</section><section><h3>${L.late}</h3>${late}</section></div>`;
@@ -308,8 +330,21 @@ export function renderHistory(history, L) {
 }
 
 /** Every tab's inner HTML for a model. */
+/** Risks & decisions tab: two editable lists (the weekly status page shows the open ones). */
+export function renderRisks(v, L) {
+  const R = L.rd;
+  const risks = [...v.m.risks].sort((a, b) => (a.status === b.status ? 'HML'.indexOf(a.impact) - 'HML'.indexOf(b.impact) : a.status === 'open' ? -1 : 1));
+  const rt = table(['ID', R.text, R.impact, R.owner, R.due, R.raised, R.status], risks.map(r => [esc(r.id), ed('r', r.id, 'text', 'text', esc(r.text || '')),
+    ed('r', r.id, 'impact', 'enum:impact', esc(L.impact[r.impact] || r.impact)), ed('r', r.id, 'owner', 'owner', esc(name(v, r.owner) || '')),
+    ed('r', r.id, 'due', 'date', r.due || ''), ed('r', r.id, 'raised', 'date', r.raised || ''), ed('r', r.id, 'status', 'enum:riskStatus', esc(L.riskStatus[r.status] || r.status))]), 'rk');
+  const dt = table(['ID', R.text, R.owner, R.due, R.status, R.decided, R.note], v.m.decisions.map(d => [esc(d.id), ed('d', d.id, 'text', 'text', esc(d.text || '')),
+    ed('d', d.id, 'owner', 'owner', esc(name(v, d.owner) || '')), ed('d', d.id, 'due', 'date', d.due || ''), ed('d', d.id, 'status', 'enum:decStatus', esc(L.decStatus[d.status] || d.status)),
+    ed('d', d.id, 'decided', 'date', d.decided || ''), ed('d', d.id, 'note', 'text', esc(d.note || ''))]), 'dc');
+  return `<h3>${esc(R.risks)}</h3>${risks.length ? rt : `<p class="muted">${L.none}</p>`}<h3>${esc(R.decisions)}</h3>${v.m.decisions.length ? dt : `<p class="muted">${L.none}</p>`}`;
+}
+
 export function renderAll(model, { history = [], today } = {}) {
   const v = viewModel(model, today);
   const L = labelsFor(v.m.lang);
-  return { v, L, sum: renderSummary(v, L), kpi: renderKpi(v, L), ms: renderMilestones(v, L), wbs: renderWbs(v, L), sap: renderSap(v, L), team: renderTeam(v, L), hist: renderHistory(history, L) };
+  return { v, L, sum: renderSummary(v, L), kpi: renderKpi(v, L), ms: renderMilestones(v, L), risk: renderRisks(v, L), wbs: renderWbs(v, L), sap: renderSap(v, L), team: renderTeam(v, L), hist: renderHistory(history, L) };
 }

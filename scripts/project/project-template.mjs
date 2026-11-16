@@ -92,7 +92,11 @@ export function addWricef(model, items) {
   const ids = new Set(m.wbs.map(w => w.id));
   const containers = m.wbs.filter(w => w.wricefContainer);
   const added = [], skipped = [];
+  // an item from a source document (e.g. a gap analysis) is imported once: same doc + module + code = already in
+  const srcKey = (s) => (s && s.doc && s.code ? `${s.doc}|${s.module || ''}|${s.code}` : '');
+  const imported = new Set(m.wbs.map(w => srcKey(w.wricef?.source)).filter(Boolean));
   for (const it of arr(items)) {
+    if (srcKey(it.source) && imported.has(srcKey(it.source))) { skipped.push({ item: it.label, reason: 'already imported' }); continue; }
     const c = containers.find(w => w.ws === it.module) || containers.find(w => w.ws === '—');
     if (!c) { skipped.push({ item: it.label, reason: `no WRICEF development deliverable for module ${it.module}` }); continue; }
     if (!WRICEF_KINDS.includes(it.kind)) { skipped.push({ item: it.label, reason: `kind must be one of ${WRICEF_KINDS.join('')}` }); continue; }
@@ -103,9 +107,10 @@ export function addWricef(model, items) {
     m.wbs.push({
       id, parent: c.id, label: it.label, type: 'wricef', ws: it.module, start: c.start, finish: c.finish, baseStart: c.start, baseFinish: c.finish,
       fnOwner: it.fnOwner || ownerFor(team, 'fn', it.module), devOwner: it.devOwner || ownerFor(team, 'dev', it.module),
-      status: 'notstarted', pct: 0, deps: [],
-      wricef: { kind: it.kind, stage: STAGES.includes(it.stage) ? it.stage : 'req', stageDates: {}, objects: arr(it.objects), trs: [] },
+      status: 'notstarted', pct: 0, deps: [], ...(it.note ? { note: String(it.note) } : {}),
+      wricef: { kind: it.kind, stage: STAGES.includes(it.stage) ? it.stage : 'req', stageDates: {}, objects: arr(it.objects), trs: [], ...(srcKey(it.source) ? { source: it.source } : {}) },
     });
+    if (srcKey(it.source)) imported.add(srcKey(it.source));
     added.push(id);
   }
   return { model: normalizeModel(m), added, skipped };

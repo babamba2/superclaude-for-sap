@@ -36,7 +36,10 @@ export const MS_STATUS = ['planned', 'passed', 'conditional', 'failed'];
 export const WRICEF_KINDS = ['R', 'I', 'C', 'E', 'F', 'W'];
 export const STAGES = ['req', 'fs', 'ts', 'build', 'ut', 'fut', 'sit', 'done'];
 export const STAGE_SIDE = { req: 'F', fs: 'F', ts: 'D', build: 'D', ut: 'D', fut: 'F', sit: 'F', done: '' };
-export const STAGE_PCT = { req: 0, fs: 15, ts: 25, build: 50, ut: 65, fut: 80, sit: 90, done: 100 };
+export const RISK_IMPACT = ['H', 'M', 'L'];
+export const RISK_STATUS = ['open', 'closed'];
+export const DECISION_STATUS = ['open', 'decided'];
+export const STAGE_PCT ={ req: 0, fs: 15, ts: 25, build: 50, ut: 65, fut: 80, sit: 90, done: 100 };
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Fills defaults, keeps unknown fields. Returns a new model. */
@@ -60,6 +63,10 @@ export function normalizeModel(m) {
   out.milestones = arr(out.milestones).map(x => ({ status: 'planned', criteria: [], ...x }));
   out.snapshots = arr(out.snapshots);
   out.kpis = arr(out.kpis).map(k => ({ dir: 'up', history: [], ...k }));
+  // weekly status (all optional; older models open unchanged)
+  out.risks = arr(out.risks).map(r => ({ impact: 'M', status: 'open', ...r }));
+  out.decisions = arr(out.decisions).map(d => ({ status: 'open', ...d }));
+  out.statusLog = arr(out.statusLog);
   return out;
 }
 const clampPct = (n) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
@@ -115,6 +122,22 @@ export function checkModel(m) {
     if (!DATE.test(x.base || '')) errors.push(`milestone ${x.id}: base must be YYYY-MM-DD`);
     if (x.phase && !ids.has(x.phase)) warnings.push(`milestone ${x.id}: phase ${x.phase} not found`);
   }
+  for (const [list, kind, states] of [[m?.risks, 'risk', RISK_STATUS], [m?.decisions, 'decision', DECISION_STATUS]]) {
+    const seen = new Set();
+    for (const x of arr(list)) {
+      if (!x.id) { errors.push(`${kind} without id ("${x.text || ''}")`); continue; }
+      if (seen.has(x.id)) errors.push(`duplicate ${kind} id ${x.id}`);
+      seen.add(x.id);
+      if (!x.text) warnings.push(`${kind} ${x.id}: text missing`);
+      if (x.status && !states.includes(x.status)) errors.push(`${kind} ${x.id}: unknown status "${x.status}"`);
+      if (kind === 'risk' && x.impact && !RISK_IMPACT.includes(x.impact)) errors.push(`risk ${x.id}: impact must be H, M or L`);
+      for (const k of ['due', 'raised', 'decided']) if (x[k] && !DATE.test(x[k])) errors.push(`${kind} ${x.id}: ${k} must be YYYY-MM-DD`);
+      if (x.owner && !team.has(x.owner)) warnings.push(`${kind} ${x.id}: owner ${x.owner} is not in the team`);
+    }
+  }
+  const st = m?.status;
+  if (st?.overall && !['red', 'amber', 'green'].includes(st.overall)) errors.push(`status.overall must be red, amber or green`);
+  for (const [w, r] of Object.entries(st?.wsRag || {})) if (!['red', 'amber', 'green'].includes(r)) errors.push(`status.wsRag.${w} must be red, amber or green`);
   return { errors, warnings };
 }
 
