@@ -13,6 +13,7 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
   - data of specific documents or a change to them (open POs, post GI, release, block, reverse …) → assist (it confirms before any write)
   - dump / short dump / error / "why does it fail" for a run in the system → analyze-symptom
   - daily check / system health / "what broke since yesterday" / failed jobs, update errors, IDoc errors → ops-health-check
+  - can these transport requests go to QA / PRD, open tasks, import order → transport-readiness
   - connection or plugin not working → sap-doctor
 - PROPOSE in one line (skill + target + what it produces), run on yes:
   - build a program / report / ALV / batch → create-program · one DDIC object, class, FM → create-object
@@ -32,7 +33,7 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
 
 | Mode | Skills | Reason |
 |---|---|---|
-| Run | `ask-consultant`, `assist`, `analyze-symptom`, `ops-health-check`, `sap-doctor` | Answer-shaped, read-only or self-confirming, finish in minutes. Asking first only adds a turn. |
+| Run | `ask-consultant`, `assist`, `analyze-symptom`, `ops-health-check`, `transport-readiness`, `sap-doctor` | Answer-shaped, read-only or self-confirming, finish in minutes. Asking first only adds a turn. |
 | Propose | every skill that writes a deliverable file, writes to SAP, or dispatches many agents | Takes minutes and money, or changes the system. The user should see the target and the output before it starts. |
 
 `assist` stays in Run: its own flow previews every write and waits for an explicit yes ([`intent-router.md`](intent-router.md) § 4).

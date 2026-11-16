@@ -77,6 +77,7 @@ Skills that read or produce project-local artifacts must adopt this pattern:
 - `/sc4sap:project-dashboard` — writes `projects/<CODE>/` (`<CODE>-project.json`, `<CODE>-dashboard-v<ver>-<lang>.html`, history, `_src/`, `_i18n/`) + `projects/portfolio-<lang>.html`
 - `/sc4sap:role-matrix` — writes `roles/<CODE>/` (`<CODE>-roles.json`, `<CODE>-role-matrix-v<ver>-<lang>.html`, `_src/`)
 - `/sc4sap:uat-scenarios` — writes `uat/<ID>/<ID>-uat.json` + exports `<ID>-uat-{A,B}.xlsx`; `uat/_answers/`, `uat/_patch/` (consultant drafts and accepted proposals)
+- `/sc4sap:transport-readiness` — writes `transport/<date>/` (`collect.json`, `model.json`, `tr-check-<lang>.{html,md}`)
 - `/sc4sap:ops-health-check` — writes `ops-check/<to>/` (`collect.json`, `model.json`, `ops-check-<to>-<lang>.{html,md}`)
 - `/sc4sap:analyze-symptom` — writes audit reports
 - `/sc4sap:create-object` — writes nothing long-term (transient state only)
