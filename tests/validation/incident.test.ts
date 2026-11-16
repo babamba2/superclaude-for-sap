@@ -201,3 +201,16 @@ describe('incident — not read is never "none found"', () => {
     expect(html).not.toContain('입력에 맞는 오류 IDoc을 찾지 못했어요');
   });
 });
+
+describe('incident — P3b: steps refused', () => {
+  it('dumps (read, empty) say "could not check — steps unknown", not "none found"', () => {
+    const f = buildFacts(jobCollect({ lang: 'ko', steps: { ok: false, rows: [], error: 'TABLE_READ: table TBTCP is not allowed' }, dumps: { ok: true, rows: [] } }));
+    expect(f.flags.dump).toBeNull();
+    const html = renderIncidentPage(f);
+    const dumpSection = /<h2>실패 시각 근처 덤프<\/h2>(.*?)<h2>/s.exec(html)![1];
+    expect(dumpSection).toContain('스텝을 몰라 확인 못 함');
+    expect(dumpSection).not.toContain('찾지 못함');
+    const en = renderIncidentPage(buildFacts(jobCollect({ steps: { ok: false, rows: [], error: 'refused' }, dumps: { ok: true, rows: [] } })));
+    expect(/<h2>Dumps around the failure<\/h2>(.*?)<h2>/s.exec(en)![1]).toContain('could not check — steps unknown');
+  });
+});

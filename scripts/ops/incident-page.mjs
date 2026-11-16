@@ -18,7 +18,7 @@ const L = {
       dataOrVariant: 'None of the above — the cause is likely in the data or the variant; the job log (SM37) shows the message',
       error: 'The IDoc is in an error status', mass: 'Many IDocs of this message type and partner sit in the same status (7 days)', single: 'Only this IDoc of the type and partner is in this status (7 days)',
     },
-    yes: 'yes', no: 'no', unknown: 'unknown', notReadSec: 'not read — see "Not read" below', skippedSec: 'not checked (nothing to check against)', dumps: 'Dumps around the failure', at: 'At', error: 'Runtime error', matched: 'Step program',
+    yes: 'yes', no: 'no', unknown: 'unknown', notReadSec: 'not read — see "Not read" below', skippedSec: 'not checked (nothing to check against)', stepsUnknown: 'could not check — steps unknown', dumps: 'Dumps around the failure', at: 'At', error: 'Runtime error', matched: 'Step program',
     suspects: 'Requests that changed the code', request: 'Request', date: 'Date', text: 'Text', between: 'Between runs',
     concurrent: 'Other jobs aborted ±30 min', idoc: 'IDoc', mestyp: 'Message type', idoctp: 'Basic type', direction: 'Direction', partner: 'Partner', port: 'Port',
     created: 'Created', updated: 'Changed', volume: 'Same type and partner, 7 days', sameStatus: 'in the same status', anyError: 'in an error status', total: 'in total',
@@ -38,7 +38,7 @@ const L = {
       dataOrVariant: '위 신호가 없어요 — 원인은 데이터나 변형일 가능성이 커요. 잡 로그(SM37)에서 메시지를 확인해요',
       error: 'IDoc이 오류 상태예요', mass: '같은 메시지 유형·파트너의 IDoc이 같은 상태에 많이 있어요 (7일)', single: '같은 유형·파트너 중 이 IDoc만 이 상태예요 (7일)',
     },
-    yes: '예', no: '아니오', unknown: '알 수 없음', notReadSec: '읽지 못함 — 아래 "읽지 못한 것"을 봐요', skippedSec: '확인 못 함 (비교할 대상이 없어요)', dumps: '실패 시각 근처 덤프', at: '시각', error: '런타임 오류', matched: '스텝 프로그램',
+    yes: '예', no: '아니오', unknown: '알 수 없음', notReadSec: '읽지 못함 — 아래 "읽지 못한 것"을 봐요', skippedSec: '확인 못 함 (비교할 대상이 없어요)', stepsUnknown: '스텝을 몰라 확인 못 함', dumps: '실패 시각 근처 덤프', at: '시각', error: '런타임 오류', matched: '스텝 프로그램',
     suspects: '코드를 바꾼 요청', request: '요청', date: '날짜', text: '내역', between: '실행 사이',
     concurrent: '±30분 안에 중단된 다른 잡', idoc: 'IDoc', mestyp: '메시지 유형', idoctp: '기본 유형', direction: '방향', partner: '파트너', port: '포트',
     created: '생성', updated: '변경', volume: '같은 유형·파트너, 7일', sameStatus: '같은 상태', anyError: '오류 상태', total: '전체',
@@ -57,6 +57,9 @@ const yn = (v, t) => (v === true ? t.yes : v === false ? t.no : t.unknown);
 /** A section that was not read or not checked says so instead of "none found". */
 const gap = (f, k, t) => { const s = f.state?.[k]; return s === 'notRead' ? `<p class="warn">${esc(t.notReadSec)}</p>` : s === 'skipped' ? `<p class="warn">${esc(t.skippedSec)}</p>` : ''; };
 const orNone = (f, k, t, html) => gap(f, k, t) || html || esc(t.none);
+/** Dumps and changing requests are matched to the step programs: without the steps an empty result proves nothing. */
+const stepsGap = (f, t) => (f.kind === 'job' && f.state && f.state.steps !== 'read' ? `<p class="warn">${esc(t.stepsUnknown)}</p>` : '');
+const orNoneSteps = (f, k, t, html) => gap(f, k, t) || html || stepsGap(f, t) || esc(t.none);
 
 function flagList(f, t) {
   return `<ul>${Object.entries(f.flags || {}).map(([k, v]) => `<li><b>${esc(yn(v, t))}</b> — ${esc(t.flag[k] || k)}</li>`).join('')}</ul>`;
@@ -103,7 +106,7 @@ export function renderIncidentPage(f) {
     else parts.push(`<p>${t.failure}: ${run(f.failure, t)}<br>${t.lastOk}: ${run(f.lastOk, t)}<br>${t.history}: ${f.history.runs} ${t.runs} · ${f.history.aborted} ${t.aborted} · ${f.history.finished} ${t.finished} · ${f.history.abortedInRow} ${t.inRow}${f.history.periodic ? ` · ${t.periodic} (${t.every} ${esc(f.history.period)})` : ''}</p>`);
     parts.push(`<h2>${t.flags}</h2>${flagList(f, t)}`);
     parts.push(`<h2>${t.steps}</h2><div class="box">${orNone(f, 'steps', t, table([t.step, t.program, t.variant, t.external, t.status], f.steps.map((s) => [s.step, esc(s.program), esc(s.variant), esc(s.external), esc(s.status)])))}</div>`);
-    parts.push(`<h2>${t.dumps}</h2><div class="box">${orNone(f, 'dumps', t, table([t.at, t.error, t.program, t.matched], f.dumps.map((d) => [`${esc(d.date)} ${esc(d.time)}`, esc(d.error), esc(d.program), d.matched ? t.yes : t.no])))}</div>`);
+    parts.push(`<h2>${t.dumps}</h2><div class="box">${orNoneSteps(f, 'dumps', t, table([t.at, t.error, t.program, t.matched], f.dumps.map((d) => [`${esc(d.date)} ${esc(d.time)}`, esc(d.error), esc(d.program), d.matched ? t.yes : t.no])))}</div>`);
     parts.push(`<h2>${t.concurrent}${f.state?.others === 'read' ? ` (${f.concurrentTotal})` : ''}</h2><div>${orNone(f, 'others', t, f.concurrent.map((x) => `${esc(x.job)} <small>${esc(x.endDate)} ${esc(x.endTime)}</small>`).join(', '))}</div>`);
   } else {
     parts.push(`<h1>${esc(t.idocTitle)}${f.focus ? ` · ${esc(f.focus.docnum)}` : ''}</h1>`);
@@ -118,7 +121,7 @@ export function renderIncidentPage(f) {
     if (f.interfaces.length) parts.push(`<h2>${t.interfaces}</h2><ul>${f.interfaces.map((i) => `<li>${esc(i.ifId)} ${esc(i.name)}</li>`).join('')}</ul>`);
     if (f.others.length) parts.push(`<h2>${t.others}</h2><div class="box">${table([t.idoc, t.status, t.partner, t.created], f.others.map((i) => [esc(i.docnum), `${esc(i.status)} ${esc(i.statusText)}`, esc(i.partner), esc(i.created)]))}</div>`);
   }
-  parts.push(`<h2>${t.suspects}</h2><div class="box">${orNone(f, 'changes', t, table([t.request, t.date, t.status, t.text, t.between], arr(f.suspects).map((s) => [esc(s.trkorr), esc(s.date), esc(s.status), esc(s.text), s.betweenRuns ? t.yes : t.no])))}</div>`);
+  parts.push(`<h2>${t.suspects}</h2><div class="box">${orNoneSteps(f, 'changes', t, table([t.request, t.date, t.status, t.text, t.between], arr(f.suspects).map((s) => [esc(s.trkorr), esc(s.date), esc(s.status), esc(s.text), s.betweenRuns ? t.yes : t.no])))}</div>`);
   const nr = f.notRead.map((n) => `<li>${esc(n.section)} <small>${esc(n.error)}</small></li>`).join('');
   parts.push(`<h2>${t.notRead} · ${t.limits}</h2>${f.dispatcherClosed ? `<p class="warn">${esc(t.closed)}</p>` : ''}<ul>${nr}${f.phase1Limits.map((k) => `<li>${esc(t.limit[k] || k)}</li>`).join('')}</ul>`);
   const title = f.kind === 'job' ? `${t.jobTitle} · ${f.job}` : `${t.idocTitle}${f.focus ? ` · ${f.focus.docnum}` : ''}`;
