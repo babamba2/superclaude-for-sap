@@ -22,6 +22,7 @@ Imports fail, or break QA, for a handful of repeat reasons: a task still open, a
 - "Are these requests ready for QA?", "check K900123 before import", "my open requests", "release check for project [SD]", "CTS 점검", "이관 전 점검", "운영 이관 가능 여부", "릴리스 전에 확인해줘"
 - "Can it go into QAS / PRD without breaking anything?", "QAS에 들어가도 되나", "운영에 병합돼도 되나" — add the target merge check
 - Before a release window; before a hand-over to the basis team; tonight's import list for SM operations ("오늘 밤 이관 목록")
+- Change notes for the CAB before a PRD import ("CAB", "change notes", "변경 노트", "변경 승인 회의") → follow [`cab-notes.md`](cab-notes.md)
 </Use_When>
 
 <Do_Not_Use_When>
@@ -45,7 +46,7 @@ Imports fail, or break QA, for a handful of repeat reasons: a task still open, a
 <Workflow>
 `<B>` = `node "<PLUGIN_ROOT>/scripts/transport/build-tr-check.mjs"`, `<out>` = `<base>/transport/<today>`.
 
-**Step 1 — Which requests.** From ARGUMENTS: request numbers, "my requests" (owner = the profile's user), or a project tag / text pattern. Target system (QAS / PRD) if named. Target destination if named (`Target destination: <DEST>` line, `--target-dest <DEST>`, "destination QASCLNT100", "대상 RFC QASCLNT100") → pass it as `--target-dest`; a blank line counts as not named. Report language if named (Korean / English / Japanese → `ko` / `en` / `ja`), else the profile `config.json` `language`, else `ko`. Requests missing → ask once.
+**Step 1 — Which requests.** CAB change notes asked for (Use_When) → the steps of [`cab-notes.md`](cab-notes.md) replace Steps 2–4. From ARGUMENTS: request numbers, "my requests" (owner = the profile's user), or a project tag / text pattern. Target system (QAS / PRD) if named. Target destination if named (`Target destination: <DEST>` line, `--target-dest <DEST>`, "destination QASCLNT100", "대상 RFC QASCLNT100") → pass it as `--target-dest`; a blank line counts as not named. Report language if named (Korean / English / Japanese → `ko` / `en` / `ja`), else the profile `config.json` `language`, else `ko`. Requests missing → ask once.
 
 **Step 1b — Target destination** (when a target system is named or the user asks whether the requests can go into it, e.g. "QAS에 들어가도 되나"; skip when ARGUMENTS already name the destination). Ask for it clearly in one line — the SM59 destination of the target, so the run also finds changes made only there that the import would overwrite. Call `GetRemoteTableContents` with `table_name: "TADIR"` and **no** destination: the error lists the SM59 destinations saved for the profile. Show them and let the user pick one or name another; never guess. Nothing saved and none given → run without the merge check and say so.
 
@@ -68,7 +69,7 @@ Only transport and repository metadata is read, on the source and (with a destin
 </Data_Rules>
 
 <MCP_Tools_Used>
-Through `build-tr-check.mjs collect` only (its own MCP client): `GetSqlQuery` (E070, E07T, E071, TADIR, DWINACTV, D010TAB), `GetInactiveObjects`, `GetWhereUsed`; with `--target-dest` `GetRemoteTableContents` on the target (TADIR, VRSD, E070, E07T).
+Through `build-tr-check.mjs collect` only (its own MCP client): `GetSqlQuery` (E070, E07T, E071, TADIR, DWINACTV, D010TAB), `GetInactiveObjects`, `GetWhereUsed`; with `--cab` `GetSqlQuery` on TBTCO / TBTCP (scheduled jobs and their step programs); with `--target-dest` `GetRemoteTableContents` on the target (TADIR, VRSD, E070, E07T).
 </MCP_Tools_Used>
 
 <Files>
@@ -76,6 +77,7 @@ Through `build-tr-check.mjs collect` only (its own MCP client): `GetSqlQuery` (E
 - `scripts/transport/tr-target.mjs` — target merge reads (TADIR, VRSD, used DDIC)
 - `scripts/transport/tr-model.mjs` — findings and verdict per request, target merge per request
 - `scripts/transport/tr-page.mjs` — the page (ko / en / ja) and the summary
+- `scripts/transport/build-cab-notes.mjs` — CAB notes `prepare`, `save`, `build`, `import` ([`cab-notes.md`](cab-notes.md)); `cab-model.mjs` (impact, jobs, risk, rollback), `cab-evidence.mjs` (evidence, writer lint), `cab-page.mjs`
 </Files>
 
 <Related_Skills>

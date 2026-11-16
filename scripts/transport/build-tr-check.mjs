@@ -2,7 +2,7 @@
 // sc4sap:transport-readiness — is a transport request ready to move on? Read-only.
 //
 //   node scripts/transport/build-tr-check.mjs collect (--requests K1,K2 | --owner <USER> | --text "<like pattern>")
-//        --out-dir <dir> [--system SID] [--target QAS] [--target-dest <SM59 destination>]
+//        --out-dir <dir> [--system SID] [--target QAS] [--target-dest <SM59 destination>] [--cab]
 //   node scripts/transport/build-tr-check.mjs build --in <dir>/collect.json --out-dir <dir> [--lang ko|en|ja]
 //
 // collect — through the sc4sap MCP server (config/sap-reader.mjs): the requests (E070 / E07T), their tasks,
@@ -11,7 +11,8 @@
 //   (TADIR), and DDIC objects of other open requests that this request's code uses (GetWhereUsed, ≤ 40
 //   objects). With --target-dest: the target merge check (tr-target.mjs) — the target's TADIR / VRSD read
 //   through GetRemoteTableContents over that SM59 destination. A read the system refuses is recorded as
-//   not read, never as "none".
+//   not read, never as "none". With --cab: scheduled / released jobs (TBTCO status S / P) and their step
+//   programs (TBTCP) for the CAB notes (build-cab-notes.mjs) — the only reads --cab adds.
 // build — offline: tr-check-<lang>.html, tr-check-<lang>.md, model.json.
 
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -145,15 +146,30 @@ async function collect(o) {
       targetSystem = await collectTarget({ client, readIn }, { requests, objects, deps }, { dest, label: o.target || '' });
     }
 
-    const out = { system: o.system || '', target: o.target || '', readAt: new Date().toISOString().slice(0, 16).replace('T', ' '), requests, tasks, objects, others, inactive, tadir, deps, targetSystem };
+    // 8. With --cab: scheduled / released jobs and the programs of their steps (CAB notes: jobs an import affects).
+    const jobs = o.cab ? await scheduledJobs(client, readTable, readIn) : null;
+
+    const out = { system: o.system || '', target: o.target || '', readAt: new Date().toISOString().slice(0, 16).replace('T', ' '), requests, tasks, objects, others, inactive, tadir, deps, targetSystem, ...(jobs ? { jobs } : {}) };
     mkdirSync(o['out-dir'], { recursive: true });
     const file = join(o['out-dir'], 'collect.json');
     writeFileSync(file, JSON.stringify(out, null, 1));
     return { file, requests: requests.length, objects: objects.length, others: others.rows.length, inactive: inactive.ok ? `${inactive.rows.length} (${inactive.scope})` : 'not read', deps: deps.rows.length,
+      ...(jobs ? { jobs: jobs.ok ? jobs.rows.length : 'not read' } : {}),
       ...(targetSystem ? { target: targetSystem.ok ? { dest: targetSystem.dest, checked: targetSystem.checked, inTarget: targetSystem.tadir.length, versions: targetSystem.versions.length, used: targetSystem.needs.length, notes: targetSystem.notes } : { dest: targetSystem.dest, ok: false, error: targetSystem.error } } : {}) };
   } finally {
     await client.close().catch(() => {});
   }
+}
+
+/** TBTCO jobs scheduled (P) or released (S) and their step programs (TBTCP). A refused read → { ok: false }. */
+export async function scheduledJobs(client, readTable, readIn) {
+  const heads = await readTable(client, 'TBTCO', { where: "STATUS IN ('S', 'P')", fields: ['JOBNAME', 'JOBCOUNT', 'STATUS'], maxRows: 5000 });
+  if (!heads.ok) return { ok: false, rows: [], error: String(heads.error || 'TBTCO not read').slice(0, 200) };
+  const status = new Map(arr(heads.rows).map((r) => [`${r.JOBNAME}|${r.JOBCOUNT}`, r.STATUS]));
+  const steps = await readIn(client, 'TBTCP', 'JOBCOUNT', [...new Set(arr(heads.rows).map((r) => r.JOBCOUNT))], { fields: ['JOBNAME', 'JOBCOUNT', 'STEPCOUNT', 'PROGNAME'] });
+  const rows = arr(steps.rows).filter((s) => status.has(`${s.JOBNAME}|${s.JOBCOUNT}`) && String(s.PROGNAME || '').trim())
+    .map((s) => ({ job: s.JOBNAME, program: up(s.PROGNAME), status: status.get(`${s.JOBNAME}|${s.JOBCOUNT}`) }));
+  return { ok: !!steps.ok, rows, truncated: arr(heads.rows).length >= 5000, ...(steps.ok ? {} : { error: arr(steps.errors).join('; ').slice(0, 200) }) };
 }
 
 /** Customer DDIC objects in other open requests of the last 90 days — what this request's code might need. */
@@ -180,7 +196,7 @@ function build(o) {
   return { html: `${base}.html`, md: `${base}.md`, summary: model.summary, text: summary };
 }
 
-const USAGE = 'usage: build-tr-check.mjs collect (--requests K1,K2 | --owner USER | --text PATTERN) --out-dir <dir> [--system SID] [--target QAS] [--target-dest DEST] | build --in <dir>/collect.json --out-dir <dir> [--lang ko|en|ja]';
+const USAGE = 'usage: build-tr-check.mjs collect (--requests K1,K2 | --owner USER | --text PATTERN) --out-dir <dir> [--system SID] [--target QAS] [--target-dest DEST] [--cab] | build --in <dir>/collect.json --out-dir <dir> [--lang ko|en|ja]';
 
 if (process.argv[1] && /build-tr-check\.mjs$/.test(process.argv[1])) {
   const o = args(process.argv.slice(2));
