@@ -1,0 +1,154 @@
+<!doctype html><html><head><meta charset="utf-8"><title>ZTEST_FORM preview</title><style>
+@page{size:210mm 297mm;margin:0}
+html,body{margin:0;background:#fff}
+.sheet{zoom:4;position:relative;width:210mm;height:297mm;background:#fff;overflow:hidden}
+.win{position:absolute;box-sizing:border-box}
+.win img{display:block}
+/* a graphic prints whole, past the cell it stands in (ZFI_SMT_VAT_0606_IND logo, ZSDRA0390_PL_T signature) */
+.row:has(img),.cell:has(img),.tpl:has(img),.row:has(.bc),.cell:has(.bc),.tpl:has(.bc){overflow:visible}
+.bcw{display:inline-block;position:relative;height:0;vertical-align:baseline}.bcw>svg{position:absolute;left:0;bottom:0}
+.row{display:flex;overflow:hidden}
+.cell{box-sizing:border-box;overflow:hidden;flex:none;position:relative}
+.tpl,.boxed{position:relative}
+.frame{position:absolute;inset:0;box-sizing:border-box;pointer-events:none}
+/* SAP gives every glyph its full advance: no kerning pairs, no ligatures (ZSDR54190_INVOICE "1111111111" HELVE 9 pt: 24.7 mm, kerned 22.2) */
+.par{white-space:pre-wrap;font-kerning:none;font-variant-ligatures:none}
+.nb{white-space:nowrap}
+/* Angsana (Thai) is not on most PCs: Arial at 61 % of the size has its widths (ZSDR54090_TAX_INVOICE3) */
+@font-face{font-family:"SF Angsana fallback";src:local("Arial");size-adjust:61%}
+/* a character format never changes the line spacing of its paragraph (ZMMM20930 9 pt spans in a 12 pt paragraph) */
+.par .char{line-height:0}
+.cell .par{overflow-wrap:anywhere}
+.sym{color:#1a4f9c;background:#e8f0fb}
+.val{background:#fff6c8}
+.missing{font:8pt Arial,Helvetica,sans-serif;color:#b00;border:0.2mm dashed #b00;height:100%;box-sizing:border-box;padding:1mm}
+.ZTEST-STYLE  div#AA.par{    font-family : 'Arial' ;    font-size : 10pt ;    line-height : 4.23mm ;}.ZTEST-STYLE  div#BJ.par{    font-family : 'Arial' ;    font-size : 20pt ;    line-height : 4.23mm ;}.ZTEST-STYLE  div#C8.par{    font-family : 'Arial' ;    font-size : 8pt ;    line-height : 4.23mm ;}
+
+
+</style></head><body><div class="sheet" data-zoom="4"><div class="win" data-win="%WINDOW1" style="left:10mm;top:10mm;width:190mm;height:10mm;"><div class="ZTEST-STYLE" style="display:flow-root"><div id="BJ" class="par" data-node="%TEXT1"><span id="AA" class="char">ORDER</span> 4500001234</div></div></div><div class="win" data-win="%WINDOW2" style="left:10mm;top:20mm;width:190mm;height:5mm;"><div class="ZTEST-STYLE" style="display:flow-root"><div id="C8" class="par" data-node="%TEXT2">Page 1    of    1</div></div></div><div class="win main" data-win="MAIN" style="left:10mm;top:30mm;width:190mm;height:200mm;"><div class="tpl tmpl" data-node="%TEMPLATE1" style="width:50mm;"><div class="row" style="position:relative;height:5mm"><div class="cell" style="width:30mm;background:#d4d4d4;"><div class="ZTEST-STYLE" style="display:flow-root"><div id="AA" class="par" data-node="%TEXT3">100234</div></div><div class="frame" style="border-left:0.26mm solid #000;"></div></div><div class="cell" style="width:20mm;"><div class="ZTEST-STYLE" style="display:flow-root"><div id="AA" class="par" data-node="%TEXT4">1.000</div></div></div></div></div><div class="tpl tmpl" data-node="%TEMPLATE1" style="width:50mm;"><div class="row" style="position:relative;height:5mm"><div class="cell" style="width:30mm;background:#d4d4d4;"><div class="ZTEST-STYLE" style="display:flow-root"><div id="AA" class="par" data-node="%TEXT3">100235</div></div><div class="frame" style="border-left:0.26mm solid #000;"></div></div><div class="cell" style="width:20mm;"><div class="ZTEST-STYLE" style="display:flow-root"><div id="AA" class="par" data-node="%TEXT4">2.000</div></div></div></div></div></div></div>
+<script>(function(){
+// a character format that only wraps other character formats prints nothing of its own: it makes
+// no inline box when it is larger than all the text inside (a 48 pt outer format around 22 pt text grew
+// a 1 LN line by 1.2 mm — ZLE_CTR_PRINT_CN_SPLIT; an 18 pt wrapper of 18 pt text stays: ZMMR03040N title)
+document.querySelectorAll('.sheet .par span.char:not(.barcode)').forEach(function(e){
+ for(var n=e.firstChild;n;n=n.nextSibling)if(n.nodeType===3||!(n.classList&&n.classList.contains('char')))return;
+ var fs=parseFloat(getComputedStyle(e).fontSize),big=true,tw=document.createTreeWalker(e,NodeFilter.SHOW_TEXT),tn;
+ while((tn=tw.nextNode()))if(/\S/.test(tn.nodeValue)&&parseFloat(getComputedStyle(tn.parentElement).fontSize)>=fs){big=false;break;}
+ if(big)e.style.display='contents';});
+// SAP advances a blank by the width its device type's font metrics give (SW in the OTF), in whole
+// twips: from the table of widths SAP sent (blank-widths.json, by device / family / size / bold),
+// else the browser's width rounded down (HELVE 12 pt bold 66.72 → 66); long runs of blanks drift
+// otherwise (ZFI_SMT_VAT_0601 / _C: 86 leading blanks, 1 mm; KPPDF HELVE 10 pt 56, PDFUC 14 pt 78 — reviewer I)
+if(!window.__sfNoSW){var cv=document.createElement('canvas').getContext('2d'),SW={},DEV="";
+document.querySelectorAll('.sheet .par, .sheet .par span.char').forEach(function(e){var cs=getComputedStyle(e);
+ cv.font=cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;var px=cv.measureText(' ').width;var tw=px*15;
+ var f=cs.getPropertyValue('--sapfam').trim()+'|'+cs.getPropertyValue('--sappt').trim()+'|',b=cs.getPropertyValue('--sapb').trim()==='B'?'B':'';
+ // not in the table: KPPDF HELVE is round(0.28 em), TIMES 0.25 em in all its entries (reviewer J);
+ // PDFUC HELVE / HELV_I7 round(0.277 em) at all 25 sizes seen (reviewer MN); else floor
+ var fam=cs.getPropertyValue('--sapfam').trim(),p10=Number(cs.getPropertyValue('--sappt'))||0;
+ var est=DEV==='KPPDF'&&p10&&fam==='HELVE'?Math.round(0.56*p10):DEV==='KPPDF'&&p10&&fam==='TIMES'?Math.round(0.5*p10)
+  :DEV==='PDFUC'&&p10&&/^HELV(E|_I7)$/.test(fam)?Math.round(0.554*p10):Math.floor(tw+1e-6);
+ var want=SW[f+b]!=null?SW[f+b]:SW[f+(b?'':'B')]!=null?SW[f+(b?'':'B')]:est;
+ // always set: a character format must not inherit its paragraph's correction
+ var d=want-tw;e.style.wordSpacing=(Math.abs(d)<0.001?0:d/15)+'px';});
+document.querySelectorAll('.sheet .par span.hy').forEach(function(e){var cs=getComputedStyle(e);
+ cv.font=cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;var tw=cv.measureText('-').width*15;
+ // PDFUC rounds to the nearest twip (HELV_I7 8 pt 53.28 → 53, HELVE 10 pt 66.6 → 67: ZSDR56010_CN);
+ // KPPDF keeps its metric in hundredths of an em: round(round(w / em, 2) × em) (HELVE 9 pt
+ // 0.333 → 0.33 × 180 = 59: ZSD_PI_VIETNAMN / _TAIWAN — reviewer MN)
+ // (DBCS fonts keep the old rule: their hyphen is the FC width, item 24 — ZMM_FORM_CRMIN KPDODUM)
+ var em=parseFloat(cs.fontSize)*15,dbcs=/^(KP|CN|JP|TW|ANDALE)/.test(cs.getPropertyValue('--sapfam').trim());
+ var want=DEV==='KPPDF'&&dbcs?Math.floor(tw+1e-6):DEV==='KPPDF'&&em?Math.round(Math.round(tw/em*100)/100*em):Math.round(tw);
+ var d=want-tw;if(Math.abs(d)>0.001)e.style.letterSpacing=(d/15)+'px';});
+// words: SAP adds up the glyph widths of its device type's font metrics, each rounded to whole
+// twips (PDFUC HELVCYR 10 pt "P215/60R16 95H" = 1530 tw, fits a 1531 tw cell — the browser's
+// Arial is 1535 and wraps: ZSMARTFORM_UTQG). Widths from SAP's own PDFs (glyph-widths.json)
+var GW={};
+if(Object.keys(GW).length){var tws=document.createTreeWalker(document.querySelector('.sheet'),NodeFilter.SHOW_TEXT),tn,list=[];
+ while((tn=tws.nextNode())){var pe=tn.parentElement;if(!pe||!pe.closest('.par')||pe.closest('.hy')||pe.closest('.gw')||!/\S/.test(tn.nodeValue))continue;list.push(tn);}
+ list.forEach(function(tn){var pe=tn.parentElement,cs=getComputedStyle(pe);var fam=cs.getPropertyValue('--sapfam').trim(),p10=Number(cs.getPropertyValue('--sappt'))||0;
+  var gk=fam+'|'+(cs.getPropertyValue('--sapb').trim()==='B'?'B':'');var w=GW[gk+'|'+p10]||GW[gk];if(!w||!p10)return;
+  cv.font=cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;
+  // one wrapper per text node (the metric reads runs per node): letter-spacing = the average
+  // correction of its non-blank glyphs, word-spacing less by as much (blanks keep their SW width)
+  // measured on the page (a canvas does not see fallback font faces: ZSDR54080_DEBIT_CREDIT
+  // Angsana New → "SF Angsana fallback" drew 0.47 mm wider than the canvas measured)
+  var Zm=Number((document.querySelector('.sheet')||{}).dataset.zoom)||1,rg=document.createRange();
+  var want=0,have=0,n=0,re=/\S+/g,m,v=tn.nodeValue;
+  while((m=re.exec(v))){var s=m[0],ws=0;for(var i=0;i<s.length;i++){var c=s.charCodeAt(i),g=c>=32&&c<=255?w[c-32]:null;if(g==null)return;ws+=Math.round(g*p10/500);}
+   rg.setStart(tn,m.index);rg.setEnd(tn,m.index+s.length);var px=0,rs=rg.getClientRects();for(var q=0;q<rs.length;q++)px+=rs[q].width;
+   want+=ws;have+=px/Zm*15;n+=s.length;}
+  if(!n)return;var ls=parseFloat(cs.letterSpacing)||0,d=(want-have)/n;if(Math.abs(d)<0.05)return;
+  var sp=document.createElement('span');sp.className='gw';sp.style.letterSpacing=(ls+d/15)+'px';sp.style.wordSpacing=((parseFloat(cs.wordSpacing)||0)-d/15)+'px';
+  pe.replaceChild(sp,tn);sp.appendChild(tn);});}}
+})();</script>
+<script>(function(){
+// a hyphenated word longer than a whole line breaks at its hyphens as SAP does
+// (ZSD_TRANSACTION_SPEC "MAT-" / "SAMPLE-"), on a line of its own (ZWO_FLEET_PRINT_N2)
+document.querySelectorAll('.par .nb').forEach(function(s){var par=s.closest('.par');
+ if(s.getBoundingClientRect().width<=par.getBoundingClientRect().width+0.5)return;
+ var rg=document.createRange();rg.setStart(par,0);rg.setEndBefore(s);
+ if(rg.toString().replace(/\s/g,'')&&!/\n\s*$/.test(rg.toString()))s.parentNode.insertBefore(document.createElement('br'),s);
+ while(s.firstChild)s.parentNode.insertBefore(s.firstChild,s);s.parentNode.removeChild(s);});})();</script>
+<script>window.__sfPaginate=function(){
+// MAIN overflows onto the next page: from the first row / paragraph that does not fit, the
+// rest of MAIN belongs to page 2 and is not drawn on page 1 (ZMMM20930 closing text)
+var cont=false;document.querySelectorAll('.win.main').forEach(function(w){var wb=w.getBoundingClientRect().bottom+0.5,gone=false,first=true;
+w.querySelectorAll('.tmpl, .row, .par, img, .sfbreak').forEach(function(e){if(e.classList.contains('sfbreak')){if(!gone){gone=true;cont=true;}return;}if(!e.classList.contains('tmpl')&&e.parentElement.closest('.tmpl'))return;if(!e.classList.contains('row')&&!e.classList.contains('tmpl')&&e.closest('.row'))return;
+var eb=e.getBoundingClientRect().bottom-(parseFloat(e.style.top)||0)*4;if(!gone&&eb>wb&&!first){gone=true;cont=true;}first=false;if(gone)e.style.visibility='hidden';});});
+// a cell or window cuts whole lines, never half a line (SAP prints the lines that fit);
+// the first line of a window always prints (ZFI_US_PAYMENT_LIST %WINDOW4: 6.35 mm line in a 6 mm window)
+document.querySelectorAll('.cell .par, .win:not(.main) > div > .par').forEach(function(p){var box=p.closest('.cell')||p.closest('.win');var bb=box.getBoundingClientRect().bottom+0.5;var r=p.getBoundingClientRect();var sh=(parseFloat(p.style.top)||0)*4;var top=r.top-sh,bot=r.bottom-sh;
+if(bot<=bb)return;var lh=parseFloat(getComputedStyle(p).lineHeight)*4;if(!(lh>0))return;var fit=Math.floor((bb-top)/lh+0.01);if(box.classList.contains('win')&&box.querySelector('.par')===p)fit=Math.max(fit,1);p.style.maxHeight=Math.max(0,fit*lh/4)+'px';p.style.overflow='hidden';});
+// windows printed only after the end of MAIN wait for the page where MAIN ends (ZMMM20930 %WINDOW3)
+if(cont)document.querySelectorAll('.win.aftermain').forEach(function(w){w.style.visibility='hidden';});
+return cont;};</script>
+<script>(function(){
+// auto-height table row: SAP adds 1/4 of the largest printed font size below the text
+// (5 twips per point: KPDODUM 8 pt +40 tw in ZFTA0540, TIMES 9 pt +45 tw in ZMMM20930)
+document.querySelectorAll('.row.autoh').forEach(function(r){var mx=0;r.querySelectorAll('.par, .par *').forEach(function(e){var own=[].some.call(e.childNodes,function(n){return n.nodeType===3&&n.nodeValue.trim();});if(own){var s=parseFloat(getComputedStyle(e).fontSize);if(s>mx)mx=s;}});
+if(mx)r.querySelectorAll(':scope>.cell').forEach(function(c){c.style.paddingBottom=(mx*0.25)+'px';});});})();</script>
+<script>(function(){var Z=4,PXMM=96/25.4;
+// ,, tabs: up to the next tab stop of the paragraph, else the next multiple of the
+// style's default distance, measured from the left edge of the cell / window
+document.querySelectorAll('.tab').forEach(function(t){var p=t.closest('.par');var box=t.closest('.cell')||t.closest('.win');if(!p||!box)return;
+var x=(t.getBoundingClientRect().left-box.getBoundingClientRect().left)/Z/PXMM;
+var stops=(p.dataset.tabs||'').split(',').filter(Boolean).map(Number);var d=Number(p.dataset.tabdist)||0;
+var next=stops.find(function(s){return s>x+0.05;});var ji=stops.indexOf(next);if(next===undefined&&d>0)next=(Math.floor((x+0.05)/d)+1)*d;if(next===undefined)next=x+2;
+// a RIGHT / CENTER stop aligns the text up to the next tab on the stop, trailing blanks not
+// counted (ZSDR96040_02 "HQ   " ends at 17.7 cm); text wider than the room starts where it is
+var j=ji>=0?((p.dataset.tabj||'').split(',')[ji]||'L'):'L';var w=next-x;
+if(j==='R'||j==='C'){var tabs=Array.prototype.slice.call(p.querySelectorAll('.tab'));var nt=tabs[tabs.indexOf(t)+1];
+ var tw=document.createTreeWalker(p,NodeFilter.SHOW_TEXT),tn,l=Infinity,r=-Infinity,top0=null,cr=document.createRange();
+ while((tn=tw.nextNode())){if(t.compareDocumentPosition(tn)&Node.DOCUMENT_POSITION_PRECEDING)continue;if(nt&&(nt.compareDocumentPosition(tn)&Node.DOCUMENT_POSITION_FOLLOWING))break;
+  for(var k=0;k<tn.nodeValue.length;k++){if(/\s/.test(tn.nodeValue[k]))continue;cr.setStart(tn,k);cr.setEnd(tn,k+1);var q=cr.getClientRects()[0];if(!q)continue;
+   if(top0===null)top0=q.top;if(Math.abs(q.top-top0)>2)continue;l=Math.min(l,q.left);r=Math.max(r,q.right);}}
+ var seg=r>l?(r-l)/Z/PXMM:0;
+ w=next-x-(j==='R'?seg:seg/2);
+ // the text may run back over the trailing blanks before it, not over ink or an earlier tab
+ // (ZSDR96040_02 "BOX" ends at 18.6 cm over the blanks of "HQ   "; reviewer H)
+ // (ink of the tab's own line only, never left of the box — reviewer I)
+ if(w<0){var bl=box.getBoundingClientRect().left,lim=0,tr=t.getBoundingClientRect(),tm=(tr.top+tr.bottom)/2,pw=document.createTreeWalker(p,NodeFilter.SHOW_TEXT),pn,pr=document.createRange();
+  while((pn=pw.nextNode())){if(!(t.compareDocumentPosition(pn)&Node.DOCUMENT_POSITION_PRECEDING))break;
+   for(var k2=0;k2<pn.nodeValue.length;k2++){if(/\s/.test(pn.nodeValue[k2]))continue;pr.setStart(pn,k2);pr.setEnd(pn,k2+1);var q2=pr.getClientRects()[0];if(q2&&Math.abs((q2.top+q2.bottom)/2-tm)<(q2.bottom-q2.top))lim=Math.max(lim,(q2.right-bl)/Z/PXMM);}}
+  var pt=tabs[tabs.indexOf(t)-1];if(pt)lim=Math.max(lim,(pt.getBoundingClientRect().right-bl)/Z/PXMM);
+  w=x+w>=lim?w:Math.max(0,lim-x);if(w>0)w=0;}}
+// a tab with no ink after it in the paragraph makes no room and no new line (ZSMARTFORM_UTQG
+// %TEXT3 lines ending ",,,,,," after ~85 mm of text: one line each in SAP)
+var ink=false,aw=document.createTreeWalker(p,NodeFilter.SHOW_TEXT),an;while((an=aw.nextNode())){if(t.compareDocumentPosition(an)&Node.DOCUMENT_POSITION_FOLLOWING&&/\S/.test(an.nodeValue)){ink=true;break;}}
+if(!ink)w=0;
+if(w<0){t.style.display='inline-block';t.style.width='0';t.style.marginLeft=w+'mm';}
+else{t.style.display='inline-block';t.style.width=w+'mm';}});})();</script>
+<script>(function(){var c=document.createElement('canvas').getContext('2d');
+document.querySelectorAll('.par').forEach(function(p){var cs=getComputedStyle(p);var L=parseFloat(cs.lineHeight);if(isNaN(L))return;
+c.font=cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;var m=c.measureText('Hg');
+p.style.position='relative';p.style.top=((L-m.fontBoundingBoxAscent+m.fontBoundingBoxDescent)/2)+'px';});})();</script>
+<script>(function(){var o=[];if(window.__sfPaginate&&window.__sfPaginate())o.push({kind:'page',node:'MAIN',text:'MAIN continues on the next page — the rest is not drawn'});
+document.querySelectorAll('.cell').forEach(function(c){var cr=c.getBoundingClientRect();c.querySelectorAll('.par').forEach(function(p){var r=p.getBoundingClientRect();if(r.bottom>cr.bottom+1||p.scrollWidth>p.clientWidth+1)o.push({kind:'cell',node:p.dataset.node,text:p.textContent.trim()});});});
+document.querySelectorAll('.win').forEach(function(w){if(w.scrollHeight>w.clientHeight+2)o.push({kind:'window',node:w.dataset.win,text:'content '+Math.round(w.scrollHeight/w.clientHeight*100)+'% of the window height'});});
+// fonts the page asks for that this PC does not have: widths will differ from the print
+var asked={};document.querySelectorAll('.par, .char').forEach(function(el){var f=getComputedStyle(el).fontFamily.split(',')[0].replace(/["']/g,'').trim();if(f)asked[f]=1;});
+var cv=document.createElement('canvas').getContext('2d'),probe='abcdefghijklmnopqrstuvwxyz0123456789 ';function wd(f){cv.font='40px '+f;return cv.measureText(probe).width;}
+Object.keys(asked).forEach(function(f){if(/^(serif|sans-serif|monospace|inherit)$/i.test(f))return;var q='"'+f+'"';if(wd(q+',monospace')===wd('monospace')&&wd(q+',serif')===wd('serif'))o.push({kind:'font',node:f,text:'font not installed on this PC'});});
+var e=document.createElement('script');e.type='application/json';e.id='sf-overflow';e.textContent=JSON.stringify(o);document.body.appendChild(e);})();</script>
+</body></html>

@@ -1,0 +1,15 @@
+{
+ "rows": 2,
+ "defaultParagraph": "AA",
+ "values": {
+  "HEADER-EBELN": "4500001234",
+  "GS_ITEM-MATNR": [
+   "100234",
+   "100235"
+  ],
+  "GS_ITEM-MENGE": [
+   "1.000",
+   "2.000"
+  ]
+ }
+}

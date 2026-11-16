@@ -11,6 +11,9 @@
 //     → every printed &symbol& with where it prints (window, node, cell width,
 //       font size, inside a loop or not) and the form's data declarations,
 //       so the sample values can follow the field types and the space.
+//   node build-preview.mjs fields <content.json> --ddic <ddic.json> --out <fields.json>
+//     → fields.json: per symbol its DDIC type, length, decimals, text, loop and windows
+//       (preview-workbench.mjs fieldsFrom; ddic.json = the Step 4 answers per type name)
 //   node build-preview.mjs build <content.json> --values <values.json>
 //        --out-dir <dir> [--rows N] [--no-jpg] [--mark]
 //     → { html, jpg, rows, filled, unfilled, overflow, approximations, defaultParagraph }
@@ -24,9 +27,9 @@
 //
 // Sample values are invented by the skill — never business data.
 
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
 import { spawnSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 
@@ -515,8 +518,16 @@ function boxPadding(box) {
 
 // ── rendering ───────────────────────────────────────────────────────────────────
 class Renderer {
-  constructor(content, values) {
+  /** opts.inspect: every symbol and every drawn node carries data-sym / data-node (preview workbench);
+   *  without it the page is byte for byte what it always was. */
+  constructor(content, values, opts = {}) {
     this.c = content;
+    this.inspect = Boolean(opts.inspect);
+    // Graphics come only from (1) opts.graphics { NAME: { mime, base64 } } — the workbench, which never reads a path —
+    // or (2) a `file` GetSmartFormContent wrote, read only with opts.graphicsBase (the CLI passes the content.json's
+    // folder) and only when its real path lies inside that folder. Nothing else is read; else a labelled box.
+    this.graphicsMap = opts.graphics && typeof opts.graphics === 'object' ? opts.graphics : null;
+    this.graphicsBase = typeof opts.graphicsBase === 'string' && opts.graphicsBase ? opts.graphicsBase : null;
     this.values = values.values || {};
     this.rows = Number(values.rows ?? 3);
     this.defaultPara = values.defaultParagraph || null;
@@ -551,6 +562,31 @@ class Renderer {
     return inherited;
   }
 
+  /** A graphic as { mime, b64 }, or null (see constructor: the given map, else a file inside graphicsBase). */
+  graphicData(g) {
+    const m = this.graphicsMap;
+    const key = m && [String(g.name || ''), String(g.name || '').toUpperCase()].find((k) => Object.prototype.hasOwnProperty.call(m, k));
+    if (key) {
+      const e = m[key];
+      const b64 = typeof e?.base64 === 'string' ? e.base64.replace(/\s+/g, '') : '';
+      const mime = String(e?.mime || 'image/bmp').toLowerCase();
+      return b64 && /^[A-Za-z0-9+/]+={0,2}$/.test(b64) && /^image\/(bmp|png|jpeg|gif)$/.test(mime) ? { mime, b64 } : null;
+    }
+    if (!g.file || !this.graphicsBase) return null;
+    try {
+      // the real path (symlinks resolved) must lie inside the real base folder: "../", absolute paths elsewhere,
+      // another drive and a link pointing out are all refused
+      const root = realpathSync(this.graphicsBase);
+      const real = realpathSync(resolve(root, String(g.file)));
+      const rel = relative(root, real);
+      if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return null;
+      return { mime: 'image/bmp', b64: readFileSync(real).toString('base64') };
+    } catch { return null; } // missing
+  }
+
+  /** data-node on an element that has none of its own (graphics, address boxes) — inspect only. */
+  nodeAttr(n) { return this.inspect ? ` data-node="${esc(n.name)}"` : ''; }
+
   symbol(raw) {
     const name = baseSymbol(raw);
     const up = name.toUpperCase(); // symbols are not case sensitive (&sy-uline& = &SY-ULINE&)
@@ -572,11 +608,12 @@ class Renderer {
     if (v === undefined && SYS_DEFAULTS[up] !== undefined) v = SYS_DEFAULTS[up];
     if (v === undefined || v === null) {
       this.unfilled.add(name);
-      return `<span class="sym" title="${esc(name)}">&amp;${esc(name)}&amp;</span>`;
+      return `<span class="sym"${this.inspect ? ` data-sym="${esc(name)}"` : ''} title="${esc(name)}">&amp;${esc(name)}&amp;</span>`;
     }
     this.filled.add(name);
     v = formatSymbol(String(v), raw);
-    return this.mark ? `<span class="val" title="${esc(name)}">${esc(v)}</span>` : esc(v);
+    if (this.mark) return `<span class="val"${this.inspect ? ` data-sym="${esc(name)}"` : ''} title="${esc(name)}">${esc(v)}</span>`;
+    return this.inspect ? `<span data-sym="${esc(name)}">${esc(v)}</span>` : esc(v);
   }
 
   inline(raw, style) {
@@ -769,18 +806,18 @@ class Renderer {
     // a key holding a &symbol& takes the sample value (&IM_SIGN& → ZHANTA_NEW, ZFTA0540_KR05_OLD)
     const sub = (v) => String(v).replace(/&([^&]+)&/g, (m, k) => { const x = this.values[k.trim().toUpperCase()] ?? this.values[k.trim()]; return x === undefined || Array.isArray(x) ? m : String(x); });
     const g = n.graphic && this.graphics.get(`${sub(n.graphic.object)}|${sub(n.graphic.name)}|${sub(n.graphic.id)}|${sub(n.graphic.btype)}`);
-    if (!g?.file || !existsSync(g.file)) {
+    const pic = g ? this.graphicData(g) : null;
+    if (!pic) {
       this.approx.push(`${n.name}: graphic ${n.graphic?.name || '?'} ${n.graphic?.dynamic ? '(key set at print time)' : 'not available'} — drawn as a box`);
-      return `<div class="missing" title="${esc(n.graphic?.name || '')}">${esc(n.graphic?.name || 'graphic')}</div>`;
+      return `<div class="missing"${this.nodeAttr(n)} title="${esc(n.graphic?.name || '')}">${esc(n.graphic?.name || 'graphic')}</div>`;
     }
-    const b64 = readFileSync(g.file).toString('base64');
     // the graphic node's own resolution overrides the one stored with the SE78 graphic
     const dpi = Number(n.graphic.resolution) || 0;
     const [wMm, hMm] = dpi && g.widthPix ? [g.widthPix / dpi * 25.4, g.heightPix / dpi * 25.4] : [g.widthMm, g.heightMm];
     // ALIGNMENT L / C / R places the graphic in its window or cell (ZMM_SF_POFORM3 %GRAPHIC2 centred)
     const al = String(n.attrs?.ALIGNMENT || "L").toUpperCase();
     const place = al === "C" ? "margin-left:auto;margin-right:auto;" : al === "R" ? "margin-left:auto;" : "";
-    return `<img src="data:image/bmp;base64,${b64}" style="width:${wMm.toFixed(2)}mm;height:${hMm.toFixed(2)}mm;${place}" alt="${esc(g.name)}">`;
+    return `<img${this.nodeAttr(n)} src="data:${pic.mime};base64,${pic.b64}" style="width:${wMm.toFixed(2)}mm;height:${hMm.toFixed(2)}mm;${place}" alt="${esc(g.name)}">`;
   }
 
   grid(n, rows) {
@@ -1178,7 +1215,7 @@ class Renderer {
       }
       case 'address':
         this.approx.push(`${n.name}: address node — drawn as a box`);
-        return `<div class="missing">address ${esc(n.caption || n.name)}</div>`;
+        return `<div class="missing"${this.nodeAttr(n)}>address ${esc(n.caption || n.name)}</div>`;
       case 'code': return '';
       // a command with NEWPAGE (its condition already held) starts the next page: what follows
       // in MAIN is not on page 1 (ZFI_SMT_VAT_0606_BK: one invoice per row)
@@ -1222,9 +1259,9 @@ class Renderer {
     try { return this.nodes(win.content); } finally { this.styleStack.pop(); }
   }
 
-  page() {
-    const p = this.c.pages[0];
-    if (this.c.pages.length > 1) this.approx.push(`form has ${this.c.pages.length} pages — first page drawn (${p.name})`);
+  page(index = 0) {
+    const p = this.c.pages[index] || this.c.pages[0];
+    if (this.c.pages.length > 1) this.approx.push(p === this.c.pages[0] ? `form has ${this.c.pages.length} pages — first page drawn (${p.name})` : `form has ${this.c.pages.length} pages — page ${p.name} drawn`);
     const landscape = p.orientation === 'landscape';
     const [w, h] = landscape ? [297, 210] : [210, 297];
     if (p.format && p.format !== 'DINA4') this.approx.push(`page format ${p.format} drawn as A4`);
@@ -1416,14 +1453,26 @@ function arg(argv, name, dflt) {
   return i >= 0 && argv[i + 1] !== undefined ? argv[i + 1] : dflt;
 }
 
-function main(argv) {
+async function main(argv) {
   const [cmd, contentFile] = argv;
   if (!cmd || !contentFile || !existsSync(contentFile)) {
-    console.error('usage: build-preview.mjs symbols <content.json> | build <content.json> --values <values.json> --out-dir <dir> [--rows N] [--no-jpg] [--mark]');
+    console.error('usage: build-preview.mjs symbols <content.json> | fields <content.json> --ddic <ddic.json> --out <fields.json> | build <content.json> --values <values.json> --out-dir <dir> [--rows N] [--no-jpg] [--mark]');
     process.exit(2);
   }
   const content = JSON.parse(readFileSync(contentFile, 'utf8'));
   if (cmd === 'symbols') { console.log(JSON.stringify(listSymbols(content), null, 1)); return; }
+  if (cmd === 'fields') {
+    const ddicFile = arg(argv, '--ddic');
+    const out = arg(argv, '--out');
+    if (!out) { console.error('fields: --out <fields.json> is required'); process.exit(2); }
+    const { fieldsFrom } = await import('./preview-workbench.mjs');
+    const fields = fieldsFrom(content, ddicFile && existsSync(ddicFile) ? JSON.parse(readFileSync(ddicFile, 'utf8')) : {});
+    writeFileSync(out, `${JSON.stringify(fields, null, 1)}
+`);
+    const unknown = Object.keys(fields).filter((k) => !fields[k].type);
+    console.log(JSON.stringify({ fields: out, symbols: Object.keys(fields).length, unknownType: unknown }));
+    return;
+  }
   if (cmd !== 'build') { console.error(`unknown command ${cmd}`); process.exit(2); }
 
   const valuesFile = arg(argv, '--values');
@@ -1433,7 +1482,8 @@ function main(argv) {
   const outDir = resolve(arg(argv, '--out-dir', '.'));
   mkdirSync(outDir, { recursive: true });
 
-  const r = new Renderer(content, values);
+  // graphics only from the content.json's own folder (where GetSmartFormContent wrote them)
+  const r = new Renderer(content, values, { graphicsBase: dirname(resolve(contentFile)) });
   const page = r.page();
   const base = join(outDir, `${content.form}-preview`);
   writeFileSync(`${base}.html`, page.html);

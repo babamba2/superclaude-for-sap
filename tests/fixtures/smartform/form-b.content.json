@@ -1,0 +1,293 @@
+{
+ "form": "ZTEST_FORM_B",
+ "stdStyles": [
+  "ZTEST_STYLE"
+ ],
+ "data": [
+  {
+   "name": "GS_HEAD",
+   "scope": "import",
+   "typing": "TYPE",
+   "typeName": "ZTEST_S_HEADB"
+  },
+  {
+   "name": "GV_TOTAL",
+   "scope": "global",
+   "typing": "TYPE",
+   "typeName": "WRBTR"
+  },
+  {
+   "name": "GT_POS",
+   "scope": "import",
+   "typing": "TYPE",
+   "typeName": "ZTEST_T_POS"
+  },
+  {
+   "name": "GS_POS",
+   "scope": "global",
+   "typing": "TYPE",
+   "typeName": "ZTEST_S_POS"
+  }
+ ],
+ "styles": [
+  {
+   "name": "ZTEST_STYLE",
+   "css": ".ZTEST-STYLE  div#AA.par{    font-family : 'Arial' ;    font-size : 10pt ;    line-height : 4.23mm ;}.ZTEST-STYLE  div#BJ.par{    font-family : 'Arial' ;    font-size : 20pt ;    line-height : 4.23mm ;}.ZTEST-STYLE  div#C8.par{    font-family : 'Arial' ;    font-size : 8pt ;    line-height : 4.23mm ;}"
+  }
+ ],
+ "graphics": [],
+ "includeTexts": [],
+ "pages": [
+  {
+   "name": "%PAGE1",
+   "format": "DINA4",
+   "orientation": "landscape",
+   "windows": [
+    {
+     "name": "LOGO",
+     "type": "GRAPHIC",
+     "leftMm": 5,
+     "topMm": 5,
+     "widthMm": 40,
+     "heightMm": 15,
+     "content": [
+      {
+       "kind": "graphic",
+       "name": "%GRAPHIC1",
+       "caption": "Logo",
+       "children": [],
+       "graphic": {
+        "object": "GRAPHICS",
+        "name": "ZTEST_LOGO",
+        "id": "BMAP",
+        "btype": "BCOL"
+       }
+      }
+     ]
+    },
+    {
+     "name": "ADDR",
+     "type": "SECONDARY",
+     "leftMm": 50,
+     "topMm": 5,
+     "widthMm": 80,
+     "heightMm": 25,
+     "content": [
+      {
+       "kind": "address",
+       "name": "%ADDRESS1",
+       "caption": "Buyer",
+       "children": []
+      },
+      {
+       "kind": "text",
+       "name": "%TEXT10",
+       "caption": "%TEXT10",
+       "children": [],
+       "style": "ZTEST_STYLE",
+       "lines": [
+        {
+         "format": "AA",
+         "text": "Buyer: &GS_HEAD-NAME1&, &GS_HEAD-CITY1&"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "INFO",
+     "type": "SECONDARY",
+     "leftMm": 140,
+     "topMm": 5,
+     "widthMm": 150,
+     "heightMm": 25,
+     "content": [
+      {
+       "kind": "folder",
+       "name": "%FOLDER1",
+       "caption": "Header data",
+       "output": {
+        "STDSTYLE": "ZTEST_STYLE"
+       },
+       "children": [
+        {
+         "kind": "text",
+         "name": "%TEXT11",
+         "caption": "%TEXT11",
+         "children": [],
+         "style": "ZTEST_STYLE",
+         "lines": [
+          {
+           "format": "AA",
+           "text": "Doc &GS_HEAD-VBELN& of &GS_HEAD-FKDAT&"
+          }
+         ]
+        },
+        {
+         "kind": "text",
+         "name": "%TEXT12",
+         "caption": "%TEXT12",
+         "children": [],
+         "style": "ZTEST_STYLE",
+         "lines": [
+          {
+           "format": "C8",
+           "text": "Only for group &GS_HEAD-KDGRP&"
+          }
+         ],
+         "condition": {
+          "COND": [
+           {
+            "OP1": "GS_HEAD-KDGRP",
+            "COP": "=",
+            "OP2": "'01'"
+           }
+          ]
+         }
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "MAIN",
+     "type": "MAIN",
+     "leftMm": 5,
+     "topMm": 35,
+     "widthMm": 285,
+     "heightMm": 150,
+     "content": [
+      {
+       "kind": "loop",
+       "name": "%LOOP1",
+       "caption": "Positions",
+       "dataTable": "GT_POS",
+       "attrs": {
+        "TABHEADER": "GS_POS"
+       },
+       "children": [
+        {
+         "kind": "template",
+         "name": "%TEMPLATE1",
+         "caption": "Pos row",
+         "width": {
+          "mm": 120
+         },
+         "templateLines": [
+          {
+           "name": "%L1",
+           "from": 1,
+           "to": 1,
+           "heightMm": 5
+          }
+         ],
+         "cells": [
+          {
+           "line": "%L1",
+           "column": 1,
+           "widthMm": 20,
+           "borders": {
+            "left": 0.1,
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1
+           }
+          },
+          {
+           "line": "%L1",
+           "column": 2,
+           "widthMm": 70,
+           "borders": {
+            "left": 0,
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1
+           }
+          },
+          {
+           "line": "%L1",
+           "column": 3,
+           "widthMm": 30,
+           "borders": {
+            "left": 0,
+            "top": 0.1,
+            "right": 0.1,
+            "bottom": 0.1
+           }
+          }
+         ],
+         "children": [
+          {
+           "kind": "text",
+           "name": "%TEXT20",
+           "caption": "%TEXT20",
+           "children": [],
+           "style": "ZTEST_STYLE",
+           "lines": [
+            {
+             "format": "AA",
+             "text": "&GS_POS-POSNR(Z)&"
+            }
+           ],
+           "tableCell": {
+            "line": 1,
+            "cell": 1
+           }
+          },
+          {
+           "kind": "text",
+           "name": "%TEXT21",
+           "caption": "%TEXT21",
+           "children": [],
+           "style": "ZTEST_STYLE",
+           "lines": [
+            {
+             "format": "AA",
+             "text": "&GS_POS-ARKTX&"
+            }
+           ],
+           "tableCell": {
+            "line": 1,
+            "cell": 2
+           }
+          },
+          {
+           "kind": "text",
+           "name": "%TEXT22",
+           "caption": "%TEXT22",
+           "children": [],
+           "style": "ZTEST_STYLE",
+           "lines": [
+            {
+             "format": "AA",
+             "text": "&GS_POS-NETWR&"
+            }
+           ],
+           "tableCell": {
+            "line": 1,
+            "cell": 3
+           }
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "kind": "text",
+       "name": "%TEXT30",
+       "caption": "%TEXT30",
+       "children": [],
+       "style": "ZTEST_STYLE",
+       "lines": [
+        {
+         "format": "AA",
+         "text": "Total &GV_TOTAL&"
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

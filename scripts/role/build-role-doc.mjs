@@ -76,44 +76,20 @@ export function cmdInit({ root, code, from, doc = {}, lang = 'ko', force = false
  * Reads the roles from SAP into the model. Without --replace, what people wrote stays: business-role names / texts,
  * user names and departments, SoD rules, authorization notes; SAP decides roles, T-codes, levels and assignments.
  */
-export async function cmdSync({ root, code, patterns, module = '', withUsers = true, replace = false, lang = 'ko', doc = {} }) {
-  const { readRoles, mapRoles } = await import('./sap-roles.mjs');
+export async function cmdSync({ root, code, patterns, module = '', withUsers = true, replace = false, lang = 'ko', doc = {}, read = null }) {
+  const { readRoles, mergeSync } = await import('./sap-roles.mjs');
   const f = files(root, code);
   const old = existsSync(f.model) ? normalizeModel(readJson(f.model)) : normalizeModel({ lang, doc: { code } });
-  const { rows, errors } = await readRoles({ patterns, withUsers, lang: old.lang });
+  // `read`: the reader to use (tests hand a fake one); else sap-roles.mjs readRoles on a connection of its own
+  const { rows, errors } = await (read || readRoles)({ patterns, withUsers, lang: old.lang });
   if (!arr(rows.define).length) throw new Error(`no roles read — ${errors.join(' | ')}`);
-  const got = mapRoles(rows, { module });
-  const keep = (list, key, fresh, fields) => fresh.map((x) => { const o = replace ? null : list.find((y) => y[key] === x[key]); if (!o) return x; for (const k of fields) if (o[k]) x[k] = o[k]; return x; });
-  const model = normalizeModel({
-    ...old,
-    doc: { ...old.doc, ...Object.fromEntries(Object.entries(doc).filter(([, x]) => x)), code, mode: 'sap' },
-    broles: keep(old.broles, 'id', got.broles, ['name', 'nameEn', 'desc', 'tasks', 'org', 'note', 'ext']),
-    troles: keep(old.troles, 'id', got.troles, ['owner', 'note', 'status', 'ext']),
-    tcodes: keep(old.tcodes, 'tcode', got.tcodes, ['area', 'note', 'module', 'ext']),
-    users: keepShared(old.users, keep(old.users, 'uid', got.users, ['empNo', 'name', 'dept', 'pos', 'plant', 'note', 'approval', 'ext'])),
-    auths: got.auths.map((a) => { const o = replace ? null : old.auths.find((y) => y.trole === a.trole && y.object === a.object && y.field === a.field); return o ? { ...a, note: o.note, ext: o.ext } : a; }),
-    sod: old.sod,
-    source: { system: process.env.SAP_SID || '', readAt: today(), patterns, users: withUsers, roles: rows.define.length },
-  });
+  const model = mergeSync(old, rows, { module, replace, patterns, withUsers, system: process.env.SAP_SID || '', today: today(), doc, code });
   mkdirSync(f.dir, { recursive: true });
   writeJson(f.model, model);
   const r = buildDoc({ root, code, note: say(model.lang, `SAP 역할 읽기 (${patterns.join(', ')})`, `Read from SAP (${patterns.join(', ')})`, `SAP からロールを読み込み (${patterns.join(', ')})`) });
   return { ...r, roles: rows.define.length, readErrors: errors };
 }
 
-/**
- * A shared user ID (several people on one ID in the workbook) is one user in SAP: keep() fills the first of those
- * rows; the other rows stay, with what people wrote, and take the roles SAP gives that ID.
- */
-function keepShared(old, fresh) {
-  if (!old.length) return fresh;
-  const out = [];
-  for (const x of fresh) {
-    out.push(x);
-    for (const o of old.filter((y) => y.uid && y.uid === x.uid).slice(1)) out.push({ ...o, roles: { ...x.roles }, valid: x.valid });
-  }
-  return out;
-}
 
 /** Adds the library SoD rules of the given modules (skips rules already there by kind). */
 export function cmdSod({ root, code, modules }) {

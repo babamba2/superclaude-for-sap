@@ -1,0 +1,25 @@
+{
+ "rows": 3,
+ "mark": true,
+ "values": {
+  "GS_HEAD-NAME1": "Sample Trading Ltd.",
+  "GS_HEAD-VBELN": "9000000123",
+  "GS_HEAD-KDGRP": "01",
+  "GS_POS-POSNR": [
+   "000010",
+   "000020",
+   "000030"
+  ],
+  "GS_POS-ARKTX": [
+   "Sample part A",
+   "Sample part B",
+   "A very long sample description that will not fit"
+  ],
+  "GS_POS-NETWR": [
+   "100.00 ",
+   "250.50 ",
+   "1,000.00 "
+  ],
+  "GV_TOTAL": "1,350.50 "
+ }
+}
