@@ -33,7 +33,8 @@
     ".mcp.json",
     "CLAUDE.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "!**/.sc4sap/**"
   ],
   "scripts": {
     "build": "tsc && node scripts/build-mcp-server.mjs",
