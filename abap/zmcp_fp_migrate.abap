@@ -36,6 +36,11 @@ FUNCTION zmcp_fp_migrate
 *    CONVERT_XSTRING_TO_FORM; then GET_FORM_TYPE( ) must say migrated, else
 *    the run stops before anything is saved. SAP's loops (CL_FP_LOOP
 *    SET_LOOP_INTO / SET_WORK_AREA) refuse a form of any other type;
+*  - gap G1: where SAP's migration leaves two sibling context nodes with one
+*    name (a 4.6C table: the loop's work-area DATA field and the table's
+*    cell FOLDER), the non-DATA node is renamed <NAME>_<n> before the form is
+*    saved (FORM g1_walk; listed in "renamed"); a node with children, or a
+*    bound path without a DATA twin, stops the run before the form is saved;
 *  - the form description (the SmartForm caption, as MIGRATE sets it) ends
 *    with the marker " [sc4sap]" (caption cut to fit 60 characters): RENDER
 *    prints ZSC4SAP_AFM_* forms only with it.
@@ -58,7 +63,8 @@ FUNCTION zmcp_fp_migrate
 * active ...", "active" lists what is.
 *
 * Result {"source","form","interface","options":{...},"raised":bool,
-* "error","saved":[...],"left":[...],"active":[...],"log":[{"type","text"}]}.
+* "error","saved":[...],"left":[...],"active":[...],"renamed":[{"path","from",
+* "to","type"}],"log":[{"type","text"}]}.
 *----------------------------------------------------------------------*
   DATA: lv_cat       TYPE t000-cccategory,
         lv_src       TYPE tdsfname,
@@ -85,6 +91,10 @@ FUNCTION zmcp_fp_migrate
         lv_raised    TYPE abap_bool,
         lv_error     TYPE string,
         lx_chain     TYPE REF TO cx_root,
+        lo_root      TYPE REF TO if_fp_node,
+        lv_xdps      TYPE string,
+        lt_renamed   TYPE string_table,
+        lv_g1err     TYPE string,
         lv_prog      TYPE syrepid,
         lv_incl      TYPE syrepid,
         lv_line      TYPE i,
@@ -280,6 +290,20 @@ FUNCTION zmcp_fp_migrate
       lo_tpl->render( ostream = lo_ostream ).
       lo_layout = lo_form->get_layout( ).
       lo_layout->set_layout_data( i_layout_data = lv_xdp i_set_xliff_ids = abap_false ).
+
+      " Gap G1 (SAP's migration of a 4.6C table): the loop's work-area fields and the
+      " table's cell folders get the same names under one parent ("Node name X is not
+      " unique" - the form does not activate). Keep the DATA node, rename the other
+      " siblings to <NAME>_2...; refuse before the form is saved when a renamed node has
+      " children or a binding could mean it (see FORM g1_walk).
+      lo_root ?= lo_ctx.
+      lv_xdps = cl_abap_codepage=>convert_from( lv_xdp ).
+      CLEAR lv_str.
+      PERFORM g1_walk USING lo_root lv_str lv_xdps CHANGING lt_renamed lv_g1err.
+      IF lv_g1err IS NOT INITIAL.
+        RAISE EXCEPTION TYPE cx_fp_api_usage.    " -> CATCH below; lv_g1err is the text
+      ENDIF.
+
       lo_wbf->save( ).
       APPEND |SFPF { lv_form }| TO lt_saved.
       lo_mig->log_save( ).
@@ -334,6 +358,9 @@ FUNCTION zmcp_fp_migrate
         lx_chain = lx_chain->previous.
       ENDWHILE.
       lv_error = lv_chain.
+      IF lv_g1err IS NOT INITIAL.
+        lv_error = |duplicate context node names not fixed: { lv_g1err } - form not saved|.
+      ENDIF.
       TRY.
           IF lo_mig IS BOUND.
             lo_mig->log_message( type = 'E' message = |{ lv_error }| ).
@@ -405,7 +432,8 @@ FUNCTION zmcp_fp_migrate
   CONCATENATE LINES OF lt_active INTO lv_list SEPARATED BY `","`.
   IF lv_list IS NOT INITIAL. lv_list = |"{ lv_list }"|. ENDIF.
   lv_actmsg = escape( val = lv_actmsg format = cl_abap_format=>e_json_string ).
-  ev_result = ev_result && |"active":[{ lv_list }],"activation":"{ lv_actmsg }","log":[{ lv_log }]\}|.
+  CONCATENATE LINES OF lt_renamed INTO lv_str SEPARATED BY `,`.
+  ev_result = ev_result && |"active":[{ lv_list }],"activation":"{ lv_actmsg }","renamed":[{ lv_str }],"log":[{ lv_log }]\}|.
   " The dispatcher caller throws on EV_SUBRC <> 0 and never sees EV_RESULT:
   " the message itself names what was left and what is not active.
   CONCATENATE LINES OF lt_left INTO lv_list SEPARATED BY `, `.
@@ -425,3 +453,119 @@ FUNCTION zmcp_fp_migrate
   ENDIF.
 
 ENDFUNCTION.
+
+*&---------------------------------------------------------------------*
+*& Form G1_WALK - rename duplicate sibling context nodes (gap G1)
+*&---------------------------------------------------------------------*
+* SAP's migration of a SmartForm 4.6C table creates, under the loop's work
+* area, a DATA node per field and an (empty) FOLDER per table cell with the
+* same name - the context check refuses duplicate names under one parent.
+* Per parent: in a group of equal names the DATA node keeps its name (the
+* layout binds the field), every other node becomes <NAME>_<n> (unique
+* among the siblings, at most 30 characters). Refused (CV_ERR set, nothing
+* renamed by the caller's save) when a node to rename has children, or when
+* the group has no DATA node and the layout binds that path.
+FORM g1_walk USING io_parent TYPE REF TO if_fp_node
+                   iv_path   TYPE string
+                   iv_xdp    TYPE string
+             CHANGING ct_ren TYPE string_table
+                      cv_err TYPE string.
+  TYPES: BEGIN OF ty_kid,
+           node TYPE REF TO if_fp_node,
+           name TYPE fpnodename,
+           type TYPE i,
+         END OF ty_kid.
+  DATA: lt_kid   TYPE STANDARD TABLE OF ty_kid WITH EMPTY KEY,
+        ls_kid   TYPE ty_kid,
+        ls_grp   TYPE ty_kid,
+        lo_node  TYPE REF TO if_fp_node,
+        lv_cnt   TYPE i,
+        lv_data  TYPE abap_bool,
+        lv_first TYPE abap_bool,
+        lv_new   TYPE fpnodename,
+        lv_base  TYPE string,
+        lv_n     TYPE i,
+        lv_path  TYPE string,
+        lv_ref   TYPE string,
+        lv_cut   TYPE i.
+  FIELD-SYMBOLS <ls_k> TYPE ty_kid.
+
+  IF cv_err IS NOT INITIAL OR io_parent IS NOT BOUND.
+    RETURN.
+  ENDIF.
+  lo_node = io_parent->get_child( ).
+  WHILE lo_node IS BOUND.
+    ls_kid-node = lo_node.
+    ls_kid-name = lo_node->get_name( ).
+    ls_kid-type = lo_node->get_type( ).
+    APPEND ls_kid TO lt_kid.
+    lo_node = lo_node->get_successor( ).
+  ENDWHILE.
+
+  LOOP AT lt_kid INTO ls_grp.
+    CLEAR lv_cnt.
+    LOOP AT lt_kid TRANSPORTING NO FIELDS WHERE name = ls_grp-name.
+      lv_cnt = lv_cnt + 1.
+    ENDLOOP.
+    IF lv_cnt < 2 OR ls_grp-name IS INITIAL.
+      CONTINUE.
+    ENDIF.
+    lv_data = abap_false.
+    LOOP AT lt_kid TRANSPORTING NO FIELDS WHERE name = ls_grp-name AND type = if_fp_node=>c_type_data.
+      lv_data = abap_true.
+    ENDLOOP.
+    lv_path = COND string( WHEN iv_path IS INITIAL THEN |{ ls_grp-name }| ELSE |{ iv_path }.{ ls_grp-name }| ).
+    lv_first = abap_true.
+    LOOP AT lt_kid ASSIGNING <ls_k> WHERE name = ls_grp-name.
+      ls_kid = <ls_k>.
+      IF lv_data = abap_true AND ls_kid-type = if_fp_node=>c_type_data.
+        CONTINUE.                       " the DATA node keeps the name
+      ENDIF.
+      IF lv_data = abap_false AND lv_first = abap_true.
+        lv_first = abap_false.          " no DATA node: the first keeps the name
+        CONTINUE.
+      ENDIF.
+      IF ls_kid-node->get_child( ) IS BOUND.
+        cv_err = |{ lv_path } (type { ls_kid-type }) has children - bindings below it would change|.
+        RETURN.
+      ENDIF.
+      IF lv_data = abap_false.
+        lv_ref = |$record.{ lv_path }|.
+        IF iv_xdp CS |{ lv_ref }"| OR iv_xdp CS |{ lv_ref }.| OR iv_xdp CS |{ lv_ref }[|.
+          cv_err = |{ lv_path } is bound in the layout and has no DATA twin - which node is meant is unclear|.
+          RETURN.
+        ENDIF.
+      ENDIF.
+      " new name: <NAME>_<n>, unique among the siblings, at most 30 characters
+      lv_n = 1.
+      DO.
+        lv_n = lv_n + 1.
+        lv_base = ls_grp-name.
+        lv_cut = 30 - strlen( |_{ lv_n }| ).
+        IF strlen( lv_base ) > lv_cut.
+          lv_base = lv_base(lv_cut).
+        ENDIF.
+        lv_new = |{ lv_base }_{ lv_n }|.
+        READ TABLE lt_kid TRANSPORTING NO FIELDS WITH KEY name = lv_new.
+        IF sy-subrc <> 0.
+          EXIT.
+        ENDIF.
+      ENDDO.
+      ls_kid-node->set_name( i_name = lv_new ).
+      <ls_k>-name = lv_new.
+      APPEND |\{"path":"{ lv_path }","from":"{ ls_grp-name }","to":"{ lv_new }","type":{ ls_kid-type }\}| TO ct_ren.
+    ENDLOOP.
+  ENDLOOP.
+
+  " down the tree (paths as the layout binds them: a loop's work area gets [*])
+  LOOP AT lt_kid INTO ls_kid.
+    lv_path = COND string( WHEN iv_path IS INITIAL THEN |{ ls_kid-name }| ELSE |{ iv_path }.{ ls_kid-name }| ).
+    IF ls_kid-type = if_fp_node=>c_type_loop_data.
+      lv_path = |{ lv_path }[*]|.
+    ENDIF.
+    PERFORM g1_walk USING ls_kid-node lv_path iv_xdp CHANGING ct_ren cv_err.
+    IF cv_err IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+  ENDLOOP.
+ENDFORM.
