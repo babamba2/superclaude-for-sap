@@ -96,6 +96,14 @@ function flagWeak(text, tally) {
   tally.flags += (t.match(Z_WEAK) || []).length + (weakCtx?.orgWeak && weakCtx.orgWeak.test(t) ? 1 : 0);
 }
 
+/** Any value of a field the scrubber has no rule for: every string at any depth (arrays, nested objects). */
+function deepScrub(v, ctx, tally) {
+  if (typeof v === 'string') return scrubText(v, ctx, tally);
+  if (Array.isArray(v)) return v.map((x) => deepScrub(x, ctx, tally)).filter((x) => typeof x !== 'string' || x.trim());
+  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, deepScrub(x, ctx, tally)]));
+  return v;
+}
+
 // fields of a note that describe one system: dropped from a KB entry
 const SYSTEM_ONLY = ['impact', 'cautions', 'verdicts', 'verifiedAgainst', 'kbFlag', 'thisSystem', 'review', 'issues'];
 // fields scrubbed field by field above, or metadata that is not text about a system
@@ -142,7 +150,7 @@ export function scrubEntry(entry, ctx = {}) {
         for (const [k, v] of Object.entries(c)) {
           if (typeof v === 'string') { x[k] = scrubText(v, ctx, t('cases')); flagWeak(x[k], t('cases')); }
           else if (Array.isArray(v) && v.every((s) => typeof s === 'string')) x[k] = v.filter((step) => { const why = systemHit(step, ctx); if (why) t('cases').items++; return !why; });
-          else x[k] = v;
+          else x[k] = deepScrub(v, ctx, t('cases'));
         }
         return x;
       }),
@@ -155,8 +163,7 @@ export function scrubEntry(entry, ctx = {}) {
   for (const k of SYSTEM_ONLY) if (k in out) { delete out[k]; t('systemOnly').items++; }
   for (const [k, v] of Object.entries(out)) {
     if (HANDLED.has(k)) continue;
-    if (typeof v === 'string') out[k] = scrubText(v, ctx, t(k));
-    else if (Array.isArray(v) && v.every((s) => typeof s === 'string')) out[k] = v.map((s) => scrubText(s, ctx, t(k))).filter((s) => s.trim());
+    out[k] = deepScrub(v, ctx, t(k));
   }
   return { entry: out, tally };
 }

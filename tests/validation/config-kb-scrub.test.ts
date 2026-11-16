@@ -79,7 +79,8 @@ describe('notes KB — system-specific parts stay out', () => {
       purpose: bad, sapdoc: bad, mix: bad, refs: [bad, 'VOV8'], note: bad,
       compare: [['Aspect', 'CASE 1'], [bad, 'x'], ['Effort', bad]],
       checklist: [bad, 'General?'], criteria: { rev: bad, rec: 'Keep.' },
-      cases: { title: bad, list: [{ title: bad, name: bad, desc: bad, when: bad, flow: [bad, 'Step'], thisSystem: bad, svg: bad, extra: bad }] },
+      cases: { title: bad, list: [{ title: bad, name: bad, desc: bad, when: bad, flow: [bad, 'Step'], thisSystem: bad, svg: bad, extra: bad, steps: [{ t: bad }], meta: { z: bad } }] },
+      extraObj: { x: bad, deeper: { y: [bad] } }, extraArr: [{ y: bad }, bad],
       sources: [{ title: bad, source: 'SAP Help Portal', url: 'https://help.sap.com/x', summary: bad }],
       impact: [bad], cautions: [bad], verdicts: [{ n: 1, value: bad }], kbFlag: bad, verifiedAgainst: { system: bad },
     };
@@ -89,6 +90,12 @@ describe('notes KB — system-specific parts stay out', () => {
     walk(entry);
     expect(strings.length).toBeGreaterThan(5);
     expect(strings.filter((s) => /PL01|this system/i.test(s))).toEqual([]);
+    // unknown nested shapes are walked too; metadata stays as it was
+    expect(entry.extraObj).toEqual({ x: '', deeper: { y: [] } });
+    expect(entry.extraArr).toEqual([{ y: '' }]);
+    expect(entry.cases.list[0].steps).toEqual([{ t: '' }]);
+    expect(entry.cases.list[0].meta).toEqual({ z: '' });
+    expect(entry).toMatchObject({ activity: 'A', module: 'SD', lang: 'ko', savedAt: '2026-11-16', sapVersion: 'ECC' });
     expect(entry.compare.some((r: string[]) => r[0] === 'Effort')).toBe(false); // a row with the fact in any cell goes
     expect(entry.checklist).toEqual(['General?']);
     expect(entry.criteria).toEqual({ rec: 'Keep.' });
