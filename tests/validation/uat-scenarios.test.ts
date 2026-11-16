@@ -94,9 +94,16 @@ describe('uat-scenarios CLI', () => {
     const cli = (...a: string[]) => JSON.parse(execFileSync(process.execPath, [join(__dirname, '..', '..', 'scripts', 'uat', 'build-uat.mjs'), ...a], { encoding: 'utf8' }));
     try {
       writeFileSync(join(dir, 'answers.json'), JSON.stringify(sample()));
-      expect(cli('init', '--answers', join(dir, 'answers.json'), '--dir', dir)).toMatchObject({ ok: true });
+      const made = cli('init', '--answers', join(dir, 'answers.json'), '--dir', dir);
+      expect(made).toMatchObject({ ok: true });
+      // A new set comes with both workbooks next to its JSON.
+      expect(made.xlsx.map((f: string) => f.replace(/^.*[\\/]/, ''))).toEqual(['MM-UAT-uat-A.xlsx', 'MM-UAT-uat-B.xlsx']);
+      expect(readFileSync(made.xlsx[0]).subarray(0, 2).toString()).toBe('PK');
+      expect(cli('init', '--answers', join(dir, 'answers.json'), '--dir', join(dir, 'x'), '--no-xlsx').xlsx).toEqual([]);
       writeFileSync(join(dir, 'ops.json'), JSON.stringify([{ op: 'set-scenario', scenario: 'MM01', field: 'owner', value: 'Purchasing lead' }]));
-      expect(cli('patch', '--dir', dir, '--id', 'MM-UAT', '--patch', join(dir, 'ops.json'))).toMatchObject({ ok: true, applied: 1 });
+      const patched = cli('patch', '--dir', dir, '--id', 'MM-UAT', '--patch', join(dir, 'ops.json'));
+      expect(patched).toMatchObject({ ok: true, applied: 1 });
+      expect(patched.xlsx).toHaveLength(2);
       expect(JSON.parse(readFileSync(join(dir, 'MM-UAT', 'MM-UAT-uat.json'), 'utf8')).scenarios[0].owner).toBe('Purchasing lead');
       const out = cli('export', '--dir', dir, '--id', 'MM-UAT', '--layout', 'B');
       expect(out.file).toMatch(/MM-UAT-uat-B\.xlsx$/);

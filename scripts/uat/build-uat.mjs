@@ -1,15 +1,16 @@
 #!/usr/bin/env node
 // sc4sap:uat-scenarios — keep one UAT scenario set as JSON and turn it into what people use.
 //
-//   node scripts/uat/build-uat.mjs init   --answers <file.json> --dir <dir> [--force]
+//   node scripts/uat/build-uat.mjs init   --answers <file.json> --dir <dir> [--force] [--no-xlsx]
 //   node scripts/uat/build-uat.mjs check  --dir <dir> --id <ID>
-//   node scripts/uat/build-uat.mjs patch  --dir <dir> --id <ID> --patch <ops.json>
-//   node scripts/uat/build-uat.mjs export --dir <dir> --id <ID> --layout A|B [--out-dir <dir>]
+//   node scripts/uat/build-uat.mjs patch  --dir <dir> --id <ID> --patch <ops.json> [--no-xlsx]
+//   node scripts/uat/build-uat.mjs export --dir <dir> --id <ID> --layout A|B|both [--out-dir <dir>]
 //   node scripts/uat/build-uat.mjs show   --dir <dir> --id <ID>
 //
 // The set lives in <dir>/<ID>/<ID>-uat.json (model: uat-model.mjs). `patch` applies a proposal — the
 // module consultant's, or edits made elsewhere — and reports what it applied and what it skipped.
-// `export` writes <ID>-uat-<A|B>.xlsx (uat-xlsx.mjs). Every command prints one JSON line. Offline: no SAP.
+// `init` and `patch` also write both workbooks, <ID>-uat-A.xlsx and -B.xlsx, next to the JSON, so the
+// Excel in the folder is never older than the set; `export` writes them elsewhere (uat-xlsx.mjs). Every command prints one JSON line. Offline: no SAP.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -40,13 +41,25 @@ function save(dir, set) {
   return fileOf(dir, set.id);
 }
 
+/** Both workbooks next to the set (user, 2026-11-16: a new set comes with its Excel). */
+function writeXlsx(out, set, layouts = ['A', 'B']) {
+  mkdirSync(out, { recursive: true });
+  const stats = progress(set);
+  return layouts.map((l) => {
+    const file = join(out, `${set.id}-uat-${l}.xlsx`);
+    writeFileSync(file, l === 'A' ? layoutA(set, stats) : layoutB(set, stats));
+    return file;
+  });
+}
+
 const commands = {
   init(o) {
     if (!o.answers || !o.dir) throw new Error('--answers and --dir are required');
     const set = normalize(JSON.parse(readFileSync(o.answers, 'utf8')));
     if (!ID.test(set.id)) throw new Error(`id ${set.id}: letters, digits, _ - only, ≤ 30`);
     if (existsSync(fileOf(o.dir, set.id)) && !o.force) throw new Error(`${set.id} exists — use patch, or --force to start over`);
-    return { file: save(o.dir, set), issues: validate(set), progress: progress(set) };
+    const file = save(o.dir, set);
+    return { file, xlsx: o['no-xlsx'] ? [] : writeXlsx(join(o.dir, set.id), set), issues: validate(set), progress: progress(set) };
   },
   check(o) {
     const set = load(o);
@@ -57,12 +70,15 @@ const commands = {
     if (!o.patch) throw new Error('--patch <ops.json> is required');
     const raw = JSON.parse(readFileSync(o.patch, 'utf8'));
     const { set: next, applied, skipped } = applyPatch(set, Array.isArray(raw) ? raw : raw.ops);
-    return { file: save(o.dir, next), applied: applied.length, skipped, issues: validate(next) };
+    const file = save(o.dir, next);
+    // The workbooks follow the set, so the Excel in the folder is never older than the JSON.
+    return { file, xlsx: o['no-xlsx'] ? [] : writeXlsx(join(o.dir, next.id), next), applied: applied.length, skipped, issues: validate(next) };
   },
   export(o) {
     const set = load(o);
     const layout = String(o.layout || 'A').toUpperCase();
-    if (!['A', 'B'].includes(layout)) throw new Error('--layout A or B');
+    if (layout === 'BOTH') return { files: writeXlsx(o['out-dir'] || join(o.dir, set.id), set) };
+    if (!['A', 'B'].includes(layout)) throw new Error('--layout A, B or both');
     const out = o['out-dir'] || join(o.dir, set.id);
     mkdirSync(out, { recursive: true });
     const file = join(out, `${set.id}-uat-${layout}.xlsx`);

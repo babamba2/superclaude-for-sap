@@ -49,20 +49,21 @@ Paths: `<base>` = artifact base ([`../../common/multi-profile-artifact-resolutio
 
 **Step 1 — Which set.** An existing set named or found under `<dir>` → Step 5. New set: one message asking for what is missing of: kind (UAT or integration test), module (for an integration test the leading module and the modules it crosses), process scope (process chains or processes), set ID (≤ 30 letters, digits, `_` `-`), cycles, language (from `config.json`, default `ko`). If a process map exists (`processes/<MODULE>/`, module-to-process) offer it as the scope.
 
-**Step 2 — Draft.** Dispatch `sc4sap:sap-<module>-consultant` with [`proposal-prompt.md`](proposal-prompt.md) § Draft. It returns the set as JSON (scenarios with steps). Write it to `<dir>/_answers/<ID>.json` and run `<B> init --answers <that file> --dir <dir>`.
+**Step 2 — Draft.** Dispatch `sc4sap:sap-<module>-consultant` with [`proposal-prompt.md`](proposal-prompt.md) § Draft. It returns the set as JSON (scenarios with steps). Write it to `<dir>/_answers/<ID>.json` and run `<B> init --answers <that file> --dir <dir>` — it writes the set and both workbooks (`<ID>-uat-A.xlsx`, `<ID>-uat-B.xlsx`) next to it; give their paths in the first report.
 
 **Step 3 — T-codes.** For each distinct T-code of an SAP step: `GetTransaction`. Unknown → collect. Report the unknown ones in one line and offer: replace (the consultant proposes the system's one), keep (marked), or remove the step. Offline: skip, and say the T-codes are unchecked.
 
 **Step 4 — Review.** `<B> check --dir <dir> --id <ID>` → show the progress line and the issues (≤ 15, grouped by scenario). Offer: fix with a proposal (Step 5), edit by hand, or export (Step 6).
 
-**Step 5 — Proposal round.** The user names what to improve ("suggest the missing steps of MM02", "fill expected outputs", "record 1st cycle results: STEP-003 failed — release strategy not triggered"). Results and edits the user states are written as operations directly; anything to invent goes to the consultant with [`proposal-prompt.md`](proposal-prompt.md) § Patch and `<B> show` as context. Show the operations as a numbered list (one line each: scenario · step · field · new value), ask which to apply, write the accepted ones to `<dir>/_patch/<ID>-<n>.json`, run `<B> patch`. Report applied / skipped and the new issue count.
+**Step 5 — Proposal round.** The user names what to improve ("suggest the missing steps of MM02", "fill expected outputs", "record 1st cycle results: STEP-003 failed — release strategy not triggered"). Results and edits the user states are written as operations directly; anything to invent goes to the consultant with [`proposal-prompt.md`](proposal-prompt.md) § Patch and `<B> show` as context. Show the operations as a numbered list (one line each: scenario · step · field · new value), ask which to apply, write the accepted ones to `<dir>/_patch/<ID>-<n>.json`, run `<B> patch` (it rewrites both workbooks). Report applied / skipped, the new issue count and that the Excel files are up to date.
 
-**Step 6 — Export.** `<B> export --dir <dir> --id <ID> --layout A|B` (ask which when not said; both is fine). Give the paths.
+**Step 6 — Export elsewhere.** The workbooks are already next to the set (Step 2 / 5). Into another folder: `<B> export --dir <dir> --id <ID> --layout A|B|both --out-dir <folder>`. Give the paths.
 </Workflow>
 
 <Output_Format>
 ```
 UAT set MM-PTP · 6 scenarios · 41 steps · cycles 1st / 2nd / 3rd
+Excel: uat/MM-PTP/MM-PTP-uat-A.xlsx (integrated test) · MM-PTP-uat-B.xlsx (list)
 1st: 30 pass · 4 fail · 1 blocked · 6 open
 Issues (5): MM02/STEP-004 SAP step without a T-code · MM03/STEP-002 failed without a follow-up · …
 Proposal (7): 1. MM02 · after STEP-003 · add "Release purchase order" (ME29N) …
