@@ -106,7 +106,7 @@ body.dw main,body.dw .banner{padding-right:min(436px,94vw);transition:padding .1
  .wbs td.gantt{height:38px}.gb{top:10px;height:18px}.gb-phase{top:9px;height:20px}.gms{top:12px;width:14px;height:14px}.gbase{top:30px}.rowtools{display:none!important}
  body.dw main,body.dw .banner,body.dw .topbar{padding-right:10px}
  #drawer{top:auto;left:0;right:0;width:100%;height:74vh;border-left:0;border-top:1px solid var(--line);border-radius:14px 14px 0 0;transform:translateY(105%)}#drawer.on{transform:none}#drawer::before{content:"";display:block;width:42px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 10px}
- #drawer dl{grid-template-columns:96px 1fr}#drawer .ed{min-height:28px}
+ #drawer dl{grid-template-columns:96px 1fr}#drawer .ed{min-height:44px}
  #bulk{left:8px;right:8px;transform:none;bottom:12px}#toast{bottom:12px;max-width:92vw}#pal{padding-top:6vh}.banner{margin:6px 10px;font-size:13px}
  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.tile .v{font-size:17px}
  .topbar .tx{display:none}.topbar .t{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.topbar .t small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -115,7 +115,7 @@ body.dw main,body.dw .banner{padding-right:min(436px,94vw);transition:padding .1
  table.rt td{display:flex;gap:12px;justify-content:space-between;align-items:center;border:0;padding:4px 0;min-height:26px;text-align:right}
  table.rt td::before{content:attr(data-l);color:var(--muted);font-size:12px;text-align:left;flex:none;max-width:45%}
  table.rt td:first-child{font-weight:600;text-align:left;display:block}table.rt td:first-child::before{display:none}table.rt td:empty{display:none}
- .editing .ed{min-height:32px;min-width:32px;padding:4px 8px;display:inline-flex;align-items:center;max-width:100%;box-sizing:border-box}.ed select,.ed input{font-size:16px;min-height:32px;max-width:100%;box-sizing:border-box}
+ :root .editing .ed{min-height:44px;min-width:44px;padding:4px 8px;display:inline-flex;align-items:center;max-width:100%;box-sizing:border-box;font-size:16px}:root .ed select,:root .ed input{font-size:16px;min-height:44px;max-width:100%;box-sizing:border-box}
  .timeline{margin:6px 60px 4px 30px}
  #drawer .dacts{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}#drawer .dacts button{font:inherit;font-size:14px;min-height:38px;padding:4px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg)}#drawer .dacts .del{color:var(--red)}
 }
@@ -141,7 +141,7 @@ dialog{border:1px solid var(--line);border-radius:10px;background:var(--bg);colo
 
 /** In-browser code: the inlined model + render library, the labels, then project-client.js. */
 function clientScript(E) {
-  return `(function(){\n${inline('project-model.mjs')}\n${inline('project-render.mjs')}\nvar E=${JSON.stringify(E)};\n${readFileSync(join(here, 'project-client.js'), 'utf8')}\n})();`;
+  return `(function(){\n${inline('project-model.mjs')}\n${inline('cutover-model.mjs')}\n${inline('cutover-tab.mjs')}\n${inline('project-render.mjs')}\nvar E=${JSON.stringify(E)};\n${readFileSync(join(here, 'project-client.js'), 'utf8')}\n})();`;
 }
 
 const EDIT = {
@@ -170,6 +170,9 @@ const EDIT = {
 };
 Object.assign(EDIT.ko, { addRisk: '+ 리스크', addDecision: '+ 결정 사항', newRisk: '새 리스크', newDecision: '새 결정 사항' });
 Object.assign(EDIT.en, { addRisk: '+ Risk', addDecision: '+ Decision', newRisk: 'New risk', newDecision: 'New decision' });
+// cutover runbook tab (cutover-tab.mjs)
+Object.assign(EDIT.ko, { addCt: '+ 컷오버 작업', newCt: '새 컷오버 작업' });
+Object.assign(EDIT.en, { addCt: '+ Cutover task', newCt: 'New cutover task' });
 
 /** WBS toolbar: filters and zoom for everyone, auto-shift in edit mode. */
 const wbsTools = (E) => `<div class="wtools"><span class="mv"><button data-v="gantt">${esc(E.vGantt)}</button><button data-v="table">${esc(E.vTable)}</button></span><button id="f-sel" class="mo" aria-pressed="false">${esc(E.select)}</button><button id="f-more" class="mo">${esc(E.filters)} ▾</button><input id="f-q" type="search" placeholder="${esc(E.search)}"><select id="f-ws"></select><select id="f-owner"></select>
@@ -197,7 +200,7 @@ ${companion ? `<a href="${esc(companion)}">${v.m.lang === 'en' ? '한국어' : '
 <div class="banner hint">${esc(E.hint)}</div>
 <div class="banner" id="draft">${esc(E.draft)} <button id="resume">${E.resume}</button> <button id="discard">${E.discard}</button></div>
 <main>
-${sec('sum')}${sec('kpi', `<div class="tools"><button id="add-kpi">${E.addKpi}</button></div>`)}${sec('ms', `<div class="tools"><button id="add-ms">${E.addMs}</button></div>`)}${sec('risk', `<div class="tools"><button id="add-rk">${E.addRisk}</button> <button id="add-dc">${E.addDecision}</button></div>`)}${sec('wbs', wbsTools(E))}${sec('sap')}${sec('team', `<div class="tools"><button id="add-tm">${E.addTm}</button></div>`)}${sec('hist')}
+${sec('sum')}${sec('kpi', `<div class="tools"><button id="add-kpi">${E.addKpi}</button></div>`)}${sec('ms', `<div class="tools"><button id="add-ms">${E.addMs}</button></div>`)}${sec('risk', `<div class="tools"><button id="add-rk">${E.addRisk}</button> <button id="add-dc">${E.addDecision}</button></div>`)}${sec('cut', `<div class="tools"><button id="add-ct">${E.addCt}</button></div>`)}${sec('wbs', wbsTools(E))}${sec('sap')}${sec('team', `<div class="tools"><button id="add-tm">${E.addTm}</button></div>`)}${sec('hist')}
 </main>
 <dialog id="save-dlg"><h3>${E.saveTitle}</h3><label>${E.author}<input id="s-author"></label><label>${E.note}<input id="s-note"></label>
 <div><button id="s-ok">${E.ok}</button> <button id="s-cancel">${E.cancel}</button></div></dialog>

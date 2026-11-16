@@ -20,6 +20,9 @@
 //   node build-project-doc.mjs check --project <CODE>
 //   node build-project-doc.mjs status --project <CODE> [--week-end YYYY-MM-DD] [--gate <id|label>] [--evidence <file>]… [--uat <ID>]… [--uat-dir <dir>] [--refresh] [--lang ko|en]
 //        weekly status page <CODE>-status-<weekEnd>-<lang>.html + statusLog in the model (project-status.mjs); offline unless --refresh
+//   node build-project-doc.mjs cutover --project <CODE> [--seed] [--window "<start>/<end>"] [--freeze-code D] [--freeze-config D] [--rehearsal <id> --actuals <csv|json>]
+//        [--evidence <file>]… [--uat <ID>]… [--uat-dir <dir>] [--jobs [--confirm-prd]] [--lang ko|en]
+//        cutover readiness page <CODE>-cutover-<lang>.html + runbook in the model (cutover-cli.mjs); offline unless --jobs (TBTCO / TBTCP read)
 //   common: [--dir <projects folder>] (default <artifactBase>/projects)
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -166,7 +169,7 @@ export async function cmdStatus({ code, root, weekEnd = '', gate = '', evidence 
 }
 
 // Keys that are never translated: ids, codes, people, enums, dates.
-const NO_TR = ['parent', 'owner', 'fnOwner', 'devOwner', 'ws', 'status', 'stage', 'name', 'sapUser', 'role', 'module', 'approver', 'dir', 'unit', 'group', 'system', 'pm', 'pmo', 'sponsor', 'author', 'actuals', 'snapshots', 'history', 'company', 'statusLog', 'impact', 'overall', 'wsRag', 'uatSets'];
+const NO_TR = ['parent', 'owner', 'fnOwner', 'devOwner', 'ws', 'status', 'stage', 'name', 'sapUser', 'role', 'module', 'approver', 'dir', 'unit', 'group', 'system', 'pm', 'pmo', 'sponsor', 'author', 'actuals', 'snapshots', 'history', 'company', 'statusLog', 'impact', 'overall', 'wsRag', 'uatSets', 'phase', 'deps', 'anchor', 'jobsRead', 'rehearsals', 'window', 'freeze', 'actual'];
 
 export function cmdTexts({ code, root }) {
   const f = files(root, code);
@@ -293,7 +296,12 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
     else if (cmd === 'status') r = await cmdStatus({ code: need(), root, weekEnd: get('--week-end') || '', gate: get('--gate') || '', refresh: args.includes('--refresh'), lang: get('--lang') || '',
       evidence: args.flatMap((a, i) => (a === '--evidence' && args[i + 1] ? [resolve(args[i + 1])] : [])),
       uat: args.flatMap((a, i) => (a === '--uat' && args[i + 1] ? [args[i + 1]] : [])), uatDir: get('--uat-dir') ? resolve(get('--uat-dir')) : '' });
-    else { console.error('Usage: node build-project-doc.mjs init|build|refresh|import|add-wricef|reassign|texts|companion|portfolio|check|status … (see the header)'); process.exit(2); }
+    else if (cmd === 'cutover') r = await (await import('./cutover-cli.mjs')).cmdCutover({ code: need(), root, buildProject, seed: args.includes('--seed'), window: get('--window') || '',
+      freezeCode: get('--freeze-code') || '', freezeConfig: get('--freeze-config') || '', rehearsal: get('--rehearsal') || '', actuals: get('--actuals') ? resolve(get('--actuals')) : '',
+      jobs: args.includes('--jobs'), confirmPrd: args.includes('--confirm-prd'), lang: get('--lang') || '',
+      evidence: args.flatMap((a, i) => (a === '--evidence' && args[i + 1] ? [resolve(args[i + 1])] : [])),
+      uat: args.flatMap((a, i) => (a === '--uat' && args[i + 1] ? [args[i + 1]] : [])), uatDir: get('--uat-dir') ? resolve(get('--uat-dir')) : '' });
+    else { console.error('Usage: node build-project-doc.mjs init|build|refresh|import|add-wricef|reassign|texts|companion|portfolio|check|status|cutover … (see the header)'); process.exit(2); }
     if (r?.warnings?.length) for (const w of r.warnings) console.error(`⚠ project-dashboard: ${w}`);
     console.log(JSON.stringify({ ...r, warnings: r?.warnings?.length ?? 0 }));
   })().catch((e) => { console.error(`build-project-doc: ${e.message}`); process.exit(1); });

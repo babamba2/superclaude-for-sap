@@ -29,7 +29,7 @@ function draw(after) {
   var a = renderAll(model, { history: history, today: today });
   view = a.v; nums = {}; ids = {};
   a.v.rows.forEach(function (r) { nums[r.id] = r.num; ids[r.num] = r.id; });
-  ['sum', 'kpi', 'ms', 'risk', 'wbs', 'sap', 'team', 'hist'].forEach(function (t) { var el = $('#tab-' + t + ' .body'); if (el) el.innerHTML = a[t]; });
+  ['sum', 'kpi', 'ms', 'risk', 'cut', 'wbs', 'sap', 'team', 'hist'].forEach(function (t) { var el = $('#tab-' + t + ' .body'); if (el) el.innerHTML = a[t]; });
   var rg = $('#overall'); if (rg) { rg.className = 'rag rag-' + a.v.overall; rg.textContent = L.rag[a.v.overall]; }
   var wt = $('.wbs'), span = wt ? +wt.dataset.days || 365 : 365;
   document.documentElement.style.setProperty('--gw', Math.round(Math.max(520, span * (narrow() ? 4 : 3.4)) * zoom) + 'px');
@@ -190,8 +190,13 @@ function toToday() { tab('wbs'); var g = $('.wbs .gtoday'), w = $('.wbs-w'); if 
 function find(scope, id) {
   if (scope === 's') return (model.status = model.status || {});
   if (scope === 'p') return model.project;
+  // cutover tab (cutover-tab.mjs): window / freeze objects, tasks and go / no-go items by id
+  if (scope === 'cw' || scope === 'cf' || scope === 'c' || scope === 'g') model.cutover = model.cutover || { tasks: [], goNoGo: [] };
+  if (scope === 'cw') return (model.cutover.window = model.cutover.window || {});
+  if (scope === 'cf') return (model.cutover.freeze = model.cutover.freeze || {});
   var list = scope === 'w' ? model.wbs : scope === 'm' ? model.milestones : scope === 'k' ? (model.kpis = model.kpis || [])
-    : scope === 'r' ? (model.risks = model.risks || []) : scope === 'd' ? (model.decisions = model.decisions || []) : model.team;
+    : scope === 'r' ? (model.risks = model.risks || []) : scope === 'd' ? (model.decisions = model.decisions || [])
+    : scope === 'c' ? (model.cutover.tasks = model.cutover.tasks || []) : scope === 'g' ? (model.cutover.goNoGo = model.cutover.goNoGo || []) : model.team;
   for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
   return null;
 }
@@ -453,6 +458,7 @@ function tools() {
 $('#add-ms').onclick = function () { snap(); var n = model.milestones.length + 1; while (find('m', 'MS.N' + n)) n++; model.milestones.push({ id: 'MS.N' + n, label: E.newMs, kind: 'other', base: today, forecast: today, status: 'planned', criteria: [] }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="m|MS.N' + n + '|label"]')); }); };
 $('#add-kpi').onclick = function () { snap(); model.kpis = model.kpis || []; var n = model.kpis.length + 1; while (find('k', 'K' + n)) n++; model.kpis.push({ id: 'K' + n, label: E.newKpi, group: 'other', dir: 'up', unit: '', target: '', actual: '', history: [] }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="k|K' + n + '|label"]')); }); };
 $('#add-rk').onclick = function () { snap(); model.risks = model.risks || []; var n = model.risks.length + 1; while (find('r', 'RK' + n)) n++; model.risks.push({ id: 'RK' + n, text: E.newRisk, impact: 'M', status: 'open', raised: today }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="r|RK' + n + '|text"]')); }); };
+$('#add-ct').onclick = function () { snap(); find('c', ''); var l = model.cutover.tasks; var n = l.length + 1; while (find('c', 'CT.N' + n)) n++; l.push({ id: 'CT.N' + n, phase: 'window', label: E.newCt, ws: '', owner: '', status: 'planned', deps: [], durationH: 1, note: '' }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="c|CT.N' + n + '|label"]')); }); };
 $('#add-dc').onclick = function () { snap(); model.decisions = model.decisions || []; var n = model.decisions.length + 1; while (find('d', 'DC' + n)) n++; model.decisions.push({ id: 'DC' + n, text: E.newDecision, status: 'open' }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="d|DC' + n + '|text"]')); }); };
 $('#add-tm').onclick = function () { snap(); var n = model.team.length + 1; while (find('t', 'T' + n)) n++; model.team.push({ id: 'T' + n, name: E.newTm, role: 'module', from: today }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="t|T' + n + '|name"]')); }); };
 

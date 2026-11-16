@@ -3,6 +3,7 @@
 // and the edit mode redraws a section in the browser with the same code that built it.
 
 import { viewModel, days, isActive, arr, STAGES, STAGE_SIDE } from './project-model.mjs';
+import { renderCutoverTab } from './cutover-tab.mjs';
 
 export const LABELS = {
   ko: {
@@ -79,7 +80,7 @@ Object.assign(LABELS.en, {
 });
 for (const [lg, t] of [['ko', '리스크·결정'], ['en', 'Risks & decisions']]) {
   const o = LABELS[lg].tabs;
-  LABELS[lg].tabs = { sum: o.sum, kpi: o.kpi, ms: o.ms, risk: t, wbs: o.wbs, sap: o.sap, team: o.team, hist: o.hist };
+  LABELS[lg].tabs = { sum: o.sum, kpi: o.kpi, ms: o.ms, risk: t, cut: lg === 'ko' ? '컷오버' : 'Cutover', wbs: o.wbs, sap: o.sap, team: o.team, hist: o.hist };
 }
 
 export const labelsFor = (lang) => LABELS[String(lang || '').slice(0, 2)] || LABELS.en;
@@ -347,5 +348,5 @@ export function renderRisks(v, L) {
 export function renderAll(model, { history = [], today } = {}) {
   const v = viewModel(model, today);
   const L = labelsFor(v.m.lang);
-  return { v, L, sum: renderSummary(v, L), kpi: renderKpi(v, L), ms: renderMilestones(v, L), risk: renderRisks(v, L), wbs: renderWbs(v, L), sap: renderSap(v, L), team: renderTeam(v, L), hist: renderHistory(history, L) };
+  return { v, L, sum: renderSummary(v, L), kpi: renderKpi(v, L), ms: renderMilestones(v, L), risk: renderRisks(v, L), cut: renderCutoverTab(v, L), wbs: renderWbs(v, L), sap: renderSap(v, L), team: renderTeam(v, L), hist: renderHistory(history, L) };
 }

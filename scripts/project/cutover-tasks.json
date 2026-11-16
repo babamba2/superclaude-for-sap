@@ -1,0 +1,78 @@
+{
+  "_doc": "Generic cutover runbook for sc4sap:project-dashboard (cutover --seed). pre / freeze / post: offset = days from go-live (-30 = D-30, 3 = D+3); a freeze task with anchor sits on that freeze date. window: durationH = planned hours, deps = task ids; the start is computed from the deps (critical path), never stored. byType: extra tasks, dependency overrides and skipped tasks per project type (conversion; small = AMS release / small project); a skipped dependency passes its own dependencies on. check: an optional rule tag at the end of the text, evaluated like the status gate rules. No customer, system or object names. Wording: transports are 이관, data loads are 적재, the technical conversion is 마이그레이션.",
+  "_review": "sap-critic review 2026-11-16 (verdict fix, 12 points) applied: periods open before loads; window starts from deps; conversion skips; rehearsal, fallback, UAT / training, production technical set-up, hypercare rota, interface connectivity, number range status, hypercare exit; wording; duplicate go / no-go item dropped.",
+  "window": { "startDaysBefore": 2, "startTime": "18:00", "endTime": "06:00" },
+  "freeze": { "codeDaysBefore": 14, "configDaysBefore": 10 },
+  "tasks": [
+    { "id": "CT.PRE.01", "phase": "pre", "offset": -30, "ws": "PMO", "label": { "ko": "코드·설정 동결 일정 공지", "en": "Announce the code and configuration freeze" } },
+    { "id": "CT.PRE.02", "phase": "pre", "offset": -28, "ws": "PMO", "label": { "ko": "컷오버 런북·담당자·연락망 확정", "en": "Agree the cutover runbook, owners and contact list" } },
+    { "id": "CT.PRE.13", "phase": "pre", "offset": -21, "ws": "PMO", "label": { "ko": "전체 컷오버 리허설 수행·시간 측정", "en": "Full cutover rehearsal run and timed" } },
+    { "id": "CT.PRE.04", "phase": "pre", "offset": -21, "ws": "SEC", "label": { "ko": "운영 역할·사용자 준비", "en": "Production roles and users ready" } },
+    { "id": "CT.PRE.05", "phase": "pre", "offset": -14, "ws": "DM", "label": { "ko": "마스터 데이터 적재 리허설 결과 확정", "en": "Master data load rehearsal results signed off" } },
+    { "id": "CT.PRE.06", "phase": "pre", "offset": -14, "ws": "BAS", "label": { "ko": "운영 번호범위 점검", "en": "Number ranges checked in production" } },
+    { "id": "CT.PRE.14", "phase": "pre", "offset": -14, "ws": "PMO", "label": { "ko": "폴백 계획과 되돌릴 수 없는 시점 합의", "en": "Fallback plan and point of no return agreed" } },
+    { "id": "CT.PRE.07", "phase": "pre", "offset": -10, "ws": "INT", "label": { "ko": "인터페이스 상대 시스템에 작업 시간대 공지", "en": "Interface partner systems told about the window" } },
+    { "id": "CT.PRE.15", "phase": "pre", "offset": -10, "ws": "TST", "label": { "ko": "UAT 사인오프와 최종 사용자 교육 완료", "en": "UAT sign-off and end-user training done" } },
+    { "id": "CT.PRE.16", "phase": "pre", "offset": -10, "ws": "BAS", "label": { "ko": "운영 RFC 목적지·프린터·인증서·배치 사용자 준비", "en": "Production RFC destinations, printers, certificates and batch users ready" } },
+    { "id": "CT.PRE.03", "phase": "pre", "offset": -7, "ws": "BAS", "label": { "ko": "운영 이관 요청 최종 목록 확정", "en": "Agree the final list of requests for production" }, "check": { "ko": "차단된 요청 없음 [cts-blocked<=0]", "en": "No blocked request [cts-blocked<=0]" } },
+    { "id": "CT.PRE.08", "phase": "pre", "offset": -7, "ws": "BAS", "label": { "ko": "운영 배치 잡 계획 검토 (정지·재개 대상)", "en": "Production job plan reviewed (jobs to suspend and resume)" } },
+    { "id": "CT.PRE.09", "phase": "pre", "offset": -7, "ws": "DM", "label": { "ko": "레거시 잔액·미결 추출 기준일 확정", "en": "Legacy balance and open-item extract cut-off agreed" } },
+    { "id": "CT.PRE.12", "phase": "pre", "offset": -7, "ws": "PMO", "label": { "ko": "하이퍼케어 근무표·지원 채널 공지", "en": "Hypercare rota and support channels published" } },
+    { "id": "CT.PRE.10", "phase": "pre", "offset": -5, "ws": "PMO", "label": { "ko": "현업 go / no-go 사전 회의", "en": "Business go / no-go pre-meeting" } },
+    { "id": "CT.PRE.11", "phase": "pre", "offset": -3, "ws": "BAS", "label": { "ko": "운영 백업·복구 절차 확인", "en": "Production backup and restore procedure confirmed" } },
+
+    { "id": "CT.FRZ.01", "phase": "freeze", "anchor": "code", "offset": -14, "ws": "BAS", "label": { "ko": "개발 동결 (코드)", "en": "Development freeze (code)" } },
+    { "id": "CT.FRZ.02", "phase": "freeze", "anchor": "config", "offset": -10, "ws": "PMO", "label": { "ko": "설정 동결 (커스터마이징)", "en": "Configuration freeze (customizing)" } },
+    { "id": "CT.FRZ.03", "phase": "freeze", "anchor": "code", "offset": -14, "ws": "PMO", "label": { "ko": "긴급 변경 절차 시행", "en": "Emergency change procedure in force" } },
+
+    { "id": "CT.WIN.01", "phase": "window", "durationH": 0.5, "deps": [], "ws": "SEC", "label": { "ko": "현업 사용자 잠금", "en": "Lock business users" } },
+    { "id": "CT.WIN.02", "phase": "window", "durationH": 1, "deps": ["CT.WIN.01"], "ws": "BAS", "label": { "ko": "배치 잡 일시 정지", "en": "Suspend background jobs" }, "check": { "ko": "릴리스된 잡 없음 [jobs-released<=0]", "en": "No released job left [jobs-released<=0]" } },
+    { "id": "CT.WIN.03", "phase": "window", "durationH": 1, "deps": ["CT.WIN.01"], "ws": "INT", "label": { "ko": "인터페이스·큐 정지", "en": "Stop interfaces and queues" } },
+    { "id": "CT.WIN.04", "phase": "window", "durationH": 2, "deps": ["CT.WIN.02", "CT.WIN.03"], "ws": "BAS", "label": { "ko": "이관 전 시스템 백업", "en": "System backup before the imports" } },
+    { "id": "CT.WIN.05", "phase": "window", "durationH": 3, "deps": ["CT.WIN.04"], "ws": "BAS", "label": { "ko": "요청 이관 (합의한 순서)", "en": "Import the requests in the agreed order" } },
+    { "id": "CT.WIN.06", "phase": "window", "durationH": 1, "deps": ["CT.WIN.05"], "ws": "BAS", "label": { "ko": "이관 후 점검 (비활성 객체, 이관 로그)", "en": "Post-import checks (inactive objects, import logs)" } },
+    { "id": "CT.WIN.10", "phase": "window", "durationH": 0.5, "deps": ["CT.WIN.06"], "ws": "DM", "label": { "ko": "전기 기간 열기", "en": "Open the posting periods" } },
+    { "id": "CT.WIN.07", "phase": "window", "durationH": 6, "deps": ["CT.WIN.06", "CT.WIN.10"], "ws": "DM", "label": { "ko": "마스터 데이터 적재", "en": "Load master data" } },
+    { "id": "CT.WIN.08", "phase": "window", "durationH": 4, "deps": ["CT.WIN.07", "CT.WIN.10"], "ws": "DM", "label": { "ko": "잔액·미결 항목 적재", "en": "Load balances and open items" } },
+    { "id": "CT.WIN.09", "phase": "window", "durationH": 4, "deps": ["CT.WIN.07", "CT.WIN.10"], "ws": "DM", "label": { "ko": "재고·미결 오더 적재", "en": "Load stock and open orders" } },
+    { "id": "CT.WIN.07A", "phase": "window", "durationH": 0.5, "deps": ["CT.WIN.08", "CT.WIN.09"], "ws": "BAS", "label": { "ko": "적재 후 번호범위 상태 점검", "en": "Number range statuses checked after the loads" } },
+    { "id": "CT.WIN.11", "phase": "window", "durationH": 3, "deps": ["CT.WIN.08", "CT.WIN.09", "CT.WIN.07A"], "ws": "DM", "label": { "ko": "대사 보고서 (레거시 대 SAP)", "en": "Reconciliation reports (legacy against SAP)" } },
+    { "id": "CT.WIN.12", "phase": "window", "durationH": 3, "deps": ["CT.WIN.11"], "ws": "TST", "label": { "ko": "업무 검증·사인오프 (키 유저만)", "en": "Business validation and sign-off (key users only)" } },
+    { "id": "CT.WIN.12A", "phase": "window", "durationH": 1, "deps": ["CT.WIN.11"], "ws": "INT", "label": { "ko": "인터페이스 연결 점검·테스트 메시지", "en": "Interface connectivity and test messages" } },
+    { "id": "CT.WIN.13", "phase": "window", "durationH": 0.5, "deps": ["CT.WIN.12", "CT.WIN.12A"], "ws": "PMO", "label": { "ko": "최종 go / no-go 결정", "en": "Final go / no-go decision" } },
+    { "id": "CT.WIN.14", "phase": "window", "durationH": 1, "deps": ["CT.WIN.13"], "ws": "BAS", "label": { "ko": "배치 잡 재개", "en": "Resume background jobs" } },
+    { "id": "CT.WIN.15", "phase": "window", "durationH": 1, "deps": ["CT.WIN.13"], "ws": "INT", "label": { "ko": "인터페이스 재개", "en": "Resume interfaces" } },
+    { "id": "CT.WIN.16", "phase": "window", "durationH": 0.5, "deps": ["CT.WIN.14", "CT.WIN.15"], "ws": "SEC", "label": { "ko": "사용자 잠금 해제·오픈 공지", "en": "Unlock users and announce the go-live" } },
+
+    { "id": "CT.PST.01", "phase": "post", "offset": 1, "ws": "BAS", "label": { "ko": "하이퍼케어 점검: 덤프·잡·IDoc (운영 보고서)", "en": "Hypercare check: dumps, jobs, IDocs (operations report)" }, "check": { "ko": "일평균 덤프 관리 범위 [dumps-day<=20]", "en": "Dumps per day under control [dumps-day<=20]" } },
+    { "id": "CT.PST.02", "phase": "post", "offset": 1, "ws": "TST", "label": { "ko": "첫날 업무 처리 모니터링", "en": "First-day business processes monitored" } },
+    { "id": "CT.PST.03", "phase": "post", "offset": 3, "ws": "PMO", "label": { "ko": "인터페이스 적체·기간 마감 영향 검토", "en": "Interface backlog and period-end impact reviewed" } },
+    { "id": "CT.PST.04", "phase": "post", "offset": 7, "ws": "PMO", "label": { "ko": "하이퍼케어 1주 리뷰·미결 이슈", "en": "Hypercare week-one review and open issues" } },
+    { "id": "CT.PST.05", "phase": "post", "offset": 30, "ws": "PMO", "label": { "ko": "하이퍼케어 종료·운영 인계", "en": "Hypercare exit and handover to support" } }
+  ],
+  "byType": {
+    "conversion": {
+      "tasks": [
+        { "id": "CT.CNV.01", "phase": "pre", "offset": -21, "ws": "BAS", "label": { "ko": "전환 사전 점검(단순화 항목) 해소 확인", "en": "Conversion pre-checks (simplification items) cleared" } },
+        { "id": "CT.CNV.04", "phase": "pre", "offset": -14, "ws": "BAS", "label": { "ko": "드레스 리허설 (운영 사본으로 전체 전환 수행·시간 측정)", "en": "Dress rehearsal (full conversion on a production copy, timed)" } },
+        { "id": "CT.CNV.02", "phase": "window", "durationH": 12, "deps": ["CT.WIN.04"], "ws": "BAS", "note": { "ko": "소요 시간은 드레스 리허설 실측으로 갱신", "en": "Take the duration from the dress rehearsal" }, "label": { "ko": "기술 전환 실행 (데이터베이스 마이그레이션·소프트웨어 업데이트)", "en": "Technical conversion run (database migration and software update)" } },
+        { "id": "CT.CNV.03", "phase": "window", "durationH": 8, "deps": ["CT.CNV.02"], "ws": "DM", "label": { "ko": "전환 후 애플리케이션 단계 (재무 데이터 마이그레이션 등)", "en": "Post-conversion application steps (finance data migration and follow-up)" } }
+      ],
+      "deps": { "CT.WIN.05": ["CT.CNV.03"], "CT.WIN.11": ["CT.WIN.10"] },
+      "window": { "startDaysBefore": 3, "startTime": "18:00", "endTime": "06:00" },
+      "skip": ["CT.PRE.13", "CT.PRE.05", "CT.PRE.09", "CT.WIN.07", "CT.WIN.08", "CT.WIN.09", "CT.WIN.07A"]
+    },
+    "small": {
+      "skip": ["CT.PRE.05", "CT.PRE.09", "CT.PRE.13", "CT.WIN.07", "CT.WIN.08", "CT.WIN.09", "CT.WIN.07A", "CT.WIN.10", "CT.WIN.11", "CT.PST.03", "CT.PST.05"]
+    }
+  },
+  "goNoGo": [
+    { "id": "GN.01", "text": { "ko": "운영 이관 요청 모두 준비됨 [cts-blocked<=0]", "en": "All production requests ready [cts-blocked<=0]" } },
+    { "id": "GN.02", "text": { "ko": "열린 UAT 결함 없음 [defects-open<=0]", "en": "No open UAT defects [defects-open<=0]" } },
+    { "id": "GN.03", "text": { "ko": "사전 작업 완료 [tasks-open:pre<=0]", "en": "Pre-window tasks done [tasks-open:pre<=0]" } },
+    { "id": "GN.04", "text": { "ko": "리허설 기준 작업 시간대 안에 끝남 [rehearsal-fit>=0]", "en": "The rehearsal fits the window [rehearsal-fit>=0]" } },
+    { "id": "GN.06", "text": { "ko": "검증·대사 결과 현업 승인", "en": "Business sign-off of validation and reconciliation" } },
+    { "id": "GN.07", "text": { "ko": "하이퍼케어 지원 체계 준비", "en": "Hypercare support ready" } },
+    { "id": "GN.08", "text": { "ko": "폴백 계획 합의", "en": "Fallback plan agreed" } }
+  ]
+}

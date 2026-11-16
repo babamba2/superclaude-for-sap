@@ -18,7 +18,7 @@ SAP projects split the work between **module consultants** (requirements, FS, co
 <Target_Object>Packages and transports are read on the active profile's system only. Not found → stop and ask per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) § Target object not on the active system.</Target_Object>
 
 <Use_When>
-- "프로젝트 대시보드", "WBS 관리", "마일스톤 관리", "PMO 보고", "프로젝트 현황", "project dashboard", "SAP project plan", "go-live readiness", "WRICEF 진척", "포트폴리오", "주간 보고", "주간 현황", "weekly status", "Q-gate"
+- "프로젝트 대시보드", "WBS 관리", "마일스톤 관리", "PMO 보고", "프로젝트 현황", "project dashboard", "SAP project plan", "go-live readiness", "WRICEF 진척", "포트폴리오", "주간 보고", "주간 현황", "weekly status", "Q-gate", "컷오버", "cutover", "go/no-go", "리허설", "rehearsal"
 - A new SAP project (implementation, S/4 conversion, rollout, AMS release, small project) needs a plan, or an existing one needs status — each week: hand the saved page back (import) and refresh the SAP actuals
 - The PMO wants all projects on one page, or the load of people working on several projects
 - A team member leaves or joins; WRICEF items change owner
@@ -58,7 +58,7 @@ Settled at design time (2026-10-28) — do not ask again:
 </Paths>
 
 <Workflow>
-MUST read [`workflow.md`](workflow.md) before Step 1. Model fields: [`model-schema.md`](model-schema.md) — read before editing a model file directly.
+MUST read [`workflow.md`](workflow.md) before Step 1. Model fields: [`model-schema.md`](model-schema.md) — read before editing a model file directly. Cutover readiness (runbook, go / no-go, window fit, jobs to suspend): [`cutover.md`](cutover.md).
 </Workflow>
 
 <Output_Format>
@@ -69,6 +69,7 @@ Hand-offs: to development <n> · to FUT <n> · needs a new owner <n> · KPIs to 
 SAP actuals: <n> requests (configuration <n> / development <n>) · <n> package objects · read <date>
 Page: <html> · English: <html> · Portfolio: <PRJ>/portfolio-<lang>.html
 Weekly status (status.md): <CODE>-status-<weekEnd>-<lang>.html · <RAG> · moves <n> · gate <suggest>
+Cutover (cutover.md): <CODE>-cutover-<lang>.html · <D-n> · go / no-go suggestion <suggest> · fit <fits|tight|exceeds>
 Next: edit in the browser → Save → "import <file>", "실적 갱신", "WRICEF 추가", "<사람> 담당 이관"
 ```
 </Output_Format>
