@@ -4,6 +4,7 @@ FUNCTION zmcp_fp_migrate
     VALUE(iv_form)      TYPE string
     VALUE(iv_interface) TYPE string
     VALUE(iv_preset)    TYPE string DEFAULT 'FULL'
+    VALUE(iv_sender_country) TYPE land1 OPTIONAL
   EXPORTING
     VALUE(ev_subrc)     TYPE i
     VALUE(ev_message)   TYPE string
@@ -47,6 +48,13 @@ FUNCTION zmcp_fp_migrate
 *    hashes and cache info (CL_FP_HELPER=>SET_NEW_LAYOUT_ID / _HASH /
 *    SET_NEW_CACHE_INFO, as a Designer save does) before the form is saved;
 *    still the placeholder afterwards -> the run stops, form not saved;
+*  - gap G2: include texts whose language field is CONTROL_PARAMETERS-LANGU
+*    (a SmartForm interface parameter the Adobe context does not have) get no
+*    language - they then print in the output language, as meant; gap G3:
+*    with IV_SENDER_COUNTRY (T005 key) only, address nodes without a sender
+*    country get it; both listed in "adjusted". Other CONTROL_PARAMETERS- /
+*    OUTPUT_OPTIONS- / SFSY- fields are left as they are (SAP's check names
+*    them);
 *  - the form description (the SmartForm caption, as MIGRATE sets it) ends
 *    with the marker " [sc4sap]" (caption cut to fit 60 characters): RENDER
 *    prints ZSC4SAP_AFM_* forms only with it.
@@ -70,7 +78,8 @@ FUNCTION zmcp_fp_migrate
 *
 * Result {"source","form","interface","options":{...},"raised":bool,
 * "error","saved":[...],"left":[...],"active":[...],"renamed":[{"path","from",
-* "to","type"}],"cacheInfo","log":[{"type","text"}]}.
+* "to","type"}],"adjusted":[{"path","attribute","from","to"}],"cacheInfo",
+* "log":[{"type","text"}]}.
 *----------------------------------------------------------------------*
   DATA: lv_cat       TYPE t000-cccategory,
         lv_src       TYPE tdsfname,
@@ -100,6 +109,7 @@ FUNCTION zmcp_fp_migrate
         lo_root      TYPE REF TO if_fp_node,
         lv_xdps      TYPE string,
         lt_renamed   TYPE string_table,
+        lt_adjusted  TYPE string_table,
         lv_g1err     TYPE string,
         lv_cache     TYPE string,
         lv_sfpf      TYPE string,
@@ -167,6 +177,14 @@ FUNCTION zmcp_fp_migrate
   IF to_upper( iv_preset ) <> 'FULL'.
     ev_subrc = 8. ev_message = |FP_MIGRATE: preset "{ iv_preset }" refused - only FULL|.
     RETURN.
+  ENDIF.
+  " Optional sender country for address nodes without one (gap G3): a T005 key.
+  IF iv_sender_country IS NOT INITIAL.
+    SELECT SINGLE land1 FROM t005 INTO @DATA(lv_land1) WHERE land1 = @iv_sender_country.
+    IF sy-subrc <> 0.
+      ev_subrc = 8. ev_message = |FP_MIGRATE: sender country "{ iv_sender_country }" refused - not a country key (T005)|.
+      RETURN.
+    ENDIF.
   ENDIF.
 
   " Source: a SAP-delivered SmartForm (not a text module).
@@ -316,6 +334,16 @@ FUNCTION zmcp_fp_migrate
       " 0$0$0$0$v1.0$? - every migrated form then shares one ADS template cache slot
       " and prints another form's layout. Give the layout what a Designer save gives
       " it (public CL_FP_HELPER methods): a new layout id, hashes and cache info.
+      " Gaps G2 / G3: CONTROL_PARAMETERS-LANGU as include-text language (no such field
+      " in the Adobe context - an include text without a language prints in the output
+      " language, which is what it meant) and, with IV_SENDER_COUNTRY only, a sender
+      " country on address nodes that have none (FORM g2g3_walk, listed in "adjusted").
+      CLEAR lv_str.
+      PERFORM g2g3_walk USING lo_root lv_str iv_sender_country CHANGING lt_adjusted lv_g1err.
+      IF lv_g1err IS NOT INITIAL.
+        RAISE EXCEPTION TYPE cx_fp_api_usage.    " -> CATCH below, form not saved
+      ENDIF.
+
       cl_fp_helper=>set_new_layout_id( CHANGING c_form = lo_form ).
       cl_fp_helper=>set_new_layout_hash( CHANGING c_form = lo_form ).
       cl_fp_helper=>set_new_cache_info( CHANGING c_form = lo_form ).
@@ -386,7 +414,7 @@ FUNCTION zmcp_fp_migrate
       lv_sfpf = |SFPF { lv_form }|.
       READ TABLE lt_saved TRANSPORTING NO FIELDS WITH KEY table_line = lv_sfpf.
       IF sy-subrc <> 0.
-        CLEAR lt_renamed.
+        CLEAR: lt_renamed, lt_adjusted.
       ENDIF.
       TRY.
           IF lo_mig IS BOUND.
@@ -461,7 +489,9 @@ FUNCTION zmcp_fp_migrate
   lv_actmsg = escape( val = lv_actmsg format = cl_abap_format=>e_json_string ).
   CONCATENATE LINES OF lt_renamed INTO lv_str SEPARATED BY `,`.
   lv_cache = escape( val = lv_cache format = cl_abap_format=>e_json_string ).
-  ev_result = ev_result && |"active":[{ lv_list }],"activation":"{ lv_actmsg }","renamed":[{ lv_str }],"cacheInfo":"{ lv_cache }","log":[{ lv_log }]\}|.
+  ev_result = ev_result && |"active":[{ lv_list }],"activation":"{ lv_actmsg }","renamed":[{ lv_str }],|.
+  CONCATENATE LINES OF lt_adjusted INTO lv_str SEPARATED BY `,`.
+  ev_result = ev_result && |"adjusted":[{ lv_str }],"cacheInfo":"{ lv_cache }","log":[{ lv_log }]\}|.
   " The dispatcher caller throws on EV_SUBRC <> 0 and never sees EV_RESULT:
   " the message itself names what was left and what is not active.
   CONCATENATE LINES OF lt_left INTO lv_list SEPARATED BY `, `.
@@ -602,4 +632,58 @@ FORM g1_walk USING io_parent TYPE REF TO if_fp_node
       RETURN.
     ENDIF.
   ENDLOOP.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form G2G3_WALK - include-text language and address sender country
+*&---------------------------------------------------------------------*
+FORM g2g3_walk USING io_parent  TYPE REF TO if_fp_node
+                     iv_path    TYPE string
+                     iv_country TYPE land1
+               CHANGING ct_adj  TYPE string_table
+                        cv_err  TYPE string.
+  DATA: lo_node TYPE REF TO if_fp_node,
+        lo_ti   TYPE REF TO if_fp_text_include,
+        lo_ad   TYPE REF TO if_fp_address,
+        ls_lang TYPE sfptextilang,
+        ls_ctry TYPE sfpsendercountry,
+        lv_path TYPE string,
+        lx_err  TYPE REF TO cx_root.
+
+  IF cv_err IS NOT INITIAL OR io_parent IS NOT BOUND.
+    RETURN.
+  ENDIF.
+  lo_node = io_parent->get_child( ).
+  WHILE lo_node IS BOUND.
+    lv_path = COND string( WHEN iv_path IS INITIAL THEN |{ lo_node->get_name( ) }| ELSE |{ iv_path }.{ lo_node->get_name( ) }| ).
+    TRY.
+        CASE lo_node->get_type( ).
+          WHEN if_fp_node=>c_type_text_include.
+            lo_ti ?= lo_node.
+            ls_lang = lo_ti->get_text_language( ).
+            IF ls_lang-languagefield = 'CONTROL_PARAMETERS-LANGU'.
+              lo_ti->set_text_language( i_text_language = VALUE #( ) ).
+              APPEND |\{"path":"{ lv_path }","attribute":"LANGUAGEFIELD","from":"CONTROL_PARAMETERS-LANGU","to":""\}| TO ct_adj.
+            ENDIF.
+          WHEN if_fp_node=>c_type_address.
+            lo_ad ?= lo_node.
+            ls_ctry = lo_ad->get_sender_country( ).
+            IF iv_country IS NOT INITIAL AND ls_ctry-sendercountry IS INITIAL AND ls_ctry-sendercountryfield IS INITIAL.
+              lo_ad->set_sender_country( i_sender_country = VALUE #( sendercountry = iv_country ) ).
+              APPEND |\{"path":"{ lv_path }","attribute":"SENDERCOUNTRY","from":"","to":"{ iv_country }"\}| TO ct_adj.
+            ENDIF.
+        ENDCASE.
+      CATCH cx_root INTO lx_err.
+        cv_err = |adjustment not made: { lv_path }: { lx_err->get_text( ) }|.
+        RETURN.
+    ENDTRY.
+    IF lo_node->get_type( ) = if_fp_node=>c_type_loop_data.
+      lv_path = |{ lv_path }[*]|.
+    ENDIF.
+    PERFORM g2g3_walk USING lo_node lv_path iv_country CHANGING ct_adj cv_err.
+    IF cv_err IS NOT INITIAL.
+      RETURN.
+    ENDIF.
+    lo_node = lo_node->get_successor( ).
+  ENDWHILE.
 ENDFORM.
