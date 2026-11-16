@@ -13,7 +13,8 @@
 //   AGR_USERS  — UNAME = <the one user> only; AGR_NAME, FROM_DAT, TO_DAT. Other users are never listed.
 //   AGR_AGRS, AGR_TCODES, AGR_1251, AGR_1252 of the user's roles; AGR_1251 of pattern roles for the missing objects.
 //   TSTCA, USOBT_C of the T-code; TSTCT, TOBJT, AUTHX + DD04T for texts.
-// Profiles assigned directly (UST04) and generated profiles (AGR_1016) are not read — a "held" verdict says so.
+// Verdict B: AGR_1016 (generated profile) and AGR_TIMEB (time stamps; no user fields) of the holding roles are read as
+// facts. Profiles assigned directly (UST04) are never read — a "held" verdict says so.
 // Output file names carry the T-code and date, never the user ID. build never connects to SAP; both commands write
 // only into --out-dir (collect: collect.json; build: the .html, .md and -model.json).
 
@@ -23,7 +24,29 @@ import { fileURLToPath } from 'node:url';
 import { readActiveSapEnv, normalizeTier } from '../lib/profile-resolve.mjs';
 import { arr, classify, candidates, sodImpact, tcodeGrantValues, assignmentsOf } from './auth-check.mjs';
 
-export const ALLOW_TABLES = ['AGR_USERS', 'AGR_AGRS', 'AGR_TCODES', 'AGR_1251', 'AGR_1252', 'TSTCA', 'USOBT_C', 'TSTCT', 'TOBJT', 'AUTHX', 'DD04T'];
+export const ALLOW_TABLES = ['AGR_USERS', 'AGR_AGRS', 'AGR_TCODES', 'AGR_1251', 'AGR_1252', 'TSTCA', 'USOBT_C', 'TSTCT', 'TOBJT', 'AUTHX', 'DD04T', 'AGR_1016', 'AGR_TIMEB'];
+
+// Verdict B facts (phase 2): the generated profile of a role and the role's time stamps. Fixed field lists, sent to SAP
+// as the SELECT list — AGR_TIMEB's CREATE_USR / CHANGE_USR (admin user names) are never requested.
+export const PROFILE_FIELDS = ['AGR_NAME', 'COUNTER', 'PROFILE', 'VARIANT', 'GENERATED', 'PSTATE'];
+export const TIMEB_FIELDS = ['AGR_NAME', 'AGR_TYPE', 'CREATE_DAT', 'CREATE_TIM', 'CREATE_TMP', 'CHANGE_DAT', 'CHANGE_TIM', 'CHANGE_TMP'];
+
+/** SELECT with an explicit field list (readTable always sends SELECT *). */
+export function fieldSql(table, fields, where) {
+  return `SELECT ${fields.join(', ')} FROM ${table} WHERE ${where}`;
+}
+
+async function selectFields(client, table, fields, where) {
+  try {
+    const res = await client.callTool({ name: 'GetSqlQuery', arguments: { sql_query: fieldSql(table, fields, where), row_number: 5000 } });
+    const text = res?.content?.[0]?.text ?? '';
+    if (res?.isError) return { ok: false, rows: [], error: text.slice(0, 300) };
+    const rows = (JSON.parse(text).rows || []).map((r) => Object.fromEntries(fields.map((f) => [f, r[f] ?? ''])));
+    return { ok: true, rows };
+  } catch (e) {
+    return { ok: false, rows: [], error: String(e?.message ?? e).slice(0, 300) };
+  }
+}
 export const USER_RE = /^[A-Z0-9_.@&\-]{1,12}$/;
 export const TCODE_RE = /^[A-Z0-9_/]{1,20}$/;
 const here = dirname(fileURLToPath(import.meta.url));
@@ -51,7 +74,7 @@ export function normalizeChecks(input) {
 export async function collect({ user, tcode, checks = [], patterns = ['Z*'], lang = 'ko', system = '' }) {
   if (!USER_RE.test(user || '')) throw new Error('--user <ID> is required (one SAP user ID)');
   if (!TCODE_RE.test(tcode || '')) throw new Error('--tcode <T-code> is required');
-  const { connect, readTable, readIn } = await import('../config/sap-reader.mjs');
+  const { connect, readTable, readIn, whereOf } = await import('../config/sap-reader.mjs');
   const { likeOf } = await import('./sap-roles.mjs');
   const client = await connect('role-matrix', { allowTables: ALLOW_TABLES });
   const notRead = new Set(), readErrors = [], truncated = [];
@@ -117,6 +140,17 @@ export async function collect({ user, tcode, checks = [], patterns = ['Z*'], lan
       c.cand.tcodesPartial = arr(r.truncated); // roles with more T-codes than one read returns: count shown as ≥
     }
 
+    // 2b. verdict B: the generated profile and the time stamps of the roles that hold the values (facts only)
+    const heldRoles = [...new Set(v.results.filter((r) => r.verdict === 'B').map((r) => r.role))];
+    c.profiles = []; c.times = [];
+    if (heldRoles.length) {
+      const where = whereOf({ AGR_NAME: heldRoles });
+      const p1 = await selectFields(client, 'AGR_1016', PROFILE_FIELDS, where);
+      if (p1.ok) c.profiles = p1.rows; else { notRead.add('AGR_1016'); readErrors.push(`AGR_1016: ${p1.error}`); }
+      const p2 = await selectFields(client, 'AGR_TIMEB', TIMEB_FIELDS, where);
+      if (p2.ok) c.times = p2.rows; else { notRead.add('AGR_TIMEB'); readErrors.push(`AGR_TIMEB: ${p2.error}`); }
+    }
+
     // 3. texts
     c.texts = { tcode: '', objects: {}, fields: {} };
     const tt = need(await readTable(client, 'TSTCT', { where: { TCODE: tc(tcode), SPRSL: spras } }), 'TSTCT');
@@ -157,6 +191,12 @@ export function triage(c, { library = null } = {}) {
   for (const x of cand.list) {
     x.tcodesPartial = partialT.has(x.role);
     x.sod = x.tcodes == null ? null : sodImpact(userTcodes, candTcodes[x.role], lib, c.lang === 'en' ? 'en' : 'ko');
+  }
+  // verdict B facts as read — no "stale profile" conclusion until the AGR_TIMEB types are confirmed against PFCG
+  const keepT = new Set(TIMEB_FIELDS);
+  for (const r of v.results.filter((x) => x.verdict === 'B')) {
+    r.profiles = arr(c.profiles).filter((p) => p.AGR_NAME === r.role).map((p) => ({ profile: p.PROFILE, generated: p.GENERATED, pstate: p.PSTATE }));
+    r.times = arr(c.times).filter((t) => t.AGR_NAME === r.role).map((t) => Object.fromEntries(Object.entries(t).filter(([k]) => keepT.has(k) && k !== 'AGR_NAME')));
   }
   const relevant = new Set([...v.results, ...v.estimates].map((r) => r.check.object));
   const roleObjects = {};

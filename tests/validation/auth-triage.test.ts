@@ -5,7 +5,7 @@ import { join } from 'path';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { valueMatches, varsByRole, instanceGrants, assignmentsOf, startChecks, su24Checks, classify, candidates, sodImpact, tcodeGrantValues } from '../../scripts/role/auth-check.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { triage, build, normalizeChecks, ALLOW_TABLES, prdGuard, PRD_CONFIRM, rangeWhere, localDate } from '../../scripts/role/auth-triage.mjs';
+import { triage, build, normalizeChecks, ALLOW_TABLES, prdGuard, PRD_CONFIRM, rangeWhere, localDate, fieldSql, PROFILE_FIELDS, TIMEB_FIELDS } from '../../scripts/role/auth-triage.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { renderTriagePage, renderTriageMd } from '../../scripts/role/auth-triage-page.mjs';
 
@@ -238,6 +238,24 @@ describe('auth-triage output', () => {
   });
 });
 
+describe('auth-triage verdict B facts (phase 2)', () => {
+  it('attaches the generated profile and role time stamps as read, without a stale verdict', () => {
+    const f = fixture({ checks: [{ object: 'V_VBAK_AAT', fields: { ACTVT: '02', AUART: 'ZTEST' } }] });
+    Object.assign(f, {
+      profiles: [{ AGR_NAME: 'Z_TEST_SD_CLERK', COUNTER: '1', PROFILE: 'T-TEST0001', VARIANT: '', GENERATED: 'X', PSTATE: '' }],
+      times: [{ AGR_NAME: 'Z_TEST_SD_CLERK', AGR_TYPE: '00', CREATE_DAT: '20250101', CREATE_TIM: '090000', CREATE_TMP: '', CHANGE_DAT: '20260301', CHANGE_TIM: '101500', CHANGE_TMP: '', CHANGE_USR: 'SHOULD_NOT_SHOW' }],
+    });
+    const m = triage(f);
+    expect(m.results[0].profiles).toEqual([{ profile: 'T-TEST0001', generated: 'X', pstate: '' }]);
+    expect(m.results[0].times[0]).not.toHaveProperty('CHANGE_USR');
+    const html = renderTriagePage(m);
+    expect(html).toContain('T-TEST0001');
+    expect(html).toContain('not judged');
+    expect(html).not.toContain('SHOULD_NOT_SHOW');
+    expect(JSON.stringify(m)).not.toContain('SHOULD_NOT_SHOW');
+  });
+});
+
 describe('auth-triage PRD guard', () => {
   it('stops collect on PRD unless confirmed; DEV / QA run', () => {
     expect(prdGuard({ tier: 'PRD', confirmed: false })).toContain(PRD_CONFIRM.en);
@@ -248,9 +266,25 @@ describe('auth-triage PRD guard', () => {
 
 describe('auth-triage read scope (static)', () => {
   const src = readFileSync(join(ROOT, 'scripts', 'role', 'auth-triage.mjs'), 'utf8');
-  it('allows exactly the spec tables — never USR*, UST*, AGR_1016', () => {
-    expect(ALLOW_TABLES).toEqual(['AGR_USERS', 'AGR_AGRS', 'AGR_TCODES', 'AGR_1251', 'AGR_1252', 'TSTCA', 'USOBT_C', 'TSTCT', 'TOBJT', 'AUTHX', 'DD04T']);
-    expect(src).not.toMatch(/'(USR\w*|UST\w*|AGR_1016)'/);
+  it('allows exactly the spec tables (+ phase 2 AGR_1016 / AGR_TIMEB) — never USR*, UST*', () => {
+    expect(ALLOW_TABLES).toEqual(['AGR_USERS', 'AGR_AGRS', 'AGR_TCODES', 'AGR_1251', 'AGR_1252', 'TSTCA', 'USOBT_C', 'TSTCT', 'TOBJT', 'AUTHX', 'DD04T', 'AGR_1016', 'AGR_TIMEB']);
+    expect(src).not.toMatch(/'(USR\w*|UST\w*)'/);
+  });
+  it('requests AGR_TIMEB without the admin user fields and AGR_1016 with a fixed list', () => {
+    const sql = fieldSql('AGR_TIMEB', TIMEB_FIELDS, "AGR_NAME IN ('Z_TEST_A')");
+    expect(sql).toBe("SELECT AGR_NAME, AGR_TYPE, CREATE_DAT, CREATE_TIM, CREATE_TMP, CHANGE_DAT, CHANGE_TIM, CHANGE_TMP FROM AGR_TIMEB WHERE AGR_NAME IN ('Z_TEST_A')");
+    expect(sql).not.toMatch(/USR|\*/);
+    expect(PROFILE_FIELDS).toEqual(['AGR_NAME', 'COUNTER', 'PROFILE', 'VARIANT', 'GENERATED', 'PSTATE']);
+    expect(src).toMatch(/selectFields\(client, 'AGR_TIMEB', TIMEB_FIELDS/);
+    expect(src).not.toMatch(/read(Table|In)\(client, 'AGR_(1016|TIMEB)'/);
+  });
+  it('no other script opens AGR_1016 / AGR_TIMEB', () => {
+    const { readdirSync, statSync } = require('fs') as typeof import('fs');
+    const walk = (d: string): string[] => readdirSync(d).flatMap((n) => { const p = join(d, n); return statSync(p).isDirectory() ? walk(p) : /\.(mjs|js|cjs)$/.test(n) ? [p] : []; });
+    const users = walk(join(ROOT, 'scripts')).filter((f) => /AGR_1016|AGR_TIMEB/.test(readFileSync(f, 'utf8'))).map((f) => f.replace(/\\/g, '/').split('/scripts/')[1]);
+    // the page only names AGR_TIMEB in a label; it never connects to SAP
+    expect(users.sort()).toEqual(['role/auth-triage-page.mjs', 'role/auth-triage.mjs']);
+    expect(readFileSync(join(ROOT, 'scripts', 'role', 'auth-triage-page.mjs'), 'utf8')).not.toMatch(/sap-reader|connect\(|callTool/);
   });
   it('reads AGR_USERS only for UNAME = the one user', () => {
     const reads = src.split('\n').filter((l: string) => /(readTable|readIn)\(client, 'AGR_USERS'/.test(l));

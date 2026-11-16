@@ -29,7 +29,8 @@ const L = {
     candTrunc: (o) => `객체 ${o}의 역할 행이 5000행을 넘어 일부만 읽었어요. 패턴을 좁혀 다시 실행해요.`,
     sodExisting: '이미 있는 SoD 충돌 (참고)', sodApprox: 'SoD는 T-code 수준 근사예요 (sod-library). 권한 객체 수준 판단은 보안 담당자가 해요.',
     next: '다음 조치 (사람이 함)', limits: '읽지 못한 것과 한계',
-    limitProfiles: '직접 할당 프로파일(SAP_ALL 등, UST04)과 생성된 프로파일(AGR_1016)은 읽지 않아요.',
+    limitProfiles: '직접 할당 프로파일(SAP_ALL 등, UST04)은 읽지 않아요.',
+    profile: '생성된 프로파일', generatedFlag: '생성 표시', pstate: '상태', times: '역할 시각 (AGR_TIMEB)', factsOnly: '읽은 값 그대로예요. 프로파일이 오래됐는지는 판정하지 않아요.',
     limitReadOnly: '이 분석은 읽기만 해요. 역할 변경, 할당, PFCG 작업은 하지 않아요.',
     notRead: '읽지 못한 테이블', truncated: '5000행 상한에 걸린 읽기',
     ticket: '티켓 답변 (복사용)',
@@ -55,7 +56,8 @@ const L = {
     candTrunc: (o) => `Role rows of object ${o} exceeded 5000 and were partly read. Narrow the patterns and run again.`,
     sodExisting: 'SoD conflicts the user already has (for reference)', sodApprox: 'SoD is a T-code level approximation (sod-library). The security owner judges at object level.',
     next: 'Next steps (done by people)', limits: 'Not read and limits',
-    limitProfiles: 'Directly assigned profiles (SAP_ALL etc., UST04) and generated profiles (AGR_1016) are not read.',
+    limitProfiles: 'Directly assigned profiles (SAP_ALL etc., UST04) are not read.',
+    profile: 'Generated profile', generatedFlag: 'generated', pstate: 'status', times: 'Role time stamps (AGR_TIMEB)', factsOnly: 'Values as read. Whether the profile is out of date is not judged.',
     limitReadOnly: 'Read-only. No role change, assignment or PFCG work is done.',
     notRead: 'Tables not read', truncated: 'Reads at the 5000-row limit',
     ticket: 'Ticket reply (copy)',
@@ -67,7 +69,12 @@ const nT = (c, t) => (c.tcodes == null ? t.unknown : `${c.tcodesPartial ? '≥' 
 const fieldsText = (f) => Object.entries(f || {}).map(([k, v]) => `${k} = ${v}`).join(', ');
 
 function evidence(r, t, m) {
-  if (r.verdict === 'B') return `${t.grantedBy}: ${esc(r.role)} <small>(${esc(r.auth)})</small>`;
+  if (r.verdict === 'B') {
+    const prof = arr(r.profiles).map((p) => `${t.profile}: ${esc(p.profile)} · ${t.generatedFlag} ${esc(p.generated || '—')} · ${t.pstate} ${esc(p.pstate || '—')}`);
+    const times = arr(r.times).map((x) => `${esc(x.AGR_TYPE || '—')}: ${esc(d8(x.CREATE_DAT))} ${esc(x.CREATE_TIM || '')} / ${esc(d8(x.CHANGE_DAT))} ${esc(x.CHANGE_TIM || '')}`);
+    const facts = [...prof, ...(times.length ? [`${t.times}: ${times.join('; ')}`] : [])];
+    return `${t.grantedBy}: ${esc(r.role)} <small>(${esc(r.auth)})</small>${facts.length ? `<br>${facts.join('<br>')}<br><small>${esc(t.factsOnly)}</small>` : ''}`;
+  }
   if (r.verdict === 'C') return `${t.grantedBy}: ${esc(r.role)} · ${t.expired} ${esc(d8(r.assignment?.from))} ~ ${esc(d8(r.assignment?.to))} <b>(${esc(t.periods[r.period] || t.periods.expired)})</b>`;
   if (r.reason === 'notRead') return esc(t.reasonNotRead);
   if (r.reason === 'partial') return esc(t.reasonPartial);

@@ -20,6 +20,8 @@ User logon data, password hashes, authorization profiles, RFC destinations with 
 | AGR_1251 | Authorization data for roles | Auth field-value combos |
 | AGR_USERS | User-role assignment | Role PII linkage |
 | AGR_AGRS | Composite role contents | Role config |
+| AGR_1016 | Role → generated profile | Profile generation state — opened only by the role-matrix triage script |
+| AGR_TIMEB | Role change / generation times | Admin user names — opened only by the role-matrix triage script (user fields never read) |
 | PRGN_CUST | PFCG customizing | Auth system config |
 | RFCDES | RFC destinations | **Embedded RFC passwords/secrets** |
 | RSECACTB / RSECTAB | Secure Store keys | Crypto key material |
