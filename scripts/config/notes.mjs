@@ -14,6 +14,13 @@
 //        → terms/_in/tNNN.json: names without a document-language text (150 per batch);
 //          save with --batch tNNN --kind draft|review, lines `tNNN-NNN = <translation>`
 //   node scripts/config/notes.mjs status --module MM
+//   node scripts/config/notes.mjs kb --module MM [--redo]
+//        → general part of reviewed notes into ~/.sc4sap/kb/config (system rows / names scrubbed; flagged ones redone)
+//   node scripts/config/notes.mjs kb-scrub [--kb <dir>] [--snapshots <a.json,b.json>] [--apply] [--default-sap-version ECC]
+//        → dry run: counts of system rows / sentences / flags in a KB tree; --apply writes (back it up first)
+// Knowledge base lookup: own KB (~/.sc4sap/kb/config) first, then a read-only seed
+// (SC4SAP_KB_SEED=<dir holding config/<M>/<lang>/…>). Seed entries carry no SAP documentation summary —
+// the batch then hands the activity's own sapDoc to the writer.
 //   node scripts/config/notes.mjs sources --module MM
 //        → seeds the verified-source cache (notes-sources.mjs) from every reviewed batch
 //   node scripts/config/notes.mjs rows --module MM --table T001W [--where WERKS=1000,LAND1=KR]
@@ -36,11 +43,13 @@ import { buildModel } from './build-config-doc.mjs';
 import { loadRules, runChecks, attachActivities } from './config-checks.mjs';
 import { readSources, recordSources, sourceHints } from './notes-sources.mjs';
 import { ALL_ROWS, sampleRows, profileView, customerTransports, queryRows, badiContext } from './notes-context.mjs';
+import { contextFromSnapshots, scrubEntry, scrubTree } from './kb-scrub.mjs';
+import { createHash } from 'crypto';
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 function opts(argv) {
-  const o = { cmd: argv[0], module: '', scope: 'custom', size: 12, batch: '', kind: '', redo: false, file: '', ids: [], table: '', where: [], fields: [], countBy: '', limit: 50, de: '' };
+  const o = { cmd: argv[0], module: '', kbDir: '', snapshots: [], apply: false, scope: 'custom', size: 12, batch: '', kind: '', redo: false, file: '', ids: [], table: '', where: [], fields: [], countBy: '', limit: 50, de: '' };
   for (let i = 1; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--module') o.module = String(argv[++i]).toUpperCase();
@@ -57,8 +66,12 @@ function opts(argv) {
     else if (a === '--count-by') o.countBy = String(argv[++i]).toUpperCase();
     else if (a === '--limit') o.limit = Number(argv[++i]) || 50;
     else if (a === '--de') o.de = String(argv[++i]);
+    else if (a === '--kb') o.kbDir = String(argv[++i]);
+    else if (a === '--snapshots') o.snapshots = String(argv[++i]).split(',').map((x) => x.trim()).filter(Boolean);
+    else if (a === '--apply') o.apply = true;
+    else if (a === '--default-sap-version') o.defaultSapVersion = String(argv[++i]);
   }
-  if (!o.module) throw new Error('--module is required');
+  if (!o.module && o.cmd !== 'kb-scrub') throw new Error('--module is required');
   return o;
 }
 
@@ -135,7 +148,9 @@ export function parseNotes(text, kind) {
     if (kind === 'review') {
       const verdict = /^verdict:\s*(ok|fix)\b/im.exec(body)?.[1]?.toLowerCase();
       if (!verdict) errors.push(`${id}: no "verdict: ok|fix" line`);
-      items[id] = { verdict: verdict || 'fix', issues: body.split('\n').filter((l) => /^\s*-\s+/.test(l)).map((l) => l.replace(/^\s*-\s+/, '').trim()) };
+      // kbFlag: the general part from the knowledge base does not fit this system → the KB entry is redone
+      const kbFlag = /^kbFlag:\s*(.+)$/im.exec(body)?.[1]?.trim() || '';
+      items[id] = { verdict: verdict || 'fix', issues: body.split('\n').filter((l) => /^\s*-\s+/.test(l)).map((l) => l.replace(/^\s*-\s+/, '').trim()), ...(kbFlag ? { kbFlag } : {}) };
       continue;
     }
     items[id] = parseNote(body);
@@ -167,8 +182,16 @@ function batches(o) {
   const walk = (nodes, path) => nodes.forEach((n) => (n.kind === 'activity' ? (paths[n.activity] = path, order.push(n.activity)) : walk(n.children || [], n.text ? [...path, n.text] : path)));
   walk(snap.tree, []);
   const SCOPES = { custom: ['custom'], values: ['custom', 'standard', 'empty'], all: null };
-  // Activities that already have reviewed notes are skipped unless --redo.
-  const done = new Set(Object.entries(loadNotes(dir)).filter(([, n]) => !o.redo && ['ok', 'revised'].includes(n.review)).map(([id]) => id));
+  // Activities that already have reviewed notes are skipped unless --redo — but not when their rows
+  // changed since the note was verified (valueHash), nor when a reviewer flagged the KB part (kbFlag).
+  const hashOf = (id) => valueHash(acts[id].viewKeys.map((k) => views[k].rows));
+  const notes = loadNotes(dir);
+  const flags = kbFlags(o.module, lang);
+  const newFlags = Object.entries(notes).filter(([id, n]) => n.kbFlag && !flags[id]);
+  for (const [id, n] of newFlags) flags[id] = { reason: n.kbFlag, system: snap.meta.system || '', at: new Date().toISOString().slice(0, 10) };
+  if (newFlags.length) writeFlags(o.module, lang, flags);
+  const stale = (id, n) => acts[id] && n.verifiedAgainst?.valueHash && n.verifiedAgainst.valueHash !== hashOf(id);
+  const done = new Set(Object.entries(notes).filter(([id, n]) => !o.redo && ['ok', 'revised'].includes(n.review) && !stale(id, n) && !(flags[id] && !n.cases?.list?.length)).map(([id]) => id));
   const pick = (scope) => [...new Set(order)].filter((id) => acts[id] && !done.has(id) && (!SCOPES[scope] || SCOPES[scope].includes(acts[id].status)));
   if (o.cmd === 'scopes') {
     const out = Object.fromEntries(Object.keys(SCOPES).map((s) => [s, { activities: pick(s).length, batches: Math.ceil(pick(s).length / o.size) }]));
@@ -189,7 +212,9 @@ function batches(o) {
   };
   // Activities whose general part (purpose, SAP documentation, cases, criteria,
   // sources) is already in the knowledge base get only the system part written.
-  const kb = (id) => kbRead(o.module, lang, id);
+  const kb = (id) => (flags[id] ? null : kbRead(o.module, lang, id));
+  const family = (v) => (/^s\/?4/i.test(String(v || '')) ? 'S4' : v ? 'ECC' : '');
+  const kbVersionDiffers = (e) => family(e?.sapVersion) !== family(snap.meta.sapVersion);
   // Full items carry the sources earlier reviews accepted for the same activity or tables.
   const cache = readSources(o.module, lang);
   const inDir = join(dir, 'notes', '_in');
@@ -216,15 +241,29 @@ function batches(o) {
           ...(customerTransports(views[k]) ? { customerTransports: customerTransports(views[k]) } : {}) })),
         checks: checks.filter((c) => c.activities.includes(id)).map((c) => ({ severity: c.severity, title: c.title, items: c.items.slice(0, 10) })),
         ...(a.badis ? { badis: a.badis, implementations: badiContext(snap, a.badis) } : {}),
+        valueHash: hashOf(id),
         ...(kb(id)
-          ? { mode: 'system', kb: { purpose: kb(id).purpose, cases: (kb(id).cases?.list || []).map((c, n) => `CASE ${n + 1}: ${c.title} — ${c.desc}`) } }
-          : { mode: 'full', sapDoc: docText(id), ...(known.length ? { knownSources: known } : {}) }),
+          ? { mode: 'system', kb: { purpose: kb(id).purpose, cases: (kb(id).cases?.list || []).map((c, n) => `CASE ${n + 1}: ${c.title} — ${c.desc}`) },
+            // the general part was written on another release (ECC vs S/4): the reviewer checks the cases against this one
+            ...(kbVersionDiffers(kb(id)) ? { kbSapVersion: kb(id).sapVersion || 'unknown' } : {}),
+            // a seed entry carries no SAP documentation summary: written from this system's documentation
+            ...(kb(id).sapdoc ? {} : { sapDoc: docText(id) }) }
+          : { mode: 'full', sapDoc: docText(id), ...(flags[id] ? { kbFlag: flags[id].reason } : {}), ...(known.length ? { knownSources: known } : {}) }),
       };
     });
-    atomicWriteFileSync(join(inDir, `${name}.json`), JSON.stringify({ module: o.module, system: snap.meta.system, lang, items }, null, 1));
+    atomicWriteFileSync(join(inDir, `${name}.json`), JSON.stringify({ module: o.module, system: snap.meta.system, snapshotDate: snap.meta.extractedAt || '', lang, items }, null, 1));
     manifest.push({ batch: name, file: join(inDir, `${name}.json`), activities: items.length });
   }
-  process.stdout.write(JSON.stringify({ scope: o.scope, activities: ids.length, batches: manifest }, null, 1) + '\n');
+  // system- vs full-mode counts: on another release (S/4 IMG ids differ) fewer activities find their KB part
+  const modes = { system: 0, full: 0, kbSapVersionDiffers: 0, fromSeed: 0 };
+  for (const id of ids) {
+    const e = kb(id);
+    if (!e) { modes.full++; continue; }
+    modes.system++;
+    if (kbVersionDiffers(e)) modes.kbSapVersionDiffers++;
+    if (e.fromSeed) modes.fromSeed++;
+  }
+  process.stdout.write(JSON.stringify({ scope: o.scope, activities: ids.length, modes, batches: manifest }, null, 1) + '\n');
 }
 
 function saveTerms(o) {
@@ -356,21 +395,53 @@ export function loadTerms(dir) {
 
 // ── knowledge base: the system-independent part of reviewed notes, per module,
 // language and IMG activity, under ~/.sc4sap/kb/config/ — reused by every later
-// run and every other system, so only the system part is written again.
+// run and every other system, so only the system part is written again. Nothing
+// system-specific may enter it (kb-scrub.mjs): no "this system" rows or sentences,
+// no system id, organisational key or customer object name.
 const GENERAL = ['purpose', 'sapdoc', 'mix', 'compare', 'checklist', 'criteria'];
-const kbDir = (module, lang) => join(sc4sapHome(), 'kb', 'config', module, lang);
-const kbFile = (module, lang, id) => join(kbDir(module, lang), `${id.replace(/[^A-Za-z0-9_-]/g, '_')}.json`);
+const kbRoot = () => join(sc4sapHome(), 'kb', 'config');
+const kbDir = (module, lang, root = kbRoot()) => join(root, module, lang);
+const safeId = (id) => id.replace(/[^A-Za-z0-9_-]/g, '_');
+const kbFile = (module, lang, id, root) => join(kbDir(module, lang, root), `${safeId(id)}.json`);
+const readJson = (f) => { try { return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null; } catch { return null; } };
+/** The read-only seed (SC4SAP_KB_SEED): a directory holding config/<M>/<lang>/<activity>.json. */
+const seedRoot = () => (process.env.SC4SAP_KB_SEED ? join(process.env.SC4SAP_KB_SEED, 'config') : '');
+/** Own knowledge base only. */
+export function kbReadOwn(module, lang, id) { return readJson(kbFile(module, lang, id)); }
+/** Own knowledge base first, then the read-only seed (marked fromSeed). */
 export function kbRead(module, lang, id) {
-  const f = kbFile(module, lang, id);
-  return existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : null;
+  const own = kbReadOwn(module, lang, id);
+  if (own) return own;
+  const root = seedRoot();
+  const seed = root ? readJson(kbFile(module, lang, id, root)) : null;
+  return seed ? { ...seed, fromSeed: true } : null;
 }
 
-/** General part of one reviewed note (case verdicts are system-specific and left out). */
-export function generalPart(note) {
+/** KB entries a reviewer flagged as not fitting a system (kbFlag): redone as full notes. */
+const flagsFile = (module, lang) => join(kbDir(module, lang), '_flags.json');
+export function kbFlags(module, lang) { return readJson(flagsFile(module, lang)) || {}; }
+function writeFlags(module, lang, flags) { ensureDirSync(ownKbPath(kbDir(module, lang))); atomicWriteFileSync(ownKbPath(flagsFile(module, lang)), JSON.stringify(flags, null, 1)); }
+
+/** Every KB write goes through here: never into the read-only seed (SC4SAP_KB_SEED), whatever an entry's origin. */
+export function ownKbPath(p) {
+  const seed = process.env.SC4SAP_KB_SEED ? resolve(process.env.SC4SAP_KB_SEED).toLowerCase() : '';
+  const t = resolve(p).toLowerCase();
+  const inside = seed && (t === seed || t.startsWith(`${seed}\\`) || t.startsWith(`${seed}/`));
+  if (inside) throw new Error(`refusing to write into the read-only KB seed (${p})`);
+  return p;
+}
+
+/** Hash of the rows behind one activity: a change re-queues its reviewed note. */
+export function valueHash(rowsList) {
+  return createHash('sha1').update(JSON.stringify(rowsList)).digest('hex').slice(0, 16);
+}
+
+/** General part of one reviewed note: verdicts and everything system-specific left out. */
+export function generalPart(note, ctx = {}) {
   const out = Object.fromEntries(GENERAL.map((k) => [k, note[k]]));
   out.cases = note.cases ? { title: note.cases.title, list: note.cases.list.map(({ thisSystem, svg, ...c }) => c) } : null;
   out.sources = (note.sources || []).filter((s) => isOfficialSource(s.url));
-  return out;
+  return scrubEntry(out, ctx).entry;
 }
 
 /** Note + knowledge base: general fields filled from the KB, verdicts applied to its cases. */
@@ -382,21 +453,46 @@ export function withKb(note, entry) {
   if (!out.cases && entry.cases) {
     out.cases = { title: entry.cases.title, list: entry.cases.list.map((c, n) => ({ ...c, thisSystem: (note.verdicts || []).find((v) => v.n === n + 1)?.value || '' })) };
   }
+  if (entry.fromSeed) out.kbFromSeed = true;
   return out;
 }
 
 function kbPromote(o) {
   const dir = dirOf(o.module);
-  const lang = JSON.parse(readFileSync(join(dir, 'snapshot.json'), 'utf8')).meta.lang || 'ko';
+  const snap = JSON.parse(readFileSync(join(dir, 'snapshot.json'), 'utf8'));
+  const lang = snap.meta.lang || 'ko';
+  const ctx = contextFromSnapshots([snap]);
   ensureDirSync(kbDir(o.module, lang));
-  let saved = 0, kept = 0;
+  const flags = kbFlags(o.module, lang);
+  let saved = 0, kept = 0, redone = 0;
   for (const [id, n] of Object.entries(loadNotes(dir))) {
     if (!['ok', 'revised'].includes(n.review) || !n.cases || n.fromKb) continue;
-    if (!o.redo && kbRead(o.module, lang, id)) { kept++; continue; }
-    atomicWriteFileSync(kbFile(o.module, lang, id), JSON.stringify({ activity: id, module: o.module, lang, savedAt: new Date().toISOString(), ...generalPart(n) }, null, 1));
+    const flagged = !!flags[id];
+    if (!o.redo && !flagged && kbReadOwn(o.module, lang, id)) { kept++; continue; }
+    atomicWriteFileSync(ownKbPath(kbFile(o.module, lang, id)), JSON.stringify({ activity: id, module: o.module, lang, savedAt: new Date().toISOString(), sapVersion: snap.meta.sapVersion || '', ...generalPart(n, ctx) }, null, 1));
+    if (flagged) { delete flags[id]; redone++; }
     saved++;
   }
-  process.stdout.write(JSON.stringify({ kb: kbDir(o.module, lang), saved, kept }) + '\n');
+  if (redone) writeFlags(o.module, lang, flags);
+  process.stdout.write(JSON.stringify({ kb: kbDir(o.module, lang), saved, kept, redone, flagsOpen: Object.keys(flags).length }) + '\n');
+}
+
+/** kb-scrub: dry run (counts) or --apply over a KB tree, with the system facts of the snapshots. */
+function kbScrub(o) {
+  const dir = o.kbDir || kbRoot();
+  if (o.apply) ownKbPath(dir);
+  let files = o.snapshots;
+  if (!files.length) {
+    const work = join(process.cwd(), '.sc4sap', 'work');
+    const bases = [join(process.cwd(), '.sc4sap'), ...(existsSync(work) ? readdirSync(work).map((a) => join(work, a)) : [])];
+    files = bases.flatMap((b) => {
+      const cd = join(b, 'config-docs');
+      return existsSync(cd) ? readdirSync(cd).map((m) => join(cd, m, 'snapshot.json')).filter((f) => existsSync(f)) : [];
+    });
+  }
+  const ctx = contextFromSnapshots(files.map((f) => JSON.parse(readFileSync(f, 'utf8'))));
+  const r = scrubTree(dir, ctx, { apply: o.apply, defaultSapVersion: o.defaultSapVersion });
+  process.stdout.write(JSON.stringify({ ...r, snapshots: files.length, facts: ctx.counts }, null, 1) + '\n');
 }
 
 /** Merge drafts, reviews and revisions: { id: { ...note, review: 'ok'|'revised'|'open'|'none', issues } }. */
@@ -404,15 +500,21 @@ export function loadNotes(dir, { module = '', lang = 'ko' } = {}) {
   const ndir = join(dir, 'notes');
   if (!existsSync(ndir)) return {};
   const read = (f) => (existsSync(join(ndir, f)) ? JSON.parse(readFileSync(join(ndir, f), 'utf8')).items : {});
+  const input = (b) => readJson(join(ndir, '_in', `${b}.json`)) || {};
   const out = {};
   for (const b of readdirSync(ndir).filter((f) => /^b\d{3}\.draft\.json$/.test(f)).map((f) => f.slice(0, 4))) {
     const draft = read(`${b}.draft.json`), review = read(`${b}.review.json`), revised = read(`${b}.revised.json`);
+    const inp = input(b);
+    const hashes = Object.fromEntries((inp.items || []).map((x) => [x.id, x.valueHash]));
     for (const [id, note] of Object.entries(draft)) {
       const r = review[id];
       const fixed = revised[id];
       const n = fixed || note;
       const m = module ? withKb(n, kbRead(module, lang, id)) : n;
-      out[id] = { ...m, sources: (m.sources || []).filter((s) => isOfficialSource(s.url)), review: fixed ? 'revised' : r ? (r.verdict === 'ok' ? 'ok' : 'open') : 'none', issues: fixed ? [] : r?.issues || [] };
+      const state = fixed ? 'revised' : r ? (r.verdict === 'ok' ? 'ok' : 'open') : 'none';
+      // a passed review verifies the system part against this snapshot's rows
+      const verified = ['ok', 'revised'].includes(state) && hashes[id] ? { verifiedAgainst: { system: inp.system || '', snapshotDate: inp.snapshotDate || '', valueHash: hashes[id] } } : {};
+      out[id] = { ...m, sources: (m.sources || []).filter((s) => isOfficialSource(s.url)), review: state, issues: fixed ? [] : r?.issues || [], ...verified, ...(r?.kbFlag ? { kbFlag: r.kbFlag } : {}) };
     }
   }
   return out;
@@ -428,8 +530,8 @@ function status(o) {
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
     const o = opts(process.argv.slice(2));
-    const run = { batches, scopes: batches, terms, kb: kbPromote, sources: seedSources, save, status, rows }[o.cmd];
-    if (!run) throw new Error('command: scopes | batches | terms | kb | sources | save | status | rows');
+    const run = { batches, scopes: batches, terms, kb: kbPromote, 'kb-scrub': kbScrub, sources: seedSources, save, status, rows }[o.cmd];
+    if (!run) throw new Error('command: scopes | batches | terms | kb | kb-scrub | sources | save | status | rows');
     run(o);
   } catch (e) {
     process.stderr.write(`[notes] ${e.message}\n`);
