@@ -13,12 +13,18 @@ const S = {
     moved: 'WRICEF 단계 이동', done: '완료', late: '새 지연', msChange: '마일스톤 상태', released: '릴리스한 이관요청', risksAdded: '새 리스크', risksClosed: '닫힌 리스크', decAdded: '새 결정 사항', decDone: '결정됨',
     kpis: '핵심 지표', risks: '리스크 (상위 5)', decisions: '결정 필요', next: '다음 2주 마일스톤', gate: 'Q-gate 점검', crit: '기준', value: '값', source: '출처', met: '충족', suggest: '제안 판정',
     sugg: { pass: '통과', conditional: '조건부', fail: '실패', manual: 'PM 판단' }, yes: '예', no: '아니요', unknown: '판단 불가', evidence: '읽은 증빙', notRead: '읽지 못함', comment: 'PM 코멘트',
-    suggested: '제안 (대시보드에서 목록에 넣으세요)', impact: '영향', owner: '담당', due: '기한', none: '없음', weeksGap: '주 전 현황과 비교', ev: { uat: 'UAT', ops: '운영 보고서', cts: 'CTS 점검', 'uat-defects': 'UAT 결함 피드', unknown: '알 수 없는 파일' } },
+    suggested: '제안 (대시보드에서 목록에 넣으세요)', impact: '영향', owner: '담당', due: '기한', none: '없음', weeksGap: '주 전 현황과 비교', ev: { uat: 'UAT', ops: '운영 보고서', cts: 'CTS 점검', 'uat-defects': 'UAT 결함 피드', unknown: '알 수 없는 파일' },
+    src: { cts: 'CTS 점검', 'sap actuals': 'SAP 실적', uat: 'UAT', 'uat defect feed': 'UAT 결함 피드', ops: '운영 보고서', wbs: 'WBS', manual: 'PM 판단', 'no evidence': '증빙 없음' },
+    why: { 'json-unknown': '읽을 수 있는 JSON이 아니에요 (UAT 세트, 결함 피드, CTS·운영 모델만)', 'no-model': '내장 모델이 없는 페이지예요', 'read-error': '파일을 열지 못했어요', 'not-found': 'UAT 세트 파일이 없어요', 'bad-id': 'UAT 세트 ID 형식이 아니에요 (영문·숫자·_·-, 30자 이하)' },
+    defects: '결함', dumpsDay: '일별 덤프', blocked: '이관 불가' },
   en: { title: 'Weekly status', week: 'Week ending', overall: 'Overall', manual: 'PM call', computed: 'computed', ws: 'Workstreams', since: 'Since the last status', first: 'First status — nothing to compare with', snapSince: 'KPIs against the snapshot of',
     moved: 'WRICEF stage moves', done: 'Completed', late: 'Newly late', msChange: 'Milestone status', released: 'Requests released', risksAdded: 'New risks', risksClosed: 'Closed risks', decAdded: 'New decisions needed', decDone: 'Decided',
     kpis: 'Key figures', risks: 'Risks (top 5)', decisions: 'Decisions needed', next: 'Milestones in the next two weeks', gate: 'Q-gate check', crit: 'Criterion', value: 'Value', source: 'Source', met: 'Met', suggest: 'Suggested',
     sugg: { pass: 'Pass', conditional: 'Conditional', fail: 'Fail', manual: 'PM judges' }, yes: 'yes', no: 'no', unknown: 'cannot tell', evidence: 'Evidence read', notRead: 'not read', comment: 'PM comment',
-    suggested: 'Suggested (take them into the lists in the dashboard)', impact: 'Impact', owner: 'Owner', due: 'Due', none: 'none', weeksGap: 'weeks since the status compared with', ev: { uat: 'UAT', ops: 'Operations report', cts: 'CTS check', 'uat-defects': 'UAT defect feed', unknown: 'unknown file' } },
+    suggested: 'Suggested (take them into the lists in the dashboard)', impact: 'Impact', owner: 'Owner', due: 'Due', none: 'none', weeksGap: 'weeks since the status compared with', ev: { uat: 'UAT', ops: 'Operations report', cts: 'CTS check', 'uat-defects': 'UAT defect feed', unknown: 'unknown file' },
+    src: { cts: 'CTS check', 'sap actuals': 'SAP actuals', uat: 'UAT', 'uat defect feed': 'UAT defect feed', ops: 'Operations report', wbs: 'WBS', manual: 'PM judges', 'no evidence': 'no evidence' },
+    why: { 'json-unknown': 'not a readable JSON (UAT set, defect feed, CTS or operations model only)', 'no-model': 'a page without an embedded model', 'read-error': 'the file could not be opened', 'not-found': 'no UAT set file', 'bad-id': 'not a UAT set id (letters, digits, _ or -, up to 30)' },
+    defects: 'defects', dumpsDay: 'dumps / day', blocked: 'blocked' },
 };
 
 const STYLE = `:root{--bg:#fff;--fg:#1d2733;--muted:#5a6675;--line:#d3dbe4;--head:#f2f5f8;--red:#c62828;--amber:#b26a00;--green:#2e7d32;--red-bg:#fdecea;--amber-bg:#fff4e0;--green-bg:#e8f5e9;color-scheme:light}
@@ -50,9 +56,9 @@ function sinceBlock(d, T, L) {
   if (d.released.F || d.released.D) li.push(`<li>${esc(T.released)}: ${esc(L.side.F)} ${d.released.F} · ${esc(L.side.D)} ${d.released.D}</li>`);
   for (const e of d.evidence) {
     if (e.first) continue;
-    if (e.kind === 'uat') li.push(`<li>UAT ${esc(e.id)}: ${Object.entries(e.pass).map(([c, x]) => `${esc(c)} ${arrow(x.from == null ? null : `${x.from}%`, x.to == null ? null : `${x.to}%`)}`).join(' · ')} · defects ${arrow(e.defectsOpen.from, e.defectsOpen.to)}</li>`);
-    if (e.kind === 'ops') li.push(`<li>${esc(T.ev.ops)}: dumps/day ${arrow(e.dumpsDay.from, e.dumpsDay.to)}</li>`);
-    if (e.kind === 'cts') li.push(`<li>${esc(T.ev.cts)}: blocked ${arrow(e.blocked.from, e.blocked.to)}</li>`);
+    if (e.kind === 'uat') li.push(`<li>UAT ${esc(e.id)}: ${Object.entries(e.pass).map(([c, x]) => `${esc(c)} ${arrow(x.from == null ? null : `${x.from}%`, x.to == null ? null : `${x.to}%`)}`).join(' · ')} · ${esc(T.defects)} ${arrow(e.defectsOpen.from, e.defectsOpen.to)}</li>`);
+    if (e.kind === 'ops') li.push(`<li>${esc(T.ev.ops)}: ${esc(T.dumpsDay)} ${arrow(e.dumpsDay.from, e.dumpsDay.to)}</li>`);
+    if (e.kind === 'cts') li.push(`<li>${esc(T.ev.cts)}: ${esc(T.blocked)} ${arrow(e.blocked.from, e.blocked.to)}</li>`);
   }
   if (d.risks.added.length) li.push(`<li>${esc(T.risksAdded)}: ${d.risks.added.map(esc).join(', ')}</li>`);
   if (d.risks.closed.length) li.push(`<li>${esc(T.risksClosed)}: ${d.risks.closed.map(esc).join(', ')}</li>`);
@@ -73,7 +79,7 @@ function gateBlock(g, T) {
   const met = (m) => (m === true ? `<span class="yes">${esc(T.yes)}</span>` : m === false ? `<span class="no">${esc(T.no)}</span>` : `<span class="muted">${esc(T.unknown)}</span>`);
   return `<h2>${esc(T.gate)} — ${esc(g.label)} (${esc(g.date)})</h2>
 <table><thead><tr><th>${esc(T.crit)}</th><th>${esc(T.value)}</th><th>${esc(T.source)}</th><th>${esc(T.met)}</th></tr></thead><tbody>
-${g.rows.map((r) => `<tr><td>${esc(r.text)}${r.rule ? ` <small class="muted">[${esc(r.rule)}]</small>` : ''}</td><td class="num">${esc(r.value ?? '—')}</td><td>${esc(r.source)}</td><td>${met(r.met)}</td></tr>`).join('')}
+${g.rows.map((r) => `<tr><td>${esc(r.text)}${r.rule ? ` <small class="muted">[${esc(r.rule)}]</small>` : ''}</td><td class="num">${esc(r.value ?? '—')}</td><td>${esc(T.src[r.source] || r.source)}</td><td>${met(r.met)}</td></tr>`).join('')}
 </tbody></table><p>${esc(T.suggest)}: <b>${esc(T.sugg[g.suggest])}</b> · ${g.met} / ${g.unmet} / ${g.manual}</p>`;
 }
 
@@ -100,7 +106,7 @@ ${entry.comment ? `<p><b>${esc(T.comment)}:</b> ${esc(entry.comment)}</p>` : ''}
 ${sg.risks.length || sg.decisions.length ? `<h2>${esc(T.suggested)}</h2>${list([...sg.risks.map((r) => `<li><b>${esc(r.impact)}</b> ${esc(r.text)}</li>`), ...sg.decisions.map((x) => `<li>${esc(x.text)}</li>`)], T)}` : ''}
 <h2>${esc(T.next)}</h2>${list(next.map((x) => `<li>${esc(x.date)} · ${esc(x.label)} ${chip(x.rag, L)}</li>`), T)}
 ${gate ? gateBlock(gate, T) : ''}
-<h2>${esc(T.evidence)}</h2>${list(evidence.map((e) => `<li>${esc(T.ev[e.kind] || e.kind)}${e.id ? ` · ${esc(e.id)}` : ''}${e.ok ? '' : ` — <span class="no">${esc(T.notRead)}</span>: ${esc(e.reason || '')}`}</li>`), T)}
+<h2>${esc(T.evidence)}</h2>${list(evidence.map((e) => `<li>${esc(T.ev[e.kind] || e.kind)}${e.id ? ` · ${esc(e.id)}` : ''}${e.ok ? '' : ` — <span class="no">${esc(T.notRead)}</span>: ${esc(T.why[e.code] || e.reason || '')}`}</li>`), T)}
 </main></body></html>`;
   return withResponsive(html);
 }

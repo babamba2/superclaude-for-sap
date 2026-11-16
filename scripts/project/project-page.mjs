@@ -34,7 +34,7 @@ a{color:var(--link)}.muted{color:var(--muted)}.bad{color:var(--red);font-weight:
 main{max-width:1680px;margin:0 auto;padding:12px 16px 64px}section.tab{display:none}section.tab.on{display:block}
 h3{font-size:16px;margin:22px 0 8px}h4{font-size:14px;margin:12px 0 6px;color:var(--muted)}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:8px 0 6px}
-.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--card)}.tile .k{color:var(--muted);font-size:12.5px}.tile .v{font-size:20px;margin-top:2px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--card);min-width:0}.tile .k{color:var(--muted);font-size:12.5px}.tile .v{font-size:20px;margin-top:2px}
 .grid2{display:grid;grid-template-columns:minmax(0,1fr);gap:0 28px}@media (min-width:1100px){.grid2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .tw{overflow-x:auto;margin:6px 0 14px}table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:middle}th{background:var(--head);font-weight:600;white-space:nowrap}
@@ -115,7 +115,7 @@ body.dw main,body.dw .banner{padding-right:min(436px,94vw);transition:padding .1
  table.rt td{display:flex;gap:12px;justify-content:space-between;align-items:center;border:0;padding:4px 0;min-height:26px;text-align:right}
  table.rt td::before{content:attr(data-l);color:var(--muted);font-size:12px;text-align:left;flex:none;max-width:45%}
  table.rt td:first-child{font-weight:600;text-align:left;display:block}table.rt td:first-child::before{display:none}table.rt td:empty{display:none}
- .editing .ed{min-height:32px;min-width:32px;padding:4px 8px;display:inline-flex;align-items:center}.ed select,.ed input{font-size:16px;min-height:32px}
+ .editing .ed{min-height:32px;min-width:32px;padding:4px 8px;display:inline-flex;align-items:center;max-width:100%;box-sizing:border-box}.ed select,.ed input{font-size:16px;min-height:32px;max-width:100%;box-sizing:border-box}
  .timeline{margin:6px 60px 4px 30px}
  #drawer .dacts{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}#drawer .dacts button{font:inherit;font-size:14px;min-height:38px;padding:4px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg)}#drawer .dacts .del{color:var(--red)}
 }

@@ -18,7 +18,7 @@
 //   node build-project-doc.mjs companion --project <CODE> [--texts <translated.json>]   English model + page (same version)
 //   node build-project-doc.mjs portfolio [--lang ko]
 //   node build-project-doc.mjs check --project <CODE>
-//   node build-project-doc.mjs status --project <CODE> [--week-end YYYY-MM-DD] [--gate <id|label>] [--evidence <file>]… [--refresh] [--lang ko|en]
+//   node build-project-doc.mjs status --project <CODE> [--week-end YYYY-MM-DD] [--gate <id|label>] [--evidence <file>]… [--uat <ID>]… [--uat-dir <dir>] [--refresh] [--lang ko|en]
 //        weekly status page <CODE>-status-<weekEnd>-<lang>.html + statusLog in the model (project-status.mjs); offline unless --refresh
 //   common: [--dir <projects folder>] (default <artifactBase>/projects)
 
@@ -27,7 +27,7 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveArtifactBase } from '../lib/profile-resolve.mjs';
 import { jsonTexts, jsonApply } from '../lib/humanize.mjs';
-import { checkModel, normalizeModel, viewModel, withSnapshot, reassign, isActive, iso, arr } from './project-model.mjs';
+import { checkModel, normalizeModel, viewModel, withSnapshot, reassign, isActive, iso, arr, UAT_SET_ID } from './project-model.mjs';
 import { instantiate, addWricef } from './project-template.mjs';
 import { renderPage } from './project-page.mjs';
 import { esc, labelsFor } from './project-render.mjs';
@@ -133,14 +133,23 @@ export async function cmdRefresh({ code, root }) {
 }
 
 /** Weekly status: log the week in the model (statusLog), rebuild the dashboard (same version), write the status page. */
-export async function cmdStatus({ code, root, weekEnd = '', gate = '', evidence = [], refresh = false, lang = '', today = iso(Date.now()) }) {
+export async function cmdStatus({ code, root, weekEnd = '', gate = '', evidence = [], uat = [], uatDir = '', refresh = false, lang = '', today = iso(Date.now()) }) {
   if (refresh) await cmdRefresh({ code, root });
   const f = files(root, code);
   const model = normalizeModel(readJson(f.model) || {});
   if (!model.project?.code) throw new Error(`no model for ${code} — import the dashboard page first`);
   const week = weekEnd || weekEndOf(today);
   const view = viewModel(model, week < today ? week : today);
-  const ev = evidence.map((p) => { try { return readEvidence(readFileSync(p, 'utf8')); } catch (e) { return { ok: false, kind: 'unknown', reason: e.message }; } });
+  const read = (p) => { try { return readEvidence(readFileSync(p, 'utf8')); } catch (e) { return { ok: false, kind: 'unknown', code: 'read-error', reason: e.message }; } };
+  // UAT sets of the project (project.uatSets, or --uat): <artifact base>/uat/<ID>/<ID>-uat.json (+ <ID>-defects.json)
+  const ids = uat.length ? uat : arr(model.project.uatSets).map((x) => (typeof x === 'string' ? x : x?.id)).filter(Boolean);
+  const ur = uatDir || (ids.length ? join(resolveArtifactBase(process.cwd()), 'uat') : '');
+  const uatEv = ids.flatMap((id) => {
+    // the UAT builder's own id rule: a set id is never a path
+    if (!UAT_SET_ID.test(id)) return [{ ok: false, kind: 'uat', id: String(id).slice(0, 40), code: 'bad-id', reason: 'not a UAT set id' }];
+    const f = join(ur, id, `${id}-uat.json`), d = join(ur, id, `${id}-defects.json`);
+    return existsSync(f) ? [read(f), ...(existsSync(d) ? [read(d)] : [])] : [{ ok: false, kind: 'uat', id, code: 'not-found', reason: `${f} not found` }]; });
+  const ev = [...evidence.map(read), ...uatEv];
   const entry = statusEntry(view, ev, week);
   const prev = previousOf(model.statusLog, week);
   model.statusLog = logStatus(model.statusLog, entry); // stops on an older dashboard page
@@ -150,14 +159,14 @@ export async function cmdStatus({ code, root, weekEnd = '', gate = '', evidence 
   writeJson(f.model, model);
   const r = buildProject({ modelPath: f.model, root, sameVersion: true, today });
   const l = lang || model.lang || 'ko', out = join(f.dir, `${code}-status-${week}-${l}.html`);
-  writeFileSync(out, renderStatusPage({ view, entry, delta: d, gate: g, evidence: ev, suggestions: suggestions(view, g), lang: l }), 'utf8');
+  writeFileSync(out, renderStatusPage({ view, entry, delta: d, gate: g, evidence: ev, suggestions: suggestions(view, g, l), lang: l }), 'utf8');
   return { html: out, dashboard: r.html, weekEnd: week, first: d.first, moved: d.first ? 0 : d.moved.length, ...(d.weeks > 1 ? { baselineWeeks: d.weeks } : {}),
     risksOpen: entry.risks.length, decisionsOpen: entry.decisions.length, ...(g ? { gate: { suggest: g.suggest, met: g.met, unmet: g.unmet, manual: g.manual } } : {}),
     evidence: ev.map((e) => ({ kind: e.kind, ok: e.ok })), warnings: r.warnings };
 }
 
 // Keys that are never translated: ids, codes, people, enums, dates.
-const NO_TR = ['parent', 'owner', 'fnOwner', 'devOwner', 'ws', 'status', 'stage', 'name', 'sapUser', 'role', 'module', 'approver', 'dir', 'unit', 'group', 'system', 'pm', 'pmo', 'sponsor', 'author', 'actuals', 'snapshots', 'history', 'company', 'statusLog', 'impact', 'overall', 'wsRag'];
+const NO_TR = ['parent', 'owner', 'fnOwner', 'devOwner', 'ws', 'status', 'stage', 'name', 'sapUser', 'role', 'module', 'approver', 'dir', 'unit', 'group', 'system', 'pm', 'pmo', 'sponsor', 'author', 'actuals', 'snapshots', 'history', 'company', 'statusLog', 'impact', 'overall', 'wsRag', 'uatSets'];
 
 export function cmdTexts({ code, root }) {
   const f = files(root, code);
@@ -282,7 +291,8 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
     else if (cmd === 'portfolio') r = cmdPortfolio({ root, lang: get('--lang') || 'ko' });
     else if (cmd === 'check') r = checkModel(normalizeModel(readJson(files(root, need()).model)));
     else if (cmd === 'status') r = await cmdStatus({ code: need(), root, weekEnd: get('--week-end') || '', gate: get('--gate') || '', refresh: args.includes('--refresh'), lang: get('--lang') || '',
-      evidence: args.flatMap((a, i) => (a === '--evidence' && args[i + 1] ? [resolve(args[i + 1])] : [])) });
+      evidence: args.flatMap((a, i) => (a === '--evidence' && args[i + 1] ? [resolve(args[i + 1])] : [])),
+      uat: args.flatMap((a, i) => (a === '--uat' && args[i + 1] ? [args[i + 1]] : [])), uatDir: get('--uat-dir') ? resolve(get('--uat-dir')) : '' });
     else { console.error('Usage: node build-project-doc.mjs init|build|refresh|import|add-wricef|reassign|texts|companion|portfolio|check|status … (see the header)'); process.exit(2); }
     if (r?.warnings?.length) for (const w of r.warnings) console.error(`⚠ project-dashboard: ${w}`);
     console.log(JSON.stringify({ ...r, warnings: r?.warnings?.length ?? 0 }));

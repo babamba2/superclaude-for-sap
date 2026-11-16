@@ -1,5 +1,5 @@
 import { describe, it, expect, afterAll } from 'vitest';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -184,6 +184,64 @@ describe('weekly status — command (two weeks on a fictitious project)', () => 
     expect(JSON.parse(readFileSync(mf, 'utf8')).statusLog.map((x: any) => x.weekEnd)).toEqual(['2027-03-05', '2027-03-12']);
     await expect(cmdStatus({ code: 'DEMO1', root, weekEnd: '2027-03-05', today: '2027-03-12' })).rejects.toThrow(/stale dashboard/);
     await expect(cmdStatus({ code: 'DEMO1', root, weekEnd: '2027-03-12', gate: 'NO-SUCH-GATE', today: '2027-03-12' })).rejects.toThrow(/gate "NO-SUCH-GATE" not found/);
+  });
+
+  it('Korean page: no English fragment from suggestions, gate sources, evidence reasons or the "since" list', async () => {
+    const r2 = mkdtempSync(join(tmpdir(), 'pst-ko-'));
+    try {
+      writeFileSync(join(r2, 'a.json'), JSON.stringify({ code: 'DEMO2', name: '데모', type: 'implementation', start: '2027-01-04', goLive: '2027-06-01', modules: ['SD'], team: TEAM, lang: 'ko' }));
+      cmdInit({ answers: join(r2, 'a.json'), root: r2 });
+      const mf = join(r2, 'DEMO2', 'DEMO2-project.json');
+      const m = JSON.parse(readFileSync(mf, 'utf8'));
+      const gate = m.milestones.find((x: any) => x.kind === 'qgate');
+      gate.criteria = ['이관 [cts-blocked<=0]', '덤프 [dumps-day<=1]', '승인'];
+      writeFileSync(mf, JSON.stringify(m));
+      writeFileSync(join(r2, 'cts.json'), JSON.stringify(CTS));
+      writeFileSync(join(r2, 'ops.html'), `<script type="application/json" id="ops-model">${JSON.stringify(OPS)}</script>`);
+      writeFileSync(join(r2, 'x.html'), '<html>no model</html>');
+      await cmdStatus({ code: 'DEMO2', root: r2, weekEnd: '2027-03-05', evidence: [join(r2, 'cts.json'), join(r2, 'ops.html')], today: '2027-03-05' });
+      const w2 = await cmdStatus({ code: 'DEMO2', root: r2, weekEnd: '2027-03-12', gate: gate.id, evidence: [join(r2, 'cts.json'), join(r2, 'ops.html'), join(r2, 'x.html'), join(r2, 'missing.json')], lang: 'ko', today: '2027-03-12' });
+      const page = readFileSync(w2.html, 'utf8').replace(/<style[\s\S]*?<\/style>|<script[\s\S]*?<\/script>/g, '')
+        .replace(/\[[a-z:-]+(&lt;=|&gt;=|<=|>=)[^\]]*\]/gi, ''); // the PM's own rule tags ([cts-blocked<=0]) are criteria text, not page wording
+      for (const en of ['passed', 'at risk', 'decide pass', 'no evidence', 'manual', 'without an active owner', 'defects', 'dumps/day', 'blocked', 'no embedded model', 'not a page', 'ENOENT', 'JSON is not'])
+        expect(page, en).not.toContain(en);
+      expect(page).toMatch(/증빙 없음|PM 판단/);
+      expect(page).toMatch(/내장 모델이 없는 페이지예요/);
+      expect(page).toMatch(/파일을 열지 못했어요/);
+    } finally { rmSync(r2, { recursive: true, force: true }); }
+  });
+
+  it('project.uatSets (strings or { id }) are read as evidence from the UAT folder; --uat overrides; a missing set is listed, never zero', async () => {
+    const r3 = mkdtempSync(join(tmpdir(), 'pst-uat-'));
+    try {
+      expect(normalizeModel({ ...model(), project: { ...model().project, uatSets: ['A-UAT', { id: 'B-UAT' }, null] } }).project.uatSets).toEqual(['A-UAT', 'B-UAT']);
+      writeFileSync(join(r3, 'a.json'), JSON.stringify({ code: 'DEMO3', name: 'Demo', type: 'implementation', start: '2027-01-04', goLive: '2027-06-01', modules: ['SD'], team: TEAM }));
+      cmdInit({ answers: join(r3, 'a.json'), root: r3 });
+      const mf = join(r3, 'DEMO3', 'DEMO3-project.json');
+      const m = JSON.parse(readFileSync(mf, 'utf8'));
+      m.project.uatSets = ['DEMO-UAT', { id: 'GONE-UAT' }];
+      writeFileSync(mf, JSON.stringify(m));
+      const ud = join(r3, 'uat', 'DEMO-UAT');
+      mkdirSync(ud, { recursive: true });
+      writeFileSync(join(ud, 'DEMO-UAT-uat.json'), JSON.stringify(UAT()));
+      writeFileSync(join(ud, 'DEMO-UAT-defects.json'), JSON.stringify({ kind: 'uat-defect-feed', set: 'DEMO-UAT', at: '2027-03-05', kpi: { 'uat-defects-open': 2 } }));
+      const r = await cmdStatus({ code: 'DEMO3', root: r3, weekEnd: '2027-03-05', uatDir: join(r3, 'uat'), today: '2027-03-05' });
+      expect(r.evidence).toEqual([{ kind: 'uat', ok: true }, { kind: 'uat-defects', ok: true }, { kind: 'uat', ok: false }]);
+      const only = await cmdStatus({ code: 'DEMO3', root: r3, weekEnd: '2027-03-05', uat: ['DEMO-UAT'], uatDir: join(r3, 'uat'), today: '2027-03-05' });
+      expect(only.evidence).toEqual([{ kind: 'uat', ok: true }, { kind: 'uat-defects', ok: true }]);
+      // a set id is never a path: "../OTHER" next to the UAT folder is not read, from the model or from --uat
+      writeFileSync(join(r3, 'OTHER-uat.json'), JSON.stringify(UAT()));
+      const bad = await cmdStatus({ code: 'DEMO3', root: r3, weekEnd: '2027-03-05', uat: ['../OTHER', 'a/b', 'DEMO-UAT'], uatDir: join(r3, 'uat'), today: '2027-03-05', lang: 'ko' });
+      expect(bad.evidence).toEqual([{ kind: 'uat', ok: false }, { kind: 'uat', ok: false }, { kind: 'uat', ok: true }, { kind: 'uat-defects', ok: true }]);
+      expect(readFileSync(bad.html, 'utf8')).toMatch(/UAT 세트 ID 형식이 아니에요/);
+      const m2 = JSON.parse(readFileSync(mf, 'utf8'));
+      m2.project.uatSets = ['../OTHER'];
+      writeFileSync(mf, JSON.stringify(m2));
+      const fromModel = await cmdStatus({ code: 'DEMO3', root: r3, weekEnd: '2027-03-05', uatDir: join(r3, 'uat'), today: '2027-03-05' });
+      expect(fromModel.evidence).toEqual([]); // dropped by normalizeModel: never a path, never read
+      expect(normalizeModel(m2).project.uatSets).toEqual([]);
+      expect(normalizeModel({ ...m2, project: { ...m2.project, uatSets: [' A-1 ', { id: 'B_2' }, 'a/b', '..', 'x'.repeat(31)] } }).project.uatSets).toEqual(['A-1', 'B_2']);
+    } finally { rmSync(r3, { recursive: true, force: true }); }
   });
 
   it('add-wricef keeps the source and note and skips an item already imported from the same document', () => {

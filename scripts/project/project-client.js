@@ -189,6 +189,7 @@ function toToday() { tab('wbs'); var g = $('.wbs .gtoday'), w = $('.wbs-w'); if 
 // ---------- model access, undo / redo ----------
 function find(scope, id) {
   if (scope === 's') return (model.status = model.status || {});
+  if (scope === 'p') return model.project;
   var list = scope === 'w' ? model.wbs : scope === 'm' ? model.milestones : scope === 'k' ? (model.kpis = model.kpis || [])
     : scope === 'r' ? (model.risks = model.risks || []) : scope === 'd' ? (model.decisions = model.decisions || []) : model.team;
   for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];

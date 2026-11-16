@@ -67,13 +67,13 @@ export const LABELS = {
 // Weekly status: the risks & decisions tab (after the milestones) and the PM's own status call on the summary.
 Object.assign(LABELS.ko, {
   rd: { risks: '리스크', decisions: '결정 필요 사항', text: '내용', impact: '영향', owner: '담당', due: '기한', raised: '등록일', decided: '결정일', note: '메모', status: '상태',
-    call: '주간 판정 (PM)', overall: '전체 상태 (비우면 계산값)', comment: '주간 코멘트', weekEnd: '마지막 현황 주' },
+    call: '주간 판정 (PM)', overall: '전체 상태 (비우면 계산값)', comment: '주간 코멘트', weekEnd: '마지막 현황 주', uatSets: 'UAT 세트 (주간 현황 증빙)' },
   impact: { H: '높음', M: '보통', L: '낮음' }, riskStatus: { open: '열림', closed: '닫힘' }, decStatus: { open: '결정 필요', decided: '결정됨' },
   ragManual: { '': '계산값 사용', red: '위험', amber: '주의', green: '정상' },
 });
 Object.assign(LABELS.en, {
   rd: { risks: 'Risks', decisions: 'Decisions needed', text: 'Text', impact: 'Impact', owner: 'Owner', due: 'Due', raised: 'Raised', decided: 'Decided', note: 'Note', status: 'Status',
-    call: 'Weekly call (PM)', overall: 'Overall status (blank = computed)', comment: 'Weekly comment', weekEnd: 'Last status week' },
+    call: 'Weekly call (PM)', overall: 'Overall status (blank = computed)', comment: 'Weekly comment', weekEnd: 'Last status week', uatSets: 'UAT sets (weekly status evidence)' },
   impact: { H: 'High', M: 'Medium', L: 'Low' }, riskStatus: { open: 'Open', closed: 'Closed' }, decStatus: { open: 'Open', decided: 'Decided' },
   ragManual: { '': 'Use computed', red: 'Red', amber: 'Amber', green: 'Green' },
 });
@@ -120,7 +120,8 @@ export function renderSummary(v, L) {
   const st = v.m.status || {}, R = L.rd;
   const call = `<div class="tiles"><div class="tile"><div class="k">${esc(R.overall)}</div><div class="v">${ed('s', 'status', 'overall', 'enum:ragManual', st.overall ? chip(st.overall, L) : `<small class="muted">${esc(L.ragManual[''])}</small>`)}</div></div>`
     + `<div class="tile" style="grid-column:span 2"><div class="k">${esc(R.comment)}</div><div class="v"><small>${ed('s', 'status', 'comment', 'text', esc(st.comment || ''))}</small></div></div>`
-    + `<div class="tile"><div class="k">${esc(R.weekEnd)}</div><div class="v"><small>${esc(arr(v.m.statusLog).at(-1)?.weekEnd || '—')}</small></div></div></div>`;
+    + `<div class="tile"><div class="k">${esc(R.weekEnd)}</div><div class="v"><small>${esc(arr(v.m.statusLog).at(-1)?.weekEnd || '—')}</small></div></div>`
+    + `<div class="tile"><div class="k">${esc(R.uatSets)}</div><div class="v"><small>${ed('p', 'project', 'uatSets', 'list', esc(arr(v.m.project.uatSets).join(' · ')))}</small></div></div></div>`;
   return `<div class="tiles">${tiles}</div><h3>${esc(R.call)}</h3>${call}${kp}${orph}
 <div class="grid2"><section><h3>${L.curve}</h3>${sCurveSvg(v, L)}</section><section><h3>${L.upcoming}</h3>${up}</section></div>
 <h3>${L.handoff}</h3><div class="grid2"><section><h4>${L.toDev}</h4>${q(v.handoff.toDev)}</section><section><h4>${L.toFn}</h4>${q(v.handoff.toFn)}</section></div>

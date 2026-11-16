@@ -7,7 +7,7 @@ Referenced by `SKILL.md` and `workflow.md`. Source of truth: `scripts/project/pr
 | Field | Meaning |
 |---|---|
 | `lang` | `ko` / `en` — page language |
-| `project` | `code`, `name`, `type` (`implementation` · `conversion` · `rollout` · `ams` · `task`), `start`, `goLive`, `end`, `modules[]`, `packages[]`, `system`, `sponsor`, `pm`, `pmo`, `trPattern` |
+| `project` | `code`, `name`, `type` (`implementation` · `conversion` · `rollout` · `ams` · `task`), `start`, `goLive`, `end`, `modules[]`, `packages[]`, `system`, `sponsor`, `pm`, `pmo`, `trPattern`, `uatSets[]` (UAT set ids — weekly status evidence) |
 | `team[]` | `id`, `name`, `role`, `module`, `sapUser`, `from`, `to`, `note` |
 | `workstreams[]` | `code`, `label`, `kind` (`module` · `cross`) — modules plus PMO, DM, INT, BAS, SEC, TST, OCM, CUT |
 | `wbs[]` | rows, see below — tree by `parent`, model order = order under a parent |

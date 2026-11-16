@@ -56,7 +56,7 @@ export function readEvidence(text) {
     if (Array.isArray(j.scenarios)) return uatOf(j);
     if (j.summary && Array.isArray(j.requests)) return ctsOf(j);
     if (j.dumps && j.verdict) return opsOf(j);
-    return { ok: false, kind: 'unknown', reason: 'JSON is not a UAT set, a UAT defect feed, a CTS model or an operations model' };
+    return { ok: false, kind: 'unknown', code: 'json-unknown', reason: 'JSON is not a UAT set, a UAT defect feed, a CTS model or an operations model' };
   }
   const uat = embedded(text, 'uat-model');
   if (uat) return uatOf(uat);
@@ -64,7 +64,7 @@ export function readEvidence(text) {
   if (ops) return opsOf(ops);
   const tr = embedded(text, 'tr-summary');
   if (tr) return ctsOf(tr);
-  return { ok: false, kind: 'unknown', reason: 'no embedded model (uat-model, ops-model or tr-summary) — not a page this command reads' };
+  return { ok: false, kind: 'unknown', code: 'no-model', reason: 'no embedded model (uat-model, ops-model or tr-summary) — not a page this command reads' };
 }
 
 const stateOf = (r) => (r.type === 'wricef' ? r.wricef?.stage || 'req' : r.status);
@@ -188,13 +188,21 @@ export function gateCheck(ms, cur, v) {
   return { id: ms.id, label: ms.label, date: ms.forecast || ms.base, status: ms.status, rows, met, unmet, manual: open, suggest };
 }
 
+// Suggestion texts per language (the page language): no English fragment on a Korean page.
+const SUG = {
+  ko: { late: (r) => `${r.label} — 종료일 ${r.finish} 지남`, orphans: (n) => `활성 담당자가 없는 진행 작업 ${n}건`, ms: (x) => `${x.label} 위험 (${x.date})`,
+    gate: (g) => `${g.label}: 조건부 통과, 재계획, 보류 중 결정 필요 (미충족 ${g.unmet}, 판단 필요 ${g.manual})` },
+  en: { late: (r) => `${r.label} — finish ${r.finish} passed`, orphans: (n) => `${n} open item(s) without an active owner`, ms: (x) => `${x.label} at risk (${x.date})`,
+    gate: (g) => `${g.label}: decide pass with conditions, re-plan or hold (${g.unmet} unmet, ${g.manual} to judge)` },
+};
+
 /** Risks and decisions the PM may take into the lists — never written into the model by the command. */
-export function suggestions(v, gate) {
+export function suggestions(v, gate, lang = 'ko') {
+  const S = SUG[lang === 'en' ? 'en' : 'ko'];
   const risks = [];
-  for (const r of v.late.slice(0, 5)) risks.push({ text: `${r.label} — finish ${r.finish} passed`, impact: r.type === 'wricef' || r.depth <= 1 ? 'H' : 'M', from: 'late' });
-  if (v.orphans.length) risks.push({ text: `${v.orphans.length} open item(s) without an active owner`, impact: 'M', from: 'orphans' });
-  for (const x of v.milestones.filter((m) => m.rag === 'red' && !m.actual)) risks.push({ text: `${x.label} at risk (${x.date})`, impact: 'H', from: 'milestone' });
-  const decisions = gate && ['fail', 'conditional'].includes(gate.suggest)
-    ? [{ text: `${gate.label}: decide pass with conditions, re-plan or hold (${gate.unmet} unmet, ${gate.manual} to judge)`, from: 'gate' }] : [];
+  for (const r of v.late.slice(0, 5)) risks.push({ text: S.late(r), impact: r.type === 'wricef' || r.depth <= 1 ? 'H' : 'M', from: 'late' });
+  if (v.orphans.length) risks.push({ text: S.orphans(v.orphans.length), impact: 'M', from: 'orphans' });
+  for (const x of v.milestones.filter((m) => m.rag === 'red' && !m.actual)) risks.push({ text: S.ms(x), impact: 'H', from: 'milestone' });
+  const decisions = gate && ['fail', 'conditional'].includes(gate.suggest) ? [{ text: S.gate(gate), from: 'gate' }] : [];
   return { risks, decisions };
 }

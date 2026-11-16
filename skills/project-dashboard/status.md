@@ -10,6 +10,7 @@ Ask once, together:
 - week ending (`YYYY-MM-DD`; default: Friday of this week — Saturday / Sunday take the Friday before)
 - Q-gate to check (milestone id or its exact label; none = no gate block)
 - evidence files: a CTS check page or `model.json`, a UAT page or set JSON, an operations report page, a UAT defect feed (`<SET>-defects.json`). Uploaded or local files only; nothing is fetched.
+- UAT sets of the project are read without asking: `project.uatSets` (set ids, editable on the summary tab) → `<artifact base>/uat/<ID>/<ID>-uat.json` and `<ID>-defects.json` when present. `--uat <ID>` (repeatable) replaces the list for one run; `--uat-dir` points at another UAT folder. A listed set without its file shows as not read.
 - refresh the SAP actuals first? (default no — it reads SAP for a few minutes, the same reads as `refresh`)
 
 A page handed back from the browser goes through `<B> import <file>` first.
@@ -17,7 +18,7 @@ A page handed back from the browser goes through `<B> import <file>` first.
 ## Step 2 — Run
 
 ```
-<B> status --project <CODE> [--week-end <date>] [--gate <id|label>] [--evidence <file>]… [--refresh] [--lang ko|en]
+<B> status --project <CODE> [--week-end <date>] [--gate <id|label>] [--evidence <file>]… [--uat <ID>]… [--uat-dir <dir>] [--refresh] [--lang ko|en]
 ```
 
 Prints one JSON line: `{ html, dashboard, weekEnd, first, moved, baselineWeeks?, risksOpen, decisionsOpen, gate?: { suggest, met, unmet, manual }, evidence: [{ kind, ok }] }`.

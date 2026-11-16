@@ -41,6 +41,7 @@ export const RISK_STATUS = ['open', 'closed'];
 export const DECISION_STATUS = ['open', 'decided'];
 export const STAGE_PCT ={ req: 0, fs: 15, ts: 25, build: 50, ut: 65, fut: 80, sit: 90, done: 100 };
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+export const UAT_SET_ID = /^[A-Za-z0-9_-]{1,30}$/; // same rule as scripts/uat/build-uat.mjs
 
 /** Fills defaults, keeps unknown fields. Returns a new model. */
 export function normalizeModel(m) {
@@ -48,6 +49,9 @@ export function normalizeModel(m) {
   out.schema = 1;
   out.lang = out.lang || 'ko';
   out.project = { modules: [], packages: [], ...out.project };
+  // UAT sets of the project (set ids; `{ id }` accepted) — the weekly status reads them as evidence
+  // a set id is never a path: only the UAT builder's ids (letters, digits, _ or -, up to 30) stay
+  if (out.project.uatSets != null) out.project.uatSets = arr(out.project.uatSets).map(x => String((typeof x === 'string' ? x : x?.id) || '').trim()).filter(x => UAT_SET_ID.test(x));
   out.team = arr(out.team);
   out.workstreams = arr(out.workstreams);
   out.wbs = arr(out.wbs).map(w => {
