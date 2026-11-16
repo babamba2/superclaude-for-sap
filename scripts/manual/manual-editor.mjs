@@ -527,6 +527,9 @@ export const EDITOR_SCRIPT = String.raw`
     if(Q)return; // Quill mounts on click instead
     root.querySelectorAll(FIELDS).forEach(function(e){if(on)e.setAttribute('contenteditable','true');else e.removeAttribute('contenteditable');});
   }
+  // iPhone Safari sends no mouse events for a tap on a plain field when the only listener sits on document;
+  // a click listener on body makes those taps reach the mousedown below.
+  document.body.addEventListener('click',function(){});
   document.addEventListener('mousedown',function(ev){
     if(!editing)return;
     var art=ev.target.closest&&ev.target.closest('article.step');if(art)select(art);

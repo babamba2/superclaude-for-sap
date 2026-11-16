@@ -335,6 +335,9 @@ function neighbour(el, dir) {
 }
 
 // ---------- clicks ----------
+// iPhone Safari sends no click for a tap on a plain element (an edit cell, a WBS row) when the only
+// listener sits on document; a listener on body makes those taps clickable.
+document.body.addEventListener('click', function () {});
 document.addEventListener('click', function (ev) {
   var t = ev.target;
   if (t.closest('.tg')) { var tr0 = t.closest('tr.wr'); closed[tr0.dataset.id] = !closed[tr0.dataset.id]; applyView(); return; }
