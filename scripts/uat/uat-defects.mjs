@@ -63,6 +63,7 @@ export function defectRows(set, trModel = null) {
     const row = {
       issue: i.id, scenario: i.scenario, step: i.step, module: i.module, text: i.text, state: i.state, failed,
       transports: requestsOf(i.transports).filter((t) => TRKORR_RE.test(t)).map((t) => ctsOf(t, trModel)),
+      notLinked: arr(i.transportsBad),
       retest, retestResult: retest && st ? st.results?.[retest] || '' : '',
     };
     row.status = statusOf(row);

@@ -70,6 +70,18 @@ describe('UAT defects — model fields', () => {
     expect(ok).toMatchObject({ transports: ['DEVK900200', 'QASK900007'], transportsBad: [] });
   });
 
+  it('values that are not request numbers are shown as "not linked" on the defects page and the UAT page', () => {
+    const s = normalize({ ...raw(), issues: [{ scenario: 'SD01', step: 'STEP-001', type: 'defect', text: 'x', state: 'open', transports: 'DEVK90000 <b>' }] });
+    const rows = defectRows(s, null);
+    expect(rows[0]).toMatchObject({ status: 'no-fix', notLinked: ['DEVK90000', '<B>'] });
+    const ko = renderDefects({ set: s, rows, feed: kpiFeed(s, rows, '2026-11-16'), proposals: [] }, 'ko');
+    expect(ko).toContain('연결 안 된 값: DEVK90000, &lt;B&gt; (요청 번호 형식이 아니에요)');
+    expect(renderDefects({ set: s, rows, feed: kpiFeed(s, rows, '2026-11-16'), proposals: [] }, 'en')).toContain('Not linked: DEVK90000, &lt;B&gt; (not a request number)');
+    const page = pageHtml(s);
+    expect(page).toContain("notLinked");
+    expect(normalize(setFromPage(page)).issues[0].transportsBad).toEqual(['DEVK90000', '<B>']);
+  });
+
   it('a text-found link is proposed as the union with the requests already linked', () => {
     const s = normalize({ ...raw(), issues: [{ scenario: 'SD01', step: 'STEP-001', type: 'defect', text: 'x', state: 'open', transports: ['DEVK900200'] }] });
     const p = proposeLinks(s, { requests: [{ trkorr: 'QASK900007', text: 'SD-OTC/ISS-0001 fix', verdict: 'ready', findings: [] }, { trkorr: 'PRDK901234', text: 'also ISS-0001', verdict: 'ready', findings: [] }] });
