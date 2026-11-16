@@ -110,6 +110,8 @@ export function readDecisions(json) {
   return { keep: new Set((d.keep || []).map(String)), edits: (d.edits || []).filter((e) => e && e.file && e.find) };
 }
 
+const META_KEYS = new Set(['activity', 'module', 'lang', 'savedAt', 'sapVersion']);
+
 function applyEdits(entry, edits, hit) {
   const edit = (s) => {
     let t = s;
@@ -126,7 +128,8 @@ function applyEdits(entry, edits, hit) {
     if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, walk(x)]));
     return v;
   };
-  return walk(entry);
+  // metadata (activity id, module, language, dates, release) is never text to edit
+  return Object.fromEntries(Object.entries(entry).map(([k, x]) => [k, META_KEYS.has(k) ? x : walk(x)]));
 }
 
 /** Any value of a field the scrubber has no rule for: every string at any depth (arrays, nested objects). */

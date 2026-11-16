@@ -160,6 +160,18 @@ describe('kb-scrub over a KB tree', () => {
     expect(after.checklist).toEqual(['Is a customer template used?']);
     expect(flagsOf(scrubTree(root, ctx2, { decisions }))).toBe(0);
   });
+
+  it('decisions never edit metadata (activity id, module, language, dates, release)', () => {
+    const d = join(tmp, 'kb3', 'config', 'MM', 'ko');
+    mkdirSync(d, { recursive: true });
+    const meta = { activity: 'ZMM_ACT', module: 'MM', lang: 'ko', savedAt: '2026-11-16', sapVersion: 'ECC' };
+    writeFileSync(join(d, 'ZMM_ACT.json'), JSON.stringify({ ...meta, purpose: 'Uses ZMM_ACT in MM on ECC.', compare: [], checklist: [], criteria: {} }));
+    const edits = ['ZMM_ACT', 'MM', 'ko', '2026-11-16', 'ECC'].map((find) => ({ file: 'MM/ko/ZMM_ACT.json', find, replace: 'X' }));
+    scrubTree(join(tmp, 'kb3', 'config'), scrubContext({}), { decisions: readDecisions({ edits }), apply: true });
+    const after = JSON.parse(readFileSync(join(d, 'ZMM_ACT.json'), 'utf8'));
+    expect(after).toMatchObject(meta);
+    expect(after.purpose).not.toMatch(/ZMM_ACT|ECC/);
+  });
 });
 
 describe('KB seed, verification and re-queue', () => {
