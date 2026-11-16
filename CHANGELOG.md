@@ -6,6 +6,13 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 ## [Unreleased]
 
 ### Added
+- **SmartForm → Adobe conversion plan (read-only).** New skill `/sc4sap:smartform-to-adobe` works out what SAP's own migration (`CL_SSF_MIGRATION`) makes of a SmartForm, before anything is written:
+  - an inventory of every node by kind
+  - the Adobe interface, context and layout SAP would create
+  - the SAP log it would write
+  - a gap list with what SAP would lose without a message (sort-level events printing on every row, skipped header / footer areas, layout conditions other than first page, dynamic graphic keys, final-window timing), each with a manual step
+
+  Every rule names its SAP method (`skills/smartform-to-adobe/mapping.md`). The `full` and `sap-default` option presets are modelled. Running the migration on DEV and `/sc4sap:adobe-from-pdf` (skeleton) await approval. Shared metrics and gates for the Adobe skills are in `common/adobe-forms-verification.md`.
 - **Portfolio weekly status.** `/sc4sap:project-dashboard` `portfolio-status` puts every project of the folder on one weekly page: projects by RAG with the change against last week, progress and its change, late items, go-live and cutover D-days, milestones and Q-gates of this week and next week (Monday … Sunday), open high risks and pending decisions with overdue marks, WRICEF stages with hand-offs, and team load across projects (overloaded = more than 20 open items or more effort left than the next two weeks' working days). Output is HTML (A4 landscape, cards on phones), JSON (next week's comparison) and Excel. `scripts/project/project-portfolio.mjs` is shared with the web workbench, which passes its own project views. The existing portfolio page is unchanged.
 
 ## [0.6.68] — 2026-11-16
