@@ -266,6 +266,18 @@ describe('cbo-relation-map page', () => {
     expect(JSON.parse(data).meta.package).toBe('ZGD');
   });
 
+  it('Japanese page: same text keys and placeholders as English', async () => {
+    // @ts-expect-error — plain .mjs script, no type declarations
+    const { TEXT } = await import('../../scripts/relmap/relmap-page.mjs');
+    const flat = (o: any, p = ''): [string, string][] => Object.entries(o).flatMap(([k, v]) => (v && typeof v === 'object' ? flat(v, `${p}${k}.`) : [[`${p}${k}`, String(v)]] as [string, string][]));
+    const ph = (s: string) => (s.match(/\{\w+\}/g) || []).sort().join();
+    const ja = new Map(flat(TEXT.ja));
+    expect(flat(TEXT.en).filter(([k, v]) => !ja.has(k) || ph(v) !== ph(ja.get(k)!)).map(([k]) => k)).toEqual([]);
+    const r: any = buildRelationMap({ graphs: [graph], lang: 'ja' });
+    expect(r.html).toContain('<html lang="ja">');
+    expect(r.html).toContain('CBO 関係マップ');
+  });
+
   it('English companion and build summary', () => {
     const r: any = buildRelationMap({ graphs: [graph], lang: 'en' });
     expect(r.html).toContain('CBO relation map');

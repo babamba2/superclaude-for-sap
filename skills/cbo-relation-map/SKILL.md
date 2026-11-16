@@ -46,7 +46,7 @@ Settled with the user (2026-11-06) — do not ask again:
 
 <Paths>
 `<AB>` = the active profile's artifact base ([`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md)). `<DIR>` = `<AB>/cbo/<MODULE>/<PACKAGE>` (whole package, the inventory folder), `<UDIR>` = `<AB>/cbo/<MODULE>/<PACKAGE>.used` (used TCodes only). One package → `<DIR or UDIR>/<PACKAGE>-relation-map-<lang>.html`; several → `<AB>/cbo/<MODULE>/_relmap/<A+B+…>-relation-map-<lang>.html`.
-Tool: `node "<PLUGIN_ROOT>/scripts/relmap/build-relation-map.mjs" find --base <dir> … --packages <list>` and `… --dir <dir> [--dir <dir2> …] --lang ko|en [--snippets [--src <dir> …]] [--includes keep] [--sid <SID>] [--max-bytes <n>] [--out <file>]` — both offline; the header of that file lists every option.
+Tool: `node "<PLUGIN_ROOT>/scripts/relmap/build-relation-map.mjs" find --base <dir> … --packages <list>` and `… --dir <dir> [--dir <dir2> …] --lang ko|en|ja [--snippets [--src <dir> …]] [--includes keep] [--sid <SID>] [--max-bytes <n>] [--out <file>]` — both offline; the header of that file lists every option.
 </Paths>
 
 <Workflow>
@@ -54,7 +54,7 @@ Tool: `node "<PLUGIN_ROOT>/scripts/relmap/build-relation-map.mjs" find --base <d
 - `Packages: ZMM*, ZSD_CBO` — names or prefixes ending in `*` or `%` (`ZMM%` = `ZMM*`; write `%` on the command line where `*` is refused), comma-separated (required; ask once if none)
 - `Scope: Use existing graph | Collect whole package | Collect used TCodes only` — default *Use existing graph*: never collect unasked. The two Collect values go to [`collect.md`](collect.md) § A / § B for those packages (reads SAP)
 - `Source lines: Yes | No` → `--snippets` (default Yes)
-- `Language: Korean | English` → `--lang ko | en` (default: the profile language; Korean page + English companion when nothing is named). Japanese is not available — build English and say so
+- `Language: Korean | English | Japanese` → `--lang ko | en | ja` (default: the profile language; Korean page + English companion when nothing is named)
 - Paths a hosted run gives (knowledge base, source folders, output file, `--max-bytes`) are used as given.
 
 **Step 1 — Find the graphs** (offline, one call; `--base` repeats — the profile's `<AB>/cbo`, plus any knowledge-base or run folder named):

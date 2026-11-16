@@ -46,7 +46,7 @@ export function normalizeModel(m = {}) {
     level: pick(up(s.level), RISK, 'M'), mitigation: str(s.mitigation), approver: str(s.approver), status: pick(s.status, SOD_STATUS, 'open'), note: str(s.note),
     tcodesA: arr(s.tcodesA).map(up), tcodesB: arr(s.tcodesB).map(up), ext: ext(s.ext) }));
   const revisions = arr(m.revisions).map((r) => ({ ver: str(r.ver), date: str(r.date), author: str(r.author), change: str(r.change), approver: str(r.approver), note: str(r.note), ext: ext(r.ext) }));
-  return { lang: m.lang === 'en' ? 'en' : 'ko', doc, broles, troles, tcodes, users, auths, sod, revisions, source: m.source || null,
+  return { lang: ['en', 'ja'].includes(m.lang) ? m.lang : 'ko', doc, broles, troles, tcodes, users, auths, sod, revisions, source: m.source || null,
     // company layout (sheets, columns, level codes, cover, theme) — see skills/role-matrix/layout.md; null = the default workbook
     layout: m.layout && typeof m.layout === 'object' ? m.layout : null };
 }

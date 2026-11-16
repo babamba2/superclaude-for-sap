@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderAll, esc, sheetsOf } from './role-render.mjs';
+import { EDIT_JA } from './role-labels-ja.mjs';
 import { withResponsive } from '../lib/responsive.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -30,7 +31,7 @@ a{color:var(--link)}.muted{color:var(--muted)}.bad{color:var(--red);font-weight:
 button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);cursor:pointer}
 #chk-n{display:inline-block;min-width:18px;margin-left:4px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;text-align:center}
 .tabs{position:sticky;top:45px;z-index:19;display:flex;gap:2px;overflow-x:auto;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--line)}
-.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;color:var(--muted);padding:9px 12px;white-space:nowrap;font-size:14px}
+.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;color:var(--muted);padding:9px 12px;white-space:nowrap;flex:none;font-size:14px}
 .tabs button[aria-selected=true]{color:var(--fg);border-bottom-color:var(--accent);font-weight:600}
 main{max-width:1800px;margin:0 auto;padding:6px 16px 30px}section.tab{display:none}section.tab.on{display:block}
 h1{font-size:22px;margin:14px 0 4px}h2{font-size:17px;margin:12px 0 2px}h3{font-size:15px;margin:18px 0 6px}.sub{margin:0 0 6px;font-size:13px}
@@ -78,7 +79,8 @@ dialog{border:1px solid var(--line);border-radius:10px;background:var(--bg);colo
  .topbar{gap:6px;padding:6px 10px}.topbar .t{flex-basis:100%;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#print,#theme,.state{display:none}
  .tabs{top:auto;position:static;padding:0 6px}.tabs button{padding:9px 9px;font-size:13px}main{padding:4px 8px 20px}
  .grid td.wrap{min-width:150px;max-width:62vw}.grid th small{max-width:70px}.grid td,.grid th{padding:6px 6px}.grid td.lv,.grid td.xx{min-width:44px;height:38px}
- .grid .fin{font-size:16px;padding:3px 5px}button{min-height:34px}.stools input[type=search]{min-width:0;flex:1;font-size:16px;min-height:34px}.cell-ed{font-size:16px}h1{font-size:19px}
+ .grid th .flt{min-width:44px;min-height:44px;margin-left:0;padding:0;font-size:14px;opacity:.7}
+ .grid .fin{font-size:16px;padding:3px 5px}button{min-height:34px}.stools input[type=search]{min-width:44px;flex:1 1 100%;font-size:16px;min-height:34px}.cell-ed{font-size:16px}h1{font-size:19px}
 }
 @media print{.topbar button,.tabs,.stools,.banner,#help,#toast,.grid tr.frow{display:none!important}section.tab{display:block!important;break-before:page}.gw{max-height:none!important;overflow:visible;border:0}.grid .stk{position:static}}
 `;
@@ -116,10 +118,11 @@ const EDIT = {
       ['Insert row · Ctrl+Enter · Ctrl+-', 'Row above the picked cell · add a row below · delete the selected rows'], ['Alt+↑ ↓', 'Reorder rows'], ['Ctrl+A', 'Select the sheet'], ['Ctrl+Z · Ctrl+Y', 'Undo · redo'], ['Ctrl+S', 'Save'],
       ['Click a matrix column header (edit mode)', 'Go to that business role to change its ID / name — a new ID follows into every sheet'], ['?', 'This help']],
     touch: [['Tap a cell', 'Select · tap again to edit'], ['Tap a matrix cell (edit mode)', 'Choose the value / toggle X'], ['Buttons above', 'Insert (above the picked cell), delete, reorder rows; CSV'], ['Search · ▾ in a header', 'Filter rows · column filter']] },
+  ja: EDIT_JA,
 };
 
 function clientScript(E) {
-  return `(function(){\n${inline('role-model.mjs')}\n${inline('role-render.mjs')}\nvar E=${JSON.stringify(E)};\n${readFileSync(join(here, 'role-client.js'), 'utf8')}\n})();`;
+  return `(function(){\n${inline('role-model.mjs')}\n${inline('role-labels-ja.mjs')}\n${inline('role-render.mjs')}\nvar E=${JSON.stringify(E)};\n${readFileSync(join(here, 'role-client.js'), 'utf8')}\n})();`;
 }
 
 const tools = (s, E, L) => `<div class="stools"><input type="search" data-s="${s}" placeholder="${esc(E.search)}">

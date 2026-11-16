@@ -1,6 +1,6 @@
 // sc4sap:cbo-relation-map — build the relation map page from stock-cbo's graph.json.
 //
-//   node build-relation-map.mjs --dir <inventory dir> [--dir <dir2> …] [--lang ko|en] [--out <file.html>]
+//   node build-relation-map.mjs --dir <inventory dir> [--dir <dir2> …] [--lang ko|en|ja] [--out <file.html>]
 //                               [--snippets [--src <MCP output src dir>]] [--includes keep] [--hubs 40] [--groups 60]
 //   node build-relation-map.mjs --graph <graph.json> [--graph …] --out <file.html>   (no side files)
 //   node build-relation-map.mjs find --base <dir> [--base …] --packages "ZMM*, ZSD_CBO"   (relmap-find.mjs)
@@ -186,7 +186,7 @@ function args(argv) {
     else if (k === '--sid') a.sid = String(v() || '').trim();
     else throw new Error(`unknown option ${k}`);
   }
-  if (!['ko', 'en'].includes(a.lang)) throw new Error('--lang must be ko or en');
+  if (!['ko', 'en', 'ja'].includes(a.lang)) throw new Error('--lang must be ko, en or ja');
   for (const d of a.dirs) a.graphs.push(join(d, 'graph.json'));
   if (!a.graphs.length) throw new Error('usage: build-relation-map.mjs --dir <inventory dir> [--dir …] | --graph <graph.json> [--out file] [--lang ko|en] [--snippets [--src dir …]] [--max-bytes n] [--sid SID] | find --base <dir> … --packages <list>');
   return a;

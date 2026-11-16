@@ -4,6 +4,7 @@
 // Every editable cell is <td data-c="<column key>"> inside <tr data-i="<row index>"> inside <table data-s="<sheet>">;
 // the column definitions (SHEETS / sheetColumns) tell the editor how to edit it (text, number, list, level, X).
 
+import { LABELS_JA } from './role-labels-ja.mjs';
 import { arr, deriveView, LEVELS, ROLE_TYPES, TROLE_STATUS, APPROVAL, RISK, SOD_STATUS, MODULES, ORG_LEVELS } from './role-model.mjs';
 
 export const fmtL = (t, o) => String(t).replace(/\{(\w+)\}/g, (_, k) => o[k]);
@@ -86,6 +87,7 @@ const LABELS = {
       dupUser: 'User ID on several rows (shared ID)', authUnknownTrole: 'Authorization row of a role not in sheet 2', sodUsers: 'Users in SoD conflict', sodInherent: 'Conflicting T-codes inside one role' },
     sev: { err: 'Error', warn: 'Warning', info: 'Note' }, guess: 'guess', none: 'none',
   },
+  ja: LABELS_JA,
 };
 export const SHEETS = ['broles', 'troles', 'tcodes', 'users', 'auths', 'sod', 'revisions'];
 

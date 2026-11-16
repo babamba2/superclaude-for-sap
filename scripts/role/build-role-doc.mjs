@@ -6,7 +6,7 @@
 // The version lives in the model (sheet 7 rows): 0.1, 0.2 … for drafts, --major for 1.0.
 //
 // CLI (prints one JSON line):
-//   node build-role-doc.mjs init --code <CODE> [--from <draft.json>] [--project ..] [--system ..] [--module PM] [--author ..] [--lang ko] [--force]
+//   node build-role-doc.mjs init --code <CODE> [--from <draft.json>] [--project ..] [--system ..] [--module PM] [--author ..] [--lang ko|en|ja] [--force]
 //   node build-role-doc.mjs sync --code <CODE> --patterns "Z_PM*,Y_PM*" [--module PM] [--no-users] [--replace]
 //   node build-role-doc.mjs sod --code <CODE> --modules PM,MM          add the SoD library rules of those modules
 //   node build-role-doc.mjs build --code <CODE> [--same-version | --major] [--note "<text>"]
@@ -26,6 +26,9 @@ import { resolveArtifactBase } from '../lib/profile-resolve.mjs';
 import { normalizeModel, deriveView, nextVersion, arr } from './role-model.mjs';
 import { renderPage } from './role-page.mjs';
 import { checkLayout, columnCatalog, loadLayout } from './role-layout.mjs';
+
+/** One text per document language (ko / en / ja). */
+const say = (lang, ko, en, ja) => (lang === 'en' ? en : lang === 'ja' ? ja : ko);
 
 const here = dirname(fileURLToPath(import.meta.url));
 const readJson = (f, d) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : d);
@@ -47,7 +50,7 @@ export function buildDoc({ root, code, sameVersion = false, major = false, note 
   const errors = deriveView(model).checks.filter((c) => c.sev === 'err');
   const last = lastVer(model);
   const version = sameVersion && last ? last : nextVersion(last, { major });
-  if (version !== last) model.revisions.push({ ver: `v${version}`, date: today(), author: model.doc.author || '', change: note || (model.lang === 'en' ? 'Document built' : '문서 생성'), approver: '', note: '' });
+  if (version !== last) model.revisions.push({ ver: `v${version}`, date: today(), author: model.doc.author || '', change: note || say(model.lang, '문서 생성', 'Document built', '文書作成'), approver: '', note: '' });
   model.doc.date = model.doc.date && sameVersion ? model.doc.date : today();
   mkdirSync(join(f.dir, '_src'), { recursive: true });
   writeJson(f.model, model);
@@ -66,7 +69,7 @@ export function cmdInit({ root, code, from, doc = {}, lang = 'ko', force = false
   model.revisions = [];
   mkdirSync(f.dir, { recursive: true });
   writeJson(f.model, model);
-  return buildDoc({ root, code, note: lang === 'en' ? 'First draft' : '최초 작성' });
+  return buildDoc({ root, code, note: say(lang, '최초 작성', 'First draft', '初版作成') });
 }
 
 /**
@@ -94,7 +97,7 @@ export async function cmdSync({ root, code, patterns, module = '', withUsers = t
   });
   mkdirSync(f.dir, { recursive: true });
   writeJson(f.model, model);
-  const r = buildDoc({ root, code, note: model.lang === 'en' ? `Read from SAP (${patterns.join(', ')})` : `SAP 역할 읽기 (${patterns.join(', ')})` });
+  const r = buildDoc({ root, code, note: say(model.lang, `SAP 역할 읽기 (${patterns.join(', ')})`, `Read from SAP (${patterns.join(', ')})`, `SAP からロールを読み込み (${patterns.join(', ')})`) });
   return { ...r, roles: rows.define.length, readErrors: errors };
 }
 
@@ -117,12 +120,12 @@ export function cmdSod({ root, code, modules }) {
   const f = files(root, code);
   const model = normalizeModel(readJson(f.model));
   const lib = readJson(join(here, 'sod-library.json')).rules;
-  const lang = model.lang === 'en' ? 'en' : 'ko';
+  const lang = ['en', 'ja'].includes(model.lang) ? model.lang : 'ko';
   const want = modules.map((m) => m.toUpperCase());
   let n = 0;
   for (const r of lib.filter((x) => want.includes(x.module))) {
-    if (model.sod.some((s) => s.kind === r.kind[lang])) continue;
-    model.sod.push({ id: `SOD-${String(model.sod.length + 1).padStart(2, '0')}`, a: '', b: '', kind: r.kind[lang], risk: r.risk[lang], level: r.level, mitigation: '', approver: '',
+    if (model.sod.some((s) => s.kind === (r.kind[lang] || r.kind.en))) continue;
+    model.sod.push({ id: `SOD-${String(model.sod.length + 1).padStart(2, '0')}`, a: '', b: '', kind: r.kind[lang] || r.kind.en, risk: r.risk[lang] || r.risk.en, level: r.level, mitigation: '', approver: '',
       status: 'open', note: `A: ${r.tcodesA.join(', ')} / B: ${r.tcodesB.join(', ')}`, tcodesA: r.tcodesA, tcodesB: r.tcodesB });
     n++;
   }
@@ -169,7 +172,7 @@ export async function cmdImportForm({ root, code, file, layoutFile, doc = {}, la
   model.revisions = [];
   writeJson(f.model, model);
   const name = file.split(/[\\/]/).pop();
-  const r = buildDoc({ root, code, note: lang === 'en' ? `Taken from the company workbook (${name})` : `회사 양식 파일에서 가져옴 (${name})` });
+  const r = buildDoc({ root, code, note: say(lang, `회사 양식 파일에서 가져옴 (${name})`, `Taken from the company workbook (${name})`, `会社の様式ファイルから取り込み (${name})`) });
   return { ...r, read: got.counts, warnings: [...c.warnings, ...got.warnings] };
 }
 

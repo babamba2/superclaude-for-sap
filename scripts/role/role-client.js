@@ -507,7 +507,7 @@ function csv() {
   var head = cs.map(function (c) { return c.h + (c.role ? nm(c.role) : ''); });
   var rows = pageInfo(s).hits.map(function (i) { var r = list(s)[i]; return cs.map(function (c) { return String(cellValue(s, r, c, view, L)); }); });
   var blob = new Blob([toCsv(head, rows)], { type: 'text/csv;charset=utf-8' });
-  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = model.doc.code + '-' + (L.tabs[s] || s).replace(/[^\w가-힣.-]+/g, '_') + '.csv'; a.click();
+  var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = model.doc.code + '-' + (L.tabs[s] || s).replace(/[^\w가-힣\u3040-\u30ff\u4e00-\u9fff.-]+/g, '_') + '.csv'; a.click();
   setTimeout(function () { URL.revokeObjectURL(a.href); }, 2000);
 }
 

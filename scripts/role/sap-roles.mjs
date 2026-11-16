@@ -17,7 +17,7 @@ export const USER_TABLES = ['AGR_USERS'];
 
 const ORG_NAMES = { BUKRS: 'Company Code', WERKS: 'Plant', IWERK: 'Planning Plant', SWERK: 'Plant', VKORG: 'Sales Org', EKORG: 'Purchasing Org', KOKRS: 'Controlling Area',
   VTWEG: 'Distribution Channel', SPART: 'Division', LGNUM: 'Warehouse', GSBER: 'Business Area', PERSA: 'Personnel Area', BWKEY: 'Valuation Area', VSTEL: 'Shipping Point' };
-const DISPLAY_RE = /display|show|anzeig|조회|표시|list|report|overview|리스트|현황|보고/i;
+const DISPLAY_RE = /display|show|anzeig|조회|표시|list|report|overview|리스트|현황|보고|照会|表示|一覧|レポート/i;
 const sapDate = (s) => { const t = String(s || '').replace(/-/g, ''); return /^\d{8}$/.test(t) && t !== '00000000' ? `${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}` : ''; };
 
 /** SAP role-name patterns (Z*, Z_PM_*) → SQL LIKE conditions. */
@@ -165,7 +165,7 @@ export async function readRoles({ patterns = ['Z*'], withUsers = true, lang = 'k
     return r.rows || [];
   };
   try {
-    const spras = lang === 'en' ? 'E' : '3';
+    const spras = lang === 'en' ? 'E' : lang === 'ja' ? 'J' : '3';
     const define = [], seen = new Set();
     for (const p of patterns) {
       const r = await readRoleNames(client, p, maxRoles);
@@ -183,13 +183,18 @@ export async function readRoles({ patterns = ['Z*'], withUsers = true, lang = 'k
     rows.org = need(await readIn(client, 'AGR_1252', 'AGR_NAME', names), 'AGR_1252');
     if (withUsers) rows.users = need(await readIn(client, 'AGR_USERS', 'AGR_NAME', names, { fields: ['AGR_NAME', 'UNAME', 'FROM_DAT', 'TO_DAT'] }), 'AGR_USERS');
     const tcs = [...new Set(rows.tcodes.map((t) => t.TCODE || t.LOW).filter(Boolean))];
-    rows.tstct = need(await readIn(client, 'TSTCT', 'TCODE', tcs, { extra: { SPRSL: spras } }), 'TSTCT');
+    // A language not installed on the system (often Japanese) has no texts: English then.
+    const texts = async (table, key, keys, langField, extra = {}) => {
+      const got = need(await readIn(client, table, key, keys, { extra: { [langField]: spras, ...extra } }), table);
+      return got.length || spras === 'E' || !keys.length ? got : need(await readIn(client, table, key, keys, { extra: { [langField]: 'E', ...extra } }), table);
+    };
+    rows.tstct = await texts('TSTCT', 'TCODE', tcs, 'SPRSL');
     const objs = [...new Set(rows.auth.map((a) => a.OBJECT))];
-    rows.tobjt = need(await readIn(client, 'TOBJT', 'OBJECT', objs, { extra: { LANGU: spras } }), 'TOBJT');
+    rows.tobjt = await texts('TOBJT', 'OBJECT', objs, 'LANGU');
     const fields = [...new Set(rows.auth.map((a) => a.FIELD))];
     const authx = need(await readIn(client, 'AUTHX', 'FIELDNAME', fields), 'AUTHX');
     const rolls = [...new Set(authx.map((a) => a.ROLLNAME).filter(Boolean))];
-    const dd04t = need(await readIn(client, 'DD04T', 'ROLLNAME', rolls, { extra: { DDLANGUAGE: spras, AS4LOCAL: 'A' } }), 'DD04T');
+    const dd04t = await texts('DD04T', 'ROLLNAME', rolls, 'DDLANGUAGE', { AS4LOCAL: 'A' });
     const dt = new Map(dd04t.map((d) => [d.ROLLNAME, d.SCRTEXT_M || d.DDTEXT]));
     rows.fieldText = Object.fromEntries(authx.map((a) => [a.FIELDNAME, dt.get(a.ROLLNAME) || '']));
     rows.usorg = need(await readTable(client, 'USORG', {}), 'USORG');

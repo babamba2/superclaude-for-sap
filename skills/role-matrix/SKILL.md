@@ -53,7 +53,7 @@ Settled with the user (2026-10-28) — do not ask again:
 </Paths>
 
 <Language>
-A `Language: Korean | English` line (or "Write the report in …") sets the document language: Korean → `--lang ko`, English → `--lang en` on `init` / `sync`. None → the profile `config.json` `language`. **Japanese is not available yet** — build English and say so in one line.
+A `Language: Korean | English | Japanese` line (or "Write the report in …") sets the document language: Korean → `--lang ko`, English → `--lang en`, Japanese → `--lang ja` on `init` / `sync`. None → the profile `config.json` `language`. A draft that names its own `lang` keeps it — set the draft `lang` to the same value.
 </Language>
 
 <Workflow>
