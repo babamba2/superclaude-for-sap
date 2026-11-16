@@ -171,7 +171,7 @@ function rows(o) {
 function batches(o) {
   const dir = dirOf(o.module);
   const snap = JSON.parse(readFileSync(join(dir, 'snapshot.json'), 'utf8'));
-  const lang = snap.meta.lang || 'ko';
+  const lang = hashLang(snap);
   snap.__theme = undefined;
   const { views, acts } = buildModel(snap, lang, { drawScreens: false });
   const rules = loadRules(join(ROOT, 'configs', o.module, 'config-checks.json'));
@@ -184,7 +184,8 @@ function batches(o) {
   const SCOPES = { custom: ['custom'], values: ['custom', 'standard', 'empty'], all: null };
   // Activities that already have reviewed notes are skipped unless --redo — but not when their rows
   // changed since the note was verified (valueHash), nor when a reviewer flagged the KB part (kbFlag).
-  const hashOf = (id) => valueHash(acts[id].viewKeys.map((k) => views[k].rows));
+  const hashes = activityHashes({ views, acts });
+  const hashOf = (id) => hashes[id];
   const notes = loadNotes(dir);
   const flags = kbFlags(o.module, lang);
   const newFlags = Object.entries(notes).filter(([id, n]) => n.kbFlag && !flags[id]);
@@ -447,6 +448,14 @@ export function realLocation(p) {
 }
 
 /** Hash of the rows behind one activity: a change re-queues its reviewed note. */
+/** The language system rows are hashed in: the snapshot's own. Batches here and every page build (any language) agree on it. */
+export const hashLang = (snap) => snap.meta.lang || 'ko';
+
+/** Row hash per activity of a model built in hashLang(snap) — the value a review stores as verifiedAgainst.valueHash. */
+export function activityHashes({ views, acts }) {
+  return Object.fromEntries(Object.keys(acts).map((id) => [id, valueHash(acts[id].viewKeys.map((k) => views[k].rows))]));
+}
+
 export function valueHash(rowsList) {
   return createHash('sha1').update(JSON.stringify(rowsList)).digest('hex').slice(0, 16);
 }

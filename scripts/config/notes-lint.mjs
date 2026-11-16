@@ -15,6 +15,7 @@
 //   counts   "<TABLE> … <n>행/rows" statements against the snapshot: table rows,
 //            customer rows (customer transports only), the view's rows from the input
 //   checks   check findings whose title or values the note never mentions
+//   verdicts case verdicts without evidence, or a "yes" quoting none of the activity's data (notes-verdicts.mjs)
 
 import { readFileSync, existsSync } from 'fs';
 import { join, dirname } from 'path';
@@ -22,6 +23,7 @@ import { resolveArtifactBase, sc4sapHome } from '../lib/profile-resolve.mjs';
 import { atomicWriteFileSync, ensureDirSync } from '../lib/atomic-write.mjs';
 import { isCustomerTr } from './build-config-doc.mjs';
 import { readSources, sourceStatus } from './notes-sources.mjs';
+import { verdictProblems } from './notes-verdicts.mjs';
 
 function opts(argv) {
   const o = { module: '', batch: '', kind: 'draft', sap: false };
@@ -91,6 +93,8 @@ async function lint(o) {
   for (const a of Object.values(snap.activities)) addTx(a.tcode, a);
   const tables = snap.tables || {};
   const fields = new Set(Object.values(tables).flatMap((t) => (t.fields || []).map((x) => x.name)));
+  // every value of the snapshot tables behind an item's views (verdict evidence may quote rows outside the sample)
+  const tableValues = (item) => (item.objects || []).flatMap((ob) => (tables[ob.table]?.rows || []).flatMap((r) => Object.entries(r).filter(([k]) => k !== '_tr').map(([, v]) => v)));
   const facts = (name) => {
     const t = tables[name];
     if (!t) return null;
@@ -118,10 +122,10 @@ async function lint(o) {
   const tx = await lookupTcodes([...tokens.keys()].filter((w) => !imgTx[w]), snap.meta.system, o.sap);
 
   const out = {};
-  let nNew = 0, nTx = 0, nCount = 0, nChecks = 0;
+  let nNew = 0, nTx = 0, nCount = 0, nChecks = 0, nVerdicts = 0;
   for (const [id, note, texts] of scan) {
     const item = input.items.find((x) => x.id === id);
-    const r = { sources: [], tcodes: [], notFound: [], unchecked: [], counts: [], checksMissing: [] };
+    const r = { sources: [], tcodes: [], notFound: [], unchecked: [], counts: [], checksMissing: [], verdicts: verdictProblems(note, item, tableValues(item)) };
     for (const s of note.sources || []) r.sources.push({ url: s.url, status: sourceStatus(sources, s) });
     for (const [w, t] of tokens) {
       if (!t.ids.has(id)) continue;
@@ -175,11 +179,12 @@ async function lint(o) {
     nTx += r.notFound.length;
     nCount += r.counts.filter((c) => !c.ok).length;
     nChecks += r.checksMissing.length;
+    nVerdicts += r.verdicts.length;
     out[id] = r;
   }
   const file = join(dir, 'notes', `${o.batch}.lint.json`);
   atomicWriteFileSync(file, JSON.stringify({ batch: o.batch, kind: o.kind, savedAt: new Date().toISOString(), sap: o.sap, items: out }, null, 1));
-  process.stdout.write(JSON.stringify({ ok: true, file, activities: Object.keys(out).length, sourcesToOpen: nNew, tcodesNotFound: nTx, countsToCheck: nCount, checksMissing: nChecks }) + '\n');
+  process.stdout.write(JSON.stringify({ ok: true, file, activities: Object.keys(out).length, sourcesToOpen: nNew, tcodesNotFound: nTx, countsToCheck: nCount, checksMissing: nChecks, verdictsUnbacked: nVerdicts }) + '\n');
 }
 
 /** Merge a saved GetTransaction answer ({ transactions: [...] }) into the system's cache. */

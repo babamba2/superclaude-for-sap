@@ -22,7 +22,7 @@ import { resolveArtifactBase, readScreenTheme, readActiveSapEnv } from '../lib/p
 import { atomicWriteFileSync, ensureDirSync } from '../lib/atomic-write.mjs';
 import { loadRules, runChecks, attachActivities } from './config-checks.mjs';
 import { pageHtml } from './config-doc-page.mjs';
-import { loadNotes, loadTerms } from './notes.mjs';
+import { loadNotes, loadTerms, hashLang, activityHashes } from './notes.mjs';
 import { loadFieldMeanings } from './fields.mjs';
 import { loadValueMeanings } from './values.mjs';
 import { loadBadiNotes, methodKey } from './badi-notes.mjs';
@@ -334,6 +334,24 @@ export function applyTerms(snap, terms) {
 }
 
 // Case diagrams of the reference panel: each case's flow drawn with the shared renderer.
+/**
+ * Row hash per activity the way a review stored it (notes.mjs activityHashes over a model in the snapshot's own
+ * language). The page's own model is reused when the page is in that language; any other page language builds it.
+ */
+export function systemHashes(snap, lang, pageModel = null) {
+  return activityHashes(pageModel && lang === hashLang(snap) ? pageModel : buildModel(snap, hashLang(snap), { drawScreens: false }));
+}
+
+/** A note verified against other rows than the snapshot's now (verifiedAgainst.valueHash) gets vaStale: its badge warns. */
+export function markStale(notes, sysHash) {
+  for (const [id, n] of Object.entries(notes)) {
+    const h = n && n.verifiedAgainst && n.verifiedAgainst.valueHash;
+    if (h && sysHash[id] && h !== sysHash[id]) n.vaStale = true;
+    else if (n) delete n.vaStale;
+  }
+  return notes;
+}
+
 function withCaseDiagrams(notes, lang) {
   for (const n of Object.values(notes)) {
     for (const c of n.cases?.list || []) {
@@ -447,11 +465,16 @@ async function main() {
   const snap = JSON.parse(readFileSync(snapFile, 'utf8'));
   const module = snap.meta.module;
   const lang = o.lang || snap.meta.lang || 'ko';
+  // Row hashes as a review stored them (notes.mjs: the snapshot's own language, before terms); a page in another
+  // language (English / Japanese companion) draws text columns differently, so it never hashes its own rows.
+  const otherLangHash = lang === hashLang(snap) ? null : systemHashes(snap, lang);
   applyTerms(snap, loadTerms(dir));
   snap.__theme = readScreenTheme(cwd) ?? undefined;
   snap.meta.client ||= readActiveSapEnv(cwd)?.env?.SAP_CLIENT || '';
   if (snap.ggb) snap.ggbNotes = loadGgbNotes(dir);
   const { views, acts, svgs } = buildModel(snap, lang);
+  // The rows each note was verified against, taken before page edits are laid over them.
+  const sysHash = otherLangHash || systemHashes(snap, lang, { views, acts });
   const imported = o.import ? importEdits(resolve(o.import), dir, snap.meta) : null;
   // Edit mode: edited notes replace the generated ones; edited views replace their values,
   // card title and change history, and their screens are drawn again from the edited rows.
@@ -528,7 +551,7 @@ async function main() {
     fields,
     meta: snap.meta, lang, tree: snap.tree, acts, views, checks,
     transports: snap.transports, domains: snap.domains, docs: snap.docs, badiImpls: snap.badiImpls || {}, badiErrors: snap.badiErrors || {}, badiSrc: badiSrcOf(snap.badiSources || {}), badiNotes: loadBadiNotes(dir), ggbReports: snap.ggb ? loadGgbReports(dir) : [], ...(snap.cmod ? cmodData(snap.cmod, dir) : {}),
-    notes: withCaseDiagrams({ ...loadNotes(dir, { module, lang }), ...structuredClone(edits.edits) }, lang),
+    notes: markStale(withCaseDiagrams({ ...loadNotes(dir, { module, lang }), ...structuredClone(edits.edits) }, lang), sysHash),
     edits,
   };
   const ver = nextVersion(dir, `${module}-config`);

@@ -9,7 +9,7 @@ import { keyString, orderSiblings, fullReadPlan } from '../../scripts/config/ext
 // @ts-expect-error — plain .mjs script, no type declarations
 import { runChecks } from '../../scripts/config/config-checks.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { buildModel, applyTerms, mergeEdits, drawView, applyViewEdit } from '../../scripts/config/build-config-doc.mjs';
+import { buildModel, applyTerms, mergeEdits, drawView, applyViewEdit, markStale, systemHashes } from '../../scripts/config/build-config-doc.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { sourceStatus, sourceHints } from '../../scripts/config/notes-sources.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -17,7 +17,7 @@ import { renderAlvScreenSVG } from '../../scripts/spec/screen-image-renderer.mjs
 // @ts-expect-error — plain .mjs script, no type declarations
 import { pageHtml } from '../../scripts/config/config-doc-page.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { parseNotes, parseTerms, isOfficialSource, generalPart, withKb } from '../../scripts/config/notes.mjs';
+import { parseNotes, parseTerms, isOfficialSource, generalPart, withKb, activityHashes } from '../../scripts/config/notes.mjs';
 
 describe('config-to-document — SAP documentation (ITF)', () => {
   it('joins continuation lines, drops commands and keeps lists and headings', () => {
@@ -123,6 +123,21 @@ describe('config-to-document — model and page', () => {
     expect(acts.ACT1.status).toBe('custom');
     expect(svgs.V_T161).toMatch(/<svg[^>]*viewBox/);
     expect(svgs.V_T161).toContain('표준 구매오더');
+  });
+
+  it('row hashes do not depend on the page language: an en / ja companion of an unchanged snapshot is not stale', () => {
+    const stored = activityHashes(buildModel(snap, 'ko', { drawScreens: false })); // what a review stored (notes.mjs)
+    expect(buildModel(snap, 'en', { drawScreens: false }).views.V_T161.rows).not.toEqual(buildModel(snap, 'ko', { drawScreens: false }).views.V_T161.rows);
+    for (const lang of ['ko', 'en', 'ja']) {
+      const page = buildModel(snap, lang, { drawScreens: false });
+      const sys = systemHashes(snap, lang, page);
+      expect(sys, lang).toEqual(stored);
+      const notes = markStale({ ACT1: { review: 'ok', verifiedAgainst: { valueHash: stored.ACT1 } } }, sys);
+      expect(notes.ACT1.vaStale, lang).toBeUndefined();
+    }
+    const changed = structuredClone(snap);
+    changed.tables.T161.rows[1].BSART = 'ZB';
+    expect(markStale({ ACT1: { review: 'ok', verifiedAgainst: { valueHash: stored.ACT1 } } }, systemHashes(changed, 'en')).ACT1.vaStale).toBe(true);
   });
 
   it('embeds the data gzip-packed, so nothing in it can close the script tag', () => {
@@ -286,6 +301,35 @@ describe('config-to-document — edit mode', () => {
     // Case drawings in the reference panel are wrapped so a click reaches the lightbox.
     expect(html).toContain(`'<div class="flow" title="'`);
     expect(html).toContain("closest('.flow')");
+  });
+
+  it('marks a note verified with this system’s values, or general description only (knowledge base, no review)', () => {
+    const html = pageHtml({ meta, lang: 'ko', tree: [], acts: {}, views: {}, checks: [], transports: {}, domains: {}, docs: {} }, {});
+    const line = /const vaBadge=[^\n]*/.exec(html)![0];
+    const esc = (s: string) => String(s).replace(/[&<>"]/g, (c) => `&#${c.charCodeAt(0)};`);
+    const T = { va: { ok: '이 시스템 값으로 검증됨', stale: '검증 후 값이 바뀜', general: '일반 설명만' } };
+    const vaBadge = new Function('esc', 'T', `${line}; return vaBadge;`)(esc, T);
+    expect(vaBadge({ review: 'ok', verifiedAgainst: { system: 'TST', snapshotDate: '2027-03-01T10:00:00Z', valueHash: 'h' } })).toMatch(/이 시스템 값으로 검증됨[\s\S]*/);
+    expect(vaBadge({ review: 'ok', verifiedAgainst: { system: 'TST', snapshotDate: '2027-03-01T10:00:00Z' } })).toMatch(/title="TST · 2027-03-01"/);
+    expect(vaBadge({ review: 'none', sources: [{ url: 'https://help.sap.com/x', fromKb: true }] })).toMatch(/일반 설명만/);
+    expect(vaBadge({ review: 'none', kbFromSeed: true })).toMatch(/일반 설명만/);
+    expect(vaBadge({ review: 'ok', sources: [] })).toBe(''); // reviewed before the verification record: no badge
+    expect(html).toContain('verifiedAgainst');
+    // rows changed since the review: a warning, never "verified"
+    const stale = vaBadge({ review: 'ok', vaStale: true, verifiedAgainst: { system: 'TST', snapshotDate: '2027-03-01', valueHash: 'h' } });
+    expect(stale).toMatch(/b-warn[\s\S]*검증 후 값이 바뀜/);
+    expect(stale).not.toMatch(/검증됨/);
+  });
+
+  it('marks a note stale when the snapshot rows no longer match its verifiedAgainst.valueHash', () => {
+    const notes = markStale({
+      A: { review: 'ok', verifiedAgainst: { valueHash: 'h1' } },
+      B: { review: 'ok', verifiedAgainst: { valueHash: 'old' } },
+      C: { review: 'ok', verifiedAgainst: { system: 'TST' } },
+      D: { review: 'ok', verifiedAgainst: { valueHash: 'x' } },
+      E: { review: 'ok', verifiedAgainst: { valueHash: 'h5' }, vaStale: true },
+    }, { A: 'h1', B: 'new', C: 'h3', E: 'h5' });
+    expect(Object.entries(notes).filter(([, n]: any) => n.vaStale).map(([id]) => id)).toEqual(['B']);
   });
 
   it('embeds the edits as JSON that cannot close the script tag, and shows the edit button', () => {
