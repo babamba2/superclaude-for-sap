@@ -4,7 +4,7 @@ import { join, resolve } from 'path';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { deriveGap, checkGap, blankGap, addRow, removeRow, applyOps, modelFromPage, wricefItems, nextGapCode } from '../../scripts/process/gap-model.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { renderGapHtml, readGap } from '../../scripts/process/build-gap-doc.mjs';
+import { renderGapHtml, readGap, safeMapHref } from '../../scripts/process/build-gap-doc.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { gapXlsx } from '../../scripts/process/gap-xlsx.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -141,6 +141,17 @@ describe('gap workbench — page, WRICEF, workbook', () => {
     expect(cli).toContain('wb-add');
     expect(cli).not.toContain('#ed-save{display:none!important}');
     expect(cli).not.toContain("if (t === 'beforeunload') return;");
+  });
+  it('the process-map link is a plain relative .html path only; anything else gives no link', () => {
+    for (const bad of ['/\\evil.com/a.html', '\\/host', '%5C%5Chost', 'javascript:alert(1)', '../x.html', 'a/../x.html', '//evil.com/a.html', 'C:\\x.html', 'x.html#\\', 'a%2Fb.html', 'https://e.com/a.html', 'x.htm', '']) {
+      expect(safeMapHref(bad), bad).toBe('');
+      const html = renderGapHtml(derived(), { version: '1.0', date: '2026-11-17', mapHref: bad });
+      expect(html).not.toMatch(/<a href="[^"#]/); // no link but the in-page anchors
+    }
+    for (const ok of ['MM-process-v1.0-ko.html', 'sub/MM_process.v2-en.html']) {
+      expect(safeMapHref(ok)).toBe(ok);
+      expect(renderGapHtml(derived(), { version: '1.0', date: '2026-11-17', mapHref: ok })).toContain(`<a href="${ok}">${ok}</a>`);
+    }
   });
   it('modelFromPage reads the model back (also through readGap); garbage gives null', () => {
     const g = blank();

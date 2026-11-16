@@ -142,7 +142,17 @@ function gapCard(g, T, r, { wb = false, W = null } = {}) {
  * leave warning; window.SC4SAP_PAGE = { kind: 'gap', model, edit, editing } and the row tools (add / remove rows).
  * Without embed (and without workbench fields in the model) the output is the CLI page, byte for byte.
  */
-export function renderGapHtml(gap, { version, date, history = [], mapHref = '', embed = false }) {
+/**
+ * The process-map link only as a plain relative path to an .html file: letters, digits, . _ - / ; no leading "/",
+ * no backslash, no scheme, no "..", no percent-encoding (so no encoded slash / backslash). Anything else → no link.
+ */
+export const safeMapHref = (h) => {
+  const s = String(h ?? '');
+  return /^[A-Za-z0-9._-][A-Za-z0-9._\-/]*\.html$/.test(s) && !s.includes('..') && !s.includes('//') ? s : '';
+};
+
+export function renderGapHtml(gap, { version, date, history = [], mapHref: rawHref = '', embed = false }) {
+  const mapHref = safeMapHref(rawHref);
   const g = { ...gap, rows: arr(gap.rows), packages: arr(gap.packages), notEvidenced: arr(gap.notEvidenced), openQuestions: arr(gap.openQuestions) };
   const T = gapLabels(g.lang);
   const E = { ...editorLabels(g.lang), hint: T.edHint };
