@@ -1,5 +1,6 @@
 // sc4sap:transport-readiness — the report page (self-contained HTML) and its chat summary.
 
+import { withResponsive } from '../lib/responsive.mjs';
 const T = {
   en: {
     title: 'Transport check (CTS)', system: 'System', target: 'Before import into', readAt: 'Read at',
@@ -46,7 +47,7 @@ export function renderHtml(m, lang = 'en') {
 ${r.findings.length ? `<ul>${r.findings.map((f) => `<li class="${f.level}"><b>${esc(t.kinds[f.kind] || f.kind)}</b> — ${esc(f.text)}${f.objects.length ? `<br><small>${f.objects.slice(0, 30).map(esc).join(' · ')}${f.objects.length > 30 ? ' …' : ''}</small>` : ''}</li>`).join('')}</ul>` : `<p class="none">${esc(t.none)}</p>`}
 ${r.merge ? mergeBlock(r.merge, t) : ''}
 </section>`).join('\n');
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${esc(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(t.title)} · ${esc(m.system)}</title>
 <style>
@@ -69,7 +70,7 @@ li.block b{color:var(--red)}.merge{border-top:1px dashed var(--line);margin-top:
 ${cards}
 <p class="note">${esc(t.note)}</p>
 </main></body></html>
-`;
+`);
 }
 
 export function renderSummary(m, lang = 'en') {

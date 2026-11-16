@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderAll, esc, labelsFor } from './project-render.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const inline = (f) => readFileSync(join(here, f), 'utf8').replace(/^import .*$/gm, '').replace(/^export (const|function|async function|let)/gm, '$1');
@@ -182,7 +183,7 @@ export function renderPage(model, { version, date, history = [], today, companio
   const p = v.m.project;
   const data = JSON.stringify({ model, version, history }).replace(/</g, '\\u003c');
   const sec = (t, extra = '') => `<section class="tab" id="tab-${t}">${extra}<div class="body">${tabs[t]}</div></section>`;
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${esc(v.m.lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(p.name)} — ${esc(L.tabs.sum)} v${esc(version)}</title><style>${STYLE}</style></head>
 <body>
@@ -206,7 +207,7 @@ ${sec('sum')}${sec('kpi', `<div class="tools"><button id="add-kpi">${E.addKpi}</
 <div id="help"><div class="hbox"><button class="hx">✕</button><h3>${esc(E.help)}</h3><table class="t-touch">${E.touchRows.map(([k, d]) => `<tr><th>${esc(k)}</th><td>${esc(d)}</td></tr>`).join('')}</table><table class="t-keys">${E.helpRows.map(([k, d]) => `<tr><th>${esc(k)}</th><td>${esc(d)}</td></tr>`).join('')}</table></div></div>
 <svg id="linksvg"><line id="linkline"/></svg>
 <script>${clientScript(E)}</script>
-</body></html>`;
+</body></html>`);
 }
 
 export { labelsFor };

@@ -29,6 +29,7 @@ import { checkModel, normalizeModel, viewModel, withSnapshot, reassign, isActive
 import { instantiate, addWricef } from './project-template.mjs';
 import { renderPage } from './project-page.mjs';
 import { esc, labelsFor } from './project-render.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const readJson = (f, d) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : d);
 const writeJson = (f, o) => writeFileSync(f, `${JSON.stringify(o, null, 2)}\n`, 'utf8');
@@ -202,12 +203,12 @@ export function cmdPortfolio({ root, lang = 'ko', today = iso(Date.now()) }) {
   const prow = multi.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.sapUser)}</td><td>${esc([...x.roles].join(', '))}</td>
 <td>${x.projects.map(p => `${esc(p.code)} <small>(${p.open}${p.late ? `, <span class="bad">${p.late}</span>` : ''})</small>`).join(' · ')}</td>
 <td class="num">${x.projects.reduce((s, p) => s + p.open, 0)}</td></tr>`).join('');
-  const html = `<!doctype html><html lang="${esc(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(P.title)}</title>
+  const html = withResponsive(`<!doctype html><html lang="${esc(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(P.title)}</title>
 <style>${PORT_STYLE}</style></head><body><header><h1>${esc(P.title)}</h1><p class="muted">${esc(today)} · ${views.length} ${esc(P.projects)}</p></header><main>
 <div class="tw"><table><thead><tr>${P.cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows || `<tr><td colspan="15" class="muted">${esc(L.none)}</td></tr>`}</tbody></table></div>
 <h2>${esc(P.people)}</h2><p class="muted">${esc(P.peopleHint)}</p>
 <div class="tw"><table><thead><tr>${P.pcols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${prow || `<tr><td colspan="5" class="muted">${esc(L.none)}</td></tr>`}</tbody></table></div>
-</main></body></html>`;
+</main></body></html>`);
   const out = join(root, `portfolio-${lang}.html`);
   mkdirSync(root, { recursive: true });
   writeFileSync(out, html, 'utf8');

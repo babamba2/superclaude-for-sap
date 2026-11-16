@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -37,7 +38,7 @@ h1{font-size:22px;margin:14px 0 4px}h2{font-size:17px;margin:12px 0 4px}h3{font-
 .note{background:var(--note);color:var(--notefg);padding:6px 10px;border-radius:6px;margin:6px 0;font-size:13px}
 .cards{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 14px;min-width:120px}
 .card b{display:block;font-size:20px}.card span{font-size:12px;color:var(--muted)}.cards.small .card b{font-size:16px}
-.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:24px}@media (max-width:900px){.cols{grid-template-columns:1fr}}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:24px}@media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
 table{border-collapse:collapse;font-size:13px;width:100%}th,td{border-bottom:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}th{background:var(--head);font-weight:600}td.r{text-align:right;white-space:nowrap}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:var(--c,#888);vertical-align:-1px}
 .ln{display:inline-block;width:18px;height:0;border-top:3px solid var(--k,#888);margin-right:6px;vertical-align:3px}
@@ -210,7 +211,7 @@ export function renderPage(model, { lang = 'ko' } = {}) {
   const T = TEXT[lang] || TEXT.ko;
   const client = readFileSync(join(here, 'relmap-client.js'), 'utf8');
   const pkg = model.meta.package || '';
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(pkg)} ${esc(T.title)}</title>
 <style>${STYLE}</style></head>
@@ -253,5 +254,5 @@ export function renderPage(model, { lang = 'ko' } = {}) {
 <script type="application/json" id="relmap-colors">${json({ types: TYPE_COLOR, kinds: KIND_COLOR })}</script>
 <script>${client}</script>
 </body></html>
-`;
+`);
 }

@@ -10,6 +10,7 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const inline = (f) => readFileSync(join(here, f), 'utf8').replace(/^import .*$/gm, '').replace(/^export (const|function|async function|let)/gm, '$1');
@@ -80,6 +81,7 @@ td textarea,td input,td select,.fields input,.fields textarea,.fields select{wid
 .checks li.error{color:var(--red)}.checks li.warn{color:var(--amber)}.muted{color:var(--muted)}
 .draft{position:fixed;right:16px;bottom:16px;z-index:9;display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:8px;background:var(--fg);color:var(--bg)}.draft button{border:0;border-radius:5px;padding:2px 9px;cursor:pointer}
 .chk-n{display:inline-block;margin-left:4px;padding:0 6px;border-radius:9px;background:var(--amber-bg);color:var(--amber);font-size:11px}
+@media (max-width:600px){:root{--m-sticky-bg:var(--card)}.topbar{padding:6px 10px}.topbar .t{flex-basis:100%}.tabs{overflow-x:auto;white-space:nowrap}.tw>table{min-width:1100px}.tw tr>td:first-child:not([colspan]),.tw tr>th:first-child:not([colspan]){position:sticky;left:0;z-index:2;background-color:var(--card);box-shadow:1px 0 0 var(--line)}}
 @media print{.topbar,.tabs,.tools,.ed,.hint{display:none!important}section.tab{display:block!important}.sc{break-inside:avoid}}
 `;
 
@@ -164,13 +166,13 @@ export function pageHtml(set, lang = set.lang) {
   const labels = { ...L, failedText: undefined };
   const failed = String(L.failedText('§')).replace('§', '');
   const kind = set.kind === 'sit' ? (L === LABELS.ko ? '통합 테스트' : 'Integration test') : 'UAT';
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${esc(String(lang || 'en').slice(0, 2))}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(set.id)} ${esc(set.title)} — ${kind}</title>
 <meta name="generator" content="sc4sap uat-scenarios">
 <style>${STYLE}</style></head>
 <body>
-<div class="topbar"><div class="t">${esc(set.title || set.id)}<small>${kind} · ${esc(set.id)} · ${esc(set.module)} · v${esc(set.version)}</small></div>
+<div class="topbar m-bar"><div class="t">${esc(set.title || set.id)}<small>${kind} · ${esc(set.id)} · ${esc(set.module)} · v${esc(set.version)}</small></div>
 <span class="state" id="st"></span><button id="ed"></button><button id="un">${esc(L.undo)}</button><button id="sv">${esc(L.save)}</button><button id="pr">${esc(L.print)}</button><button id="th" type="button"></button></div>
 <nav class="tabs"><button data-t="dash">${esc(L.dash)}</button><button data-t="scen">${esc(L.scen)}</button><button data-t="iss">${esc(L.issues)}<span class="n" id="niss"></span></button><button data-t="chk">${esc(L.checks)}<span class="chk-n" id="nchk"></span></button></nav>
 <main><p class="hint">${esc(L.hint)}</p>
@@ -185,7 +187,7 @@ L_FAILED=${json(failed)};
 ${CLIENT.replace("const L=JSON.parse($('#uat-labels').textContent);", "const L=Object.assign(JSON.parse($('#uat-labels').textContent),{failedText:(a)=>a+L_FAILED});")}
 </script>
 </body></html>
-`;
+`);
 }
 
 /** The set embedded in a page (an edited page handed back for `import`). */

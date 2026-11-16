@@ -4,6 +4,7 @@
 
 import { gzipSync } from 'zlib';
 import { EDITOR_SCRIPT, EDITOR_STYLE, editorLabels } from './config-doc-editor.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const TEXT = {
   ko: {
@@ -298,7 +299,7 @@ export function pageHtml(data, svgs) {
   const fn = `T.title=${T.title.toString()};T.truncated=${T.truncated.toString()};T.lead=${T.lead.toString()};T.checked=${T.checked.toString()};T.found=${T.found.toString()};T.more=${T.more.toString()};T.showAll=${T.showAll.toString()};`;
   const chips = ['all', 'custom', 'standard', 'empty', 'none', 'blocked', 'checks', 'notes']
     .map((f) => `<button class="chip" data-f="${f}" aria-pressed="${f === 'all'}">${['all', 'checks', 'notes'].includes(f) ? '' : `<i class="s-${f}"></i>`}${f === 'notes' ? `📎 ${T.refPanel}` : T[f]}</button>`).join('');
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${data.lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} · ${data.meta.system}</title><style>${CSS}${EDITOR_STYLE}</style></head>
 <body>
@@ -316,5 +317,5 @@ export function pageHtml(data, svgs) {
 <script type="application/octet-stream" id="svgs">${packed(svgs)}</script>
 <script>${SCRIPT.replace('const T=D.T;', `const T=D.T;${fn}`).replace('/*EDITOR*/', () => EDITOR_SCRIPT)}</script>
 </body></html>
-`;
+`);
 }

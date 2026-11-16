@@ -7,6 +7,7 @@
 // was drawn from sits next to it (id="ops-model"). No user names and no dump ids anywhere.
 
 import { FALLBACK_TCODE } from './ops-model.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const fmtN = (n) => (n === null || n === undefined ? '–' : String(n));
 
@@ -327,7 +328,7 @@ export function renderHtml(m, lang = 'en', opts = {}) {
     : `<p class="muted">${esc(t.noTrend)}</p>`;
 
   const labels = { edit: t.edit, done: t.done, unsaved: t.unsaved, saved: t.saved, dark: t.dark, light: t.light, file: opts.file || `ops-report-${m.to}-${lang}` };
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${esc(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(t.title)} · ${esc(m.system)} · ${esc(m.to)}</title>
 <meta name="generator" content="sc4sap ops-health-check">
@@ -378,7 +379,7 @@ ${areaSection(t, 'transports', m, 5, transports)}
 <script type="application/json" id="ops-labels">${json(labels)}</script>
 <script>${CLIENT}</script>
 </body></html>
-`;
+`);
 }
 
 /** The model as the page carries it: a section's raw read error in the reader's words (no MCP internals). */

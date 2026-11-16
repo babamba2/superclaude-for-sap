@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderAll, esc, sheetsOf } from './role-render.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const inline = (f) => readFileSync(join(here, f), 'utf8').replace(/^import .*$/gm, '').replace(/^export \{[^}]*\};?$/gm, '').replace(/^export (const|function|async function|let)/gm, '$1');
@@ -162,7 +163,7 @@ export function renderPage(model, { version, date }) {
   const shown = ['cover', ...sheetsOf(L)];
   const logo = /^data:image\//.test(L.layout?.theme?.logo || '') ? `<img class="logo" alt="" src="${esc(L.layout.theme.logo)}">` : '';
   const title = `${d.project || d.code} — ${L.title}`;
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${esc(v.m.lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} v${esc(version)}</title><style>${STYLE}${themeCss(L.layout?.theme)}</style></head>
 <body>
@@ -180,5 +181,5 @@ export function renderPage(model, { version, date }) {
 <div id="toast" role="status"></div>
 <div id="help"><div class="hbox"><button class="hx">✕</button><h3>${esc(E.help)}</h3><table class="t-touch">${E.touch.map(([k, x]) => `<tr><th>${esc(k)}</th><td>${esc(x)}</td></tr>`).join('')}</table><table class="t-keys">${E.keys.map(([k, x]) => `<tr><th>${esc(k)}</th><td>${esc(x)}</td></tr>`).join('')}</table></div></div>
 <script>${clientScript(E)}</script>
-</body></html>`;
+</body></html>`);
 }
