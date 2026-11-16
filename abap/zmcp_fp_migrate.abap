@@ -519,10 +519,14 @@ ENDFUNCTION.
 * area, a DATA node per field and an (empty) FOLDER per table cell with the
 * same name - the context check refuses duplicate names under one parent.
 * Per parent: in a group of equal names the DATA node keeps its name (the
-* layout binds the field), every other node becomes <NAME>_<n> (unique
-* among the siblings, at most 30 characters). Refused (CV_ERR set, nothing
-* renamed by the caller's save) when a node to rename has children, or when
-* the group has no DATA node and the layout binds that path.
+* layout binds the field); in a group without a DATA node the one member
+* with children keeps it (its children carry the bindings, e.g. a FOLDER
+* next to a PROGRAMLINES node of the same name), else the first member.
+* Every other node becomes <NAME>_<n> (unique among the siblings, at most
+* 30 characters). Refused (CV_ERR set, nothing renamed by the caller's
+* save) when a node to rename has children (two or more members with
+* children), or when the group has no DATA node and the layout binds that
+* path itself (not only through the keeper's children).
 FORM g1_walk USING io_parent TYPE REF TO if_fp_node
                    iv_path   TYPE string
                    iv_xdp    TYPE string
@@ -539,7 +543,8 @@ FORM g1_walk USING io_parent TYPE REF TO if_fp_node
         lo_node  TYPE REF TO if_fp_node,
         lv_cnt   TYPE i,
         lv_data  TYPE abap_bool,
-        lv_first TYPE abap_bool,
+        lo_keep  TYPE REF TO if_fp_node,
+        lv_kids  TYPE i,
         lv_new   TYPE fpnodename,
         lv_base  TYPE string,
         lv_n     TYPE i,
@@ -574,23 +579,39 @@ FORM g1_walk USING io_parent TYPE REF TO if_fp_node
       lv_data = abap_true.
     ENDLOOP.
     lv_path = COND string( WHEN iv_path IS INITIAL THEN |{ ls_grp-name }| ELSE |{ iv_path }.{ ls_grp-name }| ).
-    lv_first = abap_true.
+    " no DATA node: the member with children keeps the name, else the first member
+    CLEAR: lo_keep, lv_kids.
+    IF lv_data = abap_false.
+      LOOP AT lt_kid INTO ls_kid WHERE name = ls_grp-name.
+        IF lo_keep IS NOT BOUND.
+          lo_keep = ls_kid-node.
+        ENDIF.
+        IF ls_kid-node->get_child( ) IS BOUND.
+          lv_kids = lv_kids + 1.
+          IF lv_kids = 1.
+            lo_keep = ls_kid-node.
+          ENDIF.
+        ENDIF.
+      ENDLOOP.
+    ENDIF.
     LOOP AT lt_kid ASSIGNING <ls_k> WHERE name = ls_grp-name.
       ls_kid = <ls_k>.
       IF lv_data = abap_true AND ls_kid-type = if_fp_node=>c_type_data.
         CONTINUE.                       " the DATA node keeps the name
       ENDIF.
-      IF lv_data = abap_false AND lv_first = abap_true.
-        lv_first = abap_false.          " no DATA node: the first keeps the name
-        CONTINUE.
+      IF lv_data = abap_false AND ls_kid-node = lo_keep.
+        CONTINUE.                       " no DATA node: the keeper keeps the name
       ENDIF.
       IF ls_kid-node->get_child( ) IS BOUND.
         cv_err = |duplicate context node names not fixed: { lv_path } (type { ls_kid-type }) has children - bindings below it would change|.
         RETURN.
       ENDIF.
       IF lv_data = abap_false.
+        " a binding of the path itself is ambiguous; one through the keeper's children
+        " ($record.<path>.<child>) is not, when the keeper is the only member with children
         lv_ref = |$record.{ lv_path }|.
-        IF iv_xdp CS |{ lv_ref }"| OR iv_xdp CS |{ lv_ref }.| OR iv_xdp CS |{ lv_ref }[|.
+        IF iv_xdp CS |{ lv_ref }"| OR iv_xdp CS |{ lv_ref }[|
+           OR ( lv_kids = 0 AND iv_xdp CS |{ lv_ref }.| ).
           cv_err = |duplicate context node names not fixed: { lv_path } is bound in the layout and has no DATA twin - which node is meant is unclear|.
           RETURN.
         ENDIF.
