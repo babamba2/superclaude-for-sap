@@ -14,7 +14,7 @@
 // The model is embedded as <script id="process-model"> for the edit mode (P2).
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderFlowchartSVG } from '../spec/screen-image-renderer.mjs';
 import { resolveArtifactBase } from '../lib/profile-resolve.mjs';
@@ -374,6 +374,7 @@ export function importEditedHtml(htmlPath, outPath, historyPath) {
   const mm = /<script type="application\/json" id="process-model">([\s\S]*?)<\/script>/.exec(html);
   if (!mm) throw new Error(`${htmlPath} has no embedded process model — was it saved from the page's edit mode?`);
   const { model, version, history = [] } = JSON.parse(mm[1]);
+  mkdirSync(dirname(outPath), { recursive: true }); // e.g. a page attached on the web, imported into a fresh run folder
   if (existsSync(outPath)) writeFileSync(`${outPath}.bak`, readFileSync(outPath));
   writeFileSync(outPath, `${JSON.stringify(model, null, 2)}\n`, 'utf8');
   let added = [];

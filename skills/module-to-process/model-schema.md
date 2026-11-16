@@ -34,6 +34,8 @@ Written by `scripts/process/assemble-model.mjs` (Step 7) from the state files, r
 }
 ```
 
+`overview.usageBasis` (from `scope.json → window`, written by `assemble-model.mjs`) = `{system, destination, months, coverage}` — where the usage came from; `destination` set = productive ST03N through `SAP_USAGE_RFCDEST`.
+
 `reconcile` (optional, from `assemble-model.mjs --bph`) = `{source, sheet, matched: [{code, label, bph, bphLabel, score}], bphOnly: [{bph, bphLabel, system}], modelOnly: [{code, label, kind}]}` — label-similarity proposals, to be confirmed.
 
 `notEvidenced` = standard L3 processes of the backbone dropped because nothing in the system shows them (Step 4 `not_evidenced`) — listed in the appendix so the consultant can confirm they are really unused.
@@ -77,3 +79,7 @@ Written by `scripts/process/assemble-model.mjs` (Step 7) from the state files, r
 ## Checks (`checkModel`)
 
 Errors stop the build: missing `module` / rows, duplicate code, `level` ≠ segments, parent after child, missing label, unknown `kind` / `usage` / `system` / `owner`, step owner / system unknown, unknown system kind. Warnings: L4 without `kind` or task, rule without source and not estimated, link to an unknown row, task on a non-L4 row. Run `node "<PLUGIN_ROOT>/scripts/process/build-process-doc.mjs" <model> --check`.
+
+## Gap model (gap mode)
+
+`build-gap-doc.mjs` derives `<MODULE>-gap-v<ver>-<lang>.gap.json` from this model (`scripts/process/gap-model.mjs` → `deriveGap`; shape in that file's header). L4 rows and variants (`1.2.3.1a`, level 5) get `fit`, `disposition`, `coverage`, `statement`, `why`, `wricef`; L1–L3 rows keep `code` / `label`. Checks: `checkGap`.

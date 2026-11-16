@@ -1,0 +1,66 @@
+{
+  "schema": 1,
+  "module": "MM",
+  "lang": "ko",
+  "title": "MM 프로세스 맵",
+  "system": "DEV",
+  "sapVersion": "ECC",
+  "changeNote": "First version",
+  "scope": {
+    "packages": [{ "name": "ZPT_MM_A", "tcodes": 40, "used": 18 }, { "name": "ZPT_MM_B", "tcodes": 12, "used": 3 }],
+    "tcodes": ["ZPT01"],
+    "systems": [
+      { "id": "sap", "kind": "sap", "label": "SAP" },
+      { "id": "portal", "kind": "external", "label": "구매포털" },
+      { "id": "manual", "kind": "manual", "label": "수작업" }
+    ]
+  },
+  "overview": { "usageBasis": { "system": "PRD", "destination": "USAGE_PRD", "months": 12, "coverage": 6 } },
+  "lanes": [{ "id": "buyer", "label": "구매 담당", "estimated": true }],
+  "rows": [
+    { "code": "1", "level": 1, "label": "구매/자재관리" },
+    { "code": "1.1", "level": 2, "label": "구매요청" },
+    { "code": "1.1.1", "level": 3, "label": "구매요청 생성" },
+    { "code": "1.1.1.1", "level": 4, "label": "구매요청 등록", "backbone": "MM.2.1.1", "kind": "std", "usage": "used", "system": "sap", "owner": "buyer",
+      "tcodes": ["ME51N"], "task": { "definition": "표준 화면에서 구매요청을 등록한다." } },
+    { "code": "1.1.1.2", "level": 4, "label": "구매요청 일괄 등록", "backbone": "MM.2.1.1", "kind": "cbo", "usage": "used", "system": "sap", "owner": "buyer",
+      "tcodes": ["ZPT01"], "objects": ["ZPT_PR_UPLOAD"],
+      "variants": [{ "id": "a", "label": "플랜트 P100", "kind": "cbo", "objects": ["ZPT_PR_UPLOAD_P100"], "usage": "unused", "desc": "P100 전용 양식으로 업로드한다." }],
+      "task": {
+        "definition": "엑셀 파일의 구매요청을 한 번에 등록한다. 표준에는 일괄 등록 화면이 없다.",
+        "rules": [
+          { "text": "자재그룹이 비어 있으면 행을 건너뛴다.", "source": { "object": "ZPT_PR_UPLOAD", "unit": "ZPT_PR_UPLOAD_F01", "line": 88 } },
+          { "text": "납기일은 오늘 이후여야 한다.", "source": { "object": "ZPT_PR_UPLOAD", "unit": "ZPT_PR_UPLOAD_F01", "line": 102 } }
+        ],
+        "steps": [{ "name": "엑셀 파일 올리기", "where": "ZPT01", "method": "Excel upload, BAPI_PR_CREATE" }],
+        "objects": [{ "name": "ZPT_PR_UPLOAD", "usage": "used", "desc": "업로드 프로그램" }, { "name": "BAPI_PR_CREATE" }],
+        "conversion": ["S/4HANA에서는 Manage Purchase Requisitions 앱의 일괄 기능을 먼저 검토한다."],
+        "tbd": ["P100 양식이 아직 필요한지 확인"]
+      } },
+    { "code": "1.2", "level": 2, "label": "구매오더" },
+    { "code": "1.2.1", "level": 3, "label": "구매오더 생성" },
+    { "code": "1.2.1.1", "level": 4, "label": "구매오더 등록", "backbone": "MM.2.3.1", "kind": "enh", "usage": "used", "system": "sap", "owner": "buyer",
+      "tcodes": ["ME21N"], "task": { "definition": "표준 화면에 고객 필드 검증을 더했다.", "exits": ["MM06E005"],
+        "rules": [{ "text": "구매그룹별 금액 한도를 확인한다.", "estimated": true }] } },
+    { "code": "1.2.1.2", "level": 4, "label": "구매오더 포털 전송", "kind": "ext", "usage": "used", "system": "portal", "owner": "buyer",
+      "objects": ["ZPT_IF_PO_SEND"], "task": { "definition": "확정된 구매오더를 구매포털로 보낸다.",
+        "interfaces": [{ "system": "portal", "direction": "out", "object": "ZPT_IF_PO_SEND", "desc": "구매오더 헤더/품목" }],
+        "objects": [{ "name": "ZPT_IF_PO_SEND", "usage": "used" }] } },
+    { "code": "1.2.1.3", "level": 4, "label": "구매오더 출력", "backbone": "MM.2.3.4", "kind": "cbo", "usage": "unused", "system": "sap",
+      "objects": ["ZPT_PO_PRINT_SF"], "task": { "definition": "고객 서식으로 구매오더를 출력한다." } },
+    { "code": "1.2.2", "level": 3, "label": "구매오더 승인" },
+    { "code": "1.2.2.1", "level": 4, "label": "승인 요청 메일 발송", "kind": "manual", "usage": "unknown", "system": "manual", "owner": "buyer",
+      "task": { "definition": "담당자가 메일로 승인을 요청한다." } },
+    { "code": "1.2.2.2", "level": 4, "label": "미승인 구매오더 조회", "backbone": "MM.2.4.1", "kind": "cbo", "usage": "unknown", "system": "sap",
+      "objects": ["ZPT_PO_REL_LIST"], "task": { "definition": "승인 대기 구매오더를 ALV로 보여 준다." } },
+    { "code": "1.3", "level": 2, "label": "입고" },
+    { "code": "1.3.1", "level": 3, "label": "입고 처리" },
+    { "code": "1.3.1.1", "level": 4, "label": "입고 전기", "backbone": "MM.3.1.1", "kind": "std", "usage": "used", "system": "sap", "tcodes": ["MIGO"],
+      "task": { "definition": "표준 화면에서 입고를 전기한다." } },
+    { "code": "1.3.1.2", "level": 4, "label": "입고 라벨 출력", "backbone": "MM.3.1.3", "kind": "cbo", "usage": "used", "system": "sap",
+      "tcodes": ["ZPT05"], "objects": ["ZPT_GR_LABEL"], "task": { "definition": "입고 수량만큼 바코드 라벨을 출력한다." } }
+  ],
+  "notEvidenced": [{ "backbone": "MM.3.2", "label": "위탁 재고", "reason": "사용 TCode 없음" }],
+  "openQuestions": ["ZPT05 라벨 프린터 모델 확인"],
+  "glossary": []
+}

@@ -138,6 +138,8 @@ export function assembleModel({ intake, step4, parts = [], reviews = [], scope =
     overview: {
       summary: `${l2.map(r => r.label).join(' · ')} — L4 ${l4.length} (CBO ${l4.filter(r => r.kind === 'cbo').length}, std ${l4.filter(r => r.kind === 'std').length})`,
       ...(scopeNote ? { scopeNote } : {}),
+      // where the usage came from — gap mode trusts "unused" only from the productive system (destination = SAP_USAGE_RFCDEST)
+      ...(scope?.window ? { usageBasis: { system: w.system || '', destination: w.destination || '', months: w.months ?? null, coverage: w.coverage ?? null } } : {}),
     },
     rows,
     crossModule,

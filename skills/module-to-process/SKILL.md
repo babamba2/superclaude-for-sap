@@ -1,12 +1,12 @@
 ---
 name: module-to-process
-description: Map how one SAP module (or a process area of several modules) runs in the connected system — one HTML page for a module consultant starting a project (conversion, enhancement, AMS takeover). Walks every CBO package of the module, lays the CBO programs onto the standard process backbone (L1 mega process > L2 process chain > L3 process > L4 task, with variants), and writes a BPH table plus one task sheet per L4 (owner, system, business rules with source lines, steps, related standard / CBO / enhancement objects with usage, interfaces, conversion notes).
+description: Map how one SAP module (or a process area of several modules) runs in the connected system — one HTML page for a module consultant starting a project (conversion, enhancement, AMS takeover). Walks every CBO package of the module, lays the CBO programs onto the standard process backbone (L1 mega process > L2 process chain > L3 process > L4 task, with variants), and writes a BPH table plus one task sheet per L4 (owner, system, business rules with source lines, steps, related standard / CBO / enhancement objects with usage, interfaces, conversion notes). Gap mode turns an existing map into a Gap analysis document (fit / partial / gap per L3 / L4, the CBO objects covering each gap with usage, disposition for conversion or new implementation, WRICEF candidates for the project dashboard) without SAP calls.
 model: inherit
 ---
 
 # SC4SAP Module → Process Map
 
-> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): blocked — reply with the stop line there and stop.
+> **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): full for gap mode only — a Gap analysis from an existing process map ([`workflow-gap.md`](workflow-gap.md)). Building or refreshing the map is blocked — reply with the stop line there and stop.
 
 Reads the CBO packages of one module via MCP, places every Z entry point on the module's **standard process backbone**, and writes **one HTML page** a module consultant reads on day one of a project: which processes run, who runs each task, in which system, through which standard TCodes and which CBO programs, which variants exist, and what a conversion touches.
 
@@ -29,6 +29,7 @@ Every Step entry prints one line: `Step X/9 · <label>   [<20-char bar>]  NN%` �
 - "module to process", "모듈 프로세스", "프로세스 맵", "BPH 만들어줘", "모듈 업무 흐름 파악", "conversion 전에 프로세스 정리", "process map of SD", "業務プロセスマップ"
 - Project start (conversion, enhancement, AMS takeover): the consultant needs the module's processes as this system runs them
 - Fit/Gap preparation: standard vs CBO per task, used vs unused
+- Gap analysis document → **gap mode** ([`workflow-gap.md`](workflow-gap.md)): "Gap 분석서", "fit-gap 정리", "gap analysis of MM", "WRICEF 후보 뽑아줘" — reads the existing process model, no SAP call
 - The user names a module and one or more packages / Z TCodes
 </Use_When>
 
@@ -62,6 +63,7 @@ Settled at design time (2026-10-27) — do not ask the user again:
 | Owners | Organisations / roles as lanes; user-supplied when given, else estimated and marked `(estimated)` |
 | Reference material | Customer decks or BPH workbooks the user shows are structure references only — none of their names, numbers or labels go into any artifact of the plugin |
 | Location | `<ARTIFACT_BASE>/processes/<MODULE>/<MODULE>-process-v<ver>-<lang>.html` + `_src/` + history (paths in [`paths-and-state.md`](paths-and-state.md)) |
+| Gap mode | Document for hand-over, not a workshop tool: fit = std, partial = enh, gap = cbo, manual, external; disposition defaults by project type (conversion / new) and usage ('unused' counts only from productive ST03N over 3+ months; interfaces, forms, exits and external rows never default to retire); WRICEF candidate = retrofit / rebuild; `build-gap-doc.mjs` → `<MODULE>-gap-v<ver>-<lang>.html` + `.wricef.json` (input of `build-project-doc.mjs add-wricef`); decisions carried by code into the next version |
 </Decisions_Fixed>
 
 <Companion_Files>
@@ -77,6 +79,7 @@ Settled at design time (2026-10-27) — do not ask the user again:
 | [`model-schema.md`](model-schema.md) | `process-model.json` shape, values, checks |
 | [`workflow-scale.md`](workflow-scale.md) | Scopes with more than 300 used entries: G1 batches, Step 4 placement parts + consolidation + `merge-placements.mjs`, Step 6 review slices, companion after edits |
 | [`workflow-menu.md`](workflow-menu.md) | Optional area menu (asked at Step 1): `GetAreaMenu`, `area-menu.mjs` scope / hints / model annotation, supplement mode for an existing map |
+| [`workflow-gap.md`](workflow-gap.md) | Gap mode: Gap analysis document from the existing process model (G1–G5), optional consultant review patch, companion, WRICEF import, edited page |
 | [`workflow-integration.md`](workflow-integration.md) | Cross-module integration map (asked at Step 1): boundary stubs, `cross-module.mjs` touchpoints, E2E scenarios (`sap-analyst`), `build-integration-doc.mjs` page |
 </Companion_Files>
 
