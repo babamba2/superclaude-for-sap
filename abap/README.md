@@ -162,3 +162,29 @@ Deletes a Z/Y SmartForm of a **local** package (`$TMP`, `$…`) with its generat
 3. Test: `CreateSmartForm` with the XML of an existing form under a new Z name in `$TMP`, `RenderSmartForm` both and compare, then `DeleteSmartForm` the copy.
 
 Until step 2 is done the tools answer with an install hint (`Unknown action: SSF_UPLOAD_XML` / `SSF_DELETE_FORM`).
+
+## ZMCP_FP_CONTENT + dispatcher actions FP_CONTENT / FP_RENDER (GetAdobeFormContent, RenderAdobeForm)
+
+Read-only access to an Adobe form (SFP) for previews and checks — ADT has only a generic object-properties URI for form objects (`/sap/bc/adt/vit/wb/object_type/sfpf5f/object_name/<FORM>`), no content endpoint, so the content comes through the standard form API. BASIS 7.40 or later (`/UI2/CL_JSON`). Runs only in a development-type client (`T000-CCCATEGORY` C, D or E; production, test and SAP reference clients, and a client T000 cannot tell, are refused). Form names: letters, digits, `_` and `/`, at most 30 characters. `FORM`, `LAYOUT` and `INTERFACE` write nothing.
+
+**Sources:** `zmcp_fp_content.abap` (FM `ZMCP_FP_CONTENT`), `zmcp_adt_dispatch_fp_content_branch.abap` (`WHEN 'FP_CONTENT'.` and `WHEN 'FP_RENDER'.` lines plus `FORM fp_call`; `FP_CONTENT` refuses the part `RENDER`).
+
+**Interface of ZMCP_FP_CONTENT:**
+| Parameter | Type | Direction | Description |
+|-----------|------|-----------|-------------|
+| IV_PART | STRING | Import | `FORM` (whole form XML, `CL_FP_HELPER=>CONVERT_FORM_TO_XSTRING`, + header), `LAYOUT` (XDP / XFA template, `IF_FP_LAYOUT->GET_LAYOUT_DATA`), `INTERFACE` (interface XML, `CONVERT_INTERFACE_TO_XSTRING`), `RENDER` (PDF from ADS) |
+| IV_NAME | FPNAME | Import | Form name; for `INTERFACE` the interface name |
+| IV_LANGUAGE | SPRAS | Import (optional) | Texts / output language; empty → logon language |
+| IV_PARAMS | STRING | Import (optional) | `RENDER`: JSON array `[{"name":"IS_HEADER","json":"{...}"}]`, internal values; parameters not listed are passed initial |
+| EV_SUBRC | SYSUBRC | Export | 0 = ok, 4 = not found, 8 = other error |
+| EV_MESSAGE | STRING | Export | Error / info message |
+| EV_RESULT | STRING | Export | JSON; XML, XDP and PDF in base64 |
+
+`RENDER` calls the generated function module (`FP_FUNCTION_MODULE_NAME`) between `FP_JOB_OPEN` (`GETPDF = 'X'`, `NODIALOG = 'X'`, no preview) and `FP_JOB_CLOSE`; the PDF comes back to the caller. The form's own context coding runs as in a real print and may read the database — pass invented values only. `RENDER` is limited to an allow-list of SAP example forms of package `SFPT`, by exact name, held in the FM (`FP_EXAMPLE_01`, `FP_TEST_00` … `FP_TEST_PAGE_BREAK`, 18 names; Z / Y / namespace forms are refused with a clear message), active forms only, `IV_PARAMS` at most 200 000 characters; output parameters set explicitly (no device, no new / immediate spool request, archiving mode print only). Writes: `FP_FUNCTION_MODULE_NAME` generates the form's function module (`FP_FORM_GENERATE`: `/1BCDWB/…`, `FPCONTEXTI`) when it is missing or older than the form — as any print does; and `RENDER` runs the form's own initialization code, which may change data — that is why it is allow-listed — a `ROLLBACK WORK` after `FP_JOB_CLOSE` undoes everything not committed (an explicit `COMMIT WORK` in the form's code cannot be undone, hence the example-forms limit). Needs a working ADS connection (`FPCONNECT`).
+
+**Install (DEV system only, the user's OK per step):**
+1. Create function group `ZMCP_FP` in package `$TMP` (local, no transport) and FM `ZMCP_FP_CONTENT` in it — **not** remote-enabled — with the source of `zmcp_fp_content.abap`; activate.
+2. Read and back up the **live** `ZMCP_ADT_DISPATCH`, add the branch (a workbench request — the dispatcher's package is transportable), activate.
+3. Test: `FORM`, `LAYOUT`, `INTERFACE` on the SAP example `FP_TEST_00`; a name that does not exist (expect subrc 4); `RENDER` on `FP_TEST_00`, then check in SP01 that no spool request was added; `RENDER` on a customer form name (expect the example-forms refusal).
+
+Until step 2 is done the dispatcher answers `Unknown action: FP_CONTENT` / `FP_RENDER`.
