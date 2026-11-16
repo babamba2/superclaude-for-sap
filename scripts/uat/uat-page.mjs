@@ -30,7 +30,7 @@ const LABELS = {
     addStep: '+ STEP', addScenario: '+ 시나리오', addIssue: '+ 이슈', raise: '이슈 등록', del: '삭제', notInCycle: '미대상',
     hint: '편집 모드: 칸을 고치면 바로 반영되고 브라우저에 임시 저장돼요. "저장"을 누르면 고친 페이지를 내려받아요 — 그 파일을 담당자에게 보내거나 `build-uat.mjs import`로 세트에 반영해요.',
     draft: '저장하지 않은 편집이 있어요.', resume: '이어서 편집', discard: '버리기', saved: '저장했어요. 내려받은 파일을 세트 담당자에게 보내 주세요.', unsaved: '저장하지 않은 편집이 있어요.',
-    nothing: '확인할 점이 없어요.', noIssues: '등록된 이슈가 없어요.', failedText: (a) => `${a} 실패`,
+    nothing: '확인할 점이 없어요.', noIssues: '등록된 이슈가 없어요.', notLinked: '연결 안 됨', failedText: (a) => `${a} 실패`,
   },
   en: {
     dash: 'Dashboard', scen: 'Scenarios', issues: 'Issues', checks: 'Checks', edit: 'Edit', done: 'Done', save: 'Save', print: 'Print', undo: 'Undo', dark: 'Dark mode', light: 'Light mode',
@@ -44,7 +44,7 @@ const LABELS = {
     addStep: '+ Step', addScenario: '+ Scenario', addIssue: '+ Issue', raise: 'Log issue', del: 'Remove', notInCycle: 'Not in cycle',
     hint: 'Edit mode: changes apply at once and a draft is kept in this browser. "Save" downloads the edited page — send it to the owner of the set, or read it back with `build-uat.mjs import`.',
     draft: 'There is an unsaved edit.', resume: 'Resume', discard: 'Discard', saved: 'Saved. Send the downloaded file to the owner of the set.', unsaved: 'There are unsaved edits.',
-    nothing: 'Nothing to check.', noIssues: 'No issue logged.', failedText: (a) => `${a} failed`,
+    nothing: 'Nothing to check.', noIssues: 'No issue logged.', notLinked: 'not linked', failedText: (a) => `${a} failed`,
   },
 };
 
@@ -78,7 +78,7 @@ ul.l{margin:0;padding-left:16px}ul.l li{margin:0}
 .editing td[data-p],.editing .fields [data-p]{background:var(--blue-bg)}
 td textarea,td input,td select,.fields input,.fields textarea,.fields select{width:100%;min-width:70px;border:1px solid var(--line);border-radius:4px;background:var(--bg);padding:2px 4px;font-size:12.5px}td textarea{min-width:140px;resize:vertical}
 .ed{display:none}.editing .ed{display:inline-block}.ed button,button.ed{font-size:12px;padding:1px 7px;border:1px solid var(--line);border-radius:5px;background:var(--card);cursor:pointer;margin:2px 2px 0 0}
-.checks li.error{color:var(--red)}.checks li.warn{color:var(--amber)}.muted{color:var(--muted)}
+.checks li.error{color:var(--red)}.checks li.warn{color:var(--amber)}.muted{color:var(--muted)}.bad{color:var(--red);font-size:12px}
 .draft{position:fixed;right:16px;bottom:16px;z-index:9;display:flex;gap:8px;align-items:center;padding:8px 12px;border-radius:8px;background:var(--fg);color:var(--bg)}.draft button{border:0;border-radius:5px;padding:2px 9px;cursor:pointer}
 .chk-n{display:inline-block;margin-left:4px;padding:0 6px;border-radius:9px;background:var(--amber-bg);color:var(--amber);font-size:11px}
 @media (max-width:600px){:root{--m-sticky-bg:var(--card)}.topbar{padding:6px 10px}.topbar .t{flex-basis:100%}.tabs{overflow-x:auto;white-space:nowrap}.tw>table{min-width:1100px}.tw tr>td:first-child:not([colspan]),.tw tr>th:first-child:not([colspan]){position:sticky;left:0;z-index:2;background-color:var(--card);box-shadow:1px 0 0 var(--line)}}
@@ -118,7 +118,7 @@ return '<section class="sc"><header><code>'+E(s.id)+'</code><span class="ti">'+(
 +'<div class="tw"><table><tr>'+cols.map((c)=>'<th>'+E(L.cols[c])+'</th>').join('')+D.cycles.map((c)=>'<th>'+E(c)+'</th>').join('')+'<th>'+L.cols.status+'</th><th>'+L.cols.followUp+'</th><th></th></tr>'+rows.join('')+'</table></div></section>'}).join('')}
 function iss(){const k=['scenario','step','module','type','text','raisedOn','raisedBy','followUp','state','owner','transports','retest'];
 return '<div class="tools"><button class="ed" data-a="addi">'+L.addIssue+'</button></div>'+(D.issues.length?'<div class="tw"><table><tr><th>'+L.ic.id+'</th>'+k.map((c)=>'<th>'+E(L.ic[c])+'</th>').join('')+'<th></th></tr>'+D.issues.map((i,ii)=>{const P='issues.'+ii+'.';
-return '<tr><td><code>'+E(i.id)+'</code></td>'+k.map((c)=>'<td>'+(EDIT&&c==='type'?sel(P+c,i[c],ISSUE_TYPES.map((x)=>[x,x])):EDIT&&c==='state'?sel(P+c,i[c],ISSUE_STATES.map((x)=>[x,x])):EDIT&&c==='retest'?sel(P+c,i[c],[['','–']].concat(D.cycles.map((x)=>[x,x]))):fld(P+c,i[c],c==='text'||c==='followUp'?'area':c==='transports'?'list':''))+'</td>').join('')+'<td><span class="ed"><button data-a="deli" data-i="'+ii+'">✕</button></span></td></tr>'}).join('')+'</table></div>':'<p class="muted">'+L.noIssues+'</p>')}
+return '<tr><td><code>'+E(i.id)+'</code></td>'+k.map((c)=>'<td>'+(EDIT&&c==='type'?sel(P+c,i[c],ISSUE_TYPES.map((x)=>[x,x])):EDIT&&c==='state'?sel(P+c,i[c],ISSUE_STATES.map((x)=>[x,x])):EDIT&&c==='retest'?sel(P+c,i[c],[['','–']].concat(D.cycles.map((x)=>[x,x]))):fld(P+c,i[c],c==='text'||c==='followUp'?'area':c==='transports'?'list':'')+(c==='transports'&&i.transportsBad&&i.transportsBad.length?'<div class="bad">'+E(L.notLinked)+': '+E(i.transportsBad.join(', '))+'</div>':''))+'</td>').join('')+'<td><span class="ed"><button data-a="deli" data-i="'+ii+'">✕</button></span></td></tr>'}).join('')+'</table></div>':'<p class="muted">'+L.noIssues+'</p>')}
 function chk(){const v=validate(D);return v.length?'<ul class="checks">'+v.map((x)=>'<li class="'+x.level+'"><code>'+E(x.path)+'</code> '+E(x.text)+'</li>').join('')+'</ul>':'<p class="muted">'+L.nothing+'</p>'}
 function render(){const ae=document.activeElement;const fp=ae&&ae.dataset?(ae.dataset.p||ae.dataset.r):null;document.body.classList.toggle('editing',EDIT);$('#ed').textContent=EDIT?L.done:L.edit;$('#st').textContent=dirty?L.unsaved:'';
 const v=validate(D).length;$('#nchk').textContent=v||'';$('#nchk').style.display=v?'':'none';const io=D.issues.filter((i)=>i.state==='open').length;$('#niss').textContent=io||'';$('#niss').style.display=io?'':'none';
@@ -137,7 +137,7 @@ if(a==='raise')change(()=>{const s=D.scenarios[si],st=s.steps[ti];D.issues.push(
 document.addEventListener('change',(e)=>{const el=e.target;if(el.id==='f'){F=el.value;render();return}
 if(el.dataset.r){const [si,ti,c]=el.dataset.r.split('.');change(()=>{const st=D.scenarios[+si].steps[+ti];const all=D.cycles;let scope=st.cycles&&st.cycles.length?st.cycles.slice():all.slice();
 if(el.value==='skip'){scope=scope.filter((y)=>y!==c);st.results[c]=''}else{if(!scope.includes(c))scope.push(c);st.results[c]=el.value}st.cycles=scope.length===all.length?[]:all.filter((y)=>scope.includes(y))});return}
-if(el.dataset.p){const p=el.dataset.p;const v=el.dataset.k==='list'?el.value.split(/\r?\n/).map((x)=>x.trim()).filter(Boolean):el.value;if(JSON.stringify(getAt(D,p))===JSON.stringify(v))return;change(()=>setAt(D,p,v))}});
+if(el.dataset.p){const p=el.dataset.p;const v=el.dataset.k==='list'?el.value.split(/\r?\n/).map((x)=>x.trim()).filter(Boolean):el.value;if(JSON.stringify(getAt(D,p))===JSON.stringify(v))return;change(()=>{setAt(D,p,v);if(/\.transports$/.test(p))setAt(D,p+'Bad',[])})}});
 document.addEventListener('input',(e)=>{if(e.target.id==='q'){Q=e.target.value;const pos=e.target.selectionStart;render();const q=$('#q');q.focus();q.setSelectionRange(pos,pos)}});
 $('#ed').onclick=()=>{EDIT=!EDIT;render()};$('#pr').onclick=()=>window.print();
 // Theme: the saved choice, else the system's; the button names the mode it switches to. A host page (the web

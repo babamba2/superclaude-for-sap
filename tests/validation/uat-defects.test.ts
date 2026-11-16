@@ -52,9 +52,29 @@ describe('UAT defects — model fields', () => {
     expect(set.issues[3].transports).toEqual(['S4XK900012', 'QASK900007']);
     const bad = normalize({ ...raw(), issues: [{ scenario: 'SD01', step: 'STEP-001', type: 'defect', text: 'x', state: 'done', followUp: 'y', transports: 'K12345', retest: '9th' }] });
     const texts = validate(bad).filter((v) => v.path.startsWith('issue:')).map((v) => v.text);
-    expect(texts).toEqual(['K12345 is not a transport request number', 'retest cycle 9th is not a cycle of the set']);
+    // K12345 is not linked, so the closed defect has no fixing request either
+    expect(texts).toEqual(['K12345 is not a transport request number (not linked)', 'defect closed without a fixing request', 'retest cycle 9th is not a cycle of the set']);
+    expect(bad.issues[0]).toMatchObject({ transports: [], transportsBad: ['K12345'] });
     const noFix = normalize({ ...raw(), issues: [{ scenario: 'SD01', step: 'STEP-001', type: 'defect', text: 'x', state: 'done', followUp: 'y' }] });
     expect(validate(noFix).map((v) => v.text)).toContain('defect closed without a fixing request');
+  });
+
+  it('only request numbers are linked; set-issue refuses anything else with the reason', () => {
+    const s = normalize({ ...raw(), issues: [{ scenario: 'SD01', step: 'STEP-001', type: 'defect', text: 'x', state: 'open', transports: 'devk900200, DEVK90000, see mail' }] });
+    expect(s.issues[0]).toMatchObject({ transports: ['DEVK900200'], transportsBad: ['DEVK90000', 'SEE', 'MAIL'] });
+    const r = applyPatch(s, [{ op: 'set-issue', issue: 'ISS-0001', field: 'transports', value: ['DEVK900200', 'K1'] }]);
+    expect(r.skipped).toEqual([{ index: 0, op: 'set-issue', why: 'not a transport request number: K1' }]);
+    expect(r.set.issues[0].transports).toEqual(['DEVK900200']);
+    // an accepted patch replaces the list and clears what was refused before
+    const ok = applyPatch(s, [{ op: 'set-issue', issue: 'ISS-0001', field: 'transports', value: 'devk900200 qask900007' }]).set.issues[0];
+    expect(ok).toMatchObject({ transports: ['DEVK900200', 'QASK900007'], transportsBad: [] });
+  });
+
+  it('a text-found link is proposed as the union with the requests already linked', () => {
+    const s = normalize({ ...raw(), issues: [{ scenario: 'SD01', step: 'STEP-001', type: 'defect', text: 'x', state: 'open', transports: ['DEVK900200'] }] });
+    const p = proposeLinks(s, { requests: [{ trkorr: 'QASK900007', text: 'SD-OTC/ISS-0001 fix', verdict: 'ready', findings: [] }, { trkorr: 'PRDK901234', text: 'also ISS-0001', verdict: 'ready', findings: [] }] });
+    expect(p).toEqual([{ op: 'set-issue', issue: 'ISS-0001', field: 'transports', value: ['DEVK900200', 'QASK900007', 'PRDK901234'] }]);
+    expect(applyPatch(s, p).set.issues[0].transports).toEqual(['DEVK900200', 'QASK900007', 'PRDK901234']);
   });
 
   it('set-issue patches the fixing requests', () => {

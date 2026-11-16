@@ -15,7 +15,8 @@
 //             results: { '1st': 'pass' | 'fail' | 'blocked' | 'n/a' | '' }, status, followUp, issue }
 // issue     { id ('ISS-0001'), scenario, step, module, type (defect | change | data | authorization |
 //             interface | question), text, raisedOn, raisedBy, followUp, state (open | waiting | done | n/a), owner,
-//             transports: [request numbers that fix it, <SID>K<6>], retest (the cycle the fix is retested in) }
+//             transports: [request numbers that fix it, <SID>K<6> only], transportsBad: [values given there that are not
+//             request numbers — never linked, named by `check`], retest (the cycle the fix is retested in) }
 //
 // A proposal (the AI's, or anybody's) is a patch: a list of operations the reader accepts or rejects
 // one by one — see `applyPatch`. Nothing in the model is a person's name except `owner` / `consultant`,
@@ -52,7 +53,11 @@ export const runsIn = (step, cycle) => !step.cycles?.length || step.cycles.inclu
 /** An issue with every field present; state and type from their lists. */
 export function normalizeIssue(raw, id) {
   const out = { id: str(raw?.id) || id };
-  for (const f of ISSUE_FIELDS) out[f] = f === 'transports' ? requestsOf(raw?.[f]) : str(raw?.[f]);
+  for (const f of ISSUE_FIELDS) out[f] = f === 'transports' ? [] : str(raw?.[f]);
+  // fixing requests: only <SID>K<6> values; anything else is kept apart (transportsBad) so `check` names it
+  const given = requestsOf(raw?.transports);
+  out.transports = given.filter((t) => TRKORR_RE.test(t));
+  out.transportsBad = requestsOf([...given.filter((t) => !TRKORR_RE.test(t)), ...requestsOf(raw?.transportsBad)]);
   out.module = out.module.toUpperCase();
   if (!ISSUE_STATES.includes(out.state)) out.state = 'open';
   if (out.type && !ISSUE_TYPES.includes(out.type)) out.type = 'defect';
@@ -149,7 +154,7 @@ export function validate(set) {
     if (i.scenario && !set.scenarios.some((s) => s.id === i.scenario)) add('warn', `issue:${i.id}`, `issue names an unknown scenario ${i.scenario}`);
     if (!i.text) add('warn', `issue:${i.id}`, 'issue has no description');
     if (i.state === 'done' && !i.followUp) add('warn', `issue:${i.id}`, 'closed without a follow-up');
-    for (const t of i.transports) if (!TRKORR_RE.test(t)) add('warn', `issue:${i.id}`, `${t} is not a transport request number`);
+    for (const t of i.transportsBad || []) add('warn', `issue:${i.id}`, `${t} is not a transport request number (not linked)`);
     if (i.type === 'defect' && i.state === 'done' && !i.transports.length) add('warn', `issue:${i.id}`, 'defect closed without a fixing request');
     if (i.retest && !set.cycles.includes(i.retest)) add('warn', `issue:${i.id}`, `retest cycle ${i.retest} is not a cycle of the set`);
   }
@@ -251,6 +256,12 @@ export function applyPatch(set, ops) {
         const issue = next.issues.find((x) => x.id === op.issue);
         if (!issue) { skip('issue not found'); continue; }
         if (!ISSUE_FIELDS.includes(op.field)) { skip(`unknown field ${op.field}`); continue; }
+        if (op.field === 'transports') {
+          const bad = requestsOf(op.value).filter((t) => !TRKORR_RE.test(t));
+          if (bad.length) { skip(`not a transport request number: ${bad.join(', ')}`); continue; }
+          Object.assign(issue, normalizeIssue({ ...issue, transports: op.value, transportsBad: [] }, issue.id));
+          break;
+        }
         Object.assign(issue, normalizeIssue({ ...issue, [op.field]: op.value }, issue.id));
         break;
       }
