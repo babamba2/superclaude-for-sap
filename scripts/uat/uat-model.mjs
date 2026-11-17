@@ -50,6 +50,40 @@ const issueId = (n) => `ISS-${String(n).padStart(4, '0')}`;
 /** Whether a step runs in a cycle: every cycle when it names none. */
 export const runsIn = (step, cycle) => !step.cycles?.length || step.cycles.includes(cycle);
 
+/**
+ * A step's fingerprint for the scenario check (uat-check.mjs): a verdict is shown only while the step still says
+ * what was checked. Over the fields a check reads, plus the scenario's company / channel.
+ */
+export function stepFingerprint(step, scenario = {}) {
+  const text = [step?.tcode, step?.activity, step?.system, ...arr(step?.checks), ...arr(step?.inputs), ...arr(step?.outputs), scenario?.company, scenario?.channel].map(str).join('|');
+  let h = 5381;
+  for (let i = 0; i < text.length; i += 1) h = ((h * 33) ^ text.charCodeAt(i)) >>> 0;
+  return h.toString(36);
+}
+
+const CHECK_VERDICTS = ['ok', 'check', 'mismatch'];
+/** The last scenario check (uat-check-ai.mjs applyCheck), sanitized; null when there is none. */
+export function normalizeCheck(c) {
+  if (!c || typeof c !== 'object' || Array.isArray(c)) return null;
+  const steps = arr(c.steps).slice(0, 2000).map((s) => ({
+    scenario: str(s?.scenario), step: str(s?.step), fp: str(s?.fp),
+    verdict: CHECK_VERDICTS.includes(s?.verdict) ? s.verdict : 'check', reason: str(s?.reason).slice(0, 400),
+    reasons: arr(s?.reasons).slice(0, 20).map((r) => ({ code: str(r?.code).slice(0, 40), target: str(r?.target).slice(0, 120), ...(r?.months ? { months: Number(r.months) || 0 } : {}), ...(Array.isArray(r?.items) ? { items: r.items.slice(0, 10).map((x) => str(x).slice(0, 200)) } : {}) })),
+    plausible: s?.plausible !== false,
+    evidence: arr(s?.evidence).slice(0, 50).map((e) => ({ id: str(e?.id).slice(0, 120), table: str(e?.table).slice(0, 30), found: e?.found === true ? true : e?.found === false ? false : null, note: str(e?.note).slice(0, 160), extra: e?.extra && typeof e.extra === 'object' && !Array.isArray(e.extra) ? e.extra : {} })),
+  }));
+  const counts = { ok: 0, check: 0, mismatch: 0 };
+  for (const s of steps) counts[s.verdict] += 1;
+  return { at: str(c.at), system: str(c.system), models: { plan: str(c.models?.plan), judge: str(c.models?.judge) }, months: Number(c.months) || 3, counts, steps };
+}
+
+/** The check entry of a step while it is current: the same scenario / step and an unchanged fingerprint. */
+export function checkOf(set, scenario, step) {
+  const e = set?.lastCheck?.steps?.find((x) => x.scenario === scenario.id && x.step === step.id);
+  if (!e) return null;
+  return { ...e, stale: e.fp !== stepFingerprint(step, scenario) };
+}
+
 /** An issue with every field present; state and type from their lists. */
 export function normalizeIssue(raw, id) {
   const out = { id: str(raw?.id) || id };
@@ -110,6 +144,9 @@ export function normalize(set) {
     ids.add(issue.id);
     out.issues.push(issue);
   });
+  // The last scenario check stays with the set; a set never checked has no such key.
+  const check = normalizeCheck(set?.lastCheck);
+  if (check) out.lastCheck = check;
   return out;
 }
 
