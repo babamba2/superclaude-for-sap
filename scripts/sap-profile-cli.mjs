@@ -324,13 +324,17 @@ async function cmdAdd() {
   }
 
   // Blocklist profile — kept in sync between config.json (L1 PreToolUse hook reads)
-  // and sap.env (L2 MCP server guard reads). Default `standard` per decision §12A
+  // and sap.env (L2 MCP server guard reads; `custom` maps to `standard` there).
+  // Case-insensitive, like set-blocklist. Default `standard` per decision §12A
   // when unspecified. Validate against the 5 accepted values (`off` disables
   // both guards — for analysis-only DEV profiles that must read business rows).
   const BLOCKLIST_VALID = ['strict', 'standard', 'minimal', 'custom', 'off'];
   const blocklistProfile = payload.blocklistProfile
-    ? String(payload.blocklistProfile).trim()
+    ? String(payload.blocklistProfile).trim().toLowerCase()
     : 'standard';
+  // The MCP server has no `custom` tier and reads unknown values as `standard`,
+  // so sap.env gets `standard` for `custom` — same effective guard, stated explicitly.
+  const mcpBlocklistProfile = blocklistProfile === 'custom' ? 'standard' : blocklistProfile;
   if (!BLOCKLIST_VALID.includes(blocklistProfile)) {
     die(
       2,
@@ -376,7 +380,7 @@ async function cmdAdd() {
     SAP_CONNECTION: connection,
     SAP_COUNTRY: payload.country ? String(payload.country).trim().toLowerCase() : null,
     SAP_DESCRIPTION: payload.description || '',
-    MCP_BLOCKLIST_PROFILE: blocklistProfile,
+    MCP_BLOCKLIST_PROFILE: mcpBlocklistProfile,
   };
 
   mkdirSync(targetDir, { recursive: true });
