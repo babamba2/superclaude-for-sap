@@ -83,47 +83,110 @@ function today() {
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
 }
 
-/** The interface's initialization code for the few statements it can run without SAP — LOOP AT … INTO, field
- *  assignments (from a field or a literal), CLEAR, APPEND, COLLECT, ENDLOOP; DATA declarations are skipped. Anything
- *  else stops it: { ok: false, reason }, nothing is set. On success the tables it filled (globals it wrote) are
- *  returned: { ok: true, tables: { NAME: rows } }. COLLECT sums the numeric fields (numbers in the data, or numeric DDIC
- *  types) over equal values of all other fields. Values: the sample values (interface parameters). */
-export function runInitCoding(lines, values = {}, ddic = {}) {
-  const src = (lines || []).map((l) => String(l)).filter((l) => !/^\s*\*/.test(l)).map((l) => l.replace(/".*$/, '')).join(' ');
-  const stmts = src.split('.').map((s) => s.trim().replace(/\s+/g, ' ')).filter(Boolean);
+/** ABAP lines → statements: '"' comments and '*' comment lines out (a '"' inside a '…' or `…` literal stays), split at
+ *  '.' outside literals and not between two digits, colon chains expanded ("CLEAR: a, b." → CLEAR a / CLEAR b). */
+function abapStatements(lines) {
+  const out = [];
+  let cur = '';
+  for (const raw of lines || []) {
+    const l = String(raw);
+    if (/^\*/.test(l)) continue;
+    let lit = '';
+    for (let i = 0; i < l.length; i++) {
+      const c = l[i];
+      if (lit) { cur += c; if (c === lit) lit = ''; continue; }
+      if (c === "'" || c === '`') { lit = c; cur += c; continue; }
+      if (c === '"') break;
+      if (c === '.' && !(/\d/.test(l[i - 1] || '') && /\d/.test(l[i + 1] || ''))) { out.push(cur); cur = ''; continue; }
+      cur += c;
+    }
+    cur += ' ';
+  }
+  if (cur.trim()) out.push(cur);
+  const res = [];
+  for (const s0 of out) {
+    const s = s0.trim().replace(/\s+/g, ' ');
+    if (!s) continue;
+    const m = /^(\w+(?: \w+)?):\s*(.*)$/.exec(s);
+    if (m && !/'/.test(m[1])) for (const part of m[2].split(',')) { if (part.trim()) res.push(`${m[1]} ${part.trim()}`); }
+    else res.push(s);
+  }
+  return res;
+}
+
+/** The interface's initialization code (or a SmartForm's program lines) for the few statements it can run without
+ *  SAP — LOOP AT … INTO / ENDLOOP, IF [NOT] x IS INITIAL / ELSE / ENDIF, field assignments (from a field, a quoted
+ *  literal or a number), CLEAR / REFRESH (a work area, a table, t[]), APPEND, COLLECT; DATA / TYPES are skipped.
+ *  Anything else stops it: { ok: false, reason }, nothing of this run is kept. On success: { ok: true, tables, vars }
+ *  (the tables it filled, its work areas). COLLECT sums the numeric fields (numbers in the data, or numeric DDIC types)
+ *  over equal values of all other fields. values: the sample values; state: { tables, vars } of an earlier run (program
+ *  lines of one form share their globals). */
+export function runInitCoding(lines, values = {}, ddic = {}, state = {}) {
+  const stmts = abapStatements(lines);
   const get = (name) => { const k = Object.keys(values).find((x) => up(x) === up(name)); return k === undefined ? undefined : values[k]; };
-  const tables = {};
+  const tables = JSON.parse(JSON.stringify(state.tables || {}));
+  const vars = JSON.parse(JSON.stringify(state.vars || {}));
   const NUM = /^(CURR|QUAN|DEC|INT1|INT2|INT4|INT8|FLTP|P|I|F)$/;
   const numericField = (tab, f, v) => typeof v === 'number' || NUM.test(up(ddic[`${up(tab)}-${up(f)}`]?.type || ''));
   const fail = (reason) => ({ ok: false, reason });
-  const exec = (from, to, env) => {
+  const isInitial = (name) => {
+    const v = vars[up(name)] ?? tables[up(name)] ?? get(name);
+    if (v === undefined || v === null || v === '') return true;
+    if (Array.isArray(v)) return v.length === 0;
+    if (typeof v === 'object') return Object.values(v).every((x) => x === undefined || x === null || x === '' || x === 0 || /^0+(\.0+)?$/.test(String(x)));
+    return v === 0 || /^0+(\.0+)?$/.test(String(v)) || !String(v).trim();
+  };
+  // the statement index that closes a block opened at k (ENDLOOP / ENDIF), and an ELSE of an IF
+  const close = (k, to, open, end) => {
+    let depth = 1, els = -1;
+    for (let e = k + 1; e < to; e++) {
+      if (open.test(stmts[e])) depth++;
+      else if (depth === 1 && /^ELSE$/i.test(stmts[e])) els = e;
+      else if (end.test(stmts[e]) && --depth === 0) return { e, els };
+    }
+    return null;
+  };
+  const exec = (from, to) => {
     for (let k = from; k < to; k++) {
       const s = stmts[k];
       let m;
-      if (/^DATA\b/i.test(s) || /^TYPES\b/i.test(s)) continue;
+      if (/^(DATA|TYPES|CONSTANTS)\b/i.test(s)) continue;
       if ((m = /^LOOP AT (\w+) INTO (\w+)$/i.exec(s))) {
-        let depth = 1, e = k + 1;
-        for (; e < to; e++) { if (/^LOOP AT /i.test(stmts[e])) depth++; else if (/^ENDLOOP$/i.test(stmts[e]) && --depth === 0) break; }
-        if (e >= to) return fail('LOOP without ENDLOOP');
+        const b = close(k, to, /^LOOP AT /i, /^ENDLOOP$/i);
+        if (!b) return fail('LOOP without ENDLOOP');
         const rows = tables[up(m[1])] ?? get(m[1]);
         if (!Array.isArray(rows)) return fail(`LOOP AT ${up(m[1])}: no table in the values`);
-        for (const row of rows) {
-          env[up(m[2])] = Object.fromEntries(Object.entries(row || {}).map(([a, b]) => [up(a), b]));
-          const r = exec(k + 1, e, env);
+        for (const row of rows.slice()) {
+          vars[up(m[2])] = Object.fromEntries(Object.entries(row || {}).map(([a, c]) => [up(a), c]));
+          const r = exec(k + 1, b.e);
           if (r) return r;
         }
-        k = e;
+        k = b.e;
         continue;
       }
-      if ((m = /^CLEAR (\w+)$/i.exec(s))) { env[up(m[1])] = {}; continue; }
+      if ((m = /^IF (NOT )?(\w+) IS (NOT )?INITIAL$/i.exec(s))) {
+        const b = close(k, to, /^IF /i, /^ENDIF$/i);
+        if (!b) return fail('IF without ENDIF');
+        const holds = isInitial(m[2]) !== (!!m[1] !== !!m[3]);
+        const r = holds ? exec(k + 1, b.els >= 0 ? b.els : b.e) : (b.els >= 0 ? exec(b.els + 1, b.e) : null);
+        if (r) return r;
+        k = b.e;
+        continue;
+      }
+      if ((m = /^(CLEAR|REFRESH) (\w+)(\[\])?$/i.exec(s))) {
+        const n = up(m[2]);
+        if (m[3] || up(m[1]) === 'REFRESH' || tables[n] !== undefined || Array.isArray(get(m[2]))) tables[n] = [];
+        else vars[n] = {};
+        continue;
+      }
       if ((m = /^(\w+)-(\w+) = (?:(\w+)-(\w+)|'([^']*)'|(-?\d+(?:\.\d+)?))$/i.exec(s))) {
-        const tgt = (env[up(m[1])] ||= {});
-        tgt[up(m[2])] = m[3] ? (env[up(m[3])] || {})[up(m[4])] : m[5] !== undefined ? m[5] : Number(m[6]);
+        const tgt = (vars[up(m[1])] ||= {});
+        tgt[up(m[2])] = m[3] ? (vars[up(m[3])] || get(m[3]) || {})[up(m[4])] : m[5] !== undefined ? m[5] : Number(m[6]);
         continue;
       }
       if ((m = /^(APPEND|COLLECT) (\w+) (?:TO|INTO) (\w+)$/i.exec(s))) {
         const t = (tables[up(m[3])] ||= []);
-        const row = { ...(env[up(m[2])] || {}) };
+        const row = { ...(vars[up(m[2])] || {}) };
         if (up(m[1]) === 'APPEND') { t.push(row); continue; }
         const keyOf = (r) => JSON.stringify(Object.keys(r).filter((f) => !numericField(m[3], f, r[f])).sort().map((f) => [f, r[f]]));
         const hit = t.find((r) => keyOf(r) === keyOf(row));
@@ -131,13 +194,13 @@ export function runInitCoding(lines, values = {}, ddic = {}) {
         for (const f of Object.keys(row)) if (numericField(m[3], f, row[f])) hit[f] = Math.round((Number(hit[f] || 0) + Number(row[f] || 0)) * 1e6) / 1e6;
         continue;
       }
-      if (/^ENDLOOP$/i.test(s)) continue;
+      if (/^(ENDLOOP|ENDIF)$/i.test(s)) continue;
       return fail(`statement not supported: ${s.split(' ').slice(0, 2).join(' ')}`);
     }
     return null;
   };
-  const r = exec(0, stmts.length, {});
-  return r || { ok: true, tables };
+  const r = exec(0, stmts.length);
+  return r || { ok: true, tables, vars };
 }
 
 /** Scope: names → values; loops push their work area. Lookup "A-B-C" walks structures. */

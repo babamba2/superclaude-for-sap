@@ -450,10 +450,29 @@ describe('adobe-preview: interface initialization code (simple statements only)'
     '  l_sums-amount = l_row-amount.  " the amount', '  l_sums-curr   = l_row-curr.', '  collect l_sums into t_sums.', 'endloop.'];
   const values = { ROWS: [{ AMOUNT: 10.5, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }, { AMOUNT: 4.25, CURR: 'EUR' }] };
   it('runs LOOP / assignments / COLLECT: numeric fields summed per equal other fields', () => {
-    expect(runInitCoding(code, values)).toEqual({ ok: true, tables: { T_SUMS: [{ AMOUNT: 14.75, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }] } });
+    expect(runInitCoding(code, values)).toMatchObject({ ok: true, tables: { T_SUMS: [{ AMOUNT: 14.75, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }] } });
   });
   it('stops at anything else and fills nothing', () => {
     expect(runInitCoding([...code, 'select * from zdemo_tab into table t_x.'], values)).toMatchObject({ ok: false });
     expect(runInitCoding(['loop at missing into l_row.', 'endloop.'], values)).toMatchObject({ ok: false });
+  });
+});
+
+describe('adobe-preview / smartform: program lines the runner understands', () => {
+  const values = { ROWS: [{ AMOUNT: 10.5, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }, { AMOUNT: 4.25, CURR: 'EUR' }] };
+  it('keeps a quote inside a literal (only a " outside literals starts a comment)', () => {
+    const r = runInitCoding(['l_x-text = \'say "hi"\'.  " a comment', 'append l_x to t_x.'], {});
+    expect(r).toMatchObject({ ok: true, tables: { T_X: [{ TEXT: 'say "hi"' }] } });
+  });
+  it('splits at the period that ends a statement, not inside 1.5', () => {
+    expect(runInitCoding(['l_x-amount = 1.5. append l_x to t_x.'], {})).toMatchObject({ ok: true, tables: { T_X: [{ AMOUNT: 1.5 }] } });
+  });
+  it('runs a delayed COLLECT with IF NOT … IS INITIAL, REFRESH, colon chains, and keeps state between runs', () => {
+    const init = runInitCoding(['refresh gt_total.', 'clear: gs_total, gs_next.'], values);
+    const body = runInitCoding(['loop at rows into gs_row.', 'if not gs_next is initial.', 'collect gs_next into gt_total.', 'endif.',
+      'gs_next-amount = gs_row-amount.', 'gs_next-curr = gs_row-curr.', 'endloop.'], values, {}, init);
+    const last = runInitCoding(['if not gs_next is initial.', 'collect gs_next into gt_total.', 'endif.'], values, {}, body);
+    expect(last).toMatchObject({ ok: true, tables: { GT_TOTAL: [{ AMOUNT: 14.75, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }] } });
+    expect(runInitCoding(['clear t_x[].', 'append l_y to t_x.'], {}, {}, { tables: { T_X: [{ A: 1 }] } }).tables.T_X).toEqual([{}]);
   });
 });
