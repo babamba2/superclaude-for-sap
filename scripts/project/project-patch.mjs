@@ -8,12 +8,14 @@
 // ops:
 //   { op: 'set-text', target: 'risk',                id, field: 'text', value }
 //   { op: 'set-text', target: 'decision',            id, field: 'text' | 'note', value }
+//   { op: 'set-text', target: 'issue',               id, field: 'text' | 'note' | 'resolution', value }
 //   { op: 'set-text', target: 'milestone-criterion', id: <milestone id>, index, field: 'text', value }   (id "<milestone id>:<index>" too)
 //   { op: 'set-text', target: 'cutover-task',        id, field: 'label' | 'note', value }
 //   { op: 'set-text', target: 'gonogo',              id, field: 'text', value }
 //   { op: 'set-text', target: 'status',              field: 'comment', value }   (an id, e.g. the week end, is ignored)
 //   { op: 'add-risk', text, impact?: H | M | L }      → open, no owner / due; raised = today
 //   { op: 'add-decision', text }                      → open, no owner / due
+//   { op: 'add-issue', text, priority?: H | M | L }   → open, no owner / due; raised = today
 // A criterion keeps its rule tag ("… [cts-blocked<=0]"): a new text without the old tag gets it appended.
 
 import { arr, normalizeModel } from './project-model.mjs';
@@ -21,6 +23,7 @@ import { arr, normalizeModel } from './project-model.mjs';
 export const PATCH_FIELDS = {
   risk: ['text'],
   decision: ['text', 'note'],
+  issue: ['text', 'note', 'resolution'],
   'milestone-criterion': ['text'],
   'cutover-task': ['label', 'note'],
   gonogo: ['text'],
@@ -41,8 +44,8 @@ export function applyPatch(model0, ops, { today = '' } = {}) {
   arr(ops).forEach((o, index) => {
     const skip = (why) => skipped.push({ index, why });
     if (!o || typeof o !== 'object') return skip('not an op');
-    if (o.op === 'add-risk' || o.op === 'add-decision') {
-      const extra = Object.keys(o).filter((k) => !['op', 'text', ...(o.op === 'add-risk' ? ['impact'] : [])].includes(k));
+    if (o.op === 'add-risk' || o.op === 'add-decision' || o.op === 'add-issue') {
+      const extra = Object.keys(o).filter((k) => !['op', 'text', ...(o.op === 'add-risk' ? ['impact'] : o.op === 'add-issue' ? ['priority'] : [])].includes(k));
       if (extra.length) return skip(`not allowed: ${extra.join(', ')}`);
       const text = clean(o.text);
       if (!text) return skip('empty text');
@@ -51,6 +54,10 @@ export function applyPatch(model0, ops, { today = '' } = {}) {
         if (o.impact != null && !IMPACT.includes(o.impact)) return skip('impact must be H, M or L');
         const r = { id: nextId(model.risks, 'RK'), text, impact: o.impact || 'M', status: 'open', ...(today ? { raised: today } : {}) };
         model.risks.push(r); applied.push({ index, op: o.op, id: r.id });
+      } else if (o.op === 'add-issue') {
+        if (o.priority != null && !IMPACT.includes(o.priority)) return skip('priority must be H, M or L');
+        const x = { id: nextId(model.issues, 'IS'), text, priority: o.priority || 'M', status: 'open', ...(today ? { raised: today } : {}) };
+        model.issues.push(x); applied.push({ index, op: o.op, id: x.id });
       } else {
         const d = { id: nextId(model.decisions, 'DC'), text, status: 'open' };
         model.decisions.push(d); applied.push({ index, op: o.op, id: d.id });
@@ -68,6 +75,7 @@ export function applyPatch(model0, ops, { today = '' } = {}) {
     let obj = null;
     if (o.target === 'risk') obj = model.risks.find((x) => x.id === o.id);
     else if (o.target === 'decision') obj = model.decisions.find((x) => x.id === o.id);
+    else if (o.target === 'issue') obj = model.issues.find((x) => x.id === o.id);
     else if (o.target === 'cutover-task') obj = arr(model.cutover?.tasks).find((x) => x.id === o.id);
     else if (o.target === 'gonogo') obj = arr(model.cutover?.goNoGo).find((x) => x.id === o.id);
     else if (o.target === 'status') obj = (model.status = model.status && typeof model.status === 'object' ? model.status : {});

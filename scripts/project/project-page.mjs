@@ -168,8 +168,8 @@ const EDIT = {
     saveTitle: 'Save — revision', author: 'Author', note: 'Change', noteDefault: 'Plan edited in edit mode', ok: 'Save', cancel: 'Cancel',
     saved: 'Saved. Send this file to the PMO (or owner) — importing it makes the next version. Keep editing; Ctrl+S overwrites the same file.' },
 };
-Object.assign(EDIT.ko, { addRisk: '+ 리스크', addDecision: '+ 결정 사항', newRisk: '새 리스크', newDecision: '새 결정 사항' });
-Object.assign(EDIT.en, { addRisk: '+ Risk', addDecision: '+ Decision', newRisk: 'New risk', newDecision: 'New decision' });
+Object.assign(EDIT.ko, { addRisk: '+ 리스크', addIssue: '+ 이슈', addDecision: '+ 결정 사항', newRisk: '새 리스크', newIssue: '새 이슈', newDecision: '새 결정 사항' });
+Object.assign(EDIT.en, { addRisk: '+ Risk', addIssue: '+ Issue', addDecision: '+ Decision', newRisk: 'New risk', newIssue: 'New issue', newDecision: 'New decision' });
 // cutover runbook tab (cutover-tab.mjs)
 Object.assign(EDIT.ko, { addCt: '+ 컷오버 작업', newCt: '새 컷오버 작업', badDt: '형식이 맞지 않아 이전 값으로 되돌렸어요 (YYYY-MM-DD HH:MM).', badDay: '달력에 없는 날짜라 이전 값으로 되돌렸어요 (YYYY-MM-DD).', badDate: '날짜 형식이 맞지 않아 이전 값으로 되돌렸어요 (YYYY-MM-DD).', badVal: '형식이 맞지 않아 이전 값으로 되돌렸어요.' });
 Object.assign(EDIT.en, { addCt: '+ Cutover task', newCt: 'New cutover task', badDt: 'Not a date and time — the previous value is kept (YYYY-MM-DD HH:MM).', badDay: 'Not a calendar date — the previous value is kept (YYYY-MM-DD).', badDate: 'Not a date — the previous value is kept (YYYY-MM-DD).', badVal: 'Not a valid value — the previous value is kept.' });
@@ -205,7 +205,7 @@ ${companion ? `<a href="${esc(companion)}">${v.m.lang === 'en' ? '한국어' : '
 <div class="banner hint">${esc(E.hint)}</div>
 ${embed ? '' : `<div class="banner" id="draft">${esc(E.draft)} <button id="resume">${E.resume}</button> <button id="discard">${E.discard}</button></div>
 `}<main>
-${sec('sum')}${sec('kpi', `<div class="tools"><button id="add-kpi">${E.addKpi}</button></div>`)}${sec('ms', `<div class="tools"><button id="add-ms">${E.addMs}</button></div>`)}${sec('risk', `<div class="tools"><button id="add-rk">${E.addRisk}</button> <button id="add-dc">${E.addDecision}</button></div>`)}${sec('cut', `<div class="tools"><button id="add-ct">${E.addCt}</button></div>`)}${sec('wbs', wbsTools(E))}${sec('sap')}${sec('team', `<div class="tools"><button id="add-tm">${E.addTm}</button></div>`)}${sec('hist')}
+${sec('sum')}${sec('kpi', `<div class="tools"><button id="add-kpi">${E.addKpi}</button></div>`)}${sec('ms', `<div class="tools"><button id="add-ms">${E.addMs}</button></div>`)}${sec('risk', `<div class="tools"><button id="add-rk">${E.addRisk}</button> <button id="add-is">${E.addIssue}</button> <button id="add-dc">${E.addDecision}</button></div>`)}${sec('cut', `<div class="tools"><button id="add-ct">${E.addCt}</button></div>`)}${sec('wbs', wbsTools(E))}${sec('sap')}${sec('team', `<div class="tools"><button id="add-tm">${E.addTm}</button></div>`)}${sec('hist')}
 </main>
 ${embed ? '' : `<dialog id="save-dlg"><h3>${E.saveTitle}</h3><label>${E.author}<input id="s-author"></label><label>${E.note}<input id="s-note"></label>
 <div><button id="s-ok">${E.ok}</button> <button id="s-cancel">${E.cancel}</button></div></dialog>

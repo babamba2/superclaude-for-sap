@@ -13,7 +13,10 @@
 //     milestones: [{ id, label, kind, phase?, base, forecast?, actual?, status, approver?, criteria?: [text] }],
 //     kpis?: [{ id, label, group, unit?, target?, actual?, dir: 'up' | 'down', note?, history?: [{ date, value }] }]  — manual KPIs
 //     actuals?: { readAt, system, transports: [...], objects: [...], inactive: [...], dumps?: [{ date, count }] },
-//     snapshots?: [{ date, planned, actual, kpi?: { <auto KPI id>: value } }] }
+//     snapshots?: [{ date, planned, actual, kpi?: { <auto KPI id>: value } }],
+//     risks?, decisions?, statusLog? (weekly status — see project-render / project-status),
+//     issues?: [{ id, text, priority: H|M|L, owner?, raised?, due?, status: open|inprogress|resolved|closed,
+//                 rowIds?: [WBS id], resolution?, note?, source? }]  — the issue log (what already went wrong) }
 // Auto KPIs (schedule, WRICEF, transports, team, hypercare) are computed by autoKpis() and trended through snapshots.
 //
 // A WRICEF item passes the stages below; fnOwner (module consultant) owns the F stages, devOwner (development
@@ -39,6 +42,9 @@ export const STAGE_SIDE = { req: 'F', fs: 'F', ts: 'D', build: 'D', ut: 'D', fut
 export const RISK_IMPACT = ['H', 'M', 'L'];
 export const RISK_STATUS = ['open', 'closed'];
 export const DECISION_STATUS = ['open', 'decided'];
+/** The issue log: something that already went wrong (a risk is what might). Resolved = fixed, waiting to be confirmed. */
+export const ISSUE_PRIORITY = ['H', 'M', 'L'];
+export const ISSUE_STATUS = ['open', 'inprogress', 'resolved', 'closed'];
 export const STAGE_PCT ={ req: 0, fs: 15, ts: 25, build: 50, ut: 65, fut: 80, sit: 90, done: 100 };
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 export const UAT_SET_ID = /^[A-Za-z0-9_-]{1,30}$/; // same rule as scripts/uat/build-uat.mjs
@@ -88,6 +94,7 @@ export function normalizeModel(m) {
   // weekly status (all optional; older models open unchanged)
   out.risks = arr(out.risks).map(r => ({ impact: 'M', status: 'open', ...r }));
   out.decisions = arr(out.decisions).map(d => ({ status: 'open', ...d }));
+  out.issues = arr(out.issues).map(x => ({ priority: 'M', status: 'open', ...x }));
   out.statusLog = arr(out.statusLog);
   return out;
 }
@@ -144,7 +151,7 @@ export function checkModel(m) {
     if (!DATE.test(x.base || '')) errors.push(`milestone ${x.id}: base must be YYYY-MM-DD`);
     if (x.phase && !ids.has(x.phase)) warnings.push(`milestone ${x.id}: phase ${x.phase} not found`);
   }
-  for (const [list, kind, states] of [[m?.risks, 'risk', RISK_STATUS], [m?.decisions, 'decision', DECISION_STATUS]]) {
+  for (const [list, kind, states] of [[m?.risks, 'risk', RISK_STATUS], [m?.decisions, 'decision', DECISION_STATUS], [m?.issues, 'issue', ISSUE_STATUS]]) {
     const seen = new Set();
     for (const x of arr(list)) {
       if (!x.id) { errors.push(`${kind} without id ("${x.text || ''}")`); continue; }
@@ -153,6 +160,8 @@ export function checkModel(m) {
       if (!x.text) warnings.push(`${kind} ${x.id}: text missing`);
       if (x.status && !states.includes(x.status)) errors.push(`${kind} ${x.id}: unknown status "${x.status}"`);
       if (kind === 'risk' && x.impact && !RISK_IMPACT.includes(x.impact)) errors.push(`risk ${x.id}: impact must be H, M or L`);
+      if (kind === 'issue' && x.priority && !ISSUE_PRIORITY.includes(x.priority)) errors.push(`issue ${x.id}: priority must be H, M or L`);
+      if (kind === 'issue') for (const rid of arr(x.rowIds)) if (!ids.has(rid)) warnings.push(`issue ${x.id}: WBS row ${rid} not found`);
       for (const k of ['due', 'raised', 'decided']) if (x[k] && !DATE.test(x[k])) errors.push(`${kind} ${x.id}: ${k} must be YYYY-MM-DD`);
       if (x.owner && !team.has(x.owner)) warnings.push(`${kind} ${x.id}: owner ${x.owner} is not in the team`);
     }

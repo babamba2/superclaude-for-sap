@@ -67,18 +67,20 @@ export const LABELS = {
 };
 // Weekly status: the risks & decisions tab (after the milestones) and the PM's own status call on the summary.
 Object.assign(LABELS.ko, {
-  rd: { risks: '리스크', decisions: '결정 필요 사항', text: '내용', impact: '영향', owner: '담당', due: '기한', raised: '등록일', decided: '결정일', note: '메모', status: '상태',
+  rd: { risks: '리스크', issues: '이슈', priority: '우선순위', resolution: '해결 내용', decisions: '결정 필요 사항', text: '내용', impact: '영향', owner: '담당', due: '기한', raised: '등록일', decided: '결정일', note: '메모', status: '상태',
     call: '주간 판정 (PM)', overall: '전체 상태 (비우면 계산값)', comment: '주간 코멘트', weekEnd: '마지막 현황 주', uatSets: 'UAT 세트 (주간 현황 증빙)' },
-  impact: { H: '높음', M: '보통', L: '낮음' }, riskStatus: { open: '열림', closed: '닫힘' }, decStatus: { open: '결정 필요', decided: '결정됨' },
+  impact: { H: '높음', M: '보통', L: '낮음' }, riskStatus: { open: '열림', closed: '닫힘' },
+  issueStatus: { open: '열림', inprogress: '처리 중', resolved: '해결됨', closed: '닫힘' }, decStatus: { open: '결정 필요', decided: '결정됨' },
   ragManual: { '': '계산값 사용', red: '위험', amber: '주의', green: '정상' },
 });
 Object.assign(LABELS.en, {
-  rd: { risks: 'Risks', decisions: 'Decisions needed', text: 'Text', impact: 'Impact', owner: 'Owner', due: 'Due', raised: 'Raised', decided: 'Decided', note: 'Note', status: 'Status',
+  rd: { risks: 'Risks', issues: 'Issues', priority: 'Priority', resolution: 'Resolution', decisions: 'Decisions needed', text: 'Text', impact: 'Impact', owner: 'Owner', due: 'Due', raised: 'Raised', decided: 'Decided', note: 'Note', status: 'Status',
     call: 'Weekly call (PM)', overall: 'Overall status (blank = computed)', comment: 'Weekly comment', weekEnd: 'Last status week', uatSets: 'UAT sets (weekly status evidence)' },
-  impact: { H: 'High', M: 'Medium', L: 'Low' }, riskStatus: { open: 'Open', closed: 'Closed' }, decStatus: { open: 'Open', decided: 'Decided' },
+  impact: { H: 'High', M: 'Medium', L: 'Low' }, riskStatus: { open: 'Open', closed: 'Closed' },
+  issueStatus: { open: 'Open', inprogress: 'In progress', resolved: 'Resolved', closed: 'Closed' }, decStatus: { open: 'Open', decided: 'Decided' },
   ragManual: { '': 'Use computed', red: 'Red', amber: 'Amber', green: 'Green' },
 });
-for (const [lg, t] of [['ko', '리스크·결정'], ['en', 'Risks & decisions']]) {
+for (const [lg, t] of [['ko', '리스크·이슈·결정'], ['en', 'Risks, issues & decisions']]) {
   const o = LABELS[lg].tabs;
   LABELS[lg].tabs = { sum: o.sum, kpi: o.kpi, ms: o.ms, risk: t, cut: lg === 'ko' ? '컷오버' : 'Cutover', wbs: o.wbs, sap: o.sap, team: o.team, hist: o.hist };
 }
@@ -332,7 +334,7 @@ export function renderHistory(history, L) {
 }
 
 /** Every tab's inner HTML for a model. */
-/** Risks & decisions tab: two editable lists (the weekly status page shows the open ones). */
+/** Risks, issues & decisions tab: three editable lists (the weekly status page shows the open risks and decisions). */
 export function renderRisks(v, L) {
   const R = L.rd;
   const risks = [...v.m.risks].sort((a, b) => (a.status === b.status ? 'HML'.indexOf(a.impact) - 'HML'.indexOf(b.impact) : a.status === 'open' ? -1 : 1));
@@ -342,7 +344,13 @@ export function renderRisks(v, L) {
   const dt = table(['ID', R.text, R.owner, R.due, R.status, R.decided, R.note], v.m.decisions.map(d => [esc(d.id), ed('d', d.id, 'text', 'text', esc(d.text || '')),
     ed('d', d.id, 'owner', 'owner', esc(name(v, d.owner) || '')), ed('d', d.id, 'due', 'date', d.due || ''), ed('d', d.id, 'status', 'enum:decStatus', esc(L.decStatus[d.status] || d.status)),
     ed('d', d.id, 'decided', 'date', d.decided || ''), ed('d', d.id, 'note', 'text', esc(d.note || ''))]), 'dc');
-  return `<h3>${esc(R.risks)}</h3>${risks.length ? rt : `<p class="muted">${L.none}</p>`}<h3>${esc(R.decisions)}</h3>${v.m.decisions.length ? dt : `<p class="muted">${L.none}</p>`}`;
+  // the issue log: open first, then by priority
+  const done = (x) => x.status === 'resolved' || x.status === 'closed';
+  const issues = [...v.m.issues].sort((a, b) => (done(a) === done(b) ? 'HML'.indexOf(a.priority) - 'HML'.indexOf(b.priority) : done(a) ? 1 : -1));
+  const it = table(['ID', R.text, R.priority, R.owner, R.due, R.status, R.resolution], issues.map(x => [esc(x.id), ed('i', x.id, 'text', 'text', esc(x.text || '')),
+    ed('i', x.id, 'priority', 'enum:impact', esc(L.impact[x.priority] || x.priority)), ed('i', x.id, 'owner', 'owner', esc(name(v, x.owner) || '')),
+    ed('i', x.id, 'due', 'date', x.due || ''), ed('i', x.id, 'status', 'enum:issueStatus', esc(L.issueStatus[x.status] || x.status)), ed('i', x.id, 'resolution', 'text', esc(x.resolution || ''))]), 'is');
+  return `<h3>${esc(R.risks)}</h3>${risks.length ? rt : `<p class="muted">${L.none}</p>`}<h3>${esc(R.issues)}</h3>${issues.length ? it : `<p class="muted">${L.none}</p>`}<h3>${esc(R.decisions)}</h3>${v.m.decisions.length ? dt : `<p class="muted">${L.none}</p>`}`;
 }
 
 export function renderAll(model, { history = [], today } = {}) {
