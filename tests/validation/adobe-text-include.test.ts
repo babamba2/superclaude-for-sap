@@ -166,3 +166,50 @@ describe('adobe-preview: FP_TEST_01 calibration (SAP characters, character forma
     for (const p of out.pages) for (const t of texts(p)) expect(t.y).toBeLessThanOrEqual(70);
   });
 });
+
+describe('adobe-preview: a width-less lr-tb line broken over pages (calibration lrtb: SAP SmartForm migrations)', () => {
+  const rows = Array.from({ length: 10 }, (_, i) => `<draw name="R${i}" w="50mm" h="8mm"><value><text>Row ${i}</text></value><font typeface="Arial" size="10pt"/></draw>`).join('');
+  const xdp = (n: number) => `<?xml version="1.0" encoding="utf-8"?><xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform layout="tb" name="data"><pageSet><pageArea name="P1"><contentArea x="10mm" y="10mm" w="160mm" h="60mm"/><medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>
+<subform name="MAIN" layout="lr-tb"><draw name="INTRO" w="80mm" h="10mm"><value><text>Intro</text></value><font typeface="Arial" size="10pt"/></draw>
+<subform name="TABLE" layout="tb">${rows.split('</draw>').slice(0, n).join('</draw>')}</draw></subform>
+<draw name="END" w="40mm" h="10mm"><value><text>End</text></value><font typeface="Arial" size="10pt"/></draw></subform></subform></template></xdp:xdp>`;
+  const texts = (p: any) => p.items.filter((i: any) => i.type === 'text');
+  it('a line that fits stays one line: intro, table, end side by side on one page', () => {
+    const out = layoutForm(readXdp(xdp(5)).template, { name: 'data', children: [] }, {});
+    expect(out.pages.length).toBe(1);
+    const t = texts(out.pages[0]);
+    expect(t.find((x: any) => x.text === 'Row 0').x).toBeGreaterThan(10 + 80 - 0.5);
+  });
+  it('an overflowing table goes first at the line start; intro and end wait for the next page, the rest of the table between them', () => {
+    const out = layoutForm(readXdp(xdp(10)).template, { name: 'data', children: [] }, {});
+    expect(out.pages.length).toBe(2);
+    const p1 = texts(out.pages[0]), p2 = texts(out.pages[1]);
+    expect(p1.some((x: any) => x.text === 'Intro')).toBe(false);
+    expect(p1.find((x: any) => x.text === 'Row 0').x).toBeLessThan(10 + 5);
+    expect(p2.find((x: any) => x.text === 'Intro').x).toBeLessThan(10 + 5);
+    const rest = p2.filter((x: any) => /^Row /.test(x.text));
+    expect(rest.length).toBeGreaterThan(0);
+    for (const r of rest) expect(r.x).toBeGreaterThan(10 + 80 - 0.5);
+    expect(p2.find((x: any) => x.text === 'End').x).toBeGreaterThan(10 + 80 + 50 - 0.5);
+    const all = out.pages.flatMap((p: any) => texts(p).map((x: any) => x.text)).filter((s: string) => /^Row /.test(s));
+    expect(new Set(all).size).toBe(10);
+    expect(out.report.approximations.join(' ')).toMatch(/lr-tb line broken over pages/);
+  });
+});
+
+describe('adobe-preview: lr-tb break — an item taller than the room whose rows fit (verifier probe)', () => {
+  const xdp = (attrs: string) => `<?xml version="1.0" encoding="utf-8"?><xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform layout="tb" name="data"><pageSet><pageArea name="P1"><contentArea x="10mm" y="10mm" w="160mm" h="60mm"/><medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>
+<subform name="MAIN" layout="lr-tb"><draw name="INTRO" w="80mm" h="10mm"><value><text>Intro</text></value><font typeface="Arial" size="10pt"/></draw>
+<subform name="TABLE" layout="tb" ${attrs}>${[0, 1, 2].map((i) => `<draw name="R${i}" w="50mm" h="8mm"><value><text>Row ${i}</text></value><font typeface="Arial" size="10pt"/></draw>`).join('')}</subform>
+<draw name="END" w="40mm" h="10mm"><value><text>End</text></value><font typeface="Arial" size="10pt"/></draw></subform></subform></template></xdp:xdp>`;
+  for (const a of ['h="100mm"', 'minH="100mm"']) {
+    it(`TABLE ${a}: no text is lost — intro, rows and end are all drawn`, () => {
+      const out = layoutForm(readXdp(xdp(a)).template, { name: 'data', children: [] }, {});
+      const all = out.pages.flatMap((p: any) => p.items.filter((i: any) => i.type === 'text').map((i: any) => i.text));
+      for (const t of ['Intro', 'Row 0', 'Row 1', 'Row 2', 'End']) expect(all).toContain(t);
+      expect(all.filter((t: string) => t === 'Row 0').length).toBe(1);
+    });
+  }
+});

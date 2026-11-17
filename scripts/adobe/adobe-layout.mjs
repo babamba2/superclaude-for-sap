@@ -9,7 +9,7 @@
 //   report: { approximations: [], unbound: [], overflow: [], pages }
 //
 // Covered (layout-subset.md): pageSet / pageArea (occur, master content) / contentArea; subform layouts position,
-// tb, lr-tb (as tb), table / row (columnWidths, colSpan); occur min / max with data, implicit [*] instances,
+// tb, lr-tb (lines; a width-less line broken over pages), table / row (columnWidths, colSpan); occur min / max with data, implicit [*] instances,
 // overflowLeader, break before / after (pageArea, contentArea), keep intact; field / draw: font, para (hAlign incl.
 // radix, vAlign, spaceAbove / Below, margins, textIndent, lineHeight), margin, caption (left / right / top / bottom,
 // reserve), border (edges, fill), value types with pictures (picture.mjs), rich text (xhtml p / span / br, embedded
@@ -1205,8 +1205,8 @@ export function layoutForm(template, record, opts = {}) {
   if (opts.scripts !== false) runScripts(L, form, 'form', L.report);
   // flowed content of the root, flattened to blocks that can move to the next page
   const blocks = [];
-  const flatten = (n, depth) => {
-    if (n.kind === 'subformSet') { for (const c of flowKids(n)) flatten(c, depth); return; }
+  const flatten = (n, depth, out = blocks) => {
+    if (n.kind === 'subformSet') { for (const c of flowKids(n)) flatten(c, depth, out); return; }
     // a tb subform without own border splits into its children; tables split between rows
     const lay = attr(n.t, 'layout', 'position');
     const br = breakOf(n.t);
@@ -1214,13 +1214,16 @@ export function layoutForm(template, record, opts = {}) {
     const splittable = (lay === 'tb' || lay === 'table') && n.kind !== 'field' && n.kind !== 'draw' && keep !== 'contentArea' && keep !== 'pageArea';
     if (splittable && depth < 12) {
       const m = marginOf(n.t);
-      blocks.push({ kind: 'open', n, m, br });
+      out.push({ kind: 'open', n, m, br });
       const leaderId = br.overflowLeader ? br.overflowLeader.replace(/^#/, '') : null;
-      for (const c of flowKids(n)) flatten(c, depth + 1);
-      blocks.push({ kind: 'close', n, m, leaderId });
+      for (const c of flowKids(n)) flatten(c, depth + 1, out);
+      out.push({ kind: 'close', n, m, leaderId });
       return;
     }
-    blocks.push({ kind: 'leaf', n, br });
+    // a width-less lr-tb subform (SAP's SmartForm migration: MAIN = intro text, table, closing text on one line) may
+    // break its line over pages (placeLrtb)
+    if (lay === 'lr-tb' && n.kind === 'subform' && attr(n.t, 'w') === undefined && depth < 12) { out.push({ kind: 'lrtb', n, br, depth }); return; }
+    out.push({ kind: 'leaf', n, br });
   };
   for (const c of flowKids(form)) flatten(c, 0);
   // pages
@@ -1238,6 +1241,21 @@ export function layoutForm(template, record, opts = {}) {
     return pageAreas[pageAreas.length - 1];
   };
   let page = null, area = null, cursor = 0;
+  // an lr-tb line broken over pages (placeLrtb): the items before the overflowing one wait for the next page
+  let lrState = null;
+  const lrExtra = () => (lrState && lrState.applied ? lrState.extra : 0);
+  const applyLr = () => {
+    let acc = 0;
+    for (const c of lrState.before) {
+      page.flows.push({ n: c, x: area.x + lrState.x0 + acc, y: area.y + cursor });
+      markPage(c, page);
+      acc += c.w;
+      lrState.lineH = Math.max(lrState.lineH, c.h);
+    }
+    lrState.extra = acc;
+    lrState.lineTop = cursor;
+    lrState.applied = true;
+  };
   const contentAreaOf = (pa) => {
     const ca = kids(pa, 'contentArea')[0];
     return { x: unit(attr(ca, 'x'), 0), y: unit(attr(ca, 'y'), 0), w: unit(attr(ca, 'w'), 0), h: unit(attr(ca, 'h'), 0) };
@@ -1252,11 +1270,12 @@ export function layoutForm(template, record, opts = {}) {
     area = contentAreaOf(pa);
     cursor = 0;
     page.area = area;
+    if (lrState && !lrState.applied) applyLr();
   };
   newPage();
   // ancestors' x offsets / margins while descending into split containers
   const stack = [];
-  const openX = () => stack.reduce((s, b) => s + b.m.l, 0);
+  const openX = () => stack.reduce((s, b) => s + b.m.l, 0) + lrExtra();
   const openW = () => area.w - stack.reduce((s, b) => s + b.m.l + b.m.r, 0);
   const leaders = [];
   const placeLeaf = (n) => {
@@ -1330,11 +1349,12 @@ export function layoutForm(template, record, opts = {}) {
       if (!ld) continue;
       const parentLay = 'table';
       void parentLay;
-      page.flows.push({ n: ld.n, x: area.x + ld.x, y: area.y + cursor, leader: true });
+      page.flows.push({ n: ld.n, x: area.x + ld.x + lrExtra(), y: area.y + cursor, leader: true });
       cursor += ld.n.h;
     }
   };
-  for (const b of blocks) {
+  const step = (b) => {
+    if (b.kind === 'lrtb') { placeLrtb(b); return; }
     if (b.kind === 'open') {
       L.measure(b.n, openW());
       const br = b.br;
@@ -1349,22 +1369,66 @@ export function layoutForm(template, record, opts = {}) {
       const leaderId = b.br.overflowLeader ? b.br.overflowLeader.replace(/^#/, '') : null;
       b.leaderId = leaderId;
       leaders.push(null);
-      continue;
+      return;
     }
     if (b.kind === 'close') {
       cursor += b.m.b;
       stack.pop();
       leaders.pop();
       b.n.splitBorder = true;
-      continue;
+      return;
     }
     placeLeaf(b.n);
     // the first row with the leader id becomes the repeated leader of its table
     const top = stack[stack.length - 1];
     if (top && top.leaderId && !leaders[leaders.length - 1] && (b.n.t.attrs?.id === top.leaderId || b.n.name === top.leaderId)) {
-      leaders[leaders.length - 1] = { n: b.n, x: openX() };
+      leaders[leaders.length - 1] = { n: b.n, x: openX() - lrExtra() };
     }
-  }
+  };
+  // A width-less lr-tb line whose item does not fit in the room left (calibration lrtb, S4-DEV, invented rows: SAP's
+  // migrations of SF_EXAMPLE_02 / SF_TOTALS): ADS puts the overflowing item first, at the line's start, and splits it
+  // over pages; the items before it wait for the next page, where they open the line again with the rest of the
+  // overflowing item to their right and the items after it further right. A line that fits stays one leaf.
+  const placeLrtb = (b) => {
+    const n = b.n;
+    L.measure(n, openW());
+    const vis = flowKids(n).filter((c) => c.ry !== undefined && c.presence !== 'hidden' && c.presence !== 'inactive');
+    const avail = area.h - cursor;
+    const iB = vis.findIndex((c) => c.h > avail + 0.01);
+    const B = vis[iB];
+    const lay = B ? attr(B.t, 'layout', 'position') : '';
+    if (n.h <= avail + 0.01 || lrState || !B || iB === 0 || vis.some((c) => Math.abs(c.ry) > 0.01) || !(lay === 'tb' || lay === 'table') || B.kind !== 'subform') { placeLeaf(n); return; }
+    const m = marginOf(n.t);
+    const own = { kind: 'open', n, m, br: {}, pseudo: true };
+    stack.push(own);
+    leaders.push(null);
+    lrState = { before: vis.slice(0, iB), after: vis.slice(iB + 1), x0: openX(), extra: 0, applied: false, lineTop: 0, lineH: 0 };
+    // B's rows may fit although B does not (a fixed h / minH larger than its rows): then nothing breaks and the line
+    // is placed whole after all (verifier probe) — what B's rows put on this page is taken back
+    const snap = { page, flows: page.flows.length, cursor, pages: pages.length };
+    const list = [];
+    flatten(B, (b.depth || 0) + 1, list);
+    for (const x of list) step(x);
+    const st = lrState;
+    lrState = null;
+    stack.pop();
+    leaders.pop();
+    if (!st.applied) {
+      if (pages.length === snap.pages && page === snap.page) { page.flows.length = snap.flows; cursor = snap.cursor; placeLeaf(n); }
+      return;
+    }
+    L.report.approximations.push(`${L.som(n)}: lr-tb line broken over pages (the overflowing item first, the items before it on the next page)`);
+    let acc = st.x0 + st.extra + B.w;
+    let h = st.lineH;
+    for (const c of st.after) {
+      page.flows.push({ n: c, x: area.x + acc, y: area.y + st.lineTop });
+      markPage(c, page);
+      acc += c.w;
+      h = Math.max(h, c.h);
+    }
+    cursor = Math.max(cursor, st.lineTop + h);
+  };
+  for (const b of blocks) step(b);
   // borders of containers that flow: one box per page from their first to last leaf
   L.report.pages = pages.length;
   // master content per page, then flows
