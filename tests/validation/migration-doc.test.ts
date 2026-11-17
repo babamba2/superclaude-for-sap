@@ -127,3 +127,18 @@ describe('migration document', () => {
     expect(Buffer.from(migrationDocXlsx(filled)).subarray(0, 2).toString()).toBe('PK');
   });
 });
+
+describe('migration cockpit status words', () => {
+  it('import states and test mode are shown with their meaning; other groups stay as read', () => {
+    const doc = normalizeMigrationDoc({ id: 'M', lang: 'en', objects: [{ id: 'O1', catalog: 'cockpit' }], rules: [{ id: 'R1', objectId: 'O1', kind: 'count', table: 'DMC_MIGINST', groupBy: 'IMPORT_STATE' }, { id: 'R2', objectId: 'O1', kind: 'count', table: 'DMC_MIGEXEC', groupBy: 'TESTRUN' }] });
+    const out = applySapCounts(doc, {
+      runId: 'M1', ruleIds: ['R1', 'R2'],
+      results: [{ rows: [{ group: { IMPORT_STATE: '3' }, count: 120 }, { group: { IMPORT_STATE: '1' }, count: 4 }, { group: { IMPORT_STATE: '' }, count: 9 }] }, { rows: [{ group: { TESTRUN: 'X' }, count: 2 }, { group: { TESTRUN: '' }, count: 1 }] }],
+    }).doc;
+    expect(out.results.map((r: any) => r.group)).toEqual(['IMPORT_STATE=3 (Imported)', 'IMPORT_STATE=1 (Failed)', 'IMPORT_STATE= (Not set)', 'TESTRUN=X (Simulation)', 'TESTRUN= (Real run)']);
+    const ko = applySapCounts({ ...doc, lang: 'ko' }, { runId: 'M1', ruleIds: ['R1'], results: [{ rows: [{ group: { IMPORT_STATE: '2' }, count: 1 }] }] }).doc;
+    expect(ko.results[0]!.group).toBe('IMPORT_STATE=2 (가져오기 준비)');
+    const plain = applySapCounts(base, { runId: 'M1', ruleIds: ['R02'], results: [{ rows: [{ group: { WERKS: '1000' }, count: 3, amount: 1 }] }] }).doc;
+    expect(plain.results[0]!.group).toBe('WERKS=1000');
+  });
+});

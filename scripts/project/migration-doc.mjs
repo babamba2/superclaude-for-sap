@@ -216,7 +216,19 @@ export function ruleChecks(doc, objectId) {
   return { object: o.catalog, checks: checks.slice(0, 40), ruleIds: ruleIds.slice(0, 40), skipped };
 }
 
-const groupKey = (g) => Object.entries(g || {}).map(([k, v]) => `${k}=${v}`).join(', ');
+/**
+ * The Migration Cockpit's status codes as words (fixed values of the domains on S/4, read by DDIC only):
+ * DMC_MIG_IMPORT_STATE 1 / 2 / 3, DMC_FLAG_TESTMODE X = simulation, blank or '-' = real run.
+ */
+const COCKPIT = {
+  ko: { IMPORT_STATE: { 1: '실패', 2: '가져오기 준비', 3: '가져옴', '': '설정 안 됨' }, TESTRUN: { X: '시뮬레이션', '-': '실제 실행', '': '실제 실행' } },
+  en: { IMPORT_STATE: { 1: 'Failed', 2: 'Ready to import', 3: 'Imported', '': 'Not set' }, TESTRUN: { X: 'Simulation', '-': 'Real run', '': 'Real run' } },
+};
+const groupKey = (g, lang = 'ko') => Object.entries(g || {}).map(([k, v]) => {
+  const words = Object.hasOwn(COCKPIT[langOf(lang)], k) ? COCKPIT[langOf(lang)][k] : null;
+  const word = words && Object.hasOwn(words, String(v ?? '').trim()) ? words[String(v ?? '').trim()] : '';
+  return word ? `${k}=${v} (${word})` : `${k}=${v}`;
+}).join(', ');
 
 /**
  * The SAP side of one run of one object into `results`: per rule and group, the target value (a count, or the sum
@@ -231,7 +243,7 @@ export function applySapCounts(doc0, { runId, ruleIds, system = '', at = '', res
     const rule = doc.rules.find((x) => x.id === ruleId);
     if (!rule) return;
     for (const row of arr(r?.rows)) {
-      const group = groupKey(row.group);
+      const group = groupKey(row.group, doc.lang);
       const value = rule.kind === 'sum' ? (row.count === '<5' ? '<5' : row.amount) : row.count;
       const key = `${runId}:${ruleId}:${group}`;
       let res = doc.results.find((x) => x.runId === runId && x.ruleId === ruleId && x.group === group);
