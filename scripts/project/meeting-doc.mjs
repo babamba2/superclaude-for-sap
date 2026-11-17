@@ -40,10 +40,10 @@ const addDays = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) + n * 864e5).toI
 const T = {
   ko: {
     title: '회의록', basics: '회의 정보', date: '일자', forum: '회의체', place: '장소', attendees: '참석자', agenda: '안건', decisions: '결정 사항',
-    actions: '액션 아이템', notes: '기타 메모', transcript: '녹취 텍스트', liveSummary: '실시간 요약', name: '이름', role: '역할', org: '소속', no: '번호', aTitle: '안건', summary: '요약',
+    actions: '할 일', notes: '기타 메모', transcript: '녹취 텍스트', liveSummary: '실시간 요약', name: '이름', role: '역할', org: '소속', no: '번호', aTitle: '안건', summary: '요약',
     id: 'ID', text: '내용', decidedBy: '결정자', basis: '근거', agendaNo: '안건 번호', owner: '담당', minutes: '회의록', suggested: 'AI 제안 담당', due: '기한', status: '상태',
     module: '모듈', wbsId: 'WBS', carried: '이월', statuses: { open: '열림', inprogress: '진행 중', done: '완료' },
-    sum: '액션 현황', open: '진행 중이거나 열린 액션', overdue: '기한 지남', week: '이번 주 기한', carriedN: '이전 회의에서 이월',
+    sum: '할 일 현황', open: '아직 끝나지 않은 할 일', overdue: '기한 지남', week: '이번 주 기한', carriedN: '이전 회의에서 이월',
     edit: '편집', done: '편집 끝', save: '파일 저장', addRow: '행 추가', delRow: '행 삭제', empty: '아직 없어요',
     asOf: '마지막 저장 기준 — 편집한 내용은 다시 열면 반영돼요.',
   },
