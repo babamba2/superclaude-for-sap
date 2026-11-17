@@ -352,3 +352,27 @@ describe('smartform-preview: tab stop math the page script runs (SF_EXAMPLE_01 T
     expect(html).toContain(String(tabDecimalWidth));
   });
 });
+
+describe('smartform-preview: a table printed in a sort event takes its own group rows (SF_SUBTOTALS subtotals)', () => {
+  const c = {
+    ...CONTENT,
+    pages: [{ ...CONTENT.pages[0], windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 10, topMm: 30, widthMm: 190, heightMm: 200, content: [{
+      kind: 'loop', name: 'L1', caption: 'Flights', dataTable: 'T_FLIGHT', attrs: { TABHEADER: 'GS_FLIGHT' }, children: [
+        text('%TEXT2', 'AA', 'Row &GS_FLIGHT-PRICE&'),
+        { kind: 'event', name: '%EVENT2', caption: 'End', attrs: { EVTYPE: 'E', SFIELD: 'CARRID' }, children: [
+          { kind: 'loop', name: 'L2', caption: 'Subtotals', dataTable: 'GT_SUB', attrs: { TABHEADER: 'GS_SUB' }, children: [text('%TEXT3', 'AA', 'Sub &GS_SUB-PRICE& &GS_SUB-CURR&')] },
+        ] },
+      ],
+    }] }] }],
+  };
+  it('group 1 prints its one subtotal, group 2 its two; a flat array still prints for every group', () => {
+    const values = { rows: 3, values: { 'GS_FLIGHT-CARRID': ['ZY', 'ZZ', 'ZZ'], 'GS_FLIGHT-PRICE': ['1', '2', '3'],
+      'GS_SUB-PRICE': [['10'], ['20', '30']], 'GS_SUB-CURR': [['USD'], ['EUR', 'GBP']] } };
+    const html = new Renderer(c, values).page().html as string;
+    const subs = [...html.matchAll(/Sub (\d+) ([A-Z]{3})/g)].map((m) => `${m[1]} ${m[2]}`);
+    expect(subs).toEqual(['10 USD', '20 EUR', '30 GBP']);
+    expect(html.indexOf('Sub 10')).toBeLessThan(html.indexOf('Row 2'));
+    const flat = new Renderer(c, { rows: 3, values: { ...values.values, 'GS_SUB-PRICE': ['5'], 'GS_SUB-CURR': ['USD'] } }).page().html as string;
+    expect([...flat.matchAll(/Sub (\d+) ([A-Z]{3})/g)].length).toBe(2);
+  });
+});

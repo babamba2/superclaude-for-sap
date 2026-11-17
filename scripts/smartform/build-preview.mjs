@@ -523,6 +523,7 @@ class Renderer {
     this.waRow = {}; // work area → current row of its loop
     this.loopDepth = 0; // inside a loop / table body: arrays give one value per row
     this.seq = {};      // outside loops: arrays give their values in order of appearance
+    this.curGroup = null; // inside a sort event: the group number (values given per group: one array per group)
   }
 
   /** A node's own style if the system has it; otherwise the style its parents pass down
@@ -592,6 +593,7 @@ class Renderer {
       const k = Object.keys(this.values).find((x) => x.toUpperCase() === up);
       if (k) v = this.values[k];
     }
+    v = this.ofGroup(v);
     if (Array.isArray(v)) {
       // a counter the form's code advances between texts (ZSF_DEMO_25 &G_COUNT&) is written as
       // an array outside any loop: one value per appearance
@@ -988,14 +990,17 @@ class Renderer {
         this.approx.push(`${n.name}: rows sorted by ${sf.join(', ')} (sort criteria without a sort event are not known)`);
       }
     }
+    const grp = {};
     rowsHere.forEach((i, k) => {
       this.row = i;
       this.waRow[wa] = i;
       const prevRow = rowsHere[k - 1];
       const nextRow = rowsHere[k + 1];
-      for (const e of sortEv('S')) if (k === 0 || key(i, e.attrs.SFIELD) !== key(prevRow, e.attrs.SFIELD)) html += part(e.children || []);
+      for (const f of new Set(sortEv('S').concat(sortEv('E')).map((e) => e.attrs.SFIELD))) if (k === 0 || key(i, f) !== key(prevRow, f)) grp[f] = (grp[f] ?? -1) + 1;
+      const inGroup = (e) => { const b = this.curGroup; this.curGroup = grp[e.attrs.SFIELD] ?? 0; try { return part(e.children || []); } finally { this.curGroup = b; } };
+      for (const e of sortEv('S')) if (k === 0 || key(i, e.attrs.SFIELD) !== key(prevRow, e.attrs.SFIELD)) html += inGroup(e);
       html += part(body);
-      for (const e of sortEv('E')) if (k === rowsHere.length - 1 || key(i, e.attrs.SFIELD) !== key(nextRow, e.attrs.SFIELD)) html += part(e.children || []);
+      for (const e of sortEv('E')) if (k === rowsHere.length - 1 || key(i, e.attrs.SFIELD) !== key(nextRow, e.attrs.SFIELD)) html += inGroup(e);
     });
     if (before === undefined) delete this.waRow[wa]; else this.waRow[wa] = before;
     this.loopDepth--;
@@ -1010,11 +1015,19 @@ class Renderer {
    *  (a table with 1 sample row prints 1 row — ZSF_DEMO_02 XT_SUBT), else the default count. */
   rowsOf(wa) {
     const pre = `${String(wa).toUpperCase()}-`;
-    const lens = Object.entries(this.values).filter(([k, v]) => k.toUpperCase().startsWith(pre) && !k.includes('@') && Array.isArray(v)).map(([, v]) => v.length);
+    const lens = Object.entries(this.values).filter(([k, v]) => k.toUpperCase().startsWith(pre) && !k.includes('@') && Array.isArray(v)).map(([, v]) => this.ofGroup(v).length);
     if (lens.length) return Math.max(...lens);
     // values given only as scalars: the work area is one record — one row, not the default count
     // (ZSF_DEMO_51 loop over GT_HEADER into its header line)
     return Object.keys(this.values).some((k) => k.toUpperCase().startsWith(pre) && !k.includes('@')) ? 1 : this.rows;
+  }
+
+  /** A value given per sort group — an array of arrays, one per group (a subtotal table the form's code fills anew for
+   *  each group: SF_SUBTOTALS GT_SUBTOTAL printed in the CARRID end event) — inside a sort event: that group's array;
+   *  anything else as it is. */
+  ofGroup(v) {
+    if (this.curGroup === null || !Array.isArray(v) || !v.length || !v.every(Array.isArray)) return v;
+    return v[this.curGroup] || [];
   }
 
   /** Row of the loop a symbol belongs to: its work area's current row in nested loops
@@ -1031,8 +1044,8 @@ class Renderer {
     if (/^SPACE$/i.test(s)) return '';
     const ref = condRef(s);
     if (!ref) return s;
-    let v = this.values[ref.name];
-    if (Array.isArray(v)) v = v[(this.rowIndexFor(ref.name) ?? this.row) % v.length];
+    let v = this.ofGroup(this.values[ref.name]);
+    if (Array.isArray(v)) v = v.length ? v[(this.rowIndexFor(ref.name) ?? this.row) % v.length] : undefined;
     if (v === undefined || v === null) { this.condMissing.add(ref.name); v = ''; }
     v = String(v);
     return ref.len !== null || ref.off ? v.substr(ref.off, ref.len ?? undefined) : v;
@@ -1154,7 +1167,12 @@ class Renderer {
     }
     // group number per sort field: counts up where a group starts
     const groups = {};
-    const groupRows = (e) => { this.row = groups[e.attrs.SFIELD] ?? 0; return rowsOf(e.children || []); };
+    const groupRows = (e) => {
+      const g = groups[e.attrs.SFIELD] ?? 0, before = this.curGroup;
+      this.row = g;
+      this.curGroup = g;
+      try { return rowsOf(e.children || []); } finally { this.curGroup = before; }
+    };
     if (n.dataTable) this.loopDepth++;
     rowsHere.forEach((i, k) => {
       if (n.dataTable) this.waRow[wa] = i;
