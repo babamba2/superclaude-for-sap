@@ -115,7 +115,7 @@ Reply in the user's language; show the JPG to the user when the client can displ
 </Output_Format>
 
 <Limits>
-- When MAIN continues (or the first page has no MAIN window: a cover page), every page is drawn: MAIN is cut before the first row / paragraph that does not fit, the next pages follow the next-page order, and page conditions apply per page. The JPG shows page 1; the HTML and layout.json have all pages (report `pages`). A table header is not yet repeated on the following pages.
+- When MAIN continues (or the first page has no MAIN window: a cover page), every page is drawn: MAIN is cut before the first row / paragraph that does not fit, the next pages follow the next-page order, and page conditions apply per page. The JPG shows page 1; the HTML and layout.json have all pages (report `pages`). A table that goes on to the next page repeats its header rows there; a NEWPAGE command goes to the page it names (MCP 4.13.1+ exports the name; without it the next page), and a page without MAIN that a command sends the print to ends it.
 - Field conditions (`condition` other than first / last page) and alternatives: the node is shown / the first branch is drawn; listed under `approximations`.
 - Text commands: `/*` comment lines are not printed; `/: IF … ELSE … ENDIF` is decided from the sample values (`&X& = 'v'`, `<>`), otherwise the first branch is drawn; other `/:` commands are skipped (listed). A SmartStyle a node names but the system lacks is replaced by the style its parents pass down (listed).
 - Address nodes and include texts with a key set at print time are drawn as labelled boxes.

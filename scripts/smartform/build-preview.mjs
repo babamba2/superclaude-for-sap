@@ -919,6 +919,7 @@ class Renderer {
       return this.nodes(list);
     };
     let html = ev('H').map((e) => part(e.children || [])).join('');
+    if (this.markHeads && html && n.kind === 'table46') html = `<div class="sfhead">${html}</div>`;
     const pat = n.kind === 'table46' ? patternOf(n, this) : {};
     if (pat.header && html) html = `<div style="position:relative">${html}<div class="frame" style="border-bottom:${pat.th}mm solid #000"></div></div>`;
     this.loopDepth++;
@@ -1058,6 +1059,8 @@ class Renderer {
     const ev = (t) => kids.filter((c) => c.kind === 'event' && c.attrs?.EVTYPE === t);
     const loose = kids.filter((c) => c.kind !== 'event');
     let html = ev('H').map((e) => rowsOf(e.children || [])).join('');
+    // multi-page drawing: the header rows are marked so later pages can repeat them (SAP prints the header on every page)
+    if (this.markHeads && html) html = `<div class="sfhead">${html}</div>`;
     const body = [...ev('B').flatMap((e) => e.children || []), ...loose];
     const wa = String(n.attrs?.TABHEADER || n.dataTable || '').toUpperCase();
     // the rows the table prints: WHERE (WCOND) and the row range, as for loops (repeat)
@@ -1181,7 +1184,7 @@ class Renderer {
       case 'code': return '';
       // a command with NEWPAGE (its condition already held) starts the next page: what follows
       // in MAIN is not on page 1 (ZSF_DEMO_57: one invoice per row)
-      case 'command': return n.attrs?.NEWPAGE === 'X' && this.inMain ? '<div class="sfbreak"></div>' : '';
+      case 'command': return n.attrs?.NEWPAGE === 'X' && this.inMain ? `<div class="sfbreak"${n.attrs.PAGENAME ? ` data-page="${esc(n.attrs.PAGENAME)}"` : ''}></div>` : '';
       default: return this.nodes(n.children);
     }
   }
@@ -1231,7 +1234,7 @@ class Renderer {
     return p.windows.map((win) => {
       const isMain = win.type === 'MAIN';
       let inner = isMain && mainContent ? mainContent : this.windowNodes(win);
-      if (isMain && flow) inner = `<div class="mainflow" data-from="${flow.from}" data-to="${flow.to}">${inner}</div>`;
+      if (isMain && flow) inner = `<div class="mainflow" data-from="${flow.from}" data-to="${flow.to}"${flow.head ? ` data-hfrom="${flow.head.from}" data-hto="${flow.head.to}"` : ''}>${inner}</div>`;
       const hasContent = isMain && mainContent ? true : win.content?.length;
       return `<div class="win${isMain ? ' main' : ''}${win.condition?.afterMainEnd || win.condition?.lastPage ? ' aftermain' : ''}" data-win="${esc(win.name)}" style="left:${win.leftMm}mm;top:${win.topMm}mm;width:${win.widthMm}mm;height:${win.heightMm}mm;">${inner}${win.box && (hasContent || !isMain) ? windowFrame(win.box) : ''}</div>`;
     }).join('');
@@ -1432,36 +1435,73 @@ const LAST_SCRIPT = '<script>(function(){var o=[];if(window.__sfPaginate';
 const BLOCKS_JS = `function sfBlocks(w){var out=[];w.querySelectorAll('.tmpl, .row, .par, img, .sfbreak').forEach(function(e){if(e.classList.contains('sfbreak')){out.push(e);return;}if(!e.classList.contains('tmpl')&&e.parentElement.closest('.tmpl'))return;if(!e.classList.contains('row')&&!e.classList.contains('tmpl')&&e.closest('.row'))return;out.push(e);});return out;}`;
 // measuring pass: every MAIN block's top / bottom in mm from the top of MAIN (the paragraph baseline shift taken out)
 const MEASURE_JS = `<script>(function(){${BLOCKS_JS}var Z=${ZOOM},PXMM=96/25.4,w=document.querySelector('.sheet .win.main');if(!w)return;var wt=w.getBoundingClientRect().top;
-var o=sfBlocks(w).map(function(e){var r=e.getBoundingClientRect(),sh=(parseFloat(e.style.top)||0)*Z;return{t:(r.top-sh-wt)/Z/PXMM,b:(r.bottom-sh-wt)/Z/PXMM,brk:e.classList.contains('sfbreak')};});
+var tp=[].slice.call(w.querySelectorAll('.tpl'));
+var o=sfBlocks(w).map(function(e){var r=e.getBoundingClientRect(),sh=(parseFloat(e.style.top)||0)*Z,t=e.closest('.tpl');return{t:(r.top-sh-wt)/Z/PXMM,b:(r.bottom-sh-wt)/Z/PXMM,brk:e.classList.contains('sfbreak'),page:e.dataset.page||'',tbl:t?tp.indexOf(t):-1,head:!!(e.closest('.sfhead')&&t&&t.contains(e.closest('.sfhead')))};});
 var s=document.createElement('script');s.type='application/json';s.id='sf-mainblocks';s.textContent=JSON.stringify(o);document.body.appendChild(s);})();</script>`;
 // drawn pages: each sheet's MAIN shows its blocks [from, to), moved up to the top of MAIN; the others are hidden
 // (no text of another page reaches the print); windows after the end of MAIN only on the sheet where MAIN ends
 const SHEETS_JS = `<script>window.__sfPaginate=function(){${BLOCKS_JS}var Z=${ZOOM},cont=false;
 document.querySelectorAll('.sheet').forEach(function(sh){var w=sh.querySelector('.win.main');if(!w)return;var f=w.querySelector('.mainflow');if(!f)return;var bl=sfBlocks(w),from=+f.dataset.from,to=+f.dataset.to;
 var wt=w.getBoundingClientRect().top;var first=bl[from];if(first){var r=first.getBoundingClientRect(),s0=(parseFloat(first.style.top)||0)*Z;f.style.position='relative';f.style.top=(-(r.top-s0-wt)/Z)+'px';}
-bl.forEach(function(e,i){if(i<from||i>=to)e.style.visibility='hidden';});
+var hf=f.dataset.hfrom!==undefined?+f.dataset.hfrom:-1,ht=f.dataset.hto!==undefined?+f.dataset.hto:-1;
+// a table that goes on from the page before: its header rows again at the top of MAIN, the rows below them
+if(hf>=0&&first&&bl[hf]){var hw=bl[hf].closest('.sfhead');var hr0=bl[hf].getBoundingClientRect(),hr1=bl[ht-1].getBoundingClientRect(),hh=hr1.bottom-hr0.top;
+ f.style.top=(parseFloat(f.style.top)+hh/Z)+'px';if(hw){var h0=hw.getBoundingClientRect().top;hw.style.position='relative';hw.style.top=((wt-h0)/Z)+'px';}}
+bl.forEach(function(e,i){if((i<from||i>=to)&&!(i>=hf&&i<ht))e.style.visibility='hidden';});
 var more=to<bl.length;if(more){cont=true;sh.querySelectorAll('.win.aftermain').forEach(function(a){a.style.visibility='hidden';});}});
 return false;};</script>`;
 
 /** Cut MAIN's blocks into pages: a page takes blocks while they end inside its MAIN height (the first block always),
- *  a NEWPAGE command ends the page. heightOf(k) = MAIN height of sheet k in mm. */
+ *  a NEWPAGE command ends the page (its target page, if it names one, is the next page). heightOf(k, page) = MAIN
+ *  height of sheet k in mm; page = the page a command sent it to. A command at the very end still opens its page. */
 export function cutPages(blocks, heightOf, maxPages = 50) {
   const sheets = [];
   let i = 0;
+  let forced = '';
   while (i < blocks.length && sheets.length < maxPages) {
-    const H = heightOf(sheets.length);
+    const H = heightOf(sheets.length, forced);
+    // a command sent the print to a page without MAIN: that page prints and the rest of MAIN does not
+    if (forced && !(H > 0)) { sheets.push({ from: blocks.length, to: blocks.length }); break; }
+    forced = '';
     const top0 = blocks[i].t;
+    // a page that starts inside a table repeats that table's header rows: they take room at the top
+    let head = null;
+    const b0 = blocks[i];
+    if (sheets.length && b0 && !b0.head && b0.tbl >= 0) {
+      const hs = blocks.map((b, k) => (k < i && b.head && b.tbl === b0.tbl ? k : -1)).filter((k) => k >= 0);
+      if (hs.length) head = { from: hs[0], to: hs[hs.length - 1] + 1, h: blocks[hs[hs.length - 1]].b - blocks[hs[0]].t };
+    }
+    const room = H - (head ? head.h : 0);
     let j = i;
     while (j < blocks.length) {
       const b = blocks[j];
-      if (b.brk) { j++; break; }
-      if (j > i && b.b - top0 > H + 0.2) break;
+      if (b.brk) { forced = b.page || ''; j++; break; }
+      if (j > i && b.b - top0 > room + 0.2) break;
       j++;
     }
-    sheets.push({ from: i, to: j });
+    sheets.push(head ? { from: i, to: j, head: { from: head.from, to: head.to } } : { from: i, to: j });
     i = j;
   }
+  // a NEWPAGE command as the last block: SAP opens the page it goes to, with nothing more in MAIN
+  if (blocks.length && blocks[blocks.length - 1].brk && sheets.length < maxPages) {
+    heightOf(sheets.length, blocks[blocks.length - 1].page || '');
+    sheets.push({ from: blocks.length, to: blocks.length });
+  }
   return { sheets: sheets.length ? sheets : [{ from: 0, to: blocks.length }] };
+}
+
+/** The attributes of the first NEWPAGE command in a window of a page other than MAIN (null when there is none). */
+function newPageCommand(p) {
+  const walk = (list) => {
+    for (const n of list || []) {
+      if (n.kind === 'command' && n.attrs?.NEWPAGE === 'X') return n.attrs;
+      const r = walk(n.children);
+      if (r) return r;
+    }
+    return null;
+  };
+  for (const w of p.windows || []) if (w.type !== 'MAIN') { const r = walk(w.content); if (r) return r; }
+  return null;
 }
 
 /** The sheets of a print: page definitions in next-page order with the MAIN blocks each one shows.
@@ -1483,14 +1523,29 @@ export function pagePlan(pages, blocks, nextPageOf, maxPages = 50) {
   }
   if (!def || !hasMain(def)) return { sheets };
   const defs = [];
-  const heightOf = (k) => {
-    // MAIN continues on the next page that has a MAIN window, else on the same page definition again
-    while (defs.length <= k) { if (defs.length) { const nx = nextPageOf(def); if (hasMain(nx)) def = nx; } defs.push(def); }
+  const byName = (n) => pages.find((p) => p.name === n);
+  const heightOf = (k, forced = '') => {
+    // MAIN continues on the page a command names, else the next page that has a MAIN window, else the same page again
+    while (defs.length <= k) {
+      if (defs.length) {
+        const to = forced && byName(forced);
+        if (to) def = to;
+        else { const nx = nextPageOf(def); if (hasMain(nx)) def = nx; }
+      }
+      defs.push(def);
+    }
     return hasMain(defs[k]) ? mainH(defs[k]) : 0;
   };
   const cut = cutPages(blocks, heightOf, maxPages - sheets.length);
   cut.sheets.forEach((s, k) => { heightOf(k); sheets.push({ ...s, def: defs[k] }); });
   // (a next page without MAIN after the last MAIN page is not printed: 59 of 59 such ECC forms print one page)
+  // … unless a NEWPAGE command in a window of the last page sends the print on (SAP prints that page too)
+  const last = sheets[sheets.length - 1]?.def;
+  const cmd = last && newPageCommand(last);
+  if (cmd && sheets.length < maxPages) {
+    const to = (cmd.PAGENAME && byName(cmd.PAGENAME)) || nextPageOf(last);
+    if (to && to !== last) sheets.push({ def: to });
+  }
   return { sheets };
 }
 
@@ -1502,7 +1557,9 @@ function paginate(r, page, browser, size, profile) {
   const mIdx = r.c.pages.findIndex((p) => p.windows.some((w) => w.type === 'MAIN'));
   let blocks = [];
   if (mIdx >= 0) {
-    const html = mIdx === 0 ? page.html : r.page(mIdx).html;
+    // measured with the header rows marked (the output page is unchanged: markHeads only for this copy and the pages)
+    r.markHeads = true;
+    const html = r.page(mIdx).html;
     if (!html.includes(LAST_SCRIPT)) return null;
     writeFileSync(mf, html.replace(LAST_SCRIPT, MEASURE_JS + LAST_SCRIPT));
     const dom = runBrowser(browser, [size, '--dump-dom', pathToFileURL(mf).href], profile);
