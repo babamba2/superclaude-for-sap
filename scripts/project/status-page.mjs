@@ -10,16 +10,16 @@ import { arr, addDays } from './project-model.mjs';
 
 const S = {
   ko: { title: '주간 현황', week: '주 종료', overall: '전체', manual: 'PM 판정', computed: '계산값', ws: '워크스트림', since: '지난 현황 대비', first: '첫 현황이라 비교 기준이 없어요', snapSince: 'KPI는 스냅샷 기준',
-    moved: 'WRICEF 단계 이동', done: '완료', late: '새 지연', msChange: '마일스톤 상태', released: '릴리스한 이관요청', risksAdded: '새 리스크', risksClosed: '닫힌 리스크', decAdded: '새 결정 사항', decDone: '결정됨',
-    kpis: '핵심 지표', risks: '리스크 (상위 5)', decisions: '결정 필요', next: '다음 2주 마일스톤', gate: 'Q-gate 점검', crit: '기준', value: '값', source: '출처', met: '충족', suggest: '제안 판정',
+    moved: 'WRICEF 단계 이동', done: '완료', late: '새 지연', msChange: '마일스톤 상태', released: '릴리스한 이관요청', risksAdded: '새 리스크', risksClosed: '닫힌 리스크', issuesAdded: '새 이슈', issuesClosed: '해결·종료된 이슈', decAdded: '새 결정 사항', decDone: '결정됨',
+    kpis: '핵심 지표', risks: '리스크 (상위 5)', issues: '열린 이슈 (상위 5)', decisions: '결정 필요', next: '다음 2주 마일스톤', gate: 'Q-gate 점검', crit: '기준', value: '값', source: '출처', met: '충족', suggest: '제안 판정',
     sugg: { pass: '통과', conditional: '조건부', fail: '실패', manual: 'PM 판단' }, yes: '예', no: '아니요', unknown: '판단 불가', evidence: '읽은 증빙', notRead: '읽지 못함', comment: 'PM 코멘트',
     suggested: '제안 (대시보드에서 목록에 넣으세요)', impact: '영향', owner: '담당', due: '기한', none: '없음', weeksGap: '주 전 현황과 비교', ev: { uat: 'UAT', ops: '운영 보고서', cts: 'CTS 점검', 'uat-defects': 'UAT 결함 피드', unknown: '알 수 없는 파일' },
     src: { cts: 'CTS 점검', 'sap actuals': 'SAP 실적', uat: 'UAT', 'uat defect feed': 'UAT 결함 피드', ops: '운영 보고서', wbs: 'WBS', manual: 'PM 판단', 'no evidence': '증빙 없음' },
     why: { 'json-unknown': '읽을 수 있는 JSON이 아니에요 (UAT 세트, 결함 피드, CTS·운영 모델만)', 'no-model': '내장 모델이 없는 페이지예요', 'read-error': '파일을 열지 못했어요', 'not-found': 'UAT 세트 파일이 없어요', 'bad-id': 'UAT 세트 ID 형식이 아니에요 (영문·숫자·_·-, 30자 이하)' },
     defects: '결함', dumpsDay: '일별 덤프', blocked: '이관 불가' },
   en: { title: 'Weekly status', week: 'Week ending', overall: 'Overall', manual: 'PM call', computed: 'computed', ws: 'Workstreams', since: 'Since the last status', first: 'First status — nothing to compare with', snapSince: 'KPIs against the snapshot of',
-    moved: 'WRICEF stage moves', done: 'Completed', late: 'Newly late', msChange: 'Milestone status', released: 'Requests released', risksAdded: 'New risks', risksClosed: 'Closed risks', decAdded: 'New decisions needed', decDone: 'Decided',
-    kpis: 'Key figures', risks: 'Risks (top 5)', decisions: 'Decisions needed', next: 'Milestones in the next two weeks', gate: 'Q-gate check', crit: 'Criterion', value: 'Value', source: 'Source', met: 'Met', suggest: 'Suggested',
+    moved: 'WRICEF stage moves', done: 'Completed', late: 'Newly late', msChange: 'Milestone status', released: 'Requests released', risksAdded: 'New risks', risksClosed: 'Closed risks', issuesAdded: 'New issues', issuesClosed: 'Issues resolved or closed', decAdded: 'New decisions needed', decDone: 'Decided',
+    kpis: 'Key figures', risks: 'Risks (top 5)', issues: 'Open issues (top 5)', decisions: 'Decisions needed', next: 'Milestones in the next two weeks', gate: 'Q-gate check', crit: 'Criterion', value: 'Value', source: 'Source', met: 'Met', suggest: 'Suggested',
     sugg: { pass: 'Pass', conditional: 'Conditional', fail: 'Fail', manual: 'PM judges' }, yes: 'yes', no: 'no', unknown: 'cannot tell', evidence: 'Evidence read', notRead: 'not read', comment: 'PM comment',
     suggested: 'Suggested (take them into the lists in the dashboard)', impact: 'Impact', owner: 'Owner', due: 'Due', none: 'none', weeksGap: 'weeks since the status compared with', ev: { uat: 'UAT', ops: 'Operations report', cts: 'CTS check', 'uat-defects': 'UAT defect feed', unknown: 'unknown file' },
     src: { cts: 'CTS check', 'sap actuals': 'SAP actuals', uat: 'UAT', 'uat defect feed': 'UAT defect feed', ops: 'Operations report', wbs: 'WBS', manual: 'PM judges', 'no evidence': 'no evidence' },
@@ -62,6 +62,8 @@ function sinceBlock(d, T, L) {
   }
   if (d.risks.added.length) li.push(`<li>${esc(T.risksAdded)}: ${d.risks.added.map(esc).join(', ')}</li>`);
   if (d.risks.closed.length) li.push(`<li>${esc(T.risksClosed)}: ${d.risks.closed.map(esc).join(', ')}</li>`);
+  if (d.issues?.added.length) li.push(`<li>${esc(T.issuesAdded)}: ${d.issues.added.map(esc).join(', ')}</li>`);
+  if (d.issues?.closed.length) li.push(`<li>${esc(T.issuesClosed)}: ${d.issues.closed.map(esc).join(', ')}</li>`);
   if (d.decisions.added.length) li.push(`<li>${esc(T.decAdded)}: ${d.decisions.added.map(esc).join(', ')}</li>`);
   if (d.decisions.decided.length) li.push(`<li>${esc(T.decDone)}: ${d.decisions.decided.map(esc).join(', ')}</li>`);
   return list(li, T);
@@ -90,6 +92,9 @@ export function renderStatusPage({ view: v, entry, delta: d, gate = null, eviden
   const manual = entry.overall !== entry.computed;
   const risks = v.m.risks.filter((r) => r.status !== 'closed').sort((a, b) => 'HML'.indexOf(a.impact) - 'HML'.indexOf(b.impact)).slice(0, 5);
   const decs = v.m.decisions.filter((x) => x.status !== 'decided');
+  // open issues: overdue first, then priority
+  const issues = (v.m.issues || []).filter((x) => x.status !== 'resolved' && x.status !== 'closed')
+    .sort((a, b) => ((b.due && b.due < entry.weekEnd) - (a.due && a.due < entry.weekEnd)) || 'HML'.indexOf(a.priority) - 'HML'.indexOf(b.priority)).slice(0, 5);
   const until = addDays(entry.weekEnd, 14);
   const next = v.milestones.filter((x) => !x.actual && x.date > entry.weekEnd && x.date <= until);
   const wsRows = Object.entries(entry.ws).map(([w, r]) => { const c = v.wsRag[w] || { red: 0, amber: 0, total: 0 }; return `<tr><td>${esc(w)}</td><td>${chip(r, L)}</td><td class="num">${c.red} / ${c.amber} / ${c.total}</td></tr>`; }).join('');
@@ -102,6 +107,7 @@ ${entry.comment ? `<p><b>${esc(T.comment)}:</b> ${esc(entry.comment)}</p>` : ''}
 <section><h2>${esc(T.ws)}</h2><table><thead><tr><th>${esc(T.ws)}</th><th>RAG</th><th class="num">${esc(L.rag.red)} / ${esc(L.rag.amber)} / Σ</th></tr></thead><tbody>${wsRows}</tbody></table></section></div>
 <h2>${esc(T.kpis)}</h2>${tiles(v, d, L)}
 <div class="cols"><section><h2>${esc(T.risks)}</h2>${list(risks.map((r) => `<li><b>${esc(r.impact)}</b> ${esc(r.text)}${r.owner ? ` · ${esc(name(r.owner))}` : ''}${r.due ? ` · ${esc(r.due)}` : ''}</li>`), T)}</section>
+<section><h2>${esc(T.issues)}</h2>${list(issues.map((x) => `<li><b>${esc(x.priority)}</b> ${esc(x.text)}${x.owner ? ` · ${esc(name(x.owner))}` : ''}${x.due ? ` · ${esc(x.due)}` : ''}</li>`), T)}</section>
 <section><h2>${esc(T.decisions)}</h2>${list(decs.map((x) => `<li>${esc(x.text)}${x.owner ? ` · ${esc(name(x.owner))}` : ''}${x.due ? ` · ${esc(x.due)}` : ''}</li>`), T)}</section></div>
 ${sg.risks.length || sg.decisions.length ? `<h2>${esc(T.suggested)}</h2>${list([...sg.risks.map((r) => `<li><b>${esc(r.impact)}</b> ${esc(r.text)}</li>`), ...sg.decisions.map((x) => `<li>${esc(x.text)}</li>`)], T)}` : ''}
 <h2>${esc(T.next)}</h2>${list(next.map((x) => `<li>${esc(x.date)} · ${esc(x.label)} ${chip(x.rag, L)}</li>`), T)}

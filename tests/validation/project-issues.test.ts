@@ -100,3 +100,35 @@ describe('/migration issues → the issue log', () => {
     expect(applyMigrationSync(after, reopened).issues.find((x: { id: string }) => x.id === id).status).toBe('closed');
   });
 });
+
+describe('open-issue counts: weekly status, list card, portfolio', () => {
+  const withIssues = (issues: object[]) => normalizeModel({ ...base, issues });
+  it('the weekly status logs the open issues, says which were added or resolved since, and counts them', async () => {
+    const { statusEntry, delta, computeStatus } = await import('../../scripts/project/project-status.mjs');
+    const m1 = withIssues([{ id: 'IS1', text: 'a', status: 'open' }, { id: 'IS2', text: 'b', status: 'inprogress' }, { id: 'IS3', text: 'c', status: 'resolved' }]);
+    const e1 = statusEntry(viewModel(m1, '2027-02-05'), [], '2027-02-05');
+    expect(e1.issues).toEqual(['IS1', 'IS2']);
+    const m2 = withIssues([{ id: 'IS1', text: 'a', status: 'closed' }, { id: 'IS2', text: 'b', status: 'inprogress' }, { id: 'IS4', text: 'd', status: 'open' }]);
+    const v2 = viewModel(m2, '2027-02-12');
+    const d = delta(e1, statusEntry(v2, [], '2027-02-12'), v2);
+    expect(d.issues).toEqual({ added: ['IS4'], closed: ['IS1'] });
+    // a log entry from before the issue log: nothing is reported as added or closed
+    expect(delta({ ...e1, issues: undefined }, statusEntry(v2, [], '2027-02-12'), v2).issues).toEqual({ added: [], closed: [] });
+    const r = computeStatus(m2, { weekEnd: '2027-02-12', today: '2027-02-12', lang: 'ko' });
+    expect(r.summary.issuesOpen).toBe(2);
+    expect(r.html).toContain('열린 이슈 (상위 5)');
+  });
+  it('the list card counts open issues (resolved and closed are done)', async () => {
+    const { summary } = await import('../../scripts/project/project-model.mjs');
+    expect(summary(withIssues([{ id: 'IS1', text: 'a' }, { id: 'IS2', text: 'b', status: 'resolved' }, { id: 'IS3', text: 'c', status: 'closed' }]), '2027-02-01').issuesOpen).toBe(1);
+  });
+  it('the portfolio status counts open high issues across projects and shows the tile', async () => {
+    const { portfolioStatus, renderPortfolioStatusPage } = await import('../../scripts/project/project-portfolio.mjs');
+    const a = withIssues([{ id: 'IS1', text: 'a', priority: 'H' }, { id: 'IS2', text: 'b', priority: 'H', status: 'resolved' }, { id: 'IS3', text: 'c', priority: 'M' }]);
+    const b = normalizeModel({ ...base, project: { ...base.project, code: 'P2' }, issues: [{ id: 'IS1', text: 'x', priority: 'H', due: '2027-01-01' }] });
+    const r = portfolioStatus([{ ref: 'a', model: a }, { ref: 'b', model: b }], { today: '2027-02-01', lang: 'ko' });
+    expect(r.summary.issuesHigh).toBe(2);
+    expect(r.issues.map((x: { code: string; overdue: boolean }) => [x.code, x.overdue])).toEqual([['P2', true], ['P1', false]]);
+    expect(renderPortfolioStatusPage(r, 'ko')).toContain('열린 H 이슈');
+  });
+});

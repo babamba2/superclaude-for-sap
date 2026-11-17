@@ -99,7 +99,7 @@ export function portfolioStatus(items, opts = {}) {
   };
   const inWin = (d, w) => DATE.test(d || '') && d >= w.from && d <= w.to;
 
-  const projects = [], milestones = [], risks = [], decisions = [], wricef = [];
+  const projects = [], milestones = [], risks = [], issues = [], decisions = [], wricef = [];
   for (const { ref, m, v } of ents) {
     const p = m.project || {}, code = p.code || ref;
     const who = (id) => (id ? arr(m.team).find(t => t.id === id)?.name || id : '');
@@ -126,13 +126,14 @@ export function portfolioStatus(items, opts = {}) {
       if (week) milestones.push({ week, date: x.date, ref, code, id: x.id || '', label: x.label || '', kind: x.kind || 'other', rag: ragOf(x.rag), status: x.status || 'planned' });
     }
     for (const r of arr(m.risks)) if (r.status !== 'closed' && r.impact === 'H') risks.push({ ref, code, id: r.id || '', text: r.text || '', owner: who(r.owner), due: r.due || '', overdue: DATE.test(r.due || '') && r.due < today });
+    for (const x of arr(m.issues)) if (x.status !== 'resolved' && x.status !== 'closed' && x.priority === 'H') issues.push({ ref, code, id: x.id || '', text: x.text || '', owner: who(x.owner), due: x.due || '', overdue: DATE.test(x.due || '') && x.due < today });
     for (const d of arr(m.decisions)) if (d.status !== 'decided') decisions.push({ ref, code, id: d.id || '', text: d.text || '', owner: who(d.owner), due: d.due || '', overdue: DATE.test(d.due || '') && d.due < today });
     if (num(v.wricef?.total)) wricef.push({ ref, code, stages: stagesOf(v.wricef), total: num(v.wricef.total), handoff: arr(handoff.toDev).length + arr(handoff.toFn).length });
   }
   projects.sort((a, b) => RANK[a.overall] - RANK[b.overall] || (a.goLive || '9999') .localeCompare(b.goLive || '9999') || a.code.localeCompare(b.code));
   milestones.sort((a, b) => a.date.localeCompare(b.date) || a.code.localeCompare(b.code));
   const byDue = (a, b) => (b.overdue - a.overdue) || (a.due || '9999').localeCompare(b.due || '9999') || a.code.localeCompare(b.code);
-  risks.sort(byDue); decisions.sort(byDue);
+  risks.sort(byDue); issues.sort(byDue); decisions.sort(byDue);
   const gone = prevRows.filter((_, j) => !usedPrev.has(j)).map(p => ({ ref: p?.ref ?? '', code: p?.code || '', overall: ragOf(p?.overall) }));
 
   const capacity = workdays(win.nextWeek.from, OVERLOAD.weeks * 7);
@@ -152,7 +153,7 @@ export function portfolioStatus(items, opts = {}) {
     projects: projects.length, rag, ragDelta: hasPrev ? Object.fromEntries(RAGS.map(r => [r, rag[r] - count(prevRows)[r]])) : null,
     goLive30: projects.filter(p => p.goLiveD != null && p.goLiveD >= 0 && p.goLiveD <= 30).length,
     gatesThisWeek: milestones.filter(x => x.week === 'this' && x.kind === 'qgate').length,
-    risksHigh: risks.length, decisionsOpen: decisions.length, overloaded: people.filter(x => x.overloaded).length,
+    risksHigh: risks.length, issuesHigh: issues.length, decisionsOpen: decisions.length, overloaded: people.filter(x => x.overloaded).length,
     newProjects: projects.filter(p => p.move === 'new').length, goneProjects: gone.length,
   };
   summary.sentence = sentence(summary, lang);
@@ -160,7 +161,7 @@ export function portfolioStatus(items, opts = {}) {
     kind: 'portfolio-status', schema: 1, lang, weekEnd: win.weekEnd, today, windows: { thisWeek: win.thisWeek, nextWeek: win.nextWeek },
     thresholds: { open: OVERLOAD.open, weeks: OVERLOAD.weeks, effortDays: capacity },
     source: { view: opts.viewSource || 'plugin', people: given ? 'caller' : 'computed', scope: String(opts.scope || ''), at: String(opts.at || ''), prevWeek: String(opts.prev?.weekEnd || '') },
-    summary, projects, gone, milestones, risks, decisions, wricef, people,
+    summary, projects, gone, milestones, risks, issues, decisions, wricef, people,
     minimal: projects.map(p => ({ ref: p.ref, code: p.code, overall: p.overall, progress: p.progress })),
   };
 }
@@ -184,7 +185,7 @@ export function sentence(s, lang = 'ko') {
 }
 
 const T = {
-  ko: { title: '포트폴리오 주간 현황', week: '주 종료', scope: '범위', tiles: { goLive30: '30일 안 go-live', gates: '이번 주 Q-gate', risks: '열린 H 리스크', decisions: '결정 대기', overloaded: '과부하 인원' },
+  ko: { title: '포트폴리오 주간 현황', week: '주 종료', scope: '범위', tiles: { goLive30: '30일 안 go-live', gates: '이번 주 Q-gate', risks: '열린 H 리스크', issues: '열린 H 이슈', decisions: '결정 대기', overloaded: '과부하 인원' },
     vsPrev: '지난주 대비', noPrev: '지난주 출력이 없어 비교하지 않았어요', first: '새 프로젝트', gone: '지난주에 있었고 이번 주에 없는 프로젝트',
     s1: '프로젝트', s2: '이번 주 / 다음 주 마일스톤과 Q-gate', s3: '열린 H 리스크와 결정 대기', s4: 'WRICEF 단계', s5: '팀 부하', s6: '출처',
     pcols: ['상태', '코드', '프로젝트', '담당', '진척 (실적 / 계획)', '변화', '지연 작업', 'Go-Live', '컷오버', '마지막 현황 주'],
@@ -194,7 +195,7 @@ const T = {
     rule: (o, d, w) => `과부하 기준: 열린 항목 ${o}개 초과, 또는 남은 공수가 다음 ${w}주 근무일 ${d}일 초과예요.`, why: { open: '열린 항목', effort: '공수' },
     src: { at: '생성', scope: '범위', projects: '프로젝트 수', view: '사용한 view', people: '사람 표', prev: '비교한 주' }, view: { web: '웹 (/wbs)', plugin: '플러그인' }, ppl: { caller: '웹 계산', computed: '이 페이지 계산' },
     count: (n) => `프로젝트 ${n}개`, none: '없음', dday: (n) => (n === 0 ? 'D-day' : n > 0 ? `D-${n}` : `D+${-n}`) },
-  en: { title: 'Portfolio weekly status', week: 'Week ending', scope: 'Scope', tiles: { goLive30: 'Go-lives in 30 days', gates: 'Q-gates this week', risks: 'Open high risks', decisions: 'Decisions pending', overloaded: 'People overloaded' },
+  en: { title: 'Portfolio weekly status', week: 'Week ending', scope: 'Scope', tiles: { goLive30: 'Go-lives in 30 days', gates: 'Q-gates this week', risks: 'Open high risks', issues: 'Open high issues', decisions: 'Decisions pending', overloaded: 'People overloaded' },
     vsPrev: 'vs last week', noPrev: 'No output of last week — nothing compared', first: 'new project', gone: 'Projects of last week no longer in the scope',
     s1: 'Projects', s2: 'Milestones and Q-gates this week / next week', s3: 'Open high risks and pending decisions', s4: 'WRICEF stages', s5: 'Team load', s6: 'Source',
     pcols: ['Status', 'Code', 'Project', 'Owner', 'Progress (actual / plan)', 'Change', 'Late items', 'Go-live', 'Cutover', 'Last status week'],
@@ -233,7 +234,7 @@ export function renderPortfolioStatusPage(res, lang = res?.lang || 'ko') {
   const day = (d, n) => (d ? `${esc(d)} <small>${esc(S.dday(n))}</small>` : '');
   const tiles = [
     ...RAGS.map(r => `<div class="tile">${chip(r)}<b>${s.rag[r]}${ragDelta(r)}</b></div>`),
-    ...[['goLive30', s.goLive30], ['gates', s.gatesThisWeek], ['risks', s.risksHigh], ['decisions', s.decisionsOpen], ['overloaded', s.overloaded]]
+    ...[['goLive30', s.goLive30], ['gates', s.gatesThisWeek], ['risks', s.risksHigh], ['issues', s.issuesHigh ?? 0], ['decisions', s.decisionsOpen], ['overloaded', s.overloaded]]
       .map(([k, n]) => `<div class="tile"><span class="muted">${esc(S.tiles[k])}</span><b>${n}</b></div>`),
   ].join('');
   const proj = res.projects.map(p => [

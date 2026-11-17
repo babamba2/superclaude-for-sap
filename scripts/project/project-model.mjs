@@ -397,12 +397,12 @@ export function withSnapshot(model, today = iso(Date.now())) {
   return { ...model, snapshots: snaps };
 }
 
-/** One list card of the web workbench: code, name, type, go-live, overall RAG, days to go-live, last status week, progress, open risks, late items. */
+/** One list card of the web workbench: code, name, type, go-live, overall RAG, days to go-live, last status week, progress, open risks, open issues, late items. */
 export function summary(model, today = iso(Date.now())) {
   const m = normalizeModel(model || {});
   const v = viewModel(m, today), p = m.project || {};
   const last = arr(m.statusLog).map((x) => x.weekEnd).sort().at(-1) || '';
   return { kind: 'project', code: p.code || '', name: p.name || '', type: p.type || '', goLive: p.goLive || '', lang: m.lang || 'ko',
     overall: m.status?.overall || v.overall, dDay: p.goLive ? days(v.today, p.goLive) : null, lastWeek: last,
-    progress: v.progress, risksOpen: m.risks.filter((r) => r.status !== 'closed').length, late: v.late.length };
+    progress: v.progress, risksOpen: m.risks.filter((r) => r.status !== 'closed').length, issuesOpen: m.issues.filter((x) => x.status !== 'resolved' && x.status !== 'closed').length, late: v.late.length };
 }

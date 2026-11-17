@@ -93,6 +93,7 @@ export function statusEntry(v, evidence, weekEnd) {
     kpi: Object.fromEntries(v.kpis.filter((k) => k.actual != null).map((k) => [k.id, k.actual])),
     evidence: arr(evidence).map(evFigures),
     risks: m.risks.filter((r) => r.status !== 'closed').map((r) => r.id),
+    issues: arr(m.issues).filter((x) => x.status !== 'resolved' && x.status !== 'closed').map((x) => x.id),
     decisions: m.decisions.filter((d) => d.status !== 'decided').map((d) => d.id),
     comment: m.status?.comment || '',
   };
@@ -144,6 +145,8 @@ export function delta(prev, cur, v) {
     overall: prev.overall !== cur.overall ? { from: prev.overall, to: cur.overall } : null,
     moved, done, late, ms, released: rel, kpi: kpi(prev.kpi), evidence: evDiff,
     risks: { added: added(cur.risks, prev.risks || []), closed: added(prev.risks || [], cur.risks) },
+    // an older log entry has no issues: nothing counts as added or closed against it
+    issues: prev.issues ? { added: added(cur.issues || [], prev.issues), closed: added(prev.issues, cur.issues || []) } : { added: [], closed: [] },
     decisions: { added: added(cur.decisions, prev.decisions || []), decided: added(prev.decisions || [], cur.decisions) },
   };
 }
@@ -230,7 +233,7 @@ export function computeStatus(model0, { weekEnd = '', gateId = '', evidence = []
   const l = lang || model.lang || 'ko';
   const html = renderStatusPage({ view, entry, delta: d, gate: g, evidence: ev, suggestions: suggestions(view, g, l), lang: l });
   const summary = { weekEnd: week, first: d.first, moved: d.first ? 0 : d.moved.length, ...(d.weeks > 1 ? { baselineWeeks: d.weeks } : {}),
-    risksOpen: entry.risks.length, decisionsOpen: entry.decisions.length, ...(g ? { gate: { suggest: g.suggest, met: g.met, unmet: g.unmet, manual: g.manual } } : {}),
+    risksOpen: entry.risks.length, issuesOpen: arr(entry.issues).length, decisionsOpen: entry.decisions.length, ...(g ? { gate: { suggest: g.suggest, met: g.met, unmet: g.unmet, manual: g.manual } } : {}),
     evidence: ev.map((e) => ({ kind: e.kind, ok: e.ok })) };
   const out = withSnapshot(model, today);
   return { model: out, html, summary, entry, lang: l, warnings: checkModel(out).warnings };
