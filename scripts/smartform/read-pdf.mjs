@@ -365,6 +365,9 @@ function loadFont(pdf, ref, resName) {
     f.mono = /courier|mono/i.test(base);
     // no width table: every advance below is a guess (500 / 600 per 1000 em), so a piece's width is an estimate
     f.estW = !f.widths.length;
+    // Type3 widths are in glyph space: FontMatrix maps them to text space (Chrome: 1/2048 em, not 1/1000)
+    const fm = pdf.get(d.FontMatrix);
+    f.wScale = Array.isArray(fm) && Number(pdf.get(fm[0])) ? Math.abs(Number(pdf.get(fm[0]))) * 1000 : 1;
     const enc = pdf.get(d.Encoding);
     f.diff = new Map();
     if (enc && typeof enc === 'object' && !(enc instanceof Name)) {
@@ -417,7 +420,7 @@ function decodeString(f, bytes) {
       t = (dn && glyphText(dn)) ?? WIN1252.decode(Buffer.from([c]));
     }
     const w = f.widths[c - f.first];
-    out.push({ text: t, adv: w ?? (f.mono ? 600 : 500), space: c === 0x20 });
+    out.push({ text: t, adv: w !== undefined ? w * (f.wScale ?? 1) : (f.mono ? 600 : 500), space: c === 0x20 });
   }
   return out;
 }

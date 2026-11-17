@@ -135,8 +135,10 @@ function fmtNum(raw, pic, l) {
     if (c === '9') { intOut.unshift(iDigits[k] ?? '0'); k++; }
     else if (c === 'z' || c === 'Z') {
       const dgt = iDigits[k]; k++;
-      if (dgt !== undefined) intOut.unshift(dgt); else intOut.unshift(c === 'z' ? ' ' : '');
-    } else if (c === ',') intOut.unshift(k < iDigits.length ? L.group : (syms.slice(0, i).some((x) => x === '9') ? L.group : '\u0000'));
+      // XFA: z = a digit or nothing for a leading zero, Z = a digit or a space (ADS: 'zzz,zz9.888' prints 830.50 flush
+      // left in FP_TEST_NESTED_TABLE; 'ZZZ,ZZ9.88888S' keeps the blanks in FP_TEST_03)
+      if (dgt !== undefined) intOut.unshift(dgt); else intOut.unshift(c === 'Z' ? ' ' : '');
+    } else if (c === ',') intOut.unshift(k < iDigits.length ? L.group : (syms.slice(0, i).some((x) => x === '9') ? L.group : syms[i - 1] === 'Z' ? '\u0000' : ''));
     else if (c === 's' || c === 'S') intOut.unshift(neg ? '-' : c === 's' ? '' : ' ');
     else if (c === '$') intOut.unshift(L.currency);
     else if (c === "'") continue;
@@ -146,7 +148,7 @@ function fmtNum(raw, pic, l) {
   // digits the picture has no room for still print (no overflow handling)
   while (k < iDigits.length) { intOut.unshift(iDigits[k]); k++; }
   let intStr = intOut.join('');
-  // a grouping symbol before no digit becomes a blank like its 'z'
+  // a grouping symbol before no digit becomes a blank next to a 'Z' (nothing next to a 'z')
   intStr = intStr.replace(/\u0000/g, ' ');
   intStr = intStr.replace(/^([ ]*)[,.](?=[ ]*\d)/, '$1 ');
   let fracStr = '';
@@ -157,7 +159,7 @@ function fmtNum(raw, pic, l) {
     for (const c of fsyms) {
       if (c === '9') { out.push(fracDigits[j] ?? '0'); j++; }
       else if (c === '8') { if (fracDigits[j] !== undefined) out.push(fracDigits[j]); j++; }
-      else if (c === 'z' || c === 'Z') { const dgt = fracDigits[j]; j++; out.push(dgt !== undefined ? dgt : c === 'z' ? ' ' : ''); }
+      else if (c === 'z' || c === 'Z') { const dgt = fracDigits[j]; j++; out.push(dgt !== undefined ? dgt : c === 'Z' ? ' ' : ''); }
       else if (c === 's' || c === 'S') out.push(neg ? '-' : c === 's' ? '' : ' ');
       else out.push(c);
     }
@@ -201,6 +203,7 @@ function defaultNum(raw, { type, fracDigits }, locale) {
   let [ip, fp = ''] = s.replace(/^[-+]/, '').split('.');
   if (type === 'integer') fp = '';
   else if (fracDigits === -1) { /* keep the data's own fraction digits */ }
+  else if (fracDigits === -2) fp = fp.replace(/0+$/, ''); // the data's digits without trailing zeros (an implied float)
   else {
     const fd = fracDigits === undefined ? 2 : fracDigits;
     const r = Number(`${ip}.${fp || '0'}`).toFixed(fd).split('.');

@@ -25,7 +25,7 @@ import { basename, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { readContext, readInterface, readXdp, parseXml, kids } from './read-adobe.mjs';
-import { buildRecord, contextFields } from './adobe-data.mjs';
+import { buildRecord, contextFields, runInitCoding } from './adobe-data.mjs';
 import { layoutForm } from './adobe-layout.mjs';
 import { findBrowser, runBrowser } from '../forms-common/browser.mjs';
 import { layoutOf } from '../forms-common/score-fidelity.mjs';
@@ -36,12 +36,25 @@ const r2 = (v) => Math.round(v * 1000) / 1000;
 const FAMILY = (face) => (/courier/i.test(face) ? "'Courier New', Courier, monospace" : /times/i.test(face) ? "'Times New Roman', Times, serif" : 'Arial, Helvetica, sans-serif');
 
 /** The layout model of a form for a sample. */
-export function buildModel({ formXml, interfaceXml, layoutXdp }, sample = {}) {
+export function buildModel({ formXml, interfaceXml, layoutXdp }, sample0 = {}) {
+  let sample = sample0;
   const { context, interface: ifName } = readContext(formXml);
   const iface = interfaceXml ? readInterface(interfaceXml) : { references: [] };
   const { template } = readXdp(layoutXdp);
+  // the interface's initialization code fills globals (sums per currency …): run what can run without SAP, unless
+  // the sample gives those globals itself; what cannot run is reported
+  const initNotes = [];
+  const outs = (iface.coding?.output || []).filter((n) => n && !Object.keys(sample.globals || {}).some((k) => k.toUpperCase() === n.toUpperCase()));
+  if (iface.coding?.init?.some((l) => String(l).trim() && !/^\s*\*/.test(l)) && outs.length) {
+    const r = runInitCoding(iface.coding.init, { ...(sample.globals || {}), ...(sample.values || {}) }, sample.ddic || {});
+    if (r.ok) {
+      sample = { ...sample, globals: { ...(sample.globals || {}), ...r.tables } };
+      initNotes.push(`initialization code run here (${Object.keys(r.tables).join(', ') || 'nothing filled'}) — simple statements only`);
+    } else initNotes.push(`initialization code not run (${r.reason}): ${outs.join(', ')} stay as in the sample`);
+  }
   const { record, missingTexts } = buildRecord(context, sample, { references: iface.references });
   const out = layoutForm(template, record, { locale: sample.locale || 'en_US', today: sample.system?.['SFPSY-DATE'] });
+  out.report.approximations.push(...initNotes);
   // system fields the preview filled: the date is the caller's input (or today), never the SAP server's
   const usesSystem = JSON.stringify(context || {}).match(/"field":"SFPSY-[A-Z]+"/g) || [];
   const system = {};

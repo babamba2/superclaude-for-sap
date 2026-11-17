@@ -4,7 +4,7 @@ import { join } from 'node:path';
 // @ts-expect-error — plain .mjs scripts, no type declarations
 import { readContext, readInterface, readXdp, parseXml, unit } from '../../scripts/adobe/read-adobe.mjs';
 // @ts-expect-error — plain .mjs script
-import { buildRecord, toXmlValue, itfParagraphs, textsFromTables, evalConditions, ddicFromDdl, contextFields } from '../../scripts/adobe/adobe-data.mjs';
+import { buildRecord, toXmlValue, itfParagraphs, textsFromTables, evalConditions, ddicFromDdl, contextFields, runInitCoding } from '../../scripts/adobe/adobe-data.mjs';
 // @ts-expect-error — plain .mjs script
 import { layoutForm, imageSize, tabStops } from '../../scripts/adobe/adobe-layout.mjs';
 // @ts-expect-error — plain .mjs script
@@ -421,5 +421,39 @@ describe('adobe-preview: designer template + data XML (no SAP form object)', () 
     const m = buildModelXdp({ layoutXdp: xdp, dataXml: data });
     expect(m.pages).toHaveLength(1);
     expect(texts(m.pages[0]).map((t: any) => t.text)).toContain('Sample ticket');
+  });
+});
+
+describe('adobe-preview: ABAP and ADS value defaults', () => {
+  it('an elementary TYPE C / TYPE N parameter without a length is 1 character long (ABAP default)', () => {
+    expect(toXmlValue('Sample text', { ddic: { type: 'CHAR' } })).toBe('S');
+    expect(toXmlValue('000123', { ddic: { type: 'NUMC' } })).toBe('3');
+    expect(toXmlValue('Sample text', { ddic: { type: 'CHAR', length: 20 } })).toBe('Sample text');
+    expect(toXmlValue('123', { ddic: { type: 'NUMC', length: 10 } })).toBe('0000000123');
+  });
+  it('a numericEdit field without a <value> prints the data as a number: grouping, no trailing zeros', () => {
+    expect(formatValue('830.50', { type: 'float', fracDigits: -2 })).toBe('830.5');
+    expect(formatValue('8901300', { type: 'float', fracDigits: -2 })).toBe('8,901,300');
+    const xdp = `<?xml version="1.0" encoding="utf-8"?>
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform layout="tb" name="data"><pageSet><pageArea name="P1"><contentArea x="20mm" y="20mm" w="170mm" h="250mm"/>
+<medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>
+<field name="AMT" w="40mm" h="6mm"><ui><numericEdit/></ui><font typeface="Arial"/><bind match="dataRef" ref="$record.AMT"/></field>
+</subform></template></xdp:xdp>`;
+    const out = layoutForm(readXdp(xdp).template, { name: 'data', children: [{ name: 'AMT', value: '1243.25' }] }, {});
+    expect(texts(out.pages[0]).map((t: any) => t.text)).toEqual(['1,243.25']);
+  });
+});
+
+describe('adobe-preview: interface initialization code (simple statements only)', () => {
+  const code = ['* sums per currency', 'data: l_sums like line of t_sums,', '      l_row type zdemo_row.', 'loop at rows into l_row.',
+    '  l_sums-amount = l_row-amount.  " the amount', '  l_sums-curr   = l_row-curr.', '  collect l_sums into t_sums.', 'endloop.'];
+  const values = { ROWS: [{ AMOUNT: 10.5, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }, { AMOUNT: 4.25, CURR: 'EUR' }] };
+  it('runs LOOP / assignments / COLLECT: numeric fields summed per equal other fields', () => {
+    expect(runInitCoding(code, values)).toEqual({ ok: true, tables: { T_SUMS: [{ AMOUNT: 14.75, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }] } });
+  });
+  it('stops at anything else and fills nothing', () => {
+    expect(runInitCoding([...code, 'select * from zdemo_tab into table t_x.'], values)).toMatchObject({ ok: false });
+    expect(runInitCoding(['loop at missing into l_row.', 'endloop.'], values)).toMatchObject({ ok: false });
   });
 });

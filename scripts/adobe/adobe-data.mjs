@@ -56,15 +56,18 @@ export function toXmlValue(v, { currency, ddic } = {}) {
     const c = currencyDecimals(currency);
     return (Number(v) * 10 ** (d - c)).toFixed(c);
   }
+  // an elementary parameter typed TYPE C / TYPE N without a length has ABAP's default length 1 (FP_TEST_05:
+  // MYCHAR 'Sample text' prints 'S', MYNUM 000123 prints '3')
+  const len1 = (t === 'CHAR' || t === 'NUMC') && ddic && ddic.length === undefined ? 1 : undefined;
   if (t === 'NUMC' && numeric) {
     const digits = String(v).replace(/\D/g, '');
-    const len = Number(ddic.length) || digits.length;
+    const len = len1 ?? (Number(ddic.length) || digits.length);
     return digits.padStart(len, '0').slice(-len);
   }
   if (/^(DEC|QUAN|P|CURR)$/.test(t) && numeric) return Number(v).toFixed(dec ?? 0);
   if (/^(INT1|INT2|INT4|INT8)$/.test(t) && numeric) return String(Math.round(Number(v)));
   if (t === 'LANG') return ISOLA[String(v).trim()] ?? String(v);
-  if (t === 'CHAR' && ddic.length > 0) return String(v).slice(0, Number(ddic.length));
+  if (t === 'CHAR' && (len1 || ddic.length > 0)) return String(v).slice(0, len1 ?? Number(ddic.length));
   if (numeric && typeof v === 'number') return String(v);
   const s = String(v);
   const d8 = /^(\d{4})(\d{2})(\d{2})$/.exec(s);
@@ -78,6 +81,63 @@ function today() {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');
   return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+}
+
+/** The interface's initialization code for the few statements it can run without SAP — LOOP AT … INTO, field
+ *  assignments (from a field or a literal), CLEAR, APPEND, COLLECT, ENDLOOP; DATA declarations are skipped. Anything
+ *  else stops it: { ok: false, reason }, nothing is set. On success the tables it filled (globals it wrote) are
+ *  returned: { ok: true, tables: { NAME: rows } }. COLLECT sums the numeric fields (numbers in the data, or numeric DDIC
+ *  types) over equal values of all other fields. Values: the sample values (interface parameters). */
+export function runInitCoding(lines, values = {}, ddic = {}) {
+  const src = (lines || []).map((l) => String(l)).filter((l) => !/^\s*\*/.test(l)).map((l) => l.replace(/".*$/, '')).join(' ');
+  const stmts = src.split('.').map((s) => s.trim().replace(/\s+/g, ' ')).filter(Boolean);
+  const get = (name) => { const k = Object.keys(values).find((x) => up(x) === up(name)); return k === undefined ? undefined : values[k]; };
+  const tables = {};
+  const NUM = /^(CURR|QUAN|DEC|INT1|INT2|INT4|INT8|FLTP|P|I|F)$/;
+  const numericField = (tab, f, v) => typeof v === 'number' || NUM.test(up(ddic[`${up(tab)}-${up(f)}`]?.type || ''));
+  const fail = (reason) => ({ ok: false, reason });
+  const exec = (from, to, env) => {
+    for (let k = from; k < to; k++) {
+      const s = stmts[k];
+      let m;
+      if (/^DATA\b/i.test(s) || /^TYPES\b/i.test(s)) continue;
+      if ((m = /^LOOP AT (\w+) INTO (\w+)$/i.exec(s))) {
+        let depth = 1, e = k + 1;
+        for (; e < to; e++) { if (/^LOOP AT /i.test(stmts[e])) depth++; else if (/^ENDLOOP$/i.test(stmts[e]) && --depth === 0) break; }
+        if (e >= to) return fail('LOOP without ENDLOOP');
+        const rows = tables[up(m[1])] ?? get(m[1]);
+        if (!Array.isArray(rows)) return fail(`LOOP AT ${up(m[1])}: no table in the values`);
+        for (const row of rows) {
+          env[up(m[2])] = Object.fromEntries(Object.entries(row || {}).map(([a, b]) => [up(a), b]));
+          const r = exec(k + 1, e, env);
+          if (r) return r;
+        }
+        k = e;
+        continue;
+      }
+      if ((m = /^CLEAR (\w+)$/i.exec(s))) { env[up(m[1])] = {}; continue; }
+      if ((m = /^(\w+)-(\w+) = (?:(\w+)-(\w+)|'([^']*)'|(-?\d+(?:\.\d+)?))$/i.exec(s))) {
+        const tgt = (env[up(m[1])] ||= {});
+        tgt[up(m[2])] = m[3] ? (env[up(m[3])] || {})[up(m[4])] : m[5] !== undefined ? m[5] : Number(m[6]);
+        continue;
+      }
+      if ((m = /^(APPEND|COLLECT) (\w+) (?:TO|INTO) (\w+)$/i.exec(s))) {
+        const t = (tables[up(m[3])] ||= []);
+        const row = { ...(env[up(m[2])] || {}) };
+        if (up(m[1]) === 'APPEND') { t.push(row); continue; }
+        const keyOf = (r) => JSON.stringify(Object.keys(r).filter((f) => !numericField(m[3], f, r[f])).sort().map((f) => [f, r[f]]));
+        const hit = t.find((r) => keyOf(r) === keyOf(row));
+        if (!hit) { t.push(row); continue; }
+        for (const f of Object.keys(row)) if (numericField(m[3], f, row[f])) hit[f] = Math.round((Number(hit[f] || 0) + Number(row[f] || 0)) * 1e6) / 1e6;
+        continue;
+      }
+      if (/^ENDLOOP$/i.test(s)) continue;
+      return fail(`statement not supported: ${s.split(' ').slice(0, 2).join(' ')}`);
+    }
+    return null;
+  };
+  const r = exec(0, stmts.length, {});
+  return r || { ok: true, tables };
 }
 
 /** Scope: names → values; loops push their work area. Lookup "A-B-C" walks structures. */

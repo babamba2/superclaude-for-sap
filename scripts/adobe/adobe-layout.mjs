@@ -467,7 +467,9 @@ function wrapParagraphs(paras, width0, wrap) {
 function valueInfo(t) {
   const v = prop(t, 'value');
   const c = kids(v)[0];
-  if (!c) return { type: 'text' };
+  // a field without a <value> whose UI is numericEdit holds a number (ADS prints 830.50 as "830.5", 8901300 as
+  // "8,901,300": the locale's default number pattern, no fixed fraction digits — FP_TEST_COUNT)
+  if (!c) return t?.tag === 'field' && uiOf(t).kind === 'numericEdit' ? { type: 'float', fracDigits: -2 } : { type: 'text' };
   const type = c.tag;
   return { type, el: c, fracDigits: c.attrs?.fracDigits !== undefined ? Number(c.attrs.fracDigits) : undefined, maxChars: c.attrs?.maxChars !== undefined ? Number(c.attrs.maxChars) : undefined };
 }
