@@ -905,6 +905,15 @@ export const EDITOR_SCRIPT = String.raw`
     if(on&&!seen)guide();
   }
   btn.addEventListener('click',function(){setEditing(!editing);});
+  // The page contract of the web workbench (SC4SAP_PAGE): the model as manual.json keeps it, read from the page
+  // without changing it — the edit stamp collect() writes is put back, so a model read twice is the same model.
+  window.SC4SAP_PAGE={kind:'manual',
+    model:function(){
+      if(ready){var at=M.edited;collect();if(at===undefined)delete M.edited;else M.edited=at;}
+      return {manual:clone(M),version:SRC.version,history:clone(SRC.history||[])};
+    },
+    edit:function(on){if(!!on!==editing)setEditing(!!on);},
+    editing:function(){return editing;}};
   window.addEventListener('beforeunload',function(e){if(dirty){saveDraft();e.preventDefault();e.returnValue=L.unsaved;return L.unsaved;}});
   var resumed=false;try{resumed=sessionStorage.getItem(RESUME_KEY)===DRAFT_KEY;if(resumed)sessionStorage.removeItem(RESUME_KEY);}catch(e){}
   if(resumed){setEditing(true);dirty=true;}else offerDraft();
