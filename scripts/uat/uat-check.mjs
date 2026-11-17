@@ -37,7 +37,11 @@ export function readerOver(client, { readIn, readTable }) {
   };
 }
 
-/** What a step can name and where it is looked up. `pii`: never read (the PII blocklist covers the table). */
+/**
+ * What a step can name and where it is looked up. `pii`: protected master data (the PII blocklist covers the table):
+ * read, key column only, where the profile already allows the table; a refused read is "not read" with the privacy
+ * reason — never "not found". No blocklist exception is opened for it.
+ */
 export const CHECK_KINDS = {
   tcode: { table: 'TSTC', keys: ['TCODE'], re: /^[A-Z0-9_/]{2,20}$/ },
   bukrs: { table: 'T001', keys: ['BUKRS'], re: /^[A-Z0-9]{1,4}$/ },
@@ -123,6 +127,8 @@ export function validatePlan(raw, set) {
 
 /** Material numbers: as written, and with the leading zeros of an internal number (18 on ECC, 40 on S/4). */
 const matnrForms = (v) => (/^\d+$/.test(v) ? [...new Set([v, v.padStart(18, '0'), v.padStart(40, '0')])] : [v]);
+/** The forms a key may be stored in: material numbers as above, customer / vendor numbers with their 10 leading zeros. */
+const keyForms = (kind, v) => (kind === 'matnr' ? matnrForms(v) : (kind === 'kunnr' || kind === 'lifnr') && /^\d+$/.test(v) ? [...new Set([v, v.padStart(10, '0')])] : [v]);
 const where = (key) => Object.entries(key).map(([f, v]) => `${f} = '${String(v).replace(/'/g, "''")}'`).join(' AND ');
 
 /**
@@ -139,7 +145,6 @@ export async function runChecks(plan, reader, { months = 3, today = new Date().t
     if (ev[id]) continue;
     const def = CHECK_KINDS[t.kind];
     ev[id] = { kind: t.kind, key: t.key, table: def.table, where: where(t.key), found: null, note: '', extra: {} };
-    if (def.pii) { ev[id].note = 'pii'; continue; }
     if (!byKind.has(t.kind)) byKind.set(t.kind, []);
     byKind.get(t.kind).push(t);
   }
@@ -147,13 +152,13 @@ export async function runChecks(plan, reader, { months = 3, today = new Date().t
     const def = CHECK_KINDS[kind];
     if (def.keys.length === 1) {
       const f = def.keys[0];
-      const values = targets.flatMap((t) => (kind === 'matnr' ? matnrForms(t.key[f]) : [t.key[f]]));
+      const values = targets.flatMap((t) => keyForms(kind, t.key[f]));
       const fields = kind === 'auart' ? ['AUART', 'NUMKI'] : [f];
       const r = await reader.readIn(def.table, f, values, { fields });
       for (const t of targets) {
         const e = ev[targetId(t)];
-        if (!r.ok && !arr(r.rows).length) { e.note = `read failed: ${str(arr(r.errors)[0] || r.error).slice(0, 120)}`; continue; }
-        const forms = kind === 'matnr' ? matnrForms(t.key[f]) : [t.key[f]];
+        if (!r.ok && !arr(r.rows).length) { e.note = def.pii ? 'pii' : `read failed: ${str(arr(r.errors)[0] || r.error).slice(0, 120)}`; continue; }
+        const forms = keyForms(kind, t.key[f]);
         const row = arr(r.rows).find((x) => forms.includes(str(x[f])));
         e.found = !!row;
         if (row && kind === 'auart') e.extra.numki = str(row.NUMKI);

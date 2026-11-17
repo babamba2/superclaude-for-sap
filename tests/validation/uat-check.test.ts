@@ -96,13 +96,20 @@ describe('uat-check: plan', () => {
 });
 
 describe('uat-check: reads and rule verdicts', () => {
-  it('finds, misses, pads material numbers, never reads customers, follows number ranges and usage', async () => {
-    const r = fakeReader(DB, { usage: { VA01: true, VL02N: false } });
+  it('a profile that allows the customer table: the key is read, with its leading zeros', async () => {
+    const r = fakeReader({ ...DB, KNA1: [{ KUNNR: '0000100001' }] });
+    const ev = await runChecks(plan(), r);
+    expect(ev['kunnr:KUNNR=100001']).toMatchObject({ found: true, note: '' });
+    const missing = await runChecks(plan(), fakeReader({ ...DB, KNA1: [] }));
+    expect(missing['kunnr:KUNNR=100001']).toMatchObject({ found: false });
+  });
+  it('finds, misses, pads material numbers, a refused customer read is the privacy reason, follows number ranges and usage', async () => {
+    const r = fakeReader(DB, { usage: { VA01: true, VL02N: false }, fail: ['KNA1'] });
     const ev = await runChecks(plan(), r, { today: '2026-11-18' });
     expect(ev['vkorg:VKORG=1000'].found).toBe(true);
     expect(ev['matnr:MATNR=4711'].found).toBe(true);
     expect(ev['kunnr:KUNNR=100001']).toMatchObject({ found: null, note: 'pii' });
-    expect(r.calls.some((c) => /KNA1/.test(c))).toBe(false);
+    expect(r.calls.filter((c) => /KNA1/.test(c))).toEqual(['in KNA1']); // tried once, key only — refused by the blocklist
     expect(ev['auart:AUART=ZOR'].extra).toMatchObject({ numki: '01', numberRange: true });
     expect(ev['tcode:TCODE=VL02N'].extra.usage).toEqual({ used: false, months: 3 });
     const rows = ruleRows(plan(), ev);
@@ -113,7 +120,7 @@ describe('uat-check: reads and rule verdicts', () => {
   });
   it('mismatch for a value not in the system or an order type without number range; check for a failed read', async () => {
     const db = { ...DB, TVKO: [], NRIV: [] };
-    const ev = await runChecks(plan(), fakeReader(db, { fail: ['T001W'] }));
+    const ev = await runChecks(plan(), fakeReader(db, { fail: ['T001W', 'KNA1'] }));
     const rows = ruleRows(plan(), ev);
     expect(rows[0].rule).toBe('mismatch');
     expect(rows[0].reasons.map((x) => x.code)).toEqual(expect.arrayContaining(['not-found', 'no-number-range', 'unread', 'pii']));
