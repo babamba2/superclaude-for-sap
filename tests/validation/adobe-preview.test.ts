@@ -476,6 +476,15 @@ describe('adobe-preview: ADS rules measured on the calibration form and on migra
     close(by(t, 'Field').x, 20 + textWidthMm('          ', 10));
   });
 
+  it('prints a formatted embed in its field font, an embedMode="raw" one in the run font', () => {
+    const hidden = `<subform name="H"><field name="V" presence="hidden"><ui><textEdit/></ui><value><text>1234</text></value></field></subform>`;
+    const span = (attrs: string) => `<span style="font-family : 'Arial' ; font-size : 10pt ;"> <span xfa:embed="H.V"${attrs}/></span>`;
+    const body = (attrs: string, n: string) => `<subform layout="tb" name="${n}" w="150mm">${hidden}<draw name="D" w="150mm"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml" xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/">${div(cour12, span(attrs))}</div></exData></value><ui><textEdit multiLine="1"/></ui></draw></subform>`;
+    // EX10 / EX14 (no embedMode): Courier 10 pt (the field has no <font>); calibration 2 (raw): the span's Arial 10 pt
+    expect(by(run(body('', 'F')), '1234')).toMatchObject({ font: 'Courier', pt: 10 });
+    expect(by(run(body(' xfa:embedMode="raw"', 'R')), '1234')).toMatchObject({ font: 'Arial', pt: 10 });
+  });
+
   it('lays out XFA 2.2 (SAP migration) by the 2.4+ rules, not the 2.1 line boxes', () => {
     const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(cour12, 'Mig'))}</subform>`, '2.2');
     close(by(t, 'Mig').y, 20 + 0.629 * 12 * PT);

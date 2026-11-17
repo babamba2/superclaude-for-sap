@@ -376,10 +376,12 @@ function richParagraphs(body, font, para, lookup) {
         walk(c, runFont(f, st), hard);
       } else if (tag === 'span' && (c.attrs['xfa:embed'] || c.attrs.embed)) {
         if (!cur) startPara({});
-        // the value prints in the embedded field's own font (EX14: a Courier 10 pt field in a 12 pt paragraph
-        // prints at 10 pt); the paragraph's font when the field is not found
+        // a formatted embed (no embedMode, SAP's migration) prints in its field's own font (EX14 / EX10: Courier 10 pt
+        // values in Courier 12 / Arial 10 runs); embedMode="raw" in the run's font (calibration 2: Arial 10 → Helvetica
+        // 10); the run's font when the field is not found
         const v = lookup(String(c.attrs['xfa:embed'] || c.attrs.embed));
-        const ef = v && typeof v === 'object' ? v.font : null;
+        const raw = String(c.attrs['xfa:embedMode'] || c.attrs.embedMode || '') === 'raw';
+        const ef = v && typeof v === 'object' && !raw ? v.font : null;
         cur.runs.push({ text: v && typeof v === 'object' ? v.text : v, font: ef ? { ...runFont(f, st), face: ef.face, pt: ef.pt, bold: ef.bold, italic: ef.italic } : runFont(f, st), embed: true });
       } else if (tag === 'b') walk(c, { ...runFont(f, st), bold: true }, hard);
       else if (tag === 'i') walk(c, { ...runFont(f, st), italic: true }, hard);
