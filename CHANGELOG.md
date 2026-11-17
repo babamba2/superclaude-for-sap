@@ -5,15 +5,47 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.69] — 2026-11-17
+
 ### Added
 - **SmartForm → Adobe conversion plan (read-only).** New skill `/sc4sap:smartform-to-adobe` works out what SAP's own migration (`CL_SSF_MIGRATION`) makes of a SmartForm, before anything is written:
   - an inventory of every node by kind
   - the Adobe interface, context and layout SAP would create
-  - the SAP log it would write
-  - a gap list with what SAP would lose without a message (sort-level events printing on every row, skipped header / footer areas, layout conditions other than first page, dynamic graphic keys, final-window timing), each with a manual step
+  - the SAP log it would write, with text fields in the same two passes as SAP (`MIGRATE_TEXT_ELEMENT`)
+  - a gap list of what SAP loses without a message, each with a manual step: sort-level events printing on every row, skipped header / footer areas, layout conditions other than first page, dynamic graphic keys, final-window timing, running totals in page-break footers, program lines in table header / footer areas (G5), and layouts in more than one language (G6, translations are not migrated)
 
-  Every rule names its SAP method (`skills/smartform-to-adobe/mapping.md`). The `full` and `sap-default` option presets are modelled. Running the migration on DEV and `/sc4sap:adobe-from-pdf` (skeleton) await approval. Shared metrics and gates for the Adobe skills are in `common/adobe-forms-verification.md`.
-- **Portfolio weekly status.** `/sc4sap:project-dashboard` `portfolio-status` puts every project of the folder on one weekly page: projects by RAG with the change against last week, progress and its change, late items, go-live and cutover D-days, milestones and Q-gates of this week and next week (Monday … Sunday), open high risks and pending decisions with overdue marks, WRICEF stages with hand-offs, and team load across projects (overloaded = more than 20 open items or more effort left than the next two weeks' working days). Output is HTML (A4 landscape, cards on phones), JSON (next week's comparison) and Excel. `scripts/project/project-portfolio.mjs` is shared with the web workbench, which passes its own project views. The existing portfolio page is unchanged.
+  Every rule names its SAP method (`skills/smartform-to-adobe/mapping.md`). The `full` and `sap-default` option presets are modelled. S/4HANA and ECC share one `CL_SSF_MIGRATION`, so there are no per-release rules. `scripts/adobe/compare-migration.mjs` compares a plan with the form SAP actually produced; `sf-to-adobe-emit.mjs` is a fallback emitter for when the migration can't run. `/sc4sap:adobe-from-pdf` is a skeleton. Shared metrics and gates for the Adobe skills are in `common/adobe-forms-verification.md`.
+- **SmartForm → Adobe migration on DEV.** `abap/zmcp_fp_migrate.abap` (dispatcher action `FP_MIGRATE`, MCP `CreateAdobeFormFromSmartForm`) runs SAP's own migration steps into new `ZSC4SAP_AFM_*` names in `$TMP`. It never overwrites an existing name. Before the save it fixes what SAP's run leaves broken:
+  - duplicate sibling context nodes are renamed (G1, G1b)
+  - each layout gets its own id, hash and cache info, so ADS no longer serves one cached template for every migrated form (G4)
+  - include texts in the SmartForm run language print in the form's output language (G2)
+  - an optional sender country is set on address nodes without one (G3a)
+- **Adobe form reader and renderer.** `abap/zmcp_fp_content.abap` (dispatcher actions `FP_CONTENT`, `FP_RENDER`) reads the form, the layout XDP and the interface, runs SAP's own form check (part `CHECK`, nothing saved), and renders SAP example forms to PDF with no spool and no device. Customer forms are refused for rendering.
+- **`/sc4sap:adobe-preview`.** Draws an Adobe form from its XDP (master pages, positioned and flowed subforms, tables, page breaks, a small FormCalc) with sample data and scores the drawing against SAP's own PDF. Barcode, fonts, browser and metrics moved to `scripts/forms-common`, shared with the SmartForm renderer (SmartForm output unchanged).
+- **S/4 SmartForm render helper.** `abap/zmcp_ssf_render_s4.abap` renders SmartForms to PDF on a DEV client of an S/4HANA system: allow-list only, no spool.
+- **RAP / S/4 objects in `/sc4sap:create-object`.** Stack mode: table (+ draft table) → root view entity → projection → behavior definition and pool → projection behavior → metadata extension → service definition, with source templates. A release gate refuses CDS / RAP types on ECC with a clear message and no MCP call. Manual steps are listed where no MCP tool exists (binding publish, access control).
+- **Portfolio weekly status.** `/sc4sap:project-dashboard` `portfolio-status` puts every project of the folder on one weekly page: projects by RAG with the change against last week, progress and its change, late items, go-live and cutover D-days, milestones and Q-gates of this week and next week (Monday … Sunday), open high risks and pending decisions with overdue marks, WRICEF stages with hand-offs, team load across projects (overloaded = more than 20 open items or more effort left than the next two weeks' working days), and an owner (PM) column. Output is HTML (A4 landscape, cards on phones), JSON (next week's comparison) and Excel. `scripts/project/project-portfolio.mjs` is shared with the web workbench. The existing portfolio page is unchanged.
+- **Workbench functions for the web.** Pure functions shared by the CLI and the web, with the same results:
+  - project: cutover run, status, text-only AI edits, Excel
+  - roles: read over a passed connection, sync merge, text-only AI edits, Excel
+  - gap analysis: blank documents, rows added by hand, per-row requirement / effort / owner / decision / WBS link, Excel
+  - SmartForm preview: HTML without a browser, an inspect mode, fields from DDIC, sample values
+  - UAT: the set page runs inside the workbench
+  - Project, role and UAT pages take an embed mode (no file save, drafts or Ctrl+S).
+- **Reviewed decisions in `/sc4sap:config-to-document`.** `notes.mjs kb-scrub --decisions <file>`: words reviewed as standard SAP terms stop counting as flags; listed per-file edits apply only to the exact file inside the knowledge base. The decision file stays local.
+- **Bridge remote mode.** `SC4SAP_MCP_REMOTE_URL` + `_TOKEN` run the MCP over HTTP to a backend relay, with no local `sap.env`, profile or vendor read (https or private hosts only).
+
+### Changed
+- MCP pin → abap-mcp-adt-powerup 4.13.0 (`c82125e`): `GetAdobeFormContent`, `RenderAdobeForm`, `CreateAdobeFormFromSmartForm`; `values_file` only inside the MCP output folder or `.sc4sap/work/<alias>`; every table of a `FROM` list checked against the blocklist.
+- Hooks: `tier-readonly-guard` blocks `RenderSmartForm` / `RenderAdobeForm` on QA and PRD (they run the form's own code). The table blocklist hook reads every table of a `FROM` list (commas, aliases, brackets), like the MCP server and the web backend.
+- SmartForm symbols: `<(>…<)>` protected text, `&'pre'F'post'&` (pre / post print only when F is not initial), `&&` prints `&`, comment lines skipped.
+
+### Fixed
+- `/sc4sap:analyze-symptom`: job / IDoc facts are collected by the main thread before any agent runs; if collecting fails, the run stops with the failed command and the TCode to use (SM37 / WE02 / BD87) instead of analysing without facts.
+- `/sc4sap:analyze-symptom`: a job history cut off at the read limit is detected and re-read, so the failed run and the last good run are not lost.
+- `/sc4sap:project-dashboard`: SAP actuals reads that come back full count as cut off and are reported; transport texts and inactive objects read 200 keys per call.
+- `/sc4sap:config-to-document`: `kb-scrub` edits never touch an entry's metadata keys.
+- `/sc4sap:module-to-process`: the gap page links the process map only through a plain relative `.html` path.
 
 ## [0.6.68] — 2026-11-16
 
