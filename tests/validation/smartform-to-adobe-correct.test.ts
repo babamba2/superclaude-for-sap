@@ -119,3 +119,27 @@ describe('smartform-to-adobe: block offsets (R10) and the exact DateFmt form (R3
     expect(other.notes.join(' ')).toMatch(/DateFmt script not in the one form/);
   });
 });
+
+describe('smartform-to-adobe: R9 / R3 guards (conv-r4)', () => {
+  const xdp = (script = '') => `<?xml version="1.0" encoding="utf-8"?><xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform name="ZDEMO" layout="tb"><pageSet><pageArea name="P1"><contentArea x="2cm" y="2cm" w="16cm" h="20cm"/></pageArea></pageSet>
+<subform name="MAIN" layout="tb"><subform name="TAB" layout="table">
+<subform name="HEAD_ROW" layout="row"><draw name="H"><value><text>Amount</text></value></draw></subform>
+<subform name="DATA_ROW" layout="row"><draw name="A"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml"><div><span xfa:embed="WA.AMT"/></div></div></exData></value></draw></subform>
+</subform><subform name="INFO" layout="tb"><field name="DATUM"><event activity="initialize"><script>${script}</script></event></field></subform></subform></subform></template></xdp:xdp>`;
+  const page = (texts: [number, number, string][]) => ({ pages: [{ w: 210, h: 297, lines: [], texts: texts.map(([x, y, text]) => ({ x, y, text })) }] });
+  // data rows at 5.12 mm (SmartForm) / 3.53 mm (migrated) inside MAIN; an address column outside MAIN at 4.23 mm in both
+  const rows = (p: number) => [0, 1, 2, 3].flatMap((i) => [[30, 100 + i * p, `K${i}`], [60, 100 + i * p, `A${i}`]] as [number, number, string][]);
+  const addr = [0, 1, 2, 3, 4].map((i) => [20, 40 + i * 4.23, `Line ${i}`] as [number, number, string]);
+  const content = { pages: [{ windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 20, topMm: 90, widthMm: 160, heightMm: 150 }] }] };
+  it('R9 measures inside the MAIN window only and pads data rows only (not a static header row)', () => {
+    const ops = correctionSpec({ content, layoutXdp: xdp(), sfPdf: page([...addr, ...rows(5.12)]), afPdf: page([...addr, ...rows(3.53)]) }).ops.filter((o: any) => o.rule === 'R9');
+    expect(ops).toEqual([expect.objectContaining({ target: { path: 'ZDEMO.MAIN.TAB.DATA_ROW' }, bottomInset: '1.59mm' })]);
+  });
+  it('R3 leaves a script that converts with Num2Date alone (it printed the picture braces)', () => {
+    const script = '$.format.picture = DateFmt(2, $.locale); $ = Num2Date( date(), $.format.picture );';
+    const s = correctionSpec({ content, layoutXdp: xdp(script), sfPdf: page([[120, 60, '11/17/2026']]), afPdf: page([[120, 60, 'Nov 17, 2026']]) });
+    expect(s.ops.some((o: any) => o.rule === 'R3')).toBe(false);
+    expect(s.notes.join(' ')).toMatch(/DATUM/);
+  });
+});

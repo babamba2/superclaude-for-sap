@@ -21,7 +21,8 @@
 //   R6 / R7 hidden-field holders hidden; their embedded fields get the embedding span's font (see the code).
 //   R8 A right / center paragraph of embedded values only → embedLead (ADS aligns it only with a blank before it).
 //   R9 Row pitch (calibration on a print that has the structural rules): SmartForm pitch − migrated pitch as bottom
-//      inset on every table row subform (layout row).
+//      inset on every table row subform (layout row) that holds embedded values (a static header row keeps its
+//      height); only texts inside the SmartForm's MAIN window are measured. R3 leaves Num2Date scripts alone.
 //   R10 Block offsets (calibration, same print as R9): static texts (draw <value>, no embeds) found moved anchor their
 //      flowed block (a child of MAIN, or a proto root such as a table header leader); per block the median dy becomes
 //      top inset, in print order, counting the insets of earlier blocks (an inset moves everything after it).
@@ -169,12 +170,14 @@ function embedOnlyAligned(draw) {
 /** Row pitch of the repeated table rows: per column (same x within 0.5 mm), the median step between texts that come
  *  at least three times one under the other; the SmartForm print against the migrated print over the columns both
  *  have. null when no column repeats. */
-function rowPitchDelta(sfPdf, afPdf) {
+function rowPitchDelta(sfPdf, afPdf, box = null) {
+  // only texts inside the SmartForm's MAIN window count (address / info windows repeat lines too)
+  const inBox = (r) => !box || (r.x >= box.leftMm - 1 && r.x <= box.leftMm + box.widthMm + 1 && r.y >= box.topMm - 1 && r.y <= box.topMm + box.heightMm + 1);
   const pitch = (src) => {
     // a PDF, or (tests) a layout JSON { pages: [{ texts: [{ x, y, text }] }] }
     const runs = Buffer.isBuffer(src) || src instanceof Uint8Array ? readPdf(src).page?.runs : src?.pages?.[0]?.texts;
     const cols = new Map();
-    for (const r of runs || []) {
+    for (const r of (runs || []).filter(inBox)) {
       const k = Math.round(r.x * 2) / 2;
       (cols.get(k) || cols.set(k, []).get(k)).push(r.y);
     }
@@ -197,6 +200,9 @@ function rowPitchDelta(sfPdf, afPdf) {
  *  one script edit ZMCP_FP_MIGRATE allows), else picture. */
 function dateOp(target, script, pic, text) {
   const evidence = `SmartForm prints ${text.replace(/\d/g, '9')}`;
+  // a script that converts with Num2Date( …, $.format.picture ) cannot take a date{…} literal (EX35 printed
+  // "{11/17/2026}"): no op
+  if (/Num2Date/.test(script)) return null;
   if (!/DateFmt/.test(script)) return { op: 'picture', target, format: pic, rule: 'R3', evidence };
   // the FM's datePicture takes exactly one "$.format.picture = DateFmt(<n>, $.locale)"; any other DateFmt use: no op
   const n = (script.match(/\$\.format\.picture\s*=\s*DateFmt\(\s*\d\s*,\s*\$\.locale\s*\)/g) || []).length;
@@ -290,10 +296,14 @@ export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, 
   // R9 — table row pitch (calibration, measured on a print that already has the structural rules): the SmartForm's row
   // pitch minus the migrated one becomes extra bottom inset on every table row subform
   if (sfPdf && afPdf) {
-    const d = rowPitchDelta(sfPdf, afPdf);
+    const main = content?.pages?.[0]?.windows?.find((w) => w.type === 'MAIN') || null;
+    const d = rowPitchDelta(sfPdf, afPdf, main);
     if (d && Math.abs(d.delta) >= 0.25) {
+      const embeds = (el) => (el.children || []).some((c) => c.attrs?.['xfa:embed'] || c.attrs?.embed || embeds(c));
       for (const { node, target } of allTargets(t)) {
-        if (node.tag !== 'subform' || node.attrs?.layout !== 'row') continue;
+        // data rows only: a header row of static texts keeps its height (EX35: the header row's inset pushed every
+        // row 2.8 mm down once R10 had put the header in place)
+        if (node.tag !== 'subform' || node.attrs?.layout !== 'row' || !embeds(node)) continue;
         const bottom = unit(kids(node, 'margin')[0]?.attrs?.bottomInset, 0);
         ops.push({ op: 'margin', target, bottomInset: mm(Math.max(0, bottom + d.delta)), rule: 'R9', evidence: `row pitch SmartForm ${d.sf} mm, migrated ${d.af} mm (${d.n} columns)` });
       }
