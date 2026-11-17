@@ -942,6 +942,16 @@ class Renderer {
       this.waRow[wa] = j;
       if (!where.length || this.printsHere({ COND: where })) rowsHere.push(j);
     }
+    // an old (4.6) table keeps its rows in the order given although its sort criteria name the field (SF_SUBTOTALS
+    // with NEW_TABLE_TYPE initial: ZZ, ZZ, ZY, ZY print in that order; the new table sorts — below)
+    // a loop with sort events sorts as the new table does (tableInner); ascending assumed, stable
+    if (n.kind === 'loop') {
+      const sf = [...new Set(sortEv('S').concat(sortEv('E')).map((e) => e.attrs.SFIELD))];
+      if (sf.length) {
+        rowsHere.sort((a, b) => { for (const f of sf) { const c = String(key(a, f) ?? '').localeCompare(String(key(b, f) ?? '')); if (c) return c; } return a - b; });
+        this.approx.push(`${n.name}: rows sorted by ${sf.join(', ')} (sort criteria without a sort event are not known)`);
+      }
+    }
     rowsHere.forEach((i, k) => {
       this.row = i;
       this.waRow[wa] = i;
@@ -1096,6 +1106,16 @@ class Renderer {
     // takes one value per group (values.json: an array by group, V_POQTY ["30","5"])
     const sortEv = (t) => kids.filter((c) => c.kind === 'event' && c.attrs?.EVTYPE === t && c.attrs?.SFIELD);
     const key = (i, f) => { const v = this.values[`${wa}-${f}`]; return Array.isArray(v) ? v[i % v.length] : v; };
+    // a table / loop with sort criteria runs over its rows sorted ascending by them before the loop — the criteria
+    // known here are the sort event fields, which only sort criteria have (SF_SUBTOTALS new table: rows ZZ, ZZ, ZY, ZY
+    // print ZY first; its node carries no SORTEXIST flag; the old table above does not sort); ascending assumed, stable
+    {
+      const sf = [...new Set(sortEv('S').concat(sortEv('E')).map((e) => e.attrs.SFIELD))];
+      if (sf.length) {
+        rowsHere.sort((a, b) => { for (const f of sf) { const c = String(key(a, f) ?? '').localeCompare(String(key(b, f) ?? '')); if (c) return c; } return a - b; });
+        this.approx.push(`${n.name}: rows sorted by ${sf.join(', ')} (sort criteria without a sort event are not known)`);
+      }
+    }
     // group number per sort field: counts up where a group starts
     const groups = {};
     const groupRows = (e) => { this.row = groups[e.attrs.SFIELD] ?? 0; return rowsOf(e.children || []); };

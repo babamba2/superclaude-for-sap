@@ -66,7 +66,7 @@ describe('adobe-preview: SmartStyle paragraphs as SAP hands them to ADS (styleFo
   it('numbers outline paragraphs (chained, closing character) and turns SAPscript codes into text', () => {
     const p = itfParagraphs([{ f: 'H1', t: 'One' }, { f: 'H2', t: 'One one' }, { f: 'H2', t: 'One two' }, { f: 'H1', t: 'Two' }, { f: 'H2', t: 'Two one' },
       { f: 'TZ', t: '<280>,,Ograve <ZT>low</> <(>x<)>' }], f);
-    expect(p.map((x: any) => x.text)).toEqual(['1. One', '1.1. One one', '1.2. One two', '2. Two', '2.1. Two one', '?\tOgrave low <x>']);
+    expect(p.map((x: any) => x.text)).toEqual(['1. One', '1.1. One one', '1.2. One two', '2. Two', '2.1. Two one', 'Ò\tOgrave low <x>']);
     expect(p[5].style).toContain('tab-stops:right 15mm left 100mm');
     expect(p[0].style).toContain('margin-left:10mm');
   });
@@ -91,5 +91,78 @@ describe('adobe-preview: a growable field longer than the page splits between it
     expect(all.length).toBe(120);
     expect(new Set(all).size).toBe(120);
     for (const p of out.pages) for (const t of texts(p)) expect(t.y).toBeLessThanOrEqual(10 + 200 + 0.01);
+  });
+});
+
+describe('adobe-preview: FP_TEST_01 calibration (SAP characters, character formats, spacing, justify, split pieces)', () => {
+  // synthetic rows in the shape of STXSPARA / STXSHEAD / STXSCHAR (values as in FP_TEST_01's style)
+  const head = { TDFIRSTPAR: 'AL', LPI: '6.00', CPI: '10.00', TDFAMILY: 'COURIER', TDHEIGHT: '120' };
+  const para = [
+    { TDPARGRAPH: 'AL', TDPJUSTIFY: 'LEFT', TDPLDIST: '1.00', TDPLDISTU: 'LN', TDPBOT: '1.00', TDPBOTU: 'LN' },
+    { TDPARGRAPH: 'TZ', TDPJUSTIFY: 'LEFT', TDPLDIST: '1.00', TDPLDISTU: 'LN', TDPLEFT: '1.00', TDPLEFTU: 'CM' },
+    { TDPARGRAPH: 'AB', TDPJUSTIFY: 'BLOCK', TDPLDIST: '1.00', TDPLDISTU: 'LN', TDPBOT: '1.00', TDPBOTU: 'LN' },
+  ];
+  const chars = [
+    { TDSTRING: 'FH', TDFAMILY: 'HELVE', TDHEIGHT: '000', TDBOLD: '*' },
+    { TDSTRING: 'K8', TDHEIGHT: '080', TDBOLD: '*' },
+    { TDSTRING: 'ZF', TDHEIGHT: '000', TDBOLD: 'X' },
+    { TDSTRING: 'ZH', TDHEIGHT: '000', TDSUPER: 'X' },
+  ];
+  const f = styleFormats(para, head, [], chars);
+  it('prints SAP characters by their TCP01 number; an unknown 3-digit one keeps its width as ?', () => {
+    const p = itfParagraphs([{ f: 'TZ', t: '<33>,,exclam,,<303>,,brokenbar <999>' }], f);
+    expect(p[0].text).toBe('!\texclam\t¦\tbrokenbar ?');
+  });
+  it('turns character formats into spans that run to the end of the paragraph unless closed', () => {
+    const p = itfParagraphs([{ f: 'AL', t: '<FH><K8>Small Helvetica' }, { f: '', t: 'still small' }, { f: '/', t: '<ZF>bold</> plain <ZH>up</>' }], f);
+    expect(p[0].text).toBe('Small Helvetica still small\nbold plain up');
+    const s = p[0].spans;
+    expect(s[0]).toEqual({ text: 'Small Helvetica still small\n', style: 'font-family:Arial;font-size:8pt' });
+    expect(s.find((x: any) => x.text === 'bold').style).toBe('font-family:Arial;font-size:8pt;font-weight:bold');
+    expect(s.find((x: any) => x.text === 'up').style).toContain('vertical-align:+6pt');
+    // a paragraph without character formats keeps plain text only
+    expect(itfParagraphs([{ f: 'AL', t: 'plain' }], f)[0].spans).toBeUndefined();
+  });
+  it('takes a missing margin from the default paragraph, as ADS inherits it from the wrapping div', () => {
+    const p = itfParagraphs([{ f: 'TZ', t: 'A B C' }], f);
+    expect(p[0].style).toContain('margin-bottom:4.23mm');
+    expect(p[0].style).toContain('margin-left:10mm');
+  });
+  const page = (body: string, orig = '') => `<?xml version="1.0" encoding="utf-8"?><xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.4/">
+<subform layout="tb" name="data"><pageSet><pageArea name="P1"><contentArea x="10mm" y="10mm" w="100mm" h="60mm"/><medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>
+<subform layout="tb" name="S" w="100mm">${body}</subform></subform>${orig}</template></xdp:xdp>`;
+  const field = (name: string, para = '') => `<field name="${name}" w="100mm" minH="7mm"><ui><textEdit multiLine="1"/></ui><value><exData contentType="text/html"/></value><font typeface="Courier New" size="12pt"/><margin topInset="1mm" bottomInset="1mm" leftInset="1mm" rightInset="1mm"/>${para}</field>`;
+  const texts = (p: any) => p.items.filter((i: any) => i.type === 'text');
+  it('moves a super- / subscript span by the CSS length SAP writes (+6pt / -6pt)', () => {
+    const rich = [{ text: 'a up b', style: 'font-family:Courier New;font-size:12pt', spans: [{ text: 'a ', style: '' }, { text: 'up', style: 'vertical-align:+6pt' }, { text: ' b', style: '' }] }];
+    const out = layoutForm(readXdp(page(field('T'))).template, { name: 'data', children: [{ name: 'T', rich, text: '' }] }, {});
+    const t = texts(out.pages[0]);
+    const up = t.find((x: any) => x.text === 'up'), a = t.find((x: any) => x.text.startsWith('a'));
+    expect(a.y - up.y).toBeCloseTo(6 * 25.4 / 72, 2);
+  });
+  it('spreads the word gaps of a justified line except a paragraph\'s last line', () => {
+    const words = Array.from({ length: 14 }, (_, i) => `w${i}`).join(' ');
+    const rich = [{ text: words, style: 'font-family:Courier New;font-size:12pt;text-align:justify' }];
+    const out = layoutForm(readXdp(page(field('T'))).template, { name: 'data', children: [{ name: 'T', rich, text: '' }] }, {});
+    const t = texts(out.pages[0]);
+    expect(t.length).toBeGreaterThan(1);
+    expect(t[0].ws).toBeGreaterThan(0);
+    expect(t[t.length - 1].ws).toBeUndefined();
+  });
+  it('keeps a value 1 pt off the field edge in a template upgraded from XFA 2.1', () => {
+    const rich = [{ text: 'x', style: 'font-family:Courier New;font-size:12pt' }];
+    const rec = { name: 'data', children: [{ name: 'T', rich, text: '' }] };
+    const plain = texts(layoutForm(readXdp(page(field('T'))).template, rec, {}).pages[0])[0].x;
+    const old = texts(layoutForm(readXdp(page(field('T'), '<?originalXFAVersion http://www.xfa.org/schema/xfa-template/2.1/?>')).template, rec, {}).pages[0])[0].x;
+    expect(old - plain).toBeCloseTo(25.4 / 72, 2);
+  });
+  it('aligns a split middle field by its first piece; continuation pages start at the top; a paragraph keeps its space after on the page', () => {
+    const rich = Array.from({ length: 30 }, (_, i) => ({ text: `L${i}`, style: 'font-family:Courier New;font-size:12pt;line-height:4.23mm' }));
+    const out = layoutForm(readXdp(page(field('T', '<para vAlign="middle"/>'))).template, { name: 'data', children: [{ name: 'T', rich, text: '' }] }, {});
+    expect(out.pages.length).toBeGreaterThan(1);
+    // page 2 starts at the content area's top (10 mm + the Courier line's baseline under a 4.23 mm line-height)
+    expect(texts(out.pages[1])[0].y).toBeCloseTo(10 + 2.66, 1);
+    // no paragraph's line box plus its space after runs past the content area
+    for (const p of out.pages) for (const t of texts(p)) expect(t.y).toBeLessThanOrEqual(70);
   });
 });

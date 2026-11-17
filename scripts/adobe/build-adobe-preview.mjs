@@ -128,6 +128,8 @@ function itemSvg(it, inspect) {
     const a = [`x="${r2(it.x)}"`, `y="${r2(it.y)}"`, `font-size="${r2(it.pt * PT)}"`, `font-family="${FAMILY(it.font)}"`];
     if (it.bold) a.push('font-weight="bold"');
     if (it.italic) a.push('font-style="italic"');
+    // a justified line: its word gaps spread (adobe-layout ws, mm)
+    if (it.ws) a.push(`word-spacing="${r2(it.ws)}"`);
     if (it.color && it.color !== '#000000') a.push(`fill="${esc(it.color)}"`);
     if (inspect) { a.push(`data-som="${esc(it.som || '')}"`, `data-role="${it.role || ''}"`); if (it.bind) a.push(`data-bind="${esc(it.bind)}"`); }
     // no kerning: ADS sets the standard fonts without kerning pairs

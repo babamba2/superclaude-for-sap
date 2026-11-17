@@ -33,7 +33,11 @@ export function parseXml(text) {
   };
   while ((m = re.exec(String(text)))) {
     if (m[1] !== undefined) addText(m[1]);
-    else if (m[2]) {
+    else if (m[0].startsWith('<?')) {
+      // processing instructions stay with their element as el.pi (Designer: <?originalXFAVersion …?> in <template>)
+      const top = stack[stack.length - 1];
+      if (top !== root) (top.pi ||= []).push(m[0].slice(2, -2).trim());
+    } else if (m[2]) {
       const top = stack[stack.length - 1];
       if (top.tag !== m[2]) throw new Error(`XML: </${m[2]}> closes <${top.tag}>`);
       stack.pop();

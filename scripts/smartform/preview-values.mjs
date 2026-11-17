@@ -33,8 +33,9 @@ function fmtNum(v, dec, { decimal = '.', group = ',' } = {}) {
   if (!Number.isFinite(n)) return String(v ?? '');
   const [ip, fp] = Math.abs(n).toFixed(dec).split('.');
   const g = ip.replace(/\B(?=(\d{3})+(?!\d))/g, group);
-  // SAP writes the minus sign after the number
-  return `${g}${fp ? decimal + fp : ''}${n < 0 ? '-' : ''}`;
+  // SAP writes the minus sign after the number, a positive number keeps that place as a blank (a right-aligned
+  // amount ends one character short of the cell: SF_SUBTOTALS / SF_TOTALS on S4-DEV, build-preview R60)
+  return `${g}${fp ? decimal + fp : ''}${n < 0 ? '-' : ' '}`;
 }
 
 /** Work areas the form's loops and tables use for each data table (TABLE → [WA …]). */

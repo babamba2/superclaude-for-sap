@@ -308,7 +308,14 @@ function runFont(base, st) {
   if (st['font-family']) f.face = st['font-family'].replace(/['"]/g, '').split(',')[0].trim();
   if (st.color) f.color = st.color;
   if (st['text-decoration']) f.underline = /underline/.test(st['text-decoration']);
-  if (st['vertical-align']) f.valign = /super|top/.test(st['vertical-align']) ? 'super' : /sub|bottom/.test(st['vertical-align']) ? 'sub' : '';
+  // keywords, or a length as SAP's runtime writes super- / subscript ("+6pt" up, "-6pt" down)
+  // (moved by exactly that length: FP_TEST_01 ±2.12 mm)
+  if (st['vertical-align']) {
+    const va = st['vertical-align'].trim();
+    const len = /^[+-]?\d/.test(va) ? unit(va.replace(/^\+/, ''), 0) : 0;
+    f.valign = len > 0 || /super|top/.test(va) ? 'super' : len < 0 || /sub|bottom/.test(va) ? 'sub' : '';
+    f.vlen = len || undefined;
+  }
   if (st.visibility) f.hidden = /hidden/.test(st.visibility);
   return f;
 }
@@ -334,11 +341,16 @@ function dataParagraphs(rich, font) {
     const st = parseStyle(p.style);
     const f = runFont(font, st);
     const runs = [];
-    // '\t' (SAPscript ",,") steps to the paragraph's tab stops, as xfa-tab-count does in SAP's XHTML
-    String(p.text).split('\n').forEach((piece, i) => {
-      if (i) runs.push({ br: true, font: f });
-      piece.split('\t').forEach((seg, k) => { if (k) runs.push({ tab: true, text: '', font: f }); if (seg || !k) runs.push({ text: seg, font: f }); });
-    });
+    // '\t' (SAPscript ",,") steps to the paragraph's tab stops, as xfa-tab-count does in SAP's XHTML; spans (character
+    // formats) carry their own CSS on top of the paragraph's
+    const spans = Array.isArray(p.spans) && p.spans.length ? p.spans : [{ text: p.text, style: '' }];
+    for (const sp of spans) {
+      const sf = sp.style ? runFont(f, parseStyle(sp.style)) : f;
+      String(sp.text).split('\n').forEach((piece, i) => {
+        if (i) runs.push({ br: true, font: sf });
+        piece.split('\t').forEach((seg, k) => { if (k) runs.push({ tab: true, text: '', font: sf }); if (seg || !k) runs.push({ text: seg, font: sf }); });
+      });
+    }
     const tabs = st['tab-stops'] ?? st['tab-stop'];
     return { runs, st, ...(tabs ? { tabs: tabStops(tabs) } : {}) };
   });
@@ -438,7 +450,7 @@ function wrapParagraphs(paras, width0, wrap) {
     const push = () => { lines.push(line); line = { runs: [], w: 0, para: p, first: false }; };
     for (const r of p.runs) {
       line.font0 = line.font0 || r.font;
-      if (r.br) { trimTail(line); push(); line.font0 = r.font; continue; }
+      if (r.br) { trimTail(line); line.hard = true; push(); line.font0 = r.font; continue; }
       if (r.tab) {
         // the tab takes the room up to the next stop (exact alignment of right / centre / decimal stops is done
         // when the line is placed); past the last stop the default distance
@@ -638,6 +650,15 @@ function blockHeight(shape) {
 }
 
 /** XFA template version of a template element (xmlns …/xfa-template/2.1/ → 2.1). */
+/** A layout item moved down by dy mm (text, image and rect y; line y1 / y2). */
+function shiftItem(it, dy) {
+  const o = { ...it };
+  if (o.y !== undefined) o.y += dy;
+  if (o.y1 !== undefined) o.y1 += dy;
+  if (o.y2 !== undefined) o.y2 += dy;
+  return o;
+}
+
 function templateVersion(t) {
   const m = /xfa-template\/(\d+)\.(\d+)/.exec(String(t?.attrs?.xmlns || ''));
   return m ? Number(m[1]) + Number(m[2]) / 10 : 2.8;
@@ -703,6 +724,11 @@ class Layout {
     // XFA 2.1 (Designer 6) lays text out in 1.15 em line boxes; 2.2 (SAP's SmartForm migration) already
     // follows the 2.4+ rules (EX14: first baselines and pitches as on the 2.8 calibration form)
     this.legacy = this.version < 2.2;
+    // a template Designer upgraded from XFA 2.1 (<?originalXFAVersion …/2.1/?>) keeps a field's value 1 pt off its
+    // left and right edge (FP_TEST_01: every include-text line 0.35 mm right, right-aligned Courier lines wrap one
+    // word earlier)
+    this.edgePt = !this.legacy && templateVersion({ attrs: { xmlns: (template?.pi || []).find((p) => /^originalXFAVersion/.test(p)) || '' } }) < 2.2
+      && (template?.pi || []).some((p) => /^originalXFAVersion/.test(p));
   }
 
   embed(ref, n) {
@@ -785,7 +811,7 @@ class Layout {
         const tw = Math.max(0, ...one.lines.map((l) => l.w));
         w = Math.min(maxW, Math.max(minW, tw + m.l + m.r + capW + um.l + um.r + content.para.marginLeft + content.para.marginRight));
       }
-      const innerW = w - m.l - m.r - capW - um.l - um.r;
+      const innerW = w - m.l - m.r - capW - um.l - um.r - (this.edgePt && n.kind === 'field' ? 2 * PT : 0);
       if (!content.image) { n.shape = shapeText(content, innerW, multi, this.pitch(n, content)); n.shape.rich = !!content.rich; }
       let h = fixedH;
       if (h === null) {
@@ -1020,13 +1046,15 @@ class Layout {
       // XFA 2.4+: one line = ascent + descent; a plain multi-line field starts one line gap lower
       const blockH = blockHeight(shape);
       const lead = n?.kind === 'field' && n.ui?.multiLine && !shape.rich && !caption ? VMETRICS.gap * em : 0;
-      // text taller than its box starts at the top (measured: a two-line caption in a smaller reserve)
-      if (para.vAlign === 'middle') top = cy + Math.max(0, (ch - blockH) / 2);
+      // text taller than its box starts at the top (measured: a two-line caption in a smaller reserve); the
+      // pieces of a field split over pages align per piece (layout flow, f.shift)
+      if (this.splitPiece && n?.kind === 'field' && !caption) top = cy + lead;
+      else if (para.vAlign === 'middle') top = cy + Math.max(0, (ch - blockH) / 2);
       else if (para.vAlign === 'bottom') top = cy + Math.max(0, ch - blockH);
       else top = cy + lead;
     }
     // legacy fields keep their value 1 pt off the left and right edge
-    if (this.legacy && n?.kind === 'field' && !caption) { cx += PT; cw -= 2 * PT; }
+    if ((this.legacy || this.edgePt) && n?.kind === 'field' && !caption) { cx += PT; cw -= 2 * PT; }
     const som = this.som(n);
     // labels for the score: a field value (or a line with embedded field values), a repeated row
     const row = repeated(n);
@@ -1048,6 +1076,13 @@ class Layout {
       const lead0 = l.runs[0]?.text.match(/^ */)[0] || '';
       const lw = l.w;
       const align = (embedOnly ? undefined : (l.para.st || {})['text-align']) || para.hAlign;
+      // justified (SmartStyle BLOCK → text-align justify): every line but a paragraph's last and a line ended by a
+      // line break spreads its word gaps to the full width (FP_TEST_01 paragraph AB); lines with tabs stay as they are
+      const li = lines.indexOf(l);
+      const lastLine = li === lines.length - 1 || lines[li + 1].para !== l.para || l.hard;
+      const inner = text.replace(/^[  ]+|[  ]+$/g, '');
+      const gaps = (inner.match(/[  ]/g) || []).length;
+      const ws = align === 'justify' && !lastLine && gaps && avail > lw && !l.runs.some((r) => r.tab) ? (avail - lw) / gaps : 0;
       if (align === 'right') x += avail - lw;
       else if (align === 'center') x += (avail - lw) / 2;
       else if (align === 'radix') {
@@ -1064,7 +1099,7 @@ class Layout {
       for (const r of l.runs) {
         const prev = merged[merged.length - 1];
         if (r.tab) { merged.push({ tab: true, text: '', font: r.font, stop: r.stop }); continue; }
-        if (prev && !prev.tab && prev.font.pt === r.font.pt && !!prev.font.hidden === !!r.font.hidden && (prev.font.valign || '') === (r.font.valign || '') && prev.font.bold === r.font.bold && prev.font.italic === r.font.italic && prev.font.face === r.font.face && prev.font.color === r.font.color && !!prev.font.underline === !!r.font.underline) prev.text += r.text;
+        if (prev && !prev.tab && prev.font.pt === r.font.pt && !!prev.font.hidden === !!r.font.hidden && (prev.font.valign || '') === (r.font.valign || '') && prev.font.vlen === r.font.vlen && prev.font.bold === r.font.bold && prev.font.italic === r.font.italic && prev.font.face === r.font.face && prev.font.color === r.font.color && !!prev.font.underline === !!r.font.underline) prev.text += r.text;
         else merged.push({ text: r.text, font: r.font });
       }
       for (let mi = 0; mi < merged.length; mi++) {
@@ -1097,15 +1132,18 @@ class Layout {
         // 17.64 / 35.28 mm; EX10: one blank before a value), not the font's 0.278 em; Courier keeps its 0.6 em, a
         // field value its font's blanks (FP_TEST_03: padded amounts)
         const leadW = (k) => (!started && n?.kind !== 'field' && !/courier/i.test(r.font.face) ? k * 0.5 * r.font.pt * PT : textWidthMm(' '.repeat(k), r.font.pt, { bold: r.font.bold, face: r.font.face }));
-        const pw = textWidthMm(trimmed, r.font.pt, { bold: r.font.bold, face: r.font.face }) + leadW(skip);
-        const sx = rx + leadW(skip);
+        const lastPiece = !merged.slice(mi + 1).some((q) => !q.tab && q.text.trim());
+        const gapsIn = ws ? ((lastPiece ? trimmed.replace(/[  ]+$/, '') : trimmed).match(/[  ]/g) || []).length + (started ? skip : 0) : 0;
+        const pw = textWidthMm(trimmed, r.font.pt, { bold: r.font.bold, face: r.font.face }) + leadW(skip) + gapsIn * ws;
+        const sx = rx + leadW(skip) + (started ? skip * ws : 0);
         if (trimmed) started = true;
-        if (r.font.valign) this.report.approximations.push(`${r.font.valign}script text: raised / lowered by 1/3 em (not measured)`);
-        const vshift = r.font.valign === 'super' ? -0.33 * r.font.pt * PT : r.font.valign === 'sub' ? 0.2 * r.font.pt * PT : 0;
-        if (trimmed.trim() && !r.font.hidden) items.push({ type: 'text', x: sx, y: baseline + vshift, text: trimmed.replace(/ +$/, '').replace(/ /g, ' '), pt: r.font.pt, bold: r.font.bold, italic: r.font.italic, font: r.font.face, color: r.font.color, som, ...(n?.data?.field ? { bind: n.data.field } : {}), role, ...(row ? { row: true } : {}), lines: lines.length });
+        if (r.font.valign && !r.font.vlen) this.report.approximations.push(`${r.font.valign}script text: raised / lowered by 1/3 em (not measured)`);
+        const vshift = r.font.vlen ? -r.font.vlen : r.font.valign === 'super' ? -0.33 * r.font.pt * PT : r.font.valign === 'sub' ? 0.2 * r.font.pt * PT : 0;
+        if (trimmed.trim() && !r.font.hidden) items.push({ type: 'text', x: sx, y: baseline + vshift, text: trimmed.replace(/ +$/, '').replace(/ /g, ' '), pt: r.font.pt, bold: r.font.bold, italic: r.font.italic, font: r.font.face, color: r.font.color, som, ...(n?.data?.field ? { bind: n.data.field } : {}), role, ...(row ? { row: true } : {}), ...(ws ? { ws } : {}), lines: lines.length });
         if (r.font.underline && trimmed.trim()) {
           // measured on ADS output: 0.09 em below the baseline, 0.033 em thick
-          const uw = textWidthMm(trimmed.replace(/[  ]+$/, ''), r.font.pt, { bold: r.font.bold, face: r.font.face });
+          const ut = trimmed.replace(/[  ]+$/, '');
+          const uw = textWidthMm(ut, r.font.pt, { bold: r.font.bold, face: r.font.face }) + (ws ? (ut.match(/[  ]/g) || []).length * ws : 0);
           items.push({ type: 'line', x1: sx, y1: baseline + 0.09 * r.font.pt * PT, x2: sx + uw, y2: baseline + 0.09 * r.font.pt * PT, th: 0.033 * r.font.pt * PT, color: r.font.color || '#000000' });
         }
         rx += pw;
@@ -1250,15 +1288,28 @@ export function layoutForm(template, record, opts = {}) {
           break;
         }
         let cut = off;
-        for (const l of lines) {
+        lines.forEach((l, li) => {
           const b = ins + l.top + l.lh;
-          if (b > off + 0.01 && b <= off + avail + 0.01) cut = Math.max(cut, b);
-        }
+          // a paragraph's last line needs its space after on the page too (FP_TEST_01 page 4: the last line of a
+          // centred paragraph whose box ends 0.7 mm above the bottom moves to page 5; lines inside a paragraph fit
+          // down to 0.08 mm — page 2)
+          const st = l.para.st || {};
+          const after = li < lines.length - 1 && lines[li + 1].para !== l.para
+            ? (st['margin-bottom'] ? unit(st['margin-bottom']) : 0) + (st['space-after'] ? unit(st['space-after']) : 0) : 0;
+          if (b > off + 0.01 && b + after <= off + avail + 0.01) cut = Math.max(cut, b);
+        });
         if (cut <= off + 0.01) {
           if (!fresh) { newPage(); repeatLeaders(); fresh = true; continue; }
           cut = off + avail;
         }
-        page.flows.push({ n, x: area.x + openX(), y: area.y + cursor - off, clip: { y0: area.y + cursor, y1: area.y + cursor + cut - off } });
+        // a split field does not align by its slack as a whole: its first piece moves by half (middle) / all (bottom)
+        // of the room its last line leaves at the page bottom, the continuation pieces start at the top (FP_TEST_01:
+        // page 1 of the include text 1.12 mm lower — 1.40 mm computed —, pages 2–4 at the content area's top; one
+        // form measured)
+        const va = attr(prop(n.t, 'para'), 'vAlign', 'top');
+        const room = off === 0 ? Math.max(0, avail - (cut - off)) : 0;
+        const shift = va === 'middle' ? room / 2 : va === 'bottom' ? room : 0;
+        page.flows.push({ n, x: area.x + openX(), y: area.y + cursor - off, clip: { y0: area.y + cursor, y1: area.y + cursor + cut - off }, shift });
         if (!n.page) markPage(n, page);
         off = cut;
         newPage(); repeatLeaders(); fresh = true;
@@ -1343,11 +1394,15 @@ export function layoutForm(template, record, opts = {}) {
       if (!f.clip) { L.draw(f.n, f.x + (f.n.margin ? 0 : 0), f.y, p.items, p); continue; }
       // one piece of a split field: the items whose line (text: mid-line above the baseline; others: their top)
       // falls inside this page's slice
+      // a split field's lines take their place from the piece, not from the field's slack as a whole (top here,
+      // the piece's own alignment as f.shift)
       const tmp = [];
-      L.draw(f.n, f.x, f.y, tmp, p);
+      L.splitPiece = true;
+      try { L.draw(f.n, f.x, f.y, tmp, p); } finally { L.splitPiece = false; }
+      const dy = f.shift || 0;
       for (const it of tmp) {
         const yy = it.type === 'text' ? it.y - 0.35 * (it.pt || 10) * PT : (it.y ?? it.y1 ?? f.clip.y0);
-        if (yy >= f.clip.y0 - 0.01 && yy < f.clip.y1 - 0.01) p.items.push(it);
+        if (yy >= f.clip.y0 - 0.01 && yy < f.clip.y1 - 0.01) p.items.push(dy ? shiftItem(it, dy) : it);
       }
     }
   }

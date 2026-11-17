@@ -288,3 +288,26 @@ describe('smartform-preview: printer fonts of the output device', () => {
     expect(printedFamily('TIMES', { deviceType: 'X', families, fonts: [['TIMES', '000', '', '']] }, 140)).toBe('TIMES');
   });
 });
+
+describe('smartform-preview: a loop with sort events runs over its rows sorted (S4-DEV SF_SUBTOTALS)', () => {
+  const loopContent = (kind: string) => ({
+    ...CONTENT,
+    pages: [{ ...CONTENT.pages[0], windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 10, topMm: 30, widthMm: 190, heightMm: 200, content: [{
+      kind, name: 'L1', caption: 'Flights', dataTable: 'T_FLIGHT', attrs: { TABHEADER: 'GS_FLIGHT' }, children: [
+        { kind: 'event', name: '%EVENT1', caption: 'Begin', attrs: { EVTYPE: 'S', SFIELD: 'CARRID' }, children: [text('%TEXT1', 'AA', 'Group &GS_FLIGHT-CARRID&')] },
+        text('%TEXT2', 'AA', 'Row &GS_FLIGHT-PRICE&'),
+      ],
+    }] }] }],
+  });
+  const values = { rows: 4, values: { 'GS_FLIGHT-CARRID': ['ZZ', 'ZZ', 'ZY', 'ZY'], 'GS_FLIGHT-PRICE': ['1', '2', '3', '4'] } };
+  it('prints the ZY group before ZZ, rows stable inside a group', () => {
+    const r = new Renderer(loopContent('loop'), values);
+    const html = r.page().html as string;
+    const at = (s: string) => html.indexOf(s);
+    expect(at('Group ZY')).toBeGreaterThan(-1);
+    expect(at('Group ZY')).toBeLessThan(at('Group ZZ'));
+    expect(at('Row 3')).toBeLessThan(at('Row 4'));
+    expect(at('Row 4')).toBeLessThan(at('Row 1'));
+    expect(r.approx.join(' ')).toMatch(/rows sorted by CARRID/);
+  });
+});

@@ -14,6 +14,8 @@
 // Kinds handled: structure, folder (a data group like a structure), data, loop (+ WHERE, FIRST / LAST line), loop-data, single-record (+ key), text-module,
 // text, graphic content / URL (unknown class names keep their field in attrs), conditions on every node.
 
+import { SAP_CHARS } from './sap-chars.mjs';
+
 // ISO 4217 currencies SAP keeps with other than two decimals (TCURX defaults)
 const CUR_DECIMALS = { JPY: 0, KRW: 0, VND: 0, CLP: 0, ISK: 0, PYG: 0, UGX: 0, XAF: 0, XOF: 0, XPF: 0, KMF: 0, RWF: 0, GNF: 0, BIF: 0, DJF: 0, VUV: 0,
   KWD: 3, BHD: 3, OMR: 3, JOD: 3, TND: 3, LYD: 3, IQD: 3 };
@@ -338,23 +340,89 @@ export function itfParagraphs(lines, formats = {}) {
   const out = [];
   let cur = null;
   const counters = {};
+  const chars = formats.chars || {};
+  let stack = [];
+  // the CSS of the open character formats (inner wins), as SAP's runtime nests its <span>s
+  const css = () => stack.map((k) => chars[k]?.css).filter(Boolean).join(';');
+  const add = (piece, style) => {
+    if (!piece) return;
+    const last = cur.spans[cur.spans.length - 1];
+    if (last && last.style === style) last.text += piece;
+    else cur.spans.push({ text: piece, style });
+  };
+  // one ITF line → its pieces with the character formats active at each ('<XX>' opens, '</>' closes the innermost;
+  // formats left open run to the end of the paragraph)
+  const pieces = (raw) => {
+    const res = [];
+    let buf = '';
+    const flush = () => { if (buf) res.push({ text: buf, style: css() }); buf = ''; };
+    const re = /<\/>|<([A-Z0-9]{1,2})>/g;
+    let i = 0, m;
+    while ((m = re.exec(raw))) {
+      buf += raw.slice(i, m.index);
+      i = re.lastIndex;
+      flush();
+      if (m[0] === '</>') stack.pop();
+      else stack.push(m[1]);
+    }
+    buf += raw.slice(i);
+    flush();
+    return res;
+  };
   for (const l of lines || []) {
     const f = String(l.f ?? l.TDFORMAT ?? '').trim();
-    // SAPscript inline codes: ',,' a tab; '<(>' / '<)>' the characters < / >; '<nnn>' a SAP special character
-    // (one character; its table is not read — '?' keeps the width); '<XX>…</>' character formats (not applied yet)
-    const t = String(l.t ?? l.TDLINE ?? '').replace(/,,/g, '\t').replace(/<\d{3}>/g, '?')
-      .replace(/<\/>|<[A-Z0-9]{1,2}>/g, '').replace(/<\(>/g, '<').replace(/<\)>/g, '>');
+    // SAPscript inline codes: ',,' a tab; '<(>' / '<)>' the characters < / >; '<nnn>' a SAP character by its number
+    // (table TCP01, sap-chars.mjs; an unknown 3+ digit number prints '?' to keep the width, an unknown 1–2 digit one
+    // is left to the character-format rule); '<XX>…</>' character formats (formats.chars from STXSCHAR: font,
+    // size, bold, italic, underline, super- / subscript as spans; unknown names print nothing)
+    const raw = String(l.t ?? l.TDLINE ?? '').replace(/,,/g, '\t')
+      .replace(/<(\d{1,5})>/g, (m, n) => SAP_CHARS[Number(n)] ?? (n.length > 2 ? '?' : m));
     if (f === '/*' || f === '/:') continue;
     const newPara = f && f !== '/' && f !== '=' && f !== '/=';
+    const unesc = (x) => x.replace(/<\(>/g, '\u0001').replace(/<\)>/g, '\u0002');
+    const fin = (x) => x.replace(/\u0001/g, '<').replace(/\u0002/g, '>');
     if (!cur || newPara) {
-      const fmt = formats[newPara ? f : '*'] || formats['*'] || {};
-      cur = { text: (fmt.number ? outlinePrefix(fmt.number, counters) : '') + t, style: formatCss(fmt) };
+      stack = [];
+      // SAP writes each paragraph as a <div> inside the default paragraph's <div> and leaves out zero spacing, so
+      // ADS takes a missing margin from the default paragraph (FP_TEST_01: the TZ lines get its 4.23 mm space after)
+      const own = formats[newPara ? f : '*'] || formats['*'] || {};
+      const dflt = formats['*'] || {};
+      const fmt = { ...own };
+      for (const k of ['top', 'bottom', 'left', 'right']) if (!fmt[k] && dflt[k]) fmt[k] = dflt[k];
+      cur = { text: '', style: formatCss(fmt), spans: [] };
       out.push(cur);
-      continue;
-    }
-    if (f === '/') cur.text += `\n${t}`;
-    else if (f === '=' || f === '/=') cur.text += t;
-    else cur.text += (cur.text ? ' ' : '') + t;
+      add(fmt.number ? outlinePrefix(fmt.number, counters) : '', '');
+    } else if (f === '/') add('\n', css());
+    else if (f !== '=' && f !== '/=' && cur.spans.length) add(' ', css());
+    for (const p of pieces(unesc(raw))) add(fin(p.text), p.style);
+  }
+  for (const p of out) {
+    p.text = p.spans.map((x) => x.text).join('');
+    if (!p.spans.some((x) => x.style)) delete p.spans;
+  }
+  return out;
+}
+
+/** SmartStyle character formats (STXSCHAR rows) → { NAME: { css } }: family, height, bold / italic / underline when
+ *  set ('X'; '*' and blank leave the surrounding text as it is), super- / subscript ±6 pt as SAP's runtime writes
+ *  them (FP_TEST_01: "vertical-align : +6pt"). */
+export function charFormats(rows = []) {
+  const tr = (v) => String(v ?? '').trim();
+  const out = {};
+  for (const r of rows) {
+    const name = tr(r.TDSTRING);
+    if (!name) continue;
+    const c = [];
+    const fam = tr(r.TDFAMILY);
+    if (fam) c.push(`font-family:${STYLE_FAMILY[fam] || fam}`);
+    const pt = Number(tr(r.TDHEIGHT)) / 10;
+    if (pt) c.push(`font-size:${pt}pt`);
+    if (tr(r.TDBOLD) === 'X') c.push('font-weight:bold');
+    if (tr(r.TDITALIC) === 'X') c.push('font-style:italic');
+    if (tr(r.TDUNDERLIN) === 'X') c.push('text-decoration:underline');
+    if (tr(r.TDSUPER) === 'X') c.push('vertical-align:+6pt');
+    else if (tr(r.TDSUB) === 'X') c.push('vertical-align:-6pt');
+    out[name] = { css: c.join(';') };
   }
   return out;
 }
@@ -375,8 +443,9 @@ function styleLen(v, u, lpi, cpi) {
  *  data XML with style S_TEST: HELVE → Arial, COURIER → Courier New; a paragraph without its own font takes the
  *  style header's; line distance, space above / below in lines of 1/LPI inch; left margin; an outline number sits
  *  at its own left (TDNUMLEFT) with the text indent −(left − number left); tab stops from STXSTAB).
- *  paraRows: STXSPARA rows; head: the STXSHEAD row (or null); tabRows: STXSTAB rows. */
-export function styleFormats(paraRows = [], head = null, tabRows = []) {
+ *  paraRows: STXSPARA rows; head: the STXSHEAD row (or null); tabRows: STXSTAB rows; charRows: STXSCHAR rows
+ *  (character formats → formats.chars). */
+export function styleFormats(paraRows = [], head = null, tabRows = [], charRows = []) {
   const tr = (v) => String(v ?? '').trim();
   const lpi = Number(tr(head?.LPI)) || 6;
   const cpi = Number(tr(head?.CPI)) || 10;
@@ -411,6 +480,8 @@ export function styleFormats(paraRows = [], head = null, tabRows = []) {
   // '*' lines print in the style's default paragraph (STXSHEAD TDFIRSTPAR)
   const first = tr(head?.TDFIRSTPAR);
   if (first && out[first] && !out['*']) out['*'] = out[first];
+  // character formats (STXSCHAR) for '<XX>…</>' in the text
+  if (charRows?.length) out.chars = charFormats(charRows);
   return out;
 }
 

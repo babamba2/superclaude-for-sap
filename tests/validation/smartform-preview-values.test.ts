@@ -23,11 +23,11 @@ describe('smartform-preview: values from interface values', () => {
     expect(values['HEAD-NAME']).toBe('Sample Ltd');
     expect(valuesFromRaw(content, raw, { ddic, dateFormat: 'DD.MM.YYYY' }).values['HEAD-DOCDATE']).toBe('01.12.2026');
   });
-  it('gives table rows to the work area the form loops into; amounts by currency, minus sign after', () => {
+  it('gives table rows to the work area the form loops into; amounts by currency, sign place after (blank or minus)', () => {
     const { values, rows } = valuesFromRaw(content, raw, { ddic });
     expect(rows).toBe(2);
-    expect(values['WA_ITEM-AMOUNT']).toEqual(['1,230.50', '1,500']);
-    expect(values['ITEMS-AMOUNT']).toEqual(['1,230.50', '1,500']);
-    expect(values['WA_ITEM-QTY']).toEqual(['2.000', '1.500-']);
+    expect(values['WA_ITEM-AMOUNT']).toEqual(['1,230.50 ', '1,500 ']);
+    expect(values['ITEMS-AMOUNT']).toEqual(['1,230.50 ', '1,500 ']);
+    expect(values['WA_ITEM-QTY']).toEqual(['2.000 ', '1.500-']);
   });
 });
