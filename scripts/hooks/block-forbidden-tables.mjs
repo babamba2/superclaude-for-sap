@@ -12,8 +12,9 @@
  *   - standard — minimal + Protected Business Data
  *   - strict   — everything (default)
  *   - custom   — minimal + `.sc4sap/blocklist-custom.txt` (minimal always applies)
+ *   - off      — no table check (the hook exits allow)
  *
- * Any profile additionally honors `.sc4sap/blocklist-extend.txt` (one
+ * Any profile except `off` additionally honors `.sc4sap/blocklist-extend.txt` (one
  * table name / pattern per line) if present.
  *
  * Failure mode: fails OPEN (allows) on parse/IO errors so a broken file
@@ -60,7 +61,8 @@ function loadProfile(configPath) {
   try {
     const raw = JSON.parse(readFileSync(configPath, 'utf8'));
     const p = String(raw.blocklistProfile || '').toLowerCase();
-    if (p === 'minimal' || p === 'standard' || p === 'strict' || p === 'custom') return p;
+    // `off` mirrors the MCP server's MCP_BLOCKLIST_PROFILE=off (guard disabled).
+    if (p === 'minimal' || p === 'standard' || p === 'strict' || p === 'custom' || p === 'off') return p;
   } catch {
     // fall through
   }
@@ -377,6 +379,7 @@ async function main() {
 
   const { configPath, projectDir } = resolveProjectConfig();
   const profile = loadProfile(configPath);
+  if (profile === 'off') process.exit(0); // guard disabled by the user for this profile
 
   let builtin;
   try { builtin = loadBuiltinBlocklist(); }
