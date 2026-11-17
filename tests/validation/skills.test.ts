@@ -7,7 +7,7 @@ const SKILLS_DIR = join(__dirname, '..', '..', 'skills');
 const EXPECTED_SKILLS = [
   'stock-cbo', 'analyze-code', 'cbo-relation-map', 'analyze-symptom', 'ask-consultant', 'assist',
   'compare-programs', 'create-object', 'create-program', 'interface-mapping-spec',
-  'mcp-setup', 'program-to-manual', 'program-to-spec', 'sap-doctor',
+  'mcp-setup', 'program-test', 'program-to-manual', 'program-to-spec', 'sap-doctor',
   'ops-health-check', 'project-dashboard', 'role-matrix', 'sap-option', 'setup', 'smartform-from-pdf', 'smartform-preview', 'transport-readiness', 'trust-session', 'uat-scenarios',
 ];
 

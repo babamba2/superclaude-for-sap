@@ -32,3 +32,12 @@ The tool never guesses a destination. Called without one, it returns this list s
 - The RFC user of the destination needs `S_TABU_DIS` / `S_TABU_NAM` in the remote system for the tables read.
 - Rows are real data: mask personal fields before using them as test data. The table blocklist applies as for `GetTableContents`.
 - Filter on key / indexed fields. A non-indexed condition on a large remote table can run past the client timeout while the remote work process keeps running.
+
+## Test data sources
+
+`config.json` → `testDataSources` names which SM59 destination `/sc4sap:program-test` uses for QA rows: `{ "qa": "<DEST>", "prd": "<DEST>" }`. `prd` may be stored but is not used yet — program-test refuses production rows until the MCP read tools mask personal values themselves. It is separate from `remoteDestinations` because that list has no role.
+
+1. Show both values (`-` when unset).
+2. Offer, via `AskUserQuestion`: set QA, set PRD, clear one. Offer the saved `remoteDestinations` as picks plus free entry.
+3. Validate as above (case-sensitive, trimmed, ≤ 32 characters). Write back keeping every other key.
+4. Say that the name is not checked here: the first program-test read proves it. The skill never creates or changes SM59 entries — if the destination does not exist yet, show the set-up steps in [`../program-test/data-sources.md`](../program-test/data-sources.md) § Destination missing.

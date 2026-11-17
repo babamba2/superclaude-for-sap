@@ -26,6 +26,8 @@ export function isWriteTool(handler) {
 }
 
 export const sha256 = (s) => createHash('sha256').update(String(s)).digest('hex');
+/** Source text hash that ignores CR and trailing blanks (same rule as scripts/program-test/pt-lib.mjs srcSha). */
+export const srcSha = (s) => sha256(String(s ?? '').replace(/\r/g, '').split('\n').map((l) => l.replace(/\s+$/, '')).join('\n').replace(/\n+$/, ''));
 
 /** Text of an MCP tool response as Claude Code hands it to PostToolUse (several shapes seen). */
 export function responseText(resp) {
@@ -72,13 +74,20 @@ export function parseAunit(xml) {
   const failedRe = /<(?:\w+:)?alert\b[^>]*severity="(?:critical|fatal)"/i;
   const nameOf = (attrs) => ((attrs || '').match(/(?:adtcore:)?name="([^"]*)"/) || [])[1] || '?';
   const failed = [];
-  for (const m of methods) if (m[3] && failedRe.test(m[3])) failed.push(nameOf(m[2]));
+  const titleOf = (body) => ((body || '').match(/<(?:\w+:)?title>([\s\S]*?)<\/(?:\w+:)?title>/) || [])[1];
+  const methodResults = [];
+  for (const m of methods) {
+    const isFailed = !!(m[3] && failedRe.test(m[3]));
+    const name = nameOf(m[1] ?? m[2]);
+    if (isFailed) failed.push(nameOf(m[2]));
+    if (methodResults.length < 500) methodResults.push(isFailed ? { name: up(name), failed: true, alert: (titleOf(m[3]) || '').trim().slice(0, 160) } : { name: up(name), failed: false });
+  }
   // Alerts outside any test method (class setup failed, program not runnable) also fail the run.
   const outside = xml.replace(METHOD, '');
   const outsideFail = failedRe.test(outside);
   const firstTitle = (xml.match(/<(?:\w+:)?title>([\s\S]*?)<\/(?:\w+:)?title>/) || [])[1];
   const programs = [...xml.matchAll(/<(?:\w+:)?program\b[^>]*?(?:adtcore:)?name="([^"]*)"/g)].map((m) => up(m[1]));
-  return { programs, methods: methods.length, failed: failed.length, failed_methods: failed.slice(0, 10), outside_fail: outsideFail, first_alert: firstTitle ? firstTitle.trim().slice(0, 200) : undefined };
+  return { programs, methods: methods.length, failed: failed.length, failed_methods: failed.slice(0, 10), method_results: methodResults, outside_fail: outsideFail, first_alert: firstTitle ? firstTitle.trim().slice(0, 200) : undefined };
 }
 
 /** One ledger line for a PostToolUse payload, or null when the call is not evidence. */
@@ -87,7 +96,12 @@ export function ledgerEntry(payload, now = new Date()) {
   if (!handler) return null;
   const input = payload.tool_input || {};
   const base = { t: now.toISOString(), session: payload.session_id, tool: handler };
-  if (isWriteTool(handler)) return { ...base, kind: 'write', names: namesFromInput(input) };
+  if (isWriteTool(handler)) {
+    const w = { ...base, kind: 'write', names: namesFromInput(input) };
+    // Hash of the uploaded source (CR / trailing blanks ignored) — program-test proves the upload is the generated file.
+    if (typeof input.source_code === 'string') w.source_sha256 = srcSha(input.source_code);
+    return w;
+  }
   if (!CHECK_TOOLS.has(handler)) return null;
   const text = responseText(payload.tool_response);
   const entry = { ...base, kind: 'check', sha256: sha256(text), error: isErrorResponse(payload.tool_response) };

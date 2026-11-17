@@ -37,7 +37,7 @@ Every skill falls in one class. The class is listed in the table below; a skill 
 | `analyze-symptom` | degraded | Dump text / source pasted by the user; no dump feed, no transports |
 | `smartform-to-adobe` | degraded | Plan from a SmartForm XML the user already has (SMARTFORMS download or an earlier online run); reading the form from SAP is blocked |
 | `sap-doctor` | degraded | Plugin and profile layers only; connection layers reported `skipped (offline)` |
-| everything else (`create-program`, `create-object`, `assist`, `program-to-spec`, `program-to-manual`, `compare-programs`, `config-to-document`, `stock-cbo`, `smartform-preview`, `smartform-from-pdf`, `adobe-preview`, `adobe-from-pdf`, `ops-health-check`, `transport-readiness`) | blocked | Needs the system to read or write |
+| everything else (`create-program`, `program-test`, `create-object`, `assist`, `program-to-spec`, `program-to-manual`, `compare-programs`, `config-to-document`, `stock-cbo`, `smartform-preview`, `smartform-from-pdf`, `adobe-preview`, `adobe-from-pdf`, `ops-health-check`, `transport-readiness`) | blocked | Needs the system to read or write |
 
 ## Local knowledge, in this order
 

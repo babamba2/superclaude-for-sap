@@ -33,6 +33,7 @@ Every response triggered by this skill MUST begin with `[Model: <main-model> · 
 - User says "cost mode", "eco mode", "saving mode", "standard mode", "make it cheaper" — route to the **Cost mode** flow (see `<Cost_Mode>`), which edits `~/.sc4sap/preferences.json` → `costMode` / `costModeBySkill`.
 - User says "screen theme", "mockup theme", "signature theme", "pink theme", "화면 테마", "시그니처 테마" — route to the **Screen theme** flow (see `<Screen_Theme>`), which edits the profile `config.json` → `screenTheme`, not `sap.env`.
 - User says "remote destination", "remote read destinations", "saved RFC destinations" — route to the **Remote destinations** flow (see `<Remote_Destinations>`), which edits `config.json` → `remoteDestinations`.
+- User says "test data sources", "QA destination for tests", "production destination for program-test", "테스트 데이터 원천" — route to the **Test data sources** flow in [remote-destinations.md](remote-destinations.md) § Test data sources, which edits `config.json` → `testDataSources`.
 - User says "hud limit", "5h limit", "weekly limit", "extra limit", "usage budget", "configure limit" — route to the **HUD limits** flow (see `<HUD_Limits>`), which edits `~/.claude/settings.json` → `env`, not `sap.env`.
 </Use_When>
 
@@ -54,6 +55,7 @@ Contents (only show rows you could resolve):
 - **Screen theme**: `<screenTheme | signature (default)>` — from `config.json` → `screenTheme`
 - **ALV framework / ABAP SP**: `<alvFramework | none (default)>` · ABAP SP `<abapSp | unset>` — from `config.json` (see `<ALV_Framework>`)
 - **Remote destinations**: `<names | (none)>` — from `config.json` → `remoteDestinations` (see `<Remote_Destinations>`)
+- **Test data sources**: `qa <dest | -> · prd <dest | ->` — from `config.json` → `testDataSources` (`/sc4sap:program-test`)
 - **sap.env path**: absolute path being edited
 
 If the user's intent is **status-only** (they just said "hud" / "show status"), render the panel and stop. Do not ask follow-up "what to change" questions unless the user continues.
@@ -131,7 +133,7 @@ See [alv-framework.md](alv-framework.md). Triggers: "alv framework", "alv base c
 </ALV_Framework>
 
 <Remote_Destinations>
-See [remote-destinations.md](remote-destinations.md). SM59 destinations saved by `GetRemoteTableContents` (most recent first, max 10): show, remove, move to top, clear — `config.json` only, not `sap.env`.
+See [remote-destinations.md](remote-destinations.md). SM59 destinations saved by `GetRemoteTableContents` (most recent first, max 10): show, remove, move to top, clear — `config.json` only, not `sap.env`. Also the **Test data sources** (`testDataSources.qa` / `.prd`) that `/sc4sap:program-test` reads.
 </Remote_Destinations>
 
 <Validation>

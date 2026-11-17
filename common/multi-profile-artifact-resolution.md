@@ -76,6 +76,7 @@ Skills that read or produce project-local artifacts must adopt this pattern:
 - `/sc4sap:smartform-from-pdf` — writes `smartforms/<FORM>/` (`layout.json`, `styles.json`, `spec.json`, `shape.json`, `<FORM>.xml`, `<FORM>.printed.pdf`, `compare.json`)
 - `/sc4sap:project-dashboard` — writes `projects/<CODE>/` (`<CODE>-project.json`, `<CODE>-dashboard-v<ver>-<lang>.html`, history, `_src/`, `_i18n/`) + `projects/portfolio-<lang>.html`
 - `/sc4sap:role-matrix` — writes `roles/<CODE>/` (`<CODE>-roles.json`, `<CODE>-role-matrix-v<ver>-<lang>.html`, `_src/`)
+- `/sc4sap:program-test` — writes `program/<PROG>/test/<run>/` (agents: `cases.json`, `expected.json`, `plan.json`, `test-class.abap`; scripts / capture hook only: `state.json`, `rows/` (masked), `src/`, `harness/`, `pt-receipt.json`, `report.md`); capture marker `<project>/.sc4sap/program-test/active.json`
 - `/sc4sap:uat-scenarios` — writes `uat/<ID>/<ID>-uat.json` + exports `<ID>-uat-{A,B}.xlsx`; `uat/_answers/`, `uat/_patch/` (consultant drafts and accepted proposals)
 - `/sc4sap:transport-readiness` — writes `transport/<date>/` (`collect.json`, `model.json`, `tr-check-<lang>.{html,md}`)
 - `/sc4sap:ops-health-check` — writes `ops-check/<to>/` (`collect.json`, `model.json`, the operations report `ops-report-<to>-<lang>.{html,md}`)
