@@ -181,7 +181,7 @@ Every `/sc4sap:*` skill response starts with a **model prefix** indicating what 
 Multi-phase skills additionally emit a **phase banner** before each dispatch:
 
 ```
-▶ phase=3 (facts-ZMMR_GR_LIST) · agent=sap-code-reviewer · model=Sonnet
+▶ phase=3 (facts-ZMMR_DEMO_GR) · agent=sap-code-reviewer · model=Sonnet
 ▶ phase=4 (analyst) · agent=sap-analyst · model=Opus
 ▶ phase=5 (render) · agent=sap-writer · model=Haiku
 ```

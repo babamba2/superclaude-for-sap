@@ -179,7 +179,7 @@ FUNCTION zmcp_ssf_render
         IF lv_type IS INITIAL.
           CONTINUE.
         ENDIF.
-        " TABLES p TYPE <table type> (ZNA_B2B_FORM_01 GT_ITEM TYPE ZFI_TT_...) is
+        " TABLES p TYPE <table type> (ZSF_DEMO_05 GT_ITEM TYPE ZFI_TT_...) is
         " already a table - only a structure / LIKE parameter needs wrapping
         CLEAR lo_tdescr.
         cl_abap_typedescr=>describe_by_name(

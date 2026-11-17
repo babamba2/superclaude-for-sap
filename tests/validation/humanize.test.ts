@@ -54,17 +54,17 @@ describe('humanize — pack / parse', () => {
 
 describe('humanize — guards', () => {
   it('keeps identifiers, numbers, tags and bold as protected tokens', () => {
-    expect(protectedTokens('[KR] ZMMM90040에서 BAPI_PO_CREATE1을 2회 호출함 **주의**')).toEqual(
-      expect.arrayContaining(['[KR]', 'ZMMM90040', 'BAPI_PO_CREATE1', '2', '**']));
+    expect(protectedTokens('[KR] ZMMR_DEMO_20에서 BAPI_PO_CREATE1을 2회 호출함 **주의**')).toEqual(
+      expect.arrayContaining(['[KR]', 'ZMMR_DEMO_20', 'BAPI_PO_CREATE1', '2', '**']));
   });
 
   it('refuses lost markers, changed tokens, big rewrites and added connective commas', () => {
-    const a = 'ZMMM31000에서 L/C 정보를 바꾸고 EDI를 은행에 보내며, 번호를 받으면 확정함.';
+    const a = 'ZMMR_DEMO_21에서 L/C 정보를 바꾸고 EDI를 은행에 보내며, 번호를 받으면 확정함.';
     expect(rejectReason(a, undefined)).toBe('marker lost');
-    expect(rejectReason(a, a.replace('ZMMM31000', 'ZMMM31001'))).toBe('protected token changed');
-    expect(rejectReason(a, 'ZMMM31000 L/C EDI 완전히 다른 문장으로 바꿔 버림.')).toBe('change over 50%');
+    expect(rejectReason(a, a.replace('ZMMR_DEMO_21', 'ZMMR_DEMO_22'))).toBe('protected token changed');
+    expect(rejectReason(a, 'ZMMR_DEMO_21 L/C EDI 완전히 다른 문장으로 바꿔 버림.')).toBe('change over 50%');
     expect(rejectReason(a, a.replace('바꾸고', '바꾸고,'))).toBe('connective commas increased');
-    expect(rejectReason(a, 'ZMMM31000에서 L/C 정보를 바꾸고 EDI를 은행에 보냄. 번호를 받으면 확정함.')).toBeNull();
+    expect(rejectReason(a, 'ZMMR_DEMO_21에서 L/C 정보를 바꾸고 EDI를 은행에 보냄. 번호를 받으면 확정함.')).toBeNull();
     expect(changeRate('abc', 'abc')).toBe(0);
   });
 
@@ -72,7 +72,7 @@ describe('humanize — guards', () => {
     const dir = mkdtempSync(join(tmpdir(), 'hz-'));
     try {
       mkdirSync(join(dir, 'chunk-1'));
-      writeFileSync(join(dir, 'chunk-1', '01_input.txt'), '⟦1⟧ 값을 입력하고, 저장함.\n⟦2⟧ ZMMM20180에서 보내며, 끝남.\n⟦3⟧ 그대로임.\n⟦4⟧ 빠질 항목임.', 'utf8');
+      writeFileSync(join(dir, 'chunk-1', '01_input.txt'), '⟦1⟧ 값을 입력하고, 저장함.\n⟦2⟧ ZMMR_DEMO_25에서 보내며, 끝남.\n⟦3⟧ 그대로임.\n⟦4⟧ 빠질 항목임.', 'utf8');
       writeFileSync(join(dir, 'chunk-1', 'final.md'), '⟦1⟧ 값을 입력하고 저장함.\n⟦2⟧ ZMMM20181에서 보내며 끝남.\n⟦3⟧ 그대로임.\n<!-- HUMANIZE-SUMMARY -->', 'utf8');
       mkdirSync(join(dir, 'chunk-2'));
       writeFileSync(join(dir, 'chunk-2', '01_input.txt'), '⟦5⟧ 결과 없음.', 'utf8');

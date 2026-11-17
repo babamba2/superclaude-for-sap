@@ -42,8 +42,8 @@ The Excel output is produced by cloning `asset/template_base.xlsx` byte-for-byte
 
 ```jsonc
 {
-  "Program Overview (ZMMTEST003)": "프로그램 개요 (ZMMR1001)",
-  "ZMMRTEST003":                   "ZMMR1001",
+  "Program Overview (ZMM_DEMO_SPEC)": "프로그램 개요 (ZMMR_DEMO_23)",
+  "ZMMR_DEMO_SPEC":                   "ZMMR_DEMO_23",
   "Object Type":                   "오브젝트 타입",
   "PROG/P (ABAP Report)":          "PROG/P (ABAP Report)",
   // … one entry per English source string in the template …
@@ -97,13 +97,13 @@ This split keeps the document useful to both audiences without burying the busin
 Every writer-produced string MUST be in the target `lang`. Mixing is the #1 reported defect.
 
 - **Translate ALL prose** — sheet titles, field labels, value text, warnings, step text, ALV headers, pane titles/captions, processFlow boxes. The template ships in **English**, so a `ko`/`ja` spec needs a TR entry for *every* English prose string (the `template-clone` "NO TRANSLATION" list is your checklist — only bare SAP identifiers may remain).
-- **Keep as-is (do NOT translate)** — SAP identifiers (`VBAK`, `S_VKORG`, `ZMMR00140`, `VA03`), ABAP keywords/snippets, and ABAP message literals already written in the program (e.g. `"조회된 데이터가 없습니다."`).
+- **Keep as-is (do NOT translate)** — SAP identifiers (`VBAK`, `S_VKORG`, `ZDEMO_R140`, `VA03`), ABAP keywords/snippets, and ABAP message literals already written in the program (e.g. `"조회된 데이터가 없습니다."`).
 - **image-spec content** follows the same rule: `selection.fields[].label/note`, `alv.columns[].header`, `processFlow[]`, pane `title`/`interaction` must all be in `lang`; only `name` (identifiers) and `sampleRows` data codes stay literal. Set `image-spec.json.lang` correctly — the renderer localizes its built-in legend / block labels / flow heading from it.
 - **Gate**: `build-spec.mjs` prints `⚠ LANGUAGE MIX detected` listing every leaked English string (TR + image-spec) when `lang` is `ko`/`ja`. A clean run prints `language check OK`. **Do not finalize until the report is clean** (or every remaining item is a genuine SAP identifier). Also add `"__lang": "<lang>"` to the TR map so text-only builds can run the check too.
 
 ### SAP identifier remapping
 
-Identifiers in the template (`ZMMRTEST003`, `VBAK`, `VBELN`, `S_VKORG`, etc.) MUST appear as TR keys mapping to the target program's identifiers when they differ (`ZMMR1001`, `MARA`, `MATNR`, `P_WERKS`). Identifiers absent from TR remain in the cloned file unchanged — that's the desired behaviour when the target shares the identifier with the template.
+Identifiers in the template (`ZMMR_DEMO_SPEC`, `VBAK`, `VBELN`, `S_VKORG`, etc.) MUST appear as TR keys mapping to the target program's identifiers when they differ (`ZMMR_DEMO_23`, `MARA`, `MATNR`, `P_WERKS`). Identifiers absent from TR remain in the cloned file unchanged — that's the desired behaviour when the target shares the identifier with the template.
 
 ### Quality gates (before declaring done)
 

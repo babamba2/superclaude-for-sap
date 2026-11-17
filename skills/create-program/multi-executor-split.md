@@ -24,10 +24,10 @@ First row that triggers determines the split — pick the **higher** of the matc
 
 Split the program list into N contiguous ranges:
 
-- 20 programs (`ZMMR00010–ZMMR00200`, step 10) → 3-way:
-  - Exec-α: `ZMMR00010–ZMMR00070`
-  - Exec-β: `ZMMR00080–ZMMR00140`
-  - Exec-γ: `ZMMR00150–ZMMR00200`
+- 20 programs (`ZDEMO_R010–ZDEMO_R200`, step 10) → 3-way:
+  - Exec-α: `ZDEMO_R010–ZDEMO_R070`
+  - Exec-β: `ZDEMO_R080–ZDEMO_R140`
+  - Exec-γ: `ZDEMO_R150–ZDEMO_R200`
 
 Each executor owns its range's Mains + all sub-includes + screens + GUI + text pools. No executor touches another's object set.
 

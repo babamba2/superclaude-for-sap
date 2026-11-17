@@ -47,7 +47,7 @@ const SYS_DEFAULTS = { 'SFSY-PAGE': '1', 'SFSY-FORMPAGES': '1', 'SFSY-JOBPAGES':
 
 /** Output options of a symbol, &NAME(options)&: a length n prints the value left-justified
  *  in n characters (right-justified with R), Z drops leading zeros, C compresses blanks.
- *  ZSD_PACK_LIST: &SFSY-PAGE(3Z)& → "1  ". */
+ *  ZSF_DEMO_01: &SFSY-PAGE(3Z)& → "1  ". */
 function formatSymbol(value, raw) {
   // &F+off(len)&: the part of the value from offset off, len characters long
   const sub = /\+(\d+)(?:\((\d+)\))?\s*$/.exec(raw.replace(/\(([^)]*[A-Z][^)]*)\)\s*$/i, ''));
@@ -55,7 +55,7 @@ function formatSymbol(value, raw) {
     const off = Number(sub[1]);
     if (sub[2] === undefined) return value.substr(off);
     // a CHAR field is blank-padded: the part keeps its trailing blanks, which a right-aligned
-    // paragraph prints (ZSD_PI_TAIWAN &TDLINE+107(16)& = "400.50" + 10 blanks)
+    // paragraph prints (ZSF_DEMO_02 &TDLINE+107(16)& = "400.50" + 10 blanks)
     const len = Number(sub[2]);
     return value.padEnd(off + len).substr(off, len);
   }
@@ -66,22 +66,22 @@ function formatSymbol(value, raw) {
   if (opt.includes('Z')) v = v.replace(/^(\s*)0+(?=\d)/, '$1');
   // a number keeps its sign position at the end (a blank, or '-'): sample values carry it (R60)
   const signed = /^\s*-?[\d.,]+[ -]$/.test(value);
-  // C drops the leading blanks; a number keeps its trailing sign blank (ZFIR560105_JS NETWR(C))
+  // C drops the leading blanks; a number keeps its trailing sign blank (ZSF_DEMO_03 NETWR(C))
   if (opt.includes('C')) v = signed ? v.replace(/\s+/g, ' ').replace(/^ /, '') : v.replace(/\s+/g, ' ').trim();
   const len = /(\d+)/.exec(opt);
   if (len) {
     const n = Number(len[1]);
     const t = v.trim();
     // a number with a length stays right-justified in it, sign position last
-    // (ZFIR560105_JS &GT_ITEM-FKIMG(10)& = "       10 "); Z (no leading zeros) keeps R25
+    // (ZSF_DEMO_03 &GT_ITEM-FKIMG(10)& = "       10 "); Z (no leading zeros) keeps R25
     if (signed && !opt.includes('Z') && !/^SFSY-/i.test(raw)) {
       const s = /-$/.test(t) ? t : `${t} `;
       // only when it fits: slicing a longer one would cut its first digits (reviewer I)
       if (s.length <= n) return s.padStart(n);
     }
     // the page total is filled in at the end into a place n digits wide, right-justified
-    // (ZSD_PI_UAE_NEW "  1" = 270 tw = 3 digit widths at HELVE 8 pt): pad with figure spaces
-    // with C (compress) the total stays left in its place (ZNA_B2B_FORM_01 (4ZC): "1" + 3 NULs)
+    // (ZSF_DEMO_04 "  1" = 270 tw = 3 digit widths at HELVE 8 pt): pad with figure spaces
+    // with C (compress) the total stays left in its place (ZSF_DEMO_05 (4ZC): "1" + 3 NULs)
     if (/^SFSY-(FORMPAGES|JOBPAGES)\b/i.test(raw))
       return opt.includes('C') ? t.padEnd(n, ' ').slice(0, n) : t.padStart(n, ' ').slice(-n);
     v = opt.includes('R') ? t.padStart(n).slice(-n) : t.padEnd(n).slice(0, n);
@@ -148,8 +148,8 @@ const FAMILY_CSS = (f) => {
   if (/^KPDODUM/.test(s)) return "'DotumChe', Dotum, '돋움체', '돋움', sans-serif";
   if (/^KPGULIM/.test(s)) return "'GulimChe', Gulim, '굴림체', '굴림', sans-serif";
   if (/^KPBATANG/.test(s)) return "'BatangChe', Batang, '바탕체', serif";
-  // DBCS printer fonts are fixed pitch: Latin 0.5 em, CJK 1 em (ZMM_SF_FORM20 / ZWO_REPORT_STATEMENT3
-  // KPSAMMUL "Document" 12 pt = 16.9 mm; ZFI_US_PAYMENT_LIST JPMINCHO "Company" 9 pt = 11.1 mm)
+  // DBCS printer fonts are fixed pitch: Latin 0.5 em, CJK 1 em (ZSF_DEMO_06 / ZSF_DEMO_07
+  // KPSAMMUL "Document" 12 pt = 16.9 mm; ZSF_DEMO_08 JPMINCHO "Company" 9 pt = 11.1 mm)
   if (/^KPSAMMUL/.test(s)) return "'GungsuhChe', 'BatangChe', '궁서체', '바탕체', monospace";
   if (/^JPMINCHO/.test(s)) return "'MS Mincho', 'ＭＳ 明朝', 'BatangChe', monospace";
   if (/^JPGOTHIC/.test(s)) return "'MS Gothic', 'ＭＳ ゴシック', 'DotumChe', monospace";
@@ -179,32 +179,32 @@ function sapLenMm(v, style) {
 }
 
 /** The family the printer prints: one its device type has no font for comes out
- *  in COURIER — the TFO01 substitutes are not used (ZSD_EXP_CERT_01_ on KPPDF:
+ *  in COURIER — the TFO01 substitutes are not used (ZSF_DEMO_09 on KPPDF:
  *  KPGULIM → COURIER although its substitute KPSAMMUL exists). */
 function printedFamily(family, printer, size10) {
   const f = String(family || '').trim().toUpperCase();
   if (!f || !printer?.fonts?.length) return f;
   const own = printer.fonts.filter((x) => String(x[0]).toUpperCase() === f);
   // a family the device type has only in fixed sizes (not scalable, size 0) prints a size it
-  // lacks in COURIER (ZPM_BAR_PRINT on CNA60TP: LETGOTH 6/8/10/12/14/16 pt, asked 11 pt → COURIER)
+  // lacks in COURIER (ZSF_DEMO_10 on CNA60TP: LETGOTH 6/8/10/12/14/16 pt, asked 11 pt → COURIER)
   if (own.length && size10 && !own.some((x) => !Number(x[1]) || Number(x[1]) === Number(size10))) return 'COURIER';
   if (own.length) return f;
   // a TrueType family (proportional, no substitutes - installed with SE73) prints as
-  // itself on any device type (ZSD_DECL_OF_ORIGIN_AP_AE: ARIAL / ARIAL_B on KPPDF)
-  // (a family with no TFO01 entry at all is one too: ZSD_P_INVOICE ANDALE_J on PDFUC)
+  // itself on any device type (ZSF_DEMO_11: ARIAL / ARIAL_B on KPPDF)
+  // (a family with no TFO01 entry at all is one too: ZSF_DEMO_12 ANDALE_J on PDFUC)
   const def = (printer.families || []).find((x) => String(x.family).toUpperCase() === f);
   if (!def) return f;
   if (def.proportional === 'X' && !(def.substitutes || []).some((s) => String(s).trim())) return f;
   // the Unicode PDF device type prints a missing CJK family in its Unicode font
-  // (ZSD_P_INVOICE: KPDODUM on PDFUC → ANDALE_J); elsewhere COURIER (EXP_CERT on KPPDF) A_SIMP / A_TRAN / A_TRAD (Chinese) too: ZFI_SMT_PARK_DOCUMENT_PRN2
+  // (ZSF_DEMO_12: KPDODUM on PDFUC → ANDALE_J); elsewhere COURIER (EXP_CERT on KPPDF) A_SIMP / A_TRAN / A_TRAD (Chinese) too: ZSF_DEMO_13
   // and the Thai families (THVIJIT, substitute THANGSAN that PDFUC has, still → ANDALE_J:
-  // ZSMARTFORM_UTQG C1, ZFI_SMT_PARK_DOCUMENT_PRN_JP B7)
+  // ZSF_DEMO_14 C1, ZSF_DEMO_15 B7)
   if (printer.deviceType === 'PDFUC' && /^(KP|CN|TW|JP|DB|TH|A_(SIMP|TRAN|TRAD))/.test(f)) return 'ANDALE_J';
   return 'COURIER';
 }
 /** A TrueType family installed with SE73 (proportional, no TFO01 substitutes, not a printer
  *  font of the device type) has no bold of its own — its bold is a family of its own (ARIAL_B):
- *  ZFI_JAX_AR_STATEMENT T1 ARIAL 12 pt bold on SAPWIN printed regular (FC flag blank).
+ *  ZSF_DEMO_16 T1 ARIAL 12 pt bold on SAPWIN printed regular (FC flag blank).
  *  Families without a TFO01 entry (ANDALE_J) keep bold. */
 function canBold(family, printer) {
   const f = String(family || '').trim().toUpperCase();
@@ -215,7 +215,7 @@ function canBold(family, printer) {
 
 /** Legacy DBCS text kept in a Latin-1 form language: Korean / Chinese / Japanese bytes stored
  *  as Latin-1 characters ("ÀÇ ·á ºñ" = KSC5601 의 료 비). A DBCS printer font prints each byte
- *  pair as one full-width glyph (ZHR_YEA_MED_2011_T %TEXT1 on KPPDF: SAP's ST width 50.4 mm =
+ *  pair as one full-width glyph (ZSF_DEMO_17 %TEXT1 on KPPDF: SAP's ST width 50.4 mm =
  *  8 syllables), so the text is read back in the family's code page. Only runs of 0xA1–0xFE
  *  pairs are decoded, and only when the result has no replacement character. */
 const DBCS_PAGE = [[/^KP/, 'euc-kr'], [/^(CN|A_SIMP)/, 'gbk'], [/^(TW|A_TRA)/, 'big5'], [/^JP/, 'shift_jis']];
@@ -232,7 +232,7 @@ export function legacyDbcs(s, fam = '') {
 
 /** Italic prints only when the device type has an italic printer font for the family
  *  (TFO03 TDITALIC); a TrueType family without one prints upright — SAP's OTF never carried
- *  italic in 26 forms, ZSD_DECL_OF_ORIGIN_AP_AE A2 (ARIAL_B italic) printed upright. */
+ *  italic in 26 forms, ZSF_DEMO_11 A2 (ARIAL_B italic) printed upright. */
 function canItalic(family, printer) {
   if (!printer?.fonts?.length) return true;
   const f = printedFamily(family, printer);
@@ -240,7 +240,7 @@ function canItalic(family, printer) {
 }
 
 /** Bold in a DBCS printer font (KP*, CN*, JP*, TW*): those fonts are fixed pitch and SAP keeps
- *  the advance; the browser's synthetic bold widens SimSun / DotumChe (ZHR_ZHRFA0012_CP CNSONG
+ *  the advance; the browser's synthetic bold widens SimSun / DotumChe (ZSF_DEMO_18 CNSONG
  *  22 pt bold: 2.6 mm too wide) — draw the weight with a stroke instead. */
 const dbcsBold = (family) => (/^(KP|CN|JP|TW)/i.test(String(family || '').trim()) ? ';font-synthesis-weight:none;-webkit-text-stroke:0.03em currentColor' : '');
 
@@ -400,7 +400,7 @@ function sapLike(v, pattern) {
 }
 
 /** Horizontal place of a template / table in its window: APPMODE L (left), C (centred),
- *  R (right-aligned — ZSD_EXP_CERT_01_ %TEMPLATE2), plus the LEFT offset. */
+ *  R (right-aligned — ZSF_DEMO_09 %TEMPLATE2), plus the LEFT offset. */
 function tplPlace(n) {
   const a = n.attrs || {};
   const off = sapLenMm(`${a.LEFT || a.LEFTMARGIN || 0} ${a.U_LEFT || 'MM'}`, {});
@@ -412,17 +412,17 @@ function tplPlace(n) {
 }
 
 /** Lines a table pattern (PATTERN-PATTNUM) draws, as learned from SAP's output:
- *  0002 every line (frame, between cells and rows) — ZMM_SF_POFORM3 %TEMPLATE1;
- *  0007 frame + a line below the header rows — ZMM_SF_POFORM3 %TABLE1. */
+ *  0002 every line (frame, between cells and rows) — ZSF_DEMO_19 %TEMPLATE1;
+ *  0007 frame + a line below the header rows — ZSF_DEMO_19 %TABLE1. */
 const PATTERNS = {
-  '0001': {},                              // nothing (ZMM_SF_FORM20 %TEMPLATE2, ZFI_STOCK_IN %TEMPLATE4/6)
-  '0013': { edges: ['bottom'] },           // the bottom line of the template (ZSDM56240_01_CN %BANK / %INVOICE)
-  '0015': { edges: ['right', 'bottom'] },  // its right side and bottom (ZSDM56240_01_CN ADDRESS / PORT / VESSEL …)
+  '0001': {},                              // nothing (ZSF_DEMO_06 %TEMPLATE2, ZSF_DEMO_20 %TEMPLATE4/6)
+  '0013': { edges: ['bottom'] },           // the bottom line of the template (ZSF_DEMO_21 %BANK / %INVOICE)
+  '0015': { edges: ['right', 'bottom'] },  // its right side and bottom (ZSF_DEMO_21 ADDRESS / PORT / VESSEL …)
   '0002': { all: true, outer: true },     // every line + frame (POFORM3, FORM20 %TEMPLATE1/5)
-  '0003': { rows: true },                  // lines between rows (ZFI_STOCK_IN %TEMPLATE5, ZMM_SF_FORM20 %TEMPLATE4)
-  '0004': { cols: true },                  // lines between cells (ZFI_STOCK_IN %TEMPLATE2)
+  '0003': { rows: true },                  // lines between rows (ZSF_DEMO_20 %TEMPLATE5, ZSF_DEMO_06 %TEMPLATE4)
+  '0004': { cols: true },                  // lines between cells (ZSF_DEMO_20 %TEMPLATE2)
   '0007': { header: true, tableFrame: true }, // line below the header; frame only round a table (POFORM3 %TABLE1, not FORM20 %TEMPLATE6)
-  '0008': { tops: true },                  // (HYPOTHESIS) a line above the row, per cell (ZSD_SALES_CONTRACT_2_CN %TEMPLATE2, one row)
+  '0008': { tops: true },                  // (HYPOTHESIS) a line above the row, per cell (ZSF_DEMO_22 %TEMPLATE2, one row)
 };
 function patternOf(n, r) {
   const num = n.frame?.pattern;
@@ -437,14 +437,14 @@ function patternOf(n, r) {
 }
 
 /** Box of a window / node: the lines as an overlay on its edges, the distance as padding. */
-// a side switched on with thickness 0 is the printer's thinnest line (ZSDRA0390_CI_T %WINDOW3)
+// a side switched on with thickness 0 is the printer's thinnest line (ZSF_DEMO_23 %WINDOW3)
 const sideMm = (s) => (s?.mm > 0 ? s.mm : s?.on ? 0.1 : 0);
 function boxFrame(box) {
   const sides = ['top', 'right', 'bottom', 'left'].map((k) => (sideMm(box[k]) > 0 ? `border-${k}:${sideMm(box[k])}mm solid ${box[k].color || '#000'};` : '')).join('');
   return `<div class="frame" style="${sides}${box.fill ? `background:${box.fill};z-index:-1;` : ''}"></div>`;
 }
 /** A window's box lies outside the window by its distances; the window's text area stays as it is
- *  (ZSDRA0390_CI_T %WINDOW7: DISTANCE 0.05 CM → lines 0.5 mm outside, the PL_T "double frame"). */
+ *  (ZSF_DEMO_23 %WINDOW7: DISTANCE 0.05 CM → lines 0.5 mm outside, the PL_T "double frame"). */
 function windowFrame(box) {
   const out = ['top', 'right', 'bottom', 'left'].map((k) => `${k}:-${(box[k]?.distanceMm || 0).toFixed(2)}mm;`).join('');
   return boxFrame(box).replace('<div class="frame" style="', `<div class="frame" style="${out}`);
@@ -548,7 +548,7 @@ class Renderer {
     const name = baseSymbol(raw);
     const up = name.toUpperCase(); // symbols are not case sensitive (&sy-uline& = &SY-ULINE&)
     // "NAME@%TEXT59": a value for one text node only (a total the code sets for the footer,
-    // ZFIRH0072_FORM_AP L_WRBTR) — wins over the loop's array
+    // ZSF_DEMO_24 L_WRBTR) — wins over the loop's array
     let v = this.values[`${name}@${this.curNode}`] ?? this.values[`${up}@${this.curNode}`];
     if (v === undefined) v = this.values[name] ?? this.values[raw] ?? this.values[up];
     if (v === undefined) {
@@ -556,7 +556,7 @@ class Renderer {
       if (k) v = this.values[k];
     }
     if (Array.isArray(v)) {
-      // a counter the form's code advances between texts (ZMMM20930 &G_COUNT&) is written as
+      // a counter the form's code advances between texts (ZSF_DEMO_25 &G_COUNT&) is written as
       // an array outside any loop: one value per appearance
       const idx = this.rowIndexFor(up);
       if (idx !== null) v = v.length ? v[idx % v.length] : undefined;
@@ -591,8 +591,8 @@ class Renderer {
   }
 
   /** Symbols (arrows, shapes, dingbats U+2190–U+2BFF) in the literal text of a form in a
-   *  Latin-1 language print as '#' (ZSD_PROFORMA_IV02, language E: □ ◆ → "#Air #Sea");
-   *  Hangul / CJK literals in such forms print fine (ZHR_ZHRRA010_KO3, ZFI_STOCK_IN). (1 form) */
+   *  Latin-1 language print as '#' (ZSF_DEMO_26, language E: □ ◆ → "#Air #Sea");
+   *  Hangul / CJK literals in such forms print fine (ZSF_DEMO_27, ZSF_DEMO_20). (1 form) */
   cp(s, fam = '') {
     s = legacyDbcs(s, fam);
     // only a Latin printer font lacks them (reviewer H: the form language never decided it)
@@ -613,11 +613,11 @@ class Renderer {
       const o = stack.pop();
       if (!o.bc) { out += '</span>'; return; }
       // nested bar-code formats: the innermost prints the bars, the outer one nothing more
-      // (ZWM_NA_HQ_WH_DFC_PO <BR><BB>&IS_HEAD-BARCD&</></>: SAP's bars are BB's)
+      // (ZSF_DEMO_28 <BR><BB>&IS_HEAD-BARCD&</></>: SAP's bars are BB's)
       if (out.slice(o.at).includes('class="bcw"')) { out += '</span>'; return; }
       // SAP prints only the bars of a bar-code format, standing on the baseline
       const value = unesc(out.slice(o.at).replace(/<[^>]*>/g, ''));
-      // an empty field prints no bar code at all (ZFI_SMT_VAT_0606_WTOUT_QR: no BC record in the OTF)
+      // an empty field prints no bar code at all (ZSF_DEMO_29: no BC record in the OTF)
       // (an unfilled placeholder counts as empty; literal text beside it still prints)
       const filled = unesc(out.slice(o.at).replace(/<span class="sym"[^>]*>[\s\S]*?<\/span>/g, '').replace(/<[^>]*>/g, ''));
       if (!filled.trim()) { out = out.slice(0, o.at) + '</span>'; return; }
@@ -665,7 +665,7 @@ class Renderer {
         if (!b) continue;
         if (b.done) { b.on = false; continue; }
         // SAP prints the first branch of an IF in a SmartForm text whatever the
-        // values are (ZSDM43020_PACKING: KDGRP '01' and 'ZZ' both printed the THEN lines)
+        // values are (ZSF_DEMO_30: KDGRP '01' and 'ZZ' both printed the THEN lines)
         const hit = true; // IF taken, so ELSEIF / ELSE never are (b.done above)
         if (word === 'IF') this.approx.push(`${node}: text IF "${cmd}" — first branch drawn, as SAP prints it`);
         b.on = hit;
@@ -674,10 +674,10 @@ class Renderer {
       }
       if (!printing()) continue;
       // continuation lines are joined before the inline tags are read: a character
-      // format runs on across the line end (ZSD_NA_EMPLOYEE_SALES_INVOICE "<B1>Bank" / "casher check </>")
+      // format runs on across the line end (ZSF_DEMO_31 "<B1>Bank" / "casher check </>")
       const last = paras[paras.length - 1];
       // a blank-format line goes on after one joining blank and keeps its own leading blanks
-      // (ZFI_SMT_VAT_0601 "Total" + 26 blanks + ":"; R23's dropping of them was wrong)
+      // (ZSF_DEMO_32 "Total" + 26 blanks + ":"; R23's dropping of them was wrong)
       if ((f === '' || f === '=') && last) { last.raw += f === '' ? ` ${l.text}` : l.text; continue; }
       if (f === '/' && last) { last.raw += `\n${l.text}`; continue; }
       if (!f || f === '*' || f === '/' || f === '=') {
@@ -690,25 +690,25 @@ class Renderer {
     const stR = (this.c.styles || []).find((x) => x.name === resolved);
     for (const p of paras) {
       // R78 only in a single-byte font (the character format's, else the paragraph's): a DBCS
-      // font prints the symbol (ZFTA0550 ■ in KPDODUM; ZSD_PROFORMA_IV02 □ in <A1> HELVE → '#')
+      // font prints the symbol (ZSF_DEMO_33 ■ in KPDODUM; ZSF_DEMO_26 □ in <A1> HELVE → '#')
       const fam = (stR?.paragraphs || []).find((x) => x.tag === p.f)?.family || stR?.font?.family || '';
       this.parFam = printedFamily(String(fam).trim(), this.c.printer); // the family the device prints (reviewer I)
       p.html = this.inline(p.raw, resolved);
     }
     this.parFam = '';
-    // SAP breaks lines at blanks only, never after a hyphen (ZWO_FLEET_PRINT_N2 ": DR-SAMPLE-0001"
+    // SAP breaks lines at blanks only, never after a hyphen (ZSF_DEMO_34 ": DR-SAMPLE-0001"
     // goes to line 2 whole): a hyphenated word is kept together; the page script lets a word
     // longer than a whole line break at its hyphens again (R71)
     for (const p of paras) p.html = p.html.replace(/(^|<[^>]*>)([^<]+)/g, (m, g, s) => (g.includes('class="sym"') ? m
       : g + s.replace(/[^\s\-–—]*[^\s\-–—][\-–—]\S*/g, (w) => `<span class="nb">${w}</span>`)));
     // a run of hyphens (a drawn rule) advances each hyphen by its width rounded to whole
     // twips, as SAP's OTF does (HELVE 9 pt 59.94 → 59, HELV_I7 8 pt 53.28 → 53): page script .hy
-    // (ZSD_PI_VIETNAMN / ZSD_PI_TAIWAN 188 hyphens 3 mm, ZMMM20840_PACK / ZLE_PACKING_LIST 203 fit 190 mm)
+    // (ZSF_DEMO_35 / ZSF_DEMO_02 188 hyphens 3 mm, ZSF_DEMO_36 / ZSF_DEMO_37 203 fit 190 mm)
     for (const p of paras) p.html = p.html.replace(/(^|<[^>]*>)([^<]+)/g, (m, g, s) => (g.includes('class="sym"') ? m
       : g + s.replace(/-{5,}/g, (w) => `<span class="hy">${w}</span>`)));
     const cls = styleClass(resolved);
     // a line with a bar code is at least one style line (1/LPI) high: TMS_PICKING_LIST 0.5 LN
-    // paragraph → bars on the baseline one full line down; ZPPM40250 1.0 LN → no change
+    // paragraph → bars on the baseline one full line down; ZSF_DEMO_38 1.0 LN → no change
     const st = (this.c.styles || []).find((x) => x.name === resolved);
     const bcLine = (p) => {
       if (!st || !p.html?.includes('class="bcw"')) return '';
@@ -716,14 +716,14 @@ class Renderer {
       const own = sapLenMm(st.paragraphs?.find((x) => x.tag === p.f)?.lineSpacing, st);
       return own && own < full ? ` style="line-height:${full.toFixed(2)}mm"` : '';
     };
-    // a line whose fields are all empty still takes its line (ZSDRA0390_CI_MO %TEXT63 empty REMARK1)
+    // a line whose fields are all empty still takes its line (ZSF_DEMO_39 %TEXT63 empty REMARK1)
     return paras.map((p) => `<div class="${cls}" style="display:flow-root"><div id="${esc(p.f)}" class="par" data-node="${esc(node)}"${this.tabAttrs(resolved, p.f)}${bcLine(p)}>${p.html && (unesc(p.html.replace(/<[^>]*>/g, '')) || /class="bcw"|<img|<svg/.test(p.html)) ? p.html : (p.html || '') + '&nbsp;'}</div></div>`).join('');
   }
 
   /** The style a text node prints in: its output options (STDSTYLE), else the style its parents
    *  pass down (window / template / … / form) — not the style stored with the text (Q5:
-   *  ZFI_SMT_VAT_0611_3_NEW GST2 texts print in the form's GST3 L1 HELVE 11 pt, ZSD_A5_DELNOTE_STD
-   *  LO_STYLE texts in ZSD_LO_STYLE IT 10 pt; ZMM_GR_PRINT, code-driven at 20 %, scores lower). */
+   *  ZSF_DEMO_40 GST2 texts print in the form's GST3 L1 HELVE 11 pt, ZSF_DEMO_41
+   *  LO_STYLE texts in ZSF_DEMO_STYLE IT 10 pt; ZSF_DEMO_42, code-driven at 20 %, scores lower). */
   textStyle(n) { return n.output?.STDSTYLE || this.styleStack[this.styleStack.length - 1] || n.style; }
 
   text(n) {
@@ -731,7 +731,7 @@ class Renderer {
       const t = this.texts.get(`${n.include.object}|${n.include.name}|${n.include.id}`);
       if (t?.lines) return this.paragraphs(t.lines, this.textStyle(n), n.name);
       // "no error if the text does not exist": a document's own text prints nothing when it
-      // has none (ZSD_INVOICE_CO VBBK &GS_HEAD-VBELN& ZN01) — the sample document has none
+      // has none (ZSF_DEMO_43 VBBK &GS_HEAD-VBELN& ZDEMO_OT1) — the sample document has none
       if (n.attrs?.IGNORE === 'X' && n.include.resolved === false) {
         this.approx.push(`${n.name}: include text ${n.include.object} ${n.include.name} ${n.include.id} depends on the document — not drawn (empty when the document has none)`);
         return '';
@@ -741,7 +741,7 @@ class Renderer {
     }
     // a dynamic text (TTYPE D) prints the text table its REF_NAME names: values.json gives it as
     // lines (strings or {TDFORMAT, TDLINE}); an array of such arrays is one text per loop row
-    // (ZSD_NA_DELIVERY_NOTICE &GV_TEXT&, &GV_POTXT& filled per item by %CODE1)
+    // (ZSF_DEMO_44 &GV_TEXT&, &GV_POTXT& filled per item by %CODE1)
     if (n.textType === 'dynamic' && n.attrs?.REF_NAME) {
       const name = String(n.attrs.REF_NAME).replace(/&/g, '').trim();
       const key = Object.keys(this.values).find((k) => k.toUpperCase() === name.toUpperCase());
@@ -763,7 +763,7 @@ class Renderer {
   }
 
   graphic(n) {
-    // a key holding a &symbol& takes the sample value (&IM_SIGN& → ZHANTA_NEW, ZFTA0540_KR05_OLD)
+    // a key holding a &symbol& takes the sample value (&IM_SIGN& → ZSF_DEMO_LOGO, ZSF_DEMO_45)
     const sub = (v) => String(v).replace(/&([^&]+)&/g, (m, k) => { const x = this.values[k.trim().toUpperCase()] ?? this.values[k.trim()]; return x === undefined || Array.isArray(x) ? m : String(x); });
     const g = n.graphic && this.graphics.get(`${sub(n.graphic.object)}|${sub(n.graphic.name)}|${sub(n.graphic.id)}|${sub(n.graphic.btype)}`);
     const pic = g ? this.graphicData(g) : null;
@@ -774,7 +774,7 @@ class Renderer {
     // the graphic node's own resolution overrides the one stored with the SE78 graphic
     const dpi = Number(n.graphic.resolution) || 0;
     const [wMm, hMm] = dpi && g.widthPix ? [g.widthPix / dpi * 25.4, g.heightPix / dpi * 25.4] : [g.widthMm, g.heightMm];
-    // ALIGNMENT L / C / R places the graphic in its window or cell (ZMM_SF_POFORM3 %GRAPHIC2 centred)
+    // ALIGNMENT L / C / R places the graphic in its window or cell (ZSF_DEMO_19 %GRAPHIC2 centred)
     const al = String(n.attrs?.ALIGNMENT || "L").toUpperCase();
     const place = al === "C" ? "margin-left:auto;margin-right:auto;" : al === "R" ? "margin-left:auto;" : "";
     return `<img${this.nodeAttr(n)} src="data:${pic.mime};base64,${pic.b64}" style="width:${wMm.toFixed(2)}mm;height:${hMm.toFixed(2)}mm;${place}" alt="${esc(g.name)}">`;
@@ -786,11 +786,11 @@ class Renderer {
     // (same for an alternative: the nodes of its chosen branch keep their cells)
     const flat = (list) => (list || []).flatMap((ch) => {
       // a folder's own cell does not hold its nodes when they name cells of their own
-      // (ZFIRH0072_FORM_AP %FOLDER1 in [1,1], its texts in [1,2] — SAP prints them in [1,2])
+      // (ZSF_DEMO_24 %FOLDER1 in [1,1], its texts in [1,2] — SAP prints them in [1,2])
       const ownCells = ch.kind === 'section-F' && (ch.children || []).some((k) => k.tableCell);
       if (ch.tableCell && !ownCells) return [ch];
       // a loop without a cell whose nodes name one prints its rows stacked in that cell
-      // (ZSD_OFFER LOOP_MSSR → MESSRS in [1,2])
+      // (ZSF_DEMO_46 LOOP_MSSR → MESSRS in [1,2])
       // (children naming different cells: one loop per cell, with its children — reviewer I;
       // the cell may sit deeper, under a folder or condition)
       if (!ch.tableCell && ch.kind === 'loop') {
@@ -803,7 +803,7 @@ class Renderer {
       if (ch.kind === 'section-F') return this.printsHere(ch.condition) ? flat(ch.children) : [];
       if (ch.kind === 'condition' && this.printsHere(ch.condition)) {
         // an alternative without a test takes its TRUE branch, nodes in their own cells
-        // (ZFI_INVOICE_CO EMPTY_LINE_CHECK → DATA_MATNR … DATA_NETWR in cells 1–5)
+        // (ZSF_DEMO_47 EMPTY_LINE_CHECK → DATA_MATNR … DATA_NETWR in cells 1–5)
         const want = !ch.test || this.printsHere({ COND: ch.test }) ? '+' : '-';
         return flat((ch.children || []).find((e) => e.attrs?.EVTYPE === want)?.children);
       }
@@ -842,7 +842,7 @@ class Renderer {
     const rows = [];
     for (const tl of n.templateLines || []) {
       // a line type with a REFERENCE and no height of its own takes the referenced line's
-      // height (and its cells when it has none) — ZFI_MS_PAYMENT_LIST %C2 → %C1 0.80 CM
+      // height (and its cells when it has none) — ZSF_DEMO_48 %C2 → %C1 0.80 CM
       const ref = tl.reference && (n.templateLines || []).find((t) => t.name === tl.reference);
       const h = tl.heightMm || ref?.heightMm || tl.heightMm;
       const own = byLine[tl.name]?.length ? byLine[tl.name] : (ref && byLine[ref.name]) || [];
@@ -850,14 +850,14 @@ class Renderer {
         // a line type covering several rows may give each row its own lines (cells[].rows)
         rows.push({ key: nr, h, cells: own.slice().sort((a, b) => a.column - b.column).map((c) => (c.rows ? { ...c, ...(c.rows[nr - tl.from] || {}) } : c)) });
     }
-    // a template is never split over pages (ZHR_ZHRFA0012_CP: the 2nd certificate goes to page 2 whole)
+    // a template is never split over pages (ZSF_DEMO_18: the 2nd certificate goes to page 2 whole)
     return this.grid(n, rows).replace('<div class="tpl"', '<div class="tpl tmpl"');
   }
 
   /** Table node: one row per line type its texts use, in the order they appear. */
   /** Table (4.6 style) whose nodes flow into cells: T_NEWLINE starts a row of line type
    *  T_LINETYPE in its first cell, T_NEWCELL moves to the next cell, otherwise the node
-   *  joins the current cell (ZMM_SF_POFORM3 %TABLE1). */
+   *  joins the current cell (ZSF_DEMO_19 %TABLE1). */
   tableFlow(n, list) {
     const rows = [];
     let row = null;
@@ -868,8 +868,8 @@ class Renderer {
         row = { lt: o.T_LINETYPE || row?.lt || n.lineTypes?.[0]?.name, cells: {} };
         rows.push(row);
         // (HYPOTHESIS) a new line that also asks for a new cell starts in cell 2 when its cells
-        // outnumber its nodes (ZMMOC0510 5 texts in 7 cells: 品명 at x 18.0 = cell 2), else in
-        // cell 1 (ZMM_SF_POFORM3 6 texts in 6 cells)
+        // outnumber its nodes (ZSF_DEMO_49 5 texts in 7 cells: 品명 at x 18.0 = cell 2), else in
+        // cell 1 (ZSF_DEMO_19 6 texts in 6 cells)
         let k = idx + 1;
         while (k < list.length && list[k].output?.T_NEWLINE !== 'X') k++;
         const nCells = (n.cells || []).filter((c) => c.line === row.lt).length;
@@ -906,11 +906,11 @@ class Renderer {
     const body = kids.filter((c) => c.kind !== 'event');
     const part = (list) => {
       // a loop inside a table's event prints its rows (section R) as rows of that table
-      // (ZFIRH0072_FORM_AP %EVENT3 F → %LOOP1 → %ROW3 %LTYPE3)
+      // (ZSF_DEMO_24 %EVENT3 F → %LOOP1 → %ROW3 %LTYPE3)
       if (n.kind !== 'table46' && this.curTable && list.some((c) => c.kind === 'section-R'))
         return list.map((r) => this.tableRow(this.curTable, r)).join('');
       if (n.kind !== 'table46') return this.nodes(list);
-      // (a cell number without a line — T_CELLNR alone — is not a placed cell: ZMMOC0510 %TABLE1
+      // (a cell number without a line — T_CELLNR alone — is not a placed cell: ZSF_DEMO_49 %TABLE1
       // texts flow by T_NEWLINE / T_NEWCELL)
       if (list.some((c) => c.tableCell?.line)) return this.tableBody(n, list);
       if (list.some((c) => c.output?.T_LINETYPE || c.output?.T_NEWLINE)) return this.tableFlow(n, list);
@@ -927,10 +927,10 @@ class Renderer {
     const key = (i, f) => { const v = this.values[`${wa}-${f}`]; return Array.isArray(v) ? v[i % v.length] : v; };
     const before = this.waRow[wa];
     // WHERE (WCOND): OP1 is a field of this loop's row, OP2 a value or a field of an outer
-    // row (ZLE_SHIPPING_REQUEST_AP_ID: XT_ITEM rows with TKNUM / VBELN of the XT_HEAD row)
+    // row (ZSF_DEMO_50: XT_ITEM rows with TKNUM / VBELN of the XT_HEAD row)
     const where = (n.where || []).map((c) => ({ ...c, OP1: condRef(c.OP1) && !String(c.OP1).includes('-') ? `${wa}-${c.OP1}` : c.OP1 }));
     const rowsHere = [];
-    // row range FIRSTLINE..LASTLINE (ZSD_P_INVOICE: row 1 with the label, rows 2-5 without)
+    // row range FIRSTLINE..LASTLINE (ZSF_DEMO_12: row 1 with the label, rows 2-5 without)
     const firstRow = Math.max(1, Number(n.attrs?.FIRSTLINE) || 1);
     const lastRow = Number(n.attrs?.LASTLINE) || Infinity;
     for (let j = firstRow - 1; j < Math.min(this.rowsOf(wa), lastRow); j++) {
@@ -956,13 +956,13 @@ class Renderer {
 
   /** Value of a condition operand: literal, or the field from the values (missing = initial). */
   /** Rows a loop over this work area prints: the longest value array given for its fields
-   *  (a table with 1 sample row prints 1 row — ZSD_PI_TAIWAN XT_SUBT), else the default count. */
+   *  (a table with 1 sample row prints 1 row — ZSF_DEMO_02 XT_SUBT), else the default count. */
   rowsOf(wa) {
     const pre = `${String(wa).toUpperCase()}-`;
     const lens = Object.entries(this.values).filter(([k, v]) => k.toUpperCase().startsWith(pre) && !k.includes('@') && Array.isArray(v)).map(([, v]) => v.length);
     if (lens.length) return Math.max(...lens);
     // values given only as scalars: the work area is one record — one row, not the default count
-    // (ZSD_SHIPMENT_CDC loop over GT_HEADER into its header line)
+    // (ZSF_DEMO_51 loop over GT_HEADER into its header line)
     return Object.keys(this.values).some((k) => k.toUpperCase().startsWith(pre) && !k.includes('@')) ? 1 : this.rows;
   }
 
@@ -994,7 +994,7 @@ class Renderer {
       if (on === true && PAGE_FLAGS[k] && !PAGE_FLAGS[k](this.inMain)) return false;
     }
     // lines are AND-ed; an {LOP: OR} item starts another group, and the groups are OR-ed
-    // (ZSD_INVOICE_CO: GV_CPAGE EQ GS_HEAD-TPAGE  OR  GS_HEAD-TPAGE EQ 0)
+    // (ZSF_DEMO_43: GV_CPAGE EQ GS_HEAD-TPAGE  OR  GS_HEAD-TPAGE EQ 0)
     const groups = [[]];
     for (const c of cond.COND || []) {
       if (String(c.LOP || '').toUpperCase() === 'OR') groups.push([]);
@@ -1036,7 +1036,7 @@ class Renderer {
     if (!st) return '';
     const p = (st.paragraphs || []).find((x) => x.tag === tag);
     const stops = (p?.tabs || []).map((t) => sapLenMm(t[0], st).toFixed(2));
-    // alignment of each stop: L / R / C (ZSDR96040_02 DF: 12.0 RIGHT, 14.7 RIGHT …)
+    // alignment of each stop: L / R / C (ZSF_DEMO_52 DF: 12.0 RIGHT, 14.7 RIGHT …)
     const just = (p?.tabs || []).map((t) => String(t[1] || 'LEFT').trim().charAt(0).toUpperCase() || 'L');
     const dist = sapLenMm(st.tabDistance, st);
     return `${stops.length ? ` data-tabs="${stops.join(',')}"` : ''}${just.some((j) => j !== 'L') ? ` data-tabj="${just.join(',')}"` : ''}${dist > 0 ? ` data-tabdist="${dist.toFixed(2)}"` : ''}`;
@@ -1063,7 +1063,7 @@ class Renderer {
     const before = this.waRow[wa];
     if (n.dataTable) {
       // a WHERE line on a row field the values do not give cannot be decided: left out (the
-      // rows print, as before tables took WHERE — ZFI_SMT_PARK_DOCUMENT_PRN2 GJAHR / BELNR)
+      // rows print, as before tables took WHERE — ZSF_DEMO_13 GJAHR / BELNR)
       const where = (n.where || []).map((c) => ({ ...c, OP1: condRef(c.OP1) && !String(c.OP1).includes('-') ? `${wa}-${c.OP1}` : c.OP1 }))
         .filter((c) => {
           const ref = condRef(c.OP1);
@@ -1079,7 +1079,7 @@ class Renderer {
       }
     } else rowsHere.push(0);
     // sort events (SFIELD): S rows before the first row of a group, E rows after its last row
-    // (ZSD_NA_SHIPING_NOTICE %EVENT4 "PO Qty." per BSTNK). A variable printed in a sort event
+    // (ZSF_DEMO_53 %EVENT4 "PO Qty." per BSTNK). A variable printed in a sort event
     // takes one value per group (values.json: an array by group, V_POQTY ["30","5"])
     const sortEv = (t) => kids.filter((c) => c.kind === 'event' && c.attrs?.EVTYPE === t && c.attrs?.SFIELD);
     const key = (i, f) => { const v = this.values[`${wa}-${f}`]; return Array.isArray(v) ? v[i % v.length] : v; };
@@ -1099,7 +1099,7 @@ class Renderer {
       this.row = i;
     });
     if (n.dataTable) this.loopDepth--;
-    // the footer sees the work area the loop left: its last row (ZSDR54010_INVOICE %ROW3 tests
+    // the footer sees the work area the loop left: its last row (ZSF_DEMO_54 %ROW3 tests
     // IT_ITEM-POSNR = 000000, the total row, last)
     const foot = ev('F');
     const last = rowsHere[rowsHere.length - 1];
@@ -1116,7 +1116,7 @@ class Renderer {
 
   tableRow(table, r) {
     // a folder in a table event groups rows: each prints as a row of the table
-    // (ZSDR32300_FTACO_PANAMA %TABLE2 %FOLDER2 → %ROW1/3/2… of their own line types)
+    // (ZSF_DEMO_55 %TABLE2 %FOLDER2 → %ROW1/3/2… of their own line types)
     const holdsRows = (x) => (x.children || []).some((k) => k.kind === 'section-R' || (k.kind === 'section-F' && holdsRows(k)));
     if (r.kind === 'section-F' && holdsRows(r))
       return this.printsHere(r.condition) ? (r.children || []).map((k) => this.tableRow(table, k)).join('') : '';
@@ -1146,7 +1146,7 @@ class Renderer {
     try {
       let html = this.nodeBody(n);
       // a template with its vertical position set (VPOS_USED, TOP) stands at that place in its
-      // window, out of the flow (ZSD_ZSDR30460_01 %TEMPLATE3 at 1.70 CM beside %TEMPLATE2)
+      // window, out of the flow (ZSF_DEMO_56 %TEMPLATE3 at 1.70 CM beside %TEMPLATE2)
       const a = n.attrs || {};
       if (html && n.kind === 'template' && a.VPOS_USED === 'X' && Number(a.TOP)) {
         html = `<div class="vpos" style="position:absolute;left:0;right:0;top:${sapLenMm(`${a.TOP} ${a.U_TOP || 'MM'}`, {}).toFixed(2)}mm">${html}</div>`;
@@ -1178,7 +1178,7 @@ class Renderer {
         return `<div class="missing"${this.nodeAttr(n)}>address ${esc(n.caption || n.name)}</div>`;
       case 'code': return '';
       // a command with NEWPAGE (its condition already held) starts the next page: what follows
-      // in MAIN is not on page 1 (ZFI_SMT_VAT_0606_BK: one invoice per row)
+      // in MAIN is not on page 1 (ZSF_DEMO_57: one invoice per row)
       case 'command': return n.attrs?.NEWPAGE === 'X' && this.inMain ? '<div class="sfbreak"></div>' : '';
       default: return this.nodes(n.children);
     }
@@ -1190,7 +1190,7 @@ class Renderer {
     for (const n of list || []) {
       const h = this.node(n);
       // a text node "append directly" (APPMODE A) goes on in the last paragraph before it
-      // (ZSD_A5_DELNOTE_STD SUB_TOTAL + SUB_QUNIT print "1266EA" on one line) — only when that
+      // (ZSF_DEMO_41 SUB_TOTAL + SUB_QUNIT print "1266EA" on one line) — only when that
       // paragraph is the last thing written (not a box frame or a template — reviewer J)
       if (h && n.kind === 'text' && n.attrs?.APPMODE === 'A' && textEnd === out.length && out.endsWith('</div></div>')) {
         const m = /^<div class="([^"]*)" style="display:flow-root"><div [^>]*class="par"[^>]*>([\s\S]*?)<\/div><\/div>/.exec(h);
@@ -1225,7 +1225,7 @@ class Renderer {
     const landscape = p.orientation === 'landscape';
     const [w, h] = landscape ? [297, 210] : [210, 297];
     if (p.format && p.format !== 'DINA4') this.approx.push(`page format ${p.format} drawn as A4`);
-    const body = p.windows.map((win) => `<div class="win${win.type === 'MAIN' ? ' main' : ''}${win.condition?.afterMainEnd || win.condition?.lastPage ? ' aftermain' : ''}" data-win="${esc(win.name)}" style="left:${win.leftMm}mm;top:${win.topMm}mm;width:${win.widthMm}mm;height:${win.heightMm}mm;">${this.windowNodes(win)}${win.box && (win.content?.length || win.type !== 'MAIN') ? windowFrame(win.box) : ''}</div>`).join(''); // an empty MAIN window prints no box (ZSDM43020_CMR); an empty secondary window does (ZSD_PACK_LIST FRAME)
+    const body = p.windows.map((win) => `<div class="win${win.type === 'MAIN' ? ' main' : ''}${win.condition?.afterMainEnd || win.condition?.lastPage ? ' aftermain' : ''}" data-win="${esc(win.name)}" style="left:${win.leftMm}mm;top:${win.topMm}mm;width:${win.widthMm}mm;height:${win.heightMm}mm;">${this.windowNodes(win)}${win.box && (win.content?.length || win.type !== 'MAIN') ? windowFrame(win.box) : ''}</div>`).join(''); // an empty MAIN window prints no box (ZSF_DEMO_58); an empty secondary window does (ZSF_DEMO_01 FRAME)
     // SAP keeps the line spacing even when the font is taller (glyphs overlap the line above);
     // the baseline sits at the bottom of each line - see the script below.
     const css = (this.c.styles || []).map((s) => `${s.css || ''}\n${paragraphCss(s, this.c.printer)}
@@ -1236,19 +1236,19 @@ html,body{margin:0;background:#fff}
 .sheet{zoom:${ZOOM};position:relative;width:${w}mm;height:${h}mm;background:#fff;overflow:hidden}
 .win{position:absolute;box-sizing:border-box}
 .win img{display:block}
-/* a graphic prints whole, past the cell it stands in (ZFI_SMT_VAT_0606_IND logo, ZSDRA0390_PL_T signature) */
+/* a graphic prints whole, past the cell it stands in (ZSF_DEMO_59 logo, ZSF_DEMO_60 signature) */
 .row:has(img),.cell:has(img),.tpl:has(img),.row:has(.bc),.cell:has(.bc),.tpl:has(.bc){overflow:visible}
 .bcw{display:inline-block;position:relative;height:0;vertical-align:baseline}.bcw>svg{position:absolute;left:0;bottom:0}
 .row{display:flex;overflow:hidden}
 .cell{box-sizing:border-box;overflow:hidden;flex:none;position:relative}
 .tpl,.boxed{position:relative}
 .frame{position:absolute;inset:0;box-sizing:border-box;pointer-events:none}
-/* SAP gives every glyph its full advance: no kerning pairs, no ligatures (ZSDR54190_INVOICE "1111111111" HELVE 9 pt: 24.7 mm, kerned 22.2) */
+/* SAP gives every glyph its full advance: no kerning pairs, no ligatures (ZSF_DEMO_61 "1111111111" HELVE 9 pt: 24.7 mm, kerned 22.2) */
 .par{white-space:pre-wrap;font-kerning:none;font-variant-ligatures:none}
 .nb{white-space:nowrap}
-/* Angsana (Thai) is not on most PCs: Arial at 61 % of the size has its widths (ZSDR54090_TAX_INVOICE3) */
+/* Angsana (Thai) is not on most PCs: Arial at 61 % of the size has its widths (ZSF_DEMO_62) */
 @font-face{font-family:"SF Angsana fallback";src:local("Arial");size-adjust:61%}
-/* a character format never changes the line spacing of its paragraph (ZMMM20930 9 pt spans in a 12 pt paragraph) */
+/* a character format never changes the line spacing of its paragraph (ZSF_DEMO_25 9 pt spans in a 12 pt paragraph) */
 .par .char{line-height:0}
 .cell .par{overflow-wrap:anywhere}
 .sym{color:#1a4f9c;background:#e8f0fb}
@@ -1259,7 +1259,7 @@ ${css}
 <script>(function(){
 // a character format that only wraps other character formats prints nothing of its own: it makes
 // no inline box when it is larger than all the text inside (a 48 pt outer format around 22 pt text grew
-// a 1 LN line by 1.2 mm — ZLE_CTR_PRINT_CN_SPLIT; an 18 pt wrapper of 18 pt text stays: ZMMR03040N title)
+// a 1 LN line by 1.2 mm — ZSF_DEMO_63; an 18 pt wrapper of 18 pt text stays: ZSF_DEMO_64 title)
 document.querySelectorAll('.sheet .par span.char:not(.barcode)').forEach(function(e){
  for(var n=e.firstChild;n;n=n.nextSibling)if(n.nodeType===3||!(n.classList&&n.classList.contains('char')))return;
  var fs=parseFloat(getComputedStyle(e).fontSize),big=true,tw=document.createTreeWalker(e,NodeFilter.SHOW_TEXT),tn;
@@ -1268,7 +1268,7 @@ document.querySelectorAll('.sheet .par span.char:not(.barcode)').forEach(functio
 // SAP advances a blank by the width its device type's font metrics give (SW in the OTF), in whole
 // twips: from the table of widths SAP sent (blank-widths.json, by device / family / size / bold),
 // else the browser's width rounded down (HELVE 12 pt bold 66.72 → 66); long runs of blanks drift
-// otherwise (ZFI_SMT_VAT_0601 / _C: 86 leading blanks, 1 mm; KPPDF HELVE 10 pt 56, PDFUC 14 pt 78 — reviewer I)
+// otherwise (ZSF_DEMO_32 / _C: 86 leading blanks, 1 mm; KPPDF HELVE 10 pt 56, PDFUC 14 pt 78 — reviewer I)
 if(!window.__sfNoSW){var cv=document.createElement('canvas').getContext('2d'),SW=${JSON.stringify(blankWidths(this.c.printer?.deviceType))},DEV=${JSON.stringify(String(this.c.printer?.deviceType || '').trim().toUpperCase())};
 document.querySelectorAll('.sheet .par, .sheet .par span.char').forEach(function(e){var cs=getComputedStyle(e);
  cv.font=cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;var px=cv.measureText(' ').width;var tw=px*15;
@@ -1283,16 +1283,16 @@ document.querySelectorAll('.sheet .par, .sheet .par span.char').forEach(function
  var d=want-tw;e.style.wordSpacing=(Math.abs(d)<0.001?0:d/15)+'px';});
 document.querySelectorAll('.sheet .par span.hy').forEach(function(e){var cs=getComputedStyle(e);
  cv.font=cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;var tw=cv.measureText('-').width*15;
- // PDFUC rounds to the nearest twip (HELV_I7 8 pt 53.28 → 53, HELVE 10 pt 66.6 → 67: ZSDR56010_CN);
+ // PDFUC rounds to the nearest twip (HELV_I7 8 pt 53.28 → 53, HELVE 10 pt 66.6 → 67: ZSF_DEMO_65);
  // KPPDF keeps its metric in hundredths of an em: round(round(w / em, 2) × em) (HELVE 9 pt
- // 0.333 → 0.33 × 180 = 59: ZSD_PI_VIETNAMN / _TAIWAN — reviewer MN)
- // (DBCS fonts keep the old rule: their hyphen is the FC width, item 24 — ZMM_FORM_CRMIN KPDODUM)
+ // 0.333 → 0.33 × 180 = 59: ZSF_DEMO_35 / _TAIWAN — reviewer MN)
+ // (DBCS fonts keep the old rule: their hyphen is the FC width, item 24 — ZSF_DEMO_66 KPDODUM)
  var em=parseFloat(cs.fontSize)*15,dbcs=/^(KP|CN|JP|TW|ANDALE)/.test(cs.getPropertyValue('--sapfam').trim());
  var want=DEV==='KPPDF'&&dbcs?Math.floor(tw+1e-6):DEV==='KPPDF'&&em?Math.round(Math.round(tw/em*100)/100*em):Math.round(tw);
  var d=want-tw;if(Math.abs(d)>0.001)e.style.letterSpacing=(d/15)+'px';});
 // words: SAP adds up the glyph widths of its device type's font metrics, each rounded to whole
 // twips (PDFUC HELVCYR 10 pt "P215/60R16 95H" = 1530 tw, fits a 1531 tw cell — the browser's
-// Arial is 1535 and wraps: ZSMARTFORM_UTQG). Widths from SAP's own PDFs (glyph-widths.json)
+// Arial is 1535 and wraps: ZSF_DEMO_14). Widths from SAP's own PDFs (glyph-widths.json)
 var GW=${JSON.stringify(glyphWidths(this.c.printer?.deviceType))};
 if(Object.keys(GW).length){var tws=document.createTreeWalker(document.querySelector('.sheet'),NodeFilter.SHOW_TEXT),tn,list=[];
  while((tn=tws.nextNode())){var pe=tn.parentElement;if(!pe||!pe.closest('.par')||pe.closest('.hy')||pe.closest('.gw')||!/\\S/.test(tn.nodeValue))continue;list.push(tn);}
@@ -1301,7 +1301,7 @@ if(Object.keys(GW).length){var tws=document.createTreeWalker(document.querySelec
   cv.font=cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;
   // one wrapper per text node (the metric reads runs per node): letter-spacing = the average
   // correction of its non-blank glyphs, word-spacing less by as much (blanks keep their SW width)
-  // measured on the page (a canvas does not see fallback font faces: ZSDR54080_DEBIT_CREDIT
+  // measured on the page (a canvas does not see fallback font faces: ZSF_DEMO_67
   // Angsana New → "SF Angsana fallback" drew 0.47 mm wider than the canvas measured)
   var Zm=Number((document.querySelector('.sheet')||{}).dataset.zoom)||1,rg=document.createRange();
   var want=0,have=0,n=0,re=/\\S+/g,m,v=tn.nodeValue;
@@ -1314,7 +1314,7 @@ if(Object.keys(GW).length){var tws=document.createTreeWalker(document.querySelec
 })();</script>
 <script>(function(){
 // a hyphenated word longer than a whole line breaks at its hyphens as SAP does
-// (ZSD_TRANSACTION_SPEC "MAT-" / "SAMPLE-"), on a line of its own (ZWO_FLEET_PRINT_N2)
+// (ZSF_DEMO_68 "MAT-" / "SAMPLE-"), on a line of its own (ZSF_DEMO_34)
 document.querySelectorAll('.par .nb').forEach(function(s){var par=s.closest('.par');
  if(s.getBoundingClientRect().width<=par.getBoundingClientRect().width+0.5)return;
  var rg=document.createRange();rg.setStart(par,0);rg.setEndBefore(s);
@@ -1322,20 +1322,20 @@ document.querySelectorAll('.par .nb').forEach(function(s){var par=s.closest('.pa
  while(s.firstChild)s.parentNode.insertBefore(s.firstChild,s);s.parentNode.removeChild(s);});})();</script>
 <script>window.__sfPaginate=function(){
 // MAIN overflows onto the next page: from the first row / paragraph that does not fit, the
-// rest of MAIN belongs to page 2 and is not drawn on page 1 (ZMMM20930 closing text)
+// rest of MAIN belongs to page 2 and is not drawn on page 1 (ZSF_DEMO_25 closing text)
 var cont=false;document.querySelectorAll('.win.main').forEach(function(w){var wb=w.getBoundingClientRect().bottom+0.5,gone=false,first=true;
 w.querySelectorAll('.tmpl, .row, .par, img, .sfbreak').forEach(function(e){if(e.classList.contains('sfbreak')){if(!gone){gone=true;cont=true;}return;}if(!e.classList.contains('tmpl')&&e.parentElement.closest('.tmpl'))return;if(!e.classList.contains('row')&&!e.classList.contains('tmpl')&&e.closest('.row'))return;
 var eb=e.getBoundingClientRect().bottom-(parseFloat(e.style.top)||0)*${ZOOM};if(!gone&&eb>wb&&!first){gone=true;cont=true;}first=false;if(gone)e.style.visibility='hidden';});});
 // a cell or window cuts whole lines, never half a line (SAP prints the lines that fit);
-// the first line of a window always prints (ZFI_US_PAYMENT_LIST %WINDOW4: 6.35 mm line in a 6 mm window)
+// the first line of a window always prints (ZSF_DEMO_08 %WINDOW4: 6.35 mm line in a 6 mm window)
 document.querySelectorAll('.cell .par, .win:not(.main) > div > .par').forEach(function(p){var box=p.closest('.cell')||p.closest('.win');var bb=box.getBoundingClientRect().bottom+0.5;var r=p.getBoundingClientRect();var sh=(parseFloat(p.style.top)||0)*${ZOOM};var top=r.top-sh,bot=r.bottom-sh;
 if(bot<=bb)return;var lh=parseFloat(getComputedStyle(p).lineHeight)*${ZOOM};if(!(lh>0))return;var fit=Math.floor((bb-top)/lh+0.01);if(box.classList.contains('win')&&box.querySelector('.par')===p)fit=Math.max(fit,1);p.style.maxHeight=Math.max(0,fit*lh/${ZOOM})+'px';p.style.overflow='hidden';});
-// windows printed only after the end of MAIN wait for the page where MAIN ends (ZMMM20930 %WINDOW3)
+// windows printed only after the end of MAIN wait for the page where MAIN ends (ZSF_DEMO_25 %WINDOW3)
 if(cont)document.querySelectorAll('.win.aftermain').forEach(function(w){w.style.visibility='hidden';});
 return cont;};</script>
 <script>(function(){
 // auto-height table row: SAP adds 1/4 of the largest printed font size below the text
-// (5 twips per point: KPDODUM 8 pt +40 tw in ZFTA0540, TIMES 9 pt +45 tw in ZMMM20930)
+// (5 twips per point: KPDODUM 8 pt +40 tw in ZSF_DEMO_69, TIMES 9 pt +45 tw in ZSF_DEMO_25)
 document.querySelectorAll('.row.autoh').forEach(function(r){var mx=0;r.querySelectorAll('.par, .par *').forEach(function(e){var own=[].some.call(e.childNodes,function(n){return n.nodeType===3&&n.nodeValue.trim();});if(own){var s=parseFloat(getComputedStyle(e).fontSize);if(s>mx)mx=s;}});
 if(mx)r.querySelectorAll(':scope>.cell').forEach(function(c){c.style.paddingBottom=(mx*0.25)+'px';});});})();</script>
 <script>(function(){var Z=${ZOOM},PXMM=96/25.4;
@@ -1346,7 +1346,7 @@ var x=(t.getBoundingClientRect().left-box.getBoundingClientRect().left)/Z/PXMM;
 var stops=(p.dataset.tabs||'').split(',').filter(Boolean).map(Number);var d=Number(p.dataset.tabdist)||0;
 var next=stops.find(function(s){return s>x+0.05;});var ji=stops.indexOf(next);if(next===undefined&&d>0)next=(Math.floor((x+0.05)/d)+1)*d;if(next===undefined)next=x+2;
 // a RIGHT / CENTER stop aligns the text up to the next tab on the stop, trailing blanks not
-// counted (ZSDR96040_02 "HQ   " ends at 17.7 cm); text wider than the room starts where it is
+// counted (ZSF_DEMO_52 "HQ   " ends at 17.7 cm); text wider than the room starts where it is
 var j=ji>=0?((p.dataset.tabj||'').split(',')[ji]||'L'):'L';var w=next-x;
 if(j==='R'||j==='C'){var tabs=Array.prototype.slice.call(p.querySelectorAll('.tab'));var nt=tabs[tabs.indexOf(t)+1];
  var tw=document.createTreeWalker(p,NodeFilter.SHOW_TEXT),tn,l=Infinity,r=-Infinity,top0=null,cr=document.createRange();
@@ -1356,14 +1356,14 @@ if(j==='R'||j==='C'){var tabs=Array.prototype.slice.call(p.querySelectorAll('.ta
  var seg=r>l?(r-l)/Z/PXMM:0;
  w=next-x-(j==='R'?seg:seg/2);
  // the text may run back over the trailing blanks before it, not over ink or an earlier tab
- // (ZSDR96040_02 "BOX" ends at 18.6 cm over the blanks of "HQ   "; reviewer H)
+ // (ZSF_DEMO_52 "BOX" ends at 18.6 cm over the blanks of "HQ   "; reviewer H)
  // (ink of the tab's own line only, never left of the box — reviewer I)
  if(w<0){var bl=box.getBoundingClientRect().left,lim=0,tr=t.getBoundingClientRect(),tm=(tr.top+tr.bottom)/2,pw=document.createTreeWalker(p,NodeFilter.SHOW_TEXT),pn,pr=document.createRange();
   while((pn=pw.nextNode())){if(!(t.compareDocumentPosition(pn)&Node.DOCUMENT_POSITION_PRECEDING))break;
    for(var k2=0;k2<pn.nodeValue.length;k2++){if(/\\s/.test(pn.nodeValue[k2]))continue;pr.setStart(pn,k2);pr.setEnd(pn,k2+1);var q2=pr.getClientRects()[0];if(q2&&Math.abs((q2.top+q2.bottom)/2-tm)<(q2.bottom-q2.top))lim=Math.max(lim,(q2.right-bl)/Z/PXMM);}}
   var pt=tabs[tabs.indexOf(t)-1];if(pt)lim=Math.max(lim,(pt.getBoundingClientRect().right-bl)/Z/PXMM);
   w=x+w>=lim?w:Math.max(0,lim-x);if(w>0)w=0;}}
-// a tab with no ink after it in the paragraph makes no room and no new line (ZSMARTFORM_UTQG
+// a tab with no ink after it in the paragraph makes no room and no new line (ZSF_DEMO_14
 // %TEXT3 lines ending ",,,,,," after ~85 mm of text: one line each in SAP)
 var ink=false,aw=document.createTreeWalker(p,NodeFilter.SHOW_TEXT),an;while((an=aw.nextNode())){if(t.compareDocumentPosition(an)&Node.DOCUMENT_POSITION_FOLLOWING&&/\\S/.test(an.nodeValue)){ink=true;break;}}
 if(!ink)w=0;

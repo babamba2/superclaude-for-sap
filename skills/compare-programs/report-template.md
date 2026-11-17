@@ -20,9 +20,9 @@ Nothing else is styled specially — no HTML layout, no inline styles.
 ## Template body (English example — replace ▫)
 
 ````markdown
-# Program Comparison: ZMMR_GR_LIST vs ZCOR_GR_LIST
+# Program Comparison: ZMMR_DEMO_GR vs ZCOR_DEMO_GR
 
-- **Programs**: ZMMR_GR_LIST · ZCOR_GR_LIST
+- **Programs**: ZMMR_DEMO_GR · ZCOR_DEMO_GR
 - **Scenario**: ▫ Goods receipt lookup
 - **Modules**: ▫ MM · CO
 - **Dimensions**: ▫ 7 (1·2·3·5·6·7·10)
@@ -34,19 +34,19 @@ Nothing else is styled specially — no HTML layout, no inline styles.
 ▫ Three sentences: the shared scenario · the biggest ⚠️ divergence · the recommendation.
 
 > [!IMPORTANT]
-> ▫ The one decision a consultant must not get wrong (e.g. "Month-end values come only from ZCOR_GR_LIST").
+> ▫ The one decision a consultant must not get wrong (e.g. "Month-end values come only from ZCOR_DEMO_GR").
 
 ## 2. Which program when — decision guide
 
 | Situation | Use | Why |
 |---|---|---|
-| ▫ Daily GR quantity check | **ZMMR_GR_LIST** | ▫ Quantity- and material-centric |
-| ▫ Month-end cost review | **ZCOR_GR_LIST** | ▫ Values and cost elements |
+| ▫ Daily GR quantity check | **ZMMR_DEMO_GR** | ▫ Quantity- and material-centric |
+| ▫ Month-end cost review | **ZCOR_DEMO_GR** | ▫ Values and cost elements |
 
 ```mermaid
 flowchart TD
-  Q1{"▫ Need values or quantities?"} -->|Quantities| A["ZMMR_GR_LIST"]
-  Q1 -->|Values| B["ZCOR_GR_LIST"]
+  Q1{"▫ Need values or quantities?"} -->|Quantities| A["ZMMR_DEMO_GR"]
+  Q1 -->|Values| B["ZCOR_DEMO_GR"]
 ```
 
 ## 3. Shared baseline
@@ -57,14 +57,14 @@ flowchart TD
 
 Legend: ✅ Same · 🔷 Variant · ⚠️ Divergent · ❓ Unclear
 
-| # | Dimension | ZMMR_GR_LIST | ZCOR_GR_LIST | Verdict |
+| # | Dimension | ZMMR_DEMO_GR | ZCOR_DEMO_GR | Verdict |
 |---|---|---|---|---|
-| 1 | Module / Domain | MM (inventory movement) <span class="ev">package ZMMPAEK · SELECT MSEG (FORM get_data, L40)</span> | CO (cost accounting) <span class="ev">SELECT ACDOCA (FORM read_acdoca, L88)</span> | ⚠️ Divergent |
+| 1 | Module / Domain | MM (inventory movement) <span class="ev">package ZMM_DEMO_PKG · SELECT MSEG (FORM get_data, L40)</span> | CO (cost accounting) <span class="ev">SELECT ACDOCA (FORM read_acdoca, L88)</span> | ⚠️ Divergent |
 | 2 | Org / Country scope | All company codes | All company codes | ✅ Same |
 
 ### 4.1 Selection fields
 
-| Field | Meaning | ZMMR_GR_LIST | ZCOR_GR_LIST |
+| Field | Meaning | ZMMR_DEMO_GR | ZCOR_DEMO_GR |
 |---|---|---|---|
 | **S_WERKS** | Plant | ● | ● |
 | **S_MATNR** | Material | ● | ○ |
@@ -79,9 +79,9 @@ Legend: ✅ Same · 🔷 Variant · ⚠️ Divergent · ❓ Unclear
 ### 5.1 Selection screens
 
 <!-- layout: side-by-side -->
-![ZMMR_GR_LIST — selection screen](_assets/ZMMR_GR_LIST__vs__ZCOR_GR_LIST-en/ZMMR_GR_LIST/selection.png)
+![ZMMR_DEMO_GR — selection screen](_assets/ZMMR_DEMO_GR__vs__ZCOR_DEMO_GR-en/ZMMR_DEMO_GR/selection.png)
 
-![ZCOR_GR_LIST — selection screen](_assets/ZMMR_GR_LIST__vs__ZCOR_GR_LIST-en/ZCOR_GR_LIST/selection.png)
+![ZCOR_DEMO_GR — selection screen](_assets/ZMMR_DEMO_GR__vs__ZCOR_DEMO_GR-en/ZCOR_DEMO_GR/selection.png)
 
 ### 5.2 Output lists
 
@@ -89,7 +89,7 @@ Legend: ✅ Same · 🔷 Variant · ⚠️ Divergent · ❓ Unclear
 
 ## 6. Per-program detail
 
-### 6.1 ZMMR_GR_LIST
+### 6.1 ZMMR_DEMO_GR
 
 - **Package**: ▫ · **Persona**: ▫ Warehouse clerk (daily)
 - **Core data**: ▫ MSEG, MKPF
@@ -99,9 +99,9 @@ Legend: ✅ Same · 🔷 Variant · ⚠️ Divergent · ❓ Unclear
 
 ### 6.3 Messages compared
 
-| Message | Screen text | When it appears | ZMMR_GR_LIST | ZCOR_GR_LIST |
+| Message | Screen text | When it appears | ZMMR_DEMO_GR | ZCOR_DEMO_GR |
 |---|---|---|---|---|
-| **E019** (ZMM01) | ▫ T100 text, logon language / English | ▫ authorization check fails | ● | ○ |
+| **E019** (ZDEMO_MSG_MM) | ▫ T100 text, logon language / English | ▫ authorization check fails | ● | ○ |
 | **TEXT-E01** | ▫ Data not found. | ▫ nothing selected | ● | ● |
 
 ## 7. Consolidation opportunities
@@ -122,13 +122,13 @@ Legend: ✅ Same · 🔷 Variant · ⚠️ Divergent · ❓ Unclear
 
 | Object | Program | Fields | Value |
 |---|---|---|---|
-| **M_MSEG_WWA** | ZMMR_GR_LIST | WERKS, ACTVT | 03 |
+| **M_MSEG_WWA** | ZMMR_DEMO_GR | WERKS, ACTVT | 03 |
 
 ### 9.2 Tables / CDS
 
 | Table / CDS | Program | Note |
 |---|---|---|
-| **MSEG** | ZMMR_GR_LIST | Material document item |
+| **MSEG** | ZMMR_DEMO_GR | Material document item |
 ````
 
 ## Rendering rules

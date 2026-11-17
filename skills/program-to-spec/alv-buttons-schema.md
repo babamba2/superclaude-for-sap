@@ -50,7 +50,7 @@ All fields are optional. A spec without them renders exactly as before.
 ```jsonc
 "alv": { "screen": { …,
   "fields": [                                   // dynpro elements between status and grid, source order
-    { "type": "input", "label": "<text>", "value": "ZWH1" },
+    { "type": "input", "label": "<text>", "value": "ZDEMO_DT1" },
     { "type": "checkbox", "label": "<text>", "checked": false },
     { "type": "output", "value": "<output-only field text>" },
     { "type": "pushbutton", "code": "APPLY", "label": "<text>", "icon": "check" }   // a PAI code: badge + flow
@@ -74,9 +74,9 @@ All fields are optional. A spec without them renders exactly as before.
   { "code": "ICREATE", "source": "alv",           // "alv" | "pai"
     "label": "<business name in lang>",
     "flow": { "nodes": [ … ], "edges": [ … ] } },  // same graph form as processFlow
-  { "code": "ZPOB", "source": "pai",               // one flow for a whole business stage
-    "codes": ["ZPOB_BA", "ZPOB_BA_C",              // same bar as the flow
-              { "code": "ZUPPO", "source": "alv" }],  // a button on the other bar
+  { "code": "ZFC_A", "source": "pai",               // one flow for a whole business stage
+    "codes": ["ZFC_A_1", "ZFC_A_2",              // same bar as the flow
+              { "code": "ZFC_C", "source": "alv" }],  // a button on the other bar
     "label": "…", "flow": { … } }
 ]
 ```
@@ -131,7 +131,7 @@ In the Markdown spec, put the button flows in §4 after the main flow:
 1. Checks … (E04, E05)  2. Creates … <span class="tech">(INQUIRY_CREATE_GO, L2028–2701)</span>
 ```
 
-- Number the headings with the badge number (`①`). For a stage flow, name the linked codes after the representative: `#### ① [PAI] ZPOB (+ ZPOB_BA, ZPOB_BA_C) — PO(B) I/R`. The render manifest lists them per flow as `codes`.
+- Number the headings with the badge number (`①`). For a stage flow, name the linked codes after the representative: `#### ① [PAI] ZFC_A (+ ZFC_A_1, ZFC_A_2) — PO(B) I/R`. The render manifest lists them per flow as `codes`.
 - Follow the heading with the image, then two to five numbered steps.
 - The screen section's button table lists every button, including the navigation ones.
 
