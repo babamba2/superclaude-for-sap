@@ -116,7 +116,7 @@ describe('smartform-to-adobe: block offsets (R10) and the exact DateFmt form (R3
     expect(one).toContainEqual(expect.objectContaining({ op: 'datePicture', target: { path: 'ZDEMO.MAIN.ROW.FLDATE' }, picture: 'date{MM/DD/YYYY}' }));
     const other = correctionSpec({ content: { pages: [] }, layoutXdp: xdp('$.rawValue = DateFmt(1);'), sfPdf: sf, afPdf: af });
     expect(other.ops.some((o: any) => o.rule === 'R3')).toBe(false);
-    expect(other.notes.join(' ')).toMatch(/DateFmt script not in the one form/);
+    expect(other.notes.join(' ')).toMatch(/DateFmt script is not the one form datePicture takes/);
   });
 });
 
@@ -140,6 +140,32 @@ describe('smartform-to-adobe: R9 / R3 guards (conv-r4)', () => {
     const script = '$.format.picture = DateFmt(2, $.locale); $ = Num2Date( date(), $.format.picture );';
     const s = correctionSpec({ content, layoutXdp: xdp(script), sfPdf: page([[120, 60, '11/17/2026']]), afPdf: page([[120, 60, 'Nov 17, 2026']]) });
     expect(s.ops.some((o: any) => o.rule === 'R3')).toBe(false);
-    expect(s.notes.join(' ')).toMatch(/DATUM/);
+    expect(s.notes.join(' ')).toMatch(/DATUM: its script converts with Num2Date/);
+  });
+});
+
+describe('smartform-to-adobe: header row height (R11) and the R9 consistency guard (conv-r5)', () => {
+  const xdp = `<?xml version="1.0" encoding="utf-8"?><xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform name="ZDEMO" layout="tb"><pageSet><pageArea name="P1"><contentArea x="2cm" y="2cm" w="16cm" h="20cm"/></pageArea></pageSet>
+<proto><subform id="HEAD" name="HEAD" layout="table"><subform name="HROW" layout="row"><margin bottomInset="0.5mm"/><draw name="H1"><value><text>Carr.</text></value></draw><draw name="H2"><value><text>Price</text></value></draw></subform></subform></proto>
+<subform name="MAIN" layout="tb"><subform name="TAB" layout="table"><subform name="DROW" layout="row"><draw name="A"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml"><div><span xfa:embed="WA.A"/></div></div></exData></value></draw></subform></subform></subform></subform></template></xdp:xdp>`;
+  const page = (texts: [number, number, string][]) => ({ pages: [{ w: 210, h: 297, lines: [], texts: texts.map(([x, y, text]) => ({ x, y, text })) }] });
+  const content = { pages: [{ windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 20, topMm: 90, widthMm: 160, heightMm: 150 }] }] };
+  const rows = (top: number, p: number) => [0, 1, 2].flatMap((i) => [[30, top + i * p, `K${i}`], [60, top + i * p, `A${i}`]] as [number, number, string][]);
+  it('R11: the first data line 2.2 mm too close under the header adds 2.2 mm to the header row (add-only)', () => {
+    const sf = page([[30, 100, 'Carr.'], [60, 100, 'Price'], ...rows(105.29, 5.12)]);
+    const af = page([[30, 100, 'Carr.'], [60, 100, 'Price'], ...rows(103.09, 5.12)]);
+    const ops = correctionSpec({ content, layoutXdp: xdp, sfPdf: sf, afPdf: af }).ops.filter((o: any) => o.rule === 'R11');
+    expect(ops).toEqual([expect.objectContaining({ op: 'margin', target: { protoId: 'HEAD', path: 'HROW' }, bottomInset: '2.7mm' })]);
+    // a header row already too tall: a note, no op
+    const low = correctionSpec({ content, layoutXdp: xdp, sfPdf: sf, afPdf: page([[30, 100, 'Carr.'], [60, 100, 'Price'], ...rows(107.29, 5.12)]) });
+    expect(low.ops.some((o: any) => o.rule === 'R11')).toBe(false);
+    expect(low.notes.join(' ')).toMatch(/header row 2 mm taller/);
+  });
+  it('R9: column pitches that disagree (mixed row kinds) correct nothing, with a note', () => {
+    const mixed = (p: number) => page([...[0, 1, 2, 3].map((i) => [30, 100 + i * p, `K${i}`] as [number, number, string]), ...[0, 1, 2, 3].map((i) => [60, 100 + i * 2 * p, `C${i}`] as [number, number, string])]);
+    const s = correctionSpec({ content, layoutXdp: xdp, sfPdf: mixed(5.3), afPdf: mixed(4.2) });
+    expect(s.ops.some((o: any) => o.rule === 'R9')).toBe(false);
+    expect(s.notes.join(' ')).toMatch(/row pitch not corrected/);
   });
 });

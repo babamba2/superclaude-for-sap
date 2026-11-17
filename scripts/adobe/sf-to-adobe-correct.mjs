@@ -23,6 +23,9 @@
 //   R9 Row pitch (calibration on a print that has the structural rules): SmartForm pitch − migrated pitch as bottom
 //      inset on every table row subform (layout row) that holds embedded values (a static header row keeps its
 //      height); only texts inside the SmartForm's MAIN window are measured. R3 leaves Num2Date scripts alone.
+//   R11 Header row height (calibration): the first data line under a static header row, relative to the header,
+//      in the SmartForm vs the migrated print → bottom inset on the header row (add-only; too tall → a note).
+//      R9 needs the column pitches to agree (spread ≤ 0.5 mm), else a note.
 //   R10 Block offsets (calibration, same print as R9): static texts (draw <value>, no embeds) found moved anchor their
 //      flowed block (a child of MAIN, or a proto root such as a table header leader); per block the median dy becomes
 //      top inset, in print order, counting the insets of earlier blocks (an inset moves everything after it).
@@ -193,7 +196,53 @@ function rowPitchDelta(sfPdf, afPdf, box = null) {
   const a = pitch(sfPdf), b = pitch(afPdf);
   if (!a.length || !b.length) return null;
   const sf = Math.round(median(a) * 100) / 100, af = Math.round(median(b) * 100) / 100;
-  return { sf, af, delta: Math.round((sf - af) * 100) / 100, n: Math.min(a.length, b.length) };
+  // columns that disagree (a table of mixed row kinds: bookings with connection lines) give no row pitch
+  const spread = Math.round(Math.max(Math.max(...a) - Math.min(...a), Math.max(...b) - Math.min(...b)) * 100) / 100;
+  return { sf, af, delta: Math.round((sf - af) * 100) / 100, n: Math.min(a.length, b.length), spread };
+}
+
+/** Runs of a print (a PDF, or in tests a layout JSON { pages: [{ texts }] }). */
+function runsOf(src) {
+  return (Buffer.isBuffer(src) || src instanceof Uint8Array ? readPdf(src).page?.runs : src?.pages?.[0]?.texts) || [];
+}
+
+/** R11: header row height. For each static header row (a row subform with draw values and no embedded values), the
+ *  first data line under its texts in the SmartForm print (inside MAIN) against the migrated print: the data line's dy
+ *  minus the header's dy is what the header row lacks (add-only). → [{ target, bottom, need, n }] */
+function headerRowGaps(t, sfPdf, afPdf, box) {
+  const sf = runsOf(sfPdf), af = runsOf(afPdf);
+  const inBox = (r) => !box || (r.x >= box.leftMm - 1 && r.x <= box.leftMm + box.widthMm + 1 && r.y >= box.topMm - 1 && r.y <= box.topMm + box.heightMm + 1);
+  const textOf = (el) => (el.children || []).map((c) => (c.tag === '#text' ? c.text || '' : textOf(c))).join('');
+  const embeds = (el) => (el.children || []).some((c) => c.attrs?.['xfa:embed'] || c.attrs?.embed || embeds(c));
+  const norm = (s) => String(s).replace(/\s+/g, ' ').trim();
+  // the migrated run for a SmartForm run: same text, x within 8 mm, nearest in y within 15 mm
+  const pair = (r) => {
+    let best = null;
+    for (const a of af) if (norm(a.text) === norm(r.text) && Math.abs(a.x - r.x) <= 8 && Math.abs(a.y - r.y) <= 15 && (!best || Math.abs(a.y - r.y) < Math.abs(best.y - r.y))) best = a;
+    return best ? best.y - r.y : null;
+  };
+  const out = [];
+  for (const { node, target } of allTargets(t)) {
+    if (node.tag !== 'subform' || node.attrs?.layout !== 'row' || embeds(node)) continue;
+    const draws = [];
+    const walk = (el) => { for (const c of kids(el)) { if (c.tag === 'draw') draws.push(c); else walk(c); } };
+    walk(node);
+    const texts = new Set(draws.map((d) => norm(kids(d, 'value').map(textOf).join(' '))).filter(Boolean));
+    const head = sf.filter((r) => inBox(r) && texts.has(norm(r.text)));
+    if (!head.length) continue;
+    const hy = median(head.map((r) => r.y));
+    const hdy = head.map(pair).filter((v) => v !== null);
+    // the first data line: the SmartForm runs inside MAIN just under the header (1 to 15 mm), the top-most line
+    const below = sf.filter((r) => inBox(r) && r.y > hy + 1 && r.y < hy + 15 && !texts.has(norm(r.text)));
+    if (!below.length || !hdy.length) continue;
+    const ly = Math.min(...below.map((r) => r.y));
+    const ldy = below.filter((r) => r.y < ly + 0.5).map(pair).filter((v) => v !== null);
+    if (!ldy.length) continue;
+    const need = Math.round(-(median(ldy) - median(hdy)) * 100) / 100;
+    const bottom = unit(kids(node, 'margin')[0]?.attrs?.bottomInset, 0);
+    out.push({ target, bottom, need, n: ldy.length });
+  }
+  return out;
 }
 
 /** R3 op: an initialize script that sets the picture with DateFmt overrides a template picture — then datePicture (the
@@ -202,11 +251,11 @@ function dateOp(target, script, pic, text) {
   const evidence = `SmartForm prints ${text.replace(/\d/g, '9')}`;
   // a script that converts with Num2Date( …, $.format.picture ) cannot take a date{…} literal (EX35 printed
   // "{11/17/2026}"): no op
-  if (/Num2Date/.test(script)) return null;
+  if (/Num2Date/.test(script)) return { skip: 'its script converts with Num2Date( …, $.format.picture ), which cannot take a date{…} literal' };
   if (!/DateFmt/.test(script)) return { op: 'picture', target, format: pic, rule: 'R3', evidence };
   // the FM's datePicture takes exactly one "$.format.picture = DateFmt(<n>, $.locale)"; any other DateFmt use: no op
   const n = (script.match(/\$\.format\.picture\s*=\s*DateFmt\(\s*\d\s*,\s*\$\.locale\s*\)/g) || []).length;
-  return n === 1 ? { op: 'datePicture', target, picture: pic, rule: 'R3', evidence } : null;
+  return n === 1 ? { op: 'datePicture', target, picture: pic, rule: 'R3', evidence } : { skip: 'its DateFmt script is not the one form datePicture takes' };
 }
 
 /** R10: offsets of flowed blocks from static-text anchors (see correctionSpec). → [{ target, top, dy, n, clamped }] */
@@ -298,7 +347,8 @@ export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, 
   if (sfPdf && afPdf) {
     const main = content?.pages?.[0]?.windows?.find((w) => w.type === 'MAIN') || null;
     const d = rowPitchDelta(sfPdf, afPdf, main);
-    if (d && Math.abs(d.delta) >= 0.25) {
+    if (d && d.spread > 0.5) notes.push(`R9: column row pitches differ by ${d.spread} mm (mixed row kinds) — row pitch not corrected`);
+    else if (d && Math.abs(d.delta) >= 0.25) {
       const embeds = (el) => (el.children || []).some((c) => c.attrs?.['xfa:embed'] || c.attrs?.embed || embeds(c));
       for (const { node, target } of allTargets(t)) {
         // data rows only: a header row of static texts keeps its height (EX35: the header row's inset pushed every
@@ -307,6 +357,15 @@ export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, 
         const bottom = unit(kids(node, 'margin')[0]?.attrs?.bottomInset, 0);
         ops.push({ op: 'margin', target, bottomInset: mm(Math.max(0, bottom + d.delta)), rule: 'R9', evidence: `row pitch SmartForm ${d.sf} mm, migrated ${d.af} mm (${d.n} columns)` });
       }
+    }
+  }
+  // R11 — a static header row lacks height when the first data line under it sits higher than in the SmartForm
+  // (relative to the header): bottom inset on the header row, add-only; a header row too tall gets a note
+  if (sfPdf && afPdf) {
+    const main = content?.pages?.[0]?.windows?.find((w) => w.type === 'MAIN') || null;
+    for (const g of headerRowGaps(t, sfPdf, afPdf, main)) {
+      if (g.need >= 0.25) ops.push({ op: 'margin', target: g.target, bottomInset: mm(g.bottom + g.need), rule: 'R11', evidence: `first data line ${g.need} mm too close under the header (${g.n} texts)` });
+      else if (g.need <= -0.25) notes.push(`${JSON.stringify(g.target)}: header row ${-g.need} mm taller than in the SmartForm — not reducible (R11 adds only)`);
     }
   }
   if (sfPdf && afPdf) {
@@ -347,7 +406,7 @@ export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, 
         const script = JSON.stringify(node.children || []);
         if (!/DateFmt|date\{/.test(script)) continue;
         used.add(p);
-        { const o = dateOp({ path: p }, script, pic, m.text); if (o) ops.push(o); else notes.push(`${p}: DateFmt script not in the one form datePicture takes — date picture not set`); }
+        { const o = dateOp({ path: p }, script, pic, m.text); if (o.skip) notes.push(`${p}: ${o.skip} — date picture not set`); else ops.push(o); }
       }
       for (const [id, node] of t.protos) {
         const walk = (el, path) => {
@@ -358,7 +417,7 @@ export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, 
             const key = `${id}:${pp}`;
             if (c.tag === 'field' && name && /DAT|DATE|DATUM/i.test(name) && !used.has(key) && /DateFmt|date\{/.test(JSON.stringify(c.children || []))) {
               used.add(key);
-              { const o = dateOp({ protoId: id, path: pp }, JSON.stringify(c.children || []), pic, m.text); if (o) ops.push(o); else notes.push(`${id}:${pp}: DateFmt script not in the one form datePicture takes — date picture not set`); }
+              { const o = dateOp({ protoId: id, path: pp }, JSON.stringify(c.children || []), pic, m.text); if (o.skip) notes.push(`${id}:${pp}: ${o.skip} — date picture not set`); else ops.push(o); }
             }
             walk(c, pp);
           }
