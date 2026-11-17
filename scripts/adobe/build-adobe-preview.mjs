@@ -33,8 +33,10 @@ import { textWidthMm } from '../forms-common/metrics.mjs';
 
 /** The browser clips what lies past the page edge; ADS writes it into the PDF anyway (a SmartForm MAIN window
  *  migrated without a width grows off the page). The layout model's own texts and rules stand in for the
- *  clipped ones, the texts flagged wEst (width from the font table). */
+ *  clipped ones, flagged offPage (no scorer leniency: not wEst). Only the browser pieces that spell the start of
+ *  the model text go; another text of ours at the edge stays. */
 export function withOffPage(layout, model) {
+  const bare = (s) => String(s).replace(/\s+/g, '');
   layout.pages.forEach((lp, i) => {
     const mp = model.pages[i];
     if (!mp) return;
@@ -43,8 +45,10 @@ export function withOffPage(layout, model) {
       if (it.type === 'text') {
         const w = textWidthMm(it.text, it.pt, { bold: it.bold, face: it.font });
         if (it.x + w <= W + 0.01 && it.y <= H + 0.01) continue;
-        lp.texts = lp.texts.filter((t) => !(Math.abs(t.y - it.y) < 0.3 && t.x >= it.x - 0.3 && t.x < it.x + w + 0.3));
-        lp.texts.push({ x: +it.x.toFixed(2), y: +it.y.toFixed(2), w: +w.toFixed(2), text: it.text, pt: it.pt, font: it.font, bold: !!it.bold, italic: !!it.italic, wEst: true });
+        const clipped = lp.texts.filter((t) => Math.abs(t.y - it.y) < 0.3 && t.x >= it.x - 0.3 && t.x < it.x + w + 0.3).sort((a, b) => a.x - b.x);
+        const seen = bare(clipped.map((t) => t.text).join(''));
+        if (clipped.length && bare(it.text).startsWith(seen)) lp.texts = lp.texts.filter((t) => !clipped.includes(t));
+        lp.texts.push({ x: +it.x.toFixed(2), y: +it.y.toFixed(2), w: +w.toFixed(2), text: it.text, pt: it.pt, font: it.font, bold: !!it.bold, italic: !!it.italic, offPage: true });
       } else if (it.type === 'line' && Math.max(it.x1, it.x2) > W + 0.01) {
         lp.lines.push({ x1: it.x1, y1: it.y1, x2: it.x2, y2: it.y2, th: it.th });
       } else if (it.type === 'rect' && it.x + it.w > W + 0.01) {

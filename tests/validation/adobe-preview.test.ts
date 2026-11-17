@@ -483,8 +483,10 @@ describe('adobe-preview: ADS rules measured on the calibration form and on migra
 });
 
 describe('adobe-preview: off-page content in the layout JSON', () => {
-  it('replaces texts the browser clipped at the page edge with the model text, flagged wEst; adds off-page rules', () => {
-    const layout = { pages: [{ w: 210, h: 297, texts: [{ x: 203.7, y: 21.7, w: 6.3, text: '000', pt: 10 }, { x: 20, y: 30, w: 10, text: 'Keep', pt: 10 }], lines: [], rects: [] }] };
+  it('replaces texts the browser clipped at the page edge with the model text, flagged offPage (not wEst); adds off-page rules', () => {
+    // the browser writes CID text glyph by glyph: '0' '0' '0' clipped from '0001'
+    const g = (x: number, s: string) => ({ x, y: 21.7, w: 2.1, text: s, pt: 10 });
+    const layout = { pages: [{ w: 210, h: 297, texts: [g(203.7, '0'), g(205.8, '0'), g(207.9, '0'), { x: 20, y: 30, w: 10, text: 'Keep', pt: 10 }], lines: [], rects: [] }] };
     const model = { pages: [{ w: 210, h: 297, items: [
       { type: 'text', x: 203.7, y: 21.7, text: '0001', pt: 10, font: 'Courier New' },
       { type: 'text', x: 20, y: 30, text: 'Keep', pt: 10, font: 'Arial' },
@@ -492,8 +494,16 @@ describe('adobe-preview: off-page content in the layout JSON', () => {
     ] }] };
     const out = withOffPage(layout, model).pages[0];
     expect(out.texts.map((t: any) => t.text).sort()).toEqual(['0001', 'Keep']);
-    expect(out.texts.find((t: any) => t.text === '0001')).toMatchObject({ wEst: true });
+    const sub = out.texts.find((t: any) => t.text === '0001');
+    expect(sub).toMatchObject({ offPage: true });
+    expect(sub.wEst).toBeUndefined();
     expect(out.lines).toHaveLength(1);
+  });
+
+  it('keeps an unrelated text of ours at the page edge (only pieces that start the model text go)', () => {
+    const layout = { pages: [{ w: 210, h: 297, texts: [{ x: 204, y: 21.7, w: 4, text: 'XY', pt: 10 }], lines: [], rects: [] }] };
+    const model = { pages: [{ w: 210, h: 297, items: [{ type: 'text', x: 203.7, y: 21.7, text: '0001', pt: 10, font: 'Courier New' }] }] };
+    expect(withOffPage(layout, model).pages[0].texts.map((t: any) => t.text).sort()).toEqual(['0001', 'XY']);
   });
 });
 
