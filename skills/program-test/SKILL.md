@@ -64,7 +64,7 @@ Runs the program's real code on DEV against realistic rows, so the developer kno
 - Every read passes `mask: { salt: <state.json salt>, extra_fields: <state.json mask_extra> }` — the gate denies it otherwise.
 - `dev` → `GetSqlQuery` (`sql_query` = `SELECT <fields> FROM <table> WHERE …`, `row_number` = `max_rows`) — per-call consent applies.
 - `qa` / `prd` → `GetRemoteTableContents` with `destination` = the run's destination, `fields`, `where`, `max_rows`. `prd`: first one masked probe on DEV (`GetSqlQuery` `SELECT mandt FROM t000 UP TO 1 ROWS` with the mask); a denied probe means the MCP server cannot mask — stop and say so.
-Blocklist denials are final — drop the table and mark its cases `NOT_TESTABLE`. Extra personal fields found in DDIC (custom `ZZ*` names, addresses in text fields) → `<PT> mask-extra --run <run> --fields …` **before** the read.
+Blocklist denials are final — drop the table and mark its cases `NOT_TESTABLE`. Extra personal fields found in DDIC (custom `ZZ*` names, addresses in text fields) → `<PT> mask-extra --run <run> --fields …` **before** the read. The server's name / data-element shapes are generic; customer-specific personal fields always need `mask-extra` — above all one typed with a clear-list data element (e.g. a person's ID in a Z field typed `KUNNR`).
 
 **Step 5 — Expected** (`▶ phase=5 (expected) · agent=sap-analyst · model=Opus`). Dispatch `"sc4sap:sap-analyst"` with the spec, `cases.json` and the masked rows (`<run>/rows/*.json`, never the raw response). It derives each case's expected values from the spec rules and the rows — not from running or reading the program's output logic line by line — and states the basis. Write `expected.json`, then `<PT> check` → `<PT> freeze --run <run>`.
 

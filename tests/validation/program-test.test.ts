@@ -9,7 +9,7 @@ import { activePath, capture } from '../../scripts/program-test/pt-capture.mjs';
 import { gate, serverMaskingProven } from '../../scripts/program-test/pt-gate.mjs';
 import {
   abapRows, buildHarness, buildMutant, buildTamper, checkCases, checkExpected, checkPlan, decide, evidenceLines, exitCode,
-  ddicFromGetTable, extractRows, fingerprint, harnessNames, isRefusedTable, lintHarness, maskRows, maskValue, mutationCandidates, parseSelect, MASKING_RELEASE_PINNED, PERSONAL_DOMAIN, PERSONAL_DTEL, PERSONAL_EXACT, PRD_LOCKED, srcSha, tablesInSql,
+  ddicFromGetTable, extractRows, fingerprint, harnessNames, isRefusedTable, lintHarness, maskRows, maskValue, mutationCandidates, parseSelect, MASKING_RELEASE_PINNED, CLEAR_DATATYPES, CLEAR_DDIC, isClearField, isPersonalField, MASK_VERSIONS, PERSONAL_DDIC_PATTERNS, PERSONAL_DOMAIN, PERSONAL_DTEL, PERSONAL_EXACT, PERSONAL_NAME_PATTERNS, PRD_LOCKED, srcSha, tablesInSql,
 } from '../../scripts/program-test/pt-lib.mjs';
 
 const ROOT = join(__dirname, '..', '..');
@@ -60,7 +60,7 @@ const PLAN = { source: 'dev', tables: [{ table: 'EKPO', fields: ['EBELN', 'EBELP
 
 describe('masking', () => {
   it('masks personal fields deterministically and keeps others', () => {
-    const { rows, masked, fingerprints } = maskRows([{ LIFNR: '0000100001', NAME1: 'Hong Gildong', TELF1: '0212345678', MENGE: '10' }, { LIFNR: '0000100002', NAME1: 'Hong Gildong' }], 's1');
+    const { rows, masked, fingerprints } = maskRows([{ LIFNR: '0000100001', NAME1: 'Hong Gildong', TELF1: '0212345678', MENGE: '10' }, { LIFNR: '0000100002', NAME1: 'Hong Gildong' }], 's1', [], { ddic: { LIFNR: { rollname: 'LIFNR', domname: 'LIFNR' }, NAME1: { rollname: 'NAME1_GP', domname: 'NAME' }, TELF1: { rollname: 'TELF1', domname: 'TELF1' }, MENGE: { rollname: 'BSTMG', domname: 'MENG13', datatype: 'QUAN' } } });
     expect(rows[0].LIFNR).toBe('0000100001');
     expect(rows[0].MENGE).toBe('10');
     expect(rows[0].NAME1).not.toBe('Hong Gildong');
@@ -70,6 +70,8 @@ describe('masking', () => {
     expect(fingerprints).toContain(fingerprint('Hong Gildong', 's1'));
     expect(maskValue('19800101', 'GBDAT', 's')).toBe('19000101');
     expect(maskRows([{ ZZOWNER: 'Kim' }], 's', ['zzowner']).rows[0].ZZOWNER).not.toBe('Kim');
+    // without the table's DDIC nothing is known to be clear
+    expect(maskRows([{ LIFNR: '1', MENGE: '10' }], 's').masked).toEqual(['LIFNR', 'MENGE']);
   });
 
   it('refuses personal / credential tables', () => {
@@ -360,7 +362,7 @@ describe('capture hook side', () => {
     expect(fingerprints).toContain(fingerprint('Real Person', 'abc'));
     // the capture keeps a server-masked answer as it came, for this run's salt
     const { root, run } = setupRun('server-masked');
-    const answer = JSON.stringify({ rows, masking: { version: 'hmac-v1', default_deny: true, masked_columns: masked } });
+    const answer = JSON.stringify({ rows, masking: { version: 'hmac-v2', default_deny: true, masked_columns: masked } });
     expect(capture(root, 'GetSqlQuery', { sql_query: 'SELECT kunnr, name1, land1, zzcontact, zzother FROM kna1', mask: { salt: 'abc' } }, answer, false))
       .toMatchObject({ kind: 'data', table: 'KNA1', source: 'dev', count: 1, masked: ['NAME1', 'ZZCONTACT', 'ZZOTHER'], server_masked: true });
     expect(JSON.parse(readFileSync(join(run, 'rows', 'KNA1.json'), 'utf-8')).rows).toEqual(rows);
@@ -376,7 +378,7 @@ describe('capture hook side', () => {
     expect(out.masked).toEqual(['N']);
     expect(out.rows[0].COUNTRY).toBe('KR');
     const { root, run } = setupRun('alias');
-    const masked = JSON.stringify({ rows: [{ KUNNR: '2', LAND1: 'MXX' }], masking: { version: 'hmac-v1', default_deny: true, masked_columns: ['LAND1'] } });
+    const masked = JSON.stringify({ rows: [{ KUNNR: '2', LAND1: 'MXX' }], masking: { version: 'hmac-v2', default_deny: true, masked_columns: ['LAND1'] } });
     for (const sql of ['SELECT kunnr, concat( name1, land1 ) AS full FROM kna1', 'SELECT kunnr, land1 FROM kna1 UNION SELECT kunnr, name1 FROM kna1']) {
       expect(capture(root, 'GetSqlQuery', { sql_query: sql, mask: { salt: 'abc' } }, masked, false)).toMatchObject({ error: expect.stringMatching(/SELECT not saved/) });
     }
@@ -596,6 +598,25 @@ describe('server-side masking (MCP mask argument)', () => {
     expect(Object.keys(V)).not.toContain('mask_value');
   });
 
+  it('pt-lib classifies the pinned columns (SCUSTOM, KNA1, LFA1, ADRC, BUT000, ADR6, ADR2, KNVK, SBOOK, Z-shaped tables) like the server', () => {
+    expect(PERSONAL_NAME_PATTERNS.map((re) => re.source)).toEqual(V.patterns.name);
+    expect(PERSONAL_DDIC_PATTERNS.map((re) => re.source)).toEqual(V.patterns.ddic);
+    const wrong: string[] = [];
+    for (const [table, fields] of Object.entries(V.pinned_tables as Record<string, Record<string, { rollname: string; domname: string; personal: boolean }>>))
+      for (const [f, d] of Object.entries(fields)) if (isClearField(f, [], d) === d.personal) wrong.push(`${table}-${f}`);
+    expect(wrong).toEqual([]);
+    expect([...CLEAR_DDIC].sort()).toEqual(V.lists.clear_ddic);
+    expect([...CLEAR_DATATYPES].sort()).toEqual(V.lists.clear_datatypes);
+    // allow-list: an unlisted data element stays masked even when nothing about it looks personal
+    expect(isClearField('ZZINFO', [], { rollname: 'ZZ_NEW_DTEL', domname: 'CHAR30' })).toBe(false);
+    expect(isClearField('TELEPHONE', [], { rollname: 'MANDT', domname: '' })).toBe(false);
+    expect(isClearField('KUNNR', [], { rollname: 'KUNNR', domname: '' })).toBe(true);
+    expect(MASK_VERSIONS).toEqual(['hmac-v2']);
+    for (const n of V.name_probe.personal) expect([n, isPersonalField(n)]).toEqual([n, true]);
+    for (const n of V.name_probe.not_personal) expect([n, isPersonalField(n)]).toEqual([n, false]);
+    for (const f of ['NAME', 'TELEPHONE', 'EMAIL', 'STREET', 'CITY', 'POSTCODE', 'WEBUSER']) expect(V.pinned_tables.SCUSTOM[f].personal).toBe(true);
+  });
+
   function run(name: string, source = 'dev', extra: string[] = []) {
     const root = join(tmp, name);
     const runDir = join(root, '.sc4sap', 'program', 'ZP', 'test', 'R1');
@@ -607,7 +628,7 @@ describe('server-side masking (MCP mask argument)', () => {
   }
   const SALT = '0123456789abcdef0123456789abcdef';
   const sap = (tool: string, input: unknown, cwd: string) => ({ tool_name: `mcp__plugin_sc4sap_sap__${tool}`, tool_input: input, cwd });
-  const masked = (rows: Record<string, string>[], cols: string[], version = 'hmac-v1') => JSON.stringify({ table: 'X', rows, masking: { version, default_deny: true, masked_columns: cols, ddic_fields: 3 } });
+  const masked = (rows: Record<string, string>[], cols: string[], version = 'hmac-v2') => JSON.stringify({ table: 'X', rows, masking: { version, default_deny: true, masked_columns: cols, ddic_fields: 3 } });
 
   it('the read gate: no run → allow; run → the run\'s mask is required', () => {
     expect(gate(sap('GetSqlQuery', { sql_query: 'SELECT kunnr FROM kna1' }, join(tmp, 'nothing-here')))).toBeNull();
@@ -652,8 +673,10 @@ describe('server-side masking (MCP mask argument)', () => {
     expect(capture(root, 'GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRD100' }, JSON.stringify({ rows: [{ EBELN: '45', ERNAM: 'REALUSER' }] }), false)).toMatchObject({ error: expect.stringMatching(/without server masking/) });
     expect(existsSync(join(runDir, 'rows', 'EKPO.json'))).toBe(false);
     expect(capture(root, 'GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRD100' }, masked([{ EBELN: '45', ERNAM: 'MAB12' }], ['ERNAM'], 'sha-v0'), false)).toMatchObject({ error: expect.stringMatching(/without server masking/) });
+    // a 4.14.0-era server (v1 rules kept unlisted fields clear) is not accepted either
+    expect(capture(root, 'GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRD100' }, masked([{ EBELN: '45', ERNAM: 'MAB12' }], ['ERNAM'], 'hmac-v1'), false)).toMatchObject({ error: expect.stringMatching(/without server masking/) });
     const ok = capture(root, 'GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRD100' }, masked([{ EBELN: '45', ERNAM: 'MAB12' }], ['ERNAM']), false);
-    expect(ok).toMatchObject({ kind: 'data', table: 'EKPO', source: 'prd', count: 1, masked: ['ERNAM'], server_masked: true, mask_version: 'hmac-v1' });
+    expect(ok).toMatchObject({ kind: 'data', table: 'EKPO', source: 'prd', count: 1, masked: ['ERNAM'], server_masked: true, mask_version: 'hmac-v2' });
     const saved = JSON.parse(readFileSync(join(runDir, 'rows', 'EKPO.json'), 'utf-8'));
     expect(saved.rows).toEqual([{ EBELN: '45', ERNAM: 'MAB12' }]);
     expect(existsSync(join(runDir, 'fingerprints.json'))).toBe(false);
