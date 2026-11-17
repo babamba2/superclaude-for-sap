@@ -1503,6 +1503,14 @@ function newPageCommand(p, holds = () => true) {
     for (const n of list || []) {
       if (!holds(n.condition)) continue;
       if (n.kind === 'command' && n.attrs?.NEWPAGE === 'X') return n.attrs;
+      // an alternative: only the branch it takes (as nodeBody: an empty test is the TRUE event)
+      if (n.kind === 'condition' && (n.children || []).some((c) => c.attrs?.EVTYPE)) {
+        const want = !n.test || holds({ COND: n.test }) ? '+' : '-';
+        const ev = n.children.find((c) => c.attrs?.EVTYPE === want);
+        const r = ev ? walk(ev.children) : null;
+        if (r) return r;
+        continue;
+      }
       const r = walk(n.children);
       if (r) return r;
     }

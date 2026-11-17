@@ -107,4 +107,22 @@ describe('smartform-preview: NEWPAGE commands with a target page', () => {
       expect(pagePlan(ps, rows(3), nextOf(ps)).sheets.map((s: any) => s.def.name)).toEqual(['P1', 'LAST']);
     }
   });
+  it('a NEWPAGE command in an alternative counts only in the branch the test takes', () => {
+    const test = [{ OP1: 'GV_FLAG', COP: 'EQ', OP2: "'X'" }];
+    const cmd = { kind: 'command', name: '%C1', attrs: { NEWPAGE: 'X', PAGENAME: 'LAST' } };
+    const alt = (inTrue: boolean, t: any = test) => [page('P1', 'NOPE', [win('MAIN', 'MAIN', 100), { ...win('FOOT', 'SECONDARY'), content: [{
+      kind: 'condition', name: '%COND1', ...(t ? { test: t } : {}), children: [
+        { kind: 'folder', name: '%EV+', attrs: { EVTYPE: '+' }, children: inTrue ? [cmd] : [] },
+        { kind: 'folder', name: '%EV-', attrs: { EVTYPE: '-' }, children: inTrue ? [] : [cmd] }] }] }]), pages[2]];
+    // the test holds when holds() says so for {COND: test}
+    const yes = () => true, no = (c: any) => !c?.COND;
+    const names = (ps: any, h: any) => pagePlan(ps, rows(3), nextOf(ps), 50, h).sheets.map((s: any) => s.def.name);
+    expect(names(alt(true), yes)).toEqual(['P1', 'LAST']);
+    expect(names(alt(true), no)).toEqual(['P1']);
+    expect(names(alt(false), yes)).toEqual(['P1']);
+    expect(names(alt(false), no)).toEqual(['P1', 'LAST']);
+    // an empty test is the TRUE branch
+    expect(names(alt(true, null), no)).toEqual(['P1', 'LAST']);
+    expect(names(alt(false, null), no)).toEqual(['P1']);
+  });
 });

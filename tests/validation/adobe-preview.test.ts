@@ -109,7 +109,8 @@ describe('adobe-preview: data XML values', () => {
       { text: 'second', style: 'font-size:6pt;text-decoration:underline' },
     ]);
     const t = textsFromTables([{ FORMNAME: 'ZT', LINENR: '000001', TDFORMAT: 'FT', TDLINE: 'a' }], [{ TDPARGRAPH: 'FT', TDPJUSTIFY: 'CENTER', TDFAMILY: 'HELVE', TDHEIGHT: '080' }]);
-    expect(t.ZT.formats.FT).toMatchObject({ family: 'Helvetica', pt: 8, align: 'center' });
+    // HELVE is Arial in the XHTML SAP's form runtime hands ADS (FP_TEST_01 data XML, style S_TEST)
+    expect(t.ZT.formats.FT).toMatchObject({ family: 'Arial', pt: 8, align: 'center' });
   });
 
   it('evaluates node conditions: AND inside a group, OR between groups', () => {

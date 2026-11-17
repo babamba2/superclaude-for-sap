@@ -334,8 +334,13 @@ function dataParagraphs(rich, font) {
     const st = parseStyle(p.style);
     const f = runFont(font, st);
     const runs = [];
-    String(p.text).split('\n').forEach((piece, i) => { if (i) runs.push({ br: true, font: f }); runs.push({ text: piece, font: f }); });
-    return { runs, st };
+    // '\t' (SAPscript ",,") steps to the paragraph's tab stops, as xfa-tab-count does in SAP's XHTML
+    String(p.text).split('\n').forEach((piece, i) => {
+      if (i) runs.push({ br: true, font: f });
+      piece.split('\t').forEach((seg, k) => { if (k) runs.push({ tab: true, text: '', font: f }); if (seg || !k) runs.push({ text: seg, font: f }); });
+    });
+    const tabs = st['tab-stops'] ?? st['tab-stop'];
+    return { runs, st, ...(tabs ? { tabs: tabStops(tabs) } : {}) };
   });
 }
 
@@ -1228,6 +1233,39 @@ export function layoutForm(template, record, opts = {}) {
     const br = breakOf(n.t);
     if (n.over.breakBefore) br.before = n.over.breakBefore;
     if (br.before && /pageArea|contentArea/.test(br.before) && cursor > 0) { newPage(); repeatLeaders(); }
+    // a growable field / draw (no h) with more lines than the page has room for splits between its lines, as ADS
+    // does (FP_TEST_01: a 280-line include text starts under its heading on page 1 and runs over four more pages;
+    // the continuation starts at the content area's top, without the top inset)
+    const lines = n.shape?.lines;
+    if ((n.kind === 'field' || n.kind === 'draw') && !attr(n.t, 'h') && lines?.length > 1 && cursor + n.h > area.h + 0.01
+        && attr(prop(n.t, 'keep'), 'intact', 'none') === 'none') {
+      const ins = marginOf(n.t).t;
+      let off = 0;
+      let fresh = cursor === 0;
+      for (let guard = 0; guard < 200; guard++) {
+        const avail = area.h - cursor;
+        if (n.h - off <= avail + 0.01) {
+          page.flows.push({ n, x: area.x + openX(), y: area.y + cursor - off, clip: { y0: area.y + cursor, y1: area.y + area.h } });
+          cursor += n.h - off;
+          break;
+        }
+        let cut = off;
+        for (const l of lines) {
+          const b = ins + l.top + l.lh;
+          if (b > off + 0.01 && b <= off + avail + 0.01) cut = Math.max(cut, b);
+        }
+        if (cut <= off + 0.01) {
+          if (!fresh) { newPage(); repeatLeaders(); fresh = true; continue; }
+          cut = off + avail;
+        }
+        page.flows.push({ n, x: area.x + openX(), y: area.y + cursor - off, clip: { y0: area.y + cursor, y1: area.y + cursor + cut - off } });
+        if (!n.page) markPage(n, page);
+        off = cut;
+        newPage(); repeatLeaders(); fresh = true;
+      }
+      if (br.after && /pageArea|contentArea/.test(br.after)) { newPage(); repeatLeaders(); }
+      return;
+    }
     if (cursor + n.h > area.h + 0.01 && cursor > 0) { newPage(); repeatLeaders(); }
     if (n.h > area.h + 0.01) L.report.overflow.push(L.som(n));
     page.flows.push({ n, x: area.x + openX(), y: area.y + cursor });
@@ -1302,7 +1340,15 @@ export function layoutForm(template, record, opts = {}) {
       L.draw(mn, ax, ay, p.items, p);
     }
     for (const f of p.flows) {
-      L.draw(f.n, f.x + (f.n.margin ? 0 : 0), f.y, p.items, p);
+      if (!f.clip) { L.draw(f.n, f.x + (f.n.margin ? 0 : 0), f.y, p.items, p); continue; }
+      // one piece of a split field: the items whose line (text: mid-line above the baseline; others: their top)
+      // falls inside this page's slice
+      const tmp = [];
+      L.draw(f.n, f.x, f.y, tmp, p);
+      for (const it of tmp) {
+        const yy = it.type === 'text' ? it.y - 0.35 * (it.pt || 10) * PT : (it.y ?? it.y1 ?? f.clip.y0);
+        if (yy >= f.clip.y0 - 0.01 && yy < f.clip.y1 - 0.01) p.items.push(it);
+      }
     }
   }
   // split container borders (tables): from the first to the last flow of their descendants per page

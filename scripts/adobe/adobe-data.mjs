@@ -294,30 +294,58 @@ function referenceOf(field, references) {
   return r ? r.unit : undefined;
 }
 
-/** SmartStyle paragraph format → CSS for the rich text ADS gets (size, alignment, bold, italic). */
+/** SmartStyle paragraph format → CSS for the rich text ADS gets: font, size, alignment, bold / italic / underline,
+ *  and (styleFormats) line height, margins, first-line indent and tab stops in mm. */
 export function formatCss(f = {}) {
   const css = [];
+  const mm = (v) => `${Math.round(v * 100) / 100}mm`;
   if (f.family) css.push(`font-family:${f.family}`);
   if (f.pt) css.push(`font-size:${f.pt}pt`);
   if (f.align) css.push(`text-align:${String(f.align).toLowerCase()}`);
   if (f.bold) css.push('font-weight:bold');
   if (f.italic) css.push('font-style:italic');
   if (f.underline) css.push('text-decoration:underline');
+  if (f.lineHeight) css.push(`line-height:${mm(f.lineHeight)}`);
+  if (f.left) css.push(`margin-left:${mm(f.left)}`);
+  if (f.right) css.push(`margin-right:${mm(f.right)}`);
+  if (f.top) css.push(`margin-top:${mm(f.top)}`);
+  if (f.bottom) css.push(`margin-bottom:${mm(f.bottom)}`);
+  if (f.indent) css.push(`text-indent:${mm(f.indent)}`);
+  if (f.tabs?.length) css.push(`tab-stops:${f.tabs.map((t) => `${t.align} ${mm(t.pos)}`).join(' ')}`);
   return css.join(';');
 }
 
+/** The number of a paragraph in its outline (SmartStyle TDLFIRSTPA / TDLDEPTH): counters per outline and depth;
+ *  chained ("1.1") or the own level only; the closing character after it; fixed characters (bullets) as they are. */
+function outlinePrefix(n, counters) {
+  if (n.kind === 'C') return n.fix ? `${n.fix} ` : '';
+  const c = (counters[n.root] ||= []);
+  c[n.depth - 1] = (c[n.depth - 1] || 0) + 1;
+  c.length = n.depth;
+  for (let i = 0; i < n.depth; i++) c[i] ||= 1;
+  const nums = n.chained ? c.slice(0, n.depth) : [c[n.depth - 1]];
+  return `${nums.join('.')}${n.last || ''} `;
+}
+
 /** SAPscript ITF lines ({ f, t }) → paragraphs: a paragraph format starts a paragraph, '/' a new line, '=' joins
- *  without a blank, ' ' (or empty) joins with one. formats: { FT: { pt, align, bold, italic } }, '*' = default. */
+ *  without a blank, ' ' (or empty) joins with one, ',,' is a tab. formats: { FT: { pt, align, bold, italic, … } },
+ *  '*' = default; a format with an outline number (styleFormats) prints the number before its text (SAP's form
+ *  runtime: "1. Zeichensatz", "1.1. Großbuchstaben" in FP_TEST_01's data XML). */
 export function itfParagraphs(lines, formats = {}) {
   const out = [];
   let cur = null;
+  const counters = {};
   for (const l of lines || []) {
     const f = String(l.f ?? l.TDFORMAT ?? '').trim();
-    const t = String(l.t ?? l.TDLINE ?? '');
+    // SAPscript inline codes: ',,' a tab; '<(>' / '<)>' the characters < / >; '<nnn>' a SAP special character
+    // (one character; its table is not read — '?' keeps the width); '<XX>…</>' character formats (not applied yet)
+    const t = String(l.t ?? l.TDLINE ?? '').replace(/,,/g, '\t').replace(/<\d{3}>/g, '?')
+      .replace(/<\/>|<[A-Z0-9]{1,2}>/g, '').replace(/<\(>/g, '<').replace(/<\)>/g, '>');
     if (f === '/*' || f === '/:') continue;
     const newPara = f && f !== '/' && f !== '=' && f !== '/=';
     if (!cur || newPara) {
-      cur = { text: t, style: formatCss(formats[newPara ? f : '*'] || formats['*'] || {}) };
+      const fmt = formats[newPara ? f : '*'] || formats['*'] || {};
+      cur = { text: (fmt.number ? outlinePrefix(fmt.number, counters) : '') + t, style: formatCss(fmt) };
       out.push(cur);
       continue;
     }
@@ -328,16 +356,65 @@ export function itfParagraphs(lines, formats = {}) {
   return out;
 }
 
-/** sample.texts from SAP's own tables: text module lines (STXFTXT rows: FORMNAME, LINENR, TDFORMAT, TDLINE) and the
- *  paragraph formats of their SmartStyle (STXSPARA rows: TDPARGRAPH, TDPJUSTIFY, TDHEIGHT, TDBOLD, TDITALIC). */
-export function textsFromTables(textRows = [], paraRows = []) {
-  const formats = {};
+const STYLE_FAMILY = { HELVE: 'Arial', TIMES: 'Times New Roman', COURIER: 'Courier New' };
+const LEN_MM = { MM: 1, CM: 10, IN: 25.4, PT: 25.4 / 72, TW: 25.4 / 1440 };
+/** A SmartStyle length in mm: value + unit (LN = lines of 1/LPI inch, CH = characters of 1/CPI inch). */
+function styleLen(v, u, lpi, cpi) {
+  const n = Number(String(v ?? '').trim());
+  if (!n) return 0;
+  const unit = String(u ?? '').trim().toUpperCase();
+  if (unit === 'LN') return (n * 25.4) / lpi;
+  if (unit === 'CH') return (n * 25.4) / cpi;
+  return n * (LEN_MM[unit] ?? 10);
+}
+
+/** Paragraph formats of a SmartStyle the way SAP's form runtime writes them into the XHTML ADS gets (FP_TEST_01's
+ *  data XML with style S_TEST: HELVE → Arial, COURIER → Courier New; a paragraph without its own font takes the
+ *  style header's; line distance, space above / below in lines of 1/LPI inch; left margin; an outline number sits
+ *  at its own left (TDNUMLEFT) with the text indent −(left − number left); tab stops from STXSTAB).
+ *  paraRows: STXSPARA rows; head: the STXSHEAD row (or null); tabRows: STXSTAB rows. */
+export function styleFormats(paraRows = [], head = null, tabRows = []) {
+  const tr = (v) => String(v ?? '').trim();
+  const lpi = Number(tr(head?.LPI)) || 6;
+  const cpi = Number(tr(head?.CPI)) || 10;
+  const hFam = STYLE_FAMILY[tr(head?.TDFAMILY)];
+  const hPt = Number(tr(head?.TDHEIGHT)) / 10 || undefined;
+  const out = {};
   for (const r of paraRows) {
-    const h = Number(String(r.TDHEIGHT || '').trim());
-    const fam = { HELVE: 'Helvetica', TIMES: 'Times', COURIER: 'Courier' }[String(r.TDFAMILY || '').trim()];
-    formats[String(r.TDPARGRAPH || '').trim()] = { family: fam, pt: h ? h / 10 : undefined, align: String(r.TDPJUSTIFY || '').trim() === 'BLOCK' ? 'justify' : String(r.TDPJUSTIFY || '').trim().toLowerCase() || undefined,
-      bold: r.TDBOLD === 'X', italic: r.TDITALIC === 'X', underline: r.TDUNDERLIN === 'X' };
+    const name = tr(r.TDPARGRAPH);
+    if (!name) continue;
+    const pt = Number(tr(r.TDHEIGHT)) / 10 || (head ? hPt : undefined);
+    const just = tr(r.TDPJUSTIFY);
+    const flag = (own, h) => (own === 'X' ? true : own === '*' || own === '' ? h === 'X' : false);
+    const f = {
+      family: STYLE_FAMILY[tr(r.TDFAMILY)] || (head ? hFam : undefined), pt,
+      align: just === 'BLOCK' ? 'justify' : just.toLowerCase() || undefined,
+      bold: flag(tr(r.TDBOLD), tr(head?.TDBOLD)), italic: flag(tr(r.TDITALIC), tr(head?.TDITALIC)), underline: flag(tr(r.TDUNDERLIN), tr(head?.TDUNDERLIN)),
+    };
+    const len = (v, u) => styleLen(r[v], r[u], lpi, cpi);
+    Object.assign(f, { lineHeight: len('TDPLDIST', 'TDPLDISTU'), left: len('TDPLEFT', 'TDPLEFTU'), right: len('TDPRIGHT', 'TDPRIGHTU'),
+      top: len('TDPTOP', 'TDPTOPU'), bottom: len('TDPBOT', 'TDPBOTU'), indent: len('TDPENTRY', 'TDPENTRYU') });
+    const depth = Number(tr(r.TDLDEPTH)) || 0;
+    const kind = tr(r.TDNUMBERIN);
+    if (tr(r.TDLFIRSTPA) && depth > 0 && (kind === 'A' || (kind === 'C' && tr(r.TDNUMFIXC)))) {
+      f.number = { root: tr(r.TDLFIRSTPA), depth, chained: tr(r.TDLCHAINED) === 'X', last: tr(r.TDLLASTC), kind, fix: tr(r.TDNUMFIXC) };
+      f.indent = len('TDNUMLEFT', 'TDNUMLEFTU') - f.left;
+    }
+    const tabs = tabRows.filter((t) => tr(t.TDPARGRAPH) === name).sort((a, b) => tr(a.TDPOSITION).localeCompare(tr(b.TDPOSITION)))
+      .map((t) => ({ align: ({ RIGHT: 'right', CENTER: 'center', DECIMAL: 'decimal' })[tr(t.TDTJUSTIFY)] || 'left', pos: styleLen(t.TDTABPOS, t.TDTABPOSU, lpi, cpi) }));
+    if (tabs.length) f.tabs = tabs;
+    out[name] = f;
   }
+  // '*' lines print in the style's default paragraph (STXSHEAD TDFIRSTPAR)
+  const first = tr(head?.TDFIRSTPAR);
+  if (first && out[first] && !out['*']) out['*'] = out[first];
+  return out;
+}
+
+/** sample.texts from SAP's own tables: text module lines (STXFTXT rows: FORMNAME, LINENR, TDFORMAT, TDLINE) and the
+ *  paragraph formats of their SmartStyle (styleFormats: STXSPARA rows, optional STXSHEAD row and STXSTAB rows). */
+export function textsFromTables(textRows = [], paraRows = [], { head = null, tabs = [] } = {}) {
+  const formats = styleFormats(paraRows, head, tabs);
   const by = {};
   for (const r of [...textRows].sort((a, b) => String(a.LINENR).localeCompare(String(b.LINENR)))) {
     const k = String(r.FORMNAME || '').trim();

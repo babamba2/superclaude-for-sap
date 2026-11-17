@@ -64,7 +64,10 @@ node scripts/adobe/build-adobe-preview.mjs fields "<dir>"
 
 **Step 4 — Field types.** For every interface parameter and global (`readInterface`): `GetStructure` (DDL: `abap.char(20)` inline or a data element per field), `GetDataElement` for data-element fields, `GetTypeInfo` for a table type's row type. Built-in parameter types (`C`, `N`, `P`, `D`, `T`, `I`, `STRING`) need no read. Keep `{ type, length, decimals }` per field, keyed like the context field: `"BOOKINGS-FORCURAM": { "type": "CURR", "length": 15, "decimals": 2 }`. `scripts/adobe/read-adobe-sap.mjs` `readFormDdic` does the same for the web.
 
-**Step 5 — Text modules** (context nodes of kind text-module): their lines from `GetSqlQuery` on `STXFTXT` (`formname IN (…) AND spras = '<logon language>'` — Smart Forms repository text, not business data) and the paragraph formats of their SmartStyle from `STXSPARA` (style name: ask, or from the text module where known). Without them the node prints empty and is listed in `missingTexts`.
+**Step 5 — Text modules and include texts** (context nodes of kind text-module / text). Language: the node's own `text.language` when set (SAP prints that one), else the logon language.
+- Text modules: their lines from `GetSqlQuery` on `STXFTXT` (`formname IN (…) AND spras = '<language>'` — Smart Forms repository text, not business data) and the paragraph formats of their SmartStyle from `STXSPARA` (style name: ask, or from the text module where known).
+- SO10 include texts (fixed `text.name` / `object` / `id`): `GetStandardText` (DEV systems only); a name held in a field (`nameField`) comes from the sample values.
+Without them the node prints empty and is listed in `missingTexts`.
 
 **Step 6 — Sample values** → write `<out>/values.json` with the `Write` tool:
 ```json
