@@ -749,7 +749,12 @@ ENDFORM.
 * areas are transparent, inner segments match containers only; protoid =
 * id of a child of a <proto>, path relative to it; xliffid = xliff:id.
 * Ops: layout, geometry, margin, font, para, xhtml, picture, border,
-* presence (presence needs "basis" - the SmartForm node or condition).
+* presence (presence needs "basis" - the SmartForm node or condition),
+* datepicture (the only script edit: in a field's initialize scripts exactly
+* one "$.format.picture = DateFmt(<n>, $.locale)" must occur; its DateFmt
+* call is replaced by the string literal of a date{...} picture; 0 or more
+* -> refused; $.ui.picture and other script text stay untouched; the result
+* names the text replaced).
 * Every value is checked (allow-lists, measurement mm / pt / cm / in).
 * IV_CHECK = X: parse and check the op list only (no DOM) - the FM runs
 * it before anything is saved. Result per op: applied / not_found /
@@ -795,6 +800,7 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
            edge        TYPE string,
            presence    TYPE string,
            thickness   TYPE string,
+           picture     TYPE string,
          END OF ty_op,
          BEGIN OF ty_corr,
            strict TYPE abap_bool,
@@ -841,10 +847,17 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
         lv_app     TYPE i,
         lv_nf      TYPE i,
         lv_amb     TYPE i,
-        lv_ref     TYPE i.
+        lv_ref     TYPE i,
+        lv_cnt2    TYPE i,
+        lv_off2    TYPE i,
+        lv_len2    TYPE i.
   FIELD-SYMBOLS: <ls_op> TYPE ty_op,
                  <ls_kv> TYPE ty_kv.
-  CONSTANTS: c_ops   TYPE string VALUE ` layout geometry margin font para xhtml picture border presence `,
+  " (?-x) in patterns with a space or #: ABAP runs PCRE in extended mode by default
+  CONSTANTS: c_ops   TYPE string VALUE ` layout geometry margin font para xhtml picture border presence datepicture `,
+             c_dpict TYPE string VALUE `(?-x)date[{][DMY][DMY./ -]{0,19}[}]`,
+             " the display-picture assignment only (not $.ui.picture, not LocalDateFmt)
+             c_datefmt TYPE string VALUE `(?-x)\$\.format\.picture\s*=\s*DateFmt\(\s*\d\s*,\s*\$\.locale\s*\)`,
              c_css   TYPE string VALUE ` line-height margin-left margin-right margin-top margin-bottom text-indent tab-stops font-size font-family font-weight text-align `,
              c_meas  TYPE string VALUE `-?[0-9]{1,4}([.][0-9]{1,4})?(mm|pt|cm|in)`,
              c_pict  TYPE string VALUE `[A-Za-z]+[{][^{}<>&]{1,80}[}]([|][A-Za-z]+[{][^{}<>&]{1,80}[}]){0,5}`.
@@ -985,7 +998,7 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
             PERFORM fpc_attrs USING lo_c lt_kv c_meas abap_true CHANGING lv_status lv_detail.
           ENDIF.
         WHEN 'font'.
-          IF <ls_op>-typeface IS NOT INITIAL AND NOT matches( val = <ls_op>-typeface pcre = `[A-Za-z0-9 -]{1,60}` ).
+          IF <ls_op>-typeface IS NOT INITIAL AND NOT matches( val = <ls_op>-typeface pcre = `(?-x)[A-Za-z0-9 -]{1,60}` ).
             lv_status = 'refused'. lv_detail = `typeface not allowed`.
           ELSEIF <ls_op>-weight IS NOT INITIAL AND <ls_op>-weight <> 'normal' AND <ls_op>-weight <> 'bold'.
             lv_status = 'refused'. lv_detail = `weight: normal or bold`.
@@ -1059,7 +1072,7 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
                 SPLIT lv_s AT ':' INTO lv_k lv_v.
                 lv_k = to_lower( condense( lv_k ) ). lv_v = condense( lv_v ).
                 IF c_css NS | { lv_k } | OR lv_k IS INITIAL
-                   OR NOT matches( val = lv_v pcre = `[A-Za-z0-9 .,#%'-]{1,120}` ).
+                   OR NOT matches( val = lv_v pcre = `(?-x)[A-Za-z0-9 .,#%'-]{1,120}` ).
                   lv_status = 'refused'. lv_detail = |CSS "{ substring( val = lv_s len = nmin( val1 = 40 val2 = strlen( lv_s ) ) ) }" not allowed|.
                   EXIT.
                 ENDIF.
@@ -1159,6 +1172,42 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
             lv_status = 'refused'. lv_detail = `presence value not allowed`.
           ELSE.
             lo_t->set_attribute( name = 'presence' value = <ls_op>-value ).
+          ENDIF.
+        WHEN 'datepicture'.
+          " The one script edit: a field's initialize script sets its display picture at run
+          " time with DateFmt(<n>, $.locale), which overrides any template picture. Replace
+          " exactly that call by the fixed picture; nothing else in any script is touched.
+          IF lv_tag <> 'field'.
+            lv_status = 'refused'. lv_detail = |target is a { lv_tag }, not a field|.
+          ELSEIF NOT matches( val = <ls_op>-picture pcre = c_dpict ).
+            lv_status = 'refused'. lv_detail = `picture: date{...} with D / M / Y and . / - or space only`.
+          ELSE.
+            CLEAR: lt_hits, lv_n.
+            PERFORM fpc_initscripts USING lo_t CHANGING lt_hits.
+            LOOP AT lt_hits INTO lo_c.
+              lv_s = lo_c->get_value( ).
+              FIND ALL OCCURRENCES OF PCRE c_datefmt IN lv_s MATCH COUNT lv_cnt2.
+              lv_n = lv_n + lv_cnt2.
+              IF lv_cnt2 > 0.
+                lo_c2 = lo_c.
+              ENDIF.
+            ENDLOOP.
+            IF lv_n <> 1.
+              lv_status = 'refused'.
+              lv_detail = |{ lv_n } "$.format.picture = DateFmt(n, $.locale)" in the initialize scripts of the target - exactly 1 needed|.
+            ELSE.
+              lv_s = lo_c2->get_value( ).
+              FIND FIRST OCCURRENCE OF PCRE c_datefmt IN lv_s MATCH OFFSET lv_off2 MATCH LENGTH lv_len2.
+              " replace only the DateFmt( ... ) call: from "DateFmt" to the end of the match
+              lv_cnt2 = find( val = substring( val = lv_s off = lv_off2 len = lv_len2 ) sub = `DateFmt` ).
+              lv_off2 = lv_off2 + lv_cnt2.
+              lv_len2 = lv_len2 - lv_cnt2.
+              lv_v = substring( val = lv_s off = lv_off2 len = lv_len2 ).
+              " offset-based replace: no replacement-pattern interpretation of the picture
+              lv_s = |{ substring( val = lv_s len = lv_off2 ) }"{ <ls_op>-picture }"{ substring( val = lv_s off = lv_off2 + lv_len2 ) }|.
+              lv_ref = lo_c2->set_value( lv_s ).
+              lv_detail = |initialize script: { lv_v } replaced by the string literal "{ <ls_op>-picture }"|.
+            ENDIF.
           ENDIF.
       ENDCASE.
     ENDIF.
@@ -1374,6 +1423,22 @@ FORM fpc_desc USING io_el  TYPE REF TO if_ixml_element
     ENDIF.
     lo_n = lo_n->get_next( ).
   ENDWHILE.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_INITSCRIPTS - <script> of the field's initialize events
+*&---------------------------------------------------------------------*
+* Only direct <event activity="initialize"> children of the field.
+FORM fpc_initscripts USING io_field TYPE REF TO if_ixml_element
+                     CHANGING ct_hits TYPE STANDARD TABLE.
+  DATA: lt_ev TYPE STANDARD TABLE OF REF TO if_ixml_element WITH EMPTY KEY,
+        lo_ev TYPE REF TO if_ixml_element.
+  PERFORM fpc_kids USING io_field 'event' CHANGING lt_ev.
+  LOOP AT lt_ev INTO lo_ev.
+    IF lo_ev->get_attribute( name = 'activity' ) = 'initialize'.
+      PERFORM fpc_kids USING lo_ev 'script' CHANGING ct_hits.
+    ENDIF.
+  ENDLOOP.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
