@@ -479,6 +479,43 @@ describe('guard and CLI', () => {
     }
   });
 
+  // verifier-3's U1 probes: quoting / globs / variables / concatenation / interpreters / cwd
+  it('guard holds against key-name tricks, interpreters and a shell sitting in a profile folder', () => {
+    const home = join(tmp, 'sc4sap-home-u2');
+    const prev = process.env.SC4SAP_HOME_DIR;
+    process.env.SC4SAP_HOME_DIR = home;
+    try {
+      const P = join(home, 'profiles', 'S4-DEV').replace(/\\/g, '/');
+      const sh = (command: string, tool = 'Bash', cwd = 'C:/p') => guard({ tool_name: tool, tool_input: { command }, cwd });
+      for (const [command, tool] of [
+        [`cat ${P}/mask.ke[y]`, 'Bash'],
+        [`cat ${P}/mas"k".key`, 'Bash'],
+        [`cat ${P}/mas''k.key`, 'Bash'],
+        [`cat ${P}/mas\\k.key`, 'Bash'],
+        [`f=mask; cat ${P}/$f.key`, 'Bash'],
+        [`node -e "require('fs').readFileSync(require('os').homedir()+'/.sc4'+'sap/profiles/S4-DEV/mas'+'k.key')"`, 'Bash'],
+        [`python -c "print(open(__import__('os').path.expanduser('~/.sc4sap/profiles/S4-DEV/x')).read())"`, 'Bash'],
+        [`bash -c 'cat ~/.sc4sap/profiles/S4-DEV/x'`, 'Bash'],
+        [`cd ${P}/`, 'Bash'],
+        [`pushd ~/.sc4sap`, 'Bash'],
+        ['cat mas""k.key', 'Bash'],
+        [`Get-Content (Join-Path $env:USERPROFILE ("mask"+".key"))`, 'PowerShell'],
+        ['powershell -EncodedCommand ZQBjAGgAbwA=', 'PowerShell'],
+        ['Set-Location ~/.sc4sap/profiles/S4-DEV', 'PowerShell'],
+        [`cat ${P}/config.json && cat ${P}/x`, 'Bash'],
+        [`cat ${P}/other.txt`, 'Bash'],
+      ] as const) expect(sh(command, tool), command).toMatch(/masking key/);
+      // a shell whose working directory is already a profile folder: nothing goes through
+      expect(sh('cat x', 'Bash', P)).toMatch(/leave the profile folder/);
+      // still allowed
+      for (const command of [`cat ${P}/config.json`, `cat ${P}/sap.env`, 'rm -rf ~/.sc4sap/profiles/OLD', 'mkdir -p ~/.sc4sap/profiles/NEW', 'npm test', 'node scripts/x.mjs --dir src', 'node -e "console.log(1)"'])
+        expect(sh(command), command).toBeNull();
+    } finally {
+      if (prev === undefined) delete process.env.SC4SAP_HOME_DIR;
+      else process.env.SC4SAP_HOME_DIR = prev;
+    }
+  });
+
   it('guard lets only the plugin\'s own pt.mjs write run files', () => {
     // the commands name a protected file, so only the pt.mjs exception can let them through
     const base = 'C:/p/.sc4sap/program/ZP/test/20261117-0900/state.json';
