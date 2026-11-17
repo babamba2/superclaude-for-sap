@@ -18,7 +18,7 @@
 import { kids, kid, textOf, unit } from './read-adobe.mjs';
 import { formatValue, LOCALES } from './picture.mjs';
 import { runScripts } from './formcalc.mjs';
-import { textWidthMm, VMETRICS } from '../forms-common/metrics.mjs';
+import { faceVMetrics, textWidthMm, VMETRICS } from '../forms-common/metrics.mjs';
 
 const PT = 25.4 / 72;
 const LEGACY_VINSET = 25.4 / 32; // XFA 2.1 field values: 1/32 inch above and below the text
@@ -52,7 +52,7 @@ function collectIds(el, ids = new Map()) {
 function fontOf(el) {
   const f = prop(el, 'font');
   return {
-    face: attr(f, 'typeface', 'Arial'),
+    face: attr(f, 'typeface', 'Courier'),
     pt: Math.round((unit(attr(f, 'size', '10pt'), 10 * PT) / PT) * 1000) / 1000,
     bold: attr(f, 'weight', 'normal') === 'bold',
     italic: attr(f, 'posture', 'normal') === 'italic',
@@ -343,21 +343,27 @@ function dataParagraphs(rich, font) {
 function richParagraphs(body, font, para, lookup) {
   const paras = [];
   let cur = null;
-  const startPara = (st) => { cur = { runs: [], st, tabs: tabStops(st['tab-stop']) }; paras.push(cur); };
+  // SAP's migration writes the stops as 'tab-stops' (EX14: 'left 3.50cm' puts the value 35 mm in)
+  const startPara = (st) => { cur = { runs: [], st, tabs: tabStops(st['tab-stop'] ?? st['tab-stops']), html: true }; paras.push(cur); };
   const walk = (el, f, hard) => {
     for (const c of el.children || []) {
       if (c.tag === '#text') {
         // xfa-spacerun:yes keeps its blanks (as no-break spaces); other white space collapses to one blank
         const t = hard ? c.text.replace(/ /g, ' ') : c.text.replace(/[ \t\r\n]+/g, ' ');
         if (!cur) { if (!t.replace(/ /g, '')) continue; startPara({}); }
-        cur.runs.push({ text: t, font: f });
+        // white space with a line break or tab is source formatting; a plain blank is text (it may lead a line)
+        cur.runs.push({ text: t, font: f, ...(!hard && /[\t\r\n]/.test(c.text) ? { fmt: true } : {}) });
         continue;
       }
       const tag = c.tag.replace(/^.*:/, '');
       const st = parseStyle(c.attrs?.style);
       if (tag === 'p' || tag === 'div' || tag === 'li') {
         startPara(st);
+        const own = cur, at = paras.length;
         walk(c, runFont(f, st), false);
+        // a block that only wraps other blocks prints no line of its own (ADS: <div><div>a</div><div>b</div></div>
+        // is two lines, measured on the calibration form)
+        if (!own.runs.length && paras.length > at) paras.splice(at - 1, 1);
         cur = null;
       } else if (tag === 'br') {
         if (!cur) startPara({});
@@ -370,7 +376,11 @@ function richParagraphs(body, font, para, lookup) {
         walk(c, runFont(f, st), hard);
       } else if (tag === 'span' && (c.attrs['xfa:embed'] || c.attrs.embed)) {
         if (!cur) startPara({});
-        cur.runs.push({ text: lookup(String(c.attrs['xfa:embed'] || c.attrs.embed)), font: runFont(f, st), embed: true });
+        // the value prints in the embedded field's own font (EX14: a Courier 10 pt field in a 12 pt paragraph
+        // prints at 10 pt); the paragraph's font when the field is not found
+        const v = lookup(String(c.attrs['xfa:embed'] || c.attrs.embed));
+        const ef = v && typeof v === 'object' ? v.font : null;
+        cur.runs.push({ text: v && typeof v === 'object' ? v.text : v, font: ef ? { ...runFont(f, st), face: ef.face, pt: ef.pt, bold: ef.bold, italic: ef.italic } : runFont(f, st), embed: true });
       } else if (tag === 'b') walk(c, { ...runFont(f, st), bold: true }, hard);
       else if (tag === 'i') walk(c, { ...runFont(f, st), italic: true }, hard);
       else walk(c, runFont(f, st), hard || /yes/i.test(st['xfa-spacerun'] || ''));
@@ -388,10 +398,11 @@ function richParagraphs(body, font, para, lookup) {
       if (prev && / $/.test(prev.text)) r.text = r.text.replace(/^ +/, '');
     });
   }
-  // trim the collapsible blanks HTML white space adds at paragraph starts / ends
+  // trim the collapsible blanks HTML white space adds at paragraph starts / ends; a blank typed into the text
+  // at a paragraph start stays (EX10: "<span> <span xfa:embed/></span>" prints the value one blank in)
   for (const p of paras) {
-    while (p.runs.length && !p.runs[0].br && !p.runs[0].embed && !p.runs[0].tab && !p.runs[0].text.replace(/ /g, '')) p.runs.shift();
-    if (p.runs[0] && p.runs[0].text) p.runs[0] = { ...p.runs[0], text: p.runs[0].text.replace(/^ +/, '') };
+    while (p.runs.length && !p.runs[0].br && !p.runs[0].embed && !p.runs[0].tab && !p.runs[0].text.replace(/ /g, '') && (p.runs[0].fmt || !p.runs[0].text)) p.runs.shift();
+    if (p.runs[0] && p.runs[0].text && p.runs[0].fmt) p.runs[0] = { ...p.runs[0], text: p.runs[0].text.replace(/^ +/, '') };
     const l = p.runs[p.runs.length - 1];
     if (l && l.text) p.runs[p.runs.length - 1] = { ...l, text: l.text.replace(/ +$/, '') };
   }
@@ -458,7 +469,8 @@ function wrapParagraphs(paras, width0, wrap) {
       }
     }
     trimTail(line);
-    lines.push(line);
+    // XHTML: a <br/> that ends a block opens no line of its own (EX14: "Invoice<br/><br/>" is two lines)
+    if (!(p.html && !line.runs.length && !line.first && p.runs[p.runs.length - 1]?.br)) lines.push(line);
   }
   return lines;
 }
@@ -549,13 +561,19 @@ function shapeText(content, width, multi, factor = VMETRICS.line) {
     // Arial (TrueType) lines are 1.15 em; the PDF standard Helvetica (Type 1, no line gap) 1.2 em
     const st = l.para.st || {};
     // a paragraph's own CSS line-height (SAP's migration: the SmartStyle line spacing) wins
+    // XFA 2.4+ draws / rich text: Courier 1.2 em, Times 1.111 em, Arial and Helvetica alike 1.1376 em (calibration form)
+    const natOf = (fc, p) => (factor === VMETRICS.richLine ? (faceVMetrics(fc).line ?? factor) : /^helvetica$/i.test(fc) ? 1.2 : factor) * p * PT;
+    const nat = natOf(face(l), pt);
+    // a CSS line-height counts against the paragraph's own font, not its runs' (EX13: an Arial 8 pt run in a
+    // Courier 10 pt paragraph at 4.23 mm sits at the Arial ascent — 4.23 mm is Courier 10 pt's own pitch)
+    const pf = runFont(font, st);
     const lh = st['line-height'] && unit(st['line-height'], 0) > 0 ? unit(st['line-height'])
-      : para.lineHeight > 0 ? para.lineHeight : (/^helvetica$/i.test(face(l)) ? 1.2 : factor) * pt * PT;
+      : para.lineHeight > 0 ? para.lineHeight : nat;
     // a paragraph's own CSS spacing replaces the draw's <para> spacing (FP_EXAMPLE_01: margin-bottom 6pt with
     // <para spaceBelow="6pt"> is one 6 pt gap in ADS, not two)
     const above = l.first ? (ownAbove(st) ? (st['margin-top'] ? unit(st['margin-top']) : 0) + (st['space-before'] ? unit(st['space-before']) : 0) : (i > 0 || para.spaceAbove ? para.spaceAbove : 0)) : 0;
     h += above;
-    out.push({ ...l, pt, top: h, lh });
+    out.push({ ...l, pt, top: h, lh, nat, face: face(l), ...(st['line-height'] && unit(st['line-height'], 0) > 0 ? { css: true, pnat: natOf(pf.face, pf.pt) } : {}) });
     h += lh;
     const lastOfPara = i === lines.length - 1 || lines[i + 1].para !== l.para;
     if (lastOfPara) {
@@ -640,7 +658,9 @@ class Layout {
     this.report = { approximations: [], unbound: [], overflow: [], pages: 0 };
     this.lookupEmbed = (ref, n) => this.embed(ref, n);
     this.version = templateVersion(template);
-    this.legacy = this.version < 2.4;
+    // XFA 2.1 (Designer 6) lays text out in 1.15 em line boxes; 2.2 (SAP's SmartForm migration) already
+    // follows the 2.4+ rules (EX14: first baselines and pitches as on the 2.8 calibration form)
+    this.legacy = this.version < 2.2;
   }
 
   embed(ref, n) {
@@ -648,9 +668,10 @@ class Layout {
     const id = r.replace(/^#/, '');
     const hit = (!r.startsWith('#') && this.somFind(r, n)) || this.byTemplateId?.get(id) || this.findField(id, n);
     if (!hit) return '';
-    if (hit.over.rawValue !== undefined) return String(hit.over.rawValue);
-    const c = contentOf(hit, this);
-    return c.text ?? '';
+    // a SOM-path embed (SAP's migration) prints in the field's font; a Designer floating field (#id) in the paragraph's
+    const font = hit.kind === 'field' && !r.startsWith('#') ? fontOf(hit.t) : null;
+    const text = hit.over.rawValue !== undefined ? String(hit.over.rawValue) : (contentOf(hit, this).text ?? '');
+    return font ? { text, font } : text;
   }
 
   /** A relative SOM path (SAP's migration: <span xfa:embed="WA_BOOKING.FORCURAM"/>) from the node's parent up. */
@@ -763,9 +784,12 @@ class Layout {
         if (layout === 'rl-tb') { let rx = innerAvail; for (const c of line) { rx -= c.w; c.rx = rx; } }
         y += rowH; x = 0; rowH = 0; line.length = 0;
       };
+      // a container without a width grows sideways instead of wrapping (EX14: the SmartForm MAIN window, lr-tb
+      // without w, prints its 16 cm table to the right of its 16 cm intro text — off the page)
+      const wraps = fixedW !== null || maxW !== Infinity;
       for (const c of vis) {
-        this.measure(c, innerAvail - x);
-        if (x > 0 && x + c.w > innerAvail + 0.01) { close(); this.measure(c, innerAvail); }
+        this.measure(c, wraps ? innerAvail - x : innerAvail);
+        if (wraps && x > 0 && x + c.w > innerAvail + 0.01) { close(); this.measure(c, innerAvail); }
         c.rx = x; c.ry = y;
         line.push(c);
         x += c.w;
@@ -795,6 +819,15 @@ class Layout {
         c.rx = ax; c.ry = ay;
         maxx = Math.max(maxx, ax + c.w);
         maxy = Math.max(maxy, ay + c.h);
+      }
+      // a hidden field still takes a box of one em of its font in a positioned subform (EX14: a subform with only
+      // hidden fields pushes the next block of the lr-tb flow 3.5 mm down — Courier 10 pt); not in a flow
+      for (const c of all) {
+        if (vis.includes(c) || c.kind !== 'field' || c.presence !== 'hidden') continue;
+        const [ax, ay] = this.anchor(c);
+        const e = fontOf(c.t).pt * PT;
+        maxx = Math.max(maxx, ax + e);
+        maxy = Math.max(maxy, ay + e);
       }
       if (w === null) w = Math.max(minW, Math.min(maxW, maxx + m.l + m.r));
       n.contentH = maxy;
@@ -912,6 +945,16 @@ class Layout {
     return t;
   }
 
+  /** XFA 2.4+ baseline below a line's top: the face's ascent (Courier and Times sit higher than Arial); a CSS
+   *  line-height adds its difference to the natural pitch above the text, down to the font's ascender
+   *  (calibration form: Arial 10 pt at 4.23 mm +0.22 mm, Courier 12 pt at 4.23 mm stops at the ascender). */
+  lineAscent(l, sansAsc) {
+    const fm = faceVMetrics(l.face);
+    const e = l.pt * PT;
+    const base = fm === faceVMetrics('') ? sansAsc : fm.ascent * e;
+    return l.css && l.pnat ? Math.max(base + (l.lh - l.pnat), fm.floor * e) : base;
+  }
+
   placeLines(shape, para, cx, cy, cw, ch, items, n, multi, caption = false) {
     if (!shape || !shape.lines.length) return;
     const lines = shape.lines;
@@ -948,7 +991,7 @@ class Layout {
       const role = (n?.kind === 'field' && !caption) || l.runs.some((r) => r.embed) ? 'field' : 'fixed';
       const text = l.runs.map((r) => r.text).join('');
       if (!text.trim()) continue;
-      const baseline = top + l.top + (l === first ? asc : (this.legacy ? asc / em * l.pt * PT : VMETRICS.ascent * l.pt * PT));
+      const baseline = top + l.top + (this.legacy ? (l === first ? asc : asc / em * l.pt * PT) : this.lineAscent(l, l === first ? asc : VMETRICS.ascent * l.pt * PT));
       const pst = l.para.st || {};
       const pml = pst['margin-left'] ? unit(pst['margin-left']) : 0, pmr = pst['margin-right'] ? unit(pst['margin-right']) : 0;
       const avail = cw - para.marginLeft - para.marginRight - pml - pmr - (l.first ? para.textIndent : 0);
@@ -969,6 +1012,7 @@ class Layout {
         x = cx + cw - para.radixOffset - textWidthMm(intPart, f0.pt, { bold: f0.bold, face: f0.face });
       }
       let rx = x;
+      let started = false;
       const merged = [];
       for (const r of l.runs) {
         const prev = merged[merged.length - 1];
@@ -979,6 +1023,7 @@ class Layout {
       for (let mi = 0; mi < merged.length; mi++) {
         const r = merged[mi];
         if (r.tab) {
+          started = true;
           // the text up to the next tab is aligned on the stop: left starts, right / centre end / centre there,
           // decimal puts the radix there; text already past a stop is not pulled back
           const seg = [];
@@ -999,10 +1044,15 @@ class Layout {
           continue;
         }
         const piece = r.text;
-        const pw = textWidthMm(piece, r.font.pt, { bold: r.font.bold, face: r.font.face });
         const trimmed = piece.replace(/^ +/, '');
         const skip = piece.length - trimmed.length;
-        const sx = rx + textWidthMm(piece.slice(0, skip), r.font.pt, { bold: r.font.bold, face: r.font.face });
+        // blanks that lead a line are half an em each in ADS (calibration form: 10 / 20 blanks, Arial 10 pt →
+        // 17.64 / 35.28 mm; EX10: one blank before a value), not the font's 0.278 em; Courier keeps its 0.6 em, a
+        // field value its font's blanks (FP_TEST_03: padded amounts)
+        const leadW = (k) => (!started && n?.kind !== 'field' && !/courier/i.test(r.font.face) ? k * 0.5 * r.font.pt * PT : textWidthMm(' '.repeat(k), r.font.pt, { bold: r.font.bold, face: r.font.face }));
+        const pw = textWidthMm(trimmed, r.font.pt, { bold: r.font.bold, face: r.font.face }) + leadW(skip);
+        const sx = rx + leadW(skip);
+        if (trimmed) started = true;
         if (r.font.valign) this.report.approximations.push(`${r.font.valign}script text: raised / lowered by 1/3 em (not measured)`);
         const vshift = r.font.valign === 'super' ? -0.33 * r.font.pt * PT : r.font.valign === 'sub' ? 0.2 * r.font.pt * PT : 0;
         if (trimmed.trim() && !r.font.hidden) items.push({ type: 'text', x: sx, y: baseline + vshift, text: trimmed.replace(/ +$/, '').replace(/ /g, ' '), pt: r.font.pt, bold: r.font.bold, italic: r.font.italic, font: r.font.face, color: r.font.color, som, ...(n?.data?.field ? { bind: n.data.field } : {}), role, ...(row ? { row: true } : {}), lines: lines.length });

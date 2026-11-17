@@ -10,7 +10,7 @@ import { layoutForm, imageSize, tabStops } from '../../scripts/adobe/adobe-layou
 // @ts-expect-error — plain .mjs script
 import { formatValue } from '../../scripts/adobe/picture.mjs';
 // @ts-expect-error — plain .mjs script
-import { buildModel, renderHtml, recordFromXml, buildModelXdp } from '../../scripts/adobe/build-adobe-preview.mjs';
+import { buildModel, renderHtml, recordFromXml, buildModelXdp, withOffPage } from '../../scripts/adobe/build-adobe-preview.mjs';
 // @ts-expect-error — plain .mjs script
 import { scoreLayouts } from '../../scripts/adobe/score-forms.mjs';
 // @ts-expect-error — plain .mjs script
@@ -249,14 +249,20 @@ describe('adobe-preview: SmartForm migration rich text (CSS divs, tabs, SOM embe
     expect(at('Clerk')).toMatchObject({ pt: 8, font: 'Arial' });
     expect(at('Mr. Sample')).toMatchObject({ pt: 12, font: 'Courier New' });
     close(textWidthMm('abc', 10, { face: 'Courier New' }), 3 * 0.6 * EM10);
-    // the first paragraph is one 5 mm line (its own line-height); each baseline sits the line's ascent below its top
-    close(at('1234.50').y - at('Clerk').y, 5 + 0.728 * (10 - 12) * PT);
+    // the first paragraph is one 5 mm line (its own line-height); a CSS line-height adds its difference to the
+    // paragraph font's own pitch above the text, down to the ascender (calibration form, ADS on S/4):
+    // line 1 Courier 12 pt paragraph (1.2 em) at 5 mm, line 2 Arial 10 pt (1.1376 em) at 6 mm
+    const l1 = Math.max(0.728 * 12 * PT + (5 - 1.2 * 12 * PT), 0.718 * 12 * PT);
+    const l2 = 0.728 * 10 * PT + (6 - 1.1376 * 10 * PT);
+    close(at('1234.50').y - at('Clerk').y, 5 + l2 - l1);
   });
 
   it('places tab stops: left, decimal (radix on the stop) and right, relative to the paragraph margin', () => {
     close(at('Mr. Sample').x, 20 + 35);
-    close(at('1234.50').x + textWidthMm('1234', 10), 20 + 2 + 40);
-    close(at('Example Ltd').x + textWidthMm('Example Ltd', 10), 20 + 2 + 80);
+    // embedded by SOM path: the value prints in its field's font — no <font>, so the XFA default Courier 10 pt
+    expect(at('1234.50')).toMatchObject({ pt: 10, font: 'Courier' });
+    close(at('1234.50').x + textWidthMm('1234', 10, { face: 'Courier' }), 20 + 2 + 40);
+    close(at('Example Ltd').x + textWidthMm('Example Ltd', 10, { face: 'Courier' }), 20 + 2 + 80);
     expect(at('1234.50').role).toBe('field');
   });
 
@@ -402,6 +408,92 @@ describe('adobe-preview: layouts SAP migration writes (div rich text without bod
     close(two.y, one.y);
     close(three.x, one.x);
     expect(three.y).toBeGreaterThan(one.y + 3);
+  });
+});
+
+describe('adobe-preview: ADS rules measured on the calibration form and on migrated SmartForms', () => {
+  const xdp = (body: string, ver = '2.8') => `<?xml version="1.0" encoding="utf-8"?>
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/${ver}/">
+<subform layout="tb" name="data"><pageSet><pageArea name="P1"><contentArea x="20mm" y="20mm" w="170mm" h="250mm"/>
+<medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>${body}</subform></template></xdp:xdp>`;
+  const div = (css: string, inner: string) => `<div style=" ${css}">${inner}</div>`;
+  const draw = (name: string, inner: string, w = '150mm') => `<draw name="${name}" w="${w}"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml">${inner}</div></exData></value><ui><textEdit multiLine="1"/></ui></draw>`;
+  const run = (body: string, ver?: string) => texts(layoutForm(readXdp(xdp(body, ver)).template, { name: 'data', children: [] }, {}).pages[0]);
+  const by = (t: any[], s: string) => t.find((x: any) => x.text === s);
+  const cour12 = "font-family : 'Courier New' ; font-size : 12pt ; line-height : 4.23mm ;";
+
+  it('prints a wrapper div with child divs as the child lines only', () => {
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(cour12, 'One') + div(cour12, 'Two'))}</subform>`);
+    // Courier 12 pt at 4.23 mm: the first baseline is the Courier ascender (0.629 em), the second one line lower
+    close(by(t, 'One').y, 20 + 0.629 * 12 * PT);
+    close(by(t, 'Two').y - by(t, 'One').y, 4.23);
+  });
+
+  it('applies a later paragraph margin-top exactly (+1.61 mm, -2 mm)', () => {
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(cour12, 'A') + div(`${cour12} margin-top : 1.61mm ;`, 'B') + div(`${cour12} margin-top : -2mm ;`, 'C'))}</subform>`);
+    close(by(t, 'B').y - by(t, 'A').y, 4.23 + 1.61);
+    close(by(t, 'C').y - by(t, 'B').y, 4.23 - 2);
+  });
+
+  it('uses per-face pitch and ascent for plain draws: Courier 1.2 em, Times 1.111 em, Arial / Helvetica 1.1376 em', () => {
+    const plain = (n: string, face: string, y: number) => `<draw name="${n}" x="0mm" y="${y}mm" w="150mm" h="12mm"><ui><textEdit multiLine="1"/></ui><value><text>${n} one\n${n} two</text></value><font typeface="${face}" size="10pt"/><margin topInset="0mm" bottomInset="0mm" leftInset="0mm" rightInset="0mm"/></draw>`;
+    const t = run(`<subform layout="position" name="S" w="170mm" h="100mm">${plain('C', 'Courier New', 0)}${plain('T', 'Times New Roman', 20)}${plain('H', 'Helvetica', 40)}</subform>`);
+    close(by(t, 'C one').y, 20 + 0.654 * EM10); close(by(t, 'C two').y - by(t, 'C one').y, 1.2 * EM10);
+    close(by(t, 'T one').y, 40 + 0.709 * EM10); close(by(t, 'T two').y - by(t, 'T one').y, 1.111 * EM10);
+    close(by(t, 'H two').y - by(t, 'H one').y, 1.1376 * EM10);
+  });
+
+  it('counts a CSS line-height against the paragraph font, not the run font', () => {
+    // an Arial 8 pt run in a Courier 10 pt paragraph at 4.23 mm (= Courier 10 pt's pitch) sits at the Arial ascent
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div("font-family : 'Courier New' ; font-size : 10pt ; line-height : 4.23mm ;", "<span style=\" font-family : 'Arial' ; font-size : 8pt ;\">Label</span>"))}</subform>`);
+    close(by(t, 'Label').y, 20 + 0.728 * 8 * PT);
+  });
+
+  it('opens no line for a <br/> that ends a block, and reads tab-stops as well as tab-stop', () => {
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(`${cour12} tab-stops : left 3.50cm ;`, 'Head<br/><br/>') + div(`${cour12} tab-stops : left 3.50cm ;`, "Key<span style=\"xfa-tab-count : 1 ;\"/>Value"))}</subform>`);
+    close(by(t, 'Key').y - by(t, 'Head').y, 2 * 4.23);
+    close(by(t, 'Value').x - by(t, 'Key').x, 35);
+  });
+
+  it('gives a positioned subform of hidden fields one em of their font (Courier 10 pt by default)', () => {
+    const t = run(`<subform layout="lr-tb" name="S" w="80mm"><subform name="H"><field name="F" presence="hidden"><ui><textEdit/></ui></field></subform>${draw('D', div(cour12, 'Below'), '80mm')}</subform>`);
+    close(by(t, 'Below').y, 20 + EM10 + 0.629 * 12 * PT);
+  });
+
+  it('grows an lr-tb container without a width sideways instead of wrapping', () => {
+    const t = run(`<subform layout="lr-tb" name="MAIN">${draw('A', div(cour12, 'Intro'), '160mm')}${draw('B', div(cour12, 'Table'), '160mm')}</subform>`);
+    close(by(t, 'Table').x - by(t, 'Intro').x, 160);
+    close(by(t, 'Table').y, by(t, 'Intro').y);
+  });
+
+  it('makes blanks that lead a draw line half an em wide (not in field values, not in Courier)', () => {
+    // rich text collapses the blanks to one (EX10: one blank before a value); plain text keeps all ten
+    const plain = `<draw name="P" w="150mm"><value><text>          Plain</text></value><font typeface="Arial" size="10pt"/><ui><textEdit/></ui></draw>`;
+    const field = `<field name="F" w="150mm"><value><text>          Field</text></value><font typeface="Arial" size="10pt"/><ui><textEdit><margin/></textEdit></ui><margin topInset="0mm" bottomInset="0mm" leftInset="0mm" rightInset="0mm"/></field>`;
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div("font-family : 'Arial' ; font-size : 10pt ;", '<span>   Ten</span>'))}${plain}${field}</subform>`);
+    close(by(t, 'Ten').x, 20 + 0.5 * EM10);
+    close(by(t, 'Plain').x, 20 + 10 * 0.5 * EM10);
+    close(by(t, 'Field').x, 20 + textWidthMm('          ', 10));
+  });
+
+  it('lays out XFA 2.2 (SAP migration) by the 2.4+ rules, not the 2.1 line boxes', () => {
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(cour12, 'Mig'))}</subform>`, '2.2');
+    close(by(t, 'Mig').y, 20 + 0.629 * 12 * PT);
+  });
+});
+
+describe('adobe-preview: off-page content in the layout JSON', () => {
+  it('replaces texts the browser clipped at the page edge with the model text, flagged wEst; adds off-page rules', () => {
+    const layout = { pages: [{ w: 210, h: 297, texts: [{ x: 203.7, y: 21.7, w: 6.3, text: '000', pt: 10 }, { x: 20, y: 30, w: 10, text: 'Keep', pt: 10 }], lines: [], rects: [] }] };
+    const model = { pages: [{ w: 210, h: 297, items: [
+      { type: 'text', x: 203.7, y: 21.7, text: '0001', pt: 10, font: 'Courier New' },
+      { type: 'text', x: 20, y: 30, text: 'Keep', pt: 10, font: 'Arial' },
+      { type: 'line', x1: 200, y1: 12, x2: 230, y2: 12, th: 0.26 },
+    ] }] };
+    const out = withOffPage(layout, model).pages[0];
+    expect(out.texts.map((t: any) => t.text).sort()).toEqual(['0001', 'Keep']);
+    expect(out.texts.find((t: any) => t.text === '0001')).toMatchObject({ wEst: true });
+    expect(out.lines).toHaveLength(1);
   });
 });
 

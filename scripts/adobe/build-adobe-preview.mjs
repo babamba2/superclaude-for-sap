@@ -29,6 +29,31 @@ import { buildRecord, contextFields, runInitCoding } from './adobe-data.mjs';
 import { layoutForm } from './adobe-layout.mjs';
 import { findBrowser, runBrowser } from '../forms-common/browser.mjs';
 import { layoutOf } from '../forms-common/score-fidelity.mjs';
+import { textWidthMm } from '../forms-common/metrics.mjs';
+
+/** The browser clips what lies past the page edge; ADS writes it into the PDF anyway (a SmartForm MAIN window
+ *  migrated without a width grows off the page). The layout model's own texts and rules stand in for the
+ *  clipped ones, the texts flagged wEst (width from the font table). */
+export function withOffPage(layout, model) {
+  layout.pages.forEach((lp, i) => {
+    const mp = model.pages[i];
+    if (!mp) return;
+    const W = mp.w, H = mp.h;
+    for (const it of mp.items) {
+      if (it.type === 'text') {
+        const w = textWidthMm(it.text, it.pt, { bold: it.bold, face: it.font });
+        if (it.x + w <= W + 0.01 && it.y <= H + 0.01) continue;
+        lp.texts = lp.texts.filter((t) => !(Math.abs(t.y - it.y) < 0.3 && t.x >= it.x - 0.3 && t.x < it.x + w + 0.3));
+        lp.texts.push({ x: +it.x.toFixed(2), y: +it.y.toFixed(2), w: +w.toFixed(2), text: it.text, pt: it.pt, font: it.font, bold: !!it.bold, italic: !!it.italic, wEst: true });
+      } else if (it.type === 'line' && Math.max(it.x1, it.x2) > W + 0.01) {
+        lp.lines.push({ x1: it.x1, y1: it.y1, x2: it.x2, y2: it.y2, th: it.th });
+      } else if (it.type === 'rect' && it.x + it.w > W + 0.01) {
+        lp.rects.push({ x: it.x, y: it.y, w: it.w, h: it.h, ...(it.fill ? { fill: it.fill } : {}), ...(it.stroke ? { stroke: it.stroke, th: it.th } : {}) });
+      }
+    }
+  });
+  return layout;
+}
 
 const PT = 25.4 / 72;
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -184,7 +209,7 @@ function main(argv) {
         runBrowser(browser, ['--no-pdf-header-footer', `--print-to-pdf=${base}.pdf`, url], profile);
         if (existsSync(`${base}.pdf`)) report.pdf = `${base}.pdf`;
         if (report.pdf && argv.includes('--layout-json')) {
-          writeFileSync(`${base}.layout.json`, `${JSON.stringify(layoutOf(readFileSync(report.pdf)), null, 1)}\n`);
+          writeFileSync(`${base}.layout.json`, `${JSON.stringify(withOffPage(layoutOf(readFileSync(report.pdf)), model), null, 1)}\n`);
           report.layout = `${base}.layout.json`;
         }
       }

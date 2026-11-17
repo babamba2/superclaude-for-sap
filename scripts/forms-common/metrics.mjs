@@ -71,3 +71,17 @@ export function textWidthMm(text, pt, { bold = false, face = '' } = {}) {
 /** Vertical metrics in em: typo ascent / descent / line gap (Arial OS/2), the hhea line (ascent + descent + gap) and
  *  the line pitch ADS uses for draws / rich text / captions of XFA 2.4+ templates (measured on its PDFs). */
 export const VMETRICS = { ascent: 0.728, descent: 0.21, gap: 0.15, line: 1.15, richLine: 1.1376 };
+
+/** Per-face vertical metrics ADS uses for draws / rich text of XFA 2.4+ templates, in em — measured on the
+ *  calibration form (Courier New prints as CourierStd, Times New Roman as Times-Roman, Arial as Helvetica):
+ *  first baseline below the line top (ascent), line pitch (line), and the lowest first baseline a smaller CSS
+ *  line-height can pull it up to (floor = the font's ascender). line null = the caller's factor. */
+const FACE_VM = {
+  courier: { ascent: 0.654, line: 1.2, floor: 0.629 },
+  times: { ascent: 0.709, line: 1.111, floor: 0.683 },
+  sans: { ascent: VMETRICS.ascent, line: null, floor: 0.718 },
+};
+export function faceVMetrics(face) {
+  const f = String(face || '');
+  return /courier/i.test(f) ? FACE_VM.courier : /times/i.test(f) ? FACE_VM.times : FACE_VM.sans;
+}
