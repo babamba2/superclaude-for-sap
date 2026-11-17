@@ -191,8 +191,11 @@ export function keepShared(old, fresh) {
   return out;
 }
 
-/** Reads the roles matching the patterns from the connected system. */
-export async function readRoles({ patterns = ['Z*'], withUsers = true, lang = 'ko', maxRoles = 5000, client: given = null } = {}) {
+/**
+ * Reads the roles matching the patterns from the connected system — or, with `names`, exactly those roles
+ * (AGR_DEFINE in IN lists; "SAP 반영 확인" reads the document's own roles this way, role-verify.mjs).
+ */
+export async function readRoles({ patterns = ['Z*'], names: exact = null, withUsers = true, lang = 'ko', maxRoles = 5000, client: given = null } = {}) {
   // A caller's own connection (e.g. a backend with its own guards) is used as given and left open; else one is opened
   // here with ROLE_READ_TABLES as its allow list and closed at the end.
   const client = given || await connect('role-matrix', { allowTables: ROLE_READ_TABLES(withUsers) });
@@ -207,12 +210,15 @@ export async function readRoles({ patterns = ['Z*'], withUsers = true, lang = 'k
   try {
     const spras = lang === 'en' ? 'E' : lang === 'ja' ? 'J' : '3';
     const define = [], seen = new Set();
-    for (const p of patterns) {
+    if (Array.isArray(exact)) {
+      const wanted = [...new Set(exact.map((n) => String(n).trim().toUpperCase()).filter(Boolean))];
+      for (const x of need(await readIn(client, 'AGR_DEFINE', 'AGR_NAME', wanted), 'AGR_DEFINE')) if (!seen.has(x.AGR_NAME)) { seen.add(x.AGR_NAME); define.push(x); }
+    } else for (const p of patterns) {
       const r = await readRoleNames(client, p, maxRoles);
       for (const x of need(r, `AGR_DEFINE ${p}`)) if (!seen.has(x.AGR_NAME)) { seen.add(x.AGR_NAME); define.push(x); }
     }
     const names = define.map((d) => d.AGR_NAME);
-    if (!names.length) return { rows: { define }, errors: errors.length ? errors : [`no role matches ${patterns.join(', ')}`] };
+    if (!names.length) return { rows: { define }, errors: errors.length ? errors : [Array.isArray(exact) ? 'none of the roles is in the system' : `no role matches ${patterns.join(', ')}`] };
     const rows = { define };
     rows.texts = need(await readIn(client, 'AGR_TEXTS', 'AGR_NAME', names, { extra: { SPRAS: spras } }), 'AGR_TEXTS');
     if (!rows.texts.length && spras !== 'E') rows.texts = need(await readIn(client, 'AGR_TEXTS', 'AGR_NAME', names, { extra: { SPRAS: 'E' } }), 'AGR_TEXTS');

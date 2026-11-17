@@ -57,7 +57,8 @@ export const LABELS_JA = {
   checks: { dupBrole: '業務ロール ID の重複', dupTrole: '技術ロール ID の重複', dupTcode: 'Tコードの重複行', noTrole: '対応する技術ロールなし', unknownTrole: 'シート 2 にない技術ロール',
     noTcode: 'Tコードのない業務ロール', noParent: '派生ロールなのに親ロールなし', parentNotListed: '親ロールがシート 2 にない', unknownBrole: 'シート 1 にない業務ロール',
     tcodeNoRole: 'どのロールにもない Tコード', userNoRole: 'ロールのないユーザー', dupUser: '複数の行が同じユーザー ID を使用 (共用 ID)',
-    authUnknownTrole: 'シート 2 にない技術ロールの権限行', sodUsers: 'SoD 相反のあるユーザー', sodInherent: '一つのロール内で相反する Tコード' },
+    authUnknownTrole: 'シート 2 にない技術ロールの権限行', sodUsers: 'SoD 相反のあるユーザー', sodInherent: '一つのロール内で相反する Tコード',
+    sapVerify: 'SAP 反映確認 (反映済み / 差異あり / SAP にない)', sapVerifyStale: 'SAP 反映確認の後に文書が変更 (版)', sapVerifyNone: 'SAP 反映確認前' },
   sev: { err: 'エラー', warn: '注意', info: '参考' }, guess: '推定', none: 'なし',
 };
 
