@@ -382,7 +382,7 @@ function richParagraphs(body, font, para, lookup) {
         const v = lookup(String(c.attrs['xfa:embed'] || c.attrs.embed));
         const raw = String(c.attrs['xfa:embedMode'] || c.attrs.embedMode || '') === 'raw';
         const ef = v && typeof v === 'object' && !raw ? v.font : null;
-        cur.runs.push({ text: v && typeof v === 'object' ? v.text : v, font: ef ? { ...runFont(f, st), face: ef.face, pt: ef.pt, bold: ef.bold, italic: ef.italic } : runFont(f, st), embed: true });
+        cur.runs.push({ text: v && typeof v === 'object' ? v.text : v, font: ef ? { ...runFont(f, st), face: ef.face, pt: ef.pt, bold: ef.bold, italic: ef.italic } : runFont(f, st), embed: true, ...(v?.datePic ? { datePic: true } : {}) });
       } else if (tag === 'b') walk(c, { ...runFont(f, st), bold: true }, hard);
       else if (tag === 'i') walk(c, { ...runFont(f, st), italic: true }, hard);
       else walk(c, runFont(f, st), hard || /yes/i.test(st['xfa-spacerun'] || ''));
@@ -466,7 +466,8 @@ function wrapParagraphs(paras, width0, wrap) {
           continue;
         }
         const prev = line.runs[line.runs.length - 1];
-        if (prev && !prev.tab && prev.font === r.font && !!prev.embed === !!r.embed) prev.text += w; else line.runs.push({ text: w, font: r.font, ...(r.embed ? { embed: true } : {}) });
+        if (prev && !prev.tab && prev.font === r.font && !!prev.embed === !!r.embed && !!prev.datePic === !!r.datePic) prev.text += w;
+        else line.runs.push({ text: w, font: r.font, ...(r.embed ? { embed: true } : {}), ...(r.datePic ? { datePic: true } : {}) });
         line.w += ww;
       }
     }
@@ -566,16 +567,23 @@ function shapeText(content, width, multi, factor = VMETRICS.line) {
     // XFA 2.4+ draws / rich text: Courier 1.2 em, Times 1.111 em, Arial and Helvetica alike 1.1376 em (calibration form)
     const natOf = (fc, p) => (factor === VMETRICS.richLine ? (faceVMetrics(fc).line ?? factor) : /^helvetica$/i.test(fc) ? 1.2 : factor) * p * PT;
     const nat = natOf(face(l), pt);
-    // a CSS line-height counts against the paragraph's own font, not its runs' (EX13: an Arial 8 pt run in a
-    // Courier 10 pt paragraph at 4.23 mm sits at the Arial ascent — 4.23 mm is Courier 10 pt's own pitch)
+    // the paragraph font counts for a CSS line-height on every line but the draw's last (see cssBox)
     const pf = runFont(font, st);
+    // a run of blanks counts too (H1: an Arial 10 pt blank before a Courier 10 pt value sets the Arial ascent)
+    const shown = l.runs.filter((r) => !r.br && !r.tab && (r.embed || String(r.text || '') !== ''));
+    const mfonts = shown.length ? shown.map((r) => r.font) : [l.font0 || font];
     const lh = st['line-height'] && unit(st['line-height'], 0) > 0 ? unit(st['line-height'])
       : para.lineHeight > 0 ? para.lineHeight : nat;
     // a paragraph's own CSS spacing replaces the draw's <para> spacing (FP_EXAMPLE_01: margin-bottom 6pt with
     // <para spaceBelow="6pt"> is one 6 pt gap in ADS, not two)
     const above = l.first ? (ownAbove(st) ? (st['margin-top'] ? unit(st['margin-top']) : 0) + (st['space-before'] ? unit(st['space-before']) : 0) : (i > 0 || para.spaceAbove ? para.spaceAbove : 0)) : 0;
     h += above;
-    out.push({ ...l, pt, top: h, lh, nat, face: face(l), ...(st['line-height'] && unit(st['line-height'], 0) > 0 ? { css: true, pnat: natOf(pf.face, pf.pt) } : {}) });
+    // a date-pictured value alone on its line (no typed text, not even a blank) adds 0.15 em of its font above the
+    // line (calibration 5: static picture or script alike); next to a typed label it adds nothing (calibration 3 H6:
+    // "Date" + tab + SY.DATUM)
+    const dated = shown.every((r) => r.embed) ? shown.filter((r) => r.datePic) : [];
+    const lift = dated.length ? Math.max(...dated.map((r) => r.font.pt)) * 0.15 * PT : 0;
+    out.push({ ...l, pt, top: h, lh, nat, face: face(l), ...(st['line-height'] && unit(st['line-height'], 0) > 0 ? { css: true, pf, mfonts, lift } : {}) });
     h += lh;
     const lastOfPara = i === lines.length - 1 || lines[i + 1].para !== l.para;
     if (lastOfPara) {
@@ -589,12 +597,39 @@ function shapeText(content, width, multi, factor = VMETRICS.line) {
   return { lines: out, h, after };
 }
 
+/** A line under a CSS line-height L (XFA 2.4+), from its fonts — the runs it shows, plus the paragraph font on every
+ *  line but the draw's last: n = the largest natural pitch, a / floor / c = the largest ascent / ascender / ascent +
+ *  descent. L up to 1.25 n moves the text by L − n (down to the ascender) and the box by as much; a larger L is
+ *  not applied to the line (calibration rounds 1–3: Arial 10 pt at 4.23 mm +0.22 mm; Arial 12 pt at 4.23 mm a
+ *  3.38 mm box; Arial 8 pt at 4.23 mm and Arial 10 pt at 6 mm as without; the last line of a Courier 12 pt
+ *  paragraph sits on its runs alone — C5, H6). A date-pictured value alone on its line lowers the text and grows
+ *  the box by l.lift (0.15 em: round 4 / 5, EX10 FLDATE 7.58 mm rows vs 7.05 mm without the picture; a num picture
+ *  adds nothing; with a typed label on the line nothing — round 3 H6).
+ *  → { b: baseline below the line top, h: box height } */
+function cssBox(l, last) {
+  const fonts = last ? l.mfonts : [...l.mfonts, l.pf];
+  let n = 0, a = 0, floor = 0, c = 0;
+  for (const f of fonts) {
+    const fm = faceVMetrics(f.face);
+    const e = f.pt * PT;
+    n = Math.max(n, (fm.line ?? VMETRICS.richLine) * e);
+    a = Math.max(a, fm.ascent * e);
+    floor = Math.max(floor, fm.floor * e);
+    c = Math.max(c, (fm.content ?? fm.ascent + VMETRICS.descent) * e);
+  }
+  const lift = l.lift || 0;
+  if (l.lh > 1.25 * n) return { b: a + lift, h: c + lift };
+  const extra = l.lh - n;
+  return { b: Math.max(a + extra, floor) + lift, h: c + extra + lift };
+}
+
 /** Height of a text block: line steps to the last line, which counts to its descent only. */
 function blockHeight(shape) {
   const lines = shape?.lines || [];
   if (!lines.length) return 0;
   const last = lines[lines.length - 1];
-  return shape.h - (shape.after || 0) - last.lh + (VMETRICS.ascent + VMETRICS.descent) * last.pt * PT;
+  const lastH = last.css && last.mfonts ? cssBox(last, true).h : (VMETRICS.ascent + VMETRICS.descent) * last.pt * PT;
+  return shape.h - (shape.after || 0) - last.lh + lastH;
 }
 
 /** XFA template version of a template element (xmlns …/xfa-template/2.1/ → 2.1). */
@@ -673,7 +708,10 @@ class Layout {
     // a SOM-path embed (SAP's migration) prints in the field's font; a Designer floating field (#id) in the paragraph's
     const font = hit.kind === 'field' && !r.startsWith('#') ? fontOf(hit.t) : null;
     const text = hit.over.rawValue !== undefined ? String(hit.over.rawValue) : (contentOf(hit, this).text ?? '');
-    return font ? { text, font } : text;
+    // a value shown through a date picture (template <format> or an initialize script's $.format.picture) sits
+    // lower in its line (cssBox; calibration 4 / 5: EX10 FLDATE)
+    const datePic = text !== '' && /^\s*date\{/i.test(String(hit.over.picture ?? pictureOf(hit.t, 'format') ?? '').split('|')[0]);
+    return font ? { text, font, ...(datePic ? { datePic: true } : {}) } : text;
   }
 
   /** A relative SOM path (SAP's migration: <span xfa:embed="WA_BOOKING.FORCURAM"/>) from the node's parent up. */
@@ -947,14 +985,12 @@ class Layout {
     return t;
   }
 
-  /** XFA 2.4+ baseline below a line's top: the face's ascent (Courier and Times sit higher than Arial); a CSS
-   *  line-height adds its difference to the natural pitch above the text, down to the font's ascender
-   *  (calibration form: Arial 10 pt at 4.23 mm +0.22 mm, Courier 12 pt at 4.23 mm stops at the ascender). */
-  lineAscent(l, sansAsc) {
+  /** XFA 2.4+ baseline below a line's top: the face's ascent (Courier and Times sit higher than Arial); under a CSS
+   *  line-height the line's fonts decide (cssBox). */
+  lineAscent(l, sansAsc, last) {
+    if (l.css && l.mfonts) return cssBox(l, last).b;
     const fm = faceVMetrics(l.face);
-    const e = l.pt * PT;
-    const base = fm === faceVMetrics('') ? sansAsc : fm.ascent * e;
-    return l.css && l.pnat ? Math.max(base + (l.lh - l.pnat), fm.floor * e) : base;
+    return fm === faceVMetrics('') ? sansAsc : fm.ascent * l.pt * PT;
   }
 
   placeLines(shape, para, cx, cy, cw, ch, items, n, multi, caption = false) {
@@ -993,16 +1029,20 @@ class Layout {
       const role = (n?.kind === 'field' && !caption) || l.runs.some((r) => r.embed) ? 'field' : 'fixed';
       const text = l.runs.map((r) => r.text).join('');
       if (!text.trim()) continue;
-      const baseline = top + l.top + (this.legacy ? (l === first ? asc : asc / em * l.pt * PT) : this.lineAscent(l, l === first ? asc : VMETRICS.ascent * l.pt * PT));
-      const pst = l.para.st || {};
+      const baseline = top + l.top + (this.legacy ? (l === first ? asc : asc / em * l.pt * PT) : this.lineAscent(l, l === first ? asc : VMETRICS.ascent * l.pt * PT, l === lines[lines.length - 1]));
+      // a rich line of embedded values only (no typed text, not even a blank) starts at the content's left edge:
+      // ADS leaves out the paragraph's CSS margins and text-align (calibration 4 / 5: EX10 FLDATE centred, PRICE
+      // right-aligned, CURRENCY margin-left 0.71 mm all print at the cell edge; one typed blank or letter before the
+      // value brings margin and alignment back — X1, X2)
+      const embedOnly = !this.legacy && l.runs.some((r) => r.embed) && l.runs.every((r) => r.embed || (!r.tab && !r.text));
+      const pst = embedOnly ? {} : l.para.st || {};
       const pml = pst['margin-left'] ? unit(pst['margin-left']) : 0, pmr = pst['margin-right'] ? unit(pst['margin-right']) : 0;
       const avail = cw - para.marginLeft - para.marginRight - pml - pmr - (l.first ? para.textIndent : 0);
       let x = cx + para.marginLeft + pml + (l.first ? para.textIndent : 0);
       const left0 = x;
       const lead0 = l.runs[0]?.text.match(/^ */)[0] || '';
       const lw = l.w;
-      const st = l.para.st || {};
-      const align = st['text-align'] || para.hAlign;
+      const align = (embedOnly ? undefined : (l.para.st || {})['text-align']) || para.hAlign;
       if (align === 'right') x += avail - lw;
       else if (align === 'center') x += (avail - lw) / 2;
       else if (align === 'radix') {

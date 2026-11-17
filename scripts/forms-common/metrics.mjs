@@ -75,9 +75,10 @@ export const VMETRICS = { ascent: 0.728, descent: 0.21, gap: 0.15, line: 1.15, r
 /** Per-face vertical metrics ADS uses for draws / rich text of XFA 2.4+ templates, in em — measured on the
  *  calibration form (Courier New prints as CourierStd, Times New Roman as Times-Roman, Arial as Helvetica):
  *  first baseline below the line top (ascent), line pitch (line), and the lowest first baseline a smaller CSS
- *  line-height can pull it up to (floor = the font's ascender). line null = the caller's factor. */
+ *  line-height can pull it up to (floor = the font's ascender), and for Courier the box of one line (content: 1 em,
+ *  calibration 3 H1 / H6). line null = the caller's factor. */
 const FACE_VM = {
-  courier: { ascent: 0.654, line: 1.2, floor: 0.629 },
+  courier: { ascent: 0.654, line: 1.2, floor: 0.629, content: 1 },
   times: { ascent: 0.709, line: 1.111, floor: 0.683 },
   sans: { ascent: VMETRICS.ascent, line: null, floor: 0.718 },
 };

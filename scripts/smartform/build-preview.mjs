@@ -996,6 +996,12 @@ class Renderer {
     for (const [k, on] of Object.entries(cond)) {
       if (on === true && PAGE_FLAGS[k] && !PAGE_FLAGS[k](this.inMain, this)) return false;
     }
+    return this.fieldsHold(cond);
+  }
+
+  /** The field conditions of a node (page flags not looked at). */
+  fieldsHold(cond) {
+    if (!cond) return true;
     // lines are AND-ed; an {LOP: OR} item starts another group, and the groups are OR-ed
     // (ZSF_DEMO_43: GV_CPAGE EQ GS_HEAD-TPAGE  OR  GS_HEAD-TPAGE EQ 0)
     const groups = [[]];
@@ -1490,25 +1496,28 @@ export function cutPages(blocks, heightOf, maxPages = 50) {
   return { sheets: sheets.length ? sheets : [{ from: 0, to: blocks.length }] };
 }
 
-/** The attributes of the first NEWPAGE command in a window of a page other than MAIN (null when there is none). */
-function newPageCommand(p) {
+/** The attributes of the first NEWPAGE command in a window of a page other than MAIN (null when there is none).
+ *  A window or node whose field conditions do not hold (holds(condition) false) is skipped with all it holds. */
+function newPageCommand(p, holds = () => true) {
   const walk = (list) => {
     for (const n of list || []) {
+      if (!holds(n.condition)) continue;
       if (n.kind === 'command' && n.attrs?.NEWPAGE === 'X') return n.attrs;
       const r = walk(n.children);
       if (r) return r;
     }
     return null;
   };
-  for (const w of p.windows || []) if (w.type !== 'MAIN') { const r = walk(w.content); if (r) return r; }
+  for (const w of p.windows || []) if (w.type !== 'MAIN' && holds(w.condition)) { const r = walk(w.content); if (r) return r; }
   return null;
 }
 
 /** The sheets of a print: page definitions in next-page order with the MAIN blocks each one shows.
  *  - A page without a MAIN window prints its windows and hands over to its next page (a cover page).
  *  - MAIN blocks are cut by cutPages over the MAIN heights of the following page definitions.
- *  - The print ends with the last MAIN page. Pure: pages = content.json pages, blocks from the measuring pass. */
-export function pagePlan(pages, blocks, nextPageOf, maxPages = 50) {
+ *  - The print ends with the last MAIN page. Pure: pages = content.json pages, blocks from the measuring pass;
+ *    holds(condition) answers a node's field conditions (a NEWPAGE command under a false one does not count). */
+export function pagePlan(pages, blocks, nextPageOf, maxPages = 50, holds = () => true) {
   const hasMain = (p) => p.windows.some((w) => w.type === 'MAIN');
   const mainH = (p) => p.windows.find((w) => w.type === 'MAIN')?.heightMm ?? 0;
   const sheets = [];
@@ -1541,7 +1550,7 @@ export function pagePlan(pages, blocks, nextPageOf, maxPages = 50) {
   // (a next page without MAIN after the last MAIN page is not printed: 59 of 59 such ECC forms print one page)
   // … unless a NEWPAGE command in a window of the last page sends the print on (SAP prints that page too)
   const last = sheets[sheets.length - 1]?.def;
-  const cmd = last && newPageCommand(last);
+  const cmd = last && newPageCommand(last, holds);
   if (cmd && sheets.length < maxPages) {
     const to = (cmd.PAGENAME && byName(cmd.PAGENAME)) || nextPageOf(last);
     if (to && to !== last) sheets.push({ def: to });
@@ -1567,7 +1576,7 @@ function paginate(r, page, browser, size, profile) {
     if (!m) return null;
     blocks = JSON.parse(m[1]);
   }
-  const plan = pagePlan(r.c.pages, blocks, (p) => r.nextPageOf(p));
+  const plan = pagePlan(r.c.pages, blocks, (p) => r.nextPageOf(p), 50, (cond) => r.fieldsHold(cond));
   if (plan.sheets.length < 2) return null;
   const doc = r.pages(plan);
   return { ...doc, html: doc.html.replace(LAST_SCRIPT, SHEETS_JS + LAST_SCRIPT) };
@@ -1637,7 +1646,7 @@ async function main(argv) {
     // MAIN continues: measure its blocks once, cut them into pages (page 1, then the next page definitions)
     // and draw every page; the overflow report then comes from the drawn pages
     // (also when the page order alone gives more pages: a cover page without MAIN)
-    if (all?.some((x) => x.kind === 'page') || pagePlan(r.c.pages, [], (p) => r.nextPageOf(p)).sheets.length > 1) {
+    if (all?.some((x) => x.kind === 'page') || pagePlan(r.c.pages, [], (p) => r.nextPageOf(p), 50, (cond) => r.fieldsHold(cond)).sheets.length > 1) {
       const multi = paginate(r, page, browser, size, profile);
       if (multi) {
         page = multi;

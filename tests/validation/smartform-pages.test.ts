@@ -95,4 +95,16 @@ describe('smartform-preview: NEWPAGE commands with a target page', () => {
     const ps = [page('P1', 'NOPE', [win('MAIN', 'MAIN', 100), cmdWin]), pages[2]];
     expect(pagePlan(ps, rows(3), nextOf(ps)).sheets.map((s: any) => s.def.name)).toEqual(['P1', 'LAST']);
   });
+  it('a NEWPAGE command under a condition that does not hold (window or node) sends nothing on', () => {
+    const off = { COND: [{ OP1: 'GV_FLAG', COP: 'EQ', OP2: "'X'" }] };
+    const holds = (c: any) => !c;
+    const cmd = { kind: 'command', name: '%C1', attrs: { NEWPAGE: 'X', PAGENAME: 'LAST' } };
+    const inNode = [page('P1', 'NOPE', [win('MAIN', 'MAIN', 100), { ...win('FOOT', 'SECONDARY'), content: [{ ...cmd, condition: off }] }]), pages[2]];
+    const inWin = [page('P1', 'NOPE', [win('MAIN', 'MAIN', 100), { ...win('FOOT', 'SECONDARY'), condition: off, content: [cmd] }]), pages[2]];
+    const under = [page('P1', 'NOPE', [win('MAIN', 'MAIN', 100), { ...win('FOOT', 'SECONDARY'), content: [{ kind: 'condition', condition: off, children: [cmd] }] }]), pages[2]];
+    for (const ps of [inNode, inWin, under]) {
+      expect(pagePlan(ps, rows(3), nextOf(ps), 50, holds).sheets.map((s: any) => s.def.name)).toEqual(['P1']);
+      expect(pagePlan(ps, rows(3), nextOf(ps)).sheets.map((s: any) => s.def.name)).toEqual(['P1', 'LAST']);
+    }
+  });
 });

@@ -249,11 +249,13 @@ describe('adobe-preview: SmartForm migration rich text (CSS divs, tabs, SOM embe
     expect(at('Clerk')).toMatchObject({ pt: 8, font: 'Arial' });
     expect(at('Mr. Sample')).toMatchObject({ pt: 12, font: 'Courier New' });
     close(textWidthMm('abc', 10, { face: 'Courier New' }), 3 * 0.6 * EM10);
-    // the first paragraph is one 5 mm line (its own line-height); a CSS line-height adds its difference to the
-    // paragraph font's own pitch above the text, down to the ascender (calibration form, ADS on S/4):
-    // line 1 Courier 12 pt paragraph (1.2 em) at 5 mm, line 2 Arial 10 pt (1.1376 em) at 6 mm
-    const l1 = Math.max(0.728 * 12 * PT + (5 - 1.2 * 12 * PT), 0.718 * 12 * PT);
-    const l2 = 0.728 * 10 * PT + (6 - 1.1376 * 10 * PT);
+    // the first paragraph is one 5 mm line (its own line-height); a CSS line-height L up to 1.25 × the line's
+    // largest pitch n adds L − n above the text, down to the ascender; a larger L is not applied (calibration
+    // rounds 1–3, ADS on S/4; the fonts of a line = its runs plus the paragraph font on all but the draw's last line):
+    // line 1 Arial 8 pt + Courier 12 pt (n 1.2 em of 12 pt) at 5 mm → Courier ascent − 0.08 mm, not above the
+    // Courier ascender; line 2 Courier 10 pt values + Arial 10 pt paragraph at 6 mm > 1.25 × 4.23 mm → the Arial ascent
+    const l1 = Math.max(0.654 * 12 * PT + (5 - 1.2 * 12 * PT), 0.629 * 12 * PT);
+    const l2 = 0.728 * 10 * PT;
     close(at('1234.50').y - at('Clerk').y, 5 + l2 - l1);
   });
 
@@ -483,6 +485,34 @@ describe('adobe-preview: ADS rules measured on the calibration form and on migra
     // EX10 / EX14 (no embedMode): Courier 10 pt (the field has no <font>); calibration 2 (raw): the span's Arial 10 pt
     expect(by(run(body('', 'F')), '1234')).toMatchObject({ font: 'Courier', pt: 10 });
     expect(by(run(body(' xfa:embedMode="raw"', 'R')), '1234')).toMatchObject({ font: 'Arial', pt: 10 });
+  });
+
+  // an EX10 table cell: hidden field V (in H) shown through a draw at 4.23 mm Courier 12 pt, then a draw "Next"
+  const cell = (n: string, field: string, inner: string, css = '') => `<subform layout="tb" name="${n}" w="60mm"><subform layout="lr-tb" name="C" w="30mm"><subform name="H">${field}</subform><draw name="D" w="30mm"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml" xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/">${div(cour12 + css, `<span style="font-family : 'Arial' ; font-size : 10pt ;">${inner}</span>`)}</div></exData></value><ui><textEdit multiLine="1"/></ui></draw></subform><draw name="N" w="60mm"><ui><textEdit/></ui><value><text>Next ${n}</text></value><font typeface="Arial" size="10pt"/><margin topInset="0mm" bottomInset="0mm" leftInset="0mm" rightInset="0mm"/></draw></subform>`;
+  const dateField = (pic: string) => `<field name="V" presence="hidden"><ui><textEdit/></ui><value><text>2026-12-01</text></value>${pic}</field>`;
+  const embedV = '<span xfa:embed="H.V"/>';
+
+  it('lowers a date-pictured value alone on its line by 0.15 em and grows its cell as much (calibration 4 / 5)', () => {
+    const pic = '<format><picture>date{M/D/YY}</picture></format>';
+    const one = (n: string, field: string, inner: string) => run(cell(n, field, inner));
+    const plain = one('P', dateField(''), embedV), dated = one('Q', dateField(pic), embedV);
+    const num = one('R', `<field name="V" presence="hidden"><ui><textEdit/></ui><value><text>250.00</text></value><format><picture>num{z,zz9.99}</picture></format></field>`, embedV);
+    const label = one('S', dateField(pic), `Date ${embedV}`), labelPlain = one('T', dateField(''), `Date ${embedV}`);
+    const lift = 0.15 * EM10;
+    close(by(dated, '12/1/26').y - by(plain, '2026-12-01').y, lift);
+    close(by(dated, 'Next Q').y - by(plain, 'Next P').y, lift);
+    // a num picture adds nothing; a typed label on the line neither (calibration 3 H6: "Date" + tab + SY.DATUM)
+    close(by(num, 'Next R').y, by(plain, 'Next P').y);
+    close(by(label, 'Next S').y, by(labelPlain, 'Next T').y);
+  });
+
+  it('starts a line of embedded values only at the content edge: no CSS margin-left, no text-align (calibration 4 / 5)', () => {
+    const field = `<field name="V" presence="hidden"><ui><textEdit/></ui><value><text>EUR</text></value></field>`;
+    const t = run(cell('A', field, embedV, ' margin-left : 0.71mm ; text-align : right ;'));
+    close(by(t, 'EUR').x, 20);
+    // one typed blank before the value brings margin and alignment back (X1)
+    const b = run(cell('B', field, ` ${embedV}`, ' margin-left : 0.71mm ;'));
+    expect(by(b, 'EUR').x).toBeGreaterThan(20.71);
   });
 
   it('lays out XFA 2.2 (SAP migration) by the 2.4+ rules, not the 2.1 line boxes', () => {
