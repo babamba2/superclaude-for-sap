@@ -435,6 +435,50 @@ describe('guard and CLI', () => {
     expect(guard({ tool_name: 'Bash', tool_input: { command: `echo x > ${base}state.json` } })).toBeTruthy();
   });
 
+  it('guard keeps the MCP masking key away from the model', () => {
+    const home = join(tmp, 'sc4sap-home');
+    const prev = process.env.SC4SAP_HOME_DIR;
+    process.env.SC4SAP_HOME_DIR = home;
+    try {
+      const key = join(home, 'profiles', 'S4-DEV', 'mask.key');
+      const g = (tool_name: string, tool_input: Record<string, unknown>, cwd = 'C:/p') => guard({ tool_name, tool_input, cwd });
+      // any tool naming the key file
+      for (const [tool, input] of [
+        ['Read', { file_path: key }],
+        ['Read', { file_path: 'C:/Users/x/.sc4sap/mask.key' }],
+        ['Grep', { pattern: 'x', path: key }],
+        ['Grep', { pattern: '.', glob: '**/mask.key', path: 'C:/p' }],
+        ['Bash', { command: `cat ${key}` }],
+        ['Bash', { command: 'type %USERPROFILE%\\.sc4sap\\profiles\\S4-DEV\\Mask.KEY' }],
+        ['PowerShell', { command: `Get-Content ${key}` }],
+        ['Write', { file_path: key, content: 'x' }],
+      ] as const) expect(g(tool, input as Record<string, unknown>), `${tool} ${JSON.stringify(input)}`).toMatch(/masking key/);
+      // a grep whose search root holds the profile folders, or sits inside one
+      for (const path of [home, join(home, 'profiles'), join(home, 'profiles', 'S4-DEV'), join(home, '..')]) expect(g('Grep', { pattern: '[0-9a-f]{64}', path })).toMatch(/masking key/);
+      // shell reads of the sc4sap home with a wildcard or recursion
+      for (const command of [
+        'cat ~/.sc4sap/profiles/S4-DEV/*',
+        'grep -r . ~/.sc4sap',
+        'Get-ChildItem -Recurse $env:USERPROFILE\\.sc4sap | Get-Content',
+        'tar czf /tmp/x.tgz ~/.sc4sap',
+        'cp -r ~/.sc4sap/profiles/S4-DEV /tmp/p',
+        'ls $SC4SAP_HOME_DIR/profiles/S4-DEV/?ask*',
+      ]) expect(g('Bash', { command }), command).toMatch(/masking key/);
+      // still allowed: the profile's own files by name, moving / deleting a profile, project greps
+      expect(g('Read', { file_path: join(home, 'profiles', 'S4-DEV', 'config.json') })).toBeNull();
+      expect(g('Read', { file_path: join(home, 'profiles', 'S4-DEV', 'sap.env') })).toBeNull();
+      expect(g('Bash', { command: 'cat ~/.sc4sap/profiles/S4-DEV/config.json' })).toBeNull();
+      expect(g('Bash', { command: 'rm -rf ~/.sc4sap/profiles/OLD-DEV' })).toBeNull();
+      expect(g('Bash', { command: 'mv ~/.sc4sap/profiles/OLD-DEV ~/.sc4sap/profiles/.trash/OLD-DEV-1' })).toBeNull();
+      expect(g('Grep', { pattern: 'mask', path: 'C:/p/src' })).toBeNull();
+      expect(g('Grep', { pattern: 'x' }, 'C:/p')).toBeNull();
+      expect(g('Bash', { command: 'grep -r foo src' })).toBeNull();
+    } finally {
+      if (prev === undefined) delete process.env.SC4SAP_HOME_DIR;
+      else process.env.SC4SAP_HOME_DIR = prev;
+    }
+  });
+
   it('guard lets only the plugin\'s own pt.mjs write run files', () => {
     // the commands name a protected file, so only the pt.mjs exception can let them through
     const base = 'C:/p/.sc4sap/program/ZP/test/20261117-0900/state.json';
