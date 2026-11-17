@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { listSymbols, Renderer, paragraphFonts, barcodeSvg, code128Codes, barcodeSize, legacyDbcs } from '../../scripts/smartform/build-preview.mjs';
+import { listSymbols, Renderer, paragraphFonts, barcodeSvg, code128Codes, barcodeSize, legacyDbcs, printedFamily, tabNextStop, tabDecimalWidth } from '../../scripts/smartform/build-preview.mjs';
 import { compare } from '../../scripts/smartform/compare-otf.mjs';
 
 // Shape of GetSmartFormContent's content.json; names and values are invented.
@@ -269,5 +269,110 @@ describe('smartform-preview: compare with the SAP OTF', () => {
   it('does not match spaced digits against the unspaced number far away', () => {
     const r = compare(page([run('0 0 1 2', 200, 10), run('0012', 10, 6)]), page([run('0012', 10, 6), run('0 0 1 2', 200, 10)]));
     expect(r.texts.moved).toEqual([]);
+  });
+});
+
+describe('smartform-preview: printer fonts of the output device', () => {
+  const families = [{ family: 'COURIER', proportional: '', substitutes: ['LETGOTH'] }, { family: 'TIMES', proportional: 'X', substitutes: ['HELVE'] }, { family: 'HELVE', proportional: 'X', substitutes: ['TIMES'] }];
+  it('a device type with none of the form\'s families prints them in COURIER (S4-DEV LP01 / I7PDF)', () => {
+    const p = { device: 'LP01', deviceType: 'I7PDF', families, fonts: [] };
+    expect(printedFamily('TIMES', p, 140)).toBe('COURIER');
+    expect(printedFamily('HELVE', p, 120)).toBe('COURIER');
+  });
+  it('keeps the family when the fonts were not read (no printer, no device type, or an error)', () => {
+    expect(printedFamily('TIMES', undefined, 140)).toBe('TIMES');
+    expect(printedFamily('TIMES', { error: 'x' }, 140)).toBe('TIMES');
+    expect(printedFamily('TIMES', { families, fonts: [] }, 140)).toBe('TIMES');
+  });
+  it('keeps a family the device type has', () => {
+    expect(printedFamily('TIMES', { deviceType: 'X', families, fonts: [['TIMES', '000', '', '']] }, 140)).toBe('TIMES');
+  });
+});
+
+describe('smartform-preview: a loop with sort events runs over its rows sorted (S4-DEV SF_SUBTOTALS)', () => {
+  const loopContent = (kind: string) => ({
+    ...CONTENT,
+    pages: [{ ...CONTENT.pages[0], windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 10, topMm: 30, widthMm: 190, heightMm: 200, content: [{
+      kind, name: 'L1', caption: 'Flights', dataTable: 'T_FLIGHT', attrs: { TABHEADER: 'GS_FLIGHT' }, children: [
+        { kind: 'event', name: '%EVENT1', caption: 'Begin', attrs: { EVTYPE: 'S', SFIELD: 'CARRID' }, children: [text('%TEXT1', 'AA', 'Group &GS_FLIGHT-CARRID&')] },
+        text('%TEXT2', 'AA', 'Row &GS_FLIGHT-PRICE&'),
+      ],
+    }] }] }],
+  });
+  const values = { rows: 4, values: { 'GS_FLIGHT-CARRID': ['ZZ', 'ZZ', 'ZY', 'ZY'], 'GS_FLIGHT-PRICE': ['1', '2', '3', '4'] } };
+  it('prints the ZY group before ZZ, rows stable inside a group', () => {
+    const r = new Renderer(loopContent('loop'), values);
+    const html = r.page().html as string;
+    const at = (s: string) => html.indexOf(s);
+    expect(at('Group ZY')).toBeGreaterThan(-1);
+    expect(at('Group ZY')).toBeLessThan(at('Group ZZ'));
+    expect(at('Row 3')).toBeLessThan(at('Row 4'));
+    expect(at('Row 4')).toBeLessThan(at('Row 1'));
+    expect(r.approx.join(' ')).toMatch(/rows sorted by CARRID/);
+  });
+});
+
+describe('smartform-preview: an empty "/" line that ends a paragraph prints as a blank line (SF_EXAMPLE_01 intro)', () => {
+  it('keeps the trailing line break with a zero-width character to stand on', () => {
+    const c = {
+      ...CONTENT,
+      pages: [{ ...CONTENT.pages[0], windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 10, topMm: 30, widthMm: 190, heightMm: 200, content: [
+        { kind: 'text', name: '%T1', caption: 'T1', children: [], style: 'ZTEST_STYLE', lines: [{ format: 'AA', text: 'Dear Sir or Madam,' }, { format: '/', text: '' }, { format: 'AA', text: 'Next' }] },
+      ] }] }],
+    };
+    const html = new Renderer(c, { values: {} }).page().html as string;
+    expect(html).toMatch(/Dear Sir or Madam,\n\u200b/);
+    expect(html).not.toMatch(/Next\n/);
+  });
+});
+
+describe('smartform-preview: tab stop math the page script runs (SF_EXAMPLE_01 TB: DECIMAL 4 cm, LEFT 5 cm)', () => {
+  const glyphs = (text: string, left: number, w = 2.54) => [...text].map((ch, i) => ({ ch, after: text.charAt(i + 1), left: left + i * w, right: left + (i + 1) * w })).filter((g) => g.ch.trim());
+  it('a DECIMAL stop puts the last decimal sign before a digit on the stop', () => {
+    // "250.00" measured from the tab at 0: its '.' is at 3 × 2.54 = 7.62 → room 40 - 7.62
+    expect(tabDecimalWidth(40, glyphs('250.00', 0))).toBeCloseTo(32.38, 2);
+    // "1,230.50": the '.' counts, not the grouping comma
+    expect(tabDecimalWidth(40, glyphs('1,230.50', 0))).toBeCloseTo(40 - 5 * 2.54, 2);
+    // no decimal sign: the text ends on the stop; past the stop: no room; no ink: null
+    expect(tabDecimalWidth(40, glyphs('EUR', 0))).toBeCloseTo(40 - 3 * 2.54, 2);
+    expect(tabDecimalWidth(5, glyphs('250.00', 0))).toBe(0);
+    expect(tabDecimalWidth(40, [])).toBeNull();
+  });
+  it('trailing blanks do not pass a stop: the next stop is found from the ink end', () => {
+    // "250.00 " ends 50.17 mm with its sign blank, its ink at 47.63: the currency goes to the 5 cm stop
+    expect(tabNextStop([40, 50], 10, 50.17, 47.63)).toEqual({ next: 50, ji: 1 });
+    // without the ink end the 5 cm stop is passed: the default distance gives 60
+    expect(tabNextStop([40, 50], 10, 50.17, null)).toEqual({ next: 60, ji: -1 });
+    // no default distance: 2 mm on
+    expect(tabNextStop([], 0, 12, null)).toEqual({ next: 14, ji: -1 });
+  });
+  it('the page script carries both functions as written', () => {
+    const html = new Renderer(CONTENT, { values: {} }).page().html as string;
+    expect(html).toContain(String(tabNextStop));
+    expect(html).toContain(String(tabDecimalWidth));
+  });
+});
+
+describe('smartform-preview: a table printed in a sort event takes its own group rows (SF_SUBTOTALS subtotals)', () => {
+  const c = {
+    ...CONTENT,
+    pages: [{ ...CONTENT.pages[0], windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 10, topMm: 30, widthMm: 190, heightMm: 200, content: [{
+      kind: 'loop', name: 'L1', caption: 'Flights', dataTable: 'T_FLIGHT', attrs: { TABHEADER: 'GS_FLIGHT' }, children: [
+        text('%TEXT2', 'AA', 'Row &GS_FLIGHT-PRICE&'),
+        { kind: 'event', name: '%EVENT2', caption: 'End', attrs: { EVTYPE: 'E', SFIELD: 'CARRID' }, children: [
+          { kind: 'loop', name: 'L2', caption: 'Subtotals', dataTable: 'GT_SUB', attrs: { TABHEADER: 'GS_SUB' }, children: [text('%TEXT3', 'AA', 'Sub &GS_SUB-PRICE& &GS_SUB-CURR&')] },
+        ] },
+      ],
+    }] }] }],
+  };
+  it('group 1 prints its one subtotal, group 2 its two; a flat array still prints for every group', () => {
+    const values = { rows: 3, values: { 'GS_FLIGHT-CARRID': ['ZY', 'ZZ', 'ZZ'], 'GS_FLIGHT-PRICE': ['1', '2', '3'],
+      'GS_SUB-PRICE': [['10'], ['20', '30']], 'GS_SUB-CURR': [['USD'], ['EUR', 'GBP']] } };
+    const html = new Renderer(c, values).page().html as string;
+    const subs = [...html.matchAll(/Sub (\d+) ([A-Z]{3})/g)].map((m) => `${m[1]} ${m[2]}`);
+    expect(subs).toEqual(['10 USD', '20 EUR', '30 GBP']);
+    expect(html.indexOf('Sub 10')).toBeLessThan(html.indexOf('Row 2'));
+    const flat = new Renderer(c, { rows: 3, values: { ...values.values, 'GS_SUB-PRICE': ['5'], 'GS_SUB-CURR': ['USD'] } }).page().html as string;
+    expect([...flat.matchAll(/Sub (\d+) ([A-Z]{3})/g)].length).toBe(2);
   });
 });

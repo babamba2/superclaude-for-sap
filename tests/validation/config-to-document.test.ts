@@ -17,7 +17,10 @@ import { renderAlvScreenSVG } from '../../scripts/spec/screen-image-renderer.mjs
 // @ts-expect-error — plain .mjs script, no type declarations
 import { pageHtml } from '../../scripts/config/config-doc-page.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { parseNotes, parseTerms, isOfficialSource, generalPart, withKb, activityHashes } from '../../scripts/config/notes.mjs';
+import { parseNotes, parseTerms, isOfficialSource, generalPart, withKb, activityHashes, kbOnlyNotes } from '../../scripts/config/notes.mjs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'fs';
+import { tmpdir } from 'os';
+import { join } from 'path';
 
 describe('config-to-document — SAP documentation (ITF)', () => {
   it('joins continuation lines, drops commands and keeps lists and headings', () => {
@@ -275,6 +278,54 @@ describe('config-to-document — knowledge base of general note parts', () => {
     expect(merged.impact).toEqual(['Exclusive (1) here.']);
     expect(merged.cases.list.map((c: { thisSystem: string }) => c.thisSystem)).toEqual(['yes — 자재보류 = 1', 'no — 1']);
     expect(merged.sources[0]).toMatchObject({ url: 'https://help.sap.com/x', fromKb: true });
+  });
+
+  it('--kb-notes: a KB-only note per activity the KB holds, none for the rest, written notes win', () => {
+    const home = mkdtempSync(join(tmpdir(), 'kbonly-home-'));
+    const seed = mkdtempSync(join(tmpdir(), 'kbonly-seed-'));
+    const keep = { home: process.env.SC4SAP_HOME_DIR, seed: process.env.SC4SAP_KB_SEED };
+    try {
+      process.env.SC4SAP_HOME_DIR = home;
+      process.env.SC4SAP_KB_SEED = seed;
+      const own = join(home, 'kb', 'config', 'XX', 'ko');
+      const fromSeed = join(seed, 'config', 'XX', 'ko');
+      mkdirSync(own, { recursive: true });
+      mkdirSync(fromSeed, { recursive: true });
+      const entry = (purpose: string, sapVersion?: string) => JSON.stringify({
+        purpose, sapdoc: 'doc', checklist: ['c'],
+        cases: { title: 'Which?', list: [{ title: 'CASE 1', desc: 'd' }] },
+        sources: [{ title: 'Help', url: 'https://help.sap.com/x' }, { title: 'Blog', url: 'https://blogs.example.com/y' }],
+        ...(sapVersion ? { sapVersion } : {}),
+      });
+      writeFileSync(join(own, 'A1.json'), entry('own A1', 'ECC'));
+      writeFileSync(join(own, 'A2.json'), entry('own A2', 'ECC'));
+      writeFileSync(join(own, 'A3.json'), entry('own A3, flagged'));
+      writeFileSync(join(own, '_flags.json'), JSON.stringify({ A3: { reason: 'does not fit' } }));
+      writeFileSync(join(fromSeed, 'B1.json'), entry('seed B1'));
+
+      const notes = kbOnlyNotes(['A1', 'A2', 'A3', 'B1', 'C1'], { module: 'XX', lang: 'ko', sapVersion: 'S/4HANA 2023', have: { A2: { purpose: 'written' } } });
+      expect(Object.keys(notes).sort()).toEqual(['A1', 'B1']); // A2 written, A3 flagged, C1 not in the KB
+      expect(notes.A1).toMatchObject({ purpose: 'own A1', review: 'none', kbOnly: true, kbSapVersion: 'ECC' });
+      expect(notes.A1.sources).toEqual([{ title: 'Help', url: 'https://help.sap.com/x', fromKb: true }]); // official only
+      expect(notes.A1.cases.list[0]).toMatchObject({ title: 'CASE 1', thisSystem: '' }); // no verdict
+      expect(notes.A1).not.toHaveProperty('impact');
+      expect(notes.B1).toMatchObject({ purpose: 'seed B1', kbOnly: true, kbFromSeed: true });
+      expect(notes.B1).not.toHaveProperty('kbSapVersion'); // no release on the entry: nothing to compare
+
+      // the page: own review label, author line and the general badge with the release
+      const meta = { module: 'XX', system: 'T', client: '100', sapVersion: 'S/4HANA', extractedAt: '2026-11-17T00:00:00Z', maxRows: 1000, lang: 'ko' };
+      const html = pageHtml({ meta, lang: 'ko', tree: [], acts: {}, views: {}, checks: [], transports: {}, domains: {}, docs: {}, notes: { A1: notes.A1 } }, {});
+      const packed = JSON.parse(gunzipSync(Buffer.from(/id="data">([^<]*)<\/script>/.exec(html)![1], 'base64')).toString('utf8'));
+      expect(packed.notes.A1).toMatchObject({ kbOnly: true, kbSapVersion: 'ECC' });
+      expect(html).toContain('nt.kbOnly?T.rv.kb:'); // notes card: "reviewed template", not "not reviewed"
+      expect(html).toContain('nt.kbOnly?T.kbBy:'); // no "written by … reviewed by sap-critic" line
+      expect(html).toContain("T.va.generalOn.replace('{v}',n.kbSapVersion)"); // badge names the release
+    } finally {
+      if (keep.home === undefined) delete process.env.SC4SAP_HOME_DIR; else process.env.SC4SAP_HOME_DIR = keep.home;
+      if (keep.seed === undefined) delete process.env.SC4SAP_KB_SEED; else process.env.SC4SAP_KB_SEED = keep.seed;
+      rmSync(home, { recursive: true, force: true });
+      rmSync(seed, { recursive: true, force: true });
+    }
   });
 });
 

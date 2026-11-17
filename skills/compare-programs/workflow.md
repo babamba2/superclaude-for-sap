@@ -10,8 +10,8 @@ The main thread follows the session model (`model: inherit`). Every MCP read is 
 ## Step 1 — Program Input (main thread)
 
 **Accepts**:
-- User passes 2–5 program names in the initial argument: `"compare ZMMR_GR_LIST and ZCOR_GR_LIST"` / `"ZMMR_GR_LIST, ZCOR_GR_LIST, ZFIR_GR_LIST"`.
-- User passes nothing → ask (in the user's current conversation language): *"Which 2–5 programs should I compare? (comma-separated, e.g. ZMMR_GR_LIST, ZCOR_GR_LIST)"*.
+- User passes 2–5 program names in the initial argument: `"compare ZMMR_DEMO_GR and ZCOR_DEMO_GR"` / `"ZMMR_DEMO_GR, ZCOR_DEMO_GR, ZFIR_DEMO_GR"`.
+- User passes nothing → ask (in the user's current conversation language): *"Which 2–5 programs should I compare? (comma-separated, e.g. ZMMR_DEMO_GR, ZCOR_DEMO_GR)"*.
 
 **Validation**:
 1. For each name, call `SearchObject` to resolve the ADT object type (REPS / CLAS / FUGR / CDS) and note a `TRAN/T` hit (the program's T-Code).
@@ -80,12 +80,12 @@ If `module_set` has 1 module, SKIP Step 4b.
 Run [`render-steps.md`](render-steps.md) Steps 5 → 5.1 (→ 5.1b when `excel`) → 5.2 → 5.3 in order: `sap-writer` (Sonnet) draws the screens and writes the `.md`, the main thread builds the editable page, the review loop, then the English companion. Completion block (in the user's language — English skeleton):
 
 ```
-Comparison report generated: ZMMR_GR_LIST vs ZCOR_GR_LIST  v1.0 · ko
+Comparison report generated: ZMMR_DEMO_GR vs ZCOR_DEMO_GR  v1.0 · ko
 Dimensions: 7 · Divergent: 3 · Variant: 2 · Same: 2 · Unclear: 0
 Screens drawn: 4 (2 selection, 2 output) · Decision guide: 4 situations
-Key divergence: ZMMR = quantity-centric (MSEG) / ZCOR = cost-value-centric (ACDOCA)
-File: <base>/comparisons/ZMMR_GR_LIST__vs__ZCOR_GR_LIST-v1.0-ko.html
-English: <base>/comparisons/ZMMR_GR_LIST__vs__ZCOR_GR_LIST-v1.0-en.html
+Key divergence: ZMMR_DEMO_GR = quantity-centric (MSEG) / ZCOR_DEMO_GR = cost-value-centric (ACDOCA)
+File: <base>/comparisons/ZMMR_DEMO_GR__vs__ZCOR_DEMO_GR-v1.0-ko.html
+English: <base>/comparisons/ZMMR_DEMO_GR__vs__ZCOR_DEMO_GR-v1.0-en.html
 History: …-ko.history.json · …-en.history.json
 ```
 

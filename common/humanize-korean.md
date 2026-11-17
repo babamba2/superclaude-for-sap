@@ -29,7 +29,7 @@ Position: after the Korean content is final (reviews and objections applied), **
    Input format constraints (must hold):
    - The input starts with a [진단] … [/진단] diagnosis block that names, per item, the pattern IDs to prescribe. Do not copy the block into final.md.
    - Every other line is one independent item starting with a `⟦n⟧ ` marker (sentences of an SAP business document). Do not merge or split lines; keep every marker, in the same order. One marker = one line (an item may hold several sentences on its one line).
-   - Programs, TCodes, tables, BAPIs, field names (ZMMM90040, ME21N, BAPI_..., EKKO-...), codes in parentheses, region tags like [KR], numbers, backtick spans and ** markers stay exactly as they are.
+   - Programs, TCodes, tables, BAPIs, field names (ZMMR_DEMO_20, ME21N, BAPI_..., EKKO-...), codes in parentheses, region tags like [KR], numbers, backtick spans and ** markers stay exactly as they are.
    - The terse endings of the source ("~함", "~임", "~됨", "~해요") are its register — keep them.
    ```
 

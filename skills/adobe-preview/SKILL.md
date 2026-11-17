@@ -64,7 +64,10 @@ node scripts/adobe/build-adobe-preview.mjs fields "<dir>"
 
 **Step 4 — Field types.** For every interface parameter and global (`readInterface`): `GetStructure` (DDL: `abap.char(20)` inline or a data element per field), `GetDataElement` for data-element fields, `GetTypeInfo` for a table type's row type. Built-in parameter types (`C`, `N`, `P`, `D`, `T`, `I`, `STRING`) need no read. Keep `{ type, length, decimals }` per field, keyed like the context field: `"BOOKINGS-FORCURAM": { "type": "CURR", "length": 15, "decimals": 2 }`. `scripts/adobe/read-adobe-sap.mjs` `readFormDdic` does the same for the web.
 
-**Step 5 — Text modules** (context nodes of kind text-module): their lines from `GetSqlQuery` on `STXFTXT` (`formname IN (…) AND spras = '<logon language>'` — Smart Forms repository text, not business data) and the paragraph formats of their SmartStyle from `STXSPARA` (style name: ask, or from the text module where known). Without them the node prints empty and is listed in `missingTexts`.
+**Step 5 — Text modules and include texts** (context nodes of kind text-module / text). Language: the node's own `text.language` when set (SAP prints that one), else the logon language.
+- Text modules: their lines from `GetSqlQuery` on `STXFTXT` (`formname IN (…) AND spras = '<language>'` — Smart Forms repository text, not business data) and the paragraph formats of their SmartStyle from `STXSPARA` (style name: ask, or from the text module where known).
+- SO10 include texts (fixed `text.name` / `object` / `id`): `GetStandardText` (DEV systems only); a name held in a field (`nameField`) comes from the sample values.
+Without them the node prints empty and is listed in `missingTexts`.
 
 **Step 6 — Sample values** → write `<out>/values.json` with the `Write` tool:
 ```json
@@ -93,7 +96,7 @@ Report JSON: `pages`, `missingTexts`, `approximations` (scripts not run, unsuppo
 ```
 node scripts/adobe/score-forms.mjs "<sap.pdf>" "<out>/<FORM>-preview.pdf" --model "<out>/<FORM>-preview.model.json" --profile A
 ```
-Show the metric vector (P1mm, P2mm, FIELD, FIXED, PAGES, ROWBRK, WRAP, FONT, RULE, IMG, EXTRA), `maxError` / `meanError`, the `excluded` lines (SAP used a fallback font — not measurable) and the top failures — never a single score. Give the SAP render the same `system` date as the preview. The thresholds are in [`../../common/adobe-forms-verification.md`](../../common/adobe-forms-verification.md).
+Show the metric vector (P1mm, P2mm, FIELD, FIXED, PAGES, ROWBRK, WRAP, FONT, RULE, IMG, EXTRA), `maxError` / `meanError`, the `excluded` lines (SAP used a fallback font — not measurable) and the top failures. The fidelity score (target ≥ 98 %) comes next to the vector, never instead of it: `node scripts/forms-common/score-fidelity.mjs "<sap.pdf>" "<out>/<FORM>-preview.pdf"`, with its missing / moved / extra list. Give the SAP render the same `system` date as the preview. The thresholds are in [`../../common/adobe-forms-verification.md`](../../common/adobe-forms-verification.md).
 </Workflow>
 
 <Data_Rules>
@@ -125,7 +128,7 @@ See [`layout-subset.md`](layout-subset.md) § Not supported. Fonts other than Ar
 
 <Files>
 - `scripts/adobe/read-adobe.mjs` — form / interface / XDP readers; `adobe-data.mjs` — context → data XML values; `adobe-layout.mjs` — XFA layout in mm; `formcalc.mjs` — script subset; `picture.mjs` — picture clauses
-- `scripts/adobe/build-adobe-preview.mjs` — `fields`, `build`; `score-forms.mjs` — layout score v2; `read-adobe-sap.mjs` — the SAP reads for the web
+- `scripts/adobe/build-adobe-preview.mjs` — `fields`, `build`, `xdp` (a designer template with its data XML, no SAP form object); `score-forms.mjs` — layout score v2; `read-adobe-sap.mjs` — the SAP reads for the web
 </Files>
 
 <Related_Skills>

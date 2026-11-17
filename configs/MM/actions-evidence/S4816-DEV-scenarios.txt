@@ -1,5 +1,5 @@
-# Scenario evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10. ABAP Unit scenario matrix YCL_SC4SAP_S4V_MM (expected result declared before the run, DB read-back after every write, no-change proof for refusals).
-# Final run 020000DD4A3B1FD1B797C53DD3428000 (S4V_MM-run4.txt). Columns: action, pass/lines, executed writes. Test documents are logged in the S4-DEV data-change log.
+# Scenario evidence — S4816-DEV (S/4HANA, ABAP 816), 2026-11-10. ABAP Unit scenario matrix YCL_SC4SAP_S4V_MM (expected result declared before the run, DB read-back after every write, no-change proof for refusals).
+# Final run 020000DD4A3B1FD1B797C53DD3428000 (S4V_MM-run4.txt). Columns: action, pass/lines, executed writes. Test documents are logged in the S4816-DEV data-change log.
 S MM.PO.LIST_OPEN 14/14 exec 0
 S MM.PO.GET_DETAIL 8/8 exec 0
 S MM.PO.GET_HISTORY 4/4 exec 0

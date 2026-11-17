@@ -1896,7 +1896,7 @@ export function processMapMetrics(spec = {}) {
 // Multi-pane ALV (v10) — Split / Tabstrip / Sequence
 //
 // Many ABAP programs render two or more ALV grids on one screen:
-//   · Docking + Splitter container (top + bottom)        — ZMMR1001
+//   · Docking + Splitter container (top + bottom)        — ZMMR_DEMO_23
 //   · Side-by-side grids                                 — comparison reports
 //   · Tabstrip pages each carrying their own grid        — multi-aspect viewers
 // A single-grid PNG can never capture the click-to-drill interaction

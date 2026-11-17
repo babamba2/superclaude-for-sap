@@ -85,12 +85,12 @@
    ],
    "verified_on": [
     {
-     "alias": "S4-DEV",
+     "alias": "S4816-DEV",
      "family": "S4",
      "release": "816",
      "date": "2026-11-11",
      "level": "scenario",
-     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+     "evidence": "configs/QM/actions-evidence/S4816-DEV.txt"
     }
    ]
   },
@@ -170,12 +170,12 @@
    ],
    "verified_on": [
     {
-     "alias": "S4-DEV",
+     "alias": "S4816-DEV",
      "family": "S4",
      "release": "816",
      "date": "2026-11-11",
      "level": "scenario",
-     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+     "evidence": "configs/QM/actions-evidence/S4816-DEV.txt"
     }
    ]
   },
@@ -243,12 +243,12 @@
    ],
    "verified_on": [
     {
-     "alias": "S4-DEV",
+     "alias": "S4816-DEV",
      "family": "S4",
      "release": "816",
      "date": "2026-11-11",
      "level": "scenario",
-     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+     "evidence": "configs/QM/actions-evidence/S4816-DEV.txt"
     }
    ]
   },
@@ -317,12 +317,12 @@
    ],
    "verified_on": [
     {
-     "alias": "S4-DEV",
+     "alias": "S4816-DEV",
      "family": "S4",
      "release": "816",
      "date": "2026-11-11",
      "level": "scenario",
-     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+     "evidence": "configs/QM/actions-evidence/S4816-DEV.txt"
     }
    ]
   },
@@ -404,12 +404,12 @@
    ],
    "verified_on": [
     {
-     "alias": "S4-DEV",
+     "alias": "S4816-DEV",
      "family": "S4",
      "release": "816",
      "date": "2026-11-11",
      "level": "scenario",
-     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+     "evidence": "configs/QM/actions-evidence/S4816-DEV.txt"
     }
    ]
   },
@@ -467,12 +467,12 @@
    ],
    "verified_on": [
     {
-     "alias": "S4-DEV",
+     "alias": "S4816-DEV",
      "family": "S4",
      "release": "816",
      "date": "2026-11-11",
      "level": "scenario",
-     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+     "evidence": "configs/QM/actions-evidence/S4816-DEV.txt"
     }
    ]
   },
@@ -544,12 +544,12 @@
    ],
    "verified_on": [
     {
-     "alias": "S4-DEV",
+     "alias": "S4816-DEV",
      "family": "S4",
      "release": "816",
      "date": "2026-11-11",
      "level": "scenario",
-     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+     "evidence": "configs/QM/actions-evidence/S4816-DEV.txt"
     }
    ]
   },
@@ -611,12 +611,12 @@
    ],
    "verified_on": [
     {
-     "alias": "S4-DEV",
+     "alias": "S4816-DEV",
      "family": "S4",
      "release": "816",
      "date": "2026-11-11",
      "level": "scenario",
-     "evidence": "configs/QM/actions-evidence/S4-DEV.txt"
+     "evidence": "configs/QM/actions-evidence/S4816-DEV.txt"
     }
    ]
   },

@@ -1,4 +1,4 @@
-# Handler evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
+# Handler evidence — S4816-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
 H PP.ORD.LIST_OPEN 1710 all_open / created -> 10 / 3 orders with system status text
 H PP.ORD.GET_DETAIL 1000001 -> 2 operations, 9 components (backflush X)
 H PP.BOM.READ MZ-FG-R200/1710 -> 9 items; quantities per base quantity 100000 ST (STKO-BMENG) - summary states the base quantity

@@ -419,6 +419,36 @@ export function kbRead(module, lang, id) {
   return seed ? { ...seed, fromSeed: true } : null;
 }
 
+const sapFamily = (v) => (/^s\/?4/i.test(String(v || '')) ? 'S4' : v ? 'ECC' : '');
+
+/**
+ * KB-only notes (build-config-doc --kb-notes): for each activity without a note of its own, the reviewed
+ * general part the knowledge base holds (own KB, then the read-only seed) — no writer, no review, no web
+ * research, no tokens. There is no system part (impact, cautions, verdicts): the page marks them "general
+ * description only". Entries a review flagged as not fitting a system are left out; an entry written on
+ * another release (ECC vs S/4) is kept and carries kbSapVersion, which the badge names.
+ */
+export function kbOnlyNotes(ids, { module, lang, sapVersion = '', have = {} }) {
+  const flags = kbFlags(module, lang);
+  const out = {};
+  for (const id of ids) {
+    if (have[id] || flags[id]) continue;
+    const entry = kbRead(module, lang, id);
+    if (!entry) continue;
+    const n = withKb({}, entry);
+    const differs = sapFamily(entry.sapVersion) && sapFamily(sapVersion) && sapFamily(entry.sapVersion) !== sapFamily(sapVersion);
+    out[id] = {
+      ...n,
+      sources: (n.sources || []).filter((s) => isOfficialSource(s.url)),
+      review: 'none',
+      issues: [],
+      kbOnly: true,
+      ...(differs ? { kbSapVersion: entry.sapVersion } : {}),
+    };
+  }
+  return out;
+}
+
 /** KB entries a reviewer flagged as not fitting a system (kbFlag): redone as full notes. */
 const flagsFile = (module, lang) => join(kbDir(module, lang), '_flags.json');
 export function kbFlags(module, lang) { return readJson(flagsFile(module, lang)) || {}; }

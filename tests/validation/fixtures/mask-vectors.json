@@ -1,0 +1,2410 @@
+{
+  "about": "Shared masking rules (allow-list of clearly non-personal DDIC, personal lists, refused tables, strict SELECT grammar, which columns get masked): generated from sc4sap scripts/program-test/pt-lib.mjs; asserted by sc4sap (program-test.test.ts) and abap-mcp-adt-powerup (personalMask.test.ts). Tokens are made only by the MCP server (HMAC with its own key) and are not part of these vectors. Change both implementations together, then regenerate.",
+  "salt": "0123456789abcdef0123456789abcdef",
+  "lists": {
+    "exact": [
+      "ACCNAME",
+      "AENAM",
+      "ANRED",
+      "BANKN",
+      "BIRTHDT",
+      "BIRTHPL",
+      "BKONT",
+      "BKREF",
+      "BNAME",
+      "BUILDING",
+      "BU_SORT1",
+      "BU_SORT2",
+      "CCINS_NUM",
+      "CCNUM",
+      "CHANGED_BY",
+      "CHUSR",
+      "CITY",
+      "CITY1",
+      "CITY2",
+      "COUNTY",
+      "CREATED_BY",
+      "CRUSR",
+      "DEATHDT",
+      "EMAIL",
+      "EMPLO",
+      "ENAME",
+      "ERNAM",
+      "EXTENSION1",
+      "EXTENSION2",
+      "E_MAIL",
+      "FAMST",
+      "FAX",
+      "FAX_EXTENS",
+      "FAX_NUMBER",
+      "FLOOR",
+      "FORM",
+      "GBDAT",
+      "GBORT",
+      "GENDER",
+      "GESCH",
+      "HOME_CITY",
+      "HOUSE_NUM1",
+      "HOUSE_NUM2",
+      "HOUSE_NUM3",
+      "IBAN",
+      "ICNUM",
+      "IDNUMBER",
+      "INITIALS",
+      "INTAD",
+      "J_1KFREPRE",
+      "J_1KFTBUS",
+      "J_1KFTIND",
+      "KNURL",
+      "KOINH",
+      "LAST_CHANGED_BY",
+      "LFURL",
+      "LOCATION",
+      "MARST",
+      "MCOD1",
+      "MCOD2",
+      "MCOD3",
+      "MC_CITY1",
+      "MC_COUNTY",
+      "MC_NAME1",
+      "MC_NAME2",
+      "MC_NAMEFIR",
+      "MC_NAMELAS",
+      "MC_STREET",
+      "MC_TOWNSHIP",
+      "MOBILE",
+      "MOB_NUMBER",
+      "NACHN",
+      "NAME",
+      "NAME1",
+      "NAME1_TEXT",
+      "NAME2",
+      "NAME3",
+      "NAME4",
+      "NAMECOMBINED",
+      "NAMEMIDDLE",
+      "NAMEV",
+      "NAME_CO",
+      "NAME_FIRST",
+      "NAME_GRP1",
+      "NAME_GRP2",
+      "NAME_LAST",
+      "NAME_LAST2",
+      "NAME_LST2",
+      "NAME_ORG1",
+      "NAME_ORG2",
+      "NAME_ORG3",
+      "NAME_ORG4",
+      "NAME_TEXT",
+      "NATIO",
+      "NICKNAME",
+      "ORT01",
+      "ORT02",
+      "PASSBIRTH",
+      "PASSFORM",
+      "PASSNAME",
+      "PASSPORT",
+      "PERID",
+      "PERNO",
+      "PERNR",
+      "PFACH",
+      "PHONE",
+      "POSTBOX",
+      "POSTCODE",
+      "POST_CODE1",
+      "POST_CODE2",
+      "POST_CODE3",
+      "PO_BOX",
+      "PO_BOX_LOBBY",
+      "PO_BOX_LOC",
+      "PROFESSION",
+      "PSTL2",
+      "PSTLZ",
+      "ROOMNUMBER",
+      "RUFNM",
+      "SEX",
+      "SEXKZ",
+      "SMTP_ADDR",
+      "SMTP_SRCH",
+      "SORT1",
+      "SORT2",
+      "SORTL",
+      "SORT_PHN",
+      "SPNAM",
+      "STCD1",
+      "STCD2",
+      "STCD3",
+      "STCD4",
+      "STCD5",
+      "STCD6",
+      "STCEG",
+      "STENR",
+      "STKZN",
+      "STRAS",
+      "STREET",
+      "STR_SUPPL1",
+      "STR_SUPPL2",
+      "STR_SUPPL3",
+      "TAXNUM",
+      "TELBX",
+      "TELEPHONE",
+      "TELF1",
+      "TELF2",
+      "TELFX",
+      "TELNR_CALL",
+      "TELNR_LONG",
+      "TELTX",
+      "TELX1",
+      "TEL_EXTENS",
+      "TEL_NUMBER",
+      "TOWNSHIP",
+      "UNAME",
+      "USERNAME",
+      "USNAM",
+      "VORNA",
+      "WEBUSER",
+      "XSEXF",
+      "XSEXM",
+      "XSEXU",
+      "XUBNAME"
+    ],
+    "dtel": [
+      "ABP_CREATION_USER",
+      "ABP_LASTCHANGE_USER",
+      "AD_BLDNG",
+      "AD_CITY1",
+      "AD_CITY2",
+      "AD_COUNTY",
+      "AD_EXTENS1",
+      "AD_EXTENS2",
+      "AD_FLOOR",
+      "AD_FXNMBR",
+      "AD_FXNMBR1",
+      "AD_FXXTNS",
+      "AD_HSNM1",
+      "AD_HSNM2",
+      "AD_INITS",
+      "AD_LCTN",
+      "AD_MBNMBR1",
+      "AD_MC_CITY",
+      "AD_MC_STRT",
+      "AD_NAME1",
+      "AD_NAME2",
+      "AD_NAME3",
+      "AD_NAME4",
+      "AD_NAMEFIR",
+      "AD_NAMELAS",
+      "AD_NAMEMID",
+      "AD_NAME_CO",
+      "AD_NAMLAS2",
+      "AD_NAMTEXT",
+      "AD_POBX",
+      "AD_POBXLOC",
+      "AD_PROFESS",
+      "AD_ROOMNUM",
+      "AD_SEX",
+      "AD_SMTPADR",
+      "AD_STREET",
+      "AD_STRSPP1",
+      "AD_STRSPP2",
+      "AD_STRSPP3",
+      "AD_TELNRCL",
+      "AD_TELNRLG",
+      "AD_TLNMBR",
+      "AD_TLNMBR1",
+      "AD_TLXTNS",
+      "AD_TOWNSHIP",
+      "AENAM",
+      "AENAM_RF",
+      "ANRED",
+      "ANRED_AP",
+      "BANKN",
+      "BKONT",
+      "BKREF",
+      "BNAME",
+      "BPTAXNUM",
+      "BPTAXNUMXL",
+      "BU_BIRTHDT",
+      "BU_BIRTHPL",
+      "BU_EMPLO",
+      "BU_KOINH",
+      "BU_MARST",
+      "BU_MCNAME1",
+      "BU_MCNAME2",
+      "BU_NAME1TX",
+      "BU_NAMEOR1",
+      "BU_NAMEOR2",
+      "BU_NAMEOR3",
+      "BU_NAMEOR4",
+      "BU_NAMEPL2",
+      "BU_NAMEP_F",
+      "BU_NAMEP_L",
+      "BU_NATIO",
+      "BU_NICKNAM",
+      "BU_PERNO",
+      "BU_SEXID",
+      "BU_XSEXF",
+      "BU_XSEXM",
+      "BU_XSEXU",
+      "BU_XUBNAME",
+      "CCNUM",
+      "CHUSR",
+      "CITY",
+      "CRUSR",
+      "CVVAL",
+      "EMNAM",
+      "ERNAM",
+      "ERNAM_RF",
+      "FAMST",
+      "GBDAT",
+      "GBDAT_GP",
+      "GBDAT_Q",
+      "GBORT",
+      "GBORT_Q",
+      "GESCH",
+      "IBAN",
+      "ICNUM",
+      "INTAD",
+      "KOINH_FI",
+      "NACHN",
+      "NAME1",
+      "NAME1_GP",
+      "NAME1_VP",
+      "NAME2",
+      "NAME2_GP",
+      "NAME3_GP",
+      "NAME4_GP",
+      "NAMECOMBINED",
+      "NAMEV_VP",
+      "ORT01_GP",
+      "ORT02_GP",
+      "PAD_NACHN",
+      "PAD_VORNA",
+      "PERID",
+      "PERNR_D",
+      "PERSNO",
+      "PFACH",
+      "POSTCODE",
+      "PRDNI",
+      "PSTL2",
+      "PSTLZ",
+      "P_PERNR",
+      "REPRES",
+      "SEXKZ",
+      "SPNAM",
+      "STCD1",
+      "STCD2",
+      "STCD3",
+      "STCD4",
+      "STCD5",
+      "STCD6",
+      "STCEG",
+      "STENR",
+      "STRAS_GP",
+      "SYUNAME",
+      "S_BIRTHDAT",
+      "S_CUSTNAME",
+      "S_EMAIL",
+      "S_FORM",
+      "S_PASSNAME",
+      "S_PHONENO",
+      "S_POSTBOX",
+      "S_STREET",
+      "S_WEBNAME",
+      "TELBX",
+      "TELF1",
+      "TELF2",
+      "TELFX",
+      "TELTX",
+      "TELX1",
+      "UNAME",
+      "USNAM",
+      "VDM_CREATEDBYUSERID",
+      "VDM_LASTCHANGEDBYUSERID",
+      "VORNA",
+      "XUBNAME"
+    ],
+    "domain": [
+      "AD_FXNMBR",
+      "AD_NAME",
+      "AD_NAMEFIR",
+      "AD_NAMELAS",
+      "AD_SMTPAD2",
+      "AD_SMTPADR",
+      "AD_STREET",
+      "AD_TELNRCL",
+      "AD_TELNRLG",
+      "AD_TLNMBR",
+      "BANKN",
+      "BU_BIRTHDT",
+      "BU_NAME",
+      "GBDAT",
+      "IBAN",
+      "NAME",
+      "ORT01",
+      "PERNR",
+      "POSTCODE",
+      "PSTLZ",
+      "STCD1",
+      "STCD2",
+      "STCD3",
+      "STCEG",
+      "STRAS",
+      "S_CUSTNAME",
+      "S_EMAIL",
+      "S_PHONENO",
+      "TELF1",
+      "TELF2",
+      "TELFX",
+      "USNAM",
+      "XUBNAME"
+    ],
+    "clear_ddic": [
+      "ADRNR",
+      "AD_ADDRNUM",
+      "AD_COMCTRY",
+      "AD_COMM",
+      "AD_CONSNUM",
+      "AD_DATE_FR",
+      "AD_DATE_TO",
+      "AD_FLGDFAD",
+      "AD_FLGDFNR",
+      "AD_FLGHOME",
+      "AD_FLNOUSE",
+      "AD_GROUP",
+      "AD_NATION",
+      "AD_PERSNUM",
+      "AD_POBXCTY",
+      "AD_TXJCD",
+      "AD_TZONE",
+      "AD_VALFROM",
+      "AD_VALTO",
+      "AD_XPCPT",
+      "AEDAT",
+      "AUART",
+      "AUDAT",
+      "AUFNR",
+      "AUFSD_X",
+      "BANFN",
+      "BEDAT",
+      "BELNR",
+      "BELNR_D",
+      "BLART",
+      "BLDAT",
+      "BNFPO",
+      "BRGEW",
+      "BRSCH",
+      "BSART",
+      "BSTME",
+      "BSTMG",
+      "BUDAT",
+      "BUKRS",
+      "BUZEI",
+      "BU_BP_VALID_FROM",
+      "BU_BP_VALID_TO",
+      "BU_GROUP",
+      "BU_GRPTYP",
+      "BU_INDSECT",
+      "BU_LANGU_CORR",
+      "BU_LEGENTY",
+      "BU_PARTNER",
+      "BU_XBLCK",
+      "BU_XDELE",
+      "BU_XPCPT",
+      "BWART",
+      "BWKEY",
+      "CASSD_X",
+      "CHARG_D",
+      "CPUDT",
+      "CPUTM",
+      "DATA_TEMPERATURE",
+      "DMBTR",
+      "EBELN",
+      "EBELP",
+      "EINDT",
+      "EKGRP",
+      "EKORG",
+      "ERDAT",
+      "ERDAT_RF",
+      "FAKSD_X",
+      "FKIMG",
+      "GEWEI",
+      "GJAHR",
+      "GSBER",
+      "HKONT",
+      "KBETR",
+      "KDGRP",
+      "KOKRS",
+      "KOSTL",
+      "KTOKD",
+      "KTOKK",
+      "KUKLA",
+      "KUNNR",
+      "KWMENG",
+      "LAND1",
+      "LAND1_GP",
+      "LANGU",
+      "LFIMG",
+      "LGNUM",
+      "LGORT",
+      "LGORT_D",
+      "LIFNR",
+      "LIFSD_X",
+      "LOEVM_X",
+      "LZONE",
+      "MANDT",
+      "MATNR",
+      "MBLNR",
+      "MBLPO",
+      "MEINS",
+      "MENGE_D",
+      "MJAHR",
+      "NETPR",
+      "NETWR",
+      "NETWR_AP",
+      "NODEL_X",
+      "NTGEW",
+      "PARNR",
+      "POSNR",
+      "POSNR_VA",
+      "POSNR_VF",
+      "POSNR_VL",
+      "PRCTR",
+      "PSTYV",
+      "REGIO",
+      "REGIOGROUP",
+      "SAKNR",
+      "SPART",
+      "SPERB_X",
+      "SPERM_X",
+      "SPRAS",
+      "S_AGNCYNUM",
+      "S_BDATE",
+      "S_BOOK_ID",
+      "S_CANCEL",
+      "S_CARR_ID",
+      "S_CLASS",
+      "S_CONN_ID",
+      "S_COUNTNUM",
+      "S_COUNTRY",
+      "S_CURR",
+      "S_CURRCODE",
+      "S_CUSTOMER",
+      "S_CUSTTYPE",
+      "S_DISCOUNT",
+      "S_F_CUR_PR",
+      "S_INVFLAG",
+      "S_LUGWEIGH",
+      "S_L_CUR_PR",
+      "S_MANDT",
+      "S_REGION",
+      "S_RESERV",
+      "S_SMOKER",
+      "S_WEIUNIT",
+      "TXJCD",
+      "TZNZONE",
+      "UPDAT_RF",
+      "UPTIM_RF",
+      "VBELN",
+      "VBELN_VA",
+      "VBELN_VF",
+      "VBELN_VL",
+      "VKBUR",
+      "VKGRP",
+      "VKORG",
+      "VRKME",
+      "VSTEL",
+      "VTWEG",
+      "WAERK",
+      "WAERS",
+      "WERKS",
+      "WERKS_D",
+      "WERKS_EXT",
+      "WRBTR",
+      "XCPDK",
+      "XFELD"
+    ],
+    "clear_datatypes": [
+      "CUKY",
+      "CURR",
+      "QUAN",
+      "UNIT"
+    ]
+  },
+  "refused_tables": [
+    {
+      "table": "PA0002",
+      "refused": true
+    },
+    {
+      "table": "USR02",
+      "refused": true
+    },
+    {
+      "table": "ADR6",
+      "refused": true
+    },
+    {
+      "table": "LFBK",
+      "refused": true
+    },
+    {
+      "table": "HRP1000",
+      "refused": true
+    },
+    {
+      "table": "AGR_USERS",
+      "refused": true
+    },
+    {
+      "table": "KNBK",
+      "refused": true
+    },
+    {
+      "table": "EKPO",
+      "refused": false
+    },
+    {
+      "table": "KNA1",
+      "refused": false
+    },
+    {
+      "table": "MARA",
+      "refused": false
+    },
+    {
+      "table": "VBAK",
+      "refused": false
+    }
+  ],
+  "strict_select": [
+    {
+      "sql": "SELECT kunnr, name1 AS n FROM kna1 WHERE land1 = 'KR' UP TO 5 ROWS",
+      "ok": true,
+      "table": "KNA1",
+      "columns": [
+        [
+          "KUNNR",
+          "KUNNR"
+        ],
+        [
+          "N",
+          "NAME1"
+        ]
+      ],
+      "star": false
+    },
+    {
+      "sql": "SELECT * FROM ekpo",
+      "ok": true,
+      "table": "EKPO",
+      "columns": [],
+      "star": true
+    },
+    {
+      "sql": "SELECT SINGLE kunnr name1 AS n FROM kna1",
+      "ok": true,
+      "table": "KNA1",
+      "columns": [
+        [
+          "KUNNR",
+          "KUNNR"
+        ],
+        [
+          "N",
+          "NAME1"
+        ]
+      ],
+      "star": false
+    },
+    {
+      "sql": "SELECT a~kunnr FROM kna1 AS a WHERE a~kunnr IN ( '1', '2' ) ORDER BY kunnr",
+      "ok": true,
+      "table": "KNA1",
+      "columns": [
+        [
+          "KUNNR",
+          "KUNNR"
+        ]
+      ],
+      "star": false
+    },
+    {
+      "sql": "SELECT kunnr FROM kna1 WHERE name1 = 'a'' UNION SELECT name1 FROM kna1 --'",
+      "ok": true,
+      "table": "KNA1",
+      "columns": [
+        [
+          "KUNNR",
+          "KUNNR"
+        ]
+      ],
+      "star": false
+    },
+    {
+      "sql": "SELECT kunnr, land1 FROM kna1 UNION SELECT kunnr, name1 FROM kna1",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr FROM kna1 WHERE kunnr IN ( SELECT kunnr FROM knvv )",
+      "ok": false
+    },
+    {
+      "sql": "WITH +x AS ( SELECT kunnr FROM kna1 ) SELECT * FROM +x",
+      "ok": false
+    },
+    {
+      "sql": "SELECT a~kunnr FROM kna1 AS a INNER JOIN knvv AS b ON b~kunnr = a~kunnr",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr, concat( name1, land1 ) AS full FROM kna1",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr FROM kna1 WHERE upper( name1 ) = 'X'",
+      "ok": false
+    },
+    {
+      "sql": "SELECT name1 AS a, land1 AS A FROM kna1",
+      "ok": false
+    },
+    {
+      "sql": "SELECT *, name1 AS land1 FROM kna1",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr FROM kna1; SELECT name1 FROM kna1",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr FROM kna1 WHERE kunnr = @lv",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr \"x\nFROM kna1",
+      "ok": false
+    }
+  ],
+  "tables_in_sql": [
+    {
+      "sql": "SELECT a~kunnr FROM kna1 AS a INNER JOIN usr02 AS b ON b~bname = a~ernam WHERE x IN ( SELECT y FROM pa0002 )",
+      "tables": [
+        "KNA1",
+        "USR02",
+        "PA0002"
+      ]
+    }
+  ],
+  "ddic": {
+    "KUNNR": {
+      "rollname": "KUNNR",
+      "domname": "KUNNR"
+    },
+    "NAME1": {
+      "rollname": "NAME1_GP",
+      "domname": "NAME"
+    },
+    "LAND1": {
+      "rollname": "LAND1_GP",
+      "domname": "LAND1"
+    },
+    "ZZCONTACT": {
+      "rollname": "ZZ_CONTACT",
+      "domname": "AD_SMTPADR"
+    },
+    "ZZOWNER": {
+      "rollname": "ZZ_OWNER",
+      "domname": "CHAR30"
+    }
+  },
+  "mask_rows_select": {
+    "sql": "SELECT kunnr, name1 AS n, land1, zzcontact, zzowner FROM kna1",
+    "extra": [
+      "ZZOWNER"
+    ],
+    "rows": [
+      {
+        "KUNNR": "0000001",
+        "N": "Hong Gildong",
+        "LAND1": "KR",
+        "ZZCONTACT": "me@example.com",
+        "ZZOWNER": "Kim",
+        "EXTRA": "free text"
+      },
+      {
+        "KUNNR": "0000002",
+        "N": "Hong Gildong",
+        "LAND1": "DE",
+        "ZZCONTACT": "",
+        "ZZOWNER": "Lee"
+      }
+    ],
+    "expected_masked": [
+      "EXTRA",
+      "N",
+      "ZZCONTACT",
+      "ZZOWNER"
+    ]
+  },
+  "mask_rows_plain": {
+    "rows": [
+      {
+        "KUNNR": "1",
+        "NAME1": "Kim",
+        "LAND1": "KR",
+        "UNKNOWN": "x"
+      }
+    ],
+    "expected_masked": [
+      "NAME1",
+      "UNKNOWN"
+    ]
+  },
+  "patterns": {
+    "name": [
+      "^NAME(\\d|_|$|V$|COMBINED|MIDDLE)",
+      "_NAME\\d?$",
+      "NAME\\d?$|_NAME|NAME_",
+      "CONTACT|ANSPR|SACHB|OWNER|RESP_?PERS|TITLE_LET|SALUT",
+      "HOMEPAGE|URL|URI$|IP_?ADDR",
+      "^MC_(NAME|STREET|CITY|COUNTY|TOWNSHIP)",
+      "TELEPHONE|PHONE|MOBILE",
+      "^(TEL|FAX|MOB)",
+      "SMTP|MAIL",
+      "BIRTH|GBDAT|GEB|DOB|DEATHDT",
+      "^(STREET|STRAS|STR_SUPPL|HOUSE_NUM|POST_CODE|PSTLZ|ORT0)",
+      "^CITY\\d?$",
+      "IBAN|BANKN",
+      "^STCD\\d$"
+    ],
+    "ddic": [
+      "^AD_NAME",
+      "^AD_MC_",
+      "^AD_(TLNMBR|TLXTNS|FXNMBR|FXXTNS|MBNMBR|TELNR|SMTPAD|STRSPP|HSNM|PSTCD|SORT|SRTPHN|CITY\\d)",
+      "^BU_(NAME|MCNAME|BIRTH|DEATH|NICKNAM|SORT\\d|XSEX)",
+      "^NAME\\d",
+      "^NAMEV",
+      "^(TELF|TELX|TELBX|TELTX)",
+      "^(STRAS|ORT0\\d|PSTLZ|PSTL2|PFACH)(_|$)",
+      "^MCD[DK]\\d$",
+      "SMTP|E_?MAIL",
+      "PHONE|TELNR|FAXNR|MOBNR",
+      "BIRTH|GBDAT|GBORT|GEB|DOB",
+      "IBAN|BANKN|BKONT",
+      "^STCD\\d",
+      "NAME\\d?$|_NAME|NAME_",
+      "CONTACT|ANSPR|SACHB|OWNER|RESP_?PERS|TITLE_LET|SALUT",
+      "HOMEPAGE|URL|URI$|IP_?ADDR"
+    ]
+  },
+  "pinned_tables": {
+    "SCUSTOM": {
+      "MANDT": {
+        "rollname": "S_MANDT",
+        "domname": "",
+        "personal": false
+      },
+      "ID": {
+        "rollname": "S_CUSTOMER",
+        "domname": "",
+        "personal": false
+      },
+      "NAME": {
+        "rollname": "S_CUSTNAME",
+        "domname": "",
+        "personal": true
+      },
+      "FORM": {
+        "rollname": "S_FORM",
+        "domname": "",
+        "personal": true
+      },
+      "STREET": {
+        "rollname": "S_STREET",
+        "domname": "",
+        "personal": true
+      },
+      "POSTBOX": {
+        "rollname": "S_POSTBOX",
+        "domname": "",
+        "personal": true
+      },
+      "POSTCODE": {
+        "rollname": "POSTCODE",
+        "domname": "",
+        "personal": true
+      },
+      "CITY": {
+        "rollname": "CITY",
+        "domname": "",
+        "personal": true
+      },
+      "COUNTRY": {
+        "rollname": "S_COUNTRY",
+        "domname": "",
+        "personal": false
+      },
+      "REGION": {
+        "rollname": "S_REGION",
+        "domname": "",
+        "personal": false
+      },
+      "TELEPHONE": {
+        "rollname": "S_PHONENO",
+        "domname": "",
+        "personal": true
+      },
+      "CUSTTYPE": {
+        "rollname": "S_CUSTTYPE",
+        "domname": "",
+        "personal": false
+      },
+      "DISCOUNT": {
+        "rollname": "S_DISCOUNT",
+        "domname": "",
+        "personal": false
+      },
+      "LANGU": {
+        "rollname": "SPRAS",
+        "domname": "",
+        "personal": false
+      },
+      "EMAIL": {
+        "rollname": "S_EMAIL",
+        "domname": "",
+        "personal": true
+      },
+      "WEBUSER": {
+        "rollname": "S_WEBNAME",
+        "domname": "",
+        "personal": true
+      }
+    },
+    "KNA1": {
+      "MANDT": {
+        "rollname": "MANDT",
+        "domname": "",
+        "personal": false
+      },
+      "KUNNR": {
+        "rollname": "KUNNR",
+        "domname": "",
+        "personal": false
+      },
+      "LAND1": {
+        "rollname": "LAND1_GP",
+        "domname": "",
+        "personal": false
+      },
+      "NAME1": {
+        "rollname": "NAME1_GP",
+        "domname": "",
+        "personal": true
+      },
+      "NAME2": {
+        "rollname": "NAME2_GP",
+        "domname": "",
+        "personal": true
+      },
+      "NAME3": {
+        "rollname": "NAME3_GP",
+        "domname": "",
+        "personal": true
+      },
+      "NAME4": {
+        "rollname": "NAME4_GP",
+        "domname": "",
+        "personal": true
+      },
+      "ORT01": {
+        "rollname": "ORT01_GP",
+        "domname": "",
+        "personal": true
+      },
+      "ORT02": {
+        "rollname": "ORT02_GP",
+        "domname": "",
+        "personal": true
+      },
+      "PSTLZ": {
+        "rollname": "PSTLZ",
+        "domname": "",
+        "personal": true
+      },
+      "PFACH": {
+        "rollname": "PFACH",
+        "domname": "",
+        "personal": true
+      },
+      "PSTL2": {
+        "rollname": "PSTL2",
+        "domname": "",
+        "personal": true
+      },
+      "REGIO": {
+        "rollname": "REGIO",
+        "domname": "",
+        "personal": false
+      },
+      "SORTL": {
+        "rollname": "SORTL",
+        "domname": "",
+        "personal": true
+      },
+      "STRAS": {
+        "rollname": "STRAS_GP",
+        "domname": "",
+        "personal": true
+      },
+      "TELF1": {
+        "rollname": "TELF1",
+        "domname": "",
+        "personal": true
+      },
+      "TELF2": {
+        "rollname": "TELF2",
+        "domname": "",
+        "personal": true
+      },
+      "TELFX": {
+        "rollname": "TELFX",
+        "domname": "",
+        "personal": true
+      },
+      "TELTX": {
+        "rollname": "TELTX",
+        "domname": "",
+        "personal": true
+      },
+      "TELX1": {
+        "rollname": "TELX1",
+        "domname": "",
+        "personal": true
+      },
+      "TELBX": {
+        "rollname": "TELBX",
+        "domname": "",
+        "personal": true
+      },
+      "XCPDK": {
+        "rollname": "XCPDK",
+        "domname": "",
+        "personal": false
+      },
+      "ADRNR": {
+        "rollname": "ADRNR",
+        "domname": "",
+        "personal": false
+      },
+      "MCOD1": {
+        "rollname": "MCDD1",
+        "domname": "",
+        "personal": true
+      },
+      "MCOD2": {
+        "rollname": "MCDD2",
+        "domname": "",
+        "personal": true
+      },
+      "MCOD3": {
+        "rollname": "MCDD3",
+        "domname": "",
+        "personal": true
+      },
+      "ANRED": {
+        "rollname": "ANRED",
+        "domname": "",
+        "personal": true
+      },
+      "KTOKD": {
+        "rollname": "KTOKD",
+        "domname": "",
+        "personal": false
+      },
+      "BRSCH": {
+        "rollname": "BRSCH",
+        "domname": "",
+        "personal": false
+      },
+      "ERDAT": {
+        "rollname": "ERDAT_RF",
+        "domname": "",
+        "personal": false
+      },
+      "ERNAM": {
+        "rollname": "ERNAM_RF",
+        "domname": "",
+        "personal": true
+      },
+      "LIFNR": {
+        "rollname": "LIFNR",
+        "domname": "",
+        "personal": false
+      },
+      "SPRAS": {
+        "rollname": "SPRAS",
+        "domname": "",
+        "personal": false
+      },
+      "STCD1": {
+        "rollname": "STCD1",
+        "domname": "",
+        "personal": true
+      },
+      "STCD2": {
+        "rollname": "STCD2",
+        "domname": "",
+        "personal": true
+      },
+      "STCD3": {
+        "rollname": "STCD3",
+        "domname": "",
+        "personal": true
+      },
+      "STCD4": {
+        "rollname": "STCD4",
+        "domname": "",
+        "personal": true
+      },
+      "STCD5": {
+        "rollname": "STCD5",
+        "domname": "",
+        "personal": true
+      },
+      "STCD6": {
+        "rollname": "STCD6",
+        "domname": "",
+        "personal": true
+      },
+      "STCDT": {
+        "rollname": "J_1ATOID",
+        "domname": "",
+        "personal": true
+      },
+      "STCEG": {
+        "rollname": "STCEG",
+        "domname": "",
+        "personal": true
+      },
+      "STKZN": {
+        "rollname": "STKZN",
+        "domname": "",
+        "personal": true
+      },
+      "KNURL": {
+        "rollname": "URL",
+        "domname": "",
+        "personal": true
+      },
+      "NAMECOMBINED": {
+        "rollname": "NAMECOMBINED",
+        "domname": "",
+        "personal": true
+      },
+      "J_1KFREPRE": {
+        "rollname": "REPRES",
+        "domname": "",
+        "personal": true
+      },
+      "AUFSD": {
+        "rollname": "AUFSD_X",
+        "domname": "",
+        "personal": false
+      },
+      "WERKS": {
+        "rollname": "WERKS_D",
+        "domname": "",
+        "personal": false
+      },
+      "UPDAT": {
+        "rollname": "UPDAT_RF",
+        "domname": "",
+        "personal": false
+      }
+    },
+    "LFA1": {
+      "MANDT": {
+        "rollname": "MANDT",
+        "domname": "",
+        "personal": false
+      },
+      "LIFNR": {
+        "rollname": "LIFNR",
+        "domname": "",
+        "personal": false
+      },
+      "LAND1": {
+        "rollname": "LAND1_GP",
+        "domname": "",
+        "personal": false
+      },
+      "NAME1": {
+        "rollname": "NAME1_GP",
+        "domname": "",
+        "personal": true
+      },
+      "NAME2": {
+        "rollname": "NAME2_GP",
+        "domname": "",
+        "personal": true
+      },
+      "NAME3": {
+        "rollname": "NAME3_GP",
+        "domname": "",
+        "personal": true
+      },
+      "NAME4": {
+        "rollname": "NAME4_GP",
+        "domname": "",
+        "personal": true
+      },
+      "ORT01": {
+        "rollname": "ORT01_GP",
+        "domname": "",
+        "personal": true
+      },
+      "ORT02": {
+        "rollname": "ORT02_GP",
+        "domname": "",
+        "personal": true
+      },
+      "PFACH": {
+        "rollname": "PFACH",
+        "domname": "",
+        "personal": true
+      },
+      "PSTL2": {
+        "rollname": "PSTL2",
+        "domname": "",
+        "personal": true
+      },
+      "PSTLZ": {
+        "rollname": "PSTLZ",
+        "domname": "",
+        "personal": true
+      },
+      "REGIO": {
+        "rollname": "REGIO",
+        "domname": "",
+        "personal": false
+      },
+      "SORTL": {
+        "rollname": "SORTL",
+        "domname": "",
+        "personal": true
+      },
+      "STRAS": {
+        "rollname": "STRAS_GP",
+        "domname": "",
+        "personal": true
+      },
+      "ADRNR": {
+        "rollname": "ADRNR",
+        "domname": "",
+        "personal": false
+      },
+      "MCOD1": {
+        "rollname": "MCDK1",
+        "domname": "",
+        "personal": true
+      },
+      "MCOD2": {
+        "rollname": "MCDK2",
+        "domname": "",
+        "personal": true
+      },
+      "MCOD3": {
+        "rollname": "MCDK3",
+        "domname": "",
+        "personal": true
+      },
+      "TELF1": {
+        "rollname": "TELF1",
+        "domname": "",
+        "personal": true
+      },
+      "TELF2": {
+        "rollname": "TELF2",
+        "domname": "",
+        "personal": true
+      },
+      "TELFX": {
+        "rollname": "TELFX",
+        "domname": "",
+        "personal": true
+      },
+      "GBDAT": {
+        "rollname": "GBDAT_Q",
+        "domname": "",
+        "personal": true
+      },
+      "GBORT": {
+        "rollname": "GBORT_Q",
+        "domname": "",
+        "personal": true
+      },
+      "SEXKZ": {
+        "rollname": "SEXKZ",
+        "domname": "",
+        "personal": true
+      },
+      "STENR": {
+        "rollname": "STENR",
+        "domname": "",
+        "personal": true
+      },
+      "LFURL": {
+        "rollname": "URL",
+        "domname": "",
+        "personal": true
+      },
+      "STCD1": {
+        "rollname": "STCD1",
+        "domname": "",
+        "personal": true
+      },
+      "STCEG": {
+        "rollname": "STCEG",
+        "domname": "",
+        "personal": true
+      },
+      "KTOKK": {
+        "rollname": "KTOKK",
+        "domname": "",
+        "personal": false
+      },
+      "KUNNR": {
+        "rollname": "KUNNR",
+        "domname": "",
+        "personal": false
+      },
+      "SPERR": {
+        "rollname": "SPERB_X",
+        "domname": "",
+        "personal": false
+      },
+      "ERNAM": {
+        "rollname": "ERNAM_RF",
+        "domname": "",
+        "personal": true
+      },
+      "ERDAT": {
+        "rollname": "ERDAT_RF",
+        "domname": "",
+        "personal": false
+      }
+    },
+    "ADRC": {
+      "CLIENT": {
+        "rollname": "MANDT",
+        "domname": "",
+        "personal": false
+      },
+      "ADDRNUMBER": {
+        "rollname": "AD_ADDRNUM",
+        "domname": "",
+        "personal": false
+      },
+      "DATE_FROM": {
+        "rollname": "AD_DATE_FR",
+        "domname": "",
+        "personal": false
+      },
+      "NATION": {
+        "rollname": "AD_NATION",
+        "domname": "",
+        "personal": false
+      },
+      "DATE_TO": {
+        "rollname": "AD_DATE_TO",
+        "domname": "",
+        "personal": false
+      },
+      "TITLE": {
+        "rollname": "AD_TITLE",
+        "domname": "",
+        "personal": true
+      },
+      "NAME1": {
+        "rollname": "AD_NAME1",
+        "domname": "",
+        "personal": true
+      },
+      "NAME2": {
+        "rollname": "AD_NAME2",
+        "domname": "",
+        "personal": true
+      },
+      "NAME3": {
+        "rollname": "AD_NAME3",
+        "domname": "",
+        "personal": true
+      },
+      "NAME4": {
+        "rollname": "AD_NAME4",
+        "domname": "",
+        "personal": true
+      },
+      "NAME_TEXT": {
+        "rollname": "AD_NAMETXT",
+        "domname": "",
+        "personal": true
+      },
+      "NAME_CO": {
+        "rollname": "AD_NAME_CO",
+        "domname": "",
+        "personal": true
+      },
+      "CITY1": {
+        "rollname": "AD_CITY1",
+        "domname": "",
+        "personal": true
+      },
+      "CITY2": {
+        "rollname": "AD_CITY2",
+        "domname": "",
+        "personal": true
+      },
+      "CITY_CODE": {
+        "rollname": "AD_CITYNUM",
+        "domname": "",
+        "personal": true
+      },
+      "HOME_CITY": {
+        "rollname": "AD_CITY3",
+        "domname": "",
+        "personal": true
+      },
+      "REGIOGROUP": {
+        "rollname": "REGIOGROUP",
+        "domname": "",
+        "personal": false
+      },
+      "POST_CODE1": {
+        "rollname": "AD_PSTCD1",
+        "domname": "",
+        "personal": true
+      },
+      "POST_CODE2": {
+        "rollname": "AD_PSTCD2",
+        "domname": "",
+        "personal": true
+      },
+      "POST_CODE3": {
+        "rollname": "AD_PSTCD3",
+        "domname": "",
+        "personal": true
+      },
+      "PO_BOX": {
+        "rollname": "AD_POBX",
+        "domname": "",
+        "personal": true
+      },
+      "PO_BOX_NUM": {
+        "rollname": "AD_POBXNUM",
+        "domname": "",
+        "personal": true
+      },
+      "PO_BOX_LOC": {
+        "rollname": "AD_POBXLOC",
+        "domname": "",
+        "personal": true
+      },
+      "PO_BOX_CTY": {
+        "rollname": "AD_POBXCTY",
+        "domname": "",
+        "personal": false
+      },
+      "TRANSPZONE": {
+        "rollname": "LZONE",
+        "domname": "",
+        "personal": false
+      },
+      "STREET": {
+        "rollname": "AD_STREET",
+        "domname": "",
+        "personal": true
+      },
+      "STREETCODE": {
+        "rollname": "AD_STRNUM",
+        "domname": "",
+        "personal": true
+      },
+      "HOUSE_NUM1": {
+        "rollname": "AD_HSNM1",
+        "domname": "",
+        "personal": true
+      },
+      "HOUSE_NUM2": {
+        "rollname": "AD_HSNM2",
+        "domname": "",
+        "personal": true
+      },
+      "HOUSE_NUM3": {
+        "rollname": "AD_HSNM3",
+        "domname": "",
+        "personal": true
+      },
+      "STR_SUPPL1": {
+        "rollname": "AD_STRSPP1",
+        "domname": "",
+        "personal": true
+      },
+      "STR_SUPPL2": {
+        "rollname": "AD_STRSPP2",
+        "domname": "",
+        "personal": true
+      },
+      "STR_SUPPL3": {
+        "rollname": "AD_STRSPP3",
+        "domname": "",
+        "personal": true
+      },
+      "LOCATION": {
+        "rollname": "AD_LCTN",
+        "domname": "",
+        "personal": true
+      },
+      "BUILDING": {
+        "rollname": "AD_BLDNG",
+        "domname": "",
+        "personal": true
+      },
+      "FLOOR": {
+        "rollname": "AD_FLOOR",
+        "domname": "",
+        "personal": true
+      },
+      "ROOMNUMBER": {
+        "rollname": "AD_ROOMNUM",
+        "domname": "",
+        "personal": true
+      },
+      "COUNTRY": {
+        "rollname": "LAND1",
+        "domname": "",
+        "personal": false
+      },
+      "LANGU": {
+        "rollname": "SPRAS",
+        "domname": "",
+        "personal": false
+      },
+      "REGION": {
+        "rollname": "REGIO",
+        "domname": "",
+        "personal": false
+      },
+      "ADDR_GROUP": {
+        "rollname": "AD_GROUP",
+        "domname": "",
+        "personal": false
+      },
+      "SORT1": {
+        "rollname": "AD_SORT1",
+        "domname": "",
+        "personal": true
+      },
+      "SORT2": {
+        "rollname": "AD_SORT2",
+        "domname": "",
+        "personal": true
+      },
+      "SORT_PHN": {
+        "rollname": "AD_SRTPHN",
+        "domname": "",
+        "personal": true
+      },
+      "DEFLT_COMM": {
+        "rollname": "AD_COMM",
+        "domname": "",
+        "personal": false
+      },
+      "TEL_NUMBER": {
+        "rollname": "AD_TLNMBR1",
+        "domname": "",
+        "personal": true
+      },
+      "TEL_EXTENS": {
+        "rollname": "AD_TLXTNS1",
+        "domname": "",
+        "personal": true
+      },
+      "FAX_NUMBER": {
+        "rollname": "AD_FXNMBR1",
+        "domname": "",
+        "personal": true
+      },
+      "FAX_EXTENS": {
+        "rollname": "AD_FXXTNS1",
+        "domname": "",
+        "personal": true
+      },
+      "MC_NAME1": {
+        "rollname": "AD_MC_NAME",
+        "domname": "",
+        "personal": true
+      },
+      "MC_CITY1": {
+        "rollname": "AD_MC_CITY",
+        "domname": "",
+        "personal": true
+      },
+      "MC_STREET": {
+        "rollname": "AD_MC_STRT",
+        "domname": "",
+        "personal": true
+      },
+      "EXTENSION1": {
+        "rollname": "AD_EXTENS1",
+        "domname": "",
+        "personal": true
+      },
+      "EXTENSION2": {
+        "rollname": "AD_EXTENS2",
+        "domname": "",
+        "personal": true
+      },
+      "TIME_ZONE": {
+        "rollname": "AD_TZONE",
+        "domname": "",
+        "personal": false
+      },
+      "TAXJURCODE": {
+        "rollname": "AD_TXJCD",
+        "domname": "",
+        "personal": false
+      },
+      "COUNTY": {
+        "rollname": "AD_COUNTY",
+        "domname": "",
+        "personal": true
+      },
+      "TOWNSHIP": {
+        "rollname": "AD_TOWNSHIP",
+        "domname": "",
+        "personal": true
+      },
+      "MC_COUNTY": {
+        "rollname": "AD_MC_COUNTY",
+        "domname": "",
+        "personal": true
+      },
+      "MC_TOWNSHIP": {
+        "rollname": "AD_MC_TWSHP",
+        "domname": "",
+        "personal": true
+      }
+    },
+    "BUT000": {
+      "CLIENT": {
+        "rollname": "MANDT",
+        "domname": "",
+        "personal": false
+      },
+      "PARTNER": {
+        "rollname": "BU_PARTNER",
+        "domname": "",
+        "personal": false
+      },
+      "VALID_FROM": {
+        "rollname": "BU_BP_VALID_FROM",
+        "domname": "",
+        "personal": false
+      },
+      "XPCPT": {
+        "rollname": "BU_XPCPT",
+        "domname": "",
+        "personal": false
+      },
+      "NAME_LAST": {
+        "rollname": "BU_NAMEP_L",
+        "domname": "",
+        "personal": true
+      },
+      "NAME_FIRST": {
+        "rollname": "BU_NAMEP_F",
+        "domname": "",
+        "personal": true
+      },
+      "NAME_LST2": {
+        "rollname": "BU_NAMEPL2",
+        "domname": "",
+        "personal": true
+      },
+      "NAME_LAST2": {
+        "rollname": "BU_BIRTHNM",
+        "domname": "",
+        "personal": true
+      },
+      "NAMEMIDDLE": {
+        "rollname": "BU_NAMEMID",
+        "domname": "",
+        "personal": true
+      },
+      "NAME1_TEXT": {
+        "rollname": "BU_NAME1TX",
+        "domname": "",
+        "personal": true
+      },
+      "NICKNAME": {
+        "rollname": "BU_NICKNAM",
+        "domname": "",
+        "personal": true
+      },
+      "INITIALS": {
+        "rollname": "AD_INITS",
+        "domname": "",
+        "personal": true
+      },
+      "NAMEFORMAT": {
+        "rollname": "AD_FORMAT",
+        "domname": "",
+        "personal": true
+      },
+      "NAMCOUNTRY": {
+        "rollname": "AD_NAMCTRY",
+        "domname": "",
+        "personal": true
+      },
+      "LANGU_CORR": {
+        "rollname": "BU_LANGU_CORR",
+        "domname": "",
+        "personal": false
+      },
+      "XSEXM": {
+        "rollname": "BU_XSEXM",
+        "domname": "",
+        "personal": true
+      },
+      "XSEXF": {
+        "rollname": "BU_XSEXF",
+        "domname": "",
+        "personal": true
+      },
+      "XSEXU": {
+        "rollname": "BU_XSEXU",
+        "domname": "",
+        "personal": true
+      },
+      "BIRTHPL": {
+        "rollname": "BU_BIRTHPL",
+        "domname": "",
+        "personal": true
+      },
+      "MARST": {
+        "rollname": "BU_MARST",
+        "domname": "",
+        "personal": true
+      },
+      "EMPLO": {
+        "rollname": "BU_EMPLO",
+        "domname": "",
+        "personal": true
+      },
+      "JOBGR": {
+        "rollname": "BU_JOBGR",
+        "domname": "",
+        "personal": true
+      },
+      "NATIO": {
+        "rollname": "BU_NATIO",
+        "domname": "",
+        "personal": true
+      },
+      "PERSNUMBER": {
+        "rollname": "AD_PERSNUM",
+        "domname": "",
+        "personal": false
+      },
+      "XUBNAME": {
+        "rollname": "BU_XUBNAME",
+        "domname": "",
+        "personal": true
+      },
+      "GENDER": {
+        "rollname": "BU_SEXID",
+        "domname": "",
+        "personal": true
+      },
+      "BIRTHDT": {
+        "rollname": "BU_BIRTHDT",
+        "domname": "",
+        "personal": true
+      },
+      "DEATHDT": {
+        "rollname": "BU_DEATHDT",
+        "domname": "",
+        "personal": true
+      },
+      "PERNO": {
+        "rollname": "BU_PERNO",
+        "domname": "",
+        "personal": true
+      },
+      "CHILDREN": {
+        "rollname": "BU_CHILDREN",
+        "domname": "",
+        "personal": true
+      },
+      "NAME_ORG1": {
+        "rollname": "BU_NAMEOR1",
+        "domname": "",
+        "personal": true
+      },
+      "NAME_ORG2": {
+        "rollname": "BU_NAMEOR2",
+        "domname": "",
+        "personal": true
+      },
+      "NAME_ORG3": {
+        "rollname": "BU_NAMEOR3",
+        "domname": "",
+        "personal": true
+      },
+      "NAME_ORG4": {
+        "rollname": "BU_NAMEOR4",
+        "domname": "",
+        "personal": true
+      },
+      "LEGAL_ENTY": {
+        "rollname": "BU_LEGENTY",
+        "domname": "",
+        "personal": false
+      },
+      "IND_SECTOR": {
+        "rollname": "BU_INDSECT",
+        "domname": "",
+        "personal": false
+      },
+      "PARTGRPTYP": {
+        "rollname": "BU_GRPTYP",
+        "domname": "",
+        "personal": false
+      },
+      "NAME_GRP1": {
+        "rollname": "BU_NAMEGR1",
+        "domname": "",
+        "personal": true
+      },
+      "NAME_GRP2": {
+        "rollname": "BU_NAMEGR2",
+        "domname": "",
+        "personal": true
+      },
+      "BU_SORT1": {
+        "rollname": "BU_SORT1",
+        "domname": "",
+        "personal": true
+      },
+      "BU_SORT2": {
+        "rollname": "BU_SORT2",
+        "domname": "",
+        "personal": true
+      },
+      "TITLE": {
+        "rollname": "AD_TITLE",
+        "domname": "",
+        "personal": true
+      },
+      "XBLCK": {
+        "rollname": "BU_XBLCK",
+        "domname": "",
+        "personal": false
+      }
+    },
+    "ADR6": {
+      "CLIENT": {
+        "rollname": "MANDT",
+        "domname": "",
+        "personal": false
+      },
+      "ADDRNUMBER": {
+        "rollname": "AD_ADDRNUM",
+        "domname": "",
+        "personal": false
+      },
+      "PERSNUMBER": {
+        "rollname": "AD_PERSNUM",
+        "domname": "",
+        "personal": false
+      },
+      "DATE_FROM": {
+        "rollname": "AD_DATE_FR",
+        "domname": "",
+        "personal": false
+      },
+      "CONSNUMBER": {
+        "rollname": "AD_CONSNUM",
+        "domname": "",
+        "personal": false
+      },
+      "FLGDEFAULT": {
+        "rollname": "AD_FLGDFAD",
+        "domname": "",
+        "personal": false
+      },
+      "FLG_NOUSE": {
+        "rollname": "AD_FLNOUSE",
+        "domname": "",
+        "personal": false
+      },
+      "HOME_FLAG": {
+        "rollname": "AD_FLGHOME",
+        "domname": "",
+        "personal": false
+      },
+      "SMTP_ADDR": {
+        "rollname": "AD_SMTPADR",
+        "domname": "",
+        "personal": true
+      },
+      "SMTP_SRCH": {
+        "rollname": "AD_SMTPAD2",
+        "domname": "",
+        "personal": true
+      },
+      "DFT_RECEIV": {
+        "rollname": "AD_DFTRCAD",
+        "domname": "",
+        "personal": true
+      },
+      "R3_USER": {
+        "rollname": "AD_R3_USER",
+        "domname": "",
+        "personal": true
+      },
+      "VALID_FROM": {
+        "rollname": "AD_VALFROM",
+        "domname": "",
+        "personal": false
+      },
+      "VALID_TO": {
+        "rollname": "AD_VALTO",
+        "domname": "",
+        "personal": false
+      }
+    },
+    "ADR2": {
+      "CLIENT": {
+        "rollname": "MANDT",
+        "domname": "",
+        "personal": false
+      },
+      "ADDRNUMBER": {
+        "rollname": "AD_ADDRNUM",
+        "domname": "",
+        "personal": false
+      },
+      "PERSNUMBER": {
+        "rollname": "AD_PERSNUM",
+        "domname": "",
+        "personal": false
+      },
+      "DATE_FROM": {
+        "rollname": "AD_DATE_FR",
+        "domname": "",
+        "personal": false
+      },
+      "CONSNUMBER": {
+        "rollname": "AD_CONSNUM",
+        "domname": "",
+        "personal": false
+      },
+      "COUNTRY": {
+        "rollname": "AD_COMCTRY",
+        "domname": "",
+        "personal": false
+      },
+      "FLGDEFAULT": {
+        "rollname": "AD_FLGDFNR",
+        "domname": "",
+        "personal": false
+      },
+      "FLG_NOUSE": {
+        "rollname": "AD_FLNOUSE",
+        "domname": "",
+        "personal": false
+      },
+      "HOME_FLAG": {
+        "rollname": "AD_FLGHOME",
+        "domname": "",
+        "personal": false
+      },
+      "TEL_NUMBER": {
+        "rollname": "AD_TLNMBR",
+        "domname": "",
+        "personal": true
+      },
+      "TEL_EXTENS": {
+        "rollname": "AD_TLXTNS",
+        "domname": "",
+        "personal": true
+      },
+      "TELNR_LONG": {
+        "rollname": "AD_TELNRLG",
+        "domname": "",
+        "personal": true
+      },
+      "TELNR_CALL": {
+        "rollname": "AD_TELNRCL",
+        "domname": "",
+        "personal": true
+      },
+      "DFT_RECEIV": {
+        "rollname": "AD_FLGSMS",
+        "domname": "",
+        "personal": true
+      },
+      "R3_USER": {
+        "rollname": "AD_FLGMOB",
+        "domname": "",
+        "personal": true
+      },
+      "VALID_FROM": {
+        "rollname": "AD_VALFROM",
+        "domname": "",
+        "personal": false
+      },
+      "VALID_TO": {
+        "rollname": "AD_VALTO",
+        "domname": "",
+        "personal": false
+      }
+    },
+    "KNVK": {
+      "MANDT": {
+        "rollname": "MANDT",
+        "domname": "",
+        "personal": false
+      },
+      "PARNR": {
+        "rollname": "PARNR",
+        "domname": "",
+        "personal": false
+      },
+      "KUNNR": {
+        "rollname": "KUNNR",
+        "domname": "",
+        "personal": false
+      },
+      "NAMEV": {
+        "rollname": "NAMEV_VP",
+        "domname": "",
+        "personal": true
+      },
+      "NAME1": {
+        "rollname": "NAME1_GP",
+        "domname": "",
+        "personal": true
+      },
+      "ORT01": {
+        "rollname": "ORT01_GP",
+        "domname": "",
+        "personal": true
+      },
+      "ABTNR": {
+        "rollname": "ABTNR_PA",
+        "domname": "",
+        "personal": true
+      },
+      "TELF1": {
+        "rollname": "TELF1",
+        "domname": "",
+        "personal": true
+      },
+      "ANRED": {
+        "rollname": "ANRED_AP",
+        "domname": "",
+        "personal": true
+      },
+      "PAFKT": {
+        "rollname": "PAFKT",
+        "domname": "",
+        "personal": true
+      },
+      "GBDAT": {
+        "rollname": "GBDAT",
+        "domname": "",
+        "personal": true
+      },
+      "SORTL": {
+        "rollname": "SORTL",
+        "domname": "",
+        "personal": true
+      },
+      "FAMST": {
+        "rollname": "FAMST",
+        "domname": "",
+        "personal": true
+      },
+      "SPNAM": {
+        "rollname": "SPNAM",
+        "domname": "",
+        "personal": true
+      },
+      "ERNAM": {
+        "rollname": "ERNAM_RF",
+        "domname": "",
+        "personal": true
+      },
+      "LIFNR": {
+        "rollname": "LIFNR",
+        "domname": "",
+        "personal": false
+      },
+      "PRSNR": {
+        "rollname": "AD_PERSNUM",
+        "domname": "",
+        "personal": false
+      }
+    },
+    "SBOOK": {
+      "MANDT": {
+        "rollname": "S_MANDT",
+        "domname": "",
+        "personal": false
+      },
+      "CARRID": {
+        "rollname": "S_CARR_ID",
+        "domname": "",
+        "personal": false
+      },
+      "CONNID": {
+        "rollname": "S_CONN_ID",
+        "domname": "",
+        "personal": false
+      },
+      "FLDATE": {
+        "rollname": "S_DATE",
+        "domname": "",
+        "personal": true
+      },
+      "BOOKID": {
+        "rollname": "S_BOOK_ID",
+        "domname": "",
+        "personal": false
+      },
+      "CUSTOMID": {
+        "rollname": "S_CUSTOMER",
+        "domname": "",
+        "personal": false
+      },
+      "CUSTTYPE": {
+        "rollname": "S_CUSTTYPE",
+        "domname": "",
+        "personal": false
+      },
+      "LOCCURAM": {
+        "rollname": "S_L_CUR_PR",
+        "domname": "",
+        "personal": false
+      },
+      "ORDER_DATE": {
+        "rollname": "S_BDATE",
+        "domname": "",
+        "personal": false
+      },
+      "AGENCYNUM": {
+        "rollname": "S_AGNCYNUM",
+        "domname": "",
+        "personal": false
+      },
+      "PASSNAME": {
+        "rollname": "S_PASSNAME",
+        "domname": "",
+        "personal": true
+      },
+      "PASSFORM": {
+        "rollname": "S_FORM",
+        "domname": "",
+        "personal": true
+      },
+      "PASSBIRTH": {
+        "rollname": "S_BIRTHDAT",
+        "domname": "",
+        "personal": true
+      }
+    },
+    "ZSC4SAP_PT_CUST": {
+      "MANDT": {
+        "rollname": "MANDT",
+        "domname": "",
+        "personal": false
+      },
+      "CUST_ID": {
+        "rollname": "KUNNR",
+        "domname": "",
+        "personal": false
+      },
+      "BUKRS": {
+        "rollname": "BUKRS",
+        "domname": "",
+        "personal": false
+      },
+      "CUSTNAME": {
+        "rollname": "ZZ_CHAR40",
+        "domname": "",
+        "personal": true
+      },
+      "FULLNAME": {
+        "rollname": "ZZ_CHAR80",
+        "domname": "",
+        "personal": true
+      },
+      "CONTACT_NAME": {
+        "rollname": "ZZ_CHAR40",
+        "domname": "",
+        "personal": true
+      },
+      "ANSPRECHP": {
+        "rollname": "ZZ_CHAR35",
+        "domname": "",
+        "personal": true
+      },
+      "SACHBEARB": {
+        "rollname": "ZZ_CHAR12",
+        "domname": "",
+        "personal": true
+      },
+      "OWNER": {
+        "rollname": "ZZ_CHAR12",
+        "domname": "",
+        "personal": true
+      },
+      "RESP_PERSON": {
+        "rollname": "ZZ_CHAR30",
+        "domname": "",
+        "personal": true
+      },
+      "IPADDR": {
+        "rollname": "ZZ_CHAR39",
+        "domname": "",
+        "personal": true
+      },
+      "HOMEPAGE": {
+        "rollname": "ZZ_CHAR132",
+        "domname": "",
+        "personal": true
+      },
+      "URI": {
+        "rollname": "ZZ_STRING",
+        "domname": "",
+        "personal": true
+      },
+      "TITLE_LET": {
+        "rollname": "ZZ_CHAR50",
+        "domname": "",
+        "personal": true
+      },
+      "NAME_KR": {
+        "rollname": "ZZ_CHAR40",
+        "domname": "",
+        "personal": true
+      },
+      "ZZNOTE": {
+        "rollname": "ZZ_CHAR255",
+        "domname": "",
+        "personal": true
+      },
+      "STATUS": {
+        "rollname": "ZZ_STATUS",
+        "domname": "",
+        "personal": true
+      },
+      "CONTACT_PARTNER": {
+        "rollname": "KUNNR",
+        "domname": "",
+        "personal": true
+      },
+      "OWNER_ID": {
+        "rollname": "KUNNR",
+        "domname": "",
+        "personal": true
+      },
+      "WAERS": {
+        "rollname": "WAERS",
+        "domname": "",
+        "personal": false
+      },
+      "ERDAT": {
+        "rollname": "ERDAT",
+        "domname": "",
+        "personal": false
+      },
+      "XLOEKZ": {
+        "rollname": "XFELD",
+        "domname": "",
+        "personal": false
+      },
+      "ZDOB": {
+        "rollname": "DATUM",
+        "domname": "",
+        "personal": true
+      },
+      "ZGEBDAT": {
+        "rollname": "DATUM",
+        "domname": "",
+        "personal": true
+      },
+      "GEBDAT": {
+        "rollname": "ZZ_DATS",
+        "domname": "",
+        "personal": true
+      },
+      "GBDAT": {
+        "rollname": "GBDAT",
+        "domname": "",
+        "personal": true
+      },
+      "ZZDATE": {
+        "rollname": "DATUM",
+        "domname": "",
+        "personal": true
+      },
+      "VALID_DATE": {
+        "rollname": "DATUM",
+        "domname": "",
+        "personal": true
+      },
+      "AEDAT": {
+        "rollname": "AEDAT",
+        "domname": "",
+        "personal": false
+      },
+      "BUDAT": {
+        "rollname": "BUDAT",
+        "domname": "",
+        "personal": false
+      }
+    },
+    "ZSC4SAP_PT_ORDER": {
+      "MANDT": {
+        "rollname": "MANDT",
+        "domname": "",
+        "personal": false
+      },
+      "VBELN": {
+        "rollname": "VBELN_VA",
+        "domname": "",
+        "personal": false
+      },
+      "POSNR": {
+        "rollname": "POSNR_VA",
+        "domname": "",
+        "personal": false
+      },
+      "MATNR": {
+        "rollname": "MATNR",
+        "domname": "",
+        "personal": false
+      },
+      "KWMENG": {
+        "rollname": "KWMENG",
+        "domname": "",
+        "personal": false
+      },
+      "VRKME": {
+        "rollname": "VRKME",
+        "domname": "",
+        "personal": false
+      },
+      "NETWR": {
+        "rollname": "NETWR_AP",
+        "domname": "",
+        "personal": false
+      },
+      "WAERK": {
+        "rollname": "WAERK",
+        "domname": "",
+        "personal": false
+      },
+      "AUDAT": {
+        "rollname": "AUDAT",
+        "domname": "",
+        "personal": false
+      },
+      "ZZ_CUSTNAME": {
+        "rollname": "ZZ_CUSTNAME_DE",
+        "domname": "",
+        "personal": true
+      },
+      "ZZ_REQUESTER": {
+        "rollname": "ZZ_REQUESTER_NM",
+        "domname": "",
+        "personal": true
+      },
+      "ZZ_SHIPTO_URL": {
+        "rollname": "ZZ_URL",
+        "domname": "",
+        "personal": true
+      },
+      "ZZ_APPROVER": {
+        "rollname": "ZZ_CHAR12",
+        "domname": "",
+        "personal": true
+      },
+      "ZZ_DELIV_ADDR": {
+        "rollname": "ZZ_CHAR255",
+        "domname": "",
+        "personal": true
+      },
+      "ZZ_REMARK": {
+        "rollname": "ZZ_CHAR255",
+        "domname": "",
+        "personal": true
+      },
+      "GEBIET": {
+        "rollname": "ZZ_GEBIET",
+        "domname": "",
+        "personal": true
+      }
+    }
+  },
+  "name_probe": {
+    "personal": [
+      "CUSTNAME",
+      "FULLNAME",
+      "CONTACT",
+      "CONTACT_NAME",
+      "ANSPRECHP",
+      "SACHBEARB",
+      "OWNER",
+      "RESP_PERSON",
+      "IPADDR",
+      "IP_ADDR",
+      "HOMEPAGE",
+      "URL",
+      "URI",
+      "TITLE_LET",
+      "NAME_KR",
+      "VENDNAME",
+      "TELEPHONE",
+      "EMAIL",
+      "STREET",
+      "CITY",
+      "BIRTHDATE",
+      "ZDOB",
+      "ZGEBDAT",
+      "GEBDAT",
+      "GBDAT",
+      "DATE_OF_BIRTH",
+      "GEBIET"
+    ],
+    "not_personal": [
+      "NAMEFORMAT",
+      "NAMCOUNTRY",
+      "KUNNR",
+      "LIFNR",
+      "BUKRS",
+      "MATNR",
+      "MENGE",
+      "NETWR",
+      "WAERS",
+      "ERDAT",
+      "CITY_CODE",
+      "LAND1"
+    ]
+  }
+}

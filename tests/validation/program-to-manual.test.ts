@@ -99,8 +99,8 @@ describe('nested frames and grid titles', () => {
   });
 
   it('draws the ALV grid title above the grid, also without a screen block', () => {
-    const svg: string = renderAlvScreenSVG({ gridTitle: 'S.Org KR01 · SO type ZWH1', columns: [{ name: 'EBELN', header: 'PO' }], sampleRows: [{ EBELN: '1' }] }, { lang: 'en' });
-    expect(svg).toContain('S.Org KR01 · SO type ZWH1');
+    const svg: string = renderAlvScreenSVG({ gridTitle: 'S.Org KR01 · SO type ZDEMO_DT1', columns: [{ name: 'EBELN', header: 'PO' }], sampleRows: [{ EBELN: '1' }] }, { lang: 'en' });
+    expect(svg).toContain('S.Org KR01 · SO type ZDEMO_DT1');
     expect(svgAnchors(svg)).toContain('gridtitle');
     const vb = svg.match(/viewBox="0 0 ([\d.]+) ([\d.]+)"/)!;
     const m = svg.match(/<svg[^>]*\swidth="(\d+)"[^>]*\sheight="(\d+)"/)!;

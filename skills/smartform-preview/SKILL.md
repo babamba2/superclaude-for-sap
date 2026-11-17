@@ -83,13 +83,13 @@ node scripts/smartform/build-preview.mjs fields "<content>" --ddic "<out>/ddic.j
 - Realistic lengths: names and texts typically 50–90 % of the field length; keys at their usual length (`4500001234`, `0010004567`). A symbol inside a loop or table gets an array, one value per row; totals add up.
 - Values hang together: same buyer in buyer and ship-to when the form implies it, item amounts = quantity × price, a total that matches.
 - `defaultParagraph`: the paragraph for lines formatted `*` (the style's standard paragraph is not in the content). Take the paragraph of the neighbouring label of the same kind (e.g. the title cell next to it); say which one in the result. Keep the choice in `values.json` for later runs.
-- System symbols (`SFSY-PAGE`, `SFSY-FORMPAGES`) default to 1; set them only for a different picture.
+- System symbols (`SFSY-PAGE`, `SFSY-FORMPAGES`) default to 1 on a one-page print; on several pages they are the page numbers.
 
 **Step 6 — Build.**
 ```
-node scripts/smartform/build-preview.mjs build "<content>" --values "<out>/values.json" --out-dir "<out>" --fields "<out>/fields.json" [--rows N] [--mark]
+node scripts/smartform/build-preview.mjs build "<content>" --values "<out>/values.json" --out-dir "<out>" --fields "<out>/fields.json" [--rows N] [--mark] [--layout-json]
 ```
-`--fields` gives the DDIC types SAPscript needs for `&'pre'F'post'&` (a zero of a numeric / date / time field is initial: no pre / post text). `--mark` tints the sample values yellow (for review); unfilled symbols always show as blue `&NAME&` placeholders. The JSON report lists `filled`, `unfilled`, `overflow` (cells / windows whose content does not fit), `approximations` and the `defaultParagraph` used.
+`--fields` gives the DDIC types SAPscript needs for `&'pre'F'post'&` (a zero of a numeric / date / time field is initial: no pre / post text). `--layout-json` also writes `<FORM>-preview.layout.json`: the printed texts and lines in mm. With SAP's PDF of the same values, `node scripts/forms-common/score-fidelity.mjs "<sap.pdf>" "<out>/<FORM>-preview.layout.json"` gives the fidelity score (target ≥ 98 %) with its missing / moved / extra list. `--mark` tints the sample values yellow (for review); unfilled symbols always show as blue `&NAME&` placeholders. The JSON report lists `filled`, `unfilled`, `overflow` (cells / windows whose content does not fit), `approximations` and the `defaultParagraph` used.
 
 **Step 7 — Check and show.** `Read` the JPG and look at it before answering: overlapping windows, empty windows, missing graphics, symbols left blue. Fix `values.json` and rebuild for value problems; report layout findings — never "fix" the form's layout in the drawing.
 </Workflow>
@@ -115,7 +115,7 @@ Reply in the user's language; show the JPG to the user when the client can displ
 </Output_Format>
 
 <Limits>
-- One page is drawn (the first). Further pages, page breaks after MAIN overflows, and `NEXTPAGE` flows are listed, not drawn.
+- When MAIN continues (or the first page has no MAIN window: a cover page), every page is drawn: MAIN is cut before the first row / paragraph that does not fit, the next pages follow the next-page order, and page conditions apply per page. The JPG shows page 1; the HTML and layout.json have all pages (report `pages`). A table that goes on to the next page repeats its header rows there; a NEWPAGE command goes to the page it names (MCP 4.13.1+ exports the name; without it the next page), and a page without MAIN that a command sends the print to ends it.
 - Field conditions (`condition` other than first / last page) and alternatives: the node is shown / the first branch is drawn; listed under `approximations`.
 - Text commands: `/*` comment lines are not printed; `/: IF … ELSE … ENDIF` is decided from the sample values (`&X& = 'v'`, `<>`), otherwise the first branch is drawn; other `/:` commands are skipped (listed). A SmartStyle a node names but the system lacks is replaced by the style its parents pass down (listed).
 - Address nodes and include texts with a key set at print time are drawn as labelled boxes.

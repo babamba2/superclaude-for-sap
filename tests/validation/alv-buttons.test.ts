@@ -117,16 +117,16 @@ describe('ALV screen buttons', () => {
 
     it('lets one stage flow badge its batch and cancel buttons through codes[]', () => {
       const flows = [
-        { code: 'ZPOB', source: 'pai', codes: ['ZPOB_BA', 'ZPOB_BA_C'], flow: FLOW },
-        { code: 'ZPORT_BA', source: 'pai', codes: [{ code: 'ZUPPO', source: 'alv' }], flow: FLOW },
+        { code: 'ZFC_A', source: 'pai', codes: ['ZFC_A_1', 'ZFC_A_2'], flow: FLOW },
+        { code: 'ZFC_B', source: 'pai', codes: [{ code: 'ZFC_C', source: 'alv' }], flow: FLOW },
       ];
       expect([...buildFlowIndex(flows)]).toEqual([
-        ['pai:ZPOB', 1], ['pai:ZPOB_BA', 1], ['pai:ZPOB_BA_C', 1], ['pai:ZPORT_BA', 2], ['alv:ZUPPO', 2],
+        ['pai:ZFC_A', 1], ['pai:ZFC_A_1', 1], ['pai:ZFC_A_2', 1], ['pai:ZFC_B', 2], ['alv:ZFC_C', 2],
       ]);
       const alv = {
         ...GRID,
-        screen: { buttons: [{ code: 'ZPOB', label: 'I/R' }, { code: 'ZPOB_BA', label: 'I/R' }, { code: 'ZPOB_BA_C', label: 'Cancel' }, { code: 'ZPORT_BA', label: 'Port' }] },
-        toolbar: [{ code: 'ZUPPO', label: 'Port update' }],
+        screen: { buttons: [{ code: 'ZFC_A', label: 'I/R' }, { code: 'ZFC_A_1', label: 'I/R' }, { code: 'ZFC_A_2', label: 'Cancel' }, { code: 'ZFC_B', label: 'Port' }] },
+        toolbar: [{ code: 'ZFC_C', label: 'Port update' }],
       };
       expect(buttonSchemaWarnings({ alv, buttonFlows: flows })).toEqual([]);
       const svg: string = renderAlvScreenSVG(alv, { lang: 'en', flowIndex: buildFlowIndex(flows) });
@@ -150,21 +150,21 @@ describe('ALV screen buttons', () => {
       expect(has('#3 "X" has a "codes" that is not an array')).toBe(true);
     });
 
-    it('draws dynpro fields and badges a push button among them (ZSDR24730 screen 0100)', () => {
+    it('draws dynpro fields and badges a push button among them (ZSDR_DEMO_10 screen 0100)', () => {
       const flowIndex = buildFlowIndex([{ code: 'APPLY', source: 'pai', flow: FLOW }]);
       const svg: string = renderAlvScreenSVG({
         ...GRID,
         screen: {
           title: 'Inquiry list', status: 'S0100',
           fields: [
-            { type: 'input', label: 'Target SO type', value: 'ZWH1' },
+            { type: 'input', label: 'Target SO type', value: 'ZDEMO_DT1' },
             { type: 'checkbox', label: 'Fill automatically', checked: true },
             { type: 'output', value: 'ATP is considered' },
             { type: 'pushbutton', code: 'APPLY', label: 'Apply', icon: 'check' },
           ],
         },
       }, { lang: 'en', flowIndex });
-      for (const text of ['Target SO type', 'ZWH1', 'Fill automatically', 'ATP is considered', 'Apply']) expect(svg).toContain(text);
+      for (const text of ['Target SO type', 'ZDEMO_DT1', 'Fill automatically', 'ATP is considered', 'Apply']) expect(svg).toContain(text);
       expect(svg).toMatch(/fill="#D9730D"[^>]*\/><text[^>]*>1<\/text>/);
       expect(buttonSchemaWarnings({
         alv: { ...GRID, screen: { fields: [{ type: 'pushbutton', code: 'APPLY', label: 'Apply' }] } },
@@ -214,7 +214,7 @@ describe('ALV screen buttons', () => {
     });
   });
 
-  describe('flowchart routing (ZSDM21500 run)', () => {
+  describe('flowchart routing (ZSDR_DEMO_11 run)', () => {
     // The shape the analyst returned: "no selection → end" skips every node.
     const graph = {
       nodes: [
@@ -253,7 +253,7 @@ describe('ALV screen buttons', () => {
     });
   });
 
-  describe('three-way decision (ZSDM00181 flow ①)', () => {
+  describe('three-way decision (ZSDR_DEMO_12 flow ①)', () => {
     // "Which button?" → online (adjacent) + batch + cancel (both skip nodes).
     const graph = {
       nodes: [
@@ -295,7 +295,7 @@ describe('ALV screen buttons', () => {
     });
   });
 
-  it('keeps a tall message node clear of the one above it and of the top edge (ZSDR24730 flow ②)', () => {
+  it('keeps a tall message node clear of the one above it and of the top edge (ZSDR_DEMO_10 flow ②)', () => {
     const many = Array.from({ length: 12 }, (_, i) => `E${String(i + 1).padStart(2, '0')} (A long message text number ${i + 1})`).join('\n');
     const graph = {
       nodes: [

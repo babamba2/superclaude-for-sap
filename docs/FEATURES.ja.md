@@ -103,7 +103,7 @@ Z パッケージを走査、再利用可能資産をカタログ化、クロス
 ### `/sc4sap:analyze-symptom`
 ```
 /sc4sap:analyze-symptom
-→ "F110 中の ZFI_POSTING 234 行目 MESSAGE_TYPE_X ダンプ"
+→ "F110 中の ZFI_DEMO_POSTING 234 行目 MESSAGE_TYPE_X ダンプ"
 ```
 フロー: `RuntimeListDumps` → `RuntimeAnalyzeDump` → スタックトレース → SAP Note 候補 → 修復オプション。
 

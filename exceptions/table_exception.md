@@ -14,8 +14,9 @@ Each section file carries a tier tag (`<!-- tier: minimal | standard | strict --
 - `standard` — minimal **+** Protected Business Data (transactional tables)
 - `strict` — standard **+** Audit/Security Logs, Workflow/Communication (recommended default)
 - `custom` — minimal **+** `.sc4sap/blocklist-custom.txt` (the minimal tier always applies)
+- `off` — no table check at all (NOT recommended; only for analysis-only DEV profiles that must read business rows). Set it in both places: `set-blocklist off` (hook) and `MCP_BLOCKLIST_PROFILE=off` in `sap.env` (MCP server guard)
 
-Any profile additionally respects `.sc4sap/blocklist-extend.txt` (one table name or pattern per line) if present.
+Any profile except `off` additionally respects `.sc4sap/blocklist-extend.txt` (one table name or pattern per line) if present.
 
 ## Enforcement
 

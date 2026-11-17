@@ -2,7 +2,7 @@
 //
 // Strategy (양식 보존 / format-preserving):
 //   1. Read asset/template_base.xlsx (canonical reference workbook —
-//      English-source ZMMRTEST003 spec with all styles, borders, fonts, column
+//      English-source ZMMR_DEMO_SPEC spec with all styles, borders, fonts, column
 //      widths, row heights, drawings, images intact).
 //   2. Re-zip every entry byte-for-byte EXCEPT xl/sharedStrings.xml.
 //   3. For xl/sharedStrings.xml, replace each <t>…</t> content using the
@@ -30,7 +30,7 @@
 //   · Sheet 7 (Exceptions):       3 rows.
 //
 // SAP standard identifiers (table names, field names, parameter names) that
-// happen to match the source spec (ZMMRTEST003 / VBAK / VBELN / S_VKORG …)
+// happen to match the source spec (ZMMR_DEMO_SPEC / VBAK / VBELN / S_VKORG …)
 // MUST be present as TR keys to swap them for the target program's identifiers.
 // Identifiers absent from TR remain in the cloned file unchanged.
 

@@ -56,7 +56,7 @@ export function parseOtf(text, pageNo = 1) {
         font = { family: p.slice(0, 8).trim(), pt: Number(p.slice(8, 11)) / 10, bold: p[11] === 'X' || /_B$|_BD$/.test(p.slice(0, 8).trim()), italic: p[12] === 'X' };
         // an SW follows for single-byte fonts; the FC record carries the blank width too
         // ("…4103 00144" — agrees with SW in all 125 cases), used when no SW comes
-        // (ZFI_ZFIR10820 COURIER 12 pt on SAPWIN); not for DBCS fonts, whose blanks stay at half
+        // (ZSF_DEMO_PRG COURIER 12 pt on SAPWIN); not for DBCS fonts, whose blanks stay at half
         // an em here (their FC width, ~0.51 em, made the preview worse both ways — item 24)
         sw = /^(KP|CN|JP|TW|ANDALE)/.test(p.slice(0, 8).trim()) ? 0 : Number((/4103(\d{5})/.exec(p) || [])[1]) || 0;
         break;
@@ -100,7 +100,7 @@ export function parseOtf(text, pageNo = 1) {
         bc = { x: x * TW, base: y * TW, window: win, name: p.slice(0, 8).trim() };
         break;
       case 'BP': {
-        // (a blank may stand for the letter: ZWM_STUFFING_REQUESTN BRL3 "S3N5 0015030")
+        // (a blank may stand for the letter: ZSF_DEMO_72 BRL3 "S3N5 0015030")
         const m = /^..[A-Z](\d+)[A-Z ](\d{5})/.exec(p);
         if (bc && m) { bc.module = (Number(m[1]) + 1) * 25.4 / 600; bc.h = Number(m[2]) * 25.4 / 600; }
         break;
@@ -381,7 +381,7 @@ export function compare(sapIn, prevIn) {
       lineThick.push({ dir: l.dir, pos: r1(l.pos), from: r1(l.from), to: r1(l.to), sap: Math.round(l.th * 100) / 100, preview: Math.round(hit.th * 100) / 100, window: l.window });
   }
   // a preview line lying on one of SAP's (a template frame on the window box) is not seen twice
-  // (only a true duplicate: within 0.2 mm, so a double rule 0.4 mm apart still counts — ZMMM20930)
+  // (only a true duplicate: within 0.2 mm, so a double rule 0.4 mm apart still counts — ZSF_DEMO_25)
   const onSap = (p) => sap.lines.some((l) => l.dir === p.dir && Math.abs(p.pos - l.pos) <= 0.2 &&
     Math.min(p.to, l.to) - Math.max(p.from, l.from) >= 0.8 * (p.to - p.from));
   const lineExtra = prev.lines.filter((p, i) => !lm.has(i) && !onSap(p)).map((p) => ({ dir: p.dir, pos: r1(p.pos), from: r1(p.from), to: r1(p.to) }));

@@ -4,13 +4,13 @@ import { join } from 'node:path';
 // @ts-expect-error — plain .mjs scripts, no type declarations
 import { readContext, readInterface, readXdp, parseXml, unit } from '../../scripts/adobe/read-adobe.mjs';
 // @ts-expect-error — plain .mjs script
-import { buildRecord, toXmlValue, itfParagraphs, textsFromTables, evalConditions, ddicFromDdl, contextFields } from '../../scripts/adobe/adobe-data.mjs';
+import { buildRecord, toXmlValue, itfParagraphs, textsFromTables, evalConditions, ddicFromDdl, contextFields, runInitCoding } from '../../scripts/adobe/adobe-data.mjs';
 // @ts-expect-error — plain .mjs script
 import { layoutForm, imageSize, tabStops } from '../../scripts/adobe/adobe-layout.mjs';
 // @ts-expect-error — plain .mjs script
 import { formatValue } from '../../scripts/adobe/picture.mjs';
 // @ts-expect-error — plain .mjs script
-import { buildModel, renderHtml } from '../../scripts/adobe/build-adobe-preview.mjs';
+import { buildModel, renderHtml, recordFromXml, buildModelXdp, withOffPage } from '../../scripts/adobe/build-adobe-preview.mjs';
 // @ts-expect-error — plain .mjs script
 import { scoreLayouts } from '../../scripts/adobe/score-forms.mjs';
 // @ts-expect-error — plain .mjs script
@@ -109,7 +109,8 @@ describe('adobe-preview: data XML values', () => {
       { text: 'second', style: 'font-size:6pt;text-decoration:underline' },
     ]);
     const t = textsFromTables([{ FORMNAME: 'ZT', LINENR: '000001', TDFORMAT: 'FT', TDLINE: 'a' }], [{ TDPARGRAPH: 'FT', TDPJUSTIFY: 'CENTER', TDFAMILY: 'HELVE', TDHEIGHT: '080' }]);
-    expect(t.ZT.formats.FT).toMatchObject({ family: 'Helvetica', pt: 8, align: 'center' });
+    // HELVE is Arial in the XHTML SAP's form runtime hands ADS (FP_TEST_01 data XML, style S_TEST)
+    expect(t.ZT.formats.FT).toMatchObject({ family: 'Arial', pt: 8, align: 'center' });
   });
 
   it('evaluates node conditions: AND inside a group, OR between groups', () => {
@@ -249,14 +250,22 @@ describe('adobe-preview: SmartForm migration rich text (CSS divs, tabs, SOM embe
     expect(at('Clerk')).toMatchObject({ pt: 8, font: 'Arial' });
     expect(at('Mr. Sample')).toMatchObject({ pt: 12, font: 'Courier New' });
     close(textWidthMm('abc', 10, { face: 'Courier New' }), 3 * 0.6 * EM10);
-    // the first paragraph is one 5 mm line (its own line-height); each baseline sits the line's ascent below its top
-    close(at('1234.50').y - at('Clerk').y, 5 + 0.728 * (10 - 12) * PT);
+    // the first paragraph is one 5 mm line (its own line-height); a CSS line-height L up to 1.25 × the line's
+    // largest pitch n adds L − n above the text, down to the ascender; a larger L is not applied (calibration
+    // rounds 1–3, ADS on S/4; the fonts of a line = its runs plus the paragraph font on all but the draw's last line):
+    // line 1 Arial 8 pt + Courier 12 pt (n 1.2 em of 12 pt) at 5 mm → Courier ascent − 0.08 mm, not above the
+    // Courier ascender; line 2 Courier 10 pt values + Arial 10 pt paragraph at 6 mm > 1.25 × 4.23 mm → the Arial ascent
+    const l1 = Math.max(0.654 * 12 * PT + (5 - 1.2 * 12 * PT), 0.629 * 12 * PT);
+    const l2 = 0.728 * 10 * PT;
+    close(at('1234.50').y - at('Clerk').y, 5 + l2 - l1);
   });
 
   it('places tab stops: left, decimal (radix on the stop) and right, relative to the paragraph margin', () => {
     close(at('Mr. Sample').x, 20 + 35);
-    close(at('1234.50').x + textWidthMm('1234', 10), 20 + 2 + 40);
-    close(at('Example Ltd').x + textWidthMm('Example Ltd', 10), 20 + 2 + 80);
+    // embedded by SOM path: the value prints in its field's font — no <font>, so the XFA default Courier 10 pt
+    expect(at('1234.50')).toMatchObject({ pt: 10, font: 'Courier' });
+    close(at('1234.50').x + textWidthMm('1234', 10, { face: 'Courier' }), 20 + 2 + 40);
+    close(at('Example Ltd').x + textWidthMm('Example Ltd', 10, { face: 'Courier' }), 20 + 2 + 80);
     expect(at('1234.50').role).toBe('field');
   });
 
@@ -375,5 +384,248 @@ describe('adobe-preview: score v2', () => {
     const r = scoreLayouts({ pages: [{ error: 'bad stream' }] }, { pages: [page()] }, {});
     expect(r.notMeasurable).toEqual([{ page: 1, error: 'bad stream' }]);
     expect(r.passed).toBe(false);
+  });
+});
+
+describe('adobe-preview: layouts SAP migration writes (div rich text without body, row cells without columnWidths, lr-tb)', () => {
+  const xdp = (body: string) => `<?xml version="1.0" encoding="utf-8"?>
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform layout="tb" name="data"><pageSet><pageArea name="P1"><contentArea x="20mm" y="20mm" w="170mm" h="250mm"/>
+<medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>${body}</subform></template></xdp:xdp>`;
+  const rich = (name: string, w: string, text: string) => `<draw name="${name}" w="${w}"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml"><div style=" font-family : 'Arial' ; font-size : 10pt ;">${text}</div></div></exData></value><ui><textEdit multiLine="1"/></ui></draw>`;
+  const run = (body: string) => texts(layoutForm(readXdp(xdp(body)).template, { name: 'data', children: [] }, {}).pages[0]);
+
+  it('reads XHTML div paragraphs straight under exData (no body element)', () => {
+    expect(run(`<subform layout="tb" name="S" w="170mm">${rich('T', '100mm', 'Dear customer')}</subform>`).map((t: any) => t.text)).toEqual(['Dear customer']);
+  });
+
+  it('gives a row cell its own width when the table has no columnWidths', () => {
+    const t = run(`<subform layout="table" name="TAB" w="170mm"><subform layout="row" name="R">${rich('A', '30mm', 'Left')}${rich('B', '50mm', 'Right')}</subform></subform>`);
+    close(t.find((x: any) => x.text === 'Right').x - t.find((x: any) => x.text === 'Left').x, 30);
+  });
+
+  it('flows lr-tb children left to right and starts a new line for a child that does not fit', () => {
+    const t = run(`<subform layout="lr-tb" name="F" w="100mm">${rich('A', '60mm', 'One')}${rich('B', '30mm', 'Two')}${rich('C', '30mm', 'Three')}</subform>`);
+    const one = t.find((x: any) => x.text === 'One'), two = t.find((x: any) => x.text === 'Two'), three = t.find((x: any) => x.text === 'Three');
+    close(two.x - one.x, 60);
+    close(two.y, one.y);
+    close(three.x, one.x);
+    expect(three.y).toBeGreaterThan(one.y + 3);
+  });
+});
+
+describe('adobe-preview: ADS rules measured on the calibration form and on migrated SmartForms', () => {
+  const xdp = (body: string, ver = '2.8') => `<?xml version="1.0" encoding="utf-8"?>
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/${ver}/">
+<subform layout="tb" name="data"><pageSet><pageArea name="P1"><contentArea x="20mm" y="20mm" w="170mm" h="250mm"/>
+<medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>${body}</subform></template></xdp:xdp>`;
+  const div = (css: string, inner: string) => `<div style=" ${css}">${inner}</div>`;
+  const draw = (name: string, inner: string, w = '150mm') => `<draw name="${name}" w="${w}"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml">${inner}</div></exData></value><ui><textEdit multiLine="1"/></ui></draw>`;
+  const run = (body: string, ver?: string) => texts(layoutForm(readXdp(xdp(body, ver)).template, { name: 'data', children: [] }, {}).pages[0]);
+  const by = (t: any[], s: string) => t.find((x: any) => x.text === s);
+  const cour12 = "font-family : 'Courier New' ; font-size : 12pt ; line-height : 4.23mm ;";
+
+  it('prints a wrapper div with child divs as the child lines only', () => {
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(cour12, 'One') + div(cour12, 'Two'))}</subform>`);
+    // Courier 12 pt at 4.23 mm: the first baseline is the Courier ascender (0.629 em), the second one line lower
+    close(by(t, 'One').y, 20 + 0.629 * 12 * PT);
+    close(by(t, 'Two').y - by(t, 'One').y, 4.23);
+  });
+
+  it('applies a later paragraph margin-top exactly (+1.61 mm, -2 mm)', () => {
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(cour12, 'A') + div(`${cour12} margin-top : 1.61mm ;`, 'B') + div(`${cour12} margin-top : -2mm ;`, 'C'))}</subform>`);
+    close(by(t, 'B').y - by(t, 'A').y, 4.23 + 1.61);
+    close(by(t, 'C').y - by(t, 'B').y, 4.23 - 2);
+  });
+
+  it('uses per-face pitch and ascent for plain draws: Courier 1.2 em, Times 1.111 em, Arial / Helvetica 1.1376 em', () => {
+    const plain = (n: string, face: string, y: number) => `<draw name="${n}" x="0mm" y="${y}mm" w="150mm" h="12mm"><ui><textEdit multiLine="1"/></ui><value><text>${n} one\n${n} two</text></value><font typeface="${face}" size="10pt"/><margin topInset="0mm" bottomInset="0mm" leftInset="0mm" rightInset="0mm"/></draw>`;
+    const t = run(`<subform layout="position" name="S" w="170mm" h="100mm">${plain('C', 'Courier New', 0)}${plain('T', 'Times New Roman', 20)}${plain('H', 'Helvetica', 40)}</subform>`);
+    close(by(t, 'C one').y, 20 + 0.654 * EM10); close(by(t, 'C two').y - by(t, 'C one').y, 1.2 * EM10);
+    close(by(t, 'T one').y, 40 + 0.709 * EM10); close(by(t, 'T two').y - by(t, 'T one').y, 1.111 * EM10);
+    close(by(t, 'H two').y - by(t, 'H one').y, 1.1376 * EM10);
+  });
+
+  it('counts a CSS line-height against the paragraph font, not the run font', () => {
+    // an Arial 8 pt run in a Courier 10 pt paragraph at 4.23 mm (= Courier 10 pt's pitch) sits at the Arial ascent
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div("font-family : 'Courier New' ; font-size : 10pt ; line-height : 4.23mm ;", "<span style=\" font-family : 'Arial' ; font-size : 8pt ;\">Label</span>"))}</subform>`);
+    close(by(t, 'Label').y, 20 + 0.728 * 8 * PT);
+  });
+
+  it('opens no line for a <br/> that ends a block, and reads tab-stops as well as tab-stop', () => {
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(`${cour12} tab-stops : left 3.50cm ;`, 'Head<br/><br/>') + div(`${cour12} tab-stops : left 3.50cm ;`, "Key<span style=\"xfa-tab-count : 1 ;\"/>Value"))}</subform>`);
+    close(by(t, 'Key').y - by(t, 'Head').y, 2 * 4.23);
+    close(by(t, 'Value').x - by(t, 'Key').x, 35);
+  });
+
+  it('gives a positioned subform of hidden fields one em of their font (Courier 10 pt by default)', () => {
+    const t = run(`<subform layout="lr-tb" name="S" w="80mm"><subform name="H"><field name="F" presence="hidden"><ui><textEdit/></ui></field></subform>${draw('D', div(cour12, 'Below'), '80mm')}</subform>`);
+    close(by(t, 'Below').y, 20 + EM10 + 0.629 * 12 * PT);
+  });
+
+  it('grows an lr-tb container without a width sideways instead of wrapping', () => {
+    const t = run(`<subform layout="lr-tb" name="MAIN">${draw('A', div(cour12, 'Intro'), '160mm')}${draw('B', div(cour12, 'Table'), '160mm')}</subform>`);
+    close(by(t, 'Table').x - by(t, 'Intro').x, 160);
+    close(by(t, 'Table').y, by(t, 'Intro').y);
+  });
+
+  it('makes blanks that lead a draw line half an em wide (not in field values, not in Courier)', () => {
+    // rich text collapses the blanks to one (EX10: one blank before a value); plain text keeps all ten
+    const plain = `<draw name="P" w="150mm"><value><text>          Plain</text></value><font typeface="Arial" size="10pt"/><ui><textEdit/></ui></draw>`;
+    const field = `<field name="F" w="150mm"><value><text>          Field</text></value><font typeface="Arial" size="10pt"/><ui><textEdit><margin/></textEdit></ui><margin topInset="0mm" bottomInset="0mm" leftInset="0mm" rightInset="0mm"/></field>`;
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div("font-family : 'Arial' ; font-size : 10pt ;", '<span>   Ten</span>'))}${plain}${field}</subform>`);
+    close(by(t, 'Ten').x, 20 + 0.5 * EM10);
+    close(by(t, 'Plain').x, 20 + 10 * 0.5 * EM10);
+    close(by(t, 'Field').x, 20 + textWidthMm('          ', 10));
+  });
+
+  it('prints a formatted embed in its field font, an embedMode="raw" one in the run font', () => {
+    const hidden = `<subform name="H"><field name="V" presence="hidden"><ui><textEdit/></ui><value><text>1234</text></value></field></subform>`;
+    const span = (attrs: string) => `<span style="font-family : 'Arial' ; font-size : 10pt ;"> <span xfa:embed="H.V"${attrs}/></span>`;
+    const body = (attrs: string, n: string) => `<subform layout="tb" name="${n}" w="150mm">${hidden}<draw name="D" w="150mm"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml" xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/">${div(cour12, span(attrs))}</div></exData></value><ui><textEdit multiLine="1"/></ui></draw></subform>`;
+    // EX10 / EX14 (no embedMode): Courier 10 pt (the field has no <font>); calibration 2 (raw): the span's Arial 10 pt
+    expect(by(run(body('', 'F')), '1234')).toMatchObject({ font: 'Courier', pt: 10 });
+    expect(by(run(body(' xfa:embedMode="raw"', 'R')), '1234')).toMatchObject({ font: 'Arial', pt: 10 });
+  });
+
+  // an EX10 table cell: hidden field V (in H) shown through a draw at 4.23 mm Courier 12 pt, then a draw "Next"
+  const cell = (n: string, field: string, inner: string, css = '') => `<subform layout="tb" name="${n}" w="60mm"><subform layout="lr-tb" name="C" w="30mm"><subform name="H">${field}</subform><draw name="D" w="30mm"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml" xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/">${div(cour12 + css, `<span style="font-family : 'Arial' ; font-size : 10pt ;">${inner}</span>`)}</div></exData></value><ui><textEdit multiLine="1"/></ui></draw></subform><draw name="N" w="60mm"><ui><textEdit/></ui><value><text>Next ${n}</text></value><font typeface="Arial" size="10pt"/><margin topInset="0mm" bottomInset="0mm" leftInset="0mm" rightInset="0mm"/></draw></subform>`;
+  const dateField = (pic: string) => `<field name="V" presence="hidden"><ui><textEdit/></ui><value><text>2026-12-01</text></value>${pic}</field>`;
+  const embedV = '<span xfa:embed="H.V"/>';
+
+  it('lowers a date-pictured value alone on its line by 0.15 em and grows its cell as much (calibration 4 / 5)', () => {
+    const pic = '<format><picture>date{M/D/YY}</picture></format>';
+    const one = (n: string, field: string, inner: string) => run(cell(n, field, inner));
+    const plain = one('P', dateField(''), embedV), dated = one('Q', dateField(pic), embedV);
+    const num = one('R', `<field name="V" presence="hidden"><ui><textEdit/></ui><value><text>250.00</text></value><format><picture>num{z,zz9.99}</picture></format></field>`, embedV);
+    const label = one('S', dateField(pic), `Date ${embedV}`), labelPlain = one('T', dateField(''), `Date ${embedV}`);
+    const lift = 0.15 * EM10;
+    close(by(dated, '12/1/26').y - by(plain, '2026-12-01').y, lift);
+    close(by(dated, 'Next Q').y - by(plain, 'Next P').y, lift);
+    // a num picture adds nothing; a typed label on the line neither (calibration 3 H6: "Date" + tab + SY.DATUM)
+    close(by(num, 'Next R').y, by(plain, 'Next P').y);
+    close(by(label, 'Next S').y, by(labelPlain, 'Next T').y);
+  });
+
+  it('starts a line of embedded values only at the content edge: no CSS margin-left, no text-align (calibration 4 / 5)', () => {
+    const field = `<field name="V" presence="hidden"><ui><textEdit/></ui><value><text>EUR</text></value></field>`;
+    const t = run(cell('A', field, embedV, ' margin-left : 0.71mm ; text-align : right ;'));
+    close(by(t, 'EUR').x, 20);
+    // one typed blank before the value brings margin and alignment back (X1)
+    const b = run(cell('B', field, ` ${embedV}`, ' margin-left : 0.71mm ;'));
+    expect(by(b, 'EUR').x).toBeGreaterThan(20.71);
+  });
+
+  it('lays out XFA 2.2 (SAP migration) by the 2.4+ rules, not the 2.1 line boxes', () => {
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(cour12, 'Mig'))}</subform>`, '2.2');
+    close(by(t, 'Mig').y, 20 + 0.629 * 12 * PT);
+  });
+});
+
+describe('adobe-preview: off-page content in the layout JSON', () => {
+  it('replaces texts the browser clipped at the page edge with the model text, flagged offPage (not wEst); adds off-page rules', () => {
+    // the browser writes CID text glyph by glyph: '0' '0' '0' clipped from '0001'
+    const g = (x: number, s: string) => ({ x, y: 21.7, w: 2.1, text: s, pt: 10 });
+    const layout = { pages: [{ w: 210, h: 297, texts: [g(203.7, '0'), g(205.8, '0'), g(207.9, '0'), { x: 20, y: 30, w: 10, text: 'Keep', pt: 10 }], lines: [], rects: [] }] };
+    const model = { pages: [{ w: 210, h: 297, items: [
+      { type: 'text', x: 203.7, y: 21.7, text: '0001', pt: 10, font: 'Courier New' },
+      { type: 'text', x: 20, y: 30, text: 'Keep', pt: 10, font: 'Arial' },
+      { type: 'line', x1: 200, y1: 12, x2: 230, y2: 12, th: 0.26 },
+    ] }] };
+    const out = withOffPage(layout, model).pages[0];
+    expect(out.texts.map((t: any) => t.text).sort()).toEqual(['0001', 'Keep']);
+    const sub = out.texts.find((t: any) => t.text === '0001');
+    expect(sub).toMatchObject({ offPage: true });
+    expect(sub.wEst).toBeUndefined();
+    expect(out.lines).toHaveLength(1);
+  });
+
+  it('keeps an unrelated text of ours at the page edge (only pieces that start the model text go)', () => {
+    const layout = { pages: [{ w: 210, h: 297, texts: [{ x: 204, y: 21.7, w: 4, text: 'XY', pt: 10 }], lines: [], rects: [] }] };
+    const model = { pages: [{ w: 210, h: 297, items: [{ type: 'text', x: 203.7, y: 21.7, text: '0001', pt: 10, font: 'Courier New' }] }] };
+    expect(withOffPage(layout, model).pages[0].texts.map((t: any) => t.text).sort()).toEqual(['0001', 'XY']);
+  });
+});
+
+describe('adobe-preview: designer template + data XML (no SAP form object)', () => {
+  const xdp = `<?xml version="1.0" encoding="utf-8"?>
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform layout="tb" name="form1"><pageSet><pageArea name="P1"><contentArea x="20mm" y="20mm" w="170mm" h="250mm"/>
+<medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>
+<subform name="Head" layout="tb" w="170mm"><field name="Title" w="100mm" h="8mm"><ui><textEdit/></ui><font typeface="Arial"/><bind match="dataRef" ref="$record.Head.Title"/></field></subform>
+</subform></template></xdp:xdp>`;
+  const data = `<?xml version="1.0"?><xfa:datasets xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/"><xfa:data><form1><Head><Title>Sample ticket</Title></Head></form1></xfa:data></xfa:datasets>`;
+  it('reads the record under xfa:datasets / xfa:data: groups and values, attributes ignored', () => {
+    expect(recordFromXml(data)).toEqual({ name: 'form1', children: [{ name: 'Head', children: [{ name: 'Title', value: 'Sample ticket' }] }] });
+    expect(recordFromXml('<root a="1"><v>x</v></root>')).toEqual({ name: 'root', children: [{ name: 'v', value: 'x' }] });
+  });
+  it('lays the template out with that record', () => {
+    const m = buildModelXdp({ layoutXdp: xdp, dataXml: data });
+    expect(m.pages).toHaveLength(1);
+    expect(texts(m.pages[0]).map((t: any) => t.text)).toContain('Sample ticket');
+  });
+});
+
+describe('adobe-preview: ABAP and ADS value defaults', () => {
+  it('an elementary TYPE C / TYPE N parameter without a length is 1 character long (ABAP default)', () => {
+    expect(toXmlValue('Sample text', { ddic: { type: 'CHAR' } })).toBe('S');
+    expect(toXmlValue('000123', { ddic: { type: 'NUMC' } })).toBe('3');
+    expect(toXmlValue('Sample text', { ddic: { type: 'CHAR', length: 20 } })).toBe('Sample text');
+    expect(toXmlValue('123', { ddic: { type: 'NUMC', length: 10 } })).toBe('0000000123');
+  });
+  it('a numericEdit field without a <value> prints the data as a number: grouping, no trailing zeros', () => {
+    expect(formatValue('830.50', { type: 'float', fracDigits: -2 })).toBe('830.5');
+    expect(formatValue('8901300', { type: 'float', fracDigits: -2 })).toBe('8,901,300');
+    const xdp = `<?xml version="1.0" encoding="utf-8"?>
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform layout="tb" name="data"><pageSet><pageArea name="P1"><contentArea x="20mm" y="20mm" w="170mm" h="250mm"/>
+<medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>
+<field name="AMT" w="40mm" h="6mm"><ui><numericEdit/></ui><font typeface="Arial"/><bind match="dataRef" ref="$record.AMT"/></field>
+</subform></template></xdp:xdp>`;
+    const out = layoutForm(readXdp(xdp).template, { name: 'data', children: [{ name: 'AMT', value: '1243.25' }] }, {});
+    expect(texts(out.pages[0]).map((t: any) => t.text)).toEqual(['1,243.25']);
+  });
+});
+
+describe('adobe-preview: interface initialization code (simple statements only)', () => {
+  const code = ['* sums per currency', 'data: l_sums like line of t_sums,', '      l_row type zdemo_row.', 'loop at rows into l_row.',
+    '  l_sums-amount = l_row-amount.  " the amount', '  l_sums-curr   = l_row-curr.', '  collect l_sums into t_sums.', 'endloop.'];
+  const values = { ROWS: [{ AMOUNT: 10.5, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }, { AMOUNT: 4.25, CURR: 'EUR' }] };
+  it('runs LOOP / assignments / COLLECT: numeric fields summed per equal other fields', () => {
+    expect(runInitCoding(code, values)).toMatchObject({ ok: true, tables: { T_SUMS: [{ AMOUNT: 14.75, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }] } });
+  });
+  it('runs the G5 initSumByKey template of ZMCP_FP_MIGRATE (FIELD-SYMBOLS, LOOP … ASSIGNING <fs>)', () => {
+    const g5 = ['* sc4sap G5 initSumByKey (generated) GT_TOTAL', 'DATA ls_sc4sap_g5_0 LIKE LINE OF gt_total.',
+      'FIELD-SYMBOLS <ls_sc4sap_g5_0> LIKE LINE OF t_rows.', 'CLEAR gt_total.', 'LOOP AT t_rows ASSIGNING <ls_sc4sap_g5_0>.',
+      '  CLEAR ls_sc4sap_g5_0.', '  ls_sc4sap_g5_0-curr = <ls_sc4sap_g5_0>-curr.', '  ls_sc4sap_g5_0-amount = <ls_sc4sap_g5_0>-amount.',
+      '  COLLECT ls_sc4sap_g5_0 INTO gt_total.', 'ENDLOOP.'];
+    const rows = { T_ROWS: [{ CURR: 'EUR', AMOUNT: 250 }, { CURR: 'EUR', AMOUNT: 980.5 }, { CURR: 'USD', AMOUNT: 120 }, { CURR: 'USD', AMOUNT: 75.25 }] };
+    expect(runInitCoding(g5, rows)).toMatchObject({ ok: true, tables: { GT_TOTAL: [{ CURR: 'EUR', AMOUNT: 1230.5 }, { CURR: 'USD', AMOUNT: 195.25 }] } });
+    // writing through the field symbol would change the table row in ABAP: not run (no stale preview values)
+    const write = [...g5.slice(0, 5), '  <ls_sc4sap_g5_0>-amount = 0.', ...g5.slice(5)];
+    expect(runInitCoding(write, rows)).toMatchObject({ ok: false });
+  });
+  it('stops at anything else and fills nothing', () => {
+    expect(runInitCoding([...code, 'select * from zdemo_tab into table t_x.'], values)).toMatchObject({ ok: false });
+    expect(runInitCoding(['loop at missing into l_row.', 'endloop.'], values)).toMatchObject({ ok: false });
+  });
+});
+
+describe('adobe-preview / smartform: program lines the runner understands', () => {
+  const values = { ROWS: [{ AMOUNT: 10.5, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }, { AMOUNT: 4.25, CURR: 'EUR' }] };
+  it('keeps a quote inside a literal (only a " outside literals starts a comment)', () => {
+    const r = runInitCoding(['l_x-text = \'say "hi"\'.  " a comment', 'append l_x to t_x.'], {});
+    expect(r).toMatchObject({ ok: true, tables: { T_X: [{ TEXT: 'say "hi"' }] } });
+  });
+  it('splits at the period that ends a statement, not inside 1.5', () => {
+    expect(runInitCoding(['l_x-amount = 1.5. append l_x to t_x.'], {})).toMatchObject({ ok: true, tables: { T_X: [{ AMOUNT: 1.5 }] } });
+  });
+  it('runs a delayed COLLECT with IF NOT … IS INITIAL, REFRESH, colon chains, and keeps state between runs', () => {
+    const init = runInitCoding(['refresh gt_total.', 'clear: gs_total, gs_next.'], values);
+    const body = runInitCoding(['loop at rows into gs_row.', 'if not gs_next is initial.', 'collect gs_next into gt_total.', 'endif.',
+      'gs_next-amount = gs_row-amount.', 'gs_next-curr = gs_row-curr.', 'endloop.'], values, {}, init);
+    const last = runInitCoding(['if not gs_next is initial.', 'collect gs_next into gt_total.', 'endif.'], values, {}, body);
+    expect(last).toMatchObject({ ok: true, tables: { GT_TOTAL: [{ AMOUNT: 14.75, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }] } });
+    expect(runInitCoding(['clear t_x[].', 'append l_y to t_x.'], {}, {}, { tables: { T_X: [{ A: 1 }] } }).tables.T_X).toEqual([{}]);
   });
 });

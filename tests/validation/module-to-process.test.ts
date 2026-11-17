@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { spawnSync } from 'node:child_process';
 import { mkdtempSync, readFileSync, rmSync, existsSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join, resolve } from 'path';
@@ -451,5 +452,22 @@ describe('supplement-model', () => {
   it('reports unplaced entries and bad targets', () => {
     const res = supplementModel(base(), [{ placements: [{ entry: 'A', to: '1.1' }] }], [['A', 'B']]);
     expect(res.errors).toEqual(['placement A: target 1.1 is not an L4', 'entry B neither placed nor unplaced']);
+  });
+});
+
+describe('backbone CLI', () => {
+  it('makes the folder of --out when it does not exist yet', () => {
+    const tmp = mkdtempSync(join(tmpdir(), 'backbone-cli-'));
+    try {
+      const graph = join(tmp, 'graph.json');
+      writeFileSync(graph, JSON.stringify({ nodes: [], edges: [] }));
+      const out = join(tmp, 'processes', 'MM', '_state', 'attach.json');
+      const run = spawnSync(process.execPath, [join(ROOT, 'scripts/process/backbone.mjs'), ROOT, '--modules', 'MM', '--graph', graph, '--lang', 'ko', '--out', out], { encoding: 'utf8' });
+      expect(run.status, run.stderr).toBe(0);
+      expect(existsSync(out)).toBe(true);
+      expect(JSON.parse(readFileSync(out, 'utf8')).modules).toEqual(['MM']);
+    } finally {
+      rmSync(tmp, { recursive: true, force: true });
+    }
   });
 });

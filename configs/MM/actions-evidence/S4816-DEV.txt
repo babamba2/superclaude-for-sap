@@ -1,5 +1,5 @@
-# P1 evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-09, read-only (sap-checker)
-SYSTEM S4-DEV
+# P1 evidence — S4816-DEV (S/4HANA, ABAP 816), 2026-11-09, read-only (sap-checker)
+SYSTEM S4816-DEV
 A BAPI_PO_CHANGE group=2012 found=yes missing_params=none notes="RETURN BAPIRET2; TESTRUN, POSCHEDULEX present"
 A BAPI_PO_GETDETAIL1 group=2012 found=yes missing_params=none notes="RETURN BAPIRET2; POHISTORY, POHISTORY_TOTALS present"
 A BAPI_PO_GETRELINFO group=MEWF found=yes missing_params=none notes="IMP PURCHASEORDER, PO_REL_CODE(opt); EXP GENERAL_RELEASE_INFO, RELEASE_PREREQUISITES, RELEASE_ALREADY_POSTED; TAB RELEASE_FINAL, RETURN BAPIRETURN"
@@ -19,7 +19,7 @@ C EKET: EBELN EBELP ETENR EINDT MENGE WEMNG present
 D I_PURCHASEORDERITEMAPI01 exists=yes (deferred option)
 D MATDOC exists=yes
 
-# Handler evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
+# Handler evidence — S4816-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
 H MM.PO.LIST_OPEN werks=1710 all_open -> 10 lines, truncated
 H MM.PO.GET_DETAIL 4500000030 -> 1 item
 H MM.PO.GET_HISTORY 4500000036 -> 2 GR (101) history rows, totals 3 = EKET-WEMNG 3

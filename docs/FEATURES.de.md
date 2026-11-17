@@ -103,7 +103,7 @@ Flow: `GetPackageTree` → Kategorie-Walk → Häufigkeitsheuristik → Cross-Mo
 ### `/sc4sap:analyze-symptom`
 ```
 /sc4sap:analyze-symptom
-→ "Dump MESSAGE_TYPE_X in ZFI_POSTING Zeile 234 während F110"
+→ "Dump MESSAGE_TYPE_X in ZFI_DEMO_POSTING Zeile 234 während F110"
 ```
 Flow: `RuntimeListDumps` → `RuntimeAnalyzeDump` → Stacktrace → SAP-Note-Kandidaten → Remediation-Optionen.
 

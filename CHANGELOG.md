@@ -5,6 +5,34 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.71] — 2026-11-18
+
+### Added
+- **Migration schedule (WBS)** in the data-migration document: objects carry category, owner side, load tool and predecessors; rounds are an editable list (default Mock 1, Mock 2, Dress rehearsal, Cutover) with extract → cleanse → load → validate → sign-off dates and status per object and round; a dependency check (errors for loops and bad dates, warnings for order, round window and unknown references); an add-only `/wbs` write-back (`migration-wbs.mjs`) that also feeds the plan's open issues and drops self / loop dependencies.
+- **Issue log** in the project model (`project.issues`): priority, four statuses, affected WBS rows, resolution; issues table / sheet in the project page and xlsx; AI patches may add an issue and edit its text, note or resolution only. Open-issue counts in the weekly status (new / resolved, top open) and the portfolio.
+
+### Changed
+- `program-test`: production data is the user's choice per run (`MASKING_RELEASE_PINNED` → true; the masked probe, the per-table yes and every other guard stay). During a run a remote read may only use the run's own destination; dev runs get no remote reads. The harness lint refuses `DESTINATION` / `RFC_READ_TABLE` in the test class.
+- SmartForm preview: DECIMAL tab stops, the ink-end tab stop, a trailing blank paragraph line, and per-sort-group values for loops inside sort events.
+- Adobe preview: an overflowing widthless `lr-tb` line breaks over pages the way ADS does (table first at the line start, the rest on the next page); a line that does not break is laid out whole.
+- Korean meeting page labels: "액션 아이템" → "할 일".
+
+## [0.6.70] — 2026-11-17
+
+### Added
+- **`/sc4sap:program-test`**: tests a DEV program before the transport — cases and expected values frozen first, test rows read from DEV or QA through server-side masked reads (PRD locked), injected as test doubles into a `$TMP` ABAP Unit harness; verdict per case from the ledger, mutants and a tamper copy must fail. Masked reads are allow-list masked (`hmac-v2`; v1 answers are refused); the evidence guard denies reads of `mask.key`, the profiles folder in shell commands and commands that decode text inside themselves.
+- **PMO document models** (web workbench): editable cutover, weekly and manual documents with revision history; meeting minutes; a data-migration document (objects, mock runs, reconciliation rules, results, issues; Migration Cockpit import states as status words); `/wbs` write-back never wipes values.
+- **Form fidelity tooling**: a text + position scorer of a form print against SAP's PDF; the SmartForm preview prints several pages (NEWPAGE targets, repeated table headers, window conditions, the output device's fonts, loops sorted by their sort events, the sign place of amounts); the Adobe preview follows layout rules measured on ADS (row heights, CSS line heights, embedded values, SAPscript include texts with their SmartStyle — SAP character numbers, character formats, justified paragraphs —, fields split across pages, Times widths) and runs simple interface initialization code.
+- **SmartForm → Adobe correction** (`ZMCP_FP_MIGRATE`, `abap/`): RENDER_XDP in `ZMCP_FP_CONTENT`; correction ops `datePicture`, `bind`, `embedLead` and the totals ops `contextDeactivate` / `initSumByKey`; a correction-spec generator (`scripts/adobe/sf-to-adobe-correct.mjs`, rules R1–R11: window and block offsets, dates, hidden holders, embed fonts and alignment, row pitch with a column-consistency guard, header-row height).
+- `config-to-document --kb-notes`: reviewed KB templates for the consultant notes, no LLM tokens.
+
+### Changed
+- **Blocklist `off` tier** in the profile CLI and the table hook; the `ZMCP_ADT_DISPATCH` TABLE_READ action takes an `all_tables` flag for it (credential tables stay closed). Known gaps under `off`: the dispatcher's credential guard is a name-prefix list; it does not cover `USH*` (user change history) or database views over the credential tables. Keep `off` for systems where SE16 authority already restricts them.
+- `GetStandardText` is DEV-only in the tier-readonly-guard hook.
+- `module-to-process`: `backbone.mjs` creates its `--out` folder.
+- Public repo: generic demo names instead of customer object names in scripts, skills, goldens and tests; no system names or transport numbers in configs, docs and tests.
+- `abap-mcp-adt-powerup` pin `c82125e` (4.13.0) → `23161c3` (4.14.0): `RenderAdobeXdp`, correction specs for `CreateAdobeFormFromSmartForm`, `GetStandardText`, allow-list masked (`hmac-v2`) table reads, `RunUnitTest` for programs and function groups, text modules read by `REF_NAME` in `GetSmartFormContent`.
+
 ## [0.6.69] — 2026-11-17
 
 ### Added
@@ -1081,7 +1109,7 @@ Server-side ABAP source (DEV-only, function group `ZMCP_ADT_UTILS`, `$TMP`) is b
 - Refresh path for existing installs: `node scripts/build-mcp-server.mjs --update`. Verifies HEAD matches the new SHA + reinstalls vendor `node_modules` (deps unchanged 4.8.1 → 4.8.3, but reinstall is idempotent and cheap).
 - Workaround documented in issue #43 (plaintext `SAP_PASSWORD` in `~/.sc4sap/profiles/<alias>/sap.env`) is no longer needed after the bump.
 
-Reported by @icharmi-byte. Verified locally on profile HKT-DEV.
+Reported by @icharmi-byte. Verified locally on an ECC DEV profile.
 
 ## [0.6.12] — 2026-04-24
 
@@ -1109,7 +1137,7 @@ Every `Agent(...)` dispatch example in skill MDs now uses the fully-qualified `"
 
 ### Validated — Phase 7 Type D runtime (Phase 1A↔1B bridge, create-program)
 
-First end-to-end Type D validation on S4-DEV (profile switched from HKT-DEV). Target: ZCOR00010 — raw material COGS variance report on plant 1710 / USD / S/4HANA 2022. 4-way synthesis (`sap-analyst` + `sap-architect` + `sap-co-consultant` + `sap-mm-consultant`) × 2 rounds (R1 POSITION bundled on Phase 1B Dims 1-7 → R2 REFINEMENT on Dim 5 data-source only). Convergence: **7/7 CONCUR**, residual_disagreement = []. Key withdrawals: `sap-mm-consultant` withdrew MBEW-VERPR for variance-axis (conceded MLDOC authority to CO); `sap-co-consultant` narrowed MBEW "fallback only" to "price-history authority" (accepted MM's MBEWH period-trail scope). Final Dim 5 architecture: 3-axis business model (price-history MBEW/MBEWH × actual-COGS MLDOC × GL-impact ACDOCA) backed by 3 custom CDS views. Wall-clock: ~12 min; 11 audit files under `.sc4sap/team-audit/create-program-p1b-zcor00010-20260424-130820/`. User-facing report: `.sc4sap/program/ZCOR00010/phase7-type-d-report.md`.
+First end-to-end Type D validation on an S/4HANA DEV system (profile switched from an ECC DEV system). Target: a customer CO report — raw material COGS variance report on plant 1710 / USD / S/4HANA 2022. 4-way synthesis (`sap-analyst` + `sap-architect` + `sap-co-consultant` + `sap-mm-consultant`) × 2 rounds (R1 POSITION bundled on Phase 1B Dims 1-7 → R2 REFINEMENT on Dim 5 data-source only). Convergence: **7/7 CONCUR**, residual_disagreement = []. Key withdrawals: `sap-mm-consultant` withdrew MBEW-VERPR for variance-axis (conceded MLDOC authority to CO); `sap-co-consultant` narrowed MBEW "fallback only" to "price-history authority" (accepted MM's MBEWH period-trail scope). Final Dim 5 architecture: 3-axis business model (price-history MBEW/MBEWH × actual-COGS MLDOC × GL-impact ACDOCA) backed by 3 custom CDS views. Wall-clock: ~12 min; 11 audit files under `.sc4sap/team-audit/create-program-p1b-<program>-20260424-130820/`. User-facing report: `.sc4sap/program/<PROGRAM>/phase7-type-d-report.md`.
 
 ## [0.6.11] — 2026-04-24
 

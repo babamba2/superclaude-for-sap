@@ -85,16 +85,16 @@ describe('project workbench — applyPatch (AI text only)', () => {
     expect(r.applied).toEqual([]);
     expect(r.skipped.map((s: any) => s.index)).toEqual(bad.map((_, i) => i));
     expect(r.model.risks).toEqual(m.risks);
-    expect(Object.keys(PATCH_FIELDS)).toEqual(['risk', 'decision', 'milestone-criterion', 'cutover-task', 'gonogo', 'status']);
+    expect(Object.keys(PATCH_FIELDS)).toEqual(['risk', 'decision', 'issue', 'milestone-criterion', 'cutover-task', 'gonogo', 'status']);
   });
 });
 
 describe('project workbench — Excel export', () => {
-  it('writes the eight sheets as a valid xlsx package (ko / en names)', () => {
+  it('writes the nine sheets (issues after risks) as a valid xlsx package (ko / en names)', () => {
     const m = base();
     m.statusLog = [{ weekEnd: '2027-03-05', overall: 'amber', computed: 'green', ws: { SD: 'amber' }, risks: ['RK1'], decisions: [], comment: 'c' }];
-    for (const [lang, names] of [['ko', ['요약', '마일스톤과 기준', 'WBS', '리스크', '결정', '컷오버 작업', 'Go-No-Go', '주간 현황 이력']],
-      ['en', ['Summary', 'Milestones and criteria', 'WBS', 'Risks', 'Decisions', 'Cutover tasks', 'Go-No-Go', 'Weekly status log']]] as const) {
+    for (const [lang, names] of [['ko', ['요약', '마일스톤과 기준', 'WBS', '리스크', '이슈', '결정', '컷오버 작업', 'Go-No-Go', '주간 현황 이력']],
+      ['en', ['Summary', 'Milestones and criteria', 'WBS', 'Risks', 'Issues', 'Decisions', 'Cutover tasks', 'Go-No-Go', 'Weekly status log']]] as const) {
       const buf = projectWorkbook(m, { today: '2027-03-06', lang });
       const files = unzipEntries(buf).map((e: any) => e.name);
       expect(files).toEqual(expect.arrayContaining(['[Content_Types].xml', 'xl/workbook.xml', 'xl/styles.xml', ...names.map((_, i) => `xl/worksheets/sheet${i + 1}.xml`)]));
@@ -102,7 +102,7 @@ describe('project workbench — Excel export', () => {
       expect([...wb.matchAll(/<sheet name="([^"]+)"/g)].map((x) => x[1])).toEqual(names);
       const wbs = Buffer.from(unzipEntries(buf).find((e: any) => e.name === 'xl/worksheets/sheet3.xml').data).toString('utf8');
       expect(wbs).toContain('Upload');
-      const log = Buffer.from(unzipEntries(buf).find((e: any) => e.name === 'xl/worksheets/sheet8.xml').data).toString('utf8');
+      const log = Buffer.from(unzipEntries(buf).find((e: any) => e.name === 'xl/worksheets/sheet9.xml').data).toString('utf8');
       expect(log).toContain('2027-03-05');
     }
   });

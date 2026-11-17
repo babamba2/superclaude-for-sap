@@ -31,9 +31,10 @@
  *                       online needs SAP_URL in the profile env
  *   set-password <alias> — open the masked dialog, store the new password in
  *                       the OS keychain, point SAP_PASSWORD at it
- *   set-blocklist <strict|standard|minimal|custom> [<alias>]
+ *   set-blocklist <strict|standard|minimal|custom|off> [<alias>]
  *                     — set `blocklistProfile` (L3 PreToolUse hook) in the
- *                       active (or given) profile's config.json
+ *                       active (or given) profile's config.json; `off`
+ *                       disables the hook's table check (NOT recommended)
  *   remove <alias>    — archive to .trash (user must confirm alias in skill)
  *   purge [--all]     — permanently delete .trash entries > 7 days old
  *   migrate           — read JSON from stdin: {alias, tier} → convert
@@ -323,12 +324,17 @@ async function cmdAdd() {
   }
 
   // Blocklist profile — kept in sync between config.json (L1 PreToolUse hook reads)
-  // and sap.env (L2 MCP server guard reads). Default `standard` per decision §12A
-  // when unspecified. Validate against the 4 accepted values.
-  const BLOCKLIST_VALID = ['strict', 'standard', 'minimal', 'custom'];
+  // and sap.env (L2 MCP server guard reads; `custom` maps to `standard` there).
+  // Case-insensitive, like set-blocklist. Default `standard` per decision §12A
+  // when unspecified. Validate against the 5 accepted values (`off` disables
+  // both guards — for analysis-only DEV profiles that must read business rows).
+  const BLOCKLIST_VALID = ['strict', 'standard', 'minimal', 'custom', 'off'];
   const blocklistProfile = payload.blocklistProfile
-    ? String(payload.blocklistProfile).trim()
+    ? String(payload.blocklistProfile).trim().toLowerCase()
     : 'standard';
+  // The MCP server has no `custom` tier and reads unknown values as `standard`,
+  // so sap.env gets `standard` for `custom` — same effective guard, stated explicitly.
+  const mcpBlocklistProfile = blocklistProfile === 'custom' ? 'standard' : blocklistProfile;
   if (!BLOCKLIST_VALID.includes(blocklistProfile)) {
     die(
       2,
@@ -374,7 +380,7 @@ async function cmdAdd() {
     SAP_CONNECTION: connection,
     SAP_COUNTRY: payload.country ? String(payload.country).trim().toLowerCase() : null,
     SAP_DESCRIPTION: payload.description || '',
-    MCP_BLOCKLIST_PROFILE: blocklistProfile,
+    MCP_BLOCKLIST_PROFILE: mcpBlocklistProfile,
   };
 
   mkdirSync(targetDir, { recursive: true });
@@ -466,9 +472,10 @@ async function cmdSetPassword(alias) {
 
 // L3 PreToolUse hook profile only — `MCP_BLOCKLIST_PROFILE` in sap.env (L4,
 // MCP server guard) is a separate setting managed by sap-option and does not
-// accept `custom`, so it is left untouched here.
+// accept `custom`, so it is left untouched here. `off` here disables only the
+// hook; set MCP_BLOCKLIST_PROFILE=off via sap-option to drop the L4 guard too.
 async function cmdSetBlocklist(cwd, value, aliasArg) {
-  const BLOCKLIST_VALID = ['strict', 'standard', 'minimal', 'custom'];
+  const BLOCKLIST_VALID = ['strict', 'standard', 'minimal', 'custom', 'off'];
   const blocklistProfile = String(value || '').trim().toLowerCase();
   if (!BLOCKLIST_VALID.includes(blocklistProfile)) {
     die(1, `set-blocklist: value must be one of: ${BLOCKLIST_VALID.join(' | ')}`);

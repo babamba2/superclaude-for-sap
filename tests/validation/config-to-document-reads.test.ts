@@ -108,16 +108,16 @@ describe('config-to-document — partition past the read cap without fixed value
 
 describe('config-to-document — enhancement BAdI implementing class', () => {
   const base = {
-    SXC_EXIT: [{ IMP_NAME: 'ZSD_CUST_ADD_DATA_CS', EXIT_NAME: 'CUSTOMER_ADD_DATA_CS', FLT_VAL: 'Z1' }],
-    SXC_ATTR: [{ IMP_NAME: 'ZSD_CUST_ADD_DATA_CS', ACTIVE: 'X', UNAME: 'U1', UDATE: '2015-02-06', MIG_ENHNAME: 'ZSD_CUSTOMER_ADD_DAT' }],
-    SXC_CLASS: [{ IMP_NAME: 'ZSD_CUST_ADD_DATA_CS', IMP_CLASS: 'ZCL_IM_SD_CUSTOMER_ADD_DAT' }],
+    SXC_EXIT: [{ IMP_NAME: 'ZSD_DEMO_ADD_DATA_CS', EXIT_NAME: 'CUSTOMER_ADD_DATA_CS', FLT_VAL: 'Z1' }],
+    SXC_ATTR: [{ IMP_NAME: 'ZSD_DEMO_ADD_DATA_CS', ACTIVE: 'X', UNAME: 'U1', UDATE: '2015-02-06', MIG_ENHNAME: 'ZSD_DEMO_ADD_DATA' }],
+    SXC_CLASS: [{ IMP_NAME: 'ZSD_DEMO_ADD_DATA_CS', IMP_CLASS: 'ZCL_IM_SD_DEMO_ADD_DATA' }],
     BADIIMPL_ENH: [
-      { ENHNAME: 'ZSD_CUSTOMER_ADD_DAT', BADI_IMPL: 'ZSD_CUST_ADD_DATA_CS', BADI_NAME: 'CUSTOMER_ADD_DATA_CS', ACTIVE: 'X' },
-      { ENHNAME: 'ZMM_ME_BAPI_PO_CUST', BADI_IMPL: 'ZMM_ME_BAPI_PO_CUST', BADI_NAME: 'ME_BAPI_PO_CUST', ACTIVE: 'X' },
+      { ENHNAME: 'ZSD_DEMO_ADD_DATA', BADI_IMPL: 'ZSD_DEMO_ADD_DATA_CS', BADI_NAME: 'CUSTOMER_ADD_DATA_CS', ACTIVE: 'X' },
+      { ENHNAME: 'ZMM_DEMO_BAPI_PO_CUST', BADI_IMPL: 'ZMM_DEMO_BAPI_PO_CUST', BADI_NAME: 'ME_BAPI_PO_CUST', ACTIVE: 'X' },
       { ENHNAME: 'ZFI_NO_CLASS', BADI_IMPL: 'ZFI_NO_CLASS', BADI_NAME: 'FI_X', ACTIVE: '' },
     ],
     E071: [
-      { TRKORR: 'DEVK900001', PGMID: 'R3TR', OBJECT: 'ENHO', OBJ_NAME: 'ZMM_ME_BAPI_PO_CUST' },
+      { TRKORR: 'DEVK900001', PGMID: 'R3TR', OBJECT: 'ENHO', OBJ_NAME: 'ZMM_DEMO_BAPI_PO_CUST' },
       { TRKORR: 'DEVK900001', PGMID: 'R3TR', OBJECT: 'CLAS', OBJ_NAME: 'ZCL_MM_PO_CUST_TR' },
     ],
     E070: [{ TRKORR: 'DEVK900001', STRKORR: '', AS4USER: 'U2', AS4DATE: '2015-04-16' }],
@@ -126,16 +126,16 @@ describe('config-to-document — enhancement BAdI implementing class', () => {
 
   it('keeps a migrated classic implementation once, with its class', async () => {
     const { impls } = await readBadiImpls(fakeSap({ ...base, ENHOBJ: [] }), names);
-    expect(impls.CUSTOMER_ADD_DATA_CS).toEqual([expect.objectContaining({ name: 'ZSD_CUST_ADD_DATA_CS', kind: 'classic', class: 'ZCL_IM_SD_CUSTOMER_ADD_DAT', enh: 'ZSD_CUSTOMER_ADD_DAT' })]);
+    expect(impls.CUSTOMER_ADD_DATA_CS).toEqual([expect.objectContaining({ name: 'ZSD_DEMO_ADD_DATA_CS', kind: 'classic', class: 'ZCL_IM_SD_DEMO_ADD_DATA', enh: 'ZSD_DEMO_ADD_DATA' })]);
   });
 
   it('takes the class from the enhancement object list first', async () => {
     const ENHOBJ = [
-      { ENHNAME: 'ZMM_ME_BAPI_PO_CUST', VERSION: 'A', OBJ_TYPE: 'ENHS', OBJ_NAME: 'ES_BADI_ME_BAPI' },
-      { ENHNAME: 'ZMM_ME_BAPI_PO_CUST', VERSION: 'A', OBJ_TYPE: 'CLAS', OBJ_NAME: 'ZCL_MM_PO_CUST' },
+      { ENHNAME: 'ZMM_DEMO_BAPI_PO_CUST', VERSION: 'A', OBJ_TYPE: 'ENHS', OBJ_NAME: 'ES_BADI_ME_BAPI' },
+      { ENHNAME: 'ZMM_DEMO_BAPI_PO_CUST', VERSION: 'A', OBJ_TYPE: 'CLAS', OBJ_NAME: 'ZCL_MM_PO_CUST' },
     ];
     const { impls } = await readBadiImpls(fakeSap({ ...base, ENHOBJ }), names);
-    expect(impls.ME_BAPI_PO_CUST[0]).toMatchObject({ name: 'ZMM_ME_BAPI_PO_CUST', kind: 'enh', class: 'ZCL_MM_PO_CUST', user: 'U2', date: '20150416' });
+    expect(impls.ME_BAPI_PO_CUST[0]).toMatchObject({ name: 'ZMM_DEMO_BAPI_PO_CUST', kind: 'enh', class: 'ZCL_MM_PO_CUST', user: 'U2', date: '20150416' });
   });
 
   it('falls back to the transport when the object list cannot be read', async () => {

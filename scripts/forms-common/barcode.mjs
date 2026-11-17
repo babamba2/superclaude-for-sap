@@ -36,7 +36,7 @@ export function barcodeSize(def) {
   const m = /^.(\d{2}).(\d{5})/.exec(String(def?.aux || ''));
   if (!m) return null;
   // the place the text line keeps for it is the SE73 width (TFO05 TDBCSIZE), whatever the bars
-  // take: a right-aligned bar code starts at edge − that width (ZWO_NA_HQ_WARRANTY_RETURN 50 mm)
+  // take: a right-aligned bar code starts at edge − that width (ZSF_DEMO_73 50 mm)
   const w = /([\d.]+)\s*([A-Z]{2})?/i.exec(String(def?.width || ''));
   const f = { MM: 1, CM: 10, IN: 25.4, PT: 25.4 / 72, TW: 25.4 / 1440 }[String(w?.[2] || 'MM').toUpperCase()];
   const layoutMm = w && f ? Number(w[1]) * f : 0; // an unknown unit (CH, LN): the bars' own width

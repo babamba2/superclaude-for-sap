@@ -24,7 +24,7 @@ owner: Team A
 ---
 # Specification: ZDEMO01 — 데모 리포트
 
-- **Type**: Report (ALV 0100) · **Transaction**: ZD01
+- **Type**: Report (ALV 0100) · **Transaction**: ZDEMO_TC1
 - **Package**: ZPKG
 - **Purpose**: 미결 오더를 조회합니다.
 
@@ -36,7 +36,7 @@ owner: Team A
 1. **사용자.** 영업관리자가 사용합니다.
 2. **계산 항목.** 품목마다 다음을 구합니다.
    - 미결수량 = 인콰이어리 수량 − 판매오더 수량
-   - 창고 ATP. ZWH* 유형만 고려합니다.
+   - 창고 ATP. ZDEMO_DT* 유형만 고려합니다.
 3. **후속 문서.** §2 와 §3.1 을 봅니다.
 
 > [!WARNING]
@@ -44,8 +44,8 @@ owner: Team A
 
 | 유형 (P_AUART) | 허용 | 비고 |
 |---|:---:|---:|
-| ZWH1 / ZWH2 | ZINS만 | MR_AUART_WITH_ATP |
-| ZDF1 | ZIN2만 \\| 예외 | \`A\\|B\` 코드 |
+| ZDEMO_DT1 / ZDEMO_DT3 | ZDEMO_DT4만 | MR_AUART_WITH_ATP |
+| ZDEMO_DT6 | ZDEMO_DT5만 \\| 예외 | \`A\\|B\` 코드 |
 
 ## 2. 데이터 모델
 
@@ -202,7 +202,7 @@ describe('importing an edited page', () => {
   it('rewrites only the edited blocks', () => {
     const html: string = mdToHtml(SPEC, { editable: true, version: '1.0' });
     let page = html.replace('<span data-f="">로그 테이블</span></td></tr>',
-      '<span data-f="">로그 테이블</span></td></tr>\n<tr><td><span data-f="">ZNEW</span></td><td><span data-f="">읽기</span></td><td><span data-f="">새 행</span></td></tr>');
+      '<span data-f="">로그 테이블</span></td></tr>\n<tr><td><span data-f="">ZDEMO_TAB2</span></td><td><span data-f="">읽기</span></td><td><span data-f="">새 행</span></td></tr>');
     page = edit(page, '<span data-f="">로그 테이블</span>', '<span data-f="">감사 로그 <strong>테이블</strong> | 보관</span>');
     page = edit(page, '<span data-f="">DB 직접 쓰기는 없습니다.', '<span data-f="">DB 쓰기는 <em>없습니다</em>.');
     page = edit(page, /<li><span data-f="">5 &lt; 6[\s\S]*?<\/li>/.exec(page)![0], '');
@@ -224,11 +224,11 @@ describe('importing an edited page', () => {
       '- **Package**: ZPKG_NEW',
       'DB 쓰기는 *없습니다*. 모든 문서는 `BAPI_TRANSACTION_COMMIT WAIT=\'X\'`로 커밋합니다.',
       '| ZSDT0001 | 쓰기 | 감사 로그 **테이블** \\| 보관 |',
-      '| ZNEW | 읽기 | 새 행 |',
+      '| ZDEMO_TAB2 | 읽기 | 새 행 |',
     ]);
     expect(res.changed).toEqual(expect.arrayContaining(['facts']));
     // The rest of the fact list and the untouched table rows keep their exact source lines.
-    expect(res.md).toContain('- **Type**: Report (ALV 0100) · **Transaction**: ZD01\n- **Package**: ZPKG_NEW\n- **Purpose**');
+    expect(res.md).toContain('- **Type**: Report (ALV 0100) · **Transaction**: ZDEMO_TC1\n- **Package**: ZPKG_NEW\n- **Purpose**');
     expect(res.md).toContain('| Table | 접근 | 목적 |\n|---|---|---|\n| **VBAK / VBAP** | 읽기 | 판매오더 헤더와 품목 |');
   });
 

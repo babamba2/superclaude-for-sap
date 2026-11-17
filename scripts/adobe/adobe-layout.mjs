@@ -9,7 +9,7 @@
 //   report: { approximations: [], unbound: [], overflow: [], pages }
 //
 // Covered (layout-subset.md): pageSet / pageArea (occur, master content) / contentArea; subform layouts position,
-// tb, lr-tb (as tb), table / row (columnWidths, colSpan); occur min / max with data, implicit [*] instances,
+// tb, lr-tb (lines; a width-less line broken over pages), table / row (columnWidths, colSpan); occur min / max with data, implicit [*] instances,
 // overflowLeader, break before / after (pageArea, contentArea), keep intact; field / draw: font, para (hAlign incl.
 // radix, vAlign, spaceAbove / Below, margins, textIndent, lineHeight), margin, caption (left / right / top / bottom,
 // reserve), border (edges, fill), value types with pictures (picture.mjs), rich text (xhtml p / span / br, embedded
@@ -18,7 +18,7 @@
 import { kids, kid, textOf, unit } from './read-adobe.mjs';
 import { formatValue, LOCALES } from './picture.mjs';
 import { runScripts } from './formcalc.mjs';
-import { textWidthMm, VMETRICS } from '../forms-common/metrics.mjs';
+import { faceVMetrics, textWidthMm, VMETRICS } from '../forms-common/metrics.mjs';
 
 const PT = 25.4 / 72;
 const LEGACY_VINSET = 25.4 / 32; // XFA 2.1 field values: 1/32 inch above and below the text
@@ -52,7 +52,7 @@ function collectIds(el, ids = new Map()) {
 function fontOf(el) {
   const f = prop(el, 'font');
   return {
-    face: attr(f, 'typeface', 'Arial'),
+    face: attr(f, 'typeface', 'Courier'),
     pt: Math.round((unit(attr(f, 'size', '10pt'), 10 * PT) / PT) * 1000) / 1000,
     bold: attr(f, 'weight', 'normal') === 'bold',
     italic: attr(f, 'posture', 'normal') === 'italic',
@@ -308,7 +308,14 @@ function runFont(base, st) {
   if (st['font-family']) f.face = st['font-family'].replace(/['"]/g, '').split(',')[0].trim();
   if (st.color) f.color = st.color;
   if (st['text-decoration']) f.underline = /underline/.test(st['text-decoration']);
-  if (st['vertical-align']) f.valign = /super|top/.test(st['vertical-align']) ? 'super' : /sub|bottom/.test(st['vertical-align']) ? 'sub' : '';
+  // keywords, or a length as SAP's runtime writes super- / subscript ("+6pt" up, "-6pt" down)
+  // (moved by exactly that length: FP_TEST_01 ±2.12 mm)
+  if (st['vertical-align']) {
+    const va = st['vertical-align'].trim();
+    const len = /^[+-]?\d/.test(va) ? unit(va.replace(/^\+/, ''), 0) : 0;
+    f.valign = len > 0 || /super|top/.test(va) ? 'super' : len < 0 || /sub|bottom/.test(va) ? 'sub' : '';
+    f.vlen = len || undefined;
+  }
   if (st.visibility) f.hidden = /hidden/.test(st.visibility);
   return f;
 }
@@ -334,8 +341,18 @@ function dataParagraphs(rich, font) {
     const st = parseStyle(p.style);
     const f = runFont(font, st);
     const runs = [];
-    String(p.text).split('\n').forEach((piece, i) => { if (i) runs.push({ br: true, font: f }); runs.push({ text: piece, font: f }); });
-    return { runs, st };
+    // '\t' (SAPscript ",,") steps to the paragraph's tab stops, as xfa-tab-count does in SAP's XHTML; spans (character
+    // formats) carry their own CSS on top of the paragraph's
+    const spans = Array.isArray(p.spans) && p.spans.length ? p.spans : [{ text: p.text, style: '' }];
+    for (const sp of spans) {
+      const sf = sp.style ? runFont(f, parseStyle(sp.style)) : f;
+      String(sp.text).split('\n').forEach((piece, i) => {
+        if (i) runs.push({ br: true, font: sf });
+        piece.split('\t').forEach((seg, k) => { if (k) runs.push({ tab: true, text: '', font: sf }); if (seg || !k) runs.push({ text: seg, font: sf }); });
+      });
+    }
+    const tabs = st['tab-stops'] ?? st['tab-stop'];
+    return { runs, st, ...(tabs ? { tabs: tabStops(tabs) } : {}) };
   });
 }
 
@@ -343,21 +360,27 @@ function dataParagraphs(rich, font) {
 function richParagraphs(body, font, para, lookup) {
   const paras = [];
   let cur = null;
-  const startPara = (st) => { cur = { runs: [], st, tabs: tabStops(st['tab-stop']) }; paras.push(cur); };
+  // SAP's migration writes the stops as 'tab-stops' (EX14: 'left 3.50cm' puts the value 35 mm in)
+  const startPara = (st) => { cur = { runs: [], st, tabs: tabStops(st['tab-stop'] ?? st['tab-stops']), html: true }; paras.push(cur); };
   const walk = (el, f, hard) => {
     for (const c of el.children || []) {
       if (c.tag === '#text') {
         // xfa-spacerun:yes keeps its blanks (as no-break spaces); other white space collapses to one blank
         const t = hard ? c.text.replace(/ /g, ' ') : c.text.replace(/[ \t\r\n]+/g, ' ');
         if (!cur) { if (!t.replace(/ /g, '')) continue; startPara({}); }
-        cur.runs.push({ text: t, font: f });
+        // white space with a line break or tab is source formatting; a plain blank is text (it may lead a line)
+        cur.runs.push({ text: t, font: f, ...(!hard && /[\t\r\n]/.test(c.text) ? { fmt: true } : {}) });
         continue;
       }
       const tag = c.tag.replace(/^.*:/, '');
       const st = parseStyle(c.attrs?.style);
       if (tag === 'p' || tag === 'div' || tag === 'li') {
         startPara(st);
+        const own = cur, at = paras.length;
         walk(c, runFont(f, st), false);
+        // a block that only wraps other blocks prints no line of its own (ADS: <div><div>a</div><div>b</div></div>
+        // is two lines, measured on the calibration form)
+        if (!own.runs.length && paras.length > at) paras.splice(at - 1, 1);
         cur = null;
       } else if (tag === 'br') {
         if (!cur) startPara({});
@@ -370,7 +393,13 @@ function richParagraphs(body, font, para, lookup) {
         walk(c, runFont(f, st), hard);
       } else if (tag === 'span' && (c.attrs['xfa:embed'] || c.attrs.embed)) {
         if (!cur) startPara({});
-        cur.runs.push({ text: lookup(String(c.attrs['xfa:embed'] || c.attrs.embed)), font: runFont(f, st), embed: true });
+        // a formatted embed (no embedMode, SAP's migration) prints in its field's own font (EX14 / EX10: Courier 10 pt
+        // values in Courier 12 / Arial 10 runs); embedMode="raw" in the run's font (calibration 2: Arial 10 → Helvetica
+        // 10); the run's font when the field is not found
+        const v = lookup(String(c.attrs['xfa:embed'] || c.attrs.embed));
+        const raw = String(c.attrs['xfa:embedMode'] || c.attrs.embedMode || '') === 'raw';
+        const ef = v && typeof v === 'object' && !raw ? v.font : null;
+        cur.runs.push({ text: v && typeof v === 'object' ? v.text : v, font: ef ? { ...runFont(f, st), face: ef.face, pt: ef.pt, bold: ef.bold, italic: ef.italic } : runFont(f, st), embed: true, ...(v?.datePic ? { datePic: true } : {}) });
       } else if (tag === 'b') walk(c, { ...runFont(f, st), bold: true }, hard);
       else if (tag === 'i') walk(c, { ...runFont(f, st), italic: true }, hard);
       else walk(c, runFont(f, st), hard || /yes/i.test(st['xfa-spacerun'] || ''));
@@ -388,10 +417,11 @@ function richParagraphs(body, font, para, lookup) {
       if (prev && / $/.test(prev.text)) r.text = r.text.replace(/^ +/, '');
     });
   }
-  // trim the collapsible blanks HTML white space adds at paragraph starts / ends
+  // trim the collapsible blanks HTML white space adds at paragraph starts / ends; a blank typed into the text
+  // at a paragraph start stays (EX10: "<span> <span xfa:embed/></span>" prints the value one blank in)
   for (const p of paras) {
-    while (p.runs.length && !p.runs[0].br && !p.runs[0].embed && !p.runs[0].tab && !p.runs[0].text.replace(/ /g, '')) p.runs.shift();
-    if (p.runs[0] && p.runs[0].text) p.runs[0] = { ...p.runs[0], text: p.runs[0].text.replace(/^ +/, '') };
+    while (p.runs.length && !p.runs[0].br && !p.runs[0].embed && !p.runs[0].tab && !p.runs[0].text.replace(/ /g, '') && (p.runs[0].fmt || !p.runs[0].text)) p.runs.shift();
+    if (p.runs[0] && p.runs[0].text && p.runs[0].fmt) p.runs[0] = { ...p.runs[0], text: p.runs[0].text.replace(/^ +/, '') };
     const l = p.runs[p.runs.length - 1];
     if (l && l.text) p.runs[p.runs.length - 1] = { ...l, text: l.text.replace(/ +$/, '') };
   }
@@ -420,7 +450,7 @@ function wrapParagraphs(paras, width0, wrap) {
     const push = () => { lines.push(line); line = { runs: [], w: 0, para: p, first: false }; };
     for (const r of p.runs) {
       line.font0 = line.font0 || r.font;
-      if (r.br) { trimTail(line); push(); line.font0 = r.font; continue; }
+      if (r.br) { trimTail(line); line.hard = true; push(); line.font0 = r.font; continue; }
       if (r.tab) {
         // the tab takes the room up to the next stop (exact alignment of right / centre / decimal stops is done
         // when the line is placed); past the last stop the default distance
@@ -453,12 +483,14 @@ function wrapParagraphs(paras, width0, wrap) {
           continue;
         }
         const prev = line.runs[line.runs.length - 1];
-        if (prev && !prev.tab && prev.font === r.font && !!prev.embed === !!r.embed) prev.text += w; else line.runs.push({ text: w, font: r.font, ...(r.embed ? { embed: true } : {}) });
+        if (prev && !prev.tab && prev.font === r.font && !!prev.embed === !!r.embed && !!prev.datePic === !!r.datePic) prev.text += w;
+        else line.runs.push({ text: w, font: r.font, ...(r.embed ? { embed: true } : {}), ...(r.datePic ? { datePic: true } : {}) });
         line.w += ww;
       }
     }
     trimTail(line);
-    lines.push(line);
+    // XHTML: a <br/> that ends a block opens no line of its own (EX14: "Invoice<br/><br/>" is two lines)
+    if (!(p.html && !line.runs.length && !line.first && p.runs[p.runs.length - 1]?.br)) lines.push(line);
   }
   return lines;
 }
@@ -467,7 +499,9 @@ function wrapParagraphs(paras, width0, wrap) {
 function valueInfo(t) {
   const v = prop(t, 'value');
   const c = kids(v)[0];
-  if (!c) return { type: 'text' };
+  // a field without a <value> whose UI is numericEdit holds a number (ADS prints 830.50 as "830.5", 8901300 as
+  // "8,901,300": the locale's default number pattern, no fixed fraction digits — FP_TEST_COUNT)
+  if (!c) return t?.tag === 'field' && uiOf(t).kind === 'numericEdit' ? { type: 'float', fracDigits: -2 } : { type: 'text' };
   const type = c.tag;
   return { type, el: c, fracDigits: c.attrs?.fracDigits !== undefined ? Number(c.attrs.fracDigits) : undefined, maxChars: c.attrs?.maxChars !== undefined ? Number(c.attrs.maxChars) : undefined };
 }
@@ -507,7 +541,8 @@ function contentOf(n, ctx) {
   const lookup = ctx.lookupEmbed;
   if (vi.type === 'image') return { image: true, vi, data: n.kind === 'field' && n.data ? n.data.value : undefined };
   if (vi.type === 'exData' && !(n.kind === 'field' && n.data && !n.data.rich && n.data.value !== undefined)) {
-    let body = kids(vi.el).find((x) => /body$/.test(x.tag));
+    // XHTML rich text: a <body>, or (SAP's SmartForm migration) the <div> paragraphs straight under exData
+    let body = kids(vi.el).find((x) => /body$/.test(x.tag)) || (kids(vi.el).some((x) => /(^|:)(div|p|span)$/.test(x.tag)) ? vi.el : null);
     if (n.kind === 'field' && n.data?.rich) return { paras: dataParagraphs(n.data.rich, font), font, para, vi, rich: true };
     if (n.over.rawValue !== undefined) return { paras: [{ runs: [{ text: String(n.over.rawValue), font }], st: {} }], font, para, vi };
     if (!body) return { paras: [], font, para, vi };
@@ -530,6 +565,9 @@ function contentOf(n, ctx) {
   return { paras, font, para, vi, text };
 }
 
+const ownAbove = (st) => st['margin-top'] !== undefined || st['space-before'] !== undefined;
+const ownBelow = (st) => st['margin-bottom'] !== undefined || st['space-after'] !== undefined;
+
 /** Lines and block height of content for an inner width. */
 function shapeText(content, width, multi, factor = VMETRICS.line) {
   const { font, para } = content;
@@ -543,22 +581,63 @@ function shapeText(content, width, multi, factor = VMETRICS.line) {
     // Arial (TrueType) lines are 1.15 em; the PDF standard Helvetica (Type 1, no line gap) 1.2 em
     const st = l.para.st || {};
     // a paragraph's own CSS line-height (SAP's migration: the SmartStyle line spacing) wins
+    // XFA 2.4+ draws / rich text: Courier 1.2 em, Times 1.111 em, Arial and Helvetica alike 1.1376 em (calibration form)
+    const natOf = (fc, p) => (factor === VMETRICS.richLine ? (faceVMetrics(fc).line ?? factor) : /^helvetica$/i.test(fc) ? 1.2 : factor) * p * PT;
+    const nat = natOf(face(l), pt);
+    // the paragraph font counts for a CSS line-height on every line but the draw's last (see cssBox)
+    const pf = runFont(font, st);
+    // a run of blanks counts too (H1: an Arial 10 pt blank before a Courier 10 pt value sets the Arial ascent)
+    const shown = l.runs.filter((r) => !r.br && !r.tab && (r.embed || String(r.text || '') !== ''));
+    const mfonts = shown.length ? shown.map((r) => r.font) : [l.font0 || font];
     const lh = st['line-height'] && unit(st['line-height'], 0) > 0 ? unit(st['line-height'])
-      : para.lineHeight > 0 ? para.lineHeight : (/^helvetica$/i.test(face(l)) ? 1.2 : factor) * pt * PT;
-    const above = l.first ? (st['margin-top'] ? unit(st['margin-top']) : 0) + (st['space-before'] ? unit(st['space-before']) : 0) + (i > 0 || para.spaceAbove ? para.spaceAbove : 0) : 0;
+      : para.lineHeight > 0 ? para.lineHeight : nat;
+    // a paragraph's own CSS spacing replaces the draw's <para> spacing (FP_EXAMPLE_01: margin-bottom 6pt with
+    // <para spaceBelow="6pt"> is one 6 pt gap in ADS, not two)
+    const above = l.first ? (ownAbove(st) ? (st['margin-top'] ? unit(st['margin-top']) : 0) + (st['space-before'] ? unit(st['space-before']) : 0) : (i > 0 || para.spaceAbove ? para.spaceAbove : 0)) : 0;
     h += above;
-    out.push({ ...l, pt, top: h, lh });
+    // a date-pictured value alone on its line (no typed text, not even a blank) adds 0.15 em of its font above the
+    // line (calibration 5: static picture or script alike); next to a typed label it adds nothing (calibration 3 H6:
+    // "Date" + tab + SY.DATUM)
+    const dated = shown.every((r) => r.embed) ? shown.filter((r) => r.datePic) : [];
+    const lift = dated.length ? Math.max(...dated.map((r) => r.font.pt)) * 0.15 * PT : 0;
+    out.push({ ...l, pt, top: h, lh, nat, face: face(l), ...(st['line-height'] && unit(st['line-height'], 0) > 0 ? { css: true, pf, mfonts, lift } : {}) });
     h += lh;
     const lastOfPara = i === lines.length - 1 || lines[i + 1].para !== l.para;
     if (lastOfPara) {
-      h += (st['margin-bottom'] ? unit(st['margin-bottom']) : 0) + (st['space-after'] ? unit(st['space-after']) : 0);
-      h += para.spaceBelow;
+      h += ownBelow(st) ? (st['margin-bottom'] ? unit(st['margin-bottom']) : 0) + (st['space-after'] ? unit(st['space-after']) : 0) : para.spaceBelow;
     }
   });
   // spacing after the last paragraph: part of the height, not of the text block
   const last = lines[lines.length - 1];
-  const after = last ? para.spaceBelow + (last.para.st?.['margin-bottom'] ? unit(last.para.st['margin-bottom']) : 0) + (last.para.st?.['space-after'] ? unit(last.para.st['space-after']) : 0) : 0;
+  const lst = last?.para.st || {};
+  const after = last ? (ownBelow(lst) ? (lst['margin-bottom'] ? unit(lst['margin-bottom']) : 0) + (lst['space-after'] ? unit(lst['space-after']) : 0) : para.spaceBelow) : 0;
   return { lines: out, h, after };
+}
+
+/** A line under a CSS line-height L (XFA 2.4+), from its fonts — the runs it shows, plus the paragraph font on every
+ *  line but the draw's last: n = the largest natural pitch, a / floor / c = the largest ascent / ascender / ascent +
+ *  descent. L up to 1.25 n moves the text by L − n (down to the ascender) and the box by as much; a larger L is
+ *  not applied to the line (calibration rounds 1–3: Arial 10 pt at 4.23 mm +0.22 mm; Arial 12 pt at 4.23 mm a
+ *  3.38 mm box; Arial 8 pt at 4.23 mm and Arial 10 pt at 6 mm as without; the last line of a Courier 12 pt
+ *  paragraph sits on its runs alone — C5, H6). A date-pictured value alone on its line lowers the text and grows
+ *  the box by l.lift (0.15 em: round 4 / 5, EX10 FLDATE 7.58 mm rows vs 7.05 mm without the picture; a num picture
+ *  adds nothing; with a typed label on the line nothing — round 3 H6).
+ *  → { b: baseline below the line top, h: box height } */
+function cssBox(l, last) {
+  const fonts = last ? l.mfonts : [...l.mfonts, l.pf];
+  let n = 0, a = 0, floor = 0, c = 0;
+  for (const f of fonts) {
+    const fm = faceVMetrics(f.face);
+    const e = f.pt * PT;
+    n = Math.max(n, (fm.line ?? VMETRICS.richLine) * e);
+    a = Math.max(a, fm.ascent * e);
+    floor = Math.max(floor, fm.floor * e);
+    c = Math.max(c, (fm.content ?? fm.ascent + VMETRICS.descent) * e);
+  }
+  const lift = l.lift || 0;
+  if (l.lh > 1.25 * n) return { b: a + lift, h: c + lift };
+  const extra = l.lh - n;
+  return { b: Math.max(a + extra, floor) + lift, h: c + extra + lift };
 }
 
 /** Height of a text block: line steps to the last line, which counts to its descent only. */
@@ -566,10 +645,20 @@ function blockHeight(shape) {
   const lines = shape?.lines || [];
   if (!lines.length) return 0;
   const last = lines[lines.length - 1];
-  return shape.h - (shape.after || 0) - last.lh + (VMETRICS.ascent + VMETRICS.descent) * last.pt * PT;
+  const lastH = last.css && last.mfonts ? cssBox(last, true).h : (VMETRICS.ascent + VMETRICS.descent) * last.pt * PT;
+  return shape.h - (shape.after || 0) - last.lh + lastH;
 }
 
 /** XFA template version of a template element (xmlns …/xfa-template/2.1/ → 2.1). */
+/** A layout item moved down by dy mm (text, image and rect y; line y1 / y2). */
+function shiftItem(it, dy) {
+  const o = { ...it };
+  if (o.y !== undefined) o.y += dy;
+  if (o.y1 !== undefined) o.y1 += dy;
+  if (o.y2 !== undefined) o.y2 += dy;
+  return o;
+}
+
 function templateVersion(t) {
   const m = /xfa-template\/(\d+)\.(\d+)/.exec(String(t?.attrs?.xmlns || ''));
   return m ? Number(m[1]) + Number(m[2]) / 10 : 2.8;
@@ -632,7 +721,14 @@ class Layout {
     this.report = { approximations: [], unbound: [], overflow: [], pages: 0 };
     this.lookupEmbed = (ref, n) => this.embed(ref, n);
     this.version = templateVersion(template);
-    this.legacy = this.version < 2.4;
+    // XFA 2.1 (Designer 6) lays text out in 1.15 em line boxes; 2.2 (SAP's SmartForm migration) already
+    // follows the 2.4+ rules (EX14: first baselines and pitches as on the 2.8 calibration form)
+    this.legacy = this.version < 2.2;
+    // a template Designer upgraded from XFA 2.1 (<?originalXFAVersion …/2.1/?>) keeps a field's value 1 pt off its
+    // left and right edge (FP_TEST_01: every include-text line 0.35 mm right, right-aligned Courier lines wrap one
+    // word earlier)
+    this.edgePt = !this.legacy && templateVersion({ attrs: { xmlns: (template?.pi || []).find((p) => /^originalXFAVersion/.test(p)) || '' } }) < 2.2
+      && (template?.pi || []).some((p) => /^originalXFAVersion/.test(p));
   }
 
   embed(ref, n) {
@@ -640,9 +736,13 @@ class Layout {
     const id = r.replace(/^#/, '');
     const hit = (!r.startsWith('#') && this.somFind(r, n)) || this.byTemplateId?.get(id) || this.findField(id, n);
     if (!hit) return '';
-    if (hit.over.rawValue !== undefined) return String(hit.over.rawValue);
-    const c = contentOf(hit, this);
-    return c.text ?? '';
+    // a SOM-path embed (SAP's migration) prints in the field's font; a Designer floating field (#id) in the paragraph's
+    const font = hit.kind === 'field' && !r.startsWith('#') ? fontOf(hit.t) : null;
+    const text = hit.over.rawValue !== undefined ? String(hit.over.rawValue) : (contentOf(hit, this).text ?? '');
+    // a value shown through a date picture (template <format> or an initialize script's $.format.picture) sits
+    // lower in its line (cssBox; calibration 4 / 5: EX10 FLDATE)
+    const datePic = text !== '' && /^\s*date\{/i.test(String(hit.over.picture ?? pictureOf(hit.t, 'format') ?? '').split('|')[0]);
+    return font ? { text, font, ...(datePic ? { datePic: true } : {}) } : text;
   }
 
   /** A relative SOM path (SAP's migration: <span xfa:embed="WA_BOOKING.FORCURAM"/>) from the node's parent up. */
@@ -711,7 +811,7 @@ class Layout {
         const tw = Math.max(0, ...one.lines.map((l) => l.w));
         w = Math.min(maxW, Math.max(minW, tw + m.l + m.r + capW + um.l + um.r + content.para.marginLeft + content.para.marginRight));
       }
-      const innerW = w - m.l - m.r - capW - um.l - um.r;
+      const innerW = w - m.l - m.r - capW - um.l - um.r - (this.edgePt && n.kind === 'field' ? 2 * PT : 0);
       if (!content.image) { n.shape = shapeText(content, innerW, multi, this.pitch(n, content)); n.shape.rich = !!content.rich; }
       let h = fixedH;
       if (h === null) {
@@ -746,6 +846,30 @@ class Layout {
     } else if (layout === 'row') {
       this.measureRow(n, n.parentCols || [], innerAvail);
       return n;
+    } else if ((layout === 'lr-tb' || layout === 'rl-tb') && innerAvail > 0) {
+      // western flow: children left to right, a child that does not fit on the line starts the next line
+      // (ADS puts a 16 cm block next to a narrower one when the line has room)
+      let x = 0, y = 0, rowH = 0, maxLine = 0;
+      const line = [];
+      const close = () => {
+        if (layout === 'rl-tb') { let rx = innerAvail; for (const c of line) { rx -= c.w; c.rx = rx; } }
+        y += rowH; x = 0; rowH = 0; line.length = 0;
+      };
+      // a container without a width grows sideways instead of wrapping (EX14: the SmartForm MAIN window, lr-tb
+      // without w, prints its 16 cm table to the right of its 16 cm intro text — off the page)
+      const wraps = fixedW !== null || maxW !== Infinity;
+      for (const c of vis) {
+        this.measure(c, wraps ? innerAvail - x : innerAvail);
+        if (wraps && x > 0 && x + c.w > innerAvail + 0.01) { close(); this.measure(c, innerAvail); }
+        c.rx = x; c.ry = y;
+        line.push(c);
+        x += c.w;
+        maxLine = Math.max(maxLine, x);
+        rowH = Math.max(rowH, c.h);
+      }
+      close();
+      if (w === null) w = Math.max(minW, Math.min(maxW, maxLine + m.l + m.r));
+      n.contentH = y;
     } else if (layout === 'tb' || layout === 'lr-tb' || layout === 'rl-tb') {
       let y = 0, maxw = 0;
       for (const c of vis) {
@@ -766,6 +890,15 @@ class Layout {
         c.rx = ax; c.ry = ay;
         maxx = Math.max(maxx, ax + c.w);
         maxy = Math.max(maxy, ay + c.h);
+      }
+      // a hidden field still takes a box of one em of its font in a positioned subform (EX14: a subform with only
+      // hidden fields pushes the next block of the lr-tb flow 3.5 mm down — Courier 10 pt); not in a flow
+      for (const c of all) {
+        if (vis.includes(c) || c.kind !== 'field' || c.presence !== 'hidden') continue;
+        const [ax, ay] = this.anchor(c);
+        const e = fontOf(c.t).pt * PT;
+        maxx = Math.max(maxx, ax + e);
+        maxy = Math.max(maxy, ay + e);
       }
       if (w === null) w = Math.max(minW, Math.min(maxW, maxx + m.l + m.r));
       n.contentH = maxy;
@@ -796,10 +929,14 @@ class Layout {
     let x = 0, ci = 0, h = 0;
     for (const c of vis) {
       const span = Number(attr(c.t, 'colSpan', '1'));
-      let cw = 0;
+      let cw = 0, got = 0;
       const take = span < 0 ? cols.length - ci : span;
-      for (let k = 0; k < take && ci < cols.length; k++, ci++) cw += Math.max(0, cols[ci]);
-      if (!take || ci > cols.length) cw = c.w || 0;
+      for (let k = 0; k < take && ci < cols.length; k++, ci++, got++) cw += Math.max(0, cols[ci]);
+      // no column width left (a table without columnWidths, as SAP's migration writes it): the cell's own width
+      if (!take || !got) {
+        const own = attr(c.t, 'w');
+        cw = own !== undefined ? unit(own) : (this.measure(c, avail - x), c.w || 0);
+      }
       // a cell takes its column's width
       const saved = c.t.attrs.w;
       c.t = { ...c.t, attrs: { ...c.t.attrs, w: `${cw}mm` } };
@@ -879,6 +1016,14 @@ class Layout {
     return t;
   }
 
+  /** XFA 2.4+ baseline below a line's top: the face's ascent (Courier and Times sit higher than Arial); under a CSS
+   *  line-height the line's fonts decide (cssBox). */
+  lineAscent(l, sansAsc, last) {
+    if (l.css && l.mfonts) return cssBox(l, last).b;
+    const fm = faceVMetrics(l.face);
+    return fm === faceVMetrics('') ? sansAsc : fm.ascent * l.pt * PT;
+  }
+
   placeLines(shape, para, cx, cy, cw, ch, items, n, multi, caption = false) {
     if (!shape || !shape.lines.length) return;
     const lines = shape.lines;
@@ -901,13 +1046,15 @@ class Layout {
       // XFA 2.4+: one line = ascent + descent; a plain multi-line field starts one line gap lower
       const blockH = blockHeight(shape);
       const lead = n?.kind === 'field' && n.ui?.multiLine && !shape.rich && !caption ? VMETRICS.gap * em : 0;
-      // text taller than its box starts at the top (measured: a two-line caption in a smaller reserve)
-      if (para.vAlign === 'middle') top = cy + Math.max(0, (ch - blockH) / 2);
+      // text taller than its box starts at the top (measured: a two-line caption in a smaller reserve); the
+      // pieces of a field split over pages align per piece (layout flow, f.shift)
+      if (this.splitPiece && n?.kind === 'field' && !caption) top = cy + lead;
+      else if (para.vAlign === 'middle') top = cy + Math.max(0, (ch - blockH) / 2);
       else if (para.vAlign === 'bottom') top = cy + Math.max(0, ch - blockH);
       else top = cy + lead;
     }
     // legacy fields keep their value 1 pt off the left and right edge
-    if (this.legacy && n?.kind === 'field' && !caption) { cx += PT; cw -= 2 * PT; }
+    if ((this.legacy || this.edgePt) && n?.kind === 'field' && !caption) { cx += PT; cw -= 2 * PT; }
     const som = this.som(n);
     // labels for the score: a field value (or a line with embedded field values), a repeated row
     const row = repeated(n);
@@ -915,16 +1062,27 @@ class Layout {
       const role = (n?.kind === 'field' && !caption) || l.runs.some((r) => r.embed) ? 'field' : 'fixed';
       const text = l.runs.map((r) => r.text).join('');
       if (!text.trim()) continue;
-      const baseline = top + l.top + (l === first ? asc : (this.legacy ? asc / em * l.pt * PT : VMETRICS.ascent * l.pt * PT));
-      const pst = l.para.st || {};
+      const baseline = top + l.top + (this.legacy ? (l === first ? asc : asc / em * l.pt * PT) : this.lineAscent(l, l === first ? asc : VMETRICS.ascent * l.pt * PT, l === lines[lines.length - 1]));
+      // a rich line of embedded values only (no typed text, not even a blank) starts at the content's left edge:
+      // ADS leaves out the paragraph's CSS margins and text-align (calibration 4 / 5: EX10 FLDATE centred, PRICE
+      // right-aligned, CURRENCY margin-left 0.71 mm all print at the cell edge; one typed blank or letter before the
+      // value brings margin and alignment back — X1, X2)
+      const embedOnly = !this.legacy && l.runs.some((r) => r.embed) && l.runs.every((r) => r.embed || (!r.tab && !r.text));
+      const pst = embedOnly ? {} : l.para.st || {};
       const pml = pst['margin-left'] ? unit(pst['margin-left']) : 0, pmr = pst['margin-right'] ? unit(pst['margin-right']) : 0;
       const avail = cw - para.marginLeft - para.marginRight - pml - pmr - (l.first ? para.textIndent : 0);
       let x = cx + para.marginLeft + pml + (l.first ? para.textIndent : 0);
       const left0 = x;
       const lead0 = l.runs[0]?.text.match(/^ */)[0] || '';
       const lw = l.w;
-      const st = l.para.st || {};
-      const align = st['text-align'] || para.hAlign;
+      const align = (embedOnly ? undefined : (l.para.st || {})['text-align']) || para.hAlign;
+      // justified (SmartStyle BLOCK → text-align justify): every line but a paragraph's last and a line ended by a
+      // line break spreads its word gaps to the full width (FP_TEST_01 paragraph AB); lines with tabs stay as they are
+      const li = lines.indexOf(l);
+      const lastLine = li === lines.length - 1 || lines[li + 1].para !== l.para || l.hard;
+      const inner = text.replace(/^[  ]+|[  ]+$/g, '');
+      const gaps = (inner.match(/[  ]/g) || []).length;
+      const ws = align === 'justify' && !lastLine && gaps && avail > lw && !l.runs.some((r) => r.tab) ? (avail - lw) / gaps : 0;
       if (align === 'right') x += avail - lw;
       else if (align === 'center') x += (avail - lw) / 2;
       else if (align === 'radix') {
@@ -936,16 +1094,18 @@ class Layout {
         x = cx + cw - para.radixOffset - textWidthMm(intPart, f0.pt, { bold: f0.bold, face: f0.face });
       }
       let rx = x;
+      let started = false;
       const merged = [];
       for (const r of l.runs) {
         const prev = merged[merged.length - 1];
         if (r.tab) { merged.push({ tab: true, text: '', font: r.font, stop: r.stop }); continue; }
-        if (prev && !prev.tab && prev.font.pt === r.font.pt && !!prev.font.hidden === !!r.font.hidden && (prev.font.valign || '') === (r.font.valign || '') && prev.font.bold === r.font.bold && prev.font.italic === r.font.italic && prev.font.face === r.font.face && prev.font.color === r.font.color && !!prev.font.underline === !!r.font.underline) prev.text += r.text;
+        if (prev && !prev.tab && prev.font.pt === r.font.pt && !!prev.font.hidden === !!r.font.hidden && (prev.font.valign || '') === (r.font.valign || '') && prev.font.vlen === r.font.vlen && prev.font.bold === r.font.bold && prev.font.italic === r.font.italic && prev.font.face === r.font.face && prev.font.color === r.font.color && !!prev.font.underline === !!r.font.underline) prev.text += r.text;
         else merged.push({ text: r.text, font: r.font });
       }
       for (let mi = 0; mi < merged.length; mi++) {
         const r = merged[mi];
         if (r.tab) {
+          started = true;
           // the text up to the next tab is aligned on the stop: left starts, right / centre end / centre there,
           // decimal puts the radix there; text already past a stop is not pulled back
           const seg = [];
@@ -966,16 +1126,24 @@ class Layout {
           continue;
         }
         const piece = r.text;
-        const pw = textWidthMm(piece, r.font.pt, { bold: r.font.bold, face: r.font.face });
         const trimmed = piece.replace(/^ +/, '');
         const skip = piece.length - trimmed.length;
-        const sx = rx + textWidthMm(piece.slice(0, skip), r.font.pt, { bold: r.font.bold, face: r.font.face });
-        if (r.font.valign) this.report.approximations.push(`${r.font.valign}script text: raised / lowered by 1/3 em (not measured)`);
-        const vshift = r.font.valign === 'super' ? -0.33 * r.font.pt * PT : r.font.valign === 'sub' ? 0.2 * r.font.pt * PT : 0;
-        if (trimmed.trim() && !r.font.hidden) items.push({ type: 'text', x: sx, y: baseline + vshift, text: trimmed.replace(/ +$/, '').replace(/ /g, ' '), pt: r.font.pt, bold: r.font.bold, italic: r.font.italic, font: r.font.face, color: r.font.color, som, ...(n?.data?.field ? { bind: n.data.field } : {}), role, ...(row ? { row: true } : {}), lines: lines.length });
+        // blanks that lead a line are half an em each in ADS (calibration form: 10 / 20 blanks, Arial 10 pt →
+        // 17.64 / 35.28 mm; EX10: one blank before a value), not the font's 0.278 em; Courier keeps its 0.6 em, a
+        // field value its font's blanks (FP_TEST_03: padded amounts)
+        const leadW = (k) => (!started && n?.kind !== 'field' && !/courier/i.test(r.font.face) ? k * 0.5 * r.font.pt * PT : textWidthMm(' '.repeat(k), r.font.pt, { bold: r.font.bold, face: r.font.face }));
+        const lastPiece = !merged.slice(mi + 1).some((q) => !q.tab && q.text.trim());
+        const gapsIn = ws ? ((lastPiece ? trimmed.replace(/[  ]+$/, '') : trimmed).match(/[  ]/g) || []).length + (started ? skip : 0) : 0;
+        const pw = textWidthMm(trimmed, r.font.pt, { bold: r.font.bold, face: r.font.face }) + leadW(skip) + gapsIn * ws;
+        const sx = rx + leadW(skip) + (started ? skip * ws : 0);
+        if (trimmed) started = true;
+        if (r.font.valign && !r.font.vlen) this.report.approximations.push(`${r.font.valign}script text: raised / lowered by 1/3 em (not measured)`);
+        const vshift = r.font.vlen ? -r.font.vlen : r.font.valign === 'super' ? -0.33 * r.font.pt * PT : r.font.valign === 'sub' ? 0.2 * r.font.pt * PT : 0;
+        if (trimmed.trim() && !r.font.hidden) items.push({ type: 'text', x: sx, y: baseline + vshift, text: trimmed.replace(/ +$/, '').replace(/ /g, ' '), pt: r.font.pt, bold: r.font.bold, italic: r.font.italic, font: r.font.face, color: r.font.color, som, ...(n?.data?.field ? { bind: n.data.field } : {}), role, ...(row ? { row: true } : {}), ...(ws ? { ws } : {}), lines: lines.length });
         if (r.font.underline && trimmed.trim()) {
           // measured on ADS output: 0.09 em below the baseline, 0.033 em thick
-          const uw = textWidthMm(trimmed.replace(/[  ]+$/, ''), r.font.pt, { bold: r.font.bold, face: r.font.face });
+          const ut = trimmed.replace(/[  ]+$/, '');
+          const uw = textWidthMm(ut, r.font.pt, { bold: r.font.bold, face: r.font.face }) + (ws ? (ut.match(/[  ]/g) || []).length * ws : 0);
           items.push({ type: 'line', x1: sx, y1: baseline + 0.09 * r.font.pt * PT, x2: sx + uw, y2: baseline + 0.09 * r.font.pt * PT, th: 0.033 * r.font.pt * PT, color: r.font.color || '#000000' });
         }
         rx += pw;
@@ -1037,8 +1205,8 @@ export function layoutForm(template, record, opts = {}) {
   if (opts.scripts !== false) runScripts(L, form, 'form', L.report);
   // flowed content of the root, flattened to blocks that can move to the next page
   const blocks = [];
-  const flatten = (n, depth) => {
-    if (n.kind === 'subformSet') { for (const c of flowKids(n)) flatten(c, depth); return; }
+  const flatten = (n, depth, out = blocks) => {
+    if (n.kind === 'subformSet') { for (const c of flowKids(n)) flatten(c, depth, out); return; }
     // a tb subform without own border splits into its children; tables split between rows
     const lay = attr(n.t, 'layout', 'position');
     const br = breakOf(n.t);
@@ -1046,13 +1214,16 @@ export function layoutForm(template, record, opts = {}) {
     const splittable = (lay === 'tb' || lay === 'table') && n.kind !== 'field' && n.kind !== 'draw' && keep !== 'contentArea' && keep !== 'pageArea';
     if (splittable && depth < 12) {
       const m = marginOf(n.t);
-      blocks.push({ kind: 'open', n, m, br });
+      out.push({ kind: 'open', n, m, br });
       const leaderId = br.overflowLeader ? br.overflowLeader.replace(/^#/, '') : null;
-      for (const c of flowKids(n)) flatten(c, depth + 1);
-      blocks.push({ kind: 'close', n, m, leaderId });
+      for (const c of flowKids(n)) flatten(c, depth + 1, out);
+      out.push({ kind: 'close', n, m, leaderId });
       return;
     }
-    blocks.push({ kind: 'leaf', n, br });
+    // a width-less lr-tb subform (SAP's SmartForm migration: MAIN = intro text, table, closing text on one line) may
+    // break its line over pages (placeLrtb)
+    if (lay === 'lr-tb' && n.kind === 'subform' && attr(n.t, 'w') === undefined && depth < 12) { out.push({ kind: 'lrtb', n, br, depth }); return; }
+    out.push({ kind: 'leaf', n, br });
   };
   for (const c of flowKids(form)) flatten(c, 0);
   // pages
@@ -1070,6 +1241,21 @@ export function layoutForm(template, record, opts = {}) {
     return pageAreas[pageAreas.length - 1];
   };
   let page = null, area = null, cursor = 0;
+  // an lr-tb line broken over pages (placeLrtb): the items before the overflowing one wait for the next page
+  let lrState = null;
+  const lrExtra = () => (lrState && lrState.applied ? lrState.extra : 0);
+  const applyLr = () => {
+    let acc = 0;
+    for (const c of lrState.before) {
+      page.flows.push({ n: c, x: area.x + lrState.x0 + acc, y: area.y + cursor });
+      markPage(c, page);
+      acc += c.w;
+      lrState.lineH = Math.max(lrState.lineH, c.h);
+    }
+    lrState.extra = acc;
+    lrState.lineTop = cursor;
+    lrState.applied = true;
+  };
   const contentAreaOf = (pa) => {
     const ca = kids(pa, 'contentArea')[0];
     return { x: unit(attr(ca, 'x'), 0), y: unit(attr(ca, 'y'), 0), w: unit(attr(ca, 'w'), 0), h: unit(attr(ca, 'h'), 0) };
@@ -1084,11 +1270,12 @@ export function layoutForm(template, record, opts = {}) {
     area = contentAreaOf(pa);
     cursor = 0;
     page.area = area;
+    if (lrState && !lrState.applied) applyLr();
   };
   newPage();
   // ancestors' x offsets / margins while descending into split containers
   const stack = [];
-  const openX = () => stack.reduce((s, b) => s + b.m.l, 0);
+  const openX = () => stack.reduce((s, b) => s + b.m.l, 0) + lrExtra();
   const openW = () => area.w - stack.reduce((s, b) => s + b.m.l + b.m.r, 0);
   const leaders = [];
   const placeLeaf = (n) => {
@@ -1103,6 +1290,52 @@ export function layoutForm(template, record, opts = {}) {
     const br = breakOf(n.t);
     if (n.over.breakBefore) br.before = n.over.breakBefore;
     if (br.before && /pageArea|contentArea/.test(br.before) && cursor > 0) { newPage(); repeatLeaders(); }
+    // a growable field / draw (no h) with more lines than the page has room for splits between its lines, as ADS
+    // does (FP_TEST_01: a 280-line include text starts under its heading on page 1 and runs over four more pages;
+    // the continuation starts at the content area's top, without the top inset)
+    const lines = n.shape?.lines;
+    if ((n.kind === 'field' || n.kind === 'draw') && !attr(n.t, 'h') && lines?.length > 1 && cursor + n.h > area.h + 0.01
+        && attr(prop(n.t, 'keep'), 'intact', 'none') === 'none') {
+      const ins = marginOf(n.t).t;
+      let off = 0;
+      let fresh = cursor === 0;
+      for (let guard = 0; guard < 200; guard++) {
+        const avail = area.h - cursor;
+        if (n.h - off <= avail + 0.01) {
+          page.flows.push({ n, x: area.x + openX(), y: area.y + cursor - off, clip: { y0: area.y + cursor, y1: area.y + area.h } });
+          cursor += n.h - off;
+          break;
+        }
+        let cut = off;
+        lines.forEach((l, li) => {
+          const b = ins + l.top + l.lh;
+          // a paragraph's last line needs its space after on the page too (FP_TEST_01 page 4: the last line of a
+          // centred paragraph whose box ends 0.7 mm above the bottom moves to page 5; lines inside a paragraph fit
+          // down to 0.08 mm — page 2)
+          const st = l.para.st || {};
+          const after = li < lines.length - 1 && lines[li + 1].para !== l.para
+            ? (st['margin-bottom'] ? unit(st['margin-bottom']) : 0) + (st['space-after'] ? unit(st['space-after']) : 0) : 0;
+          if (b > off + 0.01 && b + after <= off + avail + 0.01) cut = Math.max(cut, b);
+        });
+        if (cut <= off + 0.01) {
+          if (!fresh) { newPage(); repeatLeaders(); fresh = true; continue; }
+          cut = off + avail;
+        }
+        // a split field does not align by its slack as a whole: its first piece moves by half (middle) / all (bottom)
+        // of the room its last line leaves at the page bottom, the continuation pieces start at the top (FP_TEST_01:
+        // page 1 of the include text 1.12 mm lower — 1.40 mm computed —, pages 2–4 at the content area's top; one
+        // form measured)
+        const va = attr(prop(n.t, 'para'), 'vAlign', 'top');
+        const room = off === 0 ? Math.max(0, avail - (cut - off)) : 0;
+        const shift = va === 'middle' ? room / 2 : va === 'bottom' ? room : 0;
+        page.flows.push({ n, x: area.x + openX(), y: area.y + cursor - off, clip: { y0: area.y + cursor, y1: area.y + cursor + cut - off }, shift });
+        if (!n.page) markPage(n, page);
+        off = cut;
+        newPage(); repeatLeaders(); fresh = true;
+      }
+      if (br.after && /pageArea|contentArea/.test(br.after)) { newPage(); repeatLeaders(); }
+      return;
+    }
     if (cursor + n.h > area.h + 0.01 && cursor > 0) { newPage(); repeatLeaders(); }
     if (n.h > area.h + 0.01) L.report.overflow.push(L.som(n));
     page.flows.push({ n, x: area.x + openX(), y: area.y + cursor });
@@ -1116,11 +1349,12 @@ export function layoutForm(template, record, opts = {}) {
       if (!ld) continue;
       const parentLay = 'table';
       void parentLay;
-      page.flows.push({ n: ld.n, x: area.x + ld.x, y: area.y + cursor, leader: true });
+      page.flows.push({ n: ld.n, x: area.x + ld.x + lrExtra(), y: area.y + cursor, leader: true });
       cursor += ld.n.h;
     }
   };
-  for (const b of blocks) {
+  const step = (b) => {
+    if (b.kind === 'lrtb') { placeLrtb(b); return; }
     if (b.kind === 'open') {
       L.measure(b.n, openW());
       const br = b.br;
@@ -1135,22 +1369,66 @@ export function layoutForm(template, record, opts = {}) {
       const leaderId = b.br.overflowLeader ? b.br.overflowLeader.replace(/^#/, '') : null;
       b.leaderId = leaderId;
       leaders.push(null);
-      continue;
+      return;
     }
     if (b.kind === 'close') {
       cursor += b.m.b;
       stack.pop();
       leaders.pop();
       b.n.splitBorder = true;
-      continue;
+      return;
     }
     placeLeaf(b.n);
     // the first row with the leader id becomes the repeated leader of its table
     const top = stack[stack.length - 1];
     if (top && top.leaderId && !leaders[leaders.length - 1] && (b.n.t.attrs?.id === top.leaderId || b.n.name === top.leaderId)) {
-      leaders[leaders.length - 1] = { n: b.n, x: openX() };
+      leaders[leaders.length - 1] = { n: b.n, x: openX() - lrExtra() };
     }
-  }
+  };
+  // A width-less lr-tb line whose item does not fit in the room left (calibration lrtb, S4-DEV, invented rows: SAP's
+  // migrations of SF_EXAMPLE_02 / SF_TOTALS): ADS puts the overflowing item first, at the line's start, and splits it
+  // over pages; the items before it wait for the next page, where they open the line again with the rest of the
+  // overflowing item to their right and the items after it further right. A line that fits stays one leaf.
+  const placeLrtb = (b) => {
+    const n = b.n;
+    L.measure(n, openW());
+    const vis = flowKids(n).filter((c) => c.ry !== undefined && c.presence !== 'hidden' && c.presence !== 'inactive');
+    const avail = area.h - cursor;
+    const iB = vis.findIndex((c) => c.h > avail + 0.01);
+    const B = vis[iB];
+    const lay = B ? attr(B.t, 'layout', 'position') : '';
+    if (n.h <= avail + 0.01 || lrState || !B || iB === 0 || vis.some((c) => Math.abs(c.ry) > 0.01) || !(lay === 'tb' || lay === 'table') || B.kind !== 'subform') { placeLeaf(n); return; }
+    const m = marginOf(n.t);
+    const own = { kind: 'open', n, m, br: {}, pseudo: true };
+    stack.push(own);
+    leaders.push(null);
+    lrState = { before: vis.slice(0, iB), after: vis.slice(iB + 1), x0: openX(), extra: 0, applied: false, lineTop: 0, lineH: 0 };
+    // B's rows may fit although B does not (a fixed h / minH larger than its rows): then nothing breaks and the line
+    // is placed whole after all (verifier probe) — what B's rows put on this page is taken back
+    const snap = { page, flows: page.flows.length, cursor, pages: pages.length };
+    const list = [];
+    flatten(B, (b.depth || 0) + 1, list);
+    for (const x of list) step(x);
+    const st = lrState;
+    lrState = null;
+    stack.pop();
+    leaders.pop();
+    if (!st.applied) {
+      if (pages.length === snap.pages && page === snap.page) { page.flows.length = snap.flows; cursor = snap.cursor; placeLeaf(n); }
+      return;
+    }
+    L.report.approximations.push(`${L.som(n)}: lr-tb line broken over pages (the overflowing item first, the items before it on the next page)`);
+    let acc = st.x0 + st.extra + B.w;
+    let h = st.lineH;
+    for (const c of st.after) {
+      page.flows.push({ n: c, x: area.x + acc, y: area.y + st.lineTop });
+      markPage(c, page);
+      acc += c.w;
+      h = Math.max(h, c.h);
+    }
+    cursor = Math.max(cursor, st.lineTop + h);
+  };
+  for (const b of blocks) step(b);
   // borders of containers that flow: one box per page from their first to last leaf
   L.report.pages = pages.length;
   // master content per page, then flows
@@ -1177,7 +1455,19 @@ export function layoutForm(template, record, opts = {}) {
       L.draw(mn, ax, ay, p.items, p);
     }
     for (const f of p.flows) {
-      L.draw(f.n, f.x + (f.n.margin ? 0 : 0), f.y, p.items, p);
+      if (!f.clip) { L.draw(f.n, f.x + (f.n.margin ? 0 : 0), f.y, p.items, p); continue; }
+      // one piece of a split field: the items whose line (text: mid-line above the baseline; others: their top)
+      // falls inside this page's slice
+      // a split field's lines take their place from the piece, not from the field's slack as a whole (top here,
+      // the piece's own alignment as f.shift)
+      const tmp = [];
+      L.splitPiece = true;
+      try { L.draw(f.n, f.x, f.y, tmp, p); } finally { L.splitPiece = false; }
+      const dy = f.shift || 0;
+      for (const it of tmp) {
+        const yy = it.type === 'text' ? it.y - 0.35 * (it.pt || 10) * PT : (it.y ?? it.y1 ?? f.clip.y0);
+        if (yy >= f.clip.y0 - 0.01 && yy < f.clip.y1 - 0.01) p.items.push(dy ? shiftItem(it, dy) : it);
+      }
     }
   }
   // split container borders (tables): from the first to the last flow of their descendants per page

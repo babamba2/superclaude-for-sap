@@ -33,7 +33,11 @@ export function parseXml(text) {
   };
   while ((m = re.exec(String(text)))) {
     if (m[1] !== undefined) addText(m[1]);
-    else if (m[2]) {
+    else if (m[0].startsWith('<?')) {
+      // processing instructions stay with their element as el.pi (Designer: <?originalXFAVersion …?> in <template>)
+      const top = stack[stack.length - 1];
+      if (top !== root) (top.pi ||= []).push(m[0].slice(2, -2).trim());
+    } else if (m[2]) {
       const top = stack[stack.length - 1];
       if (top.tag !== m[2]) throw new Error(`XML: </${m[2]}> closes <${top.tag}>`);
       stack.pop();
@@ -119,7 +123,8 @@ export function readInterface(xml) {
 const KIND = {
   CL_FP_CONTEXT: 'context', CL_FP_STRUCTURE: 'structure', CL_FP_DATA: 'data', CL_FP_LOOP: 'loop',
   CL_FP_LOOP_DATA: 'loop-data', CL_FP_SINGLE_RECORD: 'single-record', CL_FP_TEXT_MODULE: 'text-module',
-  CL_FP_TEXT: 'text', CL_FP_INCLUDE_TEXT: 'text', CL_FP_ADDRESS: 'address', CL_FP_GRAPHIC: 'graphic',
+  // an SO10 include text is CL_FP_TEXT_INCLUDE (FP_TEST_01 INCLUDETEXT1); CL_FP_INCLUDE_TEXT kept as an alias
+  CL_FP_TEXT: 'text', CL_FP_TEXT_INCLUDE: 'text', CL_FP_INCLUDE_TEXT: 'text', CL_FP_ADDRESS: 'address', CL_FP_GRAPHIC: 'graphic',
   CL_FP_ALTERNATIVE: 'alternative', CL_FP_FOLDER: 'folder',
 };
 
@@ -159,7 +164,9 @@ export function readContext(formXml) {
       const tn = kid(own, 'TEXT_NAME');
       n.text = { name: val(tn, 'NAME'), nameField: val(tn, 'NAMEFIELD'), language: val(kid(own, 'TEXT_LANGUAGE'), 'LANGUAGE'),
         languageField: val(kid(own, 'TEXT_LANGUAGE'), 'LANGUAGEFIELD'), style: val(own, 'STYLE_NAME'), withStyle: val(own, 'TEXT_STYLE') === 'X',
-        object: val(own, 'TEXT_OBJECT'), id: val(own, 'TEXT_ID') };
+        // include texts: TEXT_OBJECT { OBJECT, OBJECTFIELD }, TEXT_ID { ID, IDFIELD } (a value or the field holding it)
+        object: val(kid(own, 'TEXT_OBJECT'), 'OBJECT'), objectField: val(kid(own, 'TEXT_OBJECT'), 'OBJECTFIELD'),
+        id: val(kid(own, 'TEXT_ID'), 'ID'), idField: val(kid(own, 'TEXT_ID'), 'IDFIELD') };
     }
     if (n.kind === 'unknown' || n.kind === 'structure' || n.kind === 'graphic' || n.kind === 'address') {
       // keep the class's own simple fields for later kinds (graphic name, address number, …)

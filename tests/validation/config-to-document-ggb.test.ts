@@ -33,7 +33,7 @@ const TABLES: Record<string, Row[]> = {
     { VALID: 'LVAL001', BOOLCLASS: '009', MSGID: 'ZF', GBOPCREATE: 'KIM', GBDTCREATE: '2015-03-01', GBOPCHANGE: 'KIM', GBDTCHANGE: '2016-01-02' },
     { VALID: 'ZOTHER', BOOLCLASS: '009', MSGID: 'ZF', GBOPCREATE: 'LEE', GBOPCHANGE: 'LEE' },
     { VALID: '01-CS01', BOOLCLASS: '043', MSGID: 'Z0', GBOPCREATE: 'SAP', GBOPCHANGE: 'SAP' },
-    { VALID: '0_CO_1', BOOLCLASS: '001', MSGID: 'ZCO01', GBOPCREATE: 'SAP', GBOPCHANGE: 'ITSCN002' },
+    { VALID: '0_CO_1', BOOLCLASS: '001', MSGID: 'ZDEMO_MSG_CO', GBOPCREATE: 'SAP', GBOPCHANGE: 'ITSCN002' },
   ],
   GB931: [
     { VALID: 'LVAL001', VALSEQNR: '002', CONDID: '2LVAL001#002', CHECKID: '3LVAL001#002', VALSEVERE: 'E', VALMSG: '010' },
@@ -62,8 +62,8 @@ const TABLES: Record<string, Row[]> = {
   T80D: [{ ARBGB: 'GBLR', FORMPOOL: 'ZGGBR000' }, { ARBGB: 'GBLS', FORMPOOL: 'ZGGBS000' }, { ARBGB: 'GBRU', FORMPOOL: 'RGLVU000' }],
 };
 const PROGRAMS = {
-  ZGGBR000: "PROGRAM zggbr000.\nINCLUDE zggbr000_hq_f01.\nFORM u101 USING b_result.\n  b_result = 'T'.\nENDFORM.",
-  ZGGBR000_HQ_F01: [
+  ZGGBR000: "PROGRAM zggbr000.\nINCLUDE zggbr000_demo_f01.\nFORM u101 USING b_result.\n  b_result = 'T'.\nENDFORM.",
+  ZGGBR000_DEMO_F01: [
     '* HQ rules', 'FORM set_exits_hq TABLES exits.',
     "  exits-name  = 'U101'.", '  exits-param = c_exit_param_none.', '  exits-title = text-101.  "Cost center check', '  APPEND exits.',
     "  exits-name  = 'C102'.", "  exits-title = 'China doc type'.", '  APPEND exits.',
@@ -79,8 +79,8 @@ describe('config-to-document — validations and substitutions (GGB0 / GGB1)', (
     expect(exitRefs("<BSEG> KOSTL <> ' ' AND U101 OR U102")).toEqual(['U101', 'U102']);
     expect(exitRefs('$U101 XU101')).toEqual([]);
     expect(exitRefs("<BKPF> BLART = 'C102' AND C102", new Set(['C102']))).toEqual(['C102']);
-    expect(exitTitles(PROGRAMS.ZGGBR000_HQ_F01)).toEqual({ U101: 'Cost center check', C102: 'China doc type' });
-    expect(Object.keys(splitForms(PROGRAMS.ZGGBR000_HQ_F01))).toEqual(['SET_EXITS_HQ', 'C102', 'U199']);
+    expect(exitTitles(PROGRAMS.ZGGBR000_DEMO_F01)).toEqual({ U101: 'Cost center check', C102: 'China doc type' });
+    expect(Object.keys(splitForms(PROGRAMS.ZGGBR000_DEMO_F01))).toEqual(['SET_EXITS_HQ', 'C102', 'U199']);
     expect(booleanTexts(TABLES.GB901 as Row[])['3LVAL001#001']).toBe("<BSEG> KOSTL <> ' ' AND U101");
   });
 
@@ -104,10 +104,10 @@ describe('config-to-document — validations and substitutions (GGB0 / GGB1)', (
     ]);
     // Exits: the FORMs the pools register (program + Z include); U199 not registered, RGLVU000 (SAP) skipped.
     expect(Object.keys(g.exits).sort()).toEqual(['ZGGBR000:C102', 'ZGGBR000:U101', 'ZGGBS000:U120']);
-    expect(g.exits['ZGGBR000:C102']).toMatchObject({ include: 'ZGGBR000_HQ_F01', kind: 'rule', title: 'China doc type', used: true });
+    expect(g.exits['ZGGBR000:C102']).toMatchObject({ include: 'ZGGBR000_DEMO_F01', kind: 'rule', title: 'China doc type', used: true });
     expect(g.exits['ZGGBR000:U101']).toMatchObject({ include: 'ZGGBR000', title: 'Cost center check', used: true });
     expect(g.exits['ZGGBS000:U120']).toMatchObject({ kind: 'substitution', title: 'Assignment from reference', used: true });
-    expect(g.pools.ZGGBR000).toMatchObject({ registered: 2, includes: ['ZGGBR000_HQ_F01'] });
+    expect(g.pools.ZGGBR000).toMatchObject({ registered: 2, includes: ['ZGGBR000_DEMO_F01'] });
     expect(g.errors).toEqual({});
   });
 
@@ -146,10 +146,10 @@ describe('config-to-document — validations and substitutions (GGB0 / GGB1)', (
     // Each exit row carries its FORM's code and the objects it uses, shown under the row.
     const exitView = withNotes['GGB:EXIT:VAL'];
     const c102 = exitView.rows.findIndex((r: string[]) => r[0] === 'C102');
-    expect(exitView.src[c102]).toMatchObject({ include: 'ZGGBR000_HQ_F01', lines: 5 });
+    expect(exitView.src[c102]).toMatchObject({ include: 'ZGGBR000_DEMO_F01', lines: 5 });
     expect(exitView.src[c102].source).toMatch(/^FORM c102/);
-    expect(codeRefs("* SELECT x FROM old\nSELECT SINGLE * FROM zfit10050 WHERE a = b. \"from comment\nCALL FUNCTION 'ZFI_CHECK_USERID'.\nUPDATE zfit1 SET a = 1.\nPERFORM set_x.")).toEqual({
-      fms: ['ZFI_CHECK_USERID'], reads: ['ZFIT10050'], writes: ['ZFIT1'], performs: ['SET_X'],
+    expect(codeRefs("* SELECT x FROM old\nSELECT SINGLE * FROM zfit_demo_01 WHERE a = b. \"from comment\nCALL FUNCTION 'ZFI_DEMO_FM'.\nUPDATE zdemo_tab1 SET a = 1.\nPERFORM set_x.")).toEqual({
+      fms: ['ZFI_DEMO_FM'], reads: ['ZFIT_DEMO_01'], writes: ['ZDEMO_TAB1'], performs: ['SET_X'],
     });
     expect(mdLite('## 개요\n| 단계 | 의미 |\n|---|---|\n| 001 | **E** `<BSEG>` |\n- a\n- b\n\n텍스트')).toBe(
       '<h5>개요</h5><table class="mdt"><tr><th>단계</th><th>의미</th></tr><tr><td>001</td><td><b>E</b> <code>&lt;BSEG&gt;</code></td></tr></table><ul><li>a</li><li>b</li></ul><p>텍스트</p>');

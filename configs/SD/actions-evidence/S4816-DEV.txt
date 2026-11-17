@@ -1,4 +1,4 @@
-# Handler evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
+# Handler evidence — S4816-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
 H SD.SO.LIST_OPEN 1710 not_delivered -> 5 orders, credit block from VBAK-CMGST
 H SD.SO.GET_DETAIL 6940 (order-related billing C via FKSAK/FKSAA), 6943 (delivery + billing complete via LIPS-FKSTA, flow J/M)
 H SD.DLV.LIST_OPEN 1710 all_open -> outbound deliveries only (vbtyp J; inbound EL filtered since 2026-11-10)

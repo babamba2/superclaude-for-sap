@@ -197,7 +197,7 @@ function find(scope, id) {
   if (scope === 'cw') return (model.cutover.window = model.cutover.window || {});
   if (scope === 'cf') return (model.cutover.freeze = model.cutover.freeze || {});
   var list = scope === 'w' ? model.wbs : scope === 'm' ? model.milestones : scope === 'k' ? (model.kpis = model.kpis || [])
-    : scope === 'r' ? (model.risks = model.risks || []) : scope === 'd' ? (model.decisions = model.decisions || [])
+    : scope === 'r' ? (model.risks = model.risks || []) : scope === 'd' ? (model.decisions = model.decisions || []) : scope === 'i' ? (model.issues = model.issues || [])
     : scope === 'c' ? (model.cutover.tasks = model.cutover.tasks || []) : scope === 'g' ? (model.cutover.goNoGo = model.cutover.goNoGo || []) : model.team;
   for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
   return null;
@@ -474,6 +474,7 @@ $('#add-ms').onclick = function () { snap(); var n = model.milestones.length + 1
 $('#add-kpi').onclick = function () { snap(); model.kpis = model.kpis || []; var n = model.kpis.length + 1; while (find('k', 'K' + n)) n++; model.kpis.push({ id: 'K' + n, label: E.newKpi, group: 'other', dir: 'up', unit: '', target: '', actual: '', history: [] }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="k|K' + n + '|label"]')); }); };
 $('#add-rk').onclick = function () { snap(); model.risks = model.risks || []; var n = model.risks.length + 1; while (find('r', 'RK' + n)) n++; model.risks.push({ id: 'RK' + n, text: E.newRisk, impact: 'M', status: 'open', raised: today }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="r|RK' + n + '|text"]')); }); };
 $('#add-ct').onclick = function () { snap(); find('c', ''); var l = model.cutover.tasks; var n = l.length + 1; while (find('c', 'CT.N' + n)) n++; l.push({ id: 'CT.N' + n, phase: 'window', label: E.newCt, ws: '', owner: '', status: 'planned', deps: [], durationH: 1, note: '' }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="c|CT.N' + n + '|label"]')); }); };
+$('#add-is').onclick = function () { snap(); model.issues = model.issues || []; var n = model.issues.length + 1; while (find('i', 'IS' + n)) n++; model.issues.push({ id: 'IS' + n, text: E.newIssue, priority: 'M', status: 'open', raised: today }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="i|IS' + n + '|text"]')); }); };
 $('#add-dc').onclick = function () { snap(); model.decisions = model.decisions || []; var n = model.decisions.length + 1; while (find('d', 'DC' + n)) n++; model.decisions.push({ id: 'DC' + n, text: E.newDecision, status: 'open' }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="d|DC' + n + '|text"]')); }); };
 $('#add-tm').onclick = function () { snap(); var n = model.team.length + 1; while (find('t', 'T' + n)) n++; model.team.push({ id: 'T' + n, name: E.newTm, role: 'module', from: today }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="t|T' + n + '|name"]')); }); };
 

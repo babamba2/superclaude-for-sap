@@ -1,4 +1,4 @@
-S4-DEV (S/4HANA 816) PM scenario evidence, 2026-11-11: 257/257 pass.
+S4816-DEV (S/4HANA 816) PM scenario evidence, 2026-11-11: 257/257 pass.
 Queries: verified (level scenario). Writes: not run on S/4HANA (ECC-verified only; the S/4 test user is not used for PM writes), so they stay hidden. Run 1 (219 of 250 pass; 31 fails were wrong expectations: status texts list several system statuses, one functional location has an order of another planning plant) and run 2 (31 corrected + 7 new scenarios, after the handler refused over-long auart / qmart / eqtyp instead of cutting them): last run of a scenario counts.
 S4PM-001 | PM.ORD.LIST_OPEN | {} | exp rc=4 rc=4; txt=werks is required (maintenance planning plant);  | act rc=4 werks is required (maintenance planning plant) | rb read only | PASS
 S4PM-002 | PM.ORD.LIST_OPEN | {"werks":"XXXX"} | exp rc=4 rc=4; txt=Planning plant XXXX does not exist;  | act rc=4 Planning plant XXXX does not exist (maintenance planning plants, T399I) | rb read only | PASS

@@ -52,7 +52,7 @@ import { readScreenTheme } from '../lib/profile-resolve.mjs';
 function hasHangulOrKana(s) { return /[가-힯぀-ヿ]/.test(String(s)); }
 
 // Prose = human-readable phrase that MUST be translated. Excludes bare SAP
-// identifiers (VBAK, S_VKORG, ZMMR00140) which legitimately stay as-is.
+// identifiers (VBAK, S_VKORG, ZDEMO_R140) which legitimately stay as-is.
 export function looksLikeEnglishProse(s) {
   const v = String(s);
   if (hasHangulOrKana(v)) return false;            // already localized

@@ -165,6 +165,6 @@ describe('create-object skill documents', () => {
   });
   it('the generator holds no customer or system names', () => {
     const js = readFileSync(join(ROOT, 'scripts/create-object/rap-stack.mjs'), 'utf8');
-    expect(js).not.toMatch(/HKT|BXD|ES-DEV|S4-DEV|HKD|ZSC4SAP/);
+    expect(js).not.toMatch(/\b[A-Z][A-Z0-9]{1,6}-(DEV|QAS|QA|PRD|TST)\b|\b[A-Z][A-Z0-9]{2}K9\d{5}\b|ZSC4SAP/); // system aliases, transport numbers
   });
 });

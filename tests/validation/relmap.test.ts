@@ -63,7 +63,7 @@ describe('cbo-relation-map model (includes kept)', () => {
   it('customer include names', () => {
     expect(isCustomerName('LZXY40000TOP')).toBe(true);
     expect(isCustomerName('L/ABC/FG01TOP')).toBe(true);
-    expect(isCustomerName('ZINC')).toBe(true);
+    expect(isCustomerName('ZDEMO_DT2')).toBe(true);
     expect(isCustomerName('LSVIMFXX')).toBe(false);
     expect(isCustomerName('MZFOO')).toBe(false);
     expect(keepNode({ type: 'FUNC', name: 'TABLEFRAME_ZGD', scope: 'member' })).toBe(true);
@@ -158,7 +158,7 @@ describe('side information', () => {
   });
 
   it('group label: shared name prefix + a description that says something', () => {
-    expect(groupLabel(['ZSDM34410', 'ZSDM34420', 'ZSDM34430', 'ZFOO'], () => 'Shipping report')).toBe('ZSDM344* · Shipping report');
+    expect(groupLabel(['ZSDR_DEMO_31', 'ZSDR_DEMO_32', 'ZSDR_DEMO_33', 'ZFOO'], () => 'Shipping report')).toBe('ZSDR_DEMO_3* · Shipping report');
     expect(groupLabel(['ZA', 'QB'], () => '')).toBe('');
     const m: any = buildModel(graph, { info: { desc: new Map([['TRAN:ZGD1', 'program ZGD_REPORT screen 1000'], ['PROG:ZGD_REPORT', 'GD list']]) } });
     const g = m.comms[m.nodes[ix(m, 'TRAN:ZGD1')][3]];

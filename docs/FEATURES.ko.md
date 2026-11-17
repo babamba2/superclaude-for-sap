@@ -103,7 +103,7 @@ Z 패키지 탐색, 재사용 자산 카탈로그, 교차 모듈 갭 분석.
 ### `/sc4sap:analyze-symptom`
 ```
 /sc4sap:analyze-symptom
-→ "F110 중 ZFI_POSTING 234라인의 MESSAGE_TYPE_X 덤프"
+→ "F110 중 ZFI_DEMO_POSTING 234라인의 MESSAGE_TYPE_X 덤프"
 ```
 흐름: `RuntimeListDumps` → `RuntimeAnalyzeDump` → 스택 트레이스 → SAP Note 후보 → 치료 옵션.
 

@@ -5,6 +5,7 @@ FUNCTION zmcp_fp_migrate
     VALUE(iv_interface) TYPE string
     VALUE(iv_preset)    TYPE string DEFAULT 'FULL'
     VALUE(iv_sender_country) TYPE land1 OPTIONAL
+    VALUE(iv_correction) TYPE string OPTIONAL
   EXPORTING
     VALUE(ev_subrc)     TYPE i
     VALUE(ev_message)   TYPE string
@@ -79,7 +80,18 @@ FUNCTION zmcp_fp_migrate
 * Result {"source","form","interface","options":{...},"raised":bool,
 * "error","saved":[...],"left":[...],"active":[...],"renamed":[{"path","from",
 * "to","type"}],"adjusted":[{"path","attribute","from","to"}],"cacheInfo",
-* "log":[{"type","text"}]}.
+* "correction":null | {"strict","ops","applied","notFound","ambiguous",
+* "refused","partial","warnings":[...],"results":[{"i","op","rule",
+* "status","detail"}]},"log":[{"type","text"}]}.
+*
+* IV_CORRECTION (optional): layout corrections applied to the migrated XDP
+* before it is saved - see FORM fpc_apply. The op list is checked before
+* anything is saved; with "strict" a single op not applied stops the run
+* (form not saved); without it the result marks the run "partial".
+* Model ops (gap G5 a, FORM fpc_model) in the same list: initSumByKey runs
+* on the new interface before it is saved (strict and not applied ->
+* nothing saved), contextDeactivate on the new context before the form is
+* saved; their results are in the same "correction" report.
 *----------------------------------------------------------------------*
   DATA: lv_cat       TYPE t000-cccategory,
         lv_src       TYPE tdsfname,
@@ -101,6 +113,8 @@ FUNCTION zmcp_fp_migrate
         lo_ixml      TYPE REF TO if_ixml,
         lo_ostream   TYPE REF TO if_ixml_ostream,
         lv_xdp       TYPE xstring,
+        lv_xdpc      TYPE xstring,
+        lv_corr      TYPE string,
         lv_desc      TYPE fptext,
         lx_root      TYPE REF TO cx_root,
         lv_raised    TYPE abap_bool,
@@ -142,7 +156,8 @@ FUNCTION zmcp_fp_migrate
         lv_fstr      TYPE string,
         lv_off       TYPE i,
         lv_mlen      TYPE i,
-        lv_coff      TYPE i.
+        lv_coff      TYPE i,
+        lt_pre       TYPE string_table.
   CONSTANTS c_marker TYPE string VALUE ` [sc4sap]`.
 
   CLEAR: ev_subrc, ev_message.
@@ -177,6 +192,18 @@ FUNCTION zmcp_fp_migrate
   IF to_upper( iv_preset ) <> 'FULL'.
     ev_subrc = 8. ev_message = |FP_MIGRATE: preset "{ iv_preset }" refused - only FULL|.
     RETURN.
+  ENDIF.
+  " Optional layout correction (FORM fpc_apply): the op list is checked before anything is saved.
+  IF iv_correction IS NOT INITIAL.
+    PERFORM fpc_apply USING lv_xdp iv_correction abap_true lt_pre CHANGING lv_xdpc lv_corr lv_str.
+    IF lv_str IS INITIAL.
+      " model ops (interface / context): shape only here (phase X)
+      PERFORM fpc_model USING iv_correction 'X' lo_intf lo_root CHANGING lt_pre lv_str.
+    ENDIF.
+    IF lv_str IS NOT INITIAL.
+      ev_subrc = 8. ev_message = |FP_MIGRATE: { lv_str } - nothing saved|.
+      RETURN.
+    ENDIF.
   ENDIF.
   " Optional sender country for address nodes without one (gap G3): a T005 key.
   IF iv_sender_country IS NOT INITIAL.
@@ -301,6 +328,14 @@ FUNCTION zmcp_fp_migrate
 
       CREATE OBJECT lo_tpl.
       cl_ssf_migration=>migrate_interface( smartform = lo_sf interface = lo_intf ).
+      " G5 (a) phase I: interface ops (initSumByKey) before the interface is saved;
+      " strict and not applied -> CATCH below, nothing saved
+      IF iv_correction IS NOT INITIAL.
+        PERFORM fpc_model USING iv_correction 'I' lo_intf lo_root CHANGING lt_pre lv_g1err.
+        IF lv_g1err IS NOT INITIAL.
+          RAISE EXCEPTION TYPE cx_fp_api_usage.  " -> CATCH below; lv_g1err is the text
+        ENDIF.
+      ENDIF.
       lo_wbi->save( ).
       APPEND |SFPI { lv_intf }| TO lt_saved.
 
@@ -344,6 +379,21 @@ FUNCTION zmcp_fp_migrate
         RAISE EXCEPTION TYPE cx_fp_api_usage.    " -> CATCH below, form not saved
       ENDIF.
 
+      " Layout correction (spec from the SmartForm, FORM fpc_apply): edits the migrated
+      " XDP through the iXML DOM before the new layout id / hash / cache info; strict
+      " and not every op applied -> CATCH below, form not saved.
+      IF iv_correction IS NOT INITIAL.
+        " G5 (a) phase C: context ops (contextDeactivate) before the form is saved
+        PERFORM fpc_model USING iv_correction 'C' lo_intf lo_root CHANGING lt_pre lv_g1err.
+        IF lv_g1err IS NOT INITIAL.
+          RAISE EXCEPTION TYPE cx_fp_api_usage.  " -> CATCH below; lv_g1err is the text
+        ENDIF.
+        PERFORM fpc_apply USING lv_xdp iv_correction abap_false lt_pre CHANGING lv_xdpc lv_corr lv_g1err.
+        IF lv_g1err IS NOT INITIAL.
+          RAISE EXCEPTION TYPE cx_fp_api_usage.  " -> CATCH below; lv_g1err is the text
+        ENDIF.
+        lo_layout->set_layout_data( i_layout_data = lv_xdpc i_set_xliff_ids = abap_false ).
+      ENDIF.
       cl_fp_helper=>set_new_layout_id( CHANGING c_form = lo_form ).
       cl_fp_helper=>set_new_layout_hash( CHANGING c_form = lo_form ).
       cl_fp_helper=>set_new_cache_info( CHANGING c_form = lo_form ).
@@ -491,7 +541,8 @@ FUNCTION zmcp_fp_migrate
   lv_cache = escape( val = lv_cache format = cl_abap_format=>e_json_string ).
   ev_result = ev_result && |"active":[{ lv_list }],"activation":"{ lv_actmsg }","renamed":[{ lv_str }],|.
   CONCATENATE LINES OF lt_adjusted INTO lv_str SEPARATED BY `,`.
-  ev_result = ev_result && |"adjusted":[{ lv_str }],"cacheInfo":"{ lv_cache }","log":[{ lv_log }]\}|.
+  IF lv_corr IS INITIAL. lv_corr = `null`. ENDIF.
+  ev_result = ev_result && |"adjusted":[{ lv_str }],"cacheInfo":"{ lv_cache }","correction":{ lv_corr },"log":[{ lv_log }]\}|.
   " The dispatcher caller throws on EV_SUBRC <> 0 and never sees EV_RESULT:
   " the message itself names what was left and what is not active.
   CONCATENATE LINES OF lt_left INTO lv_list SEPARATED BY `, `.
@@ -707,4 +758,1436 @@ FORM g2g3_walk USING io_parent  TYPE REF TO if_fp_node
     ENDIF.
     lo_node = lo_node->get_successor( ).
   ENDWHILE.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_APPLY - layout correction of the migrated XDP (spec v1)
+*&---------------------------------------------------------------------*
+* IV_CORR: {"strict":bool,"ops":[{op, rule, basis, path | protoid [+ path]
+* | xliffid, op fields...}]} - the flat form the MCP tool sends (keys lower
+* case, CSS as "name:value;..."). Edits only through the iXML DOM, only in
+* the <template> packet. Targets: path = names from the root subform's own
+* name, "name[n]" = n-th (0-based) among the matches, unnamed subforms /
+* areas are transparent, inner segments match containers only; protoid =
+* id of a child of a <proto>, path relative to it; xliffid = xliff:id.
+* Ops: layout, geometry, margin, font, para, xhtml, picture, border,
+* presence (presence needs "basis" - the SmartForm node or condition),
+* datepicture (the only script edit: in a field's initialize scripts exactly
+* one "$.format.picture = DateFmt(<n>, $.locale)" must occur; its DateFmt
+* call is replaced by the string literal of a date{...} picture; 0 or more
+* -> refused; $.ui.picture and other script text stay untouched; the result
+* names the text replaced), bind (a subform or field: match "dataRef" with
+* a ref on the $record allow-list - names, [0] or [*] - or "none"; needs a
+* basis; replaces the node's own <bind> or adds one after <occur>; binds
+* below the target outside the new ref's [*] prefix are warned), embedlead
+* (a draw: one blank before the first embedded value of each right / center
+* paragraph that has no text of its own - ADS applies text-align and margins
+* only then; no paragraph like that -> not_found).
+* contextdeactivate / initsumbykey are model ops: FORM fpc_model runs them
+* earlier; here IT_PRE ("<i>|<status>|<detail>") gives their result.
+* Every value is checked (allow-lists, measurement mm / pt / cm / in).
+* IV_CHECK = X: parse and check the op list only (no DOM) - the FM runs
+* it before anything is saved. Result per op: applied / not_found /
+* ambiguous / refused. Strict and not all applied -> CV_ERR (not saved).
+FORM fpc_apply USING iv_xdp   TYPE xstring
+                     iv_corr  TYPE string
+                     iv_check TYPE abap_bool
+                     it_pre   TYPE string_table
+               CHANGING cv_xdp    TYPE xstring
+                        cv_report TYPE string
+                        cv_err    TYPE string.
+  TYPES: BEGIN OF ty_op,
+           op          TYPE string,
+           rule        TYPE string,
+           basis       TYPE string,
+           path        TYPE string,
+           protoid     TYPE string,
+           xliffid     TYPE string,
+           value       TYPE string,
+           x           TYPE string,
+           y           TYPE string,
+           w           TYPE string,
+           h           TYPE string,
+           anchortype  TYPE string,
+           topinset    TYPE string,
+           bottominset TYPE string,
+           leftinset   TYPE string,
+           rightinset  TYPE string,
+           typeface    TYPE string,
+           size        TYPE string,
+           weight      TYPE string,
+           spaceabove  TYPE string,
+           spacebelow  TYPE string,
+           marginleft  TYPE string,
+           marginright TYPE string,
+           textindent  TYPE string,
+           lineheight  TYPE string,
+           halign      TYPE string,
+           valign      TYPE string,
+           div         TYPE string,
+           css         TYPE string,
+           display     TYPE string,
+           format      TYPE string,
+           edge        TYPE string,
+           presence    TYPE string,
+           thickness   TYPE string,
+           picture     TYPE string,
+           match       TYPE string,
+           ref         TYPE string,
+           node        TYPE string,
+         END OF ty_op,
+         BEGIN OF ty_corr,
+           strict TYPE abap_bool,
+           ops    TYPE STANDARD TABLE OF ty_op WITH EMPTY KEY,
+         END OF ty_corr,
+         BEGIN OF ty_kv,
+           k TYPE string,
+           v TYPE string,
+         END OF ty_kv.
+  DATA: ls_c       TYPE ty_corr,
+        lo_ixml    TYPE REF TO if_ixml,
+        lo_sf      TYPE REF TO if_ixml_stream_factory,
+        lo_doc     TYPE REF TO if_ixml_document,
+        lo_parser  TYPE REF TO if_ixml_parser,
+        lo_ostream TYPE REF TO if_ixml_ostream,
+        lo_enc     TYPE REF TO if_ixml_encoding,
+        lo_n       TYPE REF TO if_ixml_node,
+        lo_tpl     TYPE REF TO if_ixml_element,
+        lo_root    TYPE REF TO if_ixml_element,
+        lo_t       TYPE REF TO if_ixml_element,
+        lo_c       TYPE REF TO if_ixml_element,
+        lo_c2      TYPE REF TO if_ixml_element,
+        lo_x       TYPE REF TO if_ixml_element,
+        lo_clone   TYPE REF TO if_ixml_node,
+        lt_hits    TYPE STANDARD TABLE OF REF TO if_ixml_element WITH EMPTY KEY,
+        lt_edges   TYPE STANDARD TABLE OF REF TO if_ixml_element WITH EMPTY KEY,
+        lt_kv      TYPE STANDARD TABLE OF ty_kv WITH EMPTY KEY,
+        lt_css     TYPE STANDARD TABLE OF ty_kv WITH EMPTY KEY,
+        ls_kv      TYPE ty_kv,
+        lt_parts   TYPE STANDARD TABLE OF string WITH EMPTY KEY,
+        lt_lines   TYPE STANDARD TABLE OF string WITH EMPTY KEY,
+        lt_warn    TYPE STANDARD TABLE OF string WITH EMPTY KEY,
+        lv_xdps    TYPE string,
+        lv_status  TYPE string,
+        lv_detail  TYPE string,
+        lv_tag     TYPE string,
+        lv_s       TYPE string,
+        lv_k       TYPE string,
+        lv_v       TYPE string,
+        lv_ok      TYPE abap_bool,
+        lv_model   TYPE abap_bool,
+        lv_pfx     TYPE string,
+        lv_i       TYPE i,
+        lv_n       TYPE i,
+        lv_cnt     TYPE i,
+        lv_app     TYPE i,
+        lv_nf      TYPE i,
+        lv_amb     TYPE i,
+        lv_ref     TYPE i,
+        lv_cnt2    TYPE i,
+        lv_off2    TYPE i,
+        lv_len2    TYPE i.
+  FIELD-SYMBOLS: <ls_op> TYPE ty_op,
+                 <ls_kv> TYPE ty_kv.
+  " (?-x) in patterns with a space or #: ABAP runs PCRE in extended mode by default
+  CONSTANTS: c_ops   TYPE string VALUE ` layout geometry margin font para xhtml picture border presence datepicture bind embedlead contextdeactivate initsumbykey `,
+             " model ops (FORM fpc_model): run on the interface / context, not on the XDP
+             c_model TYPE string VALUE ` contextdeactivate initsumbykey `,
+             c_bref  TYPE string VALUE `(?-x)\$record(\.[A-Za-z_][A-Za-z0-9_]{0,29}(\[(0|\*)\])?){1,12}`,
+             c_dpict TYPE string VALUE `(?-x)date[{][DMY][DMY./ -]{0,19}[}]`,
+             " the display-picture assignment only (not $.ui.picture, not LocalDateFmt)
+             c_datefmt TYPE string VALUE `(?-x)\$\.format\.picture\s*=\s*DateFmt\(\s*\d\s*,\s*\$\.locale\s*\)`,
+             c_css   TYPE string VALUE ` line-height margin-left margin-right margin-top margin-bottom text-indent tab-stops font-size font-family font-weight text-align `,
+             c_meas  TYPE string VALUE `-?[0-9]{1,4}([.][0-9]{1,4})?(mm|pt|cm|in)`,
+             c_pict  TYPE string VALUE `[A-Za-z]+[{][^{}<>&]{1,80}[}]([|][A-Za-z]+[{][^{}<>&]{1,80}[}]){0,5}`.
+
+  CLEAR: cv_xdp, cv_report, cv_err.
+  IF strlen( iv_corr ) > 1000000.
+    cv_err = |correction refused - more than 1 000 000 characters|.
+    RETURN.
+  ENDIF.
+  TRY.
+      /ui2/cl_json=>deserialize( EXPORTING json        = iv_corr
+                                           pretty_name = /ui2/cl_json=>pretty_mode-low_case
+                                 CHANGING  data        = ls_c ).
+    CATCH cx_root.
+      cv_err = |correction refused - not the expected JSON|.
+      RETURN.
+  ENDTRY.
+  lv_cnt = lines( ls_c-ops ).
+  IF lv_cnt = 0 OR lv_cnt > 500.
+    cv_err = |correction refused - 1 to 500 ops ({ lv_cnt })|.
+    RETURN.
+  ENDIF.
+  LOOP AT ls_c-ops ASSIGNING <ls_op>.
+    lv_i = sy-tabix.
+    <ls_op>-op = to_lower( condense( <ls_op>-op ) ).
+    IF <ls_op>-op IS INITIAL OR c_ops NS | { <ls_op>-op } |.
+      cv_err = |correction refused - op { lv_i } "{ substring( val = <ls_op>-op len = nmin( val1 = 20 val2 = strlen( <ls_op>-op ) ) ) }" unknown|.
+      RETURN.
+    ENDIF.
+    " model ops have no layout target; FORM fpc_model checks their shape
+    IF c_model CS | { <ls_op>-op } |.
+      CONTINUE.
+    ENDIF.
+    IF <ls_op>-op = 'bind'.
+      <ls_op>-match = to_lower( condense( <ls_op>-match ) ).
+      IF <ls_op>-match <> 'dataref' AND <ls_op>-match <> 'none'.
+        cv_err = |correction refused - op { lv_i } bind: match dataRef or none|.
+        RETURN.
+      ENDIF.
+      IF <ls_op>-match = 'dataref' AND ( strlen( <ls_op>-ref ) > 400 OR NOT matches( val = <ls_op>-ref pcre = c_bref ) ).
+        cv_err = |correction refused - op { lv_i } bind: ref not allowed ($record path, names, [0] or [*] only)|.
+        RETURN.
+      ENDIF.
+      IF <ls_op>-basis IS INITIAL OR strlen( <ls_op>-basis ) > 200.
+        cv_err = |correction refused - op { lv_i } bind needs a basis (the SmartForm node or rule)|.
+        RETURN.
+      ENDIF.
+    ENDIF.
+    IF <ls_op>-path IS INITIAL AND <ls_op>-protoid IS INITIAL AND <ls_op>-xliffid IS INITIAL.
+      cv_err = |correction refused - op { lv_i } has no target|.
+      RETURN.
+    ENDIF.
+    IF strlen( <ls_op>-path ) > 1000 OR strlen( <ls_op>-protoid ) > 100 OR strlen( <ls_op>-xliffid ) > 100.
+      cv_err = |correction refused - op { lv_i } target too long|.
+      RETURN.
+    ENDIF.
+  ENDLOOP.
+  IF iv_check = abap_true.
+    RETURN.
+  ENDIF.
+
+  lv_xdps = cl_abap_codepage=>convert_from( iv_xdp ).
+  lo_ixml = cl_ixml=>create( ).
+  lo_sf = lo_ixml->create_stream_factory( ).
+  lo_doc = lo_ixml->create_document( ).
+  lo_parser = lo_ixml->create_parser( stream_factory = lo_sf
+                                      istream        = lo_sf->create_istream_xstring( string = iv_xdp )
+                                      document       = lo_doc ).
+  lo_parser->set_normalizing( abap_false ).
+  IF lo_parser->parse( ) <> 0.
+    cv_err = |correction: the migrated layout does not parse as XML|.
+    RETURN.
+  ENDIF.
+  lo_n = lo_doc->get_root_element( )->get_first_child( ).
+  WHILE lo_n IS BOUND.
+    IF lo_n->get_type( ) = if_ixml_node=>co_node_element AND lo_n->get_name( ) = 'template'.
+      lo_tpl ?= lo_n.
+      EXIT.
+    ENDIF.
+    lo_n = lo_n->get_next( ).
+  ENDWHILE.
+  IF lo_tpl IS BOUND.
+    lo_n = lo_tpl->get_first_child( ).
+    WHILE lo_n IS BOUND.
+      IF lo_n->get_type( ) = if_ixml_node=>co_node_element AND lo_n->get_name( ) = 'subform'.
+        lo_root ?= lo_n.
+        EXIT.
+      ENDIF.
+      lo_n = lo_n->get_next( ).
+    ENDWHILE.
+  ENDIF.
+  IF lo_root IS NOT BOUND.
+    cv_err = |correction: no <template> packet with a root subform in the migrated layout|.
+    RETURN.
+  ENDIF.
+
+  LOOP AT ls_c-ops ASSIGNING <ls_op>.
+    lv_i = sy-tabix - 1.
+    CLEAR: lv_status, lv_detail, lo_t, lt_hits.
+    lv_model = xsdbool( c_model CS | { <ls_op>-op } | ).
+    " ---- target
+    IF lv_model = abap_true.
+      " ran on the interface / context before (FORM fpc_model): "<i>|<status>|<detail>"
+      lv_status = 'not_found'. lv_detail = `model op did not run`.
+      LOOP AT it_pre INTO lv_s.
+        " the last target takes the rest, separators included
+        SPLIT lv_s AT '|' INTO lv_k lv_v lv_tag.
+        IF lv_k = |{ lv_i }|.
+          lv_status = lv_v. lv_detail = lv_tag.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+    ELSEIF <ls_op>-protoid IS NOT INITIAL.
+      PERFORM fpc_proto USING lo_tpl <ls_op>-protoid CHANGING lt_hits.
+      PERFORM fpc_pick USING lt_hits `` CHANGING lo_t lv_status.
+      IF lo_t IS BOUND AND <ls_op>-path IS NOT INITIAL.
+        " separate start variable: FORM parameters are passed by reference
+        lo_x = lo_t.
+        PERFORM fpc_path USING lo_x <ls_op>-path abap_false CHANGING lo_t lv_status.
+      ENDIF.
+    ELSEIF <ls_op>-xliffid IS NOT INITIAL.
+      PERFORM fpc_xliff USING lo_tpl <ls_op>-xliffid CHANGING lt_hits.
+      PERFORM fpc_pick USING lt_hits `` CHANGING lo_t lv_status.
+    ELSE.
+      PERFORM fpc_path USING lo_root <ls_op>-path abap_true CHANGING lo_t lv_status.
+    ENDIF.
+    IF lo_t IS NOT BOUND AND lv_status = 'refused' AND lv_model = abap_false.
+      lv_detail = `path segment not allowed (name or name[n])`.
+    ENDIF.
+    IF lo_t IS BOUND.
+      lv_tag = lo_t->get_name( ).
+      lv_status = 'applied'.
+      " ---- op
+      CASE <ls_op>-op.
+        WHEN 'layout'.
+          IF lv_tag <> 'subform' AND lv_tag <> 'subformSet'.
+            lv_status = 'refused'. lv_detail = |target is a { lv_tag }, not a subform|.
+          ELSEIF ` position tb lr-tb rl-tb table row ` NS | { <ls_op>-value } | OR <ls_op>-value IS INITIAL.
+            lv_status = 'refused'. lv_detail = `layout value not allowed`.
+          ELSE.
+            lo_t->set_attribute( name = 'layout' value = <ls_op>-value ).
+          ENDIF.
+        WHEN 'geometry'.
+          CLEAR lt_kv.
+          ls_kv-k = 'x'. ls_kv-v = <ls_op>-x. APPEND ls_kv TO lt_kv.
+          ls_kv-k = 'y'. ls_kv-v = <ls_op>-y. APPEND ls_kv TO lt_kv.
+          ls_kv-k = 'w'. ls_kv-v = <ls_op>-w. APPEND ls_kv TO lt_kv.
+          ls_kv-k = 'h'. ls_kv-v = <ls_op>-h. APPEND ls_kv TO lt_kv.
+          IF <ls_op>-anchortype IS NOT INITIAL AND ` topLeft topCenter topRight middleLeft middleCenter middleRight bottomLeft bottomCenter bottomRight ` NS | { <ls_op>-anchortype } |.
+            lv_status = 'refused'. lv_detail = `anchorType value not allowed`.
+          ELSE.
+            IF <ls_op>-x IS NOT INITIAL OR <ls_op>-y IS NOT INITIAL OR <ls_op>-w IS NOT INITIAL OR <ls_op>-h IS NOT INITIAL
+               OR <ls_op>-anchortype IS INITIAL.
+              PERFORM fpc_attrs USING lo_t lt_kv c_meas abap_true CHANGING lv_status lv_detail.
+            ENDIF.
+            IF lv_status = 'applied' AND <ls_op>-anchortype IS NOT INITIAL.
+              lo_t->set_attribute( name = 'anchorType' value = <ls_op>-anchortype ).
+            ENDIF.
+          ENDIF.
+        WHEN 'margin'.
+          CLEAR lt_kv.
+          ls_kv-k = 'topInset'.    ls_kv-v = <ls_op>-topinset.    APPEND ls_kv TO lt_kv.
+          ls_kv-k = 'bottomInset'. ls_kv-v = <ls_op>-bottominset. APPEND ls_kv TO lt_kv.
+          ls_kv-k = 'leftInset'.   ls_kv-v = <ls_op>-leftinset.   APPEND ls_kv TO lt_kv.
+          ls_kv-k = 'rightInset'.  ls_kv-v = <ls_op>-rightinset.  APPEND ls_kv TO lt_kv.
+          PERFORM fpc_attrs USING lo_t lt_kv c_meas abap_false CHANGING lv_status lv_detail.   " check only
+          IF lv_status = 'applied'.
+            PERFORM fpc_child USING lo_doc lo_t 'margin' CHANGING lo_c.
+            PERFORM fpc_attrs USING lo_c lt_kv c_meas abap_true CHANGING lv_status lv_detail.
+          ENDIF.
+        WHEN 'font'.
+          IF <ls_op>-typeface IS NOT INITIAL AND NOT matches( val = <ls_op>-typeface pcre = `(?-x)[A-Za-z0-9 -]{1,60}` ).
+            lv_status = 'refused'. lv_detail = `typeface not allowed`.
+          ELSEIF <ls_op>-weight IS NOT INITIAL AND <ls_op>-weight <> 'normal' AND <ls_op>-weight <> 'bold'.
+            lv_status = 'refused'. lv_detail = `weight: normal or bold`.
+          ELSEIF <ls_op>-size IS NOT INITIAL AND NOT matches( val = <ls_op>-size pcre = c_meas ).
+            lv_status = 'refused'. lv_detail = `size not a measurement`.
+          ELSE.
+            PERFORM fpc_child USING lo_doc lo_t 'font' CHANGING lo_c.
+            IF <ls_op>-typeface IS NOT INITIAL.
+              lo_c->set_attribute( name = 'typeface' value = <ls_op>-typeface ).
+              " font substitution: a typeface the layout uses nowhere else may be missing in ADS
+              IF lv_xdps NS |typeface="{ <ls_op>-typeface }"|.
+                APPEND |op { lv_i }: typeface "{ <ls_op>-typeface }" is not used elsewhere in the layout - ADS may substitute it| TO lt_warn.
+              ENDIF.
+            ENDIF.
+            IF <ls_op>-size IS NOT INITIAL.
+              lo_c->set_attribute( name = 'size' value = <ls_op>-size ).
+            ENDIF.
+            IF <ls_op>-weight IS NOT INITIAL.
+              lo_c->set_attribute( name = 'weight' value = <ls_op>-weight ).
+            ENDIF.
+          ENDIF.
+        WHEN 'para'.
+          CLEAR lt_kv.
+          ls_kv-k = 'spaceAbove'.  ls_kv-v = <ls_op>-spaceabove.  APPEND ls_kv TO lt_kv.
+          ls_kv-k = 'spaceBelow'.  ls_kv-v = <ls_op>-spacebelow.  APPEND ls_kv TO lt_kv.
+          ls_kv-k = 'marginLeft'.  ls_kv-v = <ls_op>-marginleft.  APPEND ls_kv TO lt_kv.
+          ls_kv-k = 'marginRight'. ls_kv-v = <ls_op>-marginright. APPEND ls_kv TO lt_kv.
+          ls_kv-k = 'textIndent'.  ls_kv-v = <ls_op>-textindent.  APPEND ls_kv TO lt_kv.
+          ls_kv-k = 'lineHeight'.  ls_kv-v = <ls_op>-lineheight.  APPEND ls_kv TO lt_kv.
+          IF <ls_op>-halign IS NOT INITIAL AND ` left center right justify justifyAll radix ` NS | { <ls_op>-halign } |.
+            lv_status = 'refused'. lv_detail = `hAlign value not allowed`.
+          ELSEIF <ls_op>-valign IS NOT INITIAL AND ` top middle bottom ` NS | { <ls_op>-valign } |.
+            lv_status = 'refused'. lv_detail = `vAlign value not allowed`.
+          ELSE.
+            lv_s = |{ <ls_op>-spaceabove }{ <ls_op>-spacebelow }{ <ls_op>-marginleft }{ <ls_op>-marginright }{ <ls_op>-textindent }{ <ls_op>-lineheight }|.
+            IF lv_s IS NOT INITIAL OR ( <ls_op>-halign IS INITIAL AND <ls_op>-valign IS INITIAL ).
+              PERFORM fpc_attrs USING lo_t lt_kv c_meas abap_false CHANGING lv_status lv_detail.   " check only
+            ENDIF.
+            IF lv_status = 'applied'.
+              PERFORM fpc_child USING lo_doc lo_t 'para' CHANGING lo_c.
+              IF lv_s IS NOT INITIAL.
+                PERFORM fpc_attrs USING lo_c lt_kv c_meas abap_true CHANGING lv_status lv_detail.
+              ENDIF.
+              IF <ls_op>-halign IS NOT INITIAL.
+                lo_c->set_attribute( name = 'hAlign' value = <ls_op>-halign ).
+              ENDIF.
+              IF <ls_op>-valign IS NOT INITIAL.
+                lo_c->set_attribute( name = 'vAlign' value = <ls_op>-valign ).
+              ENDIF.
+            ENDIF.
+          ENDIF.
+        WHEN 'xhtml'.
+          " CSS on the n-th <p> / <div> (document order, 0-based) of the target's exData
+          CLEAR: lt_hits, lt_css.
+          PERFORM fpc_desc USING lo_t 'exData' CHANGING lt_hits.
+          READ TABLE lt_hits INTO lo_x INDEX 1.
+          IF sy-subrc <> 0.
+            lv_status = 'not_found'. lv_detail = `no exData (rich text) in the target`.
+          ELSEIF NOT matches( val = <ls_op>-div pcre = `[0-9]{1,3}` ).
+            lv_status = 'refused'. lv_detail = `div: a number`.
+          ELSE.
+            CLEAR lt_hits.
+            PERFORM fpc_desc USING lo_x 'p' CHANGING lt_hits.    " p and div, document order
+            lv_n = <ls_op>-div + 1.
+            READ TABLE lt_hits INTO lo_c INDEX lv_n.
+            IF sy-subrc <> 0.
+              lv_status = 'not_found'. lv_detail = |no paragraph { <ls_op>-div } in the rich text|.
+            ELSE.
+              SPLIT <ls_op>-css AT ';' INTO TABLE lt_parts.
+              LOOP AT lt_parts INTO lv_s WHERE table_line IS NOT INITIAL.
+                SPLIT lv_s AT ':' INTO lv_k lv_v.
+                lv_k = to_lower( condense( lv_k ) ). lv_v = condense( lv_v ).
+                IF c_css NS | { lv_k } | OR lv_k IS INITIAL
+                   OR NOT matches( val = lv_v pcre = `(?-x)[A-Za-z0-9 .,#%'-]{1,120}` ).
+                  lv_status = 'refused'. lv_detail = |CSS "{ substring( val = lv_s len = nmin( val1 = 40 val2 = strlen( lv_s ) ) ) }" not allowed|.
+                  EXIT.
+                ENDIF.
+                ls_kv-k = lv_k. ls_kv-v = lv_v. APPEND ls_kv TO lt_css.
+              ENDLOOP.
+              IF lv_status = 'applied' AND lt_css IS INITIAL.
+                lv_status = 'refused'. lv_detail = `no CSS given`.
+              ENDIF.
+              IF lv_status = 'applied'.
+                " merge into the existing style attribute
+                CLEAR lt_kv.
+                lv_s = lo_c->get_attribute( name = 'style' ).
+                SPLIT lv_s AT ';' INTO TABLE lt_parts.
+                LOOP AT lt_parts INTO lv_s WHERE table_line IS NOT INITIAL.
+                  SPLIT lv_s AT ':' INTO lv_k lv_v.
+                  ls_kv-k = to_lower( condense( lv_k ) ). ls_kv-v = condense( lv_v ).
+                  IF ls_kv-k IS NOT INITIAL. APPEND ls_kv TO lt_kv. ENDIF.
+                ENDLOOP.
+                LOOP AT lt_css INTO ls_kv.
+                  READ TABLE lt_kv ASSIGNING <ls_kv> WITH KEY k = ls_kv-k.
+                  IF sy-subrc = 0. <ls_kv>-v = ls_kv-v. ELSE. APPEND ls_kv TO lt_kv. ENDIF.
+                ENDLOOP.
+                CLEAR lv_s.
+                LOOP AT lt_kv INTO ls_kv.
+                  lv_s = |{ lv_s }{ ls_kv-k }:{ ls_kv-v };|.
+                ENDLOOP.
+                lo_c->set_attribute( name = 'style' value = lv_s ).
+              ENDIF.
+            ENDIF.
+          ENDIF.
+        WHEN 'picture'.
+          IF <ls_op>-display IS INITIAL AND <ls_op>-format IS INITIAL.
+            lv_status = 'refused'. lv_detail = `display or format needed`.
+          ELSEIF ( <ls_op>-display IS NOT INITIAL AND NOT matches( val = <ls_op>-display pcre = c_pict ) )
+              OR ( <ls_op>-format IS NOT INITIAL AND NOT matches( val = <ls_op>-format pcre = c_pict ) ).
+            lv_status = 'refused'. lv_detail = `picture clause not allowed`.
+          ELSEIF lv_tag <> 'field' AND lv_tag <> 'draw'.
+            lv_status = 'refused'. lv_detail = |target is a { lv_tag }, not a field or draw|.
+          ELSE.
+            IF <ls_op>-format IS NOT INITIAL.
+              PERFORM fpc_child USING lo_doc lo_t 'format' CHANGING lo_c.
+              PERFORM fpc_child USING lo_doc lo_c 'picture' CHANGING lo_c2.
+              lo_c2->set_value( <ls_op>-format ).
+            ENDIF.
+            IF <ls_op>-display IS NOT INITIAL.
+              PERFORM fpc_child USING lo_doc lo_t 'ui' CHANGING lo_c.
+              PERFORM fpc_child USING lo_doc lo_c 'picture' CHANGING lo_c2.
+              lo_c2->set_value( <ls_op>-display ).
+            ENDIF.
+          ENDIF.
+        WHEN 'border'.
+          IF NOT matches( val = <ls_op>-edge pcre = `[0-3]` ).
+            lv_status = 'refused'. lv_detail = `edge: 0 to 3`.
+          ELSEIF <ls_op>-presence IS NOT INITIAL AND ` visible hidden invisible ` NS | { <ls_op>-presence } |.
+            lv_status = 'refused'. lv_detail = `edge presence not allowed`.
+          ELSEIF <ls_op>-thickness IS NOT INITIAL AND NOT matches( val = <ls_op>-thickness pcre = c_meas ).
+            lv_status = 'refused'. lv_detail = `thickness not a measurement`.
+          ELSEIF <ls_op>-presence IS INITIAL AND <ls_op>-thickness IS INITIAL.
+            lv_status = 'refused'. lv_detail = `presence or thickness needed`.
+          ELSE.
+            PERFORM fpc_child USING lo_doc lo_t 'border' CHANGING lo_c.
+            CLEAR lt_edges.
+            PERFORM fpc_kids USING lo_c 'edge' CHANGING lt_edges.
+            IF lt_edges IS INITIAL.
+              PERFORM fpc_child USING lo_doc lo_c 'edge' CHANGING lo_c2.
+              APPEND lo_c2 TO lt_edges.
+            ENDIF.
+            " XFA: 1 edge = all four sides; give the border 4 edges (copies of the last)
+            " before one side is changed
+            lv_n = <ls_op>-edge + 1.
+            IF lv_n > lines( lt_edges ).
+              WHILE lines( lt_edges ) < 4.
+                READ TABLE lt_edges INTO lo_x INDEX lines( lt_edges ).
+                lo_clone = lo_x->clone( ).
+                lo_n = lo_x->get_next( ).
+                IF lo_n IS BOUND.
+                  lv_ref = lo_c->insert_child( new_child = lo_clone ref_child = lo_n ).
+                ELSE.
+                  lv_ref = lo_c->append_child( new_child = lo_clone ).
+                ENDIF.
+                lo_x ?= lo_clone.
+                APPEND lo_x TO lt_edges.
+              ENDWHILE.
+            ENDIF.
+            READ TABLE lt_edges INTO lo_c2 INDEX lv_n.
+            IF <ls_op>-presence IS NOT INITIAL.
+              lo_c2->set_attribute( name = 'presence' value = <ls_op>-presence ).
+            ENDIF.
+            IF <ls_op>-thickness IS NOT INITIAL.
+              lo_c2->set_attribute( name = 'thickness' value = <ls_op>-thickness ).
+            ENDIF.
+          ENDIF.
+        WHEN 'presence'.
+          IF <ls_op>-basis IS INITIAL OR strlen( <ls_op>-basis ) > 200.
+            lv_status = 'refused'. lv_detail = `presence needs a basis (the SmartForm node or condition)`.
+          ELSEIF ` visible hidden invisible inactive ` NS | { <ls_op>-value } | OR <ls_op>-value IS INITIAL.
+            lv_status = 'refused'. lv_detail = `presence value not allowed`.
+          ELSE.
+            lo_t->set_attribute( name = 'presence' value = <ls_op>-value ).
+          ENDIF.
+        WHEN 'datepicture'.
+          " The one script edit: a field's initialize script sets its display picture at run
+          " time with DateFmt(<n>, $.locale), which overrides any template picture. Replace
+          " exactly that call by the fixed picture; nothing else in any script is touched.
+          IF lv_tag <> 'field'.
+            lv_status = 'refused'. lv_detail = |target is a { lv_tag }, not a field|.
+          ELSEIF NOT matches( val = <ls_op>-picture pcre = c_dpict ).
+            lv_status = 'refused'. lv_detail = `picture: date{...} with D / M / Y and . / - or space only`.
+          ELSE.
+            CLEAR: lt_hits, lv_n.
+            PERFORM fpc_initscripts USING lo_t CHANGING lt_hits.
+            LOOP AT lt_hits INTO lo_c.
+              lv_s = lo_c->get_value( ).
+              FIND ALL OCCURRENCES OF PCRE c_datefmt IN lv_s MATCH COUNT lv_cnt2.
+              lv_n = lv_n + lv_cnt2.
+              IF lv_cnt2 > 0.
+                lo_c2 = lo_c.
+              ENDIF.
+            ENDLOOP.
+            IF lv_n <> 1.
+              lv_status = 'refused'.
+              lv_detail = |{ lv_n } "$.format.picture = DateFmt(n, $.locale)" in the initialize scripts of the target - exactly 1 needed|.
+            ELSE.
+              lv_s = lo_c2->get_value( ).
+              FIND FIRST OCCURRENCE OF PCRE c_datefmt IN lv_s MATCH OFFSET lv_off2 MATCH LENGTH lv_len2.
+              " replace only the DateFmt( ... ) call: from "DateFmt" to the end of the match
+              lv_cnt2 = find( val = substring( val = lv_s off = lv_off2 len = lv_len2 ) sub = `DateFmt` ).
+              lv_off2 = lv_off2 + lv_cnt2.
+              lv_len2 = lv_len2 - lv_cnt2.
+              lv_v = substring( val = lv_s off = lv_off2 len = lv_len2 ).
+              " offset-based replace: no replacement-pattern interpretation of the picture
+              lv_s = |{ substring( val = lv_s len = lv_off2 ) }"{ <ls_op>-picture }"{ substring( val = lv_s off = lv_off2 + lv_len2 ) }|.
+              lv_ref = lo_c2->set_value( lv_s ).
+              lv_detail = |initialize script: { lv_v } replaced by the string literal "{ <ls_op>-picture }"|.
+            ENDIF.
+          ENDIF.
+        WHEN 'embedlead'.
+          " A rich-text paragraph that holds embedded field values only (no text of its own, not
+          " even a blank) prints at the content's left edge in ADS: its CSS text-align and margins
+          " are not applied (calibration 4 / 5). One blank before the first embed brings them back
+          " (calibration 5 X1 / X2). Only for paragraphs aligned right or center; the blank is a
+          " text node in the embed's parent, nothing else changes.
+          IF lv_tag <> 'draw'.
+            lv_status = 'refused'. lv_detail = |target is a { lv_tag }, not a draw|.
+          ELSE.
+            CLEAR: lt_hits, lv_n.
+            PERFORM fpc_desc USING lo_t 'p' CHANGING lt_hits.    " p and div
+            LOOP AT lt_hits INTO lo_c.
+              lv_s = lo_c->get_attribute( name = 'style' ).
+              CHECK matches( val = lv_s pcre = `(?-x)(?s).*text-align\s*:\s*(right|center).*` ).
+              " own text: none at all (a blank already does what this op does)
+              CHECK lo_c->get_value( ) IS INITIAL.
+              CLEAR lt_edges.
+              PERFORM fpc_embeds USING lo_c CHANGING lt_edges.
+              READ TABLE lt_edges INTO lo_x INDEX 1.
+              CHECK sy-subrc = 0.
+              " a blank right before it already (a nested paragraph, or the op twice): nothing to do
+              lo_n = lo_x->get_prev( ).
+              IF lo_n IS BOUND.
+                CHECK NOT ( lo_n->get_type( ) = if_ixml_node=>co_node_text AND lo_n->get_value( ) = ` ` ).
+              ENDIF.
+              lo_n = lo_x->get_parent( ).
+              CHECK lo_n IS BOUND.
+              lo_c2 ?= lo_n.
+              lv_ref = lo_c2->insert_child( new_child = lo_doc->create_text( text = ` ` ) ref_child = lo_x ).
+              lv_n = lv_n + 1.
+            ENDLOOP.
+            IF lv_n = 0.
+              lv_status = 'not_found'. lv_detail = `no right / center paragraph with embedded values only`.
+            ELSE.
+              lv_detail = |a blank before the value in { lv_n } paragraph(s)|.
+            ENDIF.
+          ENDIF.
+        WHEN 'bind'.
+          " G5 (a): a subform or field binds another data path (match / ref checked in the
+          " shape pass: dataRef + $record allow-list, or none). Replaces the node's own <bind>,
+          " or adds one as the first child after <occur>; nothing else changes.
+          IF lv_tag <> 'subform' AND lv_tag <> 'field'.
+            lv_status = 'refused'. lv_detail = |target is a { lv_tag }, not a subform or field|.
+          ELSE.
+            CLEAR lt_hits.
+            PERFORM fpc_kids USING lo_t 'bind' CHANGING lt_hits.
+            READ TABLE lt_hits INTO lo_c INDEX 1.
+            IF sy-subrc <> 0.
+              lo_c = lo_doc->create_element( name = 'bind' ).
+              CLEAR lt_edges.
+              PERFORM fpc_kids USING lo_t 'occur' CHANGING lt_edges.
+              READ TABLE lt_edges INTO lo_x INDEX 1.
+              IF sy-subrc = 0.
+                lo_n = lo_x->get_next( ).
+              ELSE.
+                lo_n = lo_t->get_first_child( ).
+              ENDIF.
+              IF lo_n IS BOUND.
+                lv_ref = lo_t->insert_child( new_child = lo_c ref_child = lo_n ).
+              ELSE.
+                lv_ref = lo_t->append_child( new_child = lo_c ).
+              ENDIF.
+            ENDIF.
+            IF <ls_op>-match = 'none'.
+              lo_c->set_attribute( name = 'match' value = 'none' ).
+              lo_c->remove_attribute( name = 'ref' ).
+              lv_detail = `bind match="none"`.
+            ELSE.
+              lo_c->set_attribute( name = 'match' value = 'dataRef' ).
+              lo_c->set_attribute( name = 'ref' value = <ls_op>-ref ).
+              lv_detail = |bind match="dataRef" ref="{ <ls_op>-ref }"|.
+              " read-back: binds below the target that do not start with the new ref up to its
+              " last [*] (a warning - they may still mean the old data path)
+              lv_n = find( val = <ls_op>-ref sub = `[*]` occ = -1 ).
+              IF lv_n >= 0.
+                lv_pfx = substring( val = <ls_op>-ref len = lv_n + 3 ).
+                CLEAR lt_hits.
+                PERFORM fpc_desc USING lo_t 'bind' CHANGING lt_hits.
+                LOOP AT lt_hits INTO lo_x.
+                  CHECK lo_x <> lo_c.
+                  lv_s = lo_x->get_attribute( name = 'ref' ).
+                  IF lv_s IS NOT INITIAL AND lv_s CP '$record*' AND find( val = lv_s sub = lv_pfx ) <> 0.
+                    APPEND |op { lv_i }: below the target a bind still reads "{ lv_s }" (not under "{ lv_pfx }")| TO lt_warn.
+                  ENDIF.
+                ENDLOOP.
+              ENDIF.
+            ENDIF.
+          ENDIF.
+      ENDCASE.
+    ENDIF.
+    CASE lv_status.
+      WHEN 'applied'.   lv_app = lv_app + 1.
+      WHEN 'not_found'. lv_nf = lv_nf + 1.
+      WHEN 'ambiguous'. lv_amb = lv_amb + 1.
+    ENDCASE.
+    lv_s = escape( val = <ls_op>-rule format = cl_abap_format=>e_json_string ).
+    lv_detail = escape( val = lv_detail format = cl_abap_format=>e_json_string ).
+    APPEND |\{"i":{ lv_i },"op":"{ <ls_op>-op }","rule":"{ lv_s }","status":"{ lv_status }","detail":"{ lv_detail }"\}| TO lt_lines.
+  ENDLOOP.
+
+  lv_n = lv_cnt - lv_app - lv_nf - lv_amb.     " refused
+  CONCATENATE LINES OF lt_lines INTO lv_s SEPARATED BY `,`.
+  CLEAR lv_detail.
+  LOOP AT lt_warn INTO lv_v.
+    lv_v = escape( val = lv_v format = cl_abap_format=>e_json_string ).
+    lv_detail = COND #( WHEN lv_detail IS INITIAL THEN |"{ lv_v }"| ELSE |{ lv_detail },"{ lv_v }"| ).
+  ENDLOOP.
+  lv_ok = xsdbool( lv_app = lv_cnt ).
+  cv_report = |\{"strict":{ COND string( WHEN ls_c-strict = abap_true THEN `true` ELSE `false` ) },| &&
+              |"ops":{ lv_cnt },"applied":{ lv_app },"notFound":{ lv_nf },"ambiguous":{ lv_amb },"refused":{ lv_n },| &&
+              |"partial":{ COND string( WHEN lv_ok = abap_true THEN `false` ELSE `true` ) },| &&
+              |"warnings":[{ lv_detail }],"results":[{ lv_s }]\}|.
+  IF ls_c-strict = abap_true AND lv_ok = abap_false.
+    cv_err = |correction (strict): { lv_cnt - lv_app } of { lv_cnt } ops not applied ({ lv_nf } not found, { lv_amb } ambiguous, { lv_n } refused)|.
+    RETURN.
+  ENDIF.
+
+  lo_ostream = lo_sf->create_ostream_xstring( string = cv_xdp ).
+  lo_enc = lo_ixml->create_encoding( character_set = 'utf-8' byte_order = if_ixml_encoding=>co_none ).
+  lo_ostream->set_encoding( encoding = lo_enc ).
+  lo_doc->render( ostream = lo_ostream ).
+  IF xstrlen( cv_xdp ) = 0.
+    cv_err = |correction: the corrected layout could not be written|.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_MODEL - G5 (a) correction ops on the interface / context
+*&---------------------------------------------------------------------*
+* Same IV_CORR as FPC_APPLY; only these ops (each needs a "basis"):
+*  contextdeactivate {node} - node = path of node names from the context
+*   root ("CONTEXT/MAIN/X", segments [A-Z0-9_], at most 30 each). It must
+*   hit exactly one node, a program-lines node; it gets state inactive
+*   (IF_FP_NODE SET_STATE 'I', as Form Builder's "deactivate"; stays in
+*   the form). Already inactive = applied. Read-back: still-active program
+*   lines that take an output of a deactivated node as input are named in
+*   the detail (a warning, not a failure).
+*  initsumbykey {source, target, key[1-5], sum[1-5]} - names
+*   [A-Z][A-Z0-9_]{0,29}; source = an import / table parameter or global,
+*   target = a global, both tables of a DDIC structure (TYPE / TYPE TABLE
+*   OF); the target a standard table with the standard key and a flat
+*   line (COLLECT groups by the primary key); every key / sum a component
+*   of both lines with the same type, length and decimals; key types not
+*   numeric (COLLECT adds every numeric component), sum types I / INT8 / P /
+*   F / DECFLOAT16 / 34. A fixed template (checked names only, no free text) is
+*   appended to the interface initialization (IF_FP_CODING): CLEAR target,
+*   LOOP AT source, COLLECT the key and sum fields INTO target; the
+*   initialization's input / output parameters get source / target if
+*   missing. Marker line for the target present -> applied, no second
+*   copy. Then the interface check (IF_FP_OBJECT CHECK): more E / A / X
+*   messages than before -> coding and parameters restored, refused.
+* IV_PHASE: X = parse and shape checks only (before anything is saved),
+* I = initsumbykey on IO_INTF (before the interface is saved), C =
+* contextdeactivate under IO_CTX (before the form is saved). CT_PRE gets
+* "<i>|<status>|<detail>" per op run (i = 0-based op index, as in the
+* FPC_APPLY report). Strict and an op of the phase not applied -> CV_ERR.
+FORM fpc_model USING iv_corr  TYPE string
+                     iv_phase TYPE char1
+                     io_intf  TYPE REF TO if_fp_interface
+                     io_ctx   TYPE REF TO if_fp_node
+               CHANGING ct_pre TYPE string_table
+                        cv_err TYPE string.
+  TYPES: BEGIN OF ty_mop,
+           op     TYPE string,
+           basis  TYPE string,
+           node   TYPE string,
+           source TYPE string,
+           target TYPE string,
+           key    TYPE string_table,
+           sum    TYPE string_table,
+         END OF ty_mop,
+         BEGIN OF ty_mcorr,
+           strict TYPE abap_bool,
+           ops    TYPE STANDARD TABLE OF ty_mop WITH EMPTY KEY,
+         END OF ty_mcorr,
+         BEGIN OF ty_res,
+           i      TYPE i,
+           op     TYPE string,
+           status TYPE string,
+           detail TYPE string,
+           node   TYPE REF TO if_fp_node,
+         END OF ty_res.
+  DATA: ls_c      TYPE ty_mcorr,
+        lt_res    TYPE STANDARD TABLE OF ty_res WITH EMPTY KEY,
+        ls_res    TYPE ty_res,
+        lt_seg    TYPE string_table,
+        lt_all    TYPE string_table,
+        lt_stack  TYPE STANDARD TABLE OF REF TO if_fp_node WITH EMPTY KEY,
+        lo_node   TYPE REF TO if_fp_node,
+        lo_kid    TYPE REF TO if_fp_node,
+        lo_hit    TYPE REF TO if_fp_node,
+        lo_pl     TYPE REF TO if_fp_programlines,
+        lo_idata  TYPE REF TO if_fp_interface_data,
+        lo_code   TYPE REF TO if_fp_coding,
+        lt_coding TYPE tfpcoding,
+        lt_cold   TYPE tfpcoding,
+        lt_in     TYPE tfpparameter,
+        lt_inold  TYPE tfpparameter,
+        lt_out    TYPE tfpparameter,
+        lt_outold TYPE tfpparameter,
+        lt_check  TYPE tfpchecklist,
+        ls_check  TYPE sfpchecklist,
+        lt_outs   TYPE tfpfield,
+        lt_ins    TYPE tfpfield,
+        lv_fld    TYPE fpfield,
+        lo_sline  TYPE REF TO cl_abap_structdescr,
+        lo_tline  TYPE REF TO cl_abap_structdescr,
+        lt_scomp  TYPE abap_component_view_tab,
+        lt_tcomp  TYPE abap_component_view_tab,
+        ls_comp   TYPE LINE OF abap_component_view_tab,
+        lv_kind   TYPE abap_typekind,
+        lv_kind2  TYPE abap_typekind,
+        lv_len    TYPE i,
+        lv_len2   TYPE i,
+        lv_dec    TYPE i,
+        lv_dec2   TYPE i,
+        lv_s      TYPE string,
+        lv_n      TYPE string,
+        lv_v      TYPE string,
+        lv_w      TYPE string,
+        lv_e0     TYPE i,
+        lv_e1     TYPE i,
+        lv_i      TYPE i,
+        lv_cnt    TYPE i,
+        lv_marker TYPE string.
+  FIELD-SYMBOLS: <ls_op>  TYPE ty_mop,
+                 <lv_nm>  TYPE string,
+                 <ls_res> TYPE ty_res.
+  CONSTANTS: c_name   TYPE string VALUE `[A-Z][A-Z0-9_]{0,29}`,
+             " typekinds a COLLECT adds: int1 / int2 / int / int8 / packed / float / decfloat16 / 34
+             c_numall TYPE string VALUE `bsI8PFae`,
+             c_sumok  TYPE string VALUE `I8PFae`.
+
+  CLEAR cv_err.
+  TRY.
+      /ui2/cl_json=>deserialize( EXPORTING json        = iv_corr
+                                           pretty_name = /ui2/cl_json=>pretty_mode-low_case
+                                 CHANGING  data        = ls_c ).
+    CATCH cx_root.
+      cv_err = |correction refused - not the expected JSON|.
+      RETURN.
+  ENDTRY.
+
+  LOOP AT ls_c-ops ASSIGNING <ls_op>.
+    lv_i = sy-tabix - 1.
+    <ls_op>-op = to_lower( condense( <ls_op>-op ) ).
+    CHECK <ls_op>-op = 'contextdeactivate' OR <ls_op>-op = 'initsumbykey'.
+    " ---- shape (every phase: the names are checked again before use)
+    CLEAR lv_s.
+    IF <ls_op>-basis IS INITIAL OR strlen( <ls_op>-basis ) > 200.
+      lv_s = `needs a basis (the SmartForm node or rule)`.
+    ELSEIF <ls_op>-op = 'contextdeactivate'.
+      <ls_op>-node = to_upper( condense( <ls_op>-node ) ).
+      IF strlen( <ls_op>-node ) > 400 OR NOT matches( val = <ls_op>-node pcre = `[A-Z0-9_]{1,30}(/[A-Z0-9_]{1,30}){1,20}` ).
+        lv_s = `node: a path of node names (A-Z 0-9 _, at most 30 each) from the context root`.
+      ENDIF.
+    ELSE.
+      <ls_op>-source = to_upper( condense( <ls_op>-source ) ).
+      <ls_op>-target = to_upper( condense( <ls_op>-target ) ).
+      CLEAR lt_all.
+      APPEND <ls_op>-source TO lt_all.
+      APPEND <ls_op>-target TO lt_all.
+      LOOP AT <ls_op>-key ASSIGNING <lv_nm>.
+        <lv_nm> = to_upper( condense( <lv_nm> ) ).
+        APPEND <lv_nm> TO lt_all.
+      ENDLOOP.
+      LOOP AT <ls_op>-sum ASSIGNING <lv_nm>.
+        <lv_nm> = to_upper( condense( <lv_nm> ) ).
+        APPEND <lv_nm> TO lt_all.
+      ENDLOOP.
+      IF lines( <ls_op>-key ) < 1 OR lines( <ls_op>-key ) > 5 OR lines( <ls_op>-sum ) < 1 OR lines( <ls_op>-sum ) > 5.
+        lv_s = `1 to 5 key and 1 to 5 sum names`.
+      ELSE.
+        LOOP AT lt_all INTO lv_n.
+          IF NOT matches( val = lv_n pcre = c_name ).
+            lv_s = |name "{ substring( val = lv_n len = nmin( val1 = 30 val2 = strlen( lv_n ) ) ) }" not allowed ([A-Z][A-Z0-9_], at most 30)|.
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+        IF lv_s IS INITIAL.
+          lv_cnt = lines( lt_all ).
+          SORT lt_all.
+          DELETE ADJACENT DUPLICATES FROM lt_all.
+          IF lines( lt_all ) <> lv_cnt.
+            lv_s = `source, target, key and sum names must all differ`.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+    IF lv_s IS NOT INITIAL.
+      IF iv_phase = 'X'.
+        cv_err = |correction refused - op { lv_i } { <ls_op>-op }: { lv_s }|.
+        RETURN.
+      ENDIF.
+      CLEAR ls_res. ls_res-i = lv_i. ls_res-op = <ls_op>-op. ls_res-status = 'refused'. ls_res-detail = lv_s.
+      APPEND ls_res TO lt_res.
+      CONTINUE.
+    ENDIF.
+    CHECK iv_phase <> 'X'.
+    CLEAR ls_res. ls_res-i = lv_i. ls_res-op = <ls_op>-op. ls_res-status = 'applied'.
+
+    IF iv_phase = 'I' AND <ls_op>-op = 'initsumbykey'.
+      " ---- initSumByKey on the interface initialization
+      CLEAR: lo_sline, lo_tline.
+      lo_idata = io_intf->get_interface_data( ).
+      PERFORM fpc_linetype USING lo_idata <ls_op>-source abap_true CHANGING lo_sline ls_res-detail.
+      IF lo_sline IS BOUND.
+        PERFORM fpc_linetype USING lo_idata <ls_op>-target abap_false CHANGING lo_tline ls_res-detail.
+      ENDIF.
+      IF lo_sline IS NOT BOUND OR lo_tline IS NOT BOUND.
+        ls_res-status = 'refused'.
+      ELSE.
+        lt_scomp = lo_sline->get_included_view( ).
+        lt_tcomp = lo_tline->get_included_view( ).
+        LOOP AT lt_all INTO lv_n WHERE table_line <> <ls_op>-source AND table_line <> <ls_op>-target.
+          CLEAR: lv_kind, lv_kind2, lv_len, lv_len2, lv_dec, lv_dec2.
+          READ TABLE lt_scomp INTO ls_comp WITH KEY name = lv_n.
+          IF sy-subrc = 0.
+            lv_kind = ls_comp-type->type_kind. lv_len = ls_comp-type->length. lv_dec = ls_comp-type->decimals.
+          ENDIF.
+          READ TABLE lt_tcomp INTO ls_comp WITH KEY name = lv_n.
+          IF sy-subrc = 0.
+            lv_kind2 = ls_comp-type->type_kind. lv_len2 = ls_comp-type->length. lv_dec2 = ls_comp-type->decimals.
+          ENDIF.
+          IF lv_kind IS INITIAL OR lv_kind2 IS INITIAL.
+            ls_res-status = 'refused'. ls_res-detail = |{ lv_n } is not a component of both { <ls_op>-source } and { <ls_op>-target }|.
+            EXIT.
+          ENDIF.
+          " the assignment source -> target must not convert or cut
+          IF lv_kind <> lv_kind2 OR lv_len <> lv_len2 OR lv_dec <> lv_dec2.
+            ls_res-status = 'refused'.
+            ls_res-detail = |{ lv_n } differs between { <ls_op>-source } ({ lv_kind } { lv_len } { lv_dec }) and { <ls_op>-target } ({ lv_kind2 } { lv_len2 } { lv_dec2 })|.
+            EXIT.
+          ENDIF.
+          READ TABLE <ls_op>-sum TRANSPORTING NO FIELDS WITH KEY table_line = lv_n.
+          IF sy-subrc = 0.
+            IF c_sumok NA lv_kind OR c_sumok NA lv_kind2.
+              ls_res-status = 'refused'. ls_res-detail = |sum field { lv_n } is not numeric (I, INT8, P, F, DECFLOAT; type kinds { lv_kind } / { lv_kind2 })|.
+              EXIT.
+            ENDIF.
+          ELSEIF c_numall CA lv_kind OR c_numall CA lv_kind2.
+            ls_res-status = 'refused'. ls_res-detail = |key field { lv_n } is numeric - COLLECT would add it, not group by it|.
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
+      IF ls_res-status = 'applied'.
+        lo_code = lo_idata->get_coding( ).
+        lt_cold = lo_code->get_init_coding( ).
+        lv_marker = |* sc4sap G5 initSumByKey (generated) { <ls_op>-target }|.
+        READ TABLE lt_cold TRANSPORTING NO FIELDS WITH KEY table_line = lv_marker.
+        IF sy-subrc = 0.
+          ls_res-detail = |the initialization sums into { <ls_op>-target } already (marker line) - no second copy|.
+        ELSE.
+          " errors of the interface check before the change (only new ones refuse)
+          CLEAR: lt_check, lv_e0, lv_e1.
+          TRY.
+              io_intf->check( CHANGING c_checklist = lt_check ).
+            CATCH cx_root.                                      "#EC NO_HANDLER
+          ENDTRY.
+          LOOP AT lt_check INTO ls_check WHERE msgty CA 'EAX'.
+            lv_e0 = lv_e0 + 1.
+          ENDLOOP.
+          lt_inold = lo_code->get_init_input_params( ).
+          lt_outold = lo_code->get_init_output_params( ).
+          lt_in = lt_inold.
+          lt_out = lt_outold.
+          READ TABLE lt_in TRANSPORTING NO FIELDS WITH KEY table_line = <ls_op>-source.
+          IF sy-subrc <> 0. APPEND <ls_op>-source TO lt_in. ENDIF.
+          READ TABLE lt_out TRANSPORTING NO FIELDS WITH KEY table_line = <ls_op>-target.
+          IF sy-subrc <> 0. APPEND <ls_op>-target TO lt_out. ENDIF.
+          " the fixed template: checked names only
+          lv_v = |ls_sc4sap_g5_{ lv_i }|.
+          lt_coding = lt_cold.
+          APPEND lv_marker TO lt_coding.
+          APPEND |DATA { lv_v } LIKE LINE OF { to_lower( <ls_op>-target ) }.| TO lt_coding.
+          APPEND |FIELD-SYMBOLS <{ lv_v }> LIKE LINE OF { to_lower( <ls_op>-source ) }.| TO lt_coding.
+          APPEND |CLEAR { to_lower( <ls_op>-target ) }.| TO lt_coding.
+          APPEND |LOOP AT { to_lower( <ls_op>-source ) } ASSIGNING <{ lv_v }>.| TO lt_coding.
+          APPEND |  CLEAR { lv_v }.| TO lt_coding.
+          LOOP AT lt_all INTO lv_n WHERE table_line <> <ls_op>-source AND table_line <> <ls_op>-target.
+            APPEND |  { lv_v }-{ to_lower( lv_n ) } = <{ lv_v }>-{ to_lower( lv_n ) }.| TO lt_coding.
+          ENDLOOP.
+          APPEND |  COLLECT { lv_v } INTO { to_lower( <ls_op>-target ) }.| TO lt_coding.
+          APPEND |ENDLOOP.| TO lt_coding.
+          lo_code->set_init_input_params( lt_in ).
+          lo_code->set_init_output_params( lt_out ).
+          lo_code->set_init_coding( lt_coding ).
+          CLEAR lt_check.
+          TRY.
+              io_intf->check( CHANGING c_checklist = lt_check ).
+            CATCH cx_root INTO DATA(lx_chk).
+              CLEAR ls_check.
+              ls_check-msgty = 'E'.
+              ls_check-message = lx_chk->get_text( ).
+              APPEND ls_check TO lt_check.
+          ENDTRY.
+          CLEAR lv_w.
+          LOOP AT lt_check INTO ls_check WHERE msgty CA 'EAX'.
+            lv_e1 = lv_e1 + 1.
+            IF lv_w IS INITIAL.
+              lv_w = ls_check-message.
+              IF lv_w IS INITIAL AND ls_check-msgid IS NOT INITIAL.
+                MESSAGE ID ls_check-msgid TYPE 'S' NUMBER ls_check-msgno
+                  WITH ls_check-msgv1 ls_check-msgv2 ls_check-msgv3 ls_check-msgv4 INTO lv_w.
+              ENDIF.
+            ENDIF.
+          ENDLOOP.
+          IF lv_e1 > lv_e0.
+            lo_code->set_init_coding( lt_cold ).
+            lo_code->set_init_input_params( lt_inold ).
+            lo_code->set_init_output_params( lt_outold ).
+            ls_res-status = 'refused'.
+            ls_res-detail = |interface check after the change: { lv_e1 - lv_e0 } new error(s), change undone - { lv_w }|.
+          ELSE.
+            lv_cnt = lines( lt_tcomp ) - lines( <ls_op>-key ) - lines( <ls_op>-sum ).
+            ls_res-detail = |initialization: { <ls_op>-target } = { <ls_op>-source } summed ({ concat_lines_of( table = <ls_op>-sum sep = `, ` ) }) | &&
+                            |by { concat_lines_of( table = <ls_op>-key sep = `, ` ) } ({ lines( lt_coding ) - lines( lt_cold ) } lines); | &&
+                            |{ lv_cnt } other components of { <ls_op>-target } stay initial (numeric ones add 0); interface check { lv_e1 } error(s) as before; | &&
+                            |the interface is new (this run) - no other form uses it|.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+      APPEND ls_res TO lt_res.
+
+    ELSEIF iv_phase = 'C' AND <ls_op>-op = 'contextdeactivate'.
+      " ---- contextDeactivate: walk the path from the context root
+      SPLIT <ls_op>-node AT '/' INTO TABLE lt_seg.
+      lo_node = io_ctx.
+      READ TABLE lt_seg INTO lv_n INDEX 1.
+      IF lo_node IS NOT BOUND OR lo_node->get_name( ) <> lv_n.
+        ls_res-status = 'not_found'. ls_res-detail = |the context root is not "{ lv_n }"|.
+        CLEAR lo_node.
+      ENDIF.
+      LOOP AT lt_seg INTO lv_n FROM 2.
+        CHECK lo_node IS BOUND.
+        CLEAR: lo_hit, lv_cnt.
+        lo_kid = lo_node->get_child( ).
+        WHILE lo_kid IS BOUND.
+          IF lo_kid->get_name( ) = lv_n.
+            lv_cnt = lv_cnt + 1.
+            lo_hit = lo_kid.
+          ENDIF.
+          lo_kid = lo_kid->get_successor( ).
+        ENDWHILE.
+        IF lv_cnt <> 1.
+          ls_res-status = COND #( WHEN lv_cnt = 0 THEN `not_found` ELSE `ambiguous` ).
+          ls_res-detail = |{ lv_cnt } nodes "{ lv_n }" under "{ lo_node->get_name( ) }"|.
+          CLEAR lo_node.
+        ELSE.
+          lo_node = lo_hit.
+        ENDIF.
+      ENDLOOP.
+      IF lo_node IS BOUND.
+        IF lo_node->get_type( ) <> if_fp_node=>c_type_programlines.
+          ls_res-status = 'refused'. ls_res-detail = |node type { lo_node->get_type( ) } is not program lines|.
+        ELSE.
+          IF lo_node->get_state( ) = if_fp_node=>c_state_inactive.
+            ls_res-detail = `inactive already`.
+          ELSE.
+            TRY.
+                lo_node->set_state( i_state = if_fp_node=>c_state_inactive ).
+              CATCH cx_root INTO DATA(lx_st).
+                ls_res-detail = lx_st->get_text( ).
+            ENDTRY.
+            IF lo_node->get_state( ) <> if_fp_node=>c_state_inactive.
+              ls_res-status = 'refused'. ls_res-detail = |state not set: { ls_res-detail }|.
+            ELSE.
+              ls_res-detail = `deactivated`.
+            ENDIF.
+          ENDIF.
+          ls_res-node = lo_node.
+        ENDIF.
+      ENDIF.
+      APPEND ls_res TO lt_res.
+    ENDIF.
+  ENDLOOP.
+  CHECK iv_phase <> 'X'.
+
+  " ---- contextDeactivate read-back: active program lines that read an output of a
+  " deactivated node (a warning in the detail - another node may still need the data)
+  IF iv_phase = 'C' AND io_ctx IS BOUND.
+    LOOP AT lt_res ASSIGNING <ls_res> WHERE node IS NOT INITIAL.
+      lo_pl ?= <ls_res>-node.
+      lt_outs = lo_pl->get_output_parameters( ).
+      CHECK lt_outs IS NOT INITIAL.
+      CLEAR: lt_stack, lv_w.
+      APPEND io_ctx TO lt_stack.
+      WHILE lt_stack IS NOT INITIAL.
+        READ TABLE lt_stack INTO lo_node INDEX lines( lt_stack ).
+        DELETE lt_stack INDEX lines( lt_stack ).
+        lo_kid = lo_node->get_child( ).
+        WHILE lo_kid IS BOUND.
+          APPEND lo_kid TO lt_stack.
+          lo_kid = lo_kid->get_successor( ).
+        ENDWHILE.
+        CHECK lo_node->get_type( ) = if_fp_node=>c_type_programlines
+          AND lo_node->get_state( ) <> if_fp_node=>c_state_inactive.
+        lo_pl ?= lo_node.
+        lt_ins = lo_pl->get_input_parameters( ).
+        LOOP AT lt_ins INTO lv_fld.
+          READ TABLE lt_outs TRANSPORTING NO FIELDS WITH KEY table_line = lv_fld.
+          IF sy-subrc = 0.
+            lv_w = |{ lv_w }{ COND string( WHEN lv_w IS NOT INITIAL THEN `; ` ) }{ lo_node->get_name( ) } still reads { condense( lv_fld ) }|.
+          ENDIF.
+        ENDLOOP.
+      ENDWHILE.
+      IF lv_w IS NOT INITIAL.
+        <ls_res>-detail = |{ <ls_res>-detail } - warning: { lv_w }|.
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+
+  LOOP AT lt_res INTO ls_res.
+    APPEND |{ ls_res-i }\|{ ls_res-status }\|{ ls_res-detail }| TO ct_pre.
+    IF ls_c-strict = abap_true AND ls_res-status <> 'applied' AND cv_err IS INITIAL.
+      cv_err = |correction (strict): op { ls_res-i } { ls_res-op } { ls_res-status } - { ls_res-detail }|.
+    ENDIF.
+  ENDLOOP.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_LINETYPE - the structured line type of a table in the interface
+*&---------------------------------------------------------------------*
+* IV_PARAM = X: import and table parameters first, then globals; else
+* globals only. Typing TYPE <DDIC table type> / TYPE TABLE OF <DDIC
+* structure>; a TABLES parameter TYPE <DDIC structure> too. Anything else
+* -> CO_LINE initial and CV_DETAIL says why.
+FORM fpc_linetype USING io_idata TYPE REF TO if_fp_interface_data
+                        iv_name  TYPE string
+                        iv_param TYPE abap_bool
+                  CHANGING co_line   TYPE REF TO cl_abap_structdescr
+                           cv_detail TYPE string.
+  DATA: lt_io     TYPE tfpiopar,
+        ls_io     TYPE sfpiopar,
+        lt_g      TYPE tfpgdata,
+        ls_g      TYPE sfpgdata,
+        lv_typing TYPE string,
+        lv_tname  TYPE string,
+        lv_tab    TYPE abap_bool,
+        lv_found  TYPE abap_bool,
+        lo_td     TYPE REF TO cl_abap_typedescr,
+        lo_ld     TYPE REF TO cl_abap_datadescr,
+        lo_tabd   TYPE REF TO cl_abap_tabledescr.
+  CLEAR co_line.
+  IF iv_param = abap_true.
+    lt_io = io_idata->get_parameters( )->get_import_parameters( ).
+    READ TABLE lt_io INTO ls_io WITH KEY name = iv_name.
+    IF sy-subrc = 0.
+      lv_found = abap_true.
+    ELSE.
+      lt_io = io_idata->get_parameters( )->get_table_parameters( ).
+      READ TABLE lt_io INTO ls_io WITH KEY name = iv_name.
+      IF sy-subrc = 0.
+        lv_found = abap_true.
+        lv_tab = abap_true.
+      ENDIF.
+    ENDIF.
+    IF lv_found = abap_true.
+      lv_typing = ls_io-typing.
+      lv_tname = ls_io-typename.
+    ENDIF.
+  ENDIF.
+  IF lv_found = abap_false.
+    lt_g = io_idata->get_global_definitions( )->get_global_data( ).
+    READ TABLE lt_g INTO ls_g WITH KEY name = iv_name.
+    IF sy-subrc = 0.
+      lv_found = abap_true.
+      lv_typing = ls_g-typing.
+      lv_tname = ls_g-typename.
+    ENDIF.
+  ENDIF.
+  IF lv_found = abap_false.
+    cv_detail = |{ iv_name } is not a { COND string( WHEN iv_param = abap_true THEN `parameter or ` ) }global of the interface|.
+    RETURN.
+  ENDIF.
+  lv_typing = to_upper( condense( lv_typing ) ).
+  lv_tname = to_upper( condense( lv_tname ) ).
+  IF lv_typing <> 'TYPE' AND lv_typing <> 'TYPE TABLE OF'.
+    cv_detail = |{ iv_name }: typing "{ lv_typing }" not supported (TYPE or TYPE TABLE OF a DDIC type)|.
+    RETURN.
+  ENDIF.
+  cl_abap_typedescr=>describe_by_name( EXPORTING  p_name         = lv_tname
+                                       RECEIVING  p_descr_ref    = lo_td
+                                       EXCEPTIONS type_not_found = 1
+                                                  OTHERS         = 2 ).
+  IF sy-subrc <> 0 OR lo_td IS NOT BOUND.
+    cv_detail = |{ iv_name }: type { lv_tname } not found|.
+    RETURN.
+  ENDIF.
+  IF lo_td->kind = cl_abap_typedescr=>kind_struct
+     AND ( lv_typing = 'TYPE TABLE OF' OR lv_tab = abap_true ).
+    co_line ?= lo_td.
+  ELSEIF lo_td->kind = cl_abap_typedescr=>kind_table AND lv_typing = 'TYPE'.
+    lo_tabd ?= lo_td.
+    " a COLLECT target groups by its primary key: only a standard table with the standard
+    " (default) key groups by the op's key fields (the other components are initial)
+    IF iv_param = abap_false AND ( lo_tabd->table_kind <> cl_abap_tabledescr=>tablekind_std
+                                OR lo_tabd->key_defkind <> cl_abap_tabledescr=>keydefkind_default ).
+      cv_detail = |{ iv_name }: table type { lv_tname } is not a standard table with the standard key - COLLECT would group by another key|.
+      RETURN.
+    ENDIF.
+    lo_ld = lo_tabd->get_table_line_type( ).
+    IF lo_ld->kind = cl_abap_typedescr=>kind_struct.
+      co_line ?= lo_ld.
+    ENDIF.
+  ENDIF.
+  " a COLLECT target line must be flat (no string, table or reference components)
+  IF co_line IS BOUND AND iv_param = abap_false AND co_line->type_kind <> cl_abap_typedescr=>typekind_struct1.
+    CLEAR co_line.
+    cv_detail = |{ iv_name }: the line type { lv_tname } is deep (string, table or reference components) - COLLECT needs a flat line|.
+    RETURN.
+  ENDIF.
+  IF co_line IS NOT BOUND.
+    cv_detail = |{ iv_name } is not a table of a structure ({ lv_typing } { lv_tname })|.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_PATH - resolve a dotted name path (see FPC_APPLY)
+*&---------------------------------------------------------------------*
+FORM fpc_path USING io_start   TYPE REF TO if_ixml_element
+                    iv_path    TYPE string
+                    iv_isroot  TYPE abap_bool
+              CHANGING co_el     TYPE REF TO if_ixml_element
+                       cv_status TYPE string.
+  DATA: lt_seg  TYPE STANDARD TABLE OF string WITH EMPTY KEY,
+        lt_hits TYPE STANDARD TABLE OF REF TO if_ixml_element WITH EMPTY KEY,
+        lo_cur  TYPE REF TO if_ixml_element,
+        lv_seg  TYPE string,
+        lv_name TYPE string,
+        lv_idx  TYPE string,
+        lv_last TYPE abap_bool,
+        lv_pos  TYPE i,
+        lv_n    TYPE i.
+
+  lo_cur = io_start.     " before CLEAR co_el - the caller may pass one variable for both
+  CLEAR co_el.
+  SPLIT iv_path AT '.' INTO TABLE lt_seg.
+  lv_n = lines( lt_seg ).
+  LOOP AT lt_seg INTO lv_seg.
+    lv_pos = sy-tabix.
+    CLEAR: lv_name, lv_idx.
+    FIND FIRST OCCURRENCE OF PCRE `^([A-Za-z_][A-Za-z0-9_\-]{0,59})(?:\[([0-9]{1,3})\])?$` IN lv_seg SUBMATCHES lv_name lv_idx.
+    IF sy-subrc <> 0.
+      cv_status = 'refused'.
+      RETURN.
+    ENDIF.
+    IF lv_pos = 1 AND iv_isroot = abap_true.
+      " the first segment names the root subform itself
+      IF lv_name <> lo_cur->get_attribute( name = 'name' ) OR ( lv_idx IS NOT INITIAL AND lv_idx <> '0' ).
+        cv_status = 'not_found'.
+        RETURN.
+      ENDIF.
+      CONTINUE.
+    ENDIF.
+    lv_last = xsdbool( lv_pos = lv_n ).
+    CLEAR lt_hits.
+    PERFORM fpc_named USING lo_cur lv_name lv_last CHANGING lt_hits.
+    PERFORM fpc_pick USING lt_hits lv_idx CHANGING lo_cur cv_status.
+    IF lo_cur IS NOT BOUND.
+      RETURN.
+    ENDIF.
+  ENDLOOP.
+  co_el = lo_cur.
+  cv_status = 'applied'.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_PICK - one hit: by index, or the only one
+*&---------------------------------------------------------------------*
+FORM fpc_pick USING it_hits   TYPE STANDARD TABLE
+                    iv_idx    TYPE string
+              CHANGING co_el     TYPE REF TO if_ixml_element
+                       cv_status TYPE string.
+  DATA lv_n TYPE i.
+  CLEAR co_el.
+  IF iv_idx IS NOT INITIAL.
+    lv_n = iv_idx + 1.
+    READ TABLE it_hits INTO co_el INDEX lv_n.
+    cv_status = COND #( WHEN sy-subrc = 0 THEN `applied` ELSE `not_found` ).
+  ELSEIF lines( it_hits ) = 1.
+    READ TABLE it_hits INTO co_el INDEX 1.
+    cv_status = 'applied'.
+  ELSEIF lines( it_hits ) = 0.
+    cv_status = 'not_found'.
+  ELSE.
+    cv_status = 'ambiguous'.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_NAMED - children named IV_NAME, through unnamed subforms
+*&---------------------------------------------------------------------*
+* Inner segments match containers only; the last one also field / draw.
+FORM fpc_named USING io_el   TYPE REF TO if_ixml_element
+                     iv_name TYPE string
+                     iv_last TYPE abap_bool
+               CHANGING ct_hits TYPE STANDARD TABLE.
+  DATA: lo_n   TYPE REF TO if_ixml_node,
+        lo_e   TYPE REF TO if_ixml_element,
+        lv_tag TYPE string,
+        lv_nm  TYPE string.
+  lo_n = io_el->get_first_child( ).
+  WHILE lo_n IS BOUND.
+    IF lo_n->get_type( ) = if_ixml_node=>co_node_element.
+      lo_e ?= lo_n.
+      lv_tag = lo_e->get_name( ).
+      IF ` subform subformSet area exclGroup pageSet pageArea ` CS | { lv_tag } |
+         OR ( iv_last = abap_true AND ` field draw contentArea ` CS | { lv_tag } | ).
+        lv_nm = lo_e->get_attribute( name = 'name' ).
+        IF lv_nm = iv_name.
+          APPEND lo_e TO ct_hits.
+        ELSEIF lv_nm IS INITIAL AND ` subform subformSet area ` CS | { lv_tag } |.
+          PERFORM fpc_named USING lo_e iv_name iv_last CHANGING ct_hits.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+    lo_n = lo_n->get_next( ).
+  ENDWHILE.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_PROTO - children of <proto> elements with id = IV_ID
+*&---------------------------------------------------------------------*
+FORM fpc_proto USING io_el TYPE REF TO if_ixml_element
+                     iv_id TYPE string
+               CHANGING ct_hits TYPE STANDARD TABLE.
+  DATA: lo_n TYPE REF TO if_ixml_node,
+        lo_e TYPE REF TO if_ixml_element.
+  lo_n = io_el->get_first_child( ).
+  WHILE lo_n IS BOUND.
+    IF lo_n->get_type( ) = if_ixml_node=>co_node_element.
+      lo_e ?= lo_n.
+      IF io_el->get_name( ) = 'proto' AND lo_e->get_attribute( name = 'id' ) = iv_id.
+        APPEND lo_e TO ct_hits.
+      ENDIF.
+      PERFORM fpc_proto USING lo_e iv_id CHANGING ct_hits.
+    ENDIF.
+    lo_n = lo_n->get_next( ).
+  ENDWHILE.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_XLIFF - elements with xliff:id = IV_ID
+*&---------------------------------------------------------------------*
+FORM fpc_xliff USING io_el TYPE REF TO if_ixml_element
+                     iv_id TYPE string
+               CHANGING ct_hits TYPE STANDARD TABLE.
+  DATA: lo_n   TYPE REF TO if_ixml_node,
+        lo_e   TYPE REF TO if_ixml_element,
+        lo_map TYPE REF TO if_ixml_named_node_map,
+        lo_a   TYPE REF TO if_ixml_node,
+        lv_i   TYPE i.
+  lo_n = io_el->get_first_child( ).
+  WHILE lo_n IS BOUND.
+    IF lo_n->get_type( ) = if_ixml_node=>co_node_element.
+      lo_e ?= lo_n.
+      lo_map = lo_e->get_attributes( ).
+      lv_i = 0.
+      WHILE lv_i < lo_map->get_length( ).
+        lo_a = lo_map->get_item( lv_i ).
+        IF lo_a->get_name( ) = 'id' AND lo_a->get_namespace_prefix( ) = 'xliff' AND lo_a->get_value( ) = iv_id.
+          APPEND lo_e TO ct_hits.
+        ENDIF.
+        lv_i = lv_i + 1.
+      ENDWHILE.
+      PERFORM fpc_xliff USING lo_e iv_id CHANGING ct_hits.
+    ENDIF.
+    lo_n = lo_n->get_next( ).
+  ENDWHILE.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_EMBEDS - descendant elements with an xfa:embed attribute
+*&---------------------------------------------------------------------*
+FORM fpc_embeds USING io_el TYPE REF TO if_ixml_element
+                CHANGING ct_hits TYPE STANDARD TABLE.
+  DATA: lo_n   TYPE REF TO if_ixml_node,
+        lo_e   TYPE REF TO if_ixml_element,
+        lo_map TYPE REF TO if_ixml_named_node_map,
+        lo_a   TYPE REF TO if_ixml_node,
+        lv_i   TYPE i.
+  lo_n = io_el->get_first_child( ).
+  WHILE lo_n IS BOUND.
+    IF lo_n->get_type( ) = if_ixml_node=>co_node_element.
+      lo_e ?= lo_n.
+      lo_map = lo_e->get_attributes( ).
+      lv_i = 0.
+      WHILE lv_i < lo_map->get_length( ).
+        lo_a = lo_map->get_item( lv_i ).
+        IF lo_a->get_name( ) = 'embed' AND lo_a->get_namespace_prefix( ) = 'xfa'.
+          APPEND lo_e TO ct_hits.
+          EXIT.
+        ENDIF.
+        lv_i = lv_i + 1.
+      ENDWHILE.
+      PERFORM fpc_embeds USING lo_e CHANGING ct_hits.
+    ENDIF.
+    lo_n = lo_n->get_next( ).
+  ENDWHILE.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_DESC - descendants by tag, document order ('p' = p and div)
+*&---------------------------------------------------------------------*
+FORM fpc_desc USING io_el  TYPE REF TO if_ixml_element
+                    iv_tag TYPE string
+              CHANGING ct_hits TYPE STANDARD TABLE.
+  DATA: lo_n   TYPE REF TO if_ixml_node,
+        lo_e   TYPE REF TO if_ixml_element,
+        lv_tag TYPE string.
+  lo_n = io_el->get_first_child( ).
+  WHILE lo_n IS BOUND.
+    IF lo_n->get_type( ) = if_ixml_node=>co_node_element.
+      lo_e ?= lo_n.
+      lv_tag = lo_e->get_name( ).
+      IF lv_tag = iv_tag OR ( iv_tag = 'p' AND lv_tag = 'div' ).
+        APPEND lo_e TO ct_hits.
+      ENDIF.
+      PERFORM fpc_desc USING lo_e iv_tag CHANGING ct_hits.
+    ENDIF.
+    lo_n = lo_n->get_next( ).
+  ENDWHILE.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_INITSCRIPTS - <script> of the field's initialize events
+*&---------------------------------------------------------------------*
+* Only direct <event activity="initialize"> children of the field.
+FORM fpc_initscripts USING io_field TYPE REF TO if_ixml_element
+                     CHANGING ct_hits TYPE STANDARD TABLE.
+  DATA: lt_ev TYPE STANDARD TABLE OF REF TO if_ixml_element WITH EMPTY KEY,
+        lo_ev TYPE REF TO if_ixml_element.
+  PERFORM fpc_kids USING io_field 'event' CHANGING lt_ev.
+  LOOP AT lt_ev INTO lo_ev.
+    IF lo_ev->get_attribute( name = 'activity' ) = 'initialize'.
+      PERFORM fpc_kids USING lo_ev 'script' CHANGING ct_hits.
+    ENDIF.
+  ENDLOOP.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_KIDS - direct children by tag
+*&---------------------------------------------------------------------*
+FORM fpc_kids USING io_el  TYPE REF TO if_ixml_element
+                    iv_tag TYPE string
+              CHANGING ct_hits TYPE STANDARD TABLE.
+  DATA: lo_n TYPE REF TO if_ixml_node,
+        lo_e TYPE REF TO if_ixml_element.
+  lo_n = io_el->get_first_child( ).
+  WHILE lo_n IS BOUND.
+    IF lo_n->get_type( ) = if_ixml_node=>co_node_element AND lo_n->get_name( ) = iv_tag.
+      lo_e ?= lo_n.
+      APPEND lo_e TO ct_hits.
+    ENDIF.
+    lo_n = lo_n->get_next( ).
+  ENDWHILE.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_CHILD - the first direct child with the tag, created if none
+*&---------------------------------------------------------------------*
+FORM fpc_child USING io_doc TYPE REF TO if_ixml_document
+                     io_el  TYPE REF TO if_ixml_element
+                     iv_tag TYPE string
+               CHANGING co_child TYPE REF TO if_ixml_element.
+  DATA lt_hits TYPE STANDARD TABLE OF REF TO if_ixml_element WITH EMPTY KEY.
+  PERFORM fpc_kids USING io_el iv_tag CHANGING lt_hits.
+  READ TABLE lt_hits INTO co_child INDEX 1.
+  IF sy-subrc <> 0.
+    co_child = io_doc->create_simple_element( name = iv_tag parent = io_el ).
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_ATTRS - set measurement attributes (empty values skipped)
+*&---------------------------------------------------------------------*
+* Checks every non-empty value first; sets them (IV_SET = X) only when all
+* pass.
+FORM fpc_attrs USING io_el   TYPE REF TO if_ixml_element
+                     it_kv   TYPE STANDARD TABLE
+                     iv_re   TYPE string
+                     iv_set  TYPE abap_bool
+               CHANGING cv_status TYPE string
+                        cv_detail TYPE string.
+  DATA: BEGIN OF ls_kv,
+          k TYPE string,
+          v TYPE string,
+        END OF ls_kv,
+        lv_any TYPE abap_bool.
+  LOOP AT it_kv INTO ls_kv.
+    IF ls_kv-v IS INITIAL.
+      CONTINUE.
+    ENDIF.
+    lv_any = abap_true.
+    IF NOT matches( val = ls_kv-v pcre = iv_re ).
+      cv_status = 'refused'. cv_detail = |{ ls_kv-k } "{ ls_kv-v }" is not a measurement (mm, pt, cm, in)|.
+      RETURN.
+    ENDIF.
+  ENDLOOP.
+  IF lv_any = abap_false.
+    cv_status = 'refused'. cv_detail = `no value given`.
+    RETURN.
+  ENDIF.
+  CHECK iv_set = abap_true.
+  LOOP AT it_kv INTO ls_kv.
+    IF ls_kv-v IS NOT INITIAL.
+      io_el->set_attribute( name = ls_kv-k value = ls_kv-v ).
+    ENDIF.
+  ENDLOOP.
 ENDFORM.

@@ -18,7 +18,7 @@ Related: [`intent-router.md`](intent-router.md) splits `knowledge` / `lookup` / 
   - connection or plugin not working → sap-doctor
 - PROPOSE in one line (skill + target + what it produces), run on yes:
   - build a program / report / ALV / batch → create-program · one DDIC object, class, FM → create-object
-  - review or check ABAP code → analyze-code · spec of a program → program-to-spec · user manual → program-to-manual
+  - review or check ABAP code → analyze-code · spec of a program → program-to-spec · user manual → program-to-manual · test a program on DEV with DEV / QA rows before the transport → program-test
   - compare 2–5 similar programs → compare-programs · interface mapping spec → interface-mapping-spec
   - document a module's configuration → config-to-document · how a module runs (process map) → module-to-process
   - CBO package inventory → stock-cbo · how custom objects relate, what a table / field change affects → cbo-relation-map

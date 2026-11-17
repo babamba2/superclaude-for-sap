@@ -238,7 +238,7 @@ export async function readBadiImpls(c, names) {
   if (!enh.ok) errors.enh = String(enh.errors?.[0] || '').slice(0, 200);
   // A classic implementation migrated to the enhancement framework is listed again as the
   // enhancement that wraps it (BADIIMPL_ENH-BADI_IMPL = classic name, SXC_ATTR-MIG_ENHNAME =
-  // enhancement; CUSTOMER_ADD_DATA_CS: ZSD_CUST_ADD_DATA_CS in ZSD_CUSTOMER_ADD_DAT). It stays
+  // enhancement; CUSTOMER_ADD_DATA_CS: ZSD_DEMO_ADD_DATA_CS in ZSD_DEMO_ADD_DATA). It stays
   // one entry: the classic one, which has its class.
   const twin = (r) => (out[r.BADI_NAME] || []).find((x) => x.name === r.ENHNAME || (x.kind === 'classic' && (x.name === r.BADI_IMPL || x.enh === r.ENHNAME)));
   const enhRows = enh.rows.filter((x) => CUSTOMER.test(String(x.ENHNAME)) && !twin(x));
