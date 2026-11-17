@@ -418,6 +418,10 @@ describe('guard and CLI', () => {
     expect(w('C:/p/.sc4sap/work/DEV-1/program/ZP/test/R1/rows/EKPO.json')).toBeTruthy();
     expect(w('C:/p/.sc4sap/work/DEV-1/program/ZP/test/R1/expected.json')).toBeNull();
     for (const f of ['cases.json', 'expected.json', 'plan.json', 'test-class.abap']) expect(w(base + f)).toBeNull();
+    // a run under another base folder (pt.mjs init --base, e.g. a web run's output folder)
+    const web = 'C:/ws/.sc4sap/out/3f2a/program/ZP/test/20261117-093000/';
+    for (const f of ['state.json', 'rows/EKPO.json', 'src/ZP.abap', 'ddic/EKPO.json', 'harness/ZP_PT.abap', 'pt-receipt.json', 'capture.jsonl']) expect(w(web + f)).toBeTruthy();
+    for (const f of ['cases.json', 'expected.json', 'plan.json', 'test-class.abap']) expect(w(web + f)).toBeNull();
     expect(guard({ tool_name: 'Bash', tool_input: { command: `echo x > ${base}state.json` } })).toBeTruthy();
   });
 
@@ -451,5 +455,14 @@ describe('guard and CLI', () => {
     expect(ok.status).toBe(0);
     expect(existsSync(activePath(root))).toBe(true);
     expect(JSON.parse(ok.stdout).harness).toBe('ZP_PT');
+    // --program / --base: the run folder goes under the named base (a web run's own folder)
+    const base = join(tmp, 'web-out', 'S1');
+    const viaBase = spawnSync(process.execPath, [join(ROOT, 'scripts/program-test/pt.mjs'), 'init', '--program', 'zp2', '--source', 'dev', '--base', base, '--root', root], { encoding: 'utf-8', env: { ...process.env, SC4SAP_HOME_DIR: join(tmp, 'home') } });
+    expect(viaBase.status).toBe(0);
+    const runDir = JSON.parse(viaBase.stdout).run as string;
+    expect(runDir.replace(/\\/g, '/')).toMatch(new RegExp(`${base.replace(/\\/g, '/')}/program/ZP2/test/\\d{8}-\\d{6}$`));
+    expect(existsSync(join(runDir, 'state.json'))).toBe(true);
+    const bad = spawnSync(process.execPath, [join(ROOT, 'scripts/program-test/pt.mjs'), 'init', '--program', 'ABC;rm', '--root', root], { encoding: 'utf-8' });
+    expect(bad.status).toBe(3);
   });
 });

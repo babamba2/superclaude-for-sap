@@ -2,7 +2,9 @@
 /**
  * program-test CLI — run state, checks, harness / mutant / tamper generation, verdict.
  *
- *   pt.mjs init <PROG> --source dev|qa|prd [--root <dir>]   new run (+ active capture marker)
+ *   pt.mjs init <PROG> | --program <PROG>  --source dev|qa [--base <dir>] [--root <dir>]
+ *                                                            new run (+ active capture marker); --base replaces the
+ *                                                            profile artifact base (a web run's own output folder)
  *   pt.mjs mask-extra --run <dir> --fields F1,F2              more personal fields to mask (before reads)
  *   pt.mjs check --run <dir>                                  cases.json / expected.json / plan.json checks
  *   pt.mjs freeze --run <dir> [--reason "<spec ref>" --user-approved]   freeze expected (re-freeze only with both)
@@ -79,9 +81,9 @@ Or run with --source dev (DEV's own data, no destination).`;
 
 switch (cmd) {
   case 'init': {
-    const prog = up(argv[1]);
+    const prog = up(arg('--program') || (argv[1] && !argv[1].startsWith('--') ? argv[1] : ''));
     const source = arg('--source') || 'dev';
-    if (!prog || prog.startsWith('--')) die('usage: pt.mjs init <PROG> --source dev|qa|prd');
+    if (!prog || !/^(?:[ZY][A-Z0-9_]{0,39}|\/[A-Z0-9_]{1,10}\/[A-Z0-9_]{1,30})$/.test(prog)) die('usage: pt.mjs init <PROG> | --program <PROG> --source dev|qa [--base <dir>]');
     if (!SOURCES.includes(source)) die(`--source must be ${SOURCES.join(' / ')}`);
     if (source === 'prd') die(PRD_REFUSED, 7);
     const root = projectRoot(arg('--root'));
@@ -96,7 +98,8 @@ switch (cmd) {
     }
     const stamp = new Date().toISOString().replace(/[-:]/g, '').replace(/\..*/, '').replace('T', '-');
     // per-profile artifact base (common/multi-profile-artifact-resolution.md): <root>/.sc4sap/work/<alias>/ or legacy <root>/.sc4sap/
-    const d = join(resolveArtifactBase(root), 'program', prog, 'test', stamp);
+    const base = arg('--base') ? resolve(arg('--base')) : resolveArtifactBase(root);
+    const d = join(base, 'program', prog.replace(/\//g, '#'), 'test', stamp);
     mkdirSync(d, { recursive: true });
     const state = { program: prog, source, destination, sap_version: cfg.sapVersion || null, abap_release: cfg.abapRelease || null, created_at: new Date().toISOString(), salt: randomBytes(16).toString('hex'), mask_extra: [], round: 0, names: harnessNames(prog) };
     saveState(d, state);

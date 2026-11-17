@@ -34,7 +34,11 @@ export function onlyPluginPt(cmd, cwd) {
   return normPath(resolve(cwd || process.cwd(), script)) === normPath(PT_PATH);
 }
 
-const PROTECTED = /\.sc4sap[\\/]+(?:evidence(?:[\\/]|\b)|program[\\/]+[^\\/\s"']+[\\/]+receipt\.json|(?:work[\\/]+[^\\/\s"']+[\\/]+)?program[\\/]+[^\\/\s"']+[\\/]+test[\\/]+[^\\/\s"']+[\\/]+(?:state\.json|capture\.jsonl|fingerprints\.json|pt-receipt\.json|rows(?:[\\/]|\b)|src(?:[\\/]|\b)|ddic(?:[\\/]|\b)|harness(?:[\\/]|\b))|program-test[\\/]+active\.json)/i;
+const PROTECTED_BASE = /\.sc4sap[\\/]+(?:evidence(?:[\\/]|\b)|program[\\/]+[^\\/\s"']+[\\/]+receipt\.json|(?:work[\\/]+[^\\/\s"']+[\\/]+)?program[\\/]+[^\\/\s"']+[\\/]+test[\\/]+[^\\/\s"']+[\\/]+(?:state\.json|capture\.jsonl|fingerprints\.json|pt-receipt\.json|rows(?:[\\/]|\b)|src(?:[\\/]|\b)|ddic(?:[\\/]|\b)|harness(?:[\\/]|\b))|program-test[\\/]+active\.json)/i;
+// A program-test run under any base folder (`pt.mjs init --base`, e.g. a web run's own output folder):
+// program/<PROG>/test/<yyyymmdd-hhmmss>/<script- or hook-written file>.
+const PROTECTED_RUN = /(?:^|[\\/])program[\\/]+[^\\/\s"']+[\\/]+test[\\/]+\d{8}-\d{6}[\\/]+(?:state\.json|capture\.jsonl|fingerprints\.json|pt-receipt\.json|rows(?:[\\/]|\b)|src(?:[\\/]|\b)|ddic(?:[\\/]|\b)|harness(?:[\\/]|\b))/i;
+const PROTECTED = { test: (s) => PROTECTED_BASE.test(s) || PROTECTED_RUN.test(s) };
 const FILE_TOOLS = new Set(['Write', 'Edit', 'MultiEdit', 'NotebookEdit']);
 const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
 
