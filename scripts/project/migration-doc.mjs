@@ -12,8 +12,12 @@
 //   migrationDocPage / migrationDocFromPage / migrationResultsCsv / migrationDocXlsx
 //
 // Document: { kind: 'migration', id, title, lang,
-//   objects: [{ id, module, name, catalog, approach, owner, sequence, status, note }],
-//   runs: [{ id: M1|M2|M3|FINAL, label, planStart, planEnd, actualStart, actualEnd, cutoverTask, system }],
+//   objects: [{ id, module, name, category: master|transaction|balance, catalog, approach (load tool), owner,
+//               ownerType: business|it, deps: [object id] (loaded after these), sequence, status, note }],
+//   runs: [{ id (M1, M2, M3, FINAL by default; an editable list), label, planStart, planEnd, actualStart, actualEnd,
+//            cutoverTask, system }],
+//   schedule: [{ objectId, runId, step: extract|cleanse|load|validate|signoff, start, end, status, note }]
+//             — the migration schedule (`migration-schedule.mjs`: steps, dependency order, time view),
 //   rules: [{ id, objectId, kind: count|distinct|sum|empty, table, field, filter, groupBy, tolerance, note }],
 //   results: [{ id, runId, ruleId, group, source, target, system, readAt, verdict: ''|ok|check|ng, cause, note }],
 //   issues: [{ id, objectId, runId, text, cause, owner, due, status: open|closed }], source? }
@@ -25,9 +29,14 @@
 
 import { arr, csvOf, esc, optionsOf, renderDocPage, str, modelFromDocPage } from './doc-kit.mjs';
 import { workbook } from '../uat/uat-xlsx.mjs';
+import { CATEGORIES, OWNER_TYPES, STEPS, STEP_STATUS, ganttRows, issueIsError, issueText, normalizeSchedule, reconOf, scheduleIssues } from './migration-schedule.mjs';
 
 export const MIGRATION_DOC_ID = /^[A-Za-z0-9_-]{1,40}$/;
+/** The default rounds of a new plan; the list is editable (add, rename, remove). */
 export const RUN_IDS = ['M1', 'M2', 'M3', 'FINAL'];
+/** A round id: upper-case letters, digits and _ (RUN04 for an added one). */
+export const RUN_ID = /^[A-Z][A-Z0-9_]{0,11}$/;
+const MAX_RUNS = 10;
 export const RULE_KINDS = ['count', 'distinct', 'sum', 'empty'];
 export const VERDICTS = ['', 'ok', 'check', 'ng'];
 export const OBJECT_STATUS = ['planned', 'inprogress', 'done'];
@@ -40,6 +49,8 @@ const pick = (v, list, dflt) => (list.includes(v) ? v : dflt);
 const rows = (list, f) => arr(list).map((x) => f(x && typeof x === 'object' ? x : {}));
 const NAME = /^[A-Z0-9_/]{1,30}$/;
 const up = (v, n = 30) => str(v, n).trim().toUpperCase();
+/** Predecessor object ids: a list, or "O01, O02" as typed; unique, up to 20. */
+const depList = (v) => [...new Set((Array.isArray(v) ? v : String(v ?? '').split(/[\s,;]+/)).map((x) => str(x, 40).trim()).filter(Boolean))].slice(0, 20);
 /** A number as typed or read ("1,234.5", "<5"), or '' when there is none. */
 const numText = (v) => {
   const s = str(v, 40).trim();
@@ -57,7 +68,13 @@ const T = {
     runId: '회차', ruleId: '규칙', group: '묶음 값', source: '원천 값', target: 'SAP 값', readAt: '읽은 시각', verdict: '판정', cause: '차이 원인', text: '내용', due: '기한',
     kinds: { count: '건수', distinct: '고유 건수', sum: '합계', empty: '필수값 비어 있음' },
     verdicts: { '': '—', ok: 'OK', check: '확인', ng: 'NG' }, statuses: { planned: '계획', inprogress: '진행 중', done: '완료' },
-    issueStatuses: { open: '열림', closed: '닫힘' }, runLabels: { M1: '모의 1차', M2: '모의 2차', M3: '모의 3차', FINAL: '본 이관' },
+    issueStatuses: { open: '열림', closed: '닫힘' }, runLabels: { M1: '모의 1차', M2: '모의 2차', M3: '리허설', FINAL: '컷오버(본 이관)' },
+    category: '구분', categories: { '': '—', master: '마스터', transaction: '미결 거래', balance: '잔액' },
+    ownerType: '담당 구분', ownerTypes: { '': '—', business: '현업', it: 'IT' }, deps: '선행 대상',
+    schedule: '이관 일정', step: '단계', start: '시작', end: '종료',
+    steps: { extract: '추출', cleanse: '정제', load: '적재', validate: '검증', signoff: '승인' },
+    stepStatuses: { planned: '계획', inprogress: '진행 중', done: '완료', blocked: '막힘' },
+    noSchedule: '아직 일정이 없어요. 이관 일정에서 단계별 날짜를 넣어 주세요.', recon: '검증 결과',
     approaches: { '': '—', cockpit: 'Migration Cockpit', lsmw: 'LSMW', bapi: 'BAPI', program: '이관 프로그램', manual: '수작업', other: '기타' },
     sum: '현황', ng: 'NG 판정', check: '확인 필요', open: '열린 이슈', counts: '결과 행',
     edit: '편집', done: '편집 끝', save: '파일 저장', addRow: '행 추가', delRow: '행 삭제', empty: '아직 없어요',
@@ -71,7 +88,13 @@ const T = {
     runId: 'Run', ruleId: 'Rule', group: 'Group', source: 'Source value', target: 'SAP value', readAt: 'Read at', verdict: 'Verdict', cause: 'Delta cause', text: 'Text', due: 'Due',
     kinds: { count: 'Count', distinct: 'Distinct count', sum: 'Sum', empty: 'Mandatory empty' },
     verdicts: { '': '—', ok: 'OK', check: 'Check', ng: 'NG' }, statuses: { planned: 'Planned', inprogress: 'In progress', done: 'Done' },
-    issueStatuses: { open: 'Open', closed: 'Closed' }, runLabels: { M1: 'Mock 1', M2: 'Mock 2', M3: 'Mock 3', FINAL: 'Final' },
+    issueStatuses: { open: 'Open', closed: 'Closed' }, runLabels: { M1: 'Mock 1', M2: 'Mock 2', M3: 'Dress rehearsal', FINAL: 'Cutover' },
+    category: 'Category', categories: { '': '—', master: 'Master data', transaction: 'Open transactions', balance: 'Balances' },
+    ownerType: 'Owner side', ownerTypes: { '': '—', business: 'Business', it: 'IT' }, deps: 'After',
+    schedule: 'Migration schedule', step: 'Step', start: 'Start', end: 'End',
+    steps: { extract: 'Extract', cleanse: 'Cleanse', load: 'Load', validate: 'Validate', signoff: 'Sign-off' },
+    stepStatuses: { planned: 'Planned', inprogress: 'In progress', done: 'Done', blocked: 'Blocked' },
+    noSchedule: 'No schedule yet. Add the dates per step in Migration schedule.', recon: 'Reconciliation',
     approaches: { '': '—', cockpit: 'Migration Cockpit', lsmw: 'LSMW', bapi: 'BAPI', program: 'Migration program', manual: 'Manual', other: 'Other' },
     sum: 'Status', ng: 'NG verdicts', check: 'To check', open: 'Open issues', counts: 'Result rows',
     edit: 'Edit', done: 'Done', save: 'Save file', addRow: 'Add row', delRow: 'Delete row', empty: 'None yet',
@@ -83,11 +106,14 @@ export function normalizeMigrationDoc(raw) {
   const d = raw && typeof raw === 'object' ? raw : {};
   const lang = langOf(d.lang);
   const L = T[lang];
-  const runsIn = rows(d.runs, (r) => r);
-  const runs = RUN_IDS.map((rid) => {
-    const r = runsIn.find((x) => x.id === rid) || {};
+  // The rounds as listed (an editable list); none valid → the four defaults. Results, issues and schedule rows of
+  // a removed round keep their round id (never moved to another round); the checks name them.
+  const seenRun = new Set();
+  const runsIn = rows(d.runs, (r) => r).filter((r) => RUN_ID.test(String(r.id ?? '')) && !seenRun.has(r.id) && seenRun.add(r.id)).slice(0, MAX_RUNS);
+  const runs = (runsIn.length ? runsIn : RUN_IDS.map((id) => ({ id }))).map((r) => {
+    const rid = String(r.id);
     return {
-      id: rid, label: str(r.label, 60) || L.runLabels[rid],
+      id: rid, label: str(r.label, 60) || L.runLabels[rid] || rid,
       planStart: day(r.planStart), planEnd: day(r.planEnd), actualStart: day(r.actualStart), actualEnd: day(r.actualEnd),
       cutoverTask: str(r.cutoverTask, 60), system: str(r.system, 40),
     };
@@ -98,8 +124,9 @@ export function normalizeMigrationDoc(raw) {
     title: str(d.title, 200) || L.title,
     lang,
     objects: rows(d.objects, (o) => ({
-      id: str(o.id, 40), module: up(o.module, 10), name: str(o.name, 200), catalog: str(o.catalog, 40),
-      approach: pick(o.approach, APPROACHES, ''), owner: str(o.owner, 80), sequence: str(o.sequence, 10),
+      id: str(o.id, 40), module: up(o.module, 10), name: str(o.name, 200), category: pick(o.category, CATEGORIES, ''), catalog: str(o.catalog, 40),
+      approach: pick(o.approach, APPROACHES, ''), owner: str(o.owner, 80), ownerType: pick(o.ownerType, OWNER_TYPES, ''),
+      deps: depList(o.deps), sequence: str(o.sequence, 10),
       status: pick(o.status, OBJECT_STATUS, 'planned'), note: str(o.note, 2000),
     })),
     runs,
@@ -109,14 +136,15 @@ export function normalizeMigrationDoc(raw) {
       filter: str(r.filter, 400), groupBy: up(r.groupBy, 120).replace(/\s+/g, ''), tolerance: str(r.tolerance, 20).trim(), note: str(r.note, 2000),
     })),
     results: rows(d.results, (x) => ({
-      id: str(x.id, 60), runId: pick(x.runId, RUN_IDS, 'M1'), ruleId: str(x.ruleId, 40), group: str(x.group, 200),
+      id: str(x.id, 60), runId: RUN_ID.test(String(x.runId ?? '')) ? String(x.runId) : runs[0].id, ruleId: str(x.ruleId, 40), group: str(x.group, 200),
       source: numText(x.source), target: numText(x.target), system: str(x.system, 40), readAt: str(x.readAt, 30),
       verdict: pick(x.verdict, VERDICTS, ''), cause: str(x.cause, 2000), note: str(x.note, 2000),
     })),
     issues: rows(d.issues, (x) => ({
-      id: str(x.id, 40), objectId: str(x.objectId, 40), runId: RUN_IDS.includes(x.runId) ? x.runId : '',
+      id: str(x.id, 40), objectId: str(x.objectId, 40), runId: RUN_ID.test(String(x.runId ?? '')) ? String(x.runId) : '',
       text: str(x.text, 2000), cause: str(x.cause, 2000), owner: str(x.owner, 80), due: day(x.due), status: pick(x.status, ISSUE_STATUS, 'open'),
     })),
+    schedule: normalizeSchedule(d.schedule),
     ...(d.source && typeof d.source === 'object' ? { source: { projectId: str(d.source.projectId, 80), code: str(d.source.code, 40) } } : {}),
   };
 }
@@ -166,6 +194,11 @@ export function checkMigrationDoc(doc) {
   }
   for (const x of d.results) if (!rules.has(x.ruleId)) warnings.push(`result ${x.id}: rule ${x.ruleId} not in the list`);
   for (const o of d.objects) if (o.status !== 'done' && !o.owner) warnings.push(`object ${o.id}: no owner`);
+  const runIds = ids(d.runs, 'round');
+  for (const x of d.results) if (!runIds.has(x.runId)) warnings.push(`result ${x.id}: round ${x.runId} is not in the list`);
+  for (const x of d.issues) if (x.runId && !runIds.has(x.runId)) warnings.push(`issue ${x.id}: round ${x.runId} is not in the list`);
+  // the schedule: wrong dates and dependency loops are errors; order, window and unknown references are warnings
+  for (const x of scheduleIssues(d)) (issueIsError(x) ? errors : warnings).push(issueText(x, 'en'));
   return { errors, warnings };
 }
 
@@ -236,7 +269,7 @@ const groupKey = (g, lang = 'ko') => Object.entries(g || {}).map(([k, v]) => {
  */
 export function applySapCounts(doc0, { runId, ruleIds, system = '', at = '', results = [] }) {
   const doc = normalizeMigrationDoc(JSON.parse(JSON.stringify(doc0 || {})));
-  if (!RUN_IDS.includes(runId)) throw new Error(`run ${runId}: one of ${RUN_IDS.join(', ')}`);
+  if (!doc.runs.some((r) => r.id === runId)) throw new Error(`run ${runId}: not a round of this plan (${doc.runs.map((r) => r.id).join(", ")})`);
   let n = 0;
   arr(results).forEach((r, i) => {
     const ruleId = arr(ruleIds)[i];
@@ -278,7 +311,7 @@ function splitCsvLine(line) {
 /** The source side from a CSV ("rule,group,value" — a header row is skipped): per run, only the source column changes. */
 export function importSourceCsv(doc0, runId, csv) {
   const doc = normalizeMigrationDoc(JSON.parse(JSON.stringify(doc0 || {})));
-  if (!RUN_IDS.includes(runId)) throw new Error(`run ${runId}: one of ${RUN_IDS.join(', ')}`);
+  if (!doc.runs.some((r) => r.id === runId)) throw new Error(`run ${runId}: not a round of this plan (${doc.runs.map((r) => r.id).join(", ")})`);
   const lines = String(csv || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter((l) => l.trim());
   const skipped = [];
   let n = 0;
@@ -365,7 +398,33 @@ function summaryHtml(d, L) {
   const k = (label, value) => `<div class="kpi"><span>${esc(label)}</span><b>${esc(value)}</b></div>`;
   return `<section class="summary"><h2>${esc(L.sum)}</h2><div class="kpis">
 ${k(L.objects, String(d.objects.length))}${k(L.counts, String(d.results.length))}${k(L.ng, String(d.results.filter((r) => r.verdict === 'ng').length))}${k(L.check, String(d.results.filter((r) => r.verdict === 'check').length))}${k(L.open, String(d.issues.filter((i) => i.status === 'open').length))}</div>
-<div class="note">${esc(L.asOf)}</div></section>`;
+<div class="note">${esc(L.asOf)}</div></section>${scheduleHtml(d, L)}`;
+}
+
+/**
+ * The migration schedule as a time view (read-only in the page; edited in the workbench's 이관 일정): one bar per
+ * object and round, its steps as segments, a ⚠ where a finding names it. Scrolls sideways on a phone.
+ */
+function scheduleHtml(d, L) {
+  const g = ganttRows(d);
+  const rows = g.rows.filter((r) => r.start);
+  const head = `<section class="summary mig-gantt"><h2>${esc(L.schedule)}</h2>`;
+  if (!rows.length) return `${head}<div class="note">${esc(L.noSchedule)}</div></section>`;
+  const t0 = Date.parse(`${g.from}T00:00:00Z`), days = Math.max(1, (Date.parse(`${g.to}T00:00:00Z`) - t0) / 86400000 + 1);
+  const pos = (a) => ((Date.parse(`${a}T00:00:00Z`) - t0) / 86400000 / days) * 100;
+  const color = { planned: 'var(--mute)', inprogress: 'var(--acc)', done: 'var(--green)', blocked: 'var(--red)' };
+  const seg = (s) => {
+    const a = s.start || s.end, b = s.end || s.start;
+    if (!a) return '';
+    const left = pos(a), width = Math.max(pos(b) + 100 / days - left, 0.6);
+    return `<i title="${esc(`${L.steps[s.step]} ${a}–${b} · ${L.stepStatuses[s.status]}`)}" style="position:absolute;top:3px;bottom:3px;left:${left.toFixed(2)}%;width:${width.toFixed(2)}%;background:${color[s.status]};opacity:.85;border-radius:3px"></i>`;
+  };
+  const line = (r) => `<div style="display:grid;grid-template-columns:minmax(150px,34%) 1fr;gap:8px;align-items:center;padding:3px 0;border-top:1px solid var(--line)">
+<div style="font-size:12px;line-height:1.3"><b>${esc(r.objectId)}</b> ${esc(r.name)}${r.issues ? ' <span style="color:var(--amber)">⚠</span>' : ''}<br><span style="color:var(--mute)">${esc(r.runLabel)}${r.owner ? ` · ${esc(r.owner)}` : ''} · ${esc(r.start)}–${esc(r.end)}</span></div>
+<div style="position:relative;height:22px;background:var(--soft);border-radius:4px">${r.steps.map(seg).join('')}</div></div>`;
+  const legend = STEP_STATUS.map((s) => `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px"><i style="width:10px;height:10px;border-radius:2px;background:${color[s]}"></i>${esc(L.stepStatuses[s])}</span>`).join('');
+  return `${head}<div style="font-size:12px;color:var(--mute);margin:4px 0 6px">${esc(g.from)} – ${esc(g.to)} · ${legend}</div>
+<div style="overflow-x:auto;-webkit-overflow-scrolling:touch"><div style="min-width:520px">${rows.map(line).join('')}</div></div></section>`;
 }
 
 export function migrationDocSchema(lang) {
@@ -376,11 +435,13 @@ export function migrationDocSchema(lang) {
       { type: 'fields', title: L.title, fields: [{ path: 'title', label: L.title, type: 'text', wide: true }] },
       { type: 'table', title: L.objects, path: 'objects', idPrefix: 'O', columns: [
         { key: 'id', label: L.id, type: 'text' }, { key: 'module', label: L.module, type: 'text' }, { key: 'name', label: L.name, type: 'text', wide: true },
+        { key: 'category', label: L.category, type: 'select', options: optionsOf(['', ...CATEGORIES], L.categories), dflt: '' },
         { key: 'catalog', label: L.catalog, type: 'text' }, { key: 'approach', label: L.approach, type: 'select', options: optionsOf(APPROACHES, L.approaches), dflt: '' },
-        { key: 'owner', label: L.owner, type: 'text' }, { key: 'sequence', label: L.sequence, type: 'text' },
+        { key: 'owner', label: L.owner, type: 'text' }, { key: 'ownerType', label: L.ownerType, type: 'select', options: optionsOf(['', ...OWNER_TYPES], L.ownerTypes), dflt: '' },
+        { key: 'deps', label: L.deps, type: 'list' }, { key: 'sequence', label: L.sequence, type: 'text' },
         { key: 'status', label: L.status, type: 'select', options: optionsOf(OBJECT_STATUS, L.statuses), dflt: 'planned' }, { key: 'note', label: L.note, type: 'textarea' },
       ] },
-      { type: 'table', title: L.runs, path: 'runs', columns: [
+      { type: 'table', title: L.runs, path: 'runs', idPrefix: 'RUN', columns: [
         { key: 'id', label: L.id, type: 'text', ro: true }, { key: 'label', label: L.label, type: 'text' },
         { key: 'planStart', label: L.planStart, type: 'date' }, { key: 'planEnd', label: L.planEnd, type: 'date' },
         { key: 'actualStart', label: L.actualStart, type: 'date' }, { key: 'actualEnd', label: L.actualEnd, type: 'date' },
@@ -394,10 +455,16 @@ export function migrationDocSchema(lang) {
         { key: 'tolerance', label: L.tolerance, type: 'text' }, { key: 'note', label: L.note, type: 'textarea' },
       ] },
       { type: 'table', title: L.results, path: 'results', columns: [
-        { key: 'runId', label: L.runId, type: 'select', options: optionsOf(RUN_IDS, L.runLabels), dflt: 'M1' }, { key: 'ruleId', label: L.ruleId, type: 'text' },
+        { key: 'runId', label: L.runId, type: 'text', ro: true }, { key: 'ruleId', label: L.ruleId, type: 'text' },
         { key: 'group', label: L.group, type: 'text' }, { key: 'source', label: L.source, type: 'text' }, { key: 'target', label: L.target, type: 'text', ro: true },
         { key: 'verdict', label: L.verdict, type: 'select', options: optionsOf(VERDICTS, L.verdicts), dflt: '' },
         { key: 'cause', label: L.cause, type: 'textarea' }, { key: 'system', label: L.system, type: 'text', ro: true }, { key: 'readAt', label: L.readAt, type: 'text', ro: true },
+      ] },
+      { type: 'table', title: L.schedule, path: 'schedule', columns: [
+        { key: 'objectId', label: L.objectId, type: 'text' }, { key: 'runId', label: L.runId, type: 'text' },
+        { key: 'step', label: L.step, type: 'select', options: optionsOf(STEPS, L.steps), dflt: 'extract' },
+        { key: 'start', label: L.start, type: 'date' }, { key: 'end', label: L.end, type: 'date' },
+        { key: 'status', label: L.status, type: 'select', options: optionsOf(STEP_STATUS, L.stepStatuses), dflt: 'planned' }, { key: 'note', label: L.note, type: 'textarea' },
       ] },
       { type: 'table', title: L.issues, path: 'issues', idPrefix: 'I', columns: [
         { key: 'id', label: L.id, type: 'text' }, { key: 'objectId', label: L.objectId, type: 'text' }, { key: 'runId', label: L.runId, type: 'text' },
@@ -437,6 +504,21 @@ export function migrationResultsCsv(doc) {
   return csvOf(resultRows(d, L), resultCols(L));
 }
 
+/** One line per object, round and step (dated steps only), with the round's reconciliation beside its validate step. */
+function scheduleSheetRows(d, L) {
+  const out = [];
+  for (const r of ganttRows(d).rows) for (const s of r.steps) {
+    if (!s.start && !s.end) continue;
+    const rc = s.step === 'validate' ? reconOf(d, r.objectId, r.runId) : null;
+    out.push({
+      objectId: r.objectId, name: r.name, category: L.categories[r.category] || '', owner: r.owner, ownerType: L.ownerTypes[r.ownerType] || '',
+      approach: L.approaches[r.approach] || '', deps: r.deps.join(', '), run: r.runLabel, step: L.steps[s.step], start: s.start, end: s.end,
+      status: L.stepStatuses[s.status], recon: rc && rc.results ? `OK ${rc.ok} / ${L.verdicts.check} ${rc.check} / NG ${rc.ng}` : '',
+    });
+  }
+  return out;
+}
+
 export function migrationDocXlsx(doc) {
   const d = normalizeMigrationDoc(doc);
   const L = T[d.lang];
@@ -446,5 +528,10 @@ export function migrationDocXlsx(doc) {
     { name: L.objects, rows: table(d.objects, [{ key: 'id', label: L.id }, { key: 'module', label: L.module }, { key: 'name', label: L.name }, { key: 'catalog', label: L.catalog }, { key: 'approach', label: L.approach }, { key: 'owner', label: L.owner }, { key: 'status', label: L.status }]) },
     { name: L.rules, rows: table(d.rules, [{ key: 'id', label: L.id }, { key: 'objectId', label: L.objectId }, { key: 'kind', label: L.kind }, { key: 'table', label: L.table }, { key: 'field', label: L.field }, { key: 'filter', label: L.filter }, { key: 'groupBy', label: L.groupBy }, { key: 'tolerance', label: L.tolerance }]) },
     { name: L.issues, rows: table(d.issues, [{ key: 'id', label: L.id }, { key: 'objectId', label: L.objectId }, { key: 'runId', label: L.runId }, { key: 'text', label: L.text }, { key: 'owner', label: L.owner }, { key: 'due', label: L.due }, { key: 'status', label: L.status }]) },
+    { name: L.schedule, rows: table(scheduleSheetRows(d, L), [
+      { key: 'objectId', label: L.objectId }, { key: 'name', label: L.name }, { key: 'category', label: L.category }, { key: 'owner', label: L.owner },
+      { key: 'ownerType', label: L.ownerType }, { key: 'approach', label: L.approach }, { key: 'deps', label: L.deps }, { key: 'run', label: L.runId },
+      { key: 'step', label: L.step }, { key: 'start', label: L.start }, { key: 'end', label: L.end }, { key: 'status', label: L.status }, { key: 'recon', label: L.recon },
+    ]) },
   ]);
 }

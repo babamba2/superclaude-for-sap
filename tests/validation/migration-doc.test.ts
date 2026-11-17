@@ -27,7 +27,10 @@ describe('migration document', () => {
     expect([base.rules[1]!.table, base.rules[1]!.field, base.rules[1]!.groupBy]).toEqual(['MARD', 'LABST', 'WERKS']);
     const odd = normalizeMigrationDoc({ objects: [{ status: 'x', approach: 'y' }], rules: [{ kind: 'max', table: "KNA1'; --" }], results: [{ runId: 'M9', verdict: 'great', target: 'abc' }] });
     expect([odd.objects[0]!.status, odd.objects[0]!.approach, odd.rules[0]!.kind, odd.rules[0]!.table]).toEqual(['planned', '', 'count', '']);
-    expect([odd.results[0]!.runId, odd.results[0]!.verdict, odd.results[0]!.target]).toEqual(['M1', '', '']);
+    // a round id that is not in the list is kept (never moved to another round; the checks name it); a malformed one → the first round
+    expect([odd.results[0]!.runId, odd.results[0]!.verdict, odd.results[0]!.target]).toEqual(['M9', '', '']);
+    expect(normalizeMigrationDoc({ results: [{ runId: "m1'; --" }] }).results[0]!.runId).toBe('M1');
+    expect(checkMigrationDoc({ id: 'X', results: [{ id: 'x', runId: 'M9', ruleId: 'R1' }] }).warnings).toContain('result x: round M9 is not in the list');
     expect(blankMigrationDoc({ id: 'X', lang: 'ko' }).title).toBe('데이터 이관');
   });
   it('checks: duplicate ids are errors; a rule without a table or field and a bad filter are warnings', () => {
