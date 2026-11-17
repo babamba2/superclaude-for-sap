@@ -112,6 +112,8 @@ describe('role-verify: the check on the document, apply, cover', () => {
     expect(again.sapCheck.counts).toEqual({ ok: 0, diff: 3, missing: 1 });
     expect(deriveView(again).checks.find((c) => c.text === 'sapVerify')).toMatchObject({ sev: 'warn', ref: '2026-11-18 · HKT-DEV · 0 / 3 / 1' });
     expect(deriveView(doc()).checks.find((c) => c.text === 'sapVerifyNone')).toBeTruthy();
+    // a design-stage document without technical (PFCG) roles gets no "not checked yet" line (team-lead, 2026-11-18)
+    expect(deriveView(normalizeModel({ broles: [{ id: 'MM-01', name: 'Buyer' }] })).checks.some((c) => c.text.startsWith('sapVerify'))).toBe(false);
     expect(normalizeModel(doc())).not.toHaveProperty('sapCheck');
 
     const ids = (k: string) => again.sapCheck.diffs.filter((d) => d.kind === k).map((d) => d.id);
