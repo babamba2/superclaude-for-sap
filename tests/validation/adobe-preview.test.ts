@@ -601,6 +601,9 @@ describe('adobe-preview: interface initialization code (simple statements only)'
       '  COLLECT ls_sc4sap_g5_0 INTO gt_total.', 'ENDLOOP.'];
     const rows = { T_ROWS: [{ CURR: 'EUR', AMOUNT: 250 }, { CURR: 'EUR', AMOUNT: 980.5 }, { CURR: 'USD', AMOUNT: 120 }, { CURR: 'USD', AMOUNT: 75.25 }] };
     expect(runInitCoding(g5, rows)).toMatchObject({ ok: true, tables: { GT_TOTAL: [{ CURR: 'EUR', AMOUNT: 1230.5 }, { CURR: 'USD', AMOUNT: 195.25 }] } });
+    // writing through the field symbol would change the table row in ABAP: not run (no stale preview values)
+    const write = [...g5.slice(0, 5), '  <ls_sc4sap_g5_0>-amount = 0.', ...g5.slice(5)];
+    expect(runInitCoding(write, rows)).toMatchObject({ ok: false });
   });
   it('stops at anything else and fills nothing', () => {
     expect(runInitCoding([...code, 'select * from zdemo_tab into table t_x.'], values)).toMatchObject({ ok: false });

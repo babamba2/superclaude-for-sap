@@ -46,3 +46,27 @@ describe('smartform-to-adobe: correction spec v1', () => {
     expect(JSON.stringify(s.ops)).not.toMatch(/11\/17/);
   });
 });
+
+describe('smartform-to-adobe: hidden-field holders (R6) and the font of embedded values (R7)', () => {
+  // a table cell as MIGRATE writes it: a holder subform of hidden fields and a draw embedding them (invented names)
+  const cell = (proto = false) => `<subform layout="lr-tb" name="CELL" w="16mm"><field name="append_mode__" presence="hidden"/>
+<subform name="WA"><field name="FLD" presence="hidden"><bind match="dataRef" ref="$record.ROWS[*].FLD"/></field></subform>
+<draw name="TXT" w="16mm"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml"><div style="font-family:'Courier New';font-size:12pt;"><span style="font-family:'Arial';font-size:10pt;font-weight:bold;"><span xfa:embed="WA.FLD"/></span></div></div></exData></value></draw>
+<subform name="KEEP"><field name="SHOWN"/></subform></subform>${proto ? '' : ''}`;
+  const xdp = `<?xml version="1.0" encoding="utf-8"?><xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform name="ZDEMO" layout="tb"><pageSet><pageArea name="P1"><contentArea x="2cm" y="2cm" w="16cm" h="20cm"/></pageArea></pageSet>
+<proto><subform id="FOOT" name="FOOT" layout="tb">${cell(true)}</subform></proto>
+<subform name="MAIN" layout="tb">${cell()}</subform></subform></template></xdp:xdp>`;
+  const ops = correctionSpec({ content: { pages: [] }, layoutXdp: xdp }).ops;
+  it('hides the holder (path or proto target) and gives its field the embedding span font', () => {
+    expect(ops.filter((o: any) => o.rule === 'R6').map((o: any) => o.target)).toEqual([
+      { path: 'ZDEMO.MAIN.CELL.WA' }, { protoId: 'FOOT', path: 'CELL.WA' }]);
+    expect(ops.find((o: any) => o.rule === 'R6').basis).toBeTruthy();
+    expect(ops.filter((o: any) => o.rule === 'R7')).toEqual([
+      expect.objectContaining({ op: 'font', target: { path: 'ZDEMO.MAIN.CELL.WA.FLD' }, typeface: 'Arial', size: '10pt', weight: 'bold' }),
+      expect.objectContaining({ op: 'font', target: { protoId: 'FOOT', path: 'CELL.WA.FLD' }, typeface: 'Arial', size: '10pt', weight: 'bold' })]);
+  });
+  it('leaves a subform with a visible field alone', () => {
+    expect(ops.some((o: any) => JSON.stringify(o.target).includes('KEEP'))).toBe(false);
+  });
+});

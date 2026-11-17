@@ -85,6 +85,58 @@ function datePicture(s) {
   return monthFirst ? `date{MM${m[2]}DD${m[2]}YYYY}` : `date{DD${m[2]}MM${m[2]}YYYY}`;
 }
 
+/** Every named container under the root subform and in each <proto> definition, with the v1 target it is reached by
+ *  ({ path } from the root, or { protoId, path? } below a proto definition) and its parent element. */
+function allTargets(t) {
+  const out = [];
+  const walk = (el, base, path) => {
+    const seen = new Map();
+    for (const c of kids(el)) {
+      if (c.tag === 'proto' || !CONTAINER.has(c.tag)) continue;
+      const name = c.attrs?.name;
+      if (!name) { walk(c, base, path); continue; }
+      const n = seen.get(name) || 0;
+      seen.set(name, n + 1);
+      const same = kids(el).filter((x) => x.attrs?.name === name && CONTAINER.has(x.tag)).length > 1;
+      const p = `${path ? `${path}.` : ''}${name}${same ? `[${n}]` : ''}`;
+      out.push({ node: c, parent: el, target: base.protoId ? { protoId: base.protoId, ...(p ? { path: p } : {}) } : { path: p } });
+      walk(c, base, p);
+    }
+  };
+  if (t.root) walk(t.root, {}, t.root.attrs?.name || 'form1');
+  for (const [id, node] of t.protos) {
+    out.push({ node, parent: null, target: { protoId: id } });
+    walk(node, { protoId: id }, '');
+  }
+  return out;
+}
+
+const hiddenField = (c) => c.tag === 'field' && c.attrs?.presence === 'hidden';
+/** A subform MIGRATE writes to hold the hidden fields a cell text embeds (<subform name="GS_SFLIGHT"> with hidden
+ *  CARRID): named, no layout of its own, every container child a hidden field. */
+const isHiddenHolder = (n) => n.tag === 'subform' && !n.attrs?.layout && !n.attrs?.presence
+  && kids(n).some(hiddenField) && kids(n).every((c) => !CONTAINER.has(c.tag) || hiddenField(c));
+
+/** The CSS font of the innermost span around <span xfa:embed="ref"/> in a draw's rich text (null when not found). */
+function embedFont(draw, ref) {
+  let hit = null;
+  const walk = (el, st) => {
+    for (const c of kids(el)) {
+      const own = String(c.attrs?.style || '');
+      const css = { ...st };
+      for (const part of own.split(';')) {
+        const [k, v] = part.split(':').map((x) => String(x || '').trim());
+        if (/^font-(family|size|weight)$/.test(k) && v) css[k] = v.replace(/['"]/g, '');
+      }
+      if ((c.attrs?.['xfa:embed'] || c.attrs?.embed) === ref) { hit = css; return; }
+      walk(c, css);
+      if (hit) return;
+    }
+  };
+  walk(draw, {});
+  return hit;
+}
+
 /** The correction spec v1 for one migrated form. */
 export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, afPdf = null }) {
   const t = xdpTargets(layoutXdp);
@@ -98,6 +150,24 @@ export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, 
   }
   for (const [id, node] of t.protos) {
     if (/(^|_)MAIN$/.test(id) && /^(lr-tb|rl-tb)$/.test(node.attrs?.layout || '')) ops.push({ op: 'layout', target: { protoId: id }, value: 'tb', rule: 'R1' });
+  }
+  // R6 — the subforms MIGRATE writes to hold a text's hidden fields take a line of their own in the flow (ADS: a cell
+  // 7.58 mm high instead of one text line); hidden, they take none and the embedded values still print (ADS probe on
+  // the SF_TOTALS migration, 2026-11-17)
+  // R7 — a formatted embed prints in its field's font, and those hidden fields have none (Courier 10 pt): they get
+  // the font of the span that embeds them, as the SmartForm prints the value
+  for (const { node, parent, target } of allTargets(t)) {
+    if (!isHiddenHolder(node)) continue;
+    ops.push({ op: 'presence', target, value: 'hidden', rule: 'R6', basis: `holder of hidden fields for an embedding text (${node.attrs.name}), not a SmartForm node` });
+    const draws = parent ? kids(parent).filter((d) => d.tag === 'draw') : [];
+    for (const f of kids(node).filter(hiddenField)) {
+      const ref = `${node.attrs.name}.${f.attrs?.name}`;
+      const css = draws.map((d) => embedFont(d, ref)).find(Boolean);
+      if (!css || kids(f, 'font').length || (!css['font-family'] && !css['font-size'])) continue;
+      ops.push({ op: 'font', target: { ...target, path: `${target.path ? `${target.path}.` : ''}${f.attrs.name}` },
+        ...(css['font-family'] ? { typeface: css['font-family'] } : {}), ...(css['font-size'] ? { size: css['font-size'] } : {}),
+        ...(css['font-weight'] === 'bold' ? { weight: 'bold' } : {}), rule: 'R7', evidence: `embedded as ${ref} in a span of ${css['font-family'] || ''} ${css['font-size'] || ''}`.trim() });
+    }
   }
   if (sfPdf && afPdf) {
     const { offsets, score } = windowOffsets(content, sfPdf, afPdf);

@@ -181,6 +181,8 @@ export function runInitCoding(lines, values = {}, ddic = {}, state = {}) {
         continue;
       }
       if ((m = /^(<\w+>|\w+)-(\w+) = (?:(<\w+>|\w+)-(\w+)|'([^']*)'|(-?\d+(?:\.\d+)?))$/i.exec(s))) {
+        // writing through a field symbol changes the table row in ABAP; here the row is a copy: not run
+        if (m[1].startsWith('<')) return fail(`statement not supported: write through field symbol ${m[1]}`);
         const tgt = (vars[up(m[1])] ||= {});
         tgt[up(m[2])] = m[3] ? (vars[up(m[3])] || get(m[3]) || {})[up(m[4])] : m[5] !== undefined ? m[5] : Number(m[6]);
         continue;
