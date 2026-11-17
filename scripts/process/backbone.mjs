@@ -16,8 +16,8 @@
 // The top 3 tasks with score ≥ 2 are proposals for the analyst — it decides, this only ranks.
 // Deterministic, no SAP call.
 
-import { existsSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { FLOW_KINDS, loadGraph, reach } from '../graph/graph-query.mjs';
 
@@ -140,6 +140,8 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
     const { trees, missing } = loadBackbone(resolve(root), modules);
     if (!trees.length) throw new Error(`no process-backbone.json for ${modules.join(', ')}`);
     const res = candidates(JSON.parse(readFileSync(graphPath, 'utf8')), trees, { lang });
+    // The state folder may not exist yet on a first run (web BPH run 2026-11-17: ENOENT, then a retry).
+    mkdirSync(dirname(resolve(out)), { recursive: true });
     writeFileSync(out, `${JSON.stringify({ modules, missing, ...res }, null, 2)}\n`, 'utf8');
     console.log(JSON.stringify({ out: resolve(out), missing, tasks: res.tasks, entries: res.entries.length, unmatched: res.unmatched.length }, null, 2));
   } catch (e) {
