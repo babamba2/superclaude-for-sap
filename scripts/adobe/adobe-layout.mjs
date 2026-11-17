@@ -531,6 +531,9 @@ function contentOf(n, ctx) {
   return { paras, font, para, vi, text };
 }
 
+const ownAbove = (st) => st['margin-top'] !== undefined || st['space-before'] !== undefined;
+const ownBelow = (st) => st['margin-bottom'] !== undefined || st['space-after'] !== undefined;
+
 /** Lines and block height of content for an inner width. */
 function shapeText(content, width, multi, factor = VMETRICS.line) {
   const { font, para } = content;
@@ -546,19 +549,21 @@ function shapeText(content, width, multi, factor = VMETRICS.line) {
     // a paragraph's own CSS line-height (SAP's migration: the SmartStyle line spacing) wins
     const lh = st['line-height'] && unit(st['line-height'], 0) > 0 ? unit(st['line-height'])
       : para.lineHeight > 0 ? para.lineHeight : (/^helvetica$/i.test(face(l)) ? 1.2 : factor) * pt * PT;
-    const above = l.first ? (st['margin-top'] ? unit(st['margin-top']) : 0) + (st['space-before'] ? unit(st['space-before']) : 0) + (i > 0 || para.spaceAbove ? para.spaceAbove : 0) : 0;
+    // a paragraph's own CSS spacing replaces the draw's <para> spacing (FP_EXAMPLE_01: margin-bottom 6pt with
+    // <para spaceBelow="6pt"> is one 6 pt gap in ADS, not two)
+    const above = l.first ? (ownAbove(st) ? (st['margin-top'] ? unit(st['margin-top']) : 0) + (st['space-before'] ? unit(st['space-before']) : 0) : (i > 0 || para.spaceAbove ? para.spaceAbove : 0)) : 0;
     h += above;
     out.push({ ...l, pt, top: h, lh });
     h += lh;
     const lastOfPara = i === lines.length - 1 || lines[i + 1].para !== l.para;
     if (lastOfPara) {
-      h += (st['margin-bottom'] ? unit(st['margin-bottom']) : 0) + (st['space-after'] ? unit(st['space-after']) : 0);
-      h += para.spaceBelow;
+      h += ownBelow(st) ? (st['margin-bottom'] ? unit(st['margin-bottom']) : 0) + (st['space-after'] ? unit(st['space-after']) : 0) : para.spaceBelow;
     }
   });
   // spacing after the last paragraph: part of the height, not of the text block
   const last = lines[lines.length - 1];
-  const after = last ? para.spaceBelow + (last.para.st?.['margin-bottom'] ? unit(last.para.st['margin-bottom']) : 0) + (last.para.st?.['space-after'] ? unit(last.para.st['space-after']) : 0) : 0;
+  const lst = last?.para.st || {};
+  const after = last ? (ownBelow(lst) ? (lst['margin-bottom'] ? unit(lst['margin-bottom']) : 0) + (lst['space-after'] ? unit(lst['space-after']) : 0) : para.spaceBelow) : 0;
   return { lines: out, h, after };
 }
 

@@ -370,13 +370,14 @@ function listSymbols(content) {
 // ── conditions (one-page document) ────────────────────────────────────────────
 // Conditions tab flags: firstPage / notFirstPage, afterMainEnd / beforeMainEnd
 // (lastPage / notLastPage = the same flags in content read before 2026-10-16).
+// page conditions of a node / window on page r.pageNo of r.pageCount (one page: page 1 of 1)
 const PAGE_FLAGS = {
-  firstPage: () => true,
-  notFirstPage: () => false,
-  afterMainEnd: (inMain) => !inMain,
-  lastPage: (inMain) => !inMain,
-  beforeMainEnd: (inMain) => inMain,
-  notLastPage: (inMain) => inMain,
+  firstPage: (inMain, r) => (r?.pageNo ?? 0) === 0,
+  notFirstPage: (inMain, r) => (r?.pageNo ?? 0) > 0,
+  afterMainEnd: (inMain, r) => !inMain && (r?.pageNo ?? 0) === (r?.pageCount ?? 1) - 1,
+  lastPage: (inMain, r) => !inMain && (r?.pageNo ?? 0) === (r?.pageCount ?? 1) - 1,
+  beforeMainEnd: (inMain, r) => inMain || (r?.pageNo ?? 0) < (r?.pageCount ?? 1) - 1,
+  notLastPage: (inMain, r) => inMain || (r?.pageNo ?? 0) < (r?.pageCount ?? 1) - 1,
 };
 
 /** A condition operand that names a field: NAME or NAME+off(len); null for a literal. */
@@ -549,7 +550,8 @@ class Renderer {
     const up = name.toUpperCase(); // symbols are not case sensitive (&sy-uline& = &SY-ULINE&)
     // "NAME@%TEXT59": a value for one text node only (a total the code sets for the footer,
     // ZSF_DEMO_24 L_WRBTR) — wins over the loop's array
-    let v = this.values[`${name}@${this.curNode}`] ?? this.values[`${up}@${this.curNode}`];
+    // page numbers of a multi-page print win over the values (SFSY-PAGE / FORMPAGES / JOBPAGES)
+    let v = this.sysPage?.[up] ?? this.values[`${name}@${this.curNode}`] ?? this.values[`${up}@${this.curNode}`];
     if (v === undefined) v = this.values[name] ?? this.values[raw] ?? this.values[up];
     if (v === undefined) {
       const k = Object.keys(this.values).find((x) => x.toUpperCase() === up);
@@ -991,7 +993,7 @@ class Renderer {
   printsHere(cond) {
     if (!cond) return true;
     for (const [k, on] of Object.entries(cond)) {
-      if (on === true && PAGE_FLAGS[k] && !PAGE_FLAGS[k](this.inMain)) return false;
+      if (on === true && PAGE_FLAGS[k] && !PAGE_FLAGS[k](this.inMain, this)) return false;
     }
     // lines are AND-ed; an {LOP: OR} item starts another group, and the groups are OR-ed
     // (ZSF_DEMO_43: GV_CPAGE EQ GS_HEAD-TPAGE  OR  GS_HEAD-TPAGE EQ 0)
@@ -1219,13 +1221,50 @@ class Renderer {
     try { return this.nodes(win.content); } finally { this.styleStack.pop(); }
   }
 
-  page(index = 0) {
+  /** The page definition that follows page definition p (its next page, else p itself). */
+  nextPageOf(p) {
+    return (p.nextPage && this.c.pages.find((q) => q.name === p.nextPage)) || p;
+  }
+
+  /** Window HTML of one sheet. plan: { from, to, shift } of the MAIN blocks this sheet shows (multi-page). */
+  sheetBody(p, mainContent, flow = null) {
+    return p.windows.map((win) => {
+      const isMain = win.type === 'MAIN';
+      let inner = isMain && mainContent ? mainContent : this.windowNodes(win);
+      if (isMain && flow) inner = `<div class="mainflow" data-from="${flow.from}" data-to="${flow.to}">${inner}</div>`;
+      const hasContent = isMain && mainContent ? true : win.content?.length;
+      return `<div class="win${isMain ? ' main' : ''}${win.condition?.afterMainEnd || win.condition?.lastPage ? ' aftermain' : ''}" data-win="${esc(win.name)}" style="left:${win.leftMm}mm;top:${win.topMm}mm;width:${win.widthMm}mm;height:${win.heightMm}mm;">${inner}${win.box && (hasContent || !isMain) ? windowFrame(win.box) : ''}</div>`;
+    }).join('');
+  }
+
+  /** Several sheets: the MAIN flow cut into pages (plan.sheets from cutPages), page symbols and page conditions per sheet. */
+  pages(plan) {
+    const mainWin = this.c.pages.map((p) => p.windows.find((w) => w.type === 'MAIN')).find(Boolean);
+    const n = plan.sheets.length;
+    const bodies = [];
+    plan.sheets.forEach((s, k) => {
+      const def = s.def || this.c.pages[0];
+      this.pageNo = k; this.pageCount = n;
+      this.sysPage = { 'SFSY-PAGE': String(k + 1), 'SFSY-FORMPAGES': String(n), 'SFSY-JOBPAGES': String(n) };
+      this.inMain = true;
+      const hasMain = def.windows.some((w) => w.type === 'MAIN');
+      const mainContent = hasMain && mainWin ? this.windowNodes(mainWin) : '';
+      bodies.push(this.sheetBody(def, mainContent, hasMain ? s : null));
+    });
+    this.pageNo = 0; this.pageCount = 1; this.sysPage = undefined;
+    const doc = this.page(0, { bodies });
+    return { ...doc, pages: n };
+  }
+
+  page(index = 0, multi = null) {
     const p = this.c.pages[index] || this.c.pages[0];
-    if (this.c.pages.length > 1) this.approx.push(p === this.c.pages[0] ? `form has ${this.c.pages.length} pages — first page drawn (${p.name})` : `form has ${this.c.pages.length} pages — page ${p.name} drawn`);
+    if (this.c.pages.length > 1 && !multi) this.approx.push(p === this.c.pages[0] ? `form has ${this.c.pages.length} pages — first page drawn (${p.name})` : `form has ${this.c.pages.length} pages — page ${p.name} drawn`);
     const landscape = p.orientation === 'landscape';
     const [w, h] = landscape ? [297, 210] : [210, 297];
     if (p.format && p.format !== 'DINA4') this.approx.push(`page format ${p.format} drawn as A4`);
-    const body = p.windows.map((win) => `<div class="win${win.type === 'MAIN' ? ' main' : ''}${win.condition?.afterMainEnd || win.condition?.lastPage ? ' aftermain' : ''}" data-win="${esc(win.name)}" style="left:${win.leftMm}mm;top:${win.topMm}mm;width:${win.widthMm}mm;height:${win.heightMm}mm;">${this.windowNodes(win)}${win.box && (win.content?.length || win.type !== 'MAIN') ? windowFrame(win.box) : ''}</div>`).join(''); // an empty MAIN window prints no box (ZSF_DEMO_58); an empty secondary window does (ZSF_DEMO_01 FRAME)
+    // several sheets: each one its own .sheet, a page break before every sheet after the first
+    const body = multi ? multi.bodies.join(`</div><div class="sheet" data-zoom="${ZOOM}" style="break-before:page">`)
+      : p.windows.map((win) => `<div class="win${win.type === 'MAIN' ? ' main' : ''}${win.condition?.afterMainEnd || win.condition?.lastPage ? ' aftermain' : ''}" data-win="${esc(win.name)}" style="left:${win.leftMm}mm;top:${win.topMm}mm;width:${win.widthMm}mm;height:${win.heightMm}mm;">${this.windowNodes(win)}${win.box && (win.content?.length || win.type !== 'MAIN') ? windowFrame(win.box) : ''}</div>`).join(''); // an empty MAIN window prints no box (ZSF_DEMO_58); an empty secondary window does (ZSF_DEMO_01 FRAME)
     // SAP keeps the line spacing even when the font is taller (glyphs overlap the line above);
     // the baseline sits at the bottom of each line - see the script below.
     const css = (this.c.styles || []).map((s) => `${s.css || ''}\n${paragraphCss(s, this.c.printer)}
@@ -1385,6 +1424,98 @@ var e=document.createElement('script');e.type='application/json';e.id='sf-overfl
   }
 }
 
+// ── several pages ───────────────────────────────────────────────────────────────
+// the script that ends the page body's scripts (the overflow report); page scripts go before it
+const LAST_SCRIPT = '<script>(function(){var o=[];if(window.__sfPaginate';
+// MAIN blocks as the pagination sees them: rows, templates, paragraphs and images outside rows / templates, and
+// NEWPAGE commands — the same selection on the measuring pass and on the drawn pages
+const BLOCKS_JS = `function sfBlocks(w){var out=[];w.querySelectorAll('.tmpl, .row, .par, img, .sfbreak').forEach(function(e){if(e.classList.contains('sfbreak')){out.push(e);return;}if(!e.classList.contains('tmpl')&&e.parentElement.closest('.tmpl'))return;if(!e.classList.contains('row')&&!e.classList.contains('tmpl')&&e.closest('.row'))return;out.push(e);});return out;}`;
+// measuring pass: every MAIN block's top / bottom in mm from the top of MAIN (the paragraph baseline shift taken out)
+const MEASURE_JS = `<script>(function(){${BLOCKS_JS}var Z=${ZOOM},PXMM=96/25.4,w=document.querySelector('.sheet .win.main');if(!w)return;var wt=w.getBoundingClientRect().top;
+var o=sfBlocks(w).map(function(e){var r=e.getBoundingClientRect(),sh=(parseFloat(e.style.top)||0)*Z;return{t:(r.top-sh-wt)/Z/PXMM,b:(r.bottom-sh-wt)/Z/PXMM,brk:e.classList.contains('sfbreak')};});
+var s=document.createElement('script');s.type='application/json';s.id='sf-mainblocks';s.textContent=JSON.stringify(o);document.body.appendChild(s);})();</script>`;
+// drawn pages: each sheet's MAIN shows its blocks [from, to), moved up to the top of MAIN; the others are hidden
+// (no text of another page reaches the print); windows after the end of MAIN only on the sheet where MAIN ends
+const SHEETS_JS = `<script>window.__sfPaginate=function(){${BLOCKS_JS}var Z=${ZOOM},cont=false;
+document.querySelectorAll('.sheet').forEach(function(sh){var w=sh.querySelector('.win.main');if(!w)return;var f=w.querySelector('.mainflow');if(!f)return;var bl=sfBlocks(w),from=+f.dataset.from,to=+f.dataset.to;
+var wt=w.getBoundingClientRect().top;var first=bl[from];if(first){var r=first.getBoundingClientRect(),s0=(parseFloat(first.style.top)||0)*Z;f.style.position='relative';f.style.top=(-(r.top-s0-wt)/Z)+'px';}
+bl.forEach(function(e,i){if(i<from||i>=to)e.style.visibility='hidden';});
+var more=to<bl.length;if(more){cont=true;sh.querySelectorAll('.win.aftermain').forEach(function(a){a.style.visibility='hidden';});}});
+return false;};</script>`;
+
+/** Cut MAIN's blocks into pages: a page takes blocks while they end inside its MAIN height (the first block always),
+ *  a NEWPAGE command ends the page. heightOf(k) = MAIN height of sheet k in mm. */
+export function cutPages(blocks, heightOf, maxPages = 50) {
+  const sheets = [];
+  let i = 0;
+  while (i < blocks.length && sheets.length < maxPages) {
+    const H = heightOf(sheets.length);
+    const top0 = blocks[i].t;
+    let j = i;
+    while (j < blocks.length) {
+      const b = blocks[j];
+      if (b.brk) { j++; break; }
+      if (j > i && b.b - top0 > H + 0.2) break;
+      j++;
+    }
+    sheets.push({ from: i, to: j });
+    i = j;
+  }
+  return { sheets: sheets.length ? sheets : [{ from: 0, to: blocks.length }] };
+}
+
+/** The sheets of a print: page definitions in next-page order with the MAIN blocks each one shows.
+ *  - A page without a MAIN window prints its windows and hands over to its next page (a cover page).
+ *  - MAIN blocks are cut by cutPages over the MAIN heights of the following page definitions.
+ *  - The print ends with the last MAIN page. Pure: pages = content.json pages, blocks from the measuring pass. */
+export function pagePlan(pages, blocks, nextPageOf, maxPages = 50) {
+  const hasMain = (p) => p.windows.some((w) => w.type === 'MAIN');
+  const mainH = (p) => p.windows.find((w) => w.type === 'MAIN')?.heightMm ?? 0;
+  const sheets = [];
+  let def = pages[0];
+  const seen = new Set();
+  while (def && !hasMain(def) && !seen.has(def) && sheets.length < maxPages) {
+    seen.add(def);
+    sheets.push({ def });
+    const nx = nextPageOf(def);
+    if (nx === def) return { sheets };
+    def = nx;
+  }
+  if (!def || !hasMain(def)) return { sheets };
+  const defs = [];
+  const heightOf = (k) => {
+    // MAIN continues on the next page that has a MAIN window, else on the same page definition again
+    while (defs.length <= k) { if (defs.length) { const nx = nextPageOf(def); if (hasMain(nx)) def = nx; } defs.push(def); }
+    return hasMain(defs[k]) ? mainH(defs[k]) : 0;
+  };
+  const cut = cutPages(blocks, heightOf, maxPages - sheets.length);
+  cut.sheets.forEach((s, k) => { heightOf(k); sheets.push({ ...s, def: defs[k] }); });
+  // (a next page without MAIN after the last MAIN page is not printed: 59 of 59 such ECC forms print one page)
+  return { sheets };
+}
+
+/** Measure MAIN in the browser and draw every page; null when it all fits on one page after all. */
+function paginate(r, page, browser, size, profile) {
+  mkdirSync(profile, { recursive: true });
+  const mf = join(profile, 'measure.html');
+  // measured on the first page definition that has a MAIN window (a cover page has none)
+  const mIdx = r.c.pages.findIndex((p) => p.windows.some((w) => w.type === 'MAIN'));
+  let blocks = [];
+  if (mIdx >= 0) {
+    const html = mIdx === 0 ? page.html : r.page(mIdx).html;
+    if (!html.includes(LAST_SCRIPT)) return null;
+    writeFileSync(mf, html.replace(LAST_SCRIPT, MEASURE_JS + LAST_SCRIPT));
+    const dom = runBrowser(browser, [size, '--dump-dom', pathToFileURL(mf).href], profile);
+    const m = /<script type="application\/json" id="sf-mainblocks">([\s\S]*?)<\/script>/.exec(dom.stdout || '');
+    if (!m) return null;
+    blocks = JSON.parse(m[1]);
+  }
+  const plan = pagePlan(r.c.pages, blocks, (p) => r.nextPageOf(p));
+  if (plan.sheets.length < 2) return null;
+  const doc = r.pages(plan);
+  return { ...doc, html: doc.html.replace(LAST_SCRIPT, SHEETS_JS + LAST_SCRIPT) };
+}
+
 // ── CLI ─────────────────────────────────────────────────────────────────────────
 function arg(argv, name, dflt) {
   const i = argv.indexOf(name);
@@ -1424,7 +1555,7 @@ async function main(argv) {
   // graphics only from the content.json's own folder (where GetSmartFormContent wrote them)
   const r = new Renderer(content, values, { graphicsBase: dirname(resolve(contentFile)) });
   if (fieldsFile && existsSync(fieldsFile)) r.fields = JSON.parse(readFileSync(fieldsFile, 'utf8'));
-  const page = r.page();
+  let page = r.page();
   const base = join(outDir, `${content.form}-preview`);
   writeFileSync(`${base}.html`, page.html);
 
@@ -1445,8 +1576,23 @@ async function main(argv) {
     const size = `--window-size=${px(page.w)},${px(page.h)}`;
     const dom = runBrowser(browser, [size, '--dump-dom', url], profile);
     const m = /<script type="application\/json" id="sf-overflow">([\s\S]*?)<\/script>/.exec(dom.stdout || '');
-    if (m) {
-      const all = JSON.parse(m[1]);
+    let all = m ? JSON.parse(m[1]) : null;
+    // MAIN continues: measure its blocks once, cut them into pages (page 1, then the next page definitions)
+    // and draw every page; the overflow report then comes from the drawn pages
+    // (also when the page order alone gives more pages: a cover page without MAIN)
+    if (all?.some((x) => x.kind === 'page') || pagePlan(r.c.pages, [], (p) => r.nextPageOf(p)).sheets.length > 1) {
+      const multi = paginate(r, page, browser, size, profile);
+      if (multi) {
+        page = multi;
+        writeFileSync(`${base}.html`, page.html);
+        report.pages = page.pages;
+        const dom2 = runBrowser(browser, [size, '--dump-dom', url], profile);
+        const m2 = /<script type="application\/json" id="sf-overflow">([\s\S]*?)<\/script>/.exec(dom2.stdout || '');
+        all = m2 ? JSON.parse(m2[1]) : all;
+        report.approximations = [...new Set(r.approx)];
+      }
+    }
+    if (all) {
       report.overflow = all.filter((x) => x.kind !== 'font' && x.kind !== 'page');
       for (const pg of all.filter((x) => x.kind === 'page')) report.approximations.push(pg.text);
       for (const f of all.filter((x) => x.kind === 'font')) report.approximations.push(`font ${f.node} not installed on this PC — text widths differ from the print`);

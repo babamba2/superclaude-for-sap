@@ -83,7 +83,7 @@ node scripts/smartform/build-preview.mjs fields "<content>" --ddic "<out>/ddic.j
 - Realistic lengths: names and texts typically 50–90 % of the field length; keys at their usual length (`4500001234`, `0010004567`). A symbol inside a loop or table gets an array, one value per row; totals add up.
 - Values hang together: same buyer in buyer and ship-to when the form implies it, item amounts = quantity × price, a total that matches.
 - `defaultParagraph`: the paragraph for lines formatted `*` (the style's standard paragraph is not in the content). Take the paragraph of the neighbouring label of the same kind (e.g. the title cell next to it); say which one in the result. Keep the choice in `values.json` for later runs.
-- System symbols (`SFSY-PAGE`, `SFSY-FORMPAGES`) default to 1; set them only for a different picture.
+- System symbols (`SFSY-PAGE`, `SFSY-FORMPAGES`) default to 1 on a one-page print; on several pages they are the page numbers.
 
 **Step 6 — Build.**
 ```
@@ -115,7 +115,7 @@ Reply in the user's language; show the JPG to the user when the client can displ
 </Output_Format>
 
 <Limits>
-- One page is drawn (the first). Further pages, page breaks after MAIN overflows, and `NEXTPAGE` flows are listed, not drawn.
+- When MAIN continues (or the first page has no MAIN window: a cover page), every page is drawn: MAIN is cut before the first row / paragraph that does not fit, the next pages follow the next-page order, and page conditions apply per page. The JPG shows page 1; the HTML and layout.json have all pages (report `pages`). A table header is not yet repeated on the following pages.
 - Field conditions (`condition` other than first / last page) and alternatives: the node is shown / the first branch is drawn; listed under `approximations`.
 - Text commands: `/*` comment lines are not printed; `/: IF … ELSE … ENDIF` is decided from the sample values (`&X& = 'v'`, `<>`), otherwise the first branch is drawn; other `/:` commands are skipped (listed). A SmartStyle a node names but the system lacks is replaced by the style its parents pass down (listed).
 - Address nodes and include texts with a key set at print time are drawn as labelled boxes.

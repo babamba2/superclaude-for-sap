@@ -41,7 +41,7 @@ Accuracy is a set of numbers measured against SAP's own print. A "pass" without 
 The single user-facing number for SmartForm and Adobe previews and for SF → Adobe conversions. Target: **corpus average ≥ 98 %**. The §2 vector stays as the diagnosis.
 
 - **Text**: a reference text block (pieces on one baseline that touch) matches when the candidate prints the same text on the same page with left x and baseline within 1 mm.
-  - A block split or joined differently on the other side still matches when the pieces are neighbours: at most 3 mm apart (`--join-gap`), plus the blanks the block itself prints there, and the last piece ends where the block ends (±1 mm).
+  - A block split or joined differently on the other side still matches when the pieces are neighbours: at most 3 mm apart (`--join-gap`), plus the blanks the block itself prints there, and the last piece ends where the block ends (±1 mm) or — only for a piece whose width read-pdf estimated (its PDF font has no width table: `wEst`) — starts where the block's average character width puts it (±1 mm). Known limits: the end check needs the block width (a PDF always has it; a hand-made JSON without `w` gets only the gap limit), and in a join of three or more pieces the middle pieces are only gap-limited.
   - text = matched / (reference blocks + extra candidate blocks).
   - A block found farther away is listed as *moved* (dx / dy) and counts once.
 - **Lines**: drawn lines, stroked box edges and thin filled bars (white bars and barcodes excluded). Pieces of one visual line merge: parallel within 0.3 mm, gaps up to the tolerance. A line matches when direction, position and both ends are within 1 mm. lines = matched / (reference + extra).

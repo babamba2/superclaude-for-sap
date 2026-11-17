@@ -7,6 +7,7 @@
 //
 // Result: { file, pages, page: { no, widthMm, heightMm, texts[], lines[], rects[], images[] } }
 // Positions in mm from the page's top-left; a text's y is its baseline.
+// wEst: the piece's font has no width table (or a CMap decoded with fixed widths): its width is an estimate.
 //   texts[]  { x, y, w, text, pt, font, bold, italic, sapFont? }  (w = advance width)
 //   lines[]  { x1, y1, x2, y2, th }           stroked straight segments
 //   rects[]  { x, y, w, h, fill?, stroke? }   re-rectangles (fill: gray 0..1 or #rrggbb)
@@ -350,6 +351,8 @@ function loadFont(pdf, ref, resName) {
     const desc = pdf.get((pdf.get(d.DescendantFonts) || [])[0]) || {};
     f.dw = desc.DW ?? 1000;
     f.w = new Map();
+    // widths are only estimates without a W array, and for the CMaps decoded by a fixed half / full em below
+    f.estW = !desc.W || /UTF16|UCS2|EUC|KSC|GB-EUC|GBK|B5|90ms|RKSJ|UHC/.test(String(d.Encoding?.s || ''));
     const W = pdf.get(desc.W) || [];
     for (let i = 0; i < W.length;) {
       const a = pdf.get(W[i]);
@@ -360,6 +363,8 @@ function loadFont(pdf, ref, resName) {
     f.first = d.FirstChar ?? 0;
     f.widths = (pdf.get(d.Widths) || []).map((v) => pdf.get(v));
     f.mono = /courier|mono/i.test(base);
+    // no width table: every advance below is a guess (500 / 600 per 1000 em), so a piece's width is an estimate
+    f.estW = !f.widths.length;
     const enc = pdf.get(d.Encoding);
     f.diff = new Map();
     if (enc && typeof enc === 'object' && !(enc instanceof Name)) {
@@ -481,7 +486,7 @@ function runContent(pdf, data, resources, ctm0, out, fontCache, depth = 0) {
   const finishText = () => {
     for (const p of out.texts) if (p.f) {
       const f = p.f;
-      Object.assign(p, { font: f.base, bold: f.bold, italic: f.italic, ...(f.type0 ? { cid: true } : {}), ...(f.sapFont ? { sapFont: f.sapFont } : {}) });
+      Object.assign(p, { font: f.base, bold: f.bold, italic: f.italic, ...(f.type0 ? { cid: true } : {}), ...(f.sapFont ? { sapFont: f.sapFont } : {}), ...(f.estW ? { wEst: true } : {}) });
       delete p.f;
     }
   };
@@ -612,7 +617,8 @@ export function mergeRuns(texts, maxGapBlanks = 1.6) {
   for (const t of ts) {
     const blank = (t.cid ? 0.5 : 0.28) * t.pt * PT; // a CID (CJK) font's blank is half an em
     const r = runs.find((q) => Math.abs(q.y - t.y) < 0.15 && Math.abs(q.pt - t.pt) < 0.3 && t.x - (q.x + q.w) > -0.3 && t.x - (q.x + q.w) < maxGapBlanks * blank);
-    if (!r) { runs.push({ x: t.x, y: t.y, w: t.w, text: t.text, pt: t.pt, font: t.font, bold: t.bold, italic: t.italic, ...(t.sapFont ? { sapFont: t.sapFont } : {}), pieces: [t.i] }); continue; }
+    if (!r) { runs.push({ x: t.x, y: t.y, w: t.w, text: t.text, pt: t.pt, font: t.font, bold: t.bold, italic: t.italic, ...(t.sapFont ? { sapFont: t.sapFont } : {}), ...(t.wEst ? { wEst: true } : {}), pieces: [t.i] }); continue; }
+    if (t.wEst) r.wEst = true;
     const gap = t.x - (r.x + r.w);
     r.text += (gap > 0.4 * blank ? ' '.repeat(Math.max(1, Math.round(gap / blank))) : '') + t.text;
     r.w = +(t.x + t.w - r.x).toFixed(2);
@@ -641,7 +647,7 @@ export function readPdf(buf, pageNo = 1) {
     no: pageNo,
     widthMm: X(bx2 - bx),
     heightMm: X(H),
-    texts: out.texts.map((t) => ({ x: X(t.x0), y: Y(t.y0), w: X(t.x1 - t.x0), text: t.text, pt: +t.pt.toFixed(2), font: t.font, bold: t.bold, italic: t.italic, ...(t.cid ? { cid: true } : {}), ...(t.sapFont ? { sapFont: t.sapFont } : {}) })),
+    texts: out.texts.map((t) => ({ x: X(t.x0), y: Y(t.y0), w: X(t.x1 - t.x0), text: t.text, pt: +t.pt.toFixed(2), font: t.font, bold: t.bold, italic: t.italic, ...(t.cid ? { cid: true } : {}), ...(t.sapFont ? { sapFont: t.sapFont } : {}), ...(t.wEst ? { wEst: true } : {}) })),
     lines: out.lines.map((l) => ({ x1: X(l.x1), y1: Y(l.y1), x2: X(l.x2), y2: Y(l.y2), th: X(l.lw), ...(l.stroke ? { color: l.stroke } : {}) })),
     rects: out.rects.map((r) => ({ x: X(r.x0), y: Y(r.y1), w: X(r.x1 - r.x0), h: X(r.y1 - r.y0), ...(r.fill !== undefined ? { fill: r.fill } : {}), ...(r.stroke !== undefined ? { stroke: r.stroke, th: X(r.lw) } : {}) })),
     images: out.images.map((i) => ({ x: X(i.x0), y: Y(i.y1), w: X(i.x1 - i.x0), h: X(i.y1 - i.y0), ...(i.px ? { px: i.px } : {}), ...(i.mask ? { mask: true } : {}) })),

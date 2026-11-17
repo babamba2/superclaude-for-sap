@@ -125,7 +125,7 @@ See [`layout-subset.md`](layout-subset.md) § Not supported. Fonts other than Ar
 
 <Files>
 - `scripts/adobe/read-adobe.mjs` — form / interface / XDP readers; `adobe-data.mjs` — context → data XML values; `adobe-layout.mjs` — XFA layout in mm; `formcalc.mjs` — script subset; `picture.mjs` — picture clauses
-- `scripts/adobe/build-adobe-preview.mjs` — `fields`, `build`; `score-forms.mjs` — layout score v2; `read-adobe-sap.mjs` — the SAP reads for the web
+- `scripts/adobe/build-adobe-preview.mjs` — `fields`, `build`, `xdp` (a designer template with its data XML, no SAP form object); `score-forms.mjs` — layout score v2; `read-adobe-sap.mjs` — the SAP reads for the web
 </Files>
 
 <Related_Skills>

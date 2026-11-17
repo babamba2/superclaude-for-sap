@@ -13,7 +13,7 @@
 // Text: each text block of the reference (pieces on one baseline that touch, read-pdf mergeRuns) counts as matched
 // when the candidate has the same text (blanks normalised) on the same page with its left x and baseline within
 // `tol` mm. A block split or joined differently on the other side still matches when neighbouring pieces on that
-// baseline (each at most `joinGap` mm, default 3, after the previous one's right edge) spell the same text and the last piece ends where the joined block ends (±tol, when its width is known).
+// baseline (each at most `joinGap` mm, default 3, after the previous one's right edge) spell the same text and the last piece ends where the joined block ends, or, for a piece read-pdf marks wEst (estimated width), starts where the block's average character width puts it (±tol; only when the block's width is known).
 // text = matched / (reference blocks + extra candidate blocks); a block found farther away is listed as moved
 // (with dx / dy) and counts once, as missing. Known limit: a block both split and moved counts as one missing
 // plus its pieces as extra.
@@ -98,7 +98,7 @@ function blocksOf(page) {
   // raw keeps the blanks inside a block (a gap the block itself prints, e.g. "Total" + 26 blanks + ":")
   return (merge ? mergeRuns(texts) : texts).filter((b) => norm(b.text)).map((b) => ({ x: r2(b.x), y: r2(b.y), text: norm(b.text),
     raw: String(b.text).normalize('NFC').replace(/[\t ]/g, ' ').trim(),
-    ...(Number.isFinite(+b.w) ? { w: r2(b.w) } : {}), ...(Number.isFinite(+b.pt) ? { pt: +b.pt } : {}) }));
+    ...(Number.isFinite(+b.w) ? { w: r2(b.w) } : {}), ...(Number.isFinite(+b.pt) ? { pt: +b.pt } : {}), ...(b.wEst ? { wEst: true } : {}) }));
 }
 
 const PT = 25.4 / 72;
@@ -177,8 +177,21 @@ function joinMatch(one, many, freeMany, tol, joinGap) {
       if (used.length < 2) return null;
       // the pieces must also end where the block ends: the blank allowance is only an upper bound on each gap
       // (a ':' printed 30 mm left of the reference's ':' is not the same print)
+      // Two measures, either one within the tolerance: the last piece's right edge at the block's right edge, or
+      // the last piece's start where the block's own average character width puts it (a PDF whose font has no
+      // width table gives read-pdf estimated piece widths, so the right edge of such a piece is not reliable)
       const last = line[k].m;
-      if (Number.isFinite(one.w) && Math.abs(rightOf(last) - (one.x + one.w)) > tol) return null;
+      if (Number.isFinite(one.w)) {
+        const end = one.x + one.w;
+        const chars = [...String(one.raw ?? one.text)].length || 1;
+        const avg = one.w / chars;
+        const lastLen = [...String(last.raw ?? last.text)].length;
+        const byEdge = Math.abs(rightOf(last) - end) <= tol;
+        // only for a piece whose width read-pdf estimated (its font has no width table), within the tolerance
+        const byStart = !!last.wEst && Math.abs(last.x - (end - lastLen * avg)) <= tol;
+        if (!byEdge && !byStart) return null;
+        if (!byEdge) used.byStartOnly = true;
+      }
       return used;
     }
   }
@@ -187,19 +200,19 @@ function joinMatch(one, many, freeMany, tol, joinGap) {
 
 function scorePage(R, C, tol, joinGap) {
   const freeR = new Set(R.keys()), freeC = new Set(C.keys());
-  let matched = 0;
+  let matched = 0, byStart = 0;
   // 1. same text within the tolerance
   for (const p of pairGreedy(R, C, (a, b) => a.text === b.text && dist(a, b) <= tol, dist)) { freeR.delete(p.i); freeC.delete(p.j); matched++; }
   // 2. split differently: one reference block = several candidate blocks, or the other way round
   for (const i of [...freeR]) {
     const js = joinMatch(R[i], C, freeC, tol, joinGap);
-    if (js) { freeR.delete(i); js.forEach((j) => freeC.delete(j)); matched++; }
+    if (js) { freeR.delete(i); js.forEach((j) => freeC.delete(j)); matched++; if (js.byStartOnly) byStart++; }
   }
   for (const j of [...freeC]) {
     const is = joinMatch(C[j], R, freeR, tol, joinGap);
-    if (is) { freeC.delete(j); is.forEach((i) => freeR.delete(i)); matched += is.length; }
+    if (is) { freeC.delete(j); is.forEach((i) => freeR.delete(i)); matched += is.length; if (is.byStartOnly) byStart += is.length; }
   }
-  return { matched, freeR, freeC };
+  return { matched, byStart, freeR, freeC };
 }
 
 function scoreRules(RS, CS, tol) {
@@ -216,13 +229,13 @@ export function scoreFidelity(refIn, candIn, { tol = DEFAULTS.tol, weights = DEF
   const w = { ...DEFAULTS.weights, ...weights };
   const n = Math.max(ref.pages.length, cand.pages.length);
   const missing = [], extra = [], lineMissing = [], lineExtra = [];
-  let refBlocks = 0, matched = 0, refRules = 0, ruleMatched = 0, extraRules = 0;
+  let refBlocks = 0, matched = 0, joinsByStart = 0, refRules = 0, ruleMatched = 0, extraRules = 0;
   for (let p = 0; p < n; p++) {
     const rp = ref.pages[p] || { texts: [], lines: [], rects: [] }, cp = cand.pages[p] || { texts: [], lines: [], rects: [] };
     const R = blocksOf(rp), C = blocksOf(cp);
     refBlocks += R.length;
     const s = scorePage(R, C, tol, joinGap);
-    matched += s.matched;
+    matched += s.matched; joinsByStart += s.byStart;
     for (const i of s.freeR) missing.push({ page: p + 1, text: R[i].text, x: R[i].x, y: R[i].y });
     for (const j of s.freeC) extra.push({ page: p + 1, text: C[j].text, x: C[j].x, y: C[j].y });
     const RS = rulesOf(rp, tol), CS = rulesOf(cp, tol);
@@ -252,7 +265,7 @@ export function scoreFidelity(refIn, candIn, { tol = DEFAULTS.tol, weights = DEF
     pagesMismatch: ref.pages.length !== cand.pages.length, tol, weights: w,
     parts: { text: +textScore.toFixed(4), lines: +lineScore.toFixed(4), pages: +pageScore.toFixed(4) },
     counts: { refPages: ref.pages.length, candPages: cand.pages.length, refBlocks, matched, missing: missingOnly.length, moved: moved.length, extra: extraOnly.length,
-      refRules, rulesMatched: ruleMatched, rulesMissing: lineMissing.length, rulesExtra: extraRules },
+      joinsByStart, refRules, rulesMatched: ruleMatched, rulesMissing: lineMissing.length, rulesExtra: extraRules },
     diff: {
       pages: ref.pages.length === cand.pages.length ? null : { ref: ref.pages.length, cand: cand.pages.length },
       missing: missingOnly.slice(0, LIST_MAX), moved: moved.slice(0, LIST_MAX), extra: extraOnly.slice(0, LIST_MAX),

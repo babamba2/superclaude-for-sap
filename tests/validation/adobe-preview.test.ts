@@ -10,7 +10,7 @@ import { layoutForm, imageSize, tabStops } from '../../scripts/adobe/adobe-layou
 // @ts-expect-error — plain .mjs script
 import { formatValue } from '../../scripts/adobe/picture.mjs';
 // @ts-expect-error — plain .mjs script
-import { buildModel, renderHtml } from '../../scripts/adobe/build-adobe-preview.mjs';
+import { buildModel, renderHtml, recordFromXml, buildModelXdp } from '../../scripts/adobe/build-adobe-preview.mjs';
 // @ts-expect-error — plain .mjs script
 import { scoreLayouts } from '../../scripts/adobe/score-forms.mjs';
 // @ts-expect-error — plain .mjs script
@@ -402,5 +402,24 @@ describe('adobe-preview: layouts SAP migration writes (div rich text without bod
     close(two.y, one.y);
     close(three.x, one.x);
     expect(three.y).toBeGreaterThan(one.y + 3);
+  });
+});
+
+describe('adobe-preview: designer template + data XML (no SAP form object)', () => {
+  const xdp = `<?xml version="1.0" encoding="utf-8"?>
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform layout="tb" name="form1"><pageSet><pageArea name="P1"><contentArea x="20mm" y="20mm" w="170mm" h="250mm"/>
+<medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>
+<subform name="Head" layout="tb" w="170mm"><field name="Title" w="100mm" h="8mm"><ui><textEdit/></ui><font typeface="Arial"/><bind match="dataRef" ref="$record.Head.Title"/></field></subform>
+</subform></template></xdp:xdp>`;
+  const data = `<?xml version="1.0"?><xfa:datasets xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/"><xfa:data><form1><Head><Title>Sample ticket</Title></Head></form1></xfa:data></xfa:datasets>`;
+  it('reads the record under xfa:datasets / xfa:data: groups and values, attributes ignored', () => {
+    expect(recordFromXml(data)).toEqual({ name: 'form1', children: [{ name: 'Head', children: [{ name: 'Title', value: 'Sample ticket' }] }] });
+    expect(recordFromXml('<root a="1"><v>x</v></root>')).toEqual({ name: 'root', children: [{ name: 'v', value: 'x' }] });
+  });
+  it('lays the template out with that record', () => {
+    const m = buildModelXdp({ layoutXdp: xdp, dataXml: data });
+    expect(m.pages).toHaveLength(1);
+    expect(texts(m.pages[0]).map((t: any) => t.text)).toContain('Sample ticket');
   });
 });

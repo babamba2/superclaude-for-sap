@@ -193,3 +193,54 @@ describe('score-fidelity: a blank-padded block split at its blanks must still en
     for (const x of [45, 32, 27]) expect(scoreFidelity(ref, cand(x)).score).toBeLessThan(DEFAULTS.target);
   });
 });
+
+describe('score-fidelity: piece widths a PDF only estimates', () => {
+  // the reference PDF's font has no width table: read-pdf estimates both header pieces at 10.58 mm; the candidate
+  // prints the same two words as one run with real widths (28.3 mm). The words start where the run puts them.
+  const lay = (texts: any[]) => ({ pages: [{ w: 210, h: 297, texts, lines: [] }] });
+  const run = lay([{ x: 115, y: 57, text: 'CONNID FLDATE', pt: 10, w: 28.3 }]);
+  it('matches when the last piece starts where the run puts it, even with an estimated right edge', () => {
+    const ref = lay([{ x: 115, y: 57, text: 'CONNID', pt: 10, w: 10.58, wEst: true }, { x: 130, y: 57, text: 'FLDATE', pt: 10, w: 10.58, wEst: true }]);
+    expect(scoreFidelity(ref, run).parts.text).toBe(1);
+  });
+  it('does not match when the last piece starts elsewhere', () => {
+    const ref = lay([{ x: 115, y: 57, text: 'CONNID', pt: 10, w: 10.58, wEst: true }, { x: 125.5, y: 57, text: 'FLDATE', pt: 10, w: 10.58, wEst: true }]);
+    expect(scoreFidelity(ref, run).parts.text).toBeLessThan(1);
+  });
+});
+
+describe('score-fidelity: estimated widths do not let a misplaced piece through', () => {
+  // 20 matching rows plus the two-piece header of an estimated-width PDF; the header's last word misplaced
+  const rowsT = Array.from({ length: 20 }, (_, i) => ({ x: 20, y: 80 + i * 8, text: `Row ${i + 1}`, pt: 10, w: 10 }));
+  const lay = (texts: any[]) => ({ pages: [{ w: 210, h: 297, texts: [...rowsT, ...texts], lines: [] }] });
+  const cand = lay([{ x: 115, y: 57, text: 'CONNID FLDATE', pt: 10, w: 28.3 }]);
+  // (closer than 1.6 blanks after the first word, the reference pieces are one run already — block anchors only)
+  for (const x of [133, 135, 140]) {
+    it(`last piece at ${x} mm instead of 130 mm: below 98 %`, () => {
+      const ref = lay([{ x: 115, y: 57, text: 'CONNID', pt: 10, w: 10.58, wEst: true }, { x, y: 57, text: 'FLDATE', pt: 10, w: 10.58, wEst: true }]);
+      const r = scoreFidelity(ref, cand);
+      expect(r.score).toBeLessThan(DEFAULTS.target);
+      expect(r.counts.joinsByStart).toBe(0);
+    });
+  }
+  it('in place: matched through the start check, counted', () => {
+    const r = scoreFidelity(lay([{ x: 115, y: 57, text: 'CONNID', pt: 10, w: 10.58, wEst: true }, { x: 130, y: 57, text: 'FLDATE', pt: 10, w: 10.58, wEst: true }]), cand);
+    expect(r.score).toBe(1);
+    expect(r.counts.joinsByStart).toBe(2);
+  });
+});
+
+describe('score-fidelity: the start check is only for widths the PDF reader estimated', () => {
+  const rowsT = Array.from({ length: 20 }, (_, i) => ({ x: 20, y: 80 + i * 8, text: `Row ${i + 1}`, pt: 10, w: 10 }));
+  const lay = (texts: any[]) => ({ pages: [{ w: 210, h: 297, texts: [...rowsT, ...texts], lines: [] }] });
+  const cand = lay([{ x: 115, y: 57, text: 'CONNID FLDATE', pt: 10, w: 28.3 }]);
+  for (const dx of [1.5, 2]) {
+    it(`accurate widths, last word ${dx} mm off: below 98 %`, () => {
+      // real widths: "FLDATE" ends 1.5–2 mm before the run does — no estimate to excuse it
+      const ref = lay([{ x: 115, y: 57, text: 'CONNID', pt: 10, w: 13.9 }, { x: 130 - dx, y: 57, text: 'FLDATE', pt: 10, w: 13.3 }]);
+      const r = scoreFidelity(ref, cand);
+      expect(r.score).toBeLessThan(DEFAULTS.target);
+      expect(r.counts.joinsByStart).toBe(0);
+    });
+  }
+});

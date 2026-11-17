@@ -21,10 +21,10 @@
 // <script type="application/json" id="sf-index"> with the elements per page (kind, mm box, binding, font).
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { basename, join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
-import { readContext, readInterface, readXdp } from './read-adobe.mjs';
+import { readContext, readInterface, readXdp, parseXml, kids } from './read-adobe.mjs';
 import { buildRecord, contextFields } from './adobe-data.mjs';
 import { layoutForm } from './adobe-layout.mjs';
 import { findBrowser, runBrowser } from '../forms-common/browser.mjs';
@@ -51,6 +51,29 @@ export function buildModel({ formXml, interfaceXml, layoutXdp }, sample = {}) {
     system[k] = given !== undefined ? { value: sample.system[given], source: 'values.json' } : { value: k === 'SFPSY-DATE' ? todayIso() : '', source: 'default' };
   }
   return { interface: ifName, pages: out.pages, report: out.report, missingTexts, system };
+}
+
+/** The data record of an XFA data XML (the root element under xdp / xfa:datasets / xfa:data, or the document
+ *  element): an element with child elements is a group, else a value. Attributes are ignored. */
+export function recordFromXml(xml) {
+  const doc = parseXml(xml);
+  const elems = (e) => kids(e).filter((k) => k.tag !== '#text' && !String(k.tag).startsWith('?') && !String(k.tag).startsWith('!'));
+  let el = elems(doc)[0];
+  for (let i = 0; el && i < 3 && /(^|:)(xdp|datasets|data)$/.test(el.tag); i++) el = elems(el)[0];
+  const conv = (e) => {
+    const ch = elems(e);
+    const name = String(e.tag).replace(/^.*:/, '');
+    if (!ch.length) return { name, value: (e.children || []).filter((k) => k.tag === '#text').map((k) => k.text).join('') };
+    return { name, children: ch.map(conv) };
+  };
+  return el ? conv(el) : { name: 'data', children: [] };
+}
+
+/** The layout model of a designer template (XDP) with its data XML — no SAP form object, no interface. */
+export function buildModelXdp({ layoutXdp, dataXml }, { locale = 'en_US', today } = {}) {
+  const { template } = readXdp(layoutXdp);
+  const out = layoutForm(template, recordFromXml(dataXml), { locale, today });
+  return { interface: '', pages: out.pages, report: out.report, missingTexts: [], system: {} };
 }
 
 function todayIso() {
@@ -114,11 +137,11 @@ function arg(argv, name, dflt) { const i = argv.indexOf(name); return i >= 0 ? a
 
 function main(argv) {
   const [cmd, dir] = argv;
-  if (!cmd || !dir || !existsSync(dir)) {
-    console.error('usage: node build-adobe-preview.mjs build <form-dir> --values <values.json> --out-dir <dir> [--pdf] [--jpg] [--layout-json] [--inspect]\n       node build-adobe-preview.mjs fields <form-dir>');
+  if (!cmd || !dir || !existsSync(dir) || (cmd === 'xdp' && !(arg(argv, '--data') && existsSync(arg(argv, '--data'))))) {
+    console.error('usage: node build-adobe-preview.mjs build <form-dir> --values <values.json> --out-dir <dir> [--pdf] [--jpg] [--layout-json] [--inspect]\n       node build-adobe-preview.mjs xdp <template.xdp> --data <data.xml> --out-dir <dir> [--locale en_US] [--today YYYY-MM-DD] [--pdf] [--jpg] [--layout-json]\n       node build-adobe-preview.mjs fields <form-dir>');
     process.exit(2);
   }
-  const f = filesOf(dir);
+  const f = cmd === 'xdp' ? { name: basename(dir).replace(/\.xdp$/i, '').toUpperCase() } : filesOf(dir);
   if (cmd === 'fields') {
     const { context } = readContext(readFileSync(f.form, 'utf8'));
     console.log(JSON.stringify(contextFields(context), null, 1));
@@ -127,7 +150,9 @@ function main(argv) {
   const sample = arg(argv, '--values') ? JSON.parse(readFileSync(arg(argv, '--values'), 'utf8')) : {};
   const outDir = resolve(arg(argv, '--out-dir', '.'));
   mkdirSync(outDir, { recursive: true });
-  const model = buildModel({ formXml: readFileSync(f.form, 'utf8'), interfaceXml: f.iface ? readFileSync(f.iface, 'utf8') : '', layoutXdp: readFileSync(f.layout, 'utf8') }, sample);
+  const model = cmd === 'xdp'
+    ? buildModelXdp({ layoutXdp: readFileSync(dir, 'utf8'), dataXml: readFileSync(arg(argv, '--data'), 'utf8') }, { locale: arg(argv, '--locale', 'en_US'), today: arg(argv, '--today') })
+    : buildModel({ formXml: readFileSync(f.form, 'utf8'), interfaceXml: f.iface ? readFileSync(f.iface, 'utf8') : '', layoutXdp: readFileSync(f.layout, 'utf8') }, sample);
   const base = join(outDir, `${f.name}-preview`);
   writeFileSync(`${base}.html`, renderHtml(model, { inspect: argv.includes('--inspect'), title: `${f.name} preview` }));
   writeFileSync(`${base}.model.json`, JSON.stringify({ form: f.name, interface: model.interface, pages: model.pages.map((p) => ({ w: p.w, h: p.h, name: p.name, items: p.items.map((it) => (it.type === 'image' ? { ...it, data: it.data ? `[${it.data.length} base64]` : '' } : it)) })) }, null, 1));
