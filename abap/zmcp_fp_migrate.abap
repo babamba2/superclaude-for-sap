@@ -88,6 +88,10 @@ FUNCTION zmcp_fp_migrate
 * before it is saved - see FORM fpc_apply. The op list is checked before
 * anything is saved; with "strict" a single op not applied stops the run
 * (form not saved); without it the result marks the run "partial".
+* Model ops (gap G5 a, FORM fpc_model) in the same list: initSumByKey runs
+* on the new interface before it is saved (strict and not applied ->
+* nothing saved), contextDeactivate on the new context before the form is
+* saved; their results are in the same "correction" report.
 *----------------------------------------------------------------------*
   DATA: lv_cat       TYPE t000-cccategory,
         lv_src       TYPE tdsfname,
@@ -152,7 +156,8 @@ FUNCTION zmcp_fp_migrate
         lv_fstr      TYPE string,
         lv_off       TYPE i,
         lv_mlen      TYPE i,
-        lv_coff      TYPE i.
+        lv_coff      TYPE i,
+        lt_pre       TYPE string_table.
   CONSTANTS c_marker TYPE string VALUE ` [sc4sap]`.
 
   CLEAR: ev_subrc, ev_message.
@@ -190,7 +195,11 @@ FUNCTION zmcp_fp_migrate
   ENDIF.
   " Optional layout correction (FORM fpc_apply): the op list is checked before anything is saved.
   IF iv_correction IS NOT INITIAL.
-    PERFORM fpc_apply USING lv_xdp iv_correction abap_true CHANGING lv_xdpc lv_corr lv_str.
+    PERFORM fpc_apply USING lv_xdp iv_correction abap_true lt_pre CHANGING lv_xdpc lv_corr lv_str.
+    IF lv_str IS INITIAL.
+      " model ops (interface / context): shape only here (phase X)
+      PERFORM fpc_model USING iv_correction 'X' lo_intf lo_root CHANGING lt_pre lv_str.
+    ENDIF.
     IF lv_str IS NOT INITIAL.
       ev_subrc = 8. ev_message = |FP_MIGRATE: { lv_str } - nothing saved|.
       RETURN.
@@ -319,6 +328,14 @@ FUNCTION zmcp_fp_migrate
 
       CREATE OBJECT lo_tpl.
       cl_ssf_migration=>migrate_interface( smartform = lo_sf interface = lo_intf ).
+      " G5 (a) phase I: interface ops (initSumByKey) before the interface is saved;
+      " strict and not applied -> CATCH below, nothing saved
+      IF iv_correction IS NOT INITIAL.
+        PERFORM fpc_model USING iv_correction 'I' lo_intf lo_root CHANGING lt_pre lv_g1err.
+        IF lv_g1err IS NOT INITIAL.
+          RAISE EXCEPTION TYPE cx_fp_api_usage.  " -> CATCH below; lv_g1err is the text
+        ENDIF.
+      ENDIF.
       lo_wbi->save( ).
       APPEND |SFPI { lv_intf }| TO lt_saved.
 
@@ -366,7 +383,12 @@ FUNCTION zmcp_fp_migrate
       " XDP through the iXML DOM before the new layout id / hash / cache info; strict
       " and not every op applied -> CATCH below, form not saved.
       IF iv_correction IS NOT INITIAL.
-        PERFORM fpc_apply USING lv_xdp iv_correction abap_false CHANGING lv_xdpc lv_corr lv_g1err.
+        " G5 (a) phase C: context ops (contextDeactivate) before the form is saved
+        PERFORM fpc_model USING iv_correction 'C' lo_intf lo_root CHANGING lt_pre lv_g1err.
+        IF lv_g1err IS NOT INITIAL.
+          RAISE EXCEPTION TYPE cx_fp_api_usage.  " -> CATCH below; lv_g1err is the text
+        ENDIF.
+        PERFORM fpc_apply USING lv_xdp iv_correction abap_false lt_pre CHANGING lv_xdpc lv_corr lv_g1err.
         IF lv_g1err IS NOT INITIAL.
           RAISE EXCEPTION TYPE cx_fp_api_usage.  " -> CATCH below; lv_g1err is the text
         ENDIF.
@@ -754,7 +776,12 @@ ENDFORM.
 * one "$.format.picture = DateFmt(<n>, $.locale)" must occur; its DateFmt
 * call is replaced by the string literal of a date{...} picture; 0 or more
 * -> refused; $.ui.picture and other script text stay untouched; the result
-* names the text replaced).
+* names the text replaced), bind (a subform or field: match "dataRef" with
+* a ref on the $record allow-list - names, [0] or [*] - or "none"; needs a
+* basis; replaces the node's own <bind> or adds one after <occur>; binds
+* below the target outside the new ref's [*] prefix are warned).
+* contextdeactivate / initsumbykey are model ops: FORM fpc_model runs them
+* earlier; here IT_PRE ("<i>|<status>|<detail>") gives their result.
 * Every value is checked (allow-lists, measurement mm / pt / cm / in).
 * IV_CHECK = X: parse and check the op list only (no DOM) - the FM runs
 * it before anything is saved. Result per op: applied / not_found /
@@ -762,6 +789,7 @@ ENDFORM.
 FORM fpc_apply USING iv_xdp   TYPE xstring
                      iv_corr  TYPE string
                      iv_check TYPE abap_bool
+                     it_pre   TYPE string_table
                CHANGING cv_xdp    TYPE xstring
                         cv_report TYPE string
                         cv_err    TYPE string.
@@ -801,6 +829,9 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
            presence    TYPE string,
            thickness   TYPE string,
            picture     TYPE string,
+           match       TYPE string,
+           ref         TYPE string,
+           node        TYPE string,
          END OF ty_op,
          BEGIN OF ty_corr,
            strict TYPE abap_bool,
@@ -841,6 +872,8 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
         lv_k       TYPE string,
         lv_v       TYPE string,
         lv_ok      TYPE abap_bool,
+        lv_model   TYPE abap_bool,
+        lv_pfx     TYPE string,
         lv_i       TYPE i,
         lv_n       TYPE i,
         lv_cnt     TYPE i,
@@ -854,7 +887,10 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
   FIELD-SYMBOLS: <ls_op> TYPE ty_op,
                  <ls_kv> TYPE ty_kv.
   " (?-x) in patterns with a space or #: ABAP runs PCRE in extended mode by default
-  CONSTANTS: c_ops   TYPE string VALUE ` layout geometry margin font para xhtml picture border presence datepicture `,
+  CONSTANTS: c_ops   TYPE string VALUE ` layout geometry margin font para xhtml picture border presence datepicture bind contextdeactivate initsumbykey `,
+             " model ops (FORM fpc_model): run on the interface / context, not on the XDP
+             c_model TYPE string VALUE ` contextdeactivate initsumbykey `,
+             c_bref  TYPE string VALUE `(?-x)\$record(\.[A-Za-z_][A-Za-z0-9_]{0,29}(\[(0|\*)\])?){1,12}`,
              c_dpict TYPE string VALUE `(?-x)date[{][DMY][DMY./ -]{0,19}[}]`,
              " the display-picture assignment only (not $.ui.picture, not LocalDateFmt)
              c_datefmt TYPE string VALUE `(?-x)\$\.format\.picture\s*=\s*DateFmt\(\s*\d\s*,\s*\$\.locale\s*\)`,
@@ -886,6 +922,25 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
     IF <ls_op>-op IS INITIAL OR c_ops NS | { <ls_op>-op } |.
       cv_err = |correction refused - op { lv_i } "{ substring( val = <ls_op>-op len = nmin( val1 = 20 val2 = strlen( <ls_op>-op ) ) ) }" unknown|.
       RETURN.
+    ENDIF.
+    " model ops have no layout target; FORM fpc_model checks their shape
+    IF c_model CS | { <ls_op>-op } |.
+      CONTINUE.
+    ENDIF.
+    IF <ls_op>-op = 'bind'.
+      <ls_op>-match = to_lower( condense( <ls_op>-match ) ).
+      IF <ls_op>-match <> 'dataref' AND <ls_op>-match <> 'none'.
+        cv_err = |correction refused - op { lv_i } bind: match dataRef or none|.
+        RETURN.
+      ENDIF.
+      IF <ls_op>-match = 'dataref' AND ( strlen( <ls_op>-ref ) > 400 OR NOT matches( val = <ls_op>-ref pcre = c_bref ) ).
+        cv_err = |correction refused - op { lv_i } bind: ref not allowed ($record path, names, [0] or [*] only)|.
+        RETURN.
+      ENDIF.
+      IF <ls_op>-basis IS INITIAL OR strlen( <ls_op>-basis ) > 200.
+        cv_err = |correction refused - op { lv_i } bind needs a basis (the SmartForm node or rule)|.
+        RETURN.
+      ENDIF.
     ENDIF.
     IF <ls_op>-path IS INITIAL AND <ls_op>-protoid IS INITIAL AND <ls_op>-xliffid IS INITIAL.
       cv_err = |correction refused - op { lv_i } has no target|.
@@ -938,8 +993,20 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
   LOOP AT ls_c-ops ASSIGNING <ls_op>.
     lv_i = sy-tabix - 1.
     CLEAR: lv_status, lv_detail, lo_t, lt_hits.
+    lv_model = xsdbool( c_model CS | { <ls_op>-op } | ).
     " ---- target
-    IF <ls_op>-protoid IS NOT INITIAL.
+    IF lv_model = abap_true.
+      " ran on the interface / context before (FORM fpc_model): "<i>|<status>|<detail>"
+      lv_status = 'not_found'. lv_detail = `model op did not run`.
+      LOOP AT it_pre INTO lv_s.
+        " the last target takes the rest, separators included
+        SPLIT lv_s AT '|' INTO lv_k lv_v lv_tag.
+        IF lv_k = |{ lv_i }|.
+          lv_status = lv_v. lv_detail = lv_tag.
+          EXIT.
+        ENDIF.
+      ENDLOOP.
+    ELSEIF <ls_op>-protoid IS NOT INITIAL.
       PERFORM fpc_proto USING lo_tpl <ls_op>-protoid CHANGING lt_hits.
       PERFORM fpc_pick USING lt_hits `` CHANGING lo_t lv_status.
       IF lo_t IS BOUND AND <ls_op>-path IS NOT INITIAL.
@@ -953,7 +1020,7 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
     ELSE.
       PERFORM fpc_path USING lo_root <ls_op>-path abap_true CHANGING lo_t lv_status.
     ENDIF.
-    IF lo_t IS NOT BOUND AND lv_status = 'refused'.
+    IF lo_t IS NOT BOUND AND lv_status = 'refused' AND lv_model = abap_false.
       lv_detail = `path segment not allowed (name or name[n])`.
     ENDIF.
     IF lo_t IS BOUND.
@@ -1209,6 +1276,57 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
               lv_detail = |initialize script: { lv_v } replaced by the string literal "{ <ls_op>-picture }"|.
             ENDIF.
           ENDIF.
+        WHEN 'bind'.
+          " G5 (a): a subform or field binds another data path (match / ref checked in the
+          " shape pass: dataRef + $record allow-list, or none). Replaces the node's own <bind>,
+          " or adds one as the first child after <occur>; nothing else changes.
+          IF lv_tag <> 'subform' AND lv_tag <> 'field'.
+            lv_status = 'refused'. lv_detail = |target is a { lv_tag }, not a subform or field|.
+          ELSE.
+            CLEAR lt_hits.
+            PERFORM fpc_kids USING lo_t 'bind' CHANGING lt_hits.
+            READ TABLE lt_hits INTO lo_c INDEX 1.
+            IF sy-subrc <> 0.
+              lo_c = lo_doc->create_element( name = 'bind' ).
+              CLEAR lt_edges.
+              PERFORM fpc_kids USING lo_t 'occur' CHANGING lt_edges.
+              READ TABLE lt_edges INTO lo_x INDEX 1.
+              IF sy-subrc = 0.
+                lo_n = lo_x->get_next( ).
+              ELSE.
+                lo_n = lo_t->get_first_child( ).
+              ENDIF.
+              IF lo_n IS BOUND.
+                lv_ref = lo_t->insert_child( new_child = lo_c ref_child = lo_n ).
+              ELSE.
+                lv_ref = lo_t->append_child( new_child = lo_c ).
+              ENDIF.
+            ENDIF.
+            IF <ls_op>-match = 'none'.
+              lo_c->set_attribute( name = 'match' value = 'none' ).
+              lo_c->remove_attribute( name = 'ref' ).
+              lv_detail = `bind match="none"`.
+            ELSE.
+              lo_c->set_attribute( name = 'match' value = 'dataRef' ).
+              lo_c->set_attribute( name = 'ref' value = <ls_op>-ref ).
+              lv_detail = |bind match="dataRef" ref="{ <ls_op>-ref }"|.
+              " read-back: binds below the target that do not start with the new ref up to its
+              " last [*] (a warning - they may still mean the old data path)
+              lv_n = find( val = <ls_op>-ref sub = `[*]` occ = -1 ).
+              IF lv_n >= 0.
+                lv_pfx = substring( val = <ls_op>-ref len = lv_n + 3 ).
+                CLEAR lt_hits.
+                PERFORM fpc_desc USING lo_t 'bind' CHANGING lt_hits.
+                LOOP AT lt_hits INTO lo_x.
+                  CHECK lo_x <> lo_c.
+                  lv_s = lo_x->get_attribute( name = 'ref' ).
+                  IF lv_s IS NOT INITIAL AND lv_s CP '$record*' AND find( val = lv_s sub = lv_pfx ) <> 0.
+                    APPEND |op { lv_i }: below the target a bind still reads "{ lv_s }" (not under "{ lv_pfx }")| TO lt_warn.
+                  ENDIF.
+                ENDLOOP.
+              ENDIF.
+            ENDIF.
+          ENDIF.
       ENDCASE.
     ENDIF.
     CASE lv_status.
@@ -1244,6 +1362,498 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
   lo_doc->render( ostream = lo_ostream ).
   IF xstrlen( cv_xdp ) = 0.
     cv_err = |correction: the corrected layout could not be written|.
+  ENDIF.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_MODEL - G5 (a) correction ops on the interface / context
+*&---------------------------------------------------------------------*
+* Same IV_CORR as FPC_APPLY; only these ops (each needs a "basis"):
+*  contextdeactivate {node} - node = path of node names from the context
+*   root ("CONTEXT/MAIN/X", segments [A-Z0-9_], at most 30 each). It must
+*   hit exactly one node, a program-lines node; it gets state inactive
+*   (IF_FP_NODE SET_STATE 'I', as Form Builder's "deactivate"; stays in
+*   the form). Already inactive = applied. Read-back: still-active program
+*   lines that take an output of a deactivated node as input are named in
+*   the detail (a warning, not a failure).
+*  initsumbykey {source, target, key[1-5], sum[1-5]} - names
+*   [A-Z][A-Z0-9_]{0,29}; source = an import / table parameter or global,
+*   target = a global, both tables of a DDIC structure (TYPE / TYPE TABLE
+*   OF); the target a standard table with the standard key and a flat
+*   line (COLLECT groups by the primary key); every key / sum a component
+*   of both lines with the same type, length and decimals; key types not
+*   numeric (COLLECT adds every numeric component), sum types I / INT8 / P /
+*   F / DECFLOAT16 / 34. A fixed template (checked names only, no free text) is
+*   appended to the interface initialization (IF_FP_CODING): CLEAR target,
+*   LOOP AT source, COLLECT the key and sum fields INTO target; the
+*   initialization's input / output parameters get source / target if
+*   missing. Marker line for the target present -> applied, no second
+*   copy. Then the interface check (IF_FP_OBJECT CHECK): more E / A / X
+*   messages than before -> coding and parameters restored, refused.
+* IV_PHASE: X = parse and shape checks only (before anything is saved),
+* I = initsumbykey on IO_INTF (before the interface is saved), C =
+* contextdeactivate under IO_CTX (before the form is saved). CT_PRE gets
+* "<i>|<status>|<detail>" per op run (i = 0-based op index, as in the
+* FPC_APPLY report). Strict and an op of the phase not applied -> CV_ERR.
+FORM fpc_model USING iv_corr  TYPE string
+                     iv_phase TYPE char1
+                     io_intf  TYPE REF TO if_fp_interface
+                     io_ctx   TYPE REF TO if_fp_node
+               CHANGING ct_pre TYPE string_table
+                        cv_err TYPE string.
+  TYPES: BEGIN OF ty_mop,
+           op     TYPE string,
+           basis  TYPE string,
+           node   TYPE string,
+           source TYPE string,
+           target TYPE string,
+           key    TYPE string_table,
+           sum    TYPE string_table,
+         END OF ty_mop,
+         BEGIN OF ty_mcorr,
+           strict TYPE abap_bool,
+           ops    TYPE STANDARD TABLE OF ty_mop WITH EMPTY KEY,
+         END OF ty_mcorr,
+         BEGIN OF ty_res,
+           i      TYPE i,
+           op     TYPE string,
+           status TYPE string,
+           detail TYPE string,
+           node   TYPE REF TO if_fp_node,
+         END OF ty_res.
+  DATA: ls_c      TYPE ty_mcorr,
+        lt_res    TYPE STANDARD TABLE OF ty_res WITH EMPTY KEY,
+        ls_res    TYPE ty_res,
+        lt_seg    TYPE string_table,
+        lt_all    TYPE string_table,
+        lt_stack  TYPE STANDARD TABLE OF REF TO if_fp_node WITH EMPTY KEY,
+        lo_node   TYPE REF TO if_fp_node,
+        lo_kid    TYPE REF TO if_fp_node,
+        lo_hit    TYPE REF TO if_fp_node,
+        lo_pl     TYPE REF TO if_fp_programlines,
+        lo_idata  TYPE REF TO if_fp_interface_data,
+        lo_code   TYPE REF TO if_fp_coding,
+        lt_coding TYPE tfpcoding,
+        lt_cold   TYPE tfpcoding,
+        lt_in     TYPE tfpparameter,
+        lt_inold  TYPE tfpparameter,
+        lt_out    TYPE tfpparameter,
+        lt_outold TYPE tfpparameter,
+        lt_check  TYPE tfpchecklist,
+        ls_check  TYPE sfpchecklist,
+        lt_outs   TYPE tfpfield,
+        lt_ins    TYPE tfpfield,
+        lv_fld    TYPE fpfield,
+        lo_sline  TYPE REF TO cl_abap_structdescr,
+        lo_tline  TYPE REF TO cl_abap_structdescr,
+        lt_scomp  TYPE abap_component_view_tab,
+        lt_tcomp  TYPE abap_component_view_tab,
+        ls_comp   TYPE LINE OF abap_component_view_tab,
+        lv_kind   TYPE abap_typekind,
+        lv_kind2  TYPE abap_typekind,
+        lv_len    TYPE i,
+        lv_len2   TYPE i,
+        lv_dec    TYPE i,
+        lv_dec2   TYPE i,
+        lv_s      TYPE string,
+        lv_n      TYPE string,
+        lv_v      TYPE string,
+        lv_w      TYPE string,
+        lv_e0     TYPE i,
+        lv_e1     TYPE i,
+        lv_i      TYPE i,
+        lv_cnt    TYPE i,
+        lv_marker TYPE string.
+  FIELD-SYMBOLS: <ls_op>  TYPE ty_mop,
+                 <lv_nm>  TYPE string,
+                 <ls_res> TYPE ty_res.
+  CONSTANTS: c_name   TYPE string VALUE `[A-Z][A-Z0-9_]{0,29}`,
+             " typekinds a COLLECT adds: int1 / int2 / int / int8 / packed / float / decfloat16 / 34
+             c_numall TYPE string VALUE `bsI8PFae`,
+             c_sumok  TYPE string VALUE `I8PFae`.
+
+  CLEAR cv_err.
+  TRY.
+      /ui2/cl_json=>deserialize( EXPORTING json        = iv_corr
+                                           pretty_name = /ui2/cl_json=>pretty_mode-low_case
+                                 CHANGING  data        = ls_c ).
+    CATCH cx_root.
+      cv_err = |correction refused - not the expected JSON|.
+      RETURN.
+  ENDTRY.
+
+  LOOP AT ls_c-ops ASSIGNING <ls_op>.
+    lv_i = sy-tabix - 1.
+    <ls_op>-op = to_lower( condense( <ls_op>-op ) ).
+    CHECK <ls_op>-op = 'contextdeactivate' OR <ls_op>-op = 'initsumbykey'.
+    " ---- shape (every phase: the names are checked again before use)
+    CLEAR lv_s.
+    IF <ls_op>-basis IS INITIAL OR strlen( <ls_op>-basis ) > 200.
+      lv_s = `needs a basis (the SmartForm node or rule)`.
+    ELSEIF <ls_op>-op = 'contextdeactivate'.
+      <ls_op>-node = to_upper( condense( <ls_op>-node ) ).
+      IF strlen( <ls_op>-node ) > 400 OR NOT matches( val = <ls_op>-node pcre = `[A-Z0-9_]{1,30}(/[A-Z0-9_]{1,30}){1,20}` ).
+        lv_s = `node: a path of node names (A-Z 0-9 _, at most 30 each) from the context root`.
+      ENDIF.
+    ELSE.
+      <ls_op>-source = to_upper( condense( <ls_op>-source ) ).
+      <ls_op>-target = to_upper( condense( <ls_op>-target ) ).
+      CLEAR lt_all.
+      APPEND <ls_op>-source TO lt_all.
+      APPEND <ls_op>-target TO lt_all.
+      LOOP AT <ls_op>-key ASSIGNING <lv_nm>.
+        <lv_nm> = to_upper( condense( <lv_nm> ) ).
+        APPEND <lv_nm> TO lt_all.
+      ENDLOOP.
+      LOOP AT <ls_op>-sum ASSIGNING <lv_nm>.
+        <lv_nm> = to_upper( condense( <lv_nm> ) ).
+        APPEND <lv_nm> TO lt_all.
+      ENDLOOP.
+      IF lines( <ls_op>-key ) < 1 OR lines( <ls_op>-key ) > 5 OR lines( <ls_op>-sum ) < 1 OR lines( <ls_op>-sum ) > 5.
+        lv_s = `1 to 5 key and 1 to 5 sum names`.
+      ELSE.
+        LOOP AT lt_all INTO lv_n.
+          IF NOT matches( val = lv_n pcre = c_name ).
+            lv_s = |name "{ substring( val = lv_n len = nmin( val1 = 30 val2 = strlen( lv_n ) ) ) }" not allowed ([A-Z][A-Z0-9_], at most 30)|.
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+        IF lv_s IS INITIAL.
+          lv_cnt = lines( lt_all ).
+          SORT lt_all.
+          DELETE ADJACENT DUPLICATES FROM lt_all.
+          IF lines( lt_all ) <> lv_cnt.
+            lv_s = `source, target, key and sum names must all differ`.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+    ENDIF.
+    IF lv_s IS NOT INITIAL.
+      IF iv_phase = 'X'.
+        cv_err = |correction refused - op { lv_i } { <ls_op>-op }: { lv_s }|.
+        RETURN.
+      ENDIF.
+      CLEAR ls_res. ls_res-i = lv_i. ls_res-op = <ls_op>-op. ls_res-status = 'refused'. ls_res-detail = lv_s.
+      APPEND ls_res TO lt_res.
+      CONTINUE.
+    ENDIF.
+    CHECK iv_phase <> 'X'.
+    CLEAR ls_res. ls_res-i = lv_i. ls_res-op = <ls_op>-op. ls_res-status = 'applied'.
+
+    IF iv_phase = 'I' AND <ls_op>-op = 'initsumbykey'.
+      " ---- initSumByKey on the interface initialization
+      CLEAR: lo_sline, lo_tline.
+      lo_idata = io_intf->get_interface_data( ).
+      PERFORM fpc_linetype USING lo_idata <ls_op>-source abap_true CHANGING lo_sline ls_res-detail.
+      IF lo_sline IS BOUND.
+        PERFORM fpc_linetype USING lo_idata <ls_op>-target abap_false CHANGING lo_tline ls_res-detail.
+      ENDIF.
+      IF lo_sline IS NOT BOUND OR lo_tline IS NOT BOUND.
+        ls_res-status = 'refused'.
+      ELSE.
+        lt_scomp = lo_sline->get_included_view( ).
+        lt_tcomp = lo_tline->get_included_view( ).
+        LOOP AT lt_all INTO lv_n WHERE table_line <> <ls_op>-source AND table_line <> <ls_op>-target.
+          CLEAR: lv_kind, lv_kind2, lv_len, lv_len2, lv_dec, lv_dec2.
+          READ TABLE lt_scomp INTO ls_comp WITH KEY name = lv_n.
+          IF sy-subrc = 0.
+            lv_kind = ls_comp-type->type_kind. lv_len = ls_comp-type->length. lv_dec = ls_comp-type->decimals.
+          ENDIF.
+          READ TABLE lt_tcomp INTO ls_comp WITH KEY name = lv_n.
+          IF sy-subrc = 0.
+            lv_kind2 = ls_comp-type->type_kind. lv_len2 = ls_comp-type->length. lv_dec2 = ls_comp-type->decimals.
+          ENDIF.
+          IF lv_kind IS INITIAL OR lv_kind2 IS INITIAL.
+            ls_res-status = 'refused'. ls_res-detail = |{ lv_n } is not a component of both { <ls_op>-source } and { <ls_op>-target }|.
+            EXIT.
+          ENDIF.
+          " the assignment source -> target must not convert or cut
+          IF lv_kind <> lv_kind2 OR lv_len <> lv_len2 OR lv_dec <> lv_dec2.
+            ls_res-status = 'refused'.
+            ls_res-detail = |{ lv_n } differs between { <ls_op>-source } ({ lv_kind } { lv_len } { lv_dec }) and { <ls_op>-target } ({ lv_kind2 } { lv_len2 } { lv_dec2 })|.
+            EXIT.
+          ENDIF.
+          READ TABLE <ls_op>-sum TRANSPORTING NO FIELDS WITH KEY table_line = lv_n.
+          IF sy-subrc = 0.
+            IF c_sumok NA lv_kind OR c_sumok NA lv_kind2.
+              ls_res-status = 'refused'. ls_res-detail = |sum field { lv_n } is not numeric (I, INT8, P, F, DECFLOAT; type kinds { lv_kind } / { lv_kind2 })|.
+              EXIT.
+            ENDIF.
+          ELSEIF c_numall CA lv_kind OR c_numall CA lv_kind2.
+            ls_res-status = 'refused'. ls_res-detail = |key field { lv_n } is numeric - COLLECT would add it, not group by it|.
+            EXIT.
+          ENDIF.
+        ENDLOOP.
+      ENDIF.
+      IF ls_res-status = 'applied'.
+        lo_code = lo_idata->get_coding( ).
+        lt_cold = lo_code->get_init_coding( ).
+        lv_marker = |* sc4sap G5 initSumByKey (generated) { <ls_op>-target }|.
+        READ TABLE lt_cold TRANSPORTING NO FIELDS WITH KEY table_line = lv_marker.
+        IF sy-subrc = 0.
+          ls_res-detail = |the initialization sums into { <ls_op>-target } already (marker line) - no second copy|.
+        ELSE.
+          " errors of the interface check before the change (only new ones refuse)
+          CLEAR: lt_check, lv_e0, lv_e1.
+          TRY.
+              io_intf->check( CHANGING c_checklist = lt_check ).
+            CATCH cx_root.                                      "#EC NO_HANDLER
+          ENDTRY.
+          LOOP AT lt_check INTO ls_check WHERE msgty CA 'EAX'.
+            lv_e0 = lv_e0 + 1.
+          ENDLOOP.
+          lt_inold = lo_code->get_init_input_params( ).
+          lt_outold = lo_code->get_init_output_params( ).
+          lt_in = lt_inold.
+          lt_out = lt_outold.
+          READ TABLE lt_in TRANSPORTING NO FIELDS WITH KEY table_line = <ls_op>-source.
+          IF sy-subrc <> 0. APPEND <ls_op>-source TO lt_in. ENDIF.
+          READ TABLE lt_out TRANSPORTING NO FIELDS WITH KEY table_line = <ls_op>-target.
+          IF sy-subrc <> 0. APPEND <ls_op>-target TO lt_out. ENDIF.
+          " the fixed template: checked names only
+          lv_v = |ls_sc4sap_g5_{ lv_i }|.
+          lt_coding = lt_cold.
+          APPEND lv_marker TO lt_coding.
+          APPEND |DATA { lv_v } LIKE LINE OF { to_lower( <ls_op>-target ) }.| TO lt_coding.
+          APPEND |FIELD-SYMBOLS <{ lv_v }> LIKE LINE OF { to_lower( <ls_op>-source ) }.| TO lt_coding.
+          APPEND |CLEAR { to_lower( <ls_op>-target ) }.| TO lt_coding.
+          APPEND |LOOP AT { to_lower( <ls_op>-source ) } ASSIGNING <{ lv_v }>.| TO lt_coding.
+          APPEND |  CLEAR { lv_v }.| TO lt_coding.
+          LOOP AT lt_all INTO lv_n WHERE table_line <> <ls_op>-source AND table_line <> <ls_op>-target.
+            APPEND |  { lv_v }-{ to_lower( lv_n ) } = <{ lv_v }>-{ to_lower( lv_n ) }.| TO lt_coding.
+          ENDLOOP.
+          APPEND |  COLLECT { lv_v } INTO { to_lower( <ls_op>-target ) }.| TO lt_coding.
+          APPEND |ENDLOOP.| TO lt_coding.
+          lo_code->set_init_input_params( lt_in ).
+          lo_code->set_init_output_params( lt_out ).
+          lo_code->set_init_coding( lt_coding ).
+          CLEAR lt_check.
+          TRY.
+              io_intf->check( CHANGING c_checklist = lt_check ).
+            CATCH cx_root INTO DATA(lx_chk).
+              CLEAR ls_check.
+              ls_check-msgty = 'E'.
+              ls_check-message = lx_chk->get_text( ).
+              APPEND ls_check TO lt_check.
+          ENDTRY.
+          CLEAR lv_w.
+          LOOP AT lt_check INTO ls_check WHERE msgty CA 'EAX'.
+            lv_e1 = lv_e1 + 1.
+            IF lv_w IS INITIAL.
+              lv_w = ls_check-message.
+              IF lv_w IS INITIAL AND ls_check-msgid IS NOT INITIAL.
+                MESSAGE ID ls_check-msgid TYPE 'S' NUMBER ls_check-msgno
+                  WITH ls_check-msgv1 ls_check-msgv2 ls_check-msgv3 ls_check-msgv4 INTO lv_w.
+              ENDIF.
+            ENDIF.
+          ENDLOOP.
+          IF lv_e1 > lv_e0.
+            lo_code->set_init_coding( lt_cold ).
+            lo_code->set_init_input_params( lt_inold ).
+            lo_code->set_init_output_params( lt_outold ).
+            ls_res-status = 'refused'.
+            ls_res-detail = |interface check after the change: { lv_e1 - lv_e0 } new error(s), change undone - { lv_w }|.
+          ELSE.
+            lv_cnt = lines( lt_tcomp ) - lines( <ls_op>-key ) - lines( <ls_op>-sum ).
+            ls_res-detail = |initialization: { <ls_op>-target } = { <ls_op>-source } summed ({ concat_lines_of( table = <ls_op>-sum sep = `, ` ) }) | &&
+                            |by { concat_lines_of( table = <ls_op>-key sep = `, ` ) } ({ lines( lt_coding ) - lines( lt_cold ) } lines); | &&
+                            |{ lv_cnt } other components of { <ls_op>-target } stay initial (numeric ones add 0); interface check { lv_e1 } error(s) as before; | &&
+                            |the interface is new (this run) - no other form uses it|.
+          ENDIF.
+        ENDIF.
+      ENDIF.
+      APPEND ls_res TO lt_res.
+
+    ELSEIF iv_phase = 'C' AND <ls_op>-op = 'contextdeactivate'.
+      " ---- contextDeactivate: walk the path from the context root
+      SPLIT <ls_op>-node AT '/' INTO TABLE lt_seg.
+      lo_node = io_ctx.
+      READ TABLE lt_seg INTO lv_n INDEX 1.
+      IF lo_node IS NOT BOUND OR lo_node->get_name( ) <> lv_n.
+        ls_res-status = 'not_found'. ls_res-detail = |the context root is not "{ lv_n }"|.
+        CLEAR lo_node.
+      ENDIF.
+      LOOP AT lt_seg INTO lv_n FROM 2.
+        CHECK lo_node IS BOUND.
+        CLEAR: lo_hit, lv_cnt.
+        lo_kid = lo_node->get_child( ).
+        WHILE lo_kid IS BOUND.
+          IF lo_kid->get_name( ) = lv_n.
+            lv_cnt = lv_cnt + 1.
+            lo_hit = lo_kid.
+          ENDIF.
+          lo_kid = lo_kid->get_successor( ).
+        ENDWHILE.
+        IF lv_cnt <> 1.
+          ls_res-status = COND #( WHEN lv_cnt = 0 THEN `not_found` ELSE `ambiguous` ).
+          ls_res-detail = |{ lv_cnt } nodes "{ lv_n }" under "{ lo_node->get_name( ) }"|.
+          CLEAR lo_node.
+        ELSE.
+          lo_node = lo_hit.
+        ENDIF.
+      ENDLOOP.
+      IF lo_node IS BOUND.
+        IF lo_node->get_type( ) <> if_fp_node=>c_type_programlines.
+          ls_res-status = 'refused'. ls_res-detail = |node type { lo_node->get_type( ) } is not program lines|.
+        ELSE.
+          IF lo_node->get_state( ) = if_fp_node=>c_state_inactive.
+            ls_res-detail = `inactive already`.
+          ELSE.
+            TRY.
+                lo_node->set_state( i_state = if_fp_node=>c_state_inactive ).
+              CATCH cx_root INTO DATA(lx_st).
+                ls_res-detail = lx_st->get_text( ).
+            ENDTRY.
+            IF lo_node->get_state( ) <> if_fp_node=>c_state_inactive.
+              ls_res-status = 'refused'. ls_res-detail = |state not set: { ls_res-detail }|.
+            ELSE.
+              ls_res-detail = `deactivated`.
+            ENDIF.
+          ENDIF.
+          ls_res-node = lo_node.
+        ENDIF.
+      ENDIF.
+      APPEND ls_res TO lt_res.
+    ENDIF.
+  ENDLOOP.
+  CHECK iv_phase <> 'X'.
+
+  " ---- contextDeactivate read-back: active program lines that read an output of a
+  " deactivated node (a warning in the detail - another node may still need the data)
+  IF iv_phase = 'C' AND io_ctx IS BOUND.
+    LOOP AT lt_res ASSIGNING <ls_res> WHERE node IS NOT INITIAL.
+      lo_pl ?= <ls_res>-node.
+      lt_outs = lo_pl->get_output_parameters( ).
+      CHECK lt_outs IS NOT INITIAL.
+      CLEAR: lt_stack, lv_w.
+      APPEND io_ctx TO lt_stack.
+      WHILE lt_stack IS NOT INITIAL.
+        READ TABLE lt_stack INTO lo_node INDEX lines( lt_stack ).
+        DELETE lt_stack INDEX lines( lt_stack ).
+        lo_kid = lo_node->get_child( ).
+        WHILE lo_kid IS BOUND.
+          APPEND lo_kid TO lt_stack.
+          lo_kid = lo_kid->get_successor( ).
+        ENDWHILE.
+        CHECK lo_node->get_type( ) = if_fp_node=>c_type_programlines
+          AND lo_node->get_state( ) <> if_fp_node=>c_state_inactive.
+        lo_pl ?= lo_node.
+        lt_ins = lo_pl->get_input_parameters( ).
+        LOOP AT lt_ins INTO lv_fld.
+          READ TABLE lt_outs TRANSPORTING NO FIELDS WITH KEY table_line = lv_fld.
+          IF sy-subrc = 0.
+            lv_w = |{ lv_w }{ COND string( WHEN lv_w IS NOT INITIAL THEN `; ` ) }{ lo_node->get_name( ) } still reads { condense( lv_fld ) }|.
+          ENDIF.
+        ENDLOOP.
+      ENDWHILE.
+      IF lv_w IS NOT INITIAL.
+        <ls_res>-detail = |{ <ls_res>-detail } - warning: { lv_w }|.
+      ENDIF.
+    ENDLOOP.
+  ENDIF.
+
+  LOOP AT lt_res INTO ls_res.
+    APPEND |{ ls_res-i }\|{ ls_res-status }\|{ ls_res-detail }| TO ct_pre.
+    IF ls_c-strict = abap_true AND ls_res-status <> 'applied' AND cv_err IS INITIAL.
+      cv_err = |correction (strict): op { ls_res-i } { ls_res-op } { ls_res-status } - { ls_res-detail }|.
+    ENDIF.
+  ENDLOOP.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_LINETYPE - the structured line type of a table in the interface
+*&---------------------------------------------------------------------*
+* IV_PARAM = X: import and table parameters first, then globals; else
+* globals only. Typing TYPE <DDIC table type> / TYPE TABLE OF <DDIC
+* structure>; a TABLES parameter TYPE <DDIC structure> too. Anything else
+* -> CO_LINE initial and CV_DETAIL says why.
+FORM fpc_linetype USING io_idata TYPE REF TO if_fp_interface_data
+                        iv_name  TYPE string
+                        iv_param TYPE abap_bool
+                  CHANGING co_line   TYPE REF TO cl_abap_structdescr
+                           cv_detail TYPE string.
+  DATA: lt_io     TYPE tfpiopar,
+        ls_io     TYPE sfpiopar,
+        lt_g      TYPE tfpgdata,
+        ls_g      TYPE sfpgdata,
+        lv_typing TYPE string,
+        lv_tname  TYPE string,
+        lv_tab    TYPE abap_bool,
+        lv_found  TYPE abap_bool,
+        lo_td     TYPE REF TO cl_abap_typedescr,
+        lo_ld     TYPE REF TO cl_abap_datadescr,
+        lo_tabd   TYPE REF TO cl_abap_tabledescr.
+  CLEAR co_line.
+  IF iv_param = abap_true.
+    lt_io = io_idata->get_parameters( )->get_import_parameters( ).
+    READ TABLE lt_io INTO ls_io WITH KEY name = iv_name.
+    IF sy-subrc = 0.
+      lv_found = abap_true.
+    ELSE.
+      lt_io = io_idata->get_parameters( )->get_table_parameters( ).
+      READ TABLE lt_io INTO ls_io WITH KEY name = iv_name.
+      IF sy-subrc = 0.
+        lv_found = abap_true.
+        lv_tab = abap_true.
+      ENDIF.
+    ENDIF.
+    IF lv_found = abap_true.
+      lv_typing = ls_io-typing.
+      lv_tname = ls_io-typename.
+    ENDIF.
+  ENDIF.
+  IF lv_found = abap_false.
+    lt_g = io_idata->get_global_definitions( )->get_global_data( ).
+    READ TABLE lt_g INTO ls_g WITH KEY name = iv_name.
+    IF sy-subrc = 0.
+      lv_found = abap_true.
+      lv_typing = ls_g-typing.
+      lv_tname = ls_g-typename.
+    ENDIF.
+  ENDIF.
+  IF lv_found = abap_false.
+    cv_detail = |{ iv_name } is not a { COND string( WHEN iv_param = abap_true THEN `parameter or ` ) }global of the interface|.
+    RETURN.
+  ENDIF.
+  lv_typing = to_upper( condense( lv_typing ) ).
+  lv_tname = to_upper( condense( lv_tname ) ).
+  IF lv_typing <> 'TYPE' AND lv_typing <> 'TYPE TABLE OF'.
+    cv_detail = |{ iv_name }: typing "{ lv_typing }" not supported (TYPE or TYPE TABLE OF a DDIC type)|.
+    RETURN.
+  ENDIF.
+  cl_abap_typedescr=>describe_by_name( EXPORTING  p_name         = lv_tname
+                                       RECEIVING  p_descr_ref    = lo_td
+                                       EXCEPTIONS type_not_found = 1
+                                                  OTHERS         = 2 ).
+  IF sy-subrc <> 0 OR lo_td IS NOT BOUND.
+    cv_detail = |{ iv_name }: type { lv_tname } not found|.
+    RETURN.
+  ENDIF.
+  IF lo_td->kind = cl_abap_typedescr=>kind_struct
+     AND ( lv_typing = 'TYPE TABLE OF' OR lv_tab = abap_true ).
+    co_line ?= lo_td.
+  ELSEIF lo_td->kind = cl_abap_typedescr=>kind_table AND lv_typing = 'TYPE'.
+    lo_tabd ?= lo_td.
+    " a COLLECT target groups by its primary key: only a standard table with the standard
+    " (default) key groups by the op's key fields (the other components are initial)
+    IF iv_param = abap_false AND ( lo_tabd->table_kind <> cl_abap_tabledescr=>tablekind_std
+                                OR lo_tabd->key_defkind <> cl_abap_tabledescr=>keydefkind_default ).
+      cv_detail = |{ iv_name }: table type { lv_tname } is not a standard table with the standard key - COLLECT would group by another key|.
+      RETURN.
+    ENDIF.
+    lo_ld = lo_tabd->get_table_line_type( ).
+    IF lo_ld->kind = cl_abap_typedescr=>kind_struct.
+      co_line ?= lo_ld.
+    ENDIF.
+  ENDIF.
+  " a COLLECT target line must be flat (no string, table or reference components)
+  IF co_line IS BOUND AND iv_param = abap_false AND co_line->type_kind <> cl_abap_typedescr=>typekind_struct1.
+    CLEAR co_line.
+    cv_detail = |{ iv_name }: the line type { lv_tname } is deep (string, table or reference components) - COLLECT needs a flat line|.
+    RETURN.
+  ENDIF.
+  IF co_line IS NOT BOUND.
+    cv_detail = |{ iv_name } is not a table of a structure ({ lv_typing } { lv_tname })|.
   ENDIF.
 ENDFORM.
 
