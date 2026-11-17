@@ -17,7 +17,8 @@
  *   PRD: Create_, Update_, Delete_, Patch_, Write_, Activate_,
  *        RunUnitTest, RuntimeRun{Program,Class}WithProfiling,
  *        RuntimeCreateProfilerTraceParameters,
- *        RenderSmartForm, RenderAdobeForm (hook only - they run the form's code)
+ *        RenderSmartForm, RenderAdobeForm (they run the form's code),
+ *        GetStandardText (reads SO10 text by name)
  *   QA:  same as PRD except RunUnitTest is allowed
  *   DEV: nothing blocked.
  *
@@ -57,6 +58,10 @@ const RUNTIME_EXEC = new Set([
   'RenderAdobeForm',
 ]);
 const QA_ALLOW = new Set(['RunUnitTest']);
+// Read tools that stay on development profiles: they read free text by name
+// (SO10 standard texts can carry business wording). Same set as the MCP
+// server's DEV_ONLY_READ_TOOLS.
+const DEV_ONLY_READ = new Set(['GetStandardText']);
 
 function sc4sapHome() {
   return process.env.SC4SAP_HOME_DIR || join(homedir(), '.sc4sap');
@@ -139,6 +144,9 @@ function checkAllowed(toolName, tier) {
     if (tier === 'QA' && QA_ALLOW.has(toolName)) return null;
     return `${toolName} executes ABAP code on the server and is blocked on ${tier} profiles.`;
   }
+  if (DEV_ONLY_READ.has(toolName)) {
+    return `${toolName} reads free text by name and is allowed on DEV profiles only.`;
+  }
   return null;
 }
 
@@ -172,6 +180,7 @@ async function main() {
   if (
     !isMutation(tool) &&
     !RUNTIME_EXEC.has(tool) &&
+    !DEV_ONLY_READ.has(tool) &&
     tool !== 'ReloadProfile'
   ) {
     process.exit(0);

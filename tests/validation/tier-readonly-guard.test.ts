@@ -41,6 +41,12 @@ describe('tier-readonly-guard', () => {
     }
   });
 
+  it('keeps GetStandardText on DEV profiles only', () => {
+    expect(decide('PRD', 'GetStandardText')).toBe('deny');
+    expect(decide('QA', 'GetStandardText')).toBe('deny');
+    expect(decide('DEV', 'GetStandardText')).toBe('allow');
+  });
+
   it('leaves the form reads alone everywhere', () => {
     for (const tool of ['GetAdobeFormContent', 'GetSmartFormContent']) {
       for (const tier of ['DEV', 'QA', 'PRD'] as const) expect(decide(tier, tool)).toBe('allow');

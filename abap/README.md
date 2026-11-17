@@ -93,7 +93,7 @@ Read-only content of one SmartForm for the MCP tool `GetSmartFormContent` and th
 
 **Install (per system, each step needs a transport and the user's OK):**
 1. `ZMCP_SSF_LAYOUT` installed (section above).
-2. Create FM `ZMCP_SSF_CONTENT` in function group `ZMCP_ADT_UTILS` — **not** remote-enabled — with the source of `zmcp_ssf_content.abap`; activate.
+2. Create FM `ZMCP_SSF_CONTENT` in function group `ZMCP_ADT_UTILS` — **not** remote-enabled — with the source of `zmcp_ssf_content.abap`; activate. It needs `FORM ssf_layout_str` (`ZMCP_SSF_LAYOUT`) and, for part `FONTS`, `FORM ssf_choose_device` (`ZMCP_SSF_RENDER`) in the **same** function group. When `ZMCP_ADT_UTILS` sits in a transportable package, put `ZMCP_SSF_LAYOUT` and `ZMCP_SSF_CONTENT` into the function group of `ZMCP_SSF_RENDER` instead (local `$TMP` group on a test system); the dispatcher's `CALL FUNCTION` does not depend on the group.
 3. Read and back up the **live** `ZMCP_ADT_DISPATCH`, add snippet A (7.31) or B (7.40), activate.
 4. Test with `GetSmartFormContent` (`summary: true`) on a form with a logo.
 
@@ -206,7 +206,7 @@ Runs the steps of `CL_SSF_MIGRATION=>MIGRATE` with SAP's own classes for a SAP-d
   - a name path starting at the root subform's own name; `name[n]` is 0-based, and unnamed subforms are transparent
   - or the id of a `<proto>` child, optionally with a path below it
   - or an `xliff:id`
-- Ops: `layout`, `geometry`, `margin`, `font`, `para`, `xhtml` (allow-listed CSS on the n-th paragraph of the rich text), `picture` (`format` → `<format><picture>`, `display` → `<ui><picture>`), `border` (edge 0–3), `presence` (needs `basis`).
+- Ops: `layout`, `geometry`, `margin`, `font`, `para`, `xhtml` (allow-listed CSS on the n-th paragraph of the rich text), `picture` (`format` → `<format><picture>`, `display` → `<ui><picture>`), `border` (edge 0–3), `presence` (needs `basis`), `datePicture` (the only script edit: the field's initialize scripts must hold exactly one `$.format.picture = DateFmt(<n>, $.locale)`; that `DateFmt` call becomes the string literal of a `date{…}` picture; otherwise refused).
 - Checks: every value against allow-lists or as a measurement (mm / pt / cm / in).
 - When the op list is checked: before anything is saved.
 - Result: `correction` lists every op as applied / not_found / ambiguous / refused, with counts, `partial`, and font substitution warnings.
