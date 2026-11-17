@@ -1461,12 +1461,27 @@ async function main(argv) {
       const work = join(profile, 'print');
       mkdirSync(work, { recursive: true });
       const printHtml = join(work, 'page.html'), printPdf = join(work, 'page.pdf');
-      writeFileSync(printHtml, page.html.replace(`@page{size:${page.w}mm ${page.h}mm;`, `@page{size:${page.w * ZOOM}mm ${page.h * ZOOM}mm;`));
-      runBrowser(browser, ['--no-pdf-header-footer', `--print-to-pdf=${printPdf}`, pathToFileURL(printHtml).href], profile);
-      if (existsSync(printPdf)) {
-        writeFileSync(`${base}.layout.json`, `${JSON.stringify(scaleLayout(layoutOf(readFileSync(printPdf)), ZOOM), null, 1)}\n`);
-        report.layout = `${base}.layout.json`;
-      } else report.approximations.push('the browser wrote no PDF — no layout.json');
+      const pageRule = `@page{size:${page.w}mm ${page.h}mm;`;
+      const printPage = page.html.replace(pageRule, `@page{size:${page.w * ZOOM}mm ${page.h * ZOOM}mm;`);
+      // without the 4x page size every position would come out at a quarter: stop instead of writing a wrong layout
+      if (printPage === page.html) {
+        report.layoutError = `--layout-json: the page rule "${pageRule}" was not found in the HTML — no layout.json written`;
+        process.exitCode = 1;
+      } else {
+        writeFileSync(printHtml, printPage);
+        runBrowser(browser, ['--no-pdf-header-footer', `--print-to-pdf=${printPdf}`, pathToFileURL(printHtml).href], profile);
+        if (existsSync(printPdf)) {
+          const layout = scaleLayout(layoutOf(readFileSync(printPdf)), ZOOM);
+          const p0 = layout.pages[0];
+          if (!p0 || Math.abs(p0.w - page.w) > 1 || Math.abs(p0.h - page.h) > 1) {
+            report.layoutError = `--layout-json: the printed page is ${p0 ? `${p0.w} × ${p0.h}` : 'missing'} mm after scaling, expected ${page.w} × ${page.h} — no layout.json written`;
+            process.exitCode = 1;
+          } else {
+            writeFileSync(`${base}.layout.json`, `${JSON.stringify(layout, null, 1)}\n`);
+            report.layout = `${base}.layout.json`;
+          }
+        } else report.approximations.push('the browser wrote no PDF — no layout.json');
+      }
     }
     try { rmSync(profile, { recursive: true, force: true }); } catch { /* still locked */ }
   }

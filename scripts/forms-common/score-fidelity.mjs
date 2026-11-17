@@ -12,10 +12,14 @@
 //
 // Text: each text block of the reference (pieces on one baseline that touch, read-pdf mergeRuns) counts as matched
 // when the candidate has the same text (blanks normalised) on the same page with its left x and baseline within
-// `tol` mm. A block split or joined differently on the other side still matches when the pieces on that baseline
-// spell the same text. text = matched / (reference blocks + extra candidate blocks); a block found farther away
-// is listed as moved (with dx / dy) and counts once, as missing.
-// Lines: drawn lines, edges of stroked boxes and thin filled bars (not barcode bars), collinear pieces merged;
+// `tol` mm. A block split or joined differently on the other side still matches when neighbouring pieces on that
+// baseline (each at most `joinGap` mm, default 3, after the previous one's right edge) spell the same text and the last piece ends where the joined block ends (±tol, when its width is known).
+// text = matched / (reference blocks + extra candidate blocks); a block found farther away is listed as moved
+// (with dx / dy) and counts once, as missing. Known limit: a block both split and moved counts as one missing
+// plus its pieces as extra.
+// Lines: drawn lines, edges of stroked boxes and thin filled bars that are not white (not barcode bars: 9 or more
+// equal parallel bars within 15 mm; a table with that many narrow filled-bar columns loses its borders on both sides),
+// collinear pieces merged;
 // matched when direction is equal and position and both ends are within `tol`. lines = matched / (reference + extra).
 // Pages: min / max of the page counts.
 // score = weights.text × text + weights.lines × lines + weights.pages × pages (default 0.80 / 0.15 / 0.05);
@@ -23,7 +27,7 @@
 // whatever its score (the score is still computed).
 //
 // CLI
-//   node score-fidelity.mjs <ref.pdf|json> <cand.pdf|json> [--tol 1] [--out score.json]
+//   node score-fidelity.mjs <ref.pdf|json> <cand.pdf|json> [--tol 1] [--join-gap 3] [--out score.json]
 //   node score-fidelity.mjs corpus <list.json> [--target 0.98] [--out corpus.json]
 //        list.json: [{ "name", "ref", "cand" }] — paths relative to the list file
 //   node score-fidelity.mjs layout <file.pdf> --out <layout.json>   (positioned-text JSON of a PDF)
@@ -32,7 +36,7 @@ import { dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readPdf, mergeRuns, mergeRules } from '../smartform/read-pdf.mjs';
 
-export const DEFAULTS = { tol: 1, weights: { text: 0.8, lines: 0.15, pages: 0.05 }, target: 0.98 };
+export const DEFAULTS = { tol: 1, joinGap: 3, weights: { text: 0.8, lines: 0.15, pages: 0.05 }, target: 0.98 };
 const LIST_MAX = 200;
 
 const norm = (s) => String(s ?? '').normalize('NFC').replace(/[\s ]+/g, ' ').trim();
@@ -81,13 +85,29 @@ export function scaleLayout(layout, f) {
 function blocksOf(page) {
   // a text outside the page box (content a writer keeps off the sheet) is not printed
   const inPage = (t) => !(page.w > 0 && page.h > 0) || (t.x >= -1 && t.x <= page.w + 1 && t.y >= -1 && t.y <= page.h + 1);
-  const texts = (page.texts || []).filter((t) => norm(t.text) && inPage(t));
+  // the same text drawn twice at one spot is one printed text (synthetic bold: a writer draws the glyphs twice)
+  const seen = new Set();
+  const texts = (page.texts || []).filter((t) => {
+    if (!norm(t.text) || !inPage(t)) return false;
+    const k = `${t.text}|${Math.round(t.x * 10)}|${Math.round(t.y * 10)}`;
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
   const merge = texts.length && texts.every((t) => Number.isFinite(+t.w) && Number.isFinite(+t.pt));
-  return (merge ? mergeRuns(texts) : texts).filter((b) => norm(b.text)).map((b) => ({ x: r2(b.x), y: r2(b.y), text: norm(b.text) }));
+  // raw keeps the blanks inside a block (a gap the block itself prints, e.g. "Total" + 26 blanks + ":")
+  return (merge ? mergeRuns(texts) : texts).filter((b) => norm(b.text)).map((b) => ({ x: r2(b.x), y: r2(b.y), text: norm(b.text),
+    raw: String(b.text).normalize('NFC').replace(/[\t ]/g, ' ').trim(),
+    ...(Number.isFinite(+b.w) ? { w: r2(b.w) } : {}), ...(Number.isFinite(+b.pt) ? { pt: +b.pt } : {}) }));
 }
 
+const PT = 25.4 / 72;
+// right edge of a block: its width when known, else its characters at about 0.6 em (2.5 mm a character without a size)
+const rightOf = (b) => b.x + (Number.isFinite(b.w) ? b.w : squash(b.text).length * (b.pt ? 0.6 * b.pt * PT : 2.5));
+const isWhite = (f) => f === 1 || /^#?f{6}$/i.test(String(f ?? ''));
+
 /** Rules of a page as merged segments { dir, pos, a, b }. */
-function rulesOf(page) {
+function rulesOf(page, tol = DEFAULTS.tol) {
   const segs = [];
   for (const l of page.lines || []) {
     if (Math.abs(l.y1 - l.y2) < 0.2) segs.push({ dir: 'H', pos: (l.y1 + l.y2) / 2, a: Math.min(l.x1, l.x2), b: Math.max(l.x1, l.x2) });
@@ -101,7 +121,8 @@ function rulesOf(page) {
     }
   }
   // thin filled bars are rules (ADS and browsers draw borders this way); a row of parallel bars is a barcode
-  const bars = rects.filter((r) => r.stroke === undefined && Math.min(r.w, r.h) <= 0.6 && Math.max(r.w, r.h) >= 1);
+  // a white bar erases, it draws nothing
+  const bars = rects.filter((r) => r.stroke === undefined && !isWhite(r.fill) && Math.min(r.w, r.h) <= 0.6 && Math.max(r.w, r.h) >= 1);
   const isV = (r) => r.h > r.w;
   for (const r of bars) {
     const twins = bars.filter((q) => q !== r && isV(q) === isV(r)
@@ -111,7 +132,9 @@ function rulesOf(page) {
     if (isV(r)) segs.push({ dir: 'V', pos: r.x + r.w / 2, a: r.y, b: r.y + r.h });
     else segs.push({ dir: 'H', pos: r.y + r.h / 2, a: r.x, b: r.x + r.w });
   }
-  return mergeRules(segs.filter((s) => s.b - s.a > 0.3)).map((s) => ({ dir: s.dir, pos: r2(s.pos), a: r2(s.a), b: r2(s.b) }));
+  // pieces of one visual line merge: parallel within 0.3 mm, gaps up to the tolerance (writers draw a ruled line
+  // per cell, a shared border twice, slightly offset)
+  return mergeRules(segs.filter((s) => s.b - s.a > 0.3), 0.3, tol).map((s) => ({ dir: s.dir, pos: r2(s.pos), a: r2(s.a), b: r2(s.b) }));
 }
 
 const dist = (p, q) => Math.max(Math.abs(p.x - q.x), Math.abs(p.y - q.y));
@@ -129,9 +152,17 @@ function pairGreedy(A, B, ok, d) {
   return out;
 }
 
-/** One block of `one` spelled by several neighbouring blocks of `many` on its baseline (split differently). */
-function joinMatch(one, many, freeMany, tol) {
+/** One block of `one` spelled by several neighbouring blocks of `many` on its baseline (split differently).
+ *  Neighbours: each piece starts at most `joinGap` mm after the previous piece's right edge, plus the width of the
+ *  blanks the joined block itself has at that point (0.6 em each, the widest common blank: Courier). */
+function joinMatch(one, many, freeMany, tol, joinGap) {
   const want = squash(one.text);
+  // blanks before each non-blank character of the joined block
+  const raw = one.raw ?? one.text;
+  const blanksBefore = [];
+  let run = 0;
+  for (const ch of raw) { if (/\s/.test(ch)) run++; else { blanksBefore.push(run); run = 0; } }
+  const blankW = one.pt ? 0.6 * one.pt * PT : 2.5;
   const line = many.map((m, j) => ({ m, j })).filter(({ m, j }) => freeMany.has(j) && Math.abs(m.y - one.y) <= tol).sort((p, q) => p.m.x - q.m.x);
   const start = line.findIndex(({ m }) => Math.abs(m.x - one.x) <= tol);
   if (start < 0) return null;
@@ -139,25 +170,33 @@ function joinMatch(one, many, freeMany, tol) {
   const used = [];
   for (let k = start; k < line.length; k++) {
     const s = squash(line[k].m.text);
+    if (k > start && line[k].m.x - rightOf(line[k - 1].m) > joinGap + (blanksBefore[got.length] || 0) * blankW) return null;
     if (!want.startsWith(got + s)) return null;
     got += s; used.push(line[k].j);
-    if (got === want) return used.length > 1 ? used : null;
+    if (got === want) {
+      if (used.length < 2) return null;
+      // the pieces must also end where the block ends: the blank allowance is only an upper bound on each gap
+      // (a ':' printed 30 mm left of the reference's ':' is not the same print)
+      const last = line[k].m;
+      if (Number.isFinite(one.w) && Math.abs(rightOf(last) - (one.x + one.w)) > tol) return null;
+      return used;
+    }
   }
   return null;
 }
 
-function scorePage(R, C, tol) {
+function scorePage(R, C, tol, joinGap) {
   const freeR = new Set(R.keys()), freeC = new Set(C.keys());
   let matched = 0;
   // 1. same text within the tolerance
   for (const p of pairGreedy(R, C, (a, b) => a.text === b.text && dist(a, b) <= tol, dist)) { freeR.delete(p.i); freeC.delete(p.j); matched++; }
   // 2. split differently: one reference block = several candidate blocks, or the other way round
   for (const i of [...freeR]) {
-    const js = joinMatch(R[i], C, freeC, tol);
+    const js = joinMatch(R[i], C, freeC, tol, joinGap);
     if (js) { freeR.delete(i); js.forEach((j) => freeC.delete(j)); matched++; }
   }
   for (const j of [...freeC]) {
-    const is = joinMatch(C[j], R, freeR, tol);
+    const is = joinMatch(C[j], R, freeR, tol, joinGap);
     if (is) { freeC.delete(j); is.forEach((i) => freeR.delete(i)); matched += is.length; }
   }
   return { matched, freeR, freeC };
@@ -171,7 +210,7 @@ function scoreRules(RS, CS, tol) {
 }
 
 /** Fidelity of a candidate print against a reference print. */
-export function scoreFidelity(refIn, candIn, { tol = DEFAULTS.tol, weights = DEFAULTS.weights } = {}) {
+export function scoreFidelity(refIn, candIn, { tol = DEFAULTS.tol, weights = DEFAULTS.weights, joinGap = DEFAULTS.joinGap } = {}) {
   const ref = layoutOf(refIn);
   const cand = layoutOf(candIn);
   const w = { ...DEFAULTS.weights, ...weights };
@@ -182,11 +221,11 @@ export function scoreFidelity(refIn, candIn, { tol = DEFAULTS.tol, weights = DEF
     const rp = ref.pages[p] || { texts: [], lines: [], rects: [] }, cp = cand.pages[p] || { texts: [], lines: [], rects: [] };
     const R = blocksOf(rp), C = blocksOf(cp);
     refBlocks += R.length;
-    const s = scorePage(R, C, tol);
+    const s = scorePage(R, C, tol, joinGap);
     matched += s.matched;
     for (const i of s.freeR) missing.push({ page: p + 1, text: R[i].text, x: R[i].x, y: R[i].y });
     for (const j of s.freeC) extra.push({ page: p + 1, text: C[j].text, x: C[j].x, y: C[j].y });
-    const RS = rulesOf(rp), CS = rulesOf(cp);
+    const RS = rulesOf(rp, tol), CS = rulesOf(cp, tol);
     const rr = scoreRules(RS, CS, tol);
     refRules += RS.length; ruleMatched += rr.matched; extraRules += rr.extra.length;
     rr.missing.forEach((l) => lineMissing.push({ page: p + 1, ...l }));
@@ -235,7 +274,7 @@ export function scoreCorpus(results, { target = DEFAULTS.target } = {}) {
       ...(r.error ? { error: r.error } : {}), ...(r.notMeasurable?.length ? { notMeasurable: r.notMeasurable } : {}) };
   });
   const measured = forms.filter((f) => f.score !== null);
-  // the text average from the unrounded text parts (textPercent is rounded for display)
+  // the text average from the text parts (4 decimals; textPercent has 2)
   const textOf = (i) => results[i].parts?.text ?? (forms[i].textPercent ?? 0) / 100;
   const idx = forms.map((f, i) => i).filter((i) => forms[i].score !== null);
   const average = measured.length ? +(measured.reduce((s, f) => s + f.score, 0) / measured.length).toFixed(4) : null;
@@ -259,6 +298,8 @@ function main(argv) {
     process.stdout.write(`${json}\n`);
   };
   const tol = opt('--tol') !== undefined ? Number(opt('--tol')) : DEFAULTS.tol;
+  const joinGap = opt('--join-gap') !== undefined ? Number(opt('--join-gap')) : DEFAULTS.joinGap;
+  if (!(joinGap >= 0)) { console.error('score-fidelity: --join-gap must be 0 or more mm'); process.exit(2); }
   if (!(tol > 0)) { console.error('score-fidelity: --tol must be a positive number of mm'); process.exit(2); }
   if (argv[0] === 'layout') {
     if (!argv[1] || !opt('--out')) { console.error('usage: node score-fidelity.mjs layout <file.pdf> --out <layout.json>'); process.exit(2); }
@@ -272,7 +313,7 @@ function main(argv) {
     if (!Array.isArray(list)) { console.error('score-fidelity: the list must be an array of { name, ref, cand }'); process.exit(2); }
     const results = list.map((e) => {
       try {
-        const r = scoreFidelity(readInput(resolve(base, e.ref)), readInput(resolve(base, e.cand)), { tol });
+        const r = scoreFidelity(readInput(resolve(base, e.ref)), readInput(resolve(base, e.cand)), { tol, joinGap });
         return { name: e.name, ...r };
       } catch (err) { return { name: e.name, score: null, error: String(err.message || err) }; }
     });
@@ -281,10 +322,10 @@ function main(argv) {
     return;
   }
   if (!argv[0] || !argv[1]) {
-    console.error('usage: node score-fidelity.mjs <ref.pdf|json> <cand.pdf|json> [--tol 1] [--out score.json]\n       node score-fidelity.mjs corpus <list.json> [--target 0.98] [--out corpus.json]\n       node score-fidelity.mjs layout <file.pdf> --out <layout.json>');
+    console.error('usage: node score-fidelity.mjs <ref.pdf|json> <cand.pdf|json> [--tol 1] [--join-gap 3] [--out score.json]\n       node score-fidelity.mjs corpus <list.json> [--target 0.98] [--out corpus.json]\n       node score-fidelity.mjs layout <file.pdf> --out <layout.json>');
     process.exit(2);
   }
-  out({ ref: resolve(argv[0]), cand: resolve(argv[1]), ...scoreFidelity(readInput(argv[0]), readInput(argv[1]), { tol }) });
+  out({ ref: resolve(argv[0]), cand: resolve(argv[1]), ...scoreFidelity(readInput(argv[0]), readInput(argv[1]), { tol, joinGap }) });
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) main(process.argv.slice(2));

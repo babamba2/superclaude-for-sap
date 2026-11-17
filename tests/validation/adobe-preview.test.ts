@@ -377,3 +377,30 @@ describe('adobe-preview: score v2', () => {
     expect(r.passed).toBe(false);
   });
 });
+
+describe('adobe-preview: layouts SAP migration writes (div rich text without body, row cells without columnWidths, lr-tb)', () => {
+  const xdp = (body: string) => `<?xml version="1.0" encoding="utf-8"?>
+<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform layout="tb" name="data"><pageSet><pageArea name="P1"><contentArea x="20mm" y="20mm" w="170mm" h="250mm"/>
+<medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>${body}</subform></template></xdp:xdp>`;
+  const rich = (name: string, w: string, text: string) => `<draw name="${name}" w="${w}"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml"><div style=" font-family : 'Arial' ; font-size : 10pt ;">${text}</div></div></exData></value><ui><textEdit multiLine="1"/></ui></draw>`;
+  const run = (body: string) => texts(layoutForm(readXdp(xdp(body)).template, { name: 'data', children: [] }, {}).pages[0]);
+
+  it('reads XHTML div paragraphs straight under exData (no body element)', () => {
+    expect(run(`<subform layout="tb" name="S" w="170mm">${rich('T', '100mm', 'Dear customer')}</subform>`).map((t: any) => t.text)).toEqual(['Dear customer']);
+  });
+
+  it('gives a row cell its own width when the table has no columnWidths', () => {
+    const t = run(`<subform layout="table" name="TAB" w="170mm"><subform layout="row" name="R">${rich('A', '30mm', 'Left')}${rich('B', '50mm', 'Right')}</subform></subform>`);
+    close(t.find((x: any) => x.text === 'Right').x - t.find((x: any) => x.text === 'Left').x, 30);
+  });
+
+  it('flows lr-tb children left to right and starts a new line for a child that does not fit', () => {
+    const t = run(`<subform layout="lr-tb" name="F" w="100mm">${rich('A', '60mm', 'One')}${rich('B', '30mm', 'Two')}${rich('C', '30mm', 'Three')}</subform>`);
+    const one = t.find((x: any) => x.text === 'One'), two = t.find((x: any) => x.text === 'Two'), three = t.find((x: any) => x.text === 'Three');
+    close(two.x - one.x, 60);
+    close(two.y, one.y);
+    close(three.x, one.x);
+    expect(three.y).toBeGreaterThan(one.y + 3);
+  });
+});

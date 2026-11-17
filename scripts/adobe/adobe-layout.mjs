@@ -507,7 +507,8 @@ function contentOf(n, ctx) {
   const lookup = ctx.lookupEmbed;
   if (vi.type === 'image') return { image: true, vi, data: n.kind === 'field' && n.data ? n.data.value : undefined };
   if (vi.type === 'exData' && !(n.kind === 'field' && n.data && !n.data.rich && n.data.value !== undefined)) {
-    let body = kids(vi.el).find((x) => /body$/.test(x.tag));
+    // XHTML rich text: a <body>, or (SAP's SmartForm migration) the <div> paragraphs straight under exData
+    let body = kids(vi.el).find((x) => /body$/.test(x.tag)) || (kids(vi.el).some((x) => /(^|:)(div|p|span)$/.test(x.tag)) ? vi.el : null);
     if (n.kind === 'field' && n.data?.rich) return { paras: dataParagraphs(n.data.rich, font), font, para, vi, rich: true };
     if (n.over.rawValue !== undefined) return { paras: [{ runs: [{ text: String(n.over.rawValue), font }], st: {} }], font, para, vi };
     if (!body) return { paras: [], font, para, vi };
@@ -746,6 +747,27 @@ class Layout {
     } else if (layout === 'row') {
       this.measureRow(n, n.parentCols || [], innerAvail);
       return n;
+    } else if ((layout === 'lr-tb' || layout === 'rl-tb') && innerAvail > 0) {
+      // western flow: children left to right, a child that does not fit on the line starts the next line
+      // (ADS puts a 16 cm block next to a narrower one when the line has room)
+      let x = 0, y = 0, rowH = 0, maxLine = 0;
+      const line = [];
+      const close = () => {
+        if (layout === 'rl-tb') { let rx = innerAvail; for (const c of line) { rx -= c.w; c.rx = rx; } }
+        y += rowH; x = 0; rowH = 0; line.length = 0;
+      };
+      for (const c of vis) {
+        this.measure(c, innerAvail - x);
+        if (x > 0 && x + c.w > innerAvail + 0.01) { close(); this.measure(c, innerAvail); }
+        c.rx = x; c.ry = y;
+        line.push(c);
+        x += c.w;
+        maxLine = Math.max(maxLine, x);
+        rowH = Math.max(rowH, c.h);
+      }
+      close();
+      if (w === null) w = Math.max(minW, Math.min(maxW, maxLine + m.l + m.r));
+      n.contentH = y;
     } else if (layout === 'tb' || layout === 'lr-tb' || layout === 'rl-tb') {
       let y = 0, maxw = 0;
       for (const c of vis) {
@@ -796,10 +818,14 @@ class Layout {
     let x = 0, ci = 0, h = 0;
     for (const c of vis) {
       const span = Number(attr(c.t, 'colSpan', '1'));
-      let cw = 0;
+      let cw = 0, got = 0;
       const take = span < 0 ? cols.length - ci : span;
-      for (let k = 0; k < take && ci < cols.length; k++, ci++) cw += Math.max(0, cols[ci]);
-      if (!take || ci > cols.length) cw = c.w || 0;
+      for (let k = 0; k < take && ci < cols.length; k++, ci++, got++) cw += Math.max(0, cols[ci]);
+      // no column width left (a table without columnWidths, as SAP's migration writes it): the cell's own width
+      if (!take || !got) {
+        const own = attr(c.t, 'w');
+        cw = own !== undefined ? unit(own) : (this.measure(c, avail - x), c.w || 0);
+      }
       // a cell takes its column's width
       const saved = c.t.attrs.w;
       c.t = { ...c.t, attrs: { ...c.t.attrs, w: `${cw}mm` } };
