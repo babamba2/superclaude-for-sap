@@ -116,7 +116,7 @@ Draws the reference graph that `stock-cbo` builds (`graph.json`) as one self-con
 ### `/sc4sap:analyze-symptom`
 ```
 /sc4sap:analyze-symptom
-→ "Dump MESSAGE_TYPE_X in ZFI_POSTING at line 234 during F110"
+→ "Dump MESSAGE_TYPE_X in ZFI_DEMO_POSTING at line 234 during F110"
 ```
 Flow: `RuntimeListDumps` → `RuntimeAnalyzeDump` → stack trace → SAP Note candidates → remediation options.
 
@@ -222,7 +222,7 @@ Existing users upgrading to the multi-profile release see a SessionStart banner 
 Line 2 of the statusline shows `{alias} [{tier}]` with a 🔒 when `tier != DEV`. Color is not used — the lock icon is the single, theme-independent signal.
 
 ```
- KR-DEV [DEV]       SID S4H · client 100 · user DEVELOPER · CTS S4HK904224
+ KR-DEV [DEV]       SID S4H · client 100 · user DEVELOPER · CTS DEVK904224
  KR-PRD [PRD] 🔒    SID S4P · client 400 · user READER
 ```
 

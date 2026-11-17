@@ -1,4 +1,4 @@
-S4-DEV (S/4HANA 816) QM scenario evidence, 2026-11-11, final run: 113/113 pass.
+S4816-DEV (S/4HANA 816) QM scenario evidence, 2026-11-11, final run: 113/113 pass.
 Queries: verified (level scenario). Writes: business checks verified up to the authorization step; not executed (test user without QM write authorization), so they stay hidden.
 S4QM-001 | QM.LOT.LIST_OPEN | {} | exp rc=4 rc=4; txt=werks is required;  | act rc=4 werks is required (plant) | rb read only | PASS
 S4QM-002 | QM.LOT.LIST_OPEN | {\"werks\":\"1710\"} | exp rc=0 rc=0; txt=173 open inspection lots;  | act rc=0 OK | rb read only | PASS

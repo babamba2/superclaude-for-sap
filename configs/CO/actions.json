@@ -4,7 +4,7 @@
   "area": "internal orders, cost centers, allocations, planning",
   "notes": [
     "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side.",
-    "Draft 2026-11-09: interface and source checked on ECC740-DEV only; S4-DEV and ECC731-DEV pending.",
+    "Draft 2026-11-09: interface and source checked on ECC740-DEV only; S4816-DEV and ECC731-DEV pending.",
     "testrun CHECK_FM = a separate check FM (check_fm) runs the same checks without posting; CHECK_ONLY = the same FM with a check-only flag; none = preview from facts and biz-rules.",
     "Customer exits for orders and allocations are system specific and live in biz-rules/CO.json of the profile, not in this catalog."
   ],
@@ -69,20 +69,20 @@
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/CO/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     },
@@ -186,20 +186,20 @@
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/CO/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     },
@@ -308,20 +308,20 @@
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/CO/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -410,20 +410,20 @@
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/CO/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     },
@@ -526,20 +526,20 @@
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/CO/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     },
@@ -594,7 +594,7 @@
             "ACDOCP"
           ],
           "return": "rows",
-          "note": "reads classic plan data (COSP); S/4 plan data in ACDOCP is not read. S4-DEV 2026-11-10: no classic plan values"
+          "note": "reads classic plan data (COSP); S/4 plan data in ACDOCP is not read. S4816-DEV 2026-11-10: no classic plan values"
         }
       },
       "auth": [
@@ -617,20 +617,20 @@
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/CO/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/CO/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     },
@@ -740,12 +740,12 @@
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario-preview",
-          "evidence": "configs/CO/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -854,12 +854,12 @@
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario-preview",
-          "evidence": "configs/CO/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -978,12 +978,12 @@
           "evidence": "configs/CO/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario-preview",
-          "evidence": "configs/CO/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/CO/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -1086,7 +1086,7 @@
           "preview": "BAPI_COSTACTPLN_CHECKPRIMCOST (= BAPI_PRIM_COST_CHECK_AND_POST with TESTRUN X) + plan-version settings (planning allowed, fiscal-year row) + biz-rules/CO.json",
           "commit": "BAPI_TRANSACTION_COMMIT",
           "return": "BAPIRET2",
-          "note": "classic cost center planning (COSP / COSS, ledger 0); not available on S4-DEV 2026-11-10: the check BAPI fails with GI 174 (plan ledgers 0 / 0R fiscal year variant differs from the controlling area). S/4 planning runs in ACDOCP (SAP Analytics Cloud / plan category) - not covered"
+          "note": "classic cost center planning (COSP / COSS, ledger 0); not available on S4816-DEV 2026-11-10: the check BAPI fails with GI 174 (plan ledgers 0 / 0R fiscal year variant differs from the controlling area). S/4 planning runs in ACDOCP (SAP Analytics Cloud / plan category) - not covered"
         }
       },
       "auth": [

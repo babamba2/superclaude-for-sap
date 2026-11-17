@@ -1,4 +1,4 @@
-# Handler evidence — S4-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
+# Handler evidence — S4816-DEV (S/4HANA, ABAP 816), 2026-11-10, ZMCP_BIZ_EXECUTE via MCP RFC route (QUERY / PREVIEW only, nothing executed). DB read before and after every preview: unchanged.
 H CO.ORD.LIST A000/1710 released -> 5 orders
 H CO.ORD.GET_DETAIL 100020 -> REL SETC, 74 allowed transactions, settlement rule KS 17101501
 H CO.CC.GET_DETAIL A000/17101201 -> profit center YB700

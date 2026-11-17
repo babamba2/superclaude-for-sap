@@ -25,7 +25,7 @@ const at = () => new Date(Date.UTC(2026, 10, 10, 9, 0, clock++));
 const entry = (tool: string, tool_input: unknown, tool_response?: unknown) =>
   ledgerEntry({ tool_name: NS + tool, tool_input, tool_response, session_id: 's1' }, at());
 
-const write = (name: string) => entry('UpdateProgram', { program_name: name, source_code: '...', transport_request: 'HKDK900001' });
+const write = (name: string) => entry('UpdateProgram', { program_name: name, source_code: '...', transport_request: 'DEVK900001' });
 const activate = (names: string[], failed: string[] = []) =>
   entry('ActivateObjects', { objects: names.map((name) => ({ name, type: 'PROG/P' })) },
     mcp({ success: failed.length === 0, objects: names.map((name) => ({ name, status: failed.includes(name) ? 'failed' : 'activated' })), errors: failed.map((n) => ({ message: `${n}: syntax error line 12` })) }));

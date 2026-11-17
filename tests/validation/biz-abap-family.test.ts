@@ -113,7 +113,7 @@ describe('biz ABAP sources: system-family split', () => {
     });
   }
 
-  // A name declared twice in one method fails the SAP syntax check (seen on S4-DEV 2026-11-10).
+  // A name declared twice in one method fails the SAP syntax check (seen on an S/4 816 DEV system 2026-11-10).
   for (const f of [...abapIn(ROOT), ...abapIn(join(ROOT, 's4'))].filter((p) => p.endsWith('.clas.abap'))) {
     it(`${f.slice(ROOT.length + 1)} declares no name twice in a method`, () => {
       expect(duplicateDecls(readFileSync(f, 'utf-8'))).toEqual([]);

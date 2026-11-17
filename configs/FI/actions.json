@@ -4,7 +4,7 @@
   "area": "accounting documents and G/L",
   "notes": [
     "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side.",
-    "Draft 2026-11-09: interface and source checked on ECC740-DEV only; S4-DEV and ECC731-DEV pending.",
+    "Draft 2026-11-09: interface and source checked on ECC740-DEV only; S4816-DEV and ECC731-DEV pending.",
     "testrun CHECK_FM = a separate check FM (check_fm) runs the same checks without posting; CHECK_ONLY = the same FM with a check-only flag; none = preview from facts and biz-rules.",
     "Customer validations / substitutions (GGB) are system specific and live in biz-rules/FI.json of the profile, not in this catalog."
   ],
@@ -75,20 +75,20 @@
           "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/FI/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/FI/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     },
@@ -186,20 +186,20 @@
           "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/FI/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/FI/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     },
@@ -264,20 +264,20 @@
           "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/FI/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/FI/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     },
@@ -440,20 +440,20 @@
           "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/FI/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/FI/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -597,12 +597,12 @@
           "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/FI/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -714,12 +714,12 @@
           "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/FI/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -818,20 +818,20 @@
           "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/FI/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/FI/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -913,20 +913,20 @@
           "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/FI/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/FI/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     },
@@ -1001,20 +1001,20 @@
           "evidence": "configs/FI/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/FI/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/FI/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/FI/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     }

@@ -1,4 +1,4 @@
-# Scenario evidence - S4-DEV (S/4HANA, release 816), 2026-11-11. ABAP Unit scenario matrix through ZCL_MCP_BIZ_EXEC (queries only):
+# Scenario evidence - S4816-DEV (S/4HANA, release 816), 2026-11-11. ABAP Unit scenario matrix through ZCL_MCP_BIZ_EXEC (queries only):
 # expected results declared before the run from direct SQL on the EWM tables (open / confirmed tasks, bins, quants, delivery items).
 # Final run EWM-run2 (98/98 PASS). Run 1: 97/98, one wrong expectation (storage-type pattern count) corrected from the SQL pairs.
 # Columns: action, verdict, pass/lines, executed writes, run. No SAP data was changed.

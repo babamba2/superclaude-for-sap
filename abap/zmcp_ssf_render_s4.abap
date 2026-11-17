@@ -49,7 +49,7 @@ FUNCTION zmcp_ssf_render
 *   commits the new function group frame itself, so the rest of the
 *   generation (TFDIR, STXFADMI, ...) is COMMITted right after the call -
 *   a ROLLBACK there left an orphan /1BCDWB/SAPLSF* frame per render and
-*   regenerated every time (S4-DEV 2026-11-17). That COMMIT runs before any
+*   regenerated every time (S/4 816 DEV system 2026-11-17). That COMMIT runs before any
 *   code of the form, and nothing else is in the LUW.
 * - ROLLBACK WORK on every path after that COMMIT: undoes uncommitted
 *   changes of the form's program lines (a failed generation is left as the

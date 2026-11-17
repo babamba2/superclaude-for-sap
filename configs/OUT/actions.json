@@ -62,7 +62,7 @@
         { "object": "V_VBRK_VKO", "fields": { "ACTVT": "03", "VKORG": "<sales org>" } }
       ],
       "verified_on": [
-        { "alias": "S4-DEV", "family": "S4", "release": "816", "date": "2026-11-10", "level": "handler", "evidence": "configs/OUT/actions-evidence/S4-DEV.txt" },
+        { "alias": "S4816-DEV", "family": "S4", "release": "816", "date": "2026-11-10", "level": "handler", "evidence": "configs/OUT/actions-evidence/S4816-DEV.txt" },
         { "alias": "ECC740-DEV", "family": "ECC", "release": "740", "date": "2026-11-10", "level": "handler", "evidence": "configs/OUT/actions-evidence/ECC740-DEV.txt" }
       ]
     },

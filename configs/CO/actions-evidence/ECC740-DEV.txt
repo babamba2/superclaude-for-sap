@@ -205,7 +205,7 @@ G1  Authorization object inside K40C FORM authority_check and KPLA FORM authorit
 G2  TJ01 business transaction keys for internal-order release, close and set-deletion-flag (see open questions).
 G3  Status persistence after STATUS_CHANGE_FOR_ACTIVITY (update task) and the need for a KO02-like save: not traced.
 G4  Whether the K40C RWIN check reaches the FI GGB validations for CO-FI integrated allocations (cross-posting to FI is rare for reposting inside one company code).
-G5  ECC731-DEV and S4-DEV: not checked.
+G5  ECC731-DEV and S4816-DEV: not checked.
 
 # 2026-11-10 step 5 (YSC4SAP_TFIX_09, client 300, QUERY / PREVIEW TESTRUN only): 16/16 PASS
 CO.ORD.GET_DETAIL settlement rule + status warnings: CO-023 PASS (11000001 CLSD warning), CO-SR1 PASS (11006734 no settlement rule info)

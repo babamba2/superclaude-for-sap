@@ -4,7 +4,7 @@
   "area": "production orders",
   "notes": [
     "Business actions for /sc4sap:assist, executed only through ZMCP_BIZ_EXECUTE on the SAP side.",
-    "Draft 2026-11-09: interface checked on ECC740-DEV only; S4-DEV and ECC731-DEV pending.",
+    "Draft 2026-11-09: interface checked on ECC740-DEV only; S4816-DEV and ECC731-DEV pending.",
     "Actions without TESTRUN are previewed from order status, configuration and the customer check rules of the system (biz-rules/PP.json)."
   ],
   "actions": [
@@ -118,20 +118,20 @@
           "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     },
@@ -189,20 +189,20 @@
           "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     },
@@ -268,20 +268,20 @@
           "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario-preview",
-          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -379,20 +379,20 @@
           "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario-preview",
-          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -512,12 +512,12 @@
           "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario-preview",
-          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -604,20 +604,20 @@
           "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -731,12 +731,12 @@
           "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -836,20 +836,20 @@
           "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ],
       "preview_limits": {
@@ -933,20 +933,20 @@
           "evidence": "configs/PP/actions-evidence/ECC740-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "handler",
-          "evidence": "configs/PP/actions-evidence/S4-DEV.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV.txt"
         },
         {
-          "alias": "S4-DEV",
+          "alias": "S4816-DEV",
           "family": "S4",
           "release": "816",
           "date": "2026-11-10",
           "level": "scenario",
-          "evidence": "configs/PP/actions-evidence/S4-DEV-scenarios.txt"
+          "evidence": "configs/PP/actions-evidence/S4816-DEV-scenarios.txt"
         }
       ]
     }

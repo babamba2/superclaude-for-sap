@@ -75,7 +75,7 @@ describe('cutover — seed', () => {
   it('the template holds no customer, system or Z object names', () => {
     const text = readFileSync(join(ROOT, 'scripts/project/cutover-tasks.json'), 'utf8');
     expect(text).not.toMatch(/\b[ZY][A-Z0-9_]{3,}\b/);
-    expect(text).not.toMatch(/HKT|BXD|ES-DEV|S4-DEV|HKD|PRD\d/);
+    expect(text).not.toMatch(/\b[A-Z][A-Z0-9]{1,6}-(DEV|QAS|QA|PRD|TST)\b|\b[A-Z][A-Z0-9]{2}K9\d{5}\b|PRD\d/); // system aliases, transport numbers
     expect(text).not.toMatch(/작업 창/); // the reviewed wording is 작업 시간대
   });
 });

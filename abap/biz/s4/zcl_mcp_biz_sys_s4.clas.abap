@@ -9,7 +9,7 @@ CLASS zcl_mcp_biz_sys_s4 DEFINITION
 * VBAK / VBAP / LIKP / LIPS / VBRK under the same names. Order side has no delivery-related
 * billing status: FKSTK <- VBAK-FKSAK, FKSTA <- VBAP-FKSAA (order-related billing); a
 * delivery-related billing of an order item is read from the document flow (verified on
-* S4-DEV 2026-11-10: the order item -> invoice VBFA row is written).
+* S/4 816 DEV system 2026-11-10: the order item -> invoice VBFA row is written).
 
   PUBLIC SECTION.
     INTERFACES zif_mcp_biz_sys.
@@ -236,7 +236,7 @@ CLASS zcl_mcp_biz_sys_s4 IMPLEMENTATION.
     " Document splitting writes several ledger lines per entry-view line item (BUZEI), even
     " with opposite signs: they are summed signed per BELNR / GJAHR / BUZEI so that one open
     " item = one BSEG line, and returned unsigned with the debit / credit indicator (as BSIS).
-    " Verified on S4-DEV 2026-11-10 against BSIS + BSAS (count, keys, amounts).
+    " Verified on an S/4 816 DEV system 2026-11-10 against BSIS + BSAS (count, keys, amounts).
     TYPES: BEGIN OF ty_a,
              belnr TYPE acdoca-belnr,
              gjahr TYPE acdoca-gjahr,

@@ -239,7 +239,7 @@ G1  RWIN registration of FI_DOCUMENT_CHECK for event CHECK (inferred, see F3). R
 G2  Whether BAPI_ACC_DOCUMENT_REV_CHECK reaches the GGB callup 3 validation (AC_DOCUMENT_REVERSE not traced).
 G3  Authorization objects of BAPI_GL_ACC_GETDETAIL / FI_DOCUMENT_READ (read) not traced; F_BKPF_BUK activity 03 is assumed.
 G4  The customer set that marks the go-live date range (precondition "live" of nearly every customer GGB step) cannot be read with the available tools: treated as true.
-G5  ECC731-DEV and S4-DEV: not checked (task scope: ECC740-DEV only).
+G5  ECC731-DEV and S4816-DEV: not checked (task scope: ECC740-DEV only).
 
 # 2026-11-10 step 5 (YSC4SAP_TFIX_09, client 300, QUERY / PREVIEW TESTRUN only): 16/16 PASS
 FI.PERIOD.GET_STATUS T5-FPER PASS (1100, 2026-11-10)

@@ -24,7 +24,7 @@ The HUD prints two lines, plus an optional third.
 
 ```
 sc4sap │ MCP● ENV● │ ✓ idle │ ctx 420K/1.00M 42% │ 5h 42% │ 7d 87% │ +12% extra │ ⏳ 2h 17m │ Opus 4.6
-KR-DEV [DEV] │ SID S4H │ client 100 │ user DEVUSER │ CTS S4HK900123
+KR-DEV [DEV] │ SID S4H │ client 100 │ user DEVUSER │ CTS DEVK900123
 ```
 
 ### Line 1 — session

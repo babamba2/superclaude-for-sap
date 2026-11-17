@@ -1081,7 +1081,7 @@ Server-side ABAP source (DEV-only, function group `ZMCP_ADT_UTILS`, `$TMP`) is b
 - Refresh path for existing installs: `node scripts/build-mcp-server.mjs --update`. Verifies HEAD matches the new SHA + reinstalls vendor `node_modules` (deps unchanged 4.8.1 → 4.8.3, but reinstall is idempotent and cheap).
 - Workaround documented in issue #43 (plaintext `SAP_PASSWORD` in `~/.sc4sap/profiles/<alias>/sap.env`) is no longer needed after the bump.
 
-Reported by @icharmi-byte. Verified locally on profile HKT-DEV.
+Reported by @icharmi-byte. Verified locally on an ECC DEV profile.
 
 ## [0.6.12] — 2026-04-24
 
@@ -1109,7 +1109,7 @@ Every `Agent(...)` dispatch example in skill MDs now uses the fully-qualified `"
 
 ### Validated — Phase 7 Type D runtime (Phase 1A↔1B bridge, create-program)
 
-First end-to-end Type D validation on S4-DEV (profile switched from HKT-DEV). Target: ZCOR00010 — raw material COGS variance report on plant 1710 / USD / S/4HANA 2022. 4-way synthesis (`sap-analyst` + `sap-architect` + `sap-co-consultant` + `sap-mm-consultant`) × 2 rounds (R1 POSITION bundled on Phase 1B Dims 1-7 → R2 REFINEMENT on Dim 5 data-source only). Convergence: **7/7 CONCUR**, residual_disagreement = []. Key withdrawals: `sap-mm-consultant` withdrew MBEW-VERPR for variance-axis (conceded MLDOC authority to CO); `sap-co-consultant` narrowed MBEW "fallback only" to "price-history authority" (accepted MM's MBEWH period-trail scope). Final Dim 5 architecture: 3-axis business model (price-history MBEW/MBEWH × actual-COGS MLDOC × GL-impact ACDOCA) backed by 3 custom CDS views. Wall-clock: ~12 min; 11 audit files under `.sc4sap/team-audit/create-program-p1b-zcor00010-20260424-130820/`. User-facing report: `.sc4sap/program/ZCOR00010/phase7-type-d-report.md`.
+First end-to-end Type D validation on an S/4HANA DEV system (profile switched from an ECC DEV system). Target: a customer CO report — raw material COGS variance report on plant 1710 / USD / S/4HANA 2022. 4-way synthesis (`sap-analyst` + `sap-architect` + `sap-co-consultant` + `sap-mm-consultant`) × 2 rounds (R1 POSITION bundled on Phase 1B Dims 1-7 → R2 REFINEMENT on Dim 5 data-source only). Convergence: **7/7 CONCUR**, residual_disagreement = []. Key withdrawals: `sap-mm-consultant` withdrew MBEW-VERPR for variance-axis (conceded MLDOC authority to CO); `sap-co-consultant` narrowed MBEW "fallback only" to "price-history authority" (accepted MM's MBEWH period-trail scope). Final Dim 5 architecture: 3-axis business model (price-history MBEW/MBEWH × actual-COGS MLDOC × GL-impact ACDOCA) backed by 3 custom CDS views. Wall-clock: ~12 min; 11 audit files under `.sc4sap/team-audit/create-program-p1b-<program>-20260424-130820/`. User-facing report: `.sc4sap/program/<PROGRAM>/phase7-type-d-report.md`.
 
 ## [0.6.11] — 2026-04-24
 
