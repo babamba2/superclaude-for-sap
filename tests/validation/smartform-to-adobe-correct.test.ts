@@ -92,3 +92,30 @@ describe('smartform-to-adobe: embedLead (R8), row pitch (R9), date ops (R3)', ()
     expect(correctionSpec({ content: { pages: [] }, layoutXdp: xdp, sfPdf: rows(5), afPdf: rows(5) }).ops.some((o: any) => o.rule === 'R9')).toBe(false);
   });
 });
+
+describe('smartform-to-adobe: block offsets (R10) and the exact DateFmt form (R3)', () => {
+  const xdp = (script: string) => `<?xml version="1.0" encoding="utf-8"?><xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform name="ZDEMO" layout="tb"><pageSet><pageArea name="P1"><contentArea x="2cm" y="2cm" w="16cm" h="20cm"/></pageArea></pageSet>
+<proto><subform id="HEAD" name="HEAD" layout="tb"><margin topInset="0.5mm"/><draw name="H1"><value><text>Carr.</text></value><desc><text>Carrier</text></desc></draw></subform></proto>
+<subform name="MAIN" layout="tb"><subform name="INTRO" layout="tb"><draw name="T"><value><text>Intro line</text></value></draw></subform>
+<subform name="ROW" layout="tb"><field name="FLDATE"><event activity="initialize"><script>${script}</script></event></field></subform></subform></subform></template></xdp:xdp>`;
+  const page = (texts: [number, number, string][]) => ({ pages: [{ w: 210, h: 297, lines: [], texts: texts.map(([x, y, text]) => ({ x, y, text })) }] });
+  // the SmartForm: intro at 20, header at 30, date 12/01/2026; the migrated print: intro 1.5 mm higher, header 3 mm higher (a shift within the 1 mm window is matched, not moved: no anchor)
+  const sf = page([[20, 20, 'Intro line'], [20, 30, 'Carr.'], [60, 40, '12/01/2026']]);
+  const af = page([[20, 18.5, 'Intro line'], [20, 27, 'Carr.'], [60, 40, '12/1/26']]);
+  it('R10: top inset per block in print order, earlier insets counted; the header text is the value, not the desc', () => {
+    const ops = correctionSpec({ content: { pages: [] }, layoutXdp: xdp('$.format.picture = DateFmt(1, $.locale);'), sfPdf: sf, afPdf: af }).ops.filter((o: any) => o.rule === 'R10');
+    expect(ops).toEqual([
+      expect.objectContaining({ op: 'margin', target: { path: 'ZDEMO.MAIN.INTRO' }, topInset: '1.5mm' }),
+      // the header needs 3 mm, 1.5 mm of it comes from the intro inset; 0.5 mm was there already
+      expect.objectContaining({ op: 'margin', target: { protoId: 'HEAD' }, topInset: '2mm' }),
+    ]);
+  });
+  it('R3: datePicture only for exactly one "$.format.picture = DateFmt(n, $.locale)"; other DateFmt scripts get no op', () => {
+    const one = correctionSpec({ content: { pages: [] }, layoutXdp: xdp('$.format.picture = DateFmt(1, $.locale);'), sfPdf: sf, afPdf: af }).ops;
+    expect(one).toContainEqual(expect.objectContaining({ op: 'datePicture', target: { path: 'ZDEMO.MAIN.ROW.FLDATE' }, picture: 'date{MM/DD/YYYY}' }));
+    const other = correctionSpec({ content: { pages: [] }, layoutXdp: xdp('$.rawValue = DateFmt(1);'), sfPdf: sf, afPdf: af });
+    expect(other.ops.some((o: any) => o.rule === 'R3')).toBe(false);
+    expect(other.notes.join(' ')).toMatch(/DateFmt script not in the one form/);
+  });
+});

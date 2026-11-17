@@ -22,6 +22,9 @@
 //   R8 A right / center paragraph of embedded values only → embedLead (ADS aligns it only with a blank before it).
 //   R9 Row pitch (calibration on a print that has the structural rules): SmartForm pitch − migrated pitch as bottom
 //      inset on every table row subform (layout row).
+//   R10 Block offsets (calibration, same print as R9): static texts (draw <value>, no embeds) found moved anchor their
+//      flowed block (a child of MAIN, or a proto root such as a table header leader); per block the median dy becomes
+//      top inset, in print order, counting the insets of earlier blocks (an inset moves everything after it).
 //
 // Targets: { protoId, path? } for page-area windows (their content lives in <proto>), { path } from the root subform
 // otherwise; path = names joined by '.', name[n] for the n-th same-name sibling (0-based), as the spec v1 defines.
@@ -194,7 +197,56 @@ function rowPitchDelta(sfPdf, afPdf) {
  *  one script edit ZMCP_FP_MIGRATE allows), else picture. */
 function dateOp(target, script, pic, text) {
   const evidence = `SmartForm prints ${text.replace(/\d/g, '9')}`;
-  return /DateFmt/.test(script) ? { op: 'datePicture', target, picture: pic, rule: 'R3', evidence } : { op: 'picture', target, format: pic, rule: 'R3', evidence };
+  if (!/DateFmt/.test(script)) return { op: 'picture', target, format: pic, rule: 'R3', evidence };
+  // the FM's datePicture takes exactly one "$.format.picture = DateFmt(<n>, $.locale)"; any other DateFmt use: no op
+  const n = (script.match(/\$\.format\.picture\s*=\s*DateFmt\(\s*\d\s*,\s*\$\.locale\s*\)/g) || []).length;
+  return n === 1 ? { op: 'datePicture', target, picture: pic, rule: 'R3', evidence } : null;
+}
+
+/** R10: offsets of flowed blocks from static-text anchors (see correctionSpec). → [{ target, top, dy, n, clamped }] */
+function blockOffsets(t, score) {
+  const entries = allTargets(t);
+  const byNode = new Map(entries.map((e) => [e.node, e]));
+  const textOf = (el) => (el.children || []).map((c) => (c.tag === '#text' ? c.text || '' : textOf(c))).join('');
+  const hasEmbed = (el) => (el.children || []).some((c) => c.attrs?.['xfa:embed'] || c.attrs?.embed || hasEmbed(c));
+  const norm = (s) => String(s).replace(/\s+/g, ' ').trim();
+  // the flowed block of an element: its ancestor whose parent is a MAIN subform, or the proto root it sits in
+  const blockOf = (e) => {
+    for (let cur = e; cur; cur = byNode.get(cur.parent)) {
+      if (cur.target.protoId && !cur.target.path) return cur;
+      if (cur.parent?.tag === 'subform' && /^MAIN$/.test(cur.parent.attrs?.name || '') && !cur.target.protoId) return cur;
+    }
+    return null;
+  };
+  // the printed text is the draw's <value> (its <desc> is not printed)
+  const statics = entries.filter((e) => e.node.tag === 'draw' && !hasEmbed(e.node))
+    .map((e) => ({ e, text: norm(kids(e.node, 'value').map(textOf).join(' ')) })).filter((x) => x.text);
+  const groups = new Map();
+  for (const m of score.diff.moved) {
+    if (m.page !== 1 || m.candPage !== 1) continue;
+    const t1 = norm(m.text);
+    const hits = statics.filter((s) => s.text === t1 || s.text.split(' ').length > 1 && s.text.startsWith(`${t1} `));
+    if (hits.length !== 1) continue;
+    const b = blockOf(hits[0].e);
+    if (!b) continue;
+    const g = groups.get(b) || { b, dys: [], y: Infinity };
+    g.dys.push(m.dy);
+    g.y = Math.min(g.y, m.at[1]);
+    groups.set(b, g);
+  }
+  const out = [];
+  let applied = 0;
+  for (const g of [...groups.values()].sort((a, c) => a.y - c.y)) {
+    const dy = Math.round(median(g.dys) * 100) / 100;
+    // a block printed higher (dy < 0) needs -dy more room above it, less what earlier insets already moved it
+    const need = Math.round((-dy - applied) * 100) / 100;
+    if (Math.abs(need) < 0.25) continue;
+    const cur = unit(kids(g.b.node, 'margin')[0]?.attrs?.topInset, 0);
+    const top = Math.max(0, cur + need);
+    out.push({ target: g.b.target, top, dy, n: g.dys.length, clamped: cur + need < 0 });
+    applied += top - cur;
+  }
+  return out;
 }
 
 /** The correction spec v1 for one migrated form. */
@@ -285,7 +337,7 @@ export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, 
         const script = JSON.stringify(node.children || []);
         if (!/DateFmt|date\{/.test(script)) continue;
         used.add(p);
-        ops.push(dateOp({ path: p }, script, pic, m.text));
+        { const o = dateOp({ path: p }, script, pic, m.text); if (o) ops.push(o); else notes.push(`${p}: DateFmt script not in the one form datePicture takes — date picture not set`); }
       }
       for (const [id, node] of t.protos) {
         const walk = (el, path) => {
@@ -296,13 +348,21 @@ export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, 
             const key = `${id}:${pp}`;
             if (c.tag === 'field' && name && /DAT|DATE|DATUM/i.test(name) && !used.has(key) && /DateFmt|date\{/.test(JSON.stringify(c.children || []))) {
               used.add(key);
-              ops.push(dateOp({ protoId: id, path: pp }, JSON.stringify(c.children || []), pic, m.text));
+              { const o = dateOp({ protoId: id, path: pp }, JSON.stringify(c.children || []), pic, m.text); if (o) ops.push(o); else notes.push(`${id}:${pp}: DateFmt script not in the one form datePicture takes — date picture not set`); }
             }
             walk(c, pp);
           }
         };
         walk(node, '');
       }
+    }
+    // R10 — block offsets in the flow: static texts (draws without embedded values) the score finds moved are anchors;
+    // per flowed block (a child of the flowed root's MAIN, or a proto root such as a table header leader) the median dy;
+    // blocks in print order get top inset so each lands where the SmartForm prints it (an inset moves the block and
+    // all after it). Measured on a print that already has the structural rules (like R9).
+    for (const o of blockOffsets(t, score)) {
+      ops.push({ op: 'margin', target: o.target, topInset: mm(o.top), rule: 'R10', evidence: `${o.n} texts dy ${o.dy}` });
+      if (o.clamped) notes.push(`${JSON.stringify(o.target)}: block printed lower than the SmartForm (${o.dy} mm) — top inset cannot go below 0`);
     }
   }
   return { version: 1, source, ops, notes };
