@@ -5,20 +5,21 @@ Referenced by `SKILL.md`. `<B>` = `node "<PLUGIN_ROOT>/scripts/role/build-role-d
 ## Step 1 — Which document
 
 1. Confirm the active profile in one line (alias, SID, tier). List the folders under `<RM>` (code, project, version from each `<CODE>-roles.json`).
-2. An existing document → **Operations** below. A new one → Step 2.
+2. An existing document → **Operations** below. A new one → Step 2. A user + T-code authorization error (ARGUMENTS name a user and a T-code, or "SU53" / "no authorization") → [`triage.md`](triage.md), not this workflow.
 
 ## Step 2 — Intake
 
-One `AskUserQuestion` (2 options): **새로 설계 (new design)** / **SAP 권한 연동 (read from SAP)**. Then one free-text ask, with an example filled in:
+One `AskUserQuestion` (3 options): **새로 설계 (new design)** — a project's role blueprint / **SAP 권한 연동 (read from SAP)** — an audit or SoD review of the live roles / **권한 오류 분석 (triage)** — one user's "no authorization" in one T-code → [`triage.md`](triage.md). A mode already named in ARGUMENTS skips it. Then one free-text ask, with an example filled in:
 
 - code (letters, digits, `_` `-`, ≤ 30), project name, system / module (`PRD / PM`), author, reviewer
 - modules in scope (`PM`, or `MM, SD`)
+- document language: Korean (`ko`), English (`en`) or Japanese (`ja`); default the profile `config.json` `language`. With `ja`, SAP texts are read in Japanese (English where the system has none) and the consultant writes role names and descriptions in Japanese
 - read from SAP: role-name patterns (`Z_PM*, ZPM*`; `*` wildcard) and whether to read the user assignment (default yes — user IDs only)
 - new design: organizations the derived roles split by (`plants 1000, 2000`), the business roles the user already has in mind (optional), an existing role list or workbook to start from (optional, attachment)
 
 ## Step 3a — Read from SAP
 
-1. `<B> sync --code <CODE> --patterns "<p1,p2>" --module <M> [--no-users] --project "<name>" --system "<SID / module>" --author "<name>"` — read-only. A model that exists keeps what people wrote (business-role names, user names / departments, SoD rules, notes); `--replace` starts over.
+1. `<B> sync --code <CODE> --patterns "<p1,p2>" --module <M> --lang <ko|en|ja> [--no-users] --project "<name>" --system "<SID / module>" --author "<name>"` — read-only. A model that exists keeps what people wrote (business-role names, user names / departments, SoD rules, notes); `--replace` starts over.
 2. `readErrors` mentioning `ZMCP_ADT_DISPATCH … not allowed` on BASIS < 7.50 → the dispatcher on that system predates the role-table rule: tell the user the AGR_* role tables must be allowed in `TABLE_READ` (see `abap/zmcp_adt_dispatch_ecc.abap`), and stop. Never change SAP code without the user's explicit approval for that system.
 3. Levels read from SAP are **estimates** (`guess` rows, marked "?"): a T-code's level comes from the role's ACTVT values (01/06 → F, 02 → C, 03 only → D) and from display wording in the T-code text. Say so in the report.
 4. Large reads are complete: role names are read in name ranges past the 5000-row limit of one read. A single role with more than 5000 T-codes or authorization values (an all-access role) is only partly read — `readErrors` names it; say so. The page shows long sheets in pages (rows and 50 role columns at a time); search, CSV and paste work on the whole sheet.
@@ -42,7 +43,7 @@ One `AskUserQuestion` (2 options): **새로 설계 (new design)** / **SAP 권한
    Display-only business role always. No customer names.
    ```
 
-3. Merge the module JSONs into one draft (`broles`, `troles`, `tcodes` — one row per T-code, levels merged —, `auths`, `sod`), add `doc` from Step 2, `Write` `<RM>/<CODE>/_draft.json`, then `<B> init --code <CODE> --from <RM>/<CODE>/_draft.json`.
+3. Merge the module JSONs into one draft (`broles`, `troles`, `tcodes` — one row per T-code, levels merged —, `auths`, `sod`), add `doc` from Step 2, `Write` `<RM>/<CODE>/_draft.json`, then `<B> init --code <CODE> --from <RM>/<CODE>/_draft.json --lang <ko|en>`.
 
 ## Step 4 — SoD rules and checks
 

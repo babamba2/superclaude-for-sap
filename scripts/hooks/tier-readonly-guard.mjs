@@ -16,7 +16,8 @@
  * Block matrix (Strict) — same as MCP server readonlyGuard:
  *   PRD: Create_, Update_, Delete_, Patch_, Write_, Activate_,
  *        RunUnitTest, RuntimeRun{Program,Class}WithProfiling,
- *        RuntimeCreateProfilerTraceParameters
+ *        RuntimeCreateProfilerTraceParameters,
+ *        RenderSmartForm, RenderAdobeForm (hook only - they run the form's code)
  *   QA:  same as PRD except RunUnitTest is allowed
  *   DEV: nothing blocked.
  *
@@ -49,6 +50,11 @@ const RUNTIME_EXEC = new Set([
   // those are already blocked on QA/PRD, so nothing usable is lost by blocking
   // the setup call too.
   'RuntimeCreateProfilerTraceParameters',
+  // Run a form's generated function module (its own program lines / context
+  // coding included) to get the printed output: SAP-side guards limit them to
+  // development clients, and here they stay off QA / PRD profiles too.
+  'RenderSmartForm',
+  'RenderAdobeForm',
 ]);
 const QA_ALLOW = new Set(['RunUnitTest']);
 

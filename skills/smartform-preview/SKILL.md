@@ -64,6 +64,11 @@ node scripts/smartform/build-preview.mjs symbols "<content>"
 → per symbol: its declaration (`HEADER` → type `ZXX_S_HEAD`), every place it prints (window, paragraph, font pt, cell width mm, in a loop or not).
 
 **Step 4 — Field types.** For every declaration type behind a symbol: `GetStructure` (structures, table lines), `GetDataElement` (single fields such as `CHAR100`, `STCEG`); `GetTable` when the type is a table. Parallel calls. Keep per field: data type, length, decimals, description.
+Write the answers to `<out>/ddic.json` (per type name: `{ "fields": { "NAME1": { "type": "CHAR", "length": 35, "decimals": 0, "desc": "…" } } }` for a structure, `{ "type", "length", "decimals", "desc" }` for a data element, `{ "lineType": "…" }` for a table type), then save `fields.json` for the next runs and the preview workbench:
+```
+node scripts/smartform/build-preview.mjs fields "<content>" --ddic "<out>/ddic.json" --out "<out>/fields.json"
+```
+`unknownType` lists symbols whose type was not read — say so; never guess a type.
 
 **Step 5 — Sample values** → write `<out>/values.json` with the `Write` tool:
 ```json
@@ -82,9 +87,9 @@ node scripts/smartform/build-preview.mjs symbols "<content>"
 
 **Step 6 — Build.**
 ```
-node scripts/smartform/build-preview.mjs build "<content>" --values "<out>/values.json" --out-dir "<out>" [--rows N] [--mark]
+node scripts/smartform/build-preview.mjs build "<content>" --values "<out>/values.json" --out-dir "<out>" --fields "<out>/fields.json" [--rows N] [--mark]
 ```
-`--mark` tints the sample values yellow (for review); unfilled symbols always show as blue `&NAME&` placeholders. The JSON report lists `filled`, `unfilled`, `overflow` (cells / windows whose content does not fit), `approximations` and the `defaultParagraph` used.
+`--fields` gives the DDIC types SAPscript needs for `&'pre'F'post'&` (a zero of a numeric / date / time field is initial: no pre / post text). `--mark` tints the sample values yellow (for review); unfilled symbols always show as blue `&NAME&` placeholders. The JSON report lists `filled`, `unfilled`, `overflow` (cells / windows whose content does not fit), `approximations` and the `defaultParagraph` used.
 
 **Step 7 — Check and show.** `Read` the JPG and look at it before answering: overlapping windows, empty windows, missing graphics, symbols left blue. Fix `values.json` and rebuild for value problems; report layout findings — never "fix" the form's layout in the drawing.
 </Workflow>
@@ -124,7 +129,8 @@ Reply in the user's language; show the JPG to the user when the client can displ
 </MCP_Tools_Used>
 
 <Files>
-- `scripts/smartform/build-preview.mjs` — `symbols` (where each symbol prints) and `build` (HTML + JPG + report)
+- `scripts/smartform/build-preview.mjs` — `symbols` (where each symbol prints), `fields` (fields.json from the DDIC answers) and `build` (HTML + JPG + report)
+- `scripts/smartform/preview-workbench.mjs` — `fieldsFrom`, `sampleValues` (deterministic invented values by type), `applySampleOps` (allow-listed sample edits), `renderPreview` (HTML without a browser; `inspect` adds `data-sym` / `data-node` and the `sf-index` for the web workbench)
 </Files>
 
 <Related_Skills>

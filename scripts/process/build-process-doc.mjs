@@ -14,7 +14,7 @@
 // The model is embedded as <script id="process-model"> for the edit mode (P2).
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderFlowchartSVG } from '../spec/screen-image-renderer.mjs';
 import { resolveArtifactBase } from '../lib/profile-resolve.mjs';
@@ -26,6 +26,7 @@ import { EDITOR_SCRIPT, EDITOR_STYLE, editorLabels } from './process-editor.mjs'
 import { caseMap, l3Map, stepLanes } from './swimlane.mjs';
 import { loadIntegrations, moduleSection, taskLinks, XSTYLE } from './integration-view.mjs';
 import { MENU_CSS, menuHeadRow, menuSection } from './menu-view.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const arr = (v) => (Array.isArray(v) ? v : []);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -301,7 +302,7 @@ export function renderProcessHtml(model, { version, date, history = [], integrat
   }
 
   const tocHtml = `<ol>${toc.map(([id, label, kids]) => `<li><a href="#${id}">${esc(label)}</a>${kids?.length ? `<ol>${kids.map(([k, l]) => `<li><a href="#${k}">${esc(l)}</a></li>`).join('')}</ol>` : ''}</li>`).join('')}</ol>`;
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${esc(m.lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} v${esc(version)}</title>
 <style>${STYLE}${EDITOR_STYLE}${XSTYLE}${MENU_CSS}</style></head>
@@ -317,7 +318,7 @@ ${sec.join('\n')}
 <script>${SCRIPT}</script>
 <script>${EDITOR_SCRIPT}</script>
 </body></html>
-`;
+`);
 }
 
 export function nextVersion(history, { sameVersion = false, major = false } = {}) {
@@ -373,6 +374,7 @@ export function importEditedHtml(htmlPath, outPath, historyPath) {
   const mm = /<script type="application\/json" id="process-model">([\s\S]*?)<\/script>/.exec(html);
   if (!mm) throw new Error(`${htmlPath} has no embedded process model — was it saved from the page's edit mode?`);
   const { model, version, history = [] } = JSON.parse(mm[1]);
+  mkdirSync(dirname(outPath), { recursive: true }); // e.g. a page attached on the web, imported into a fresh run folder
   if (existsSync(outPath)) writeFileSync(`${outPath}.bak`, readFileSync(outPath));
   writeFileSync(outPath, `${JSON.stringify(model, null, 2)}\n`, 'utf8');
   let added = [];

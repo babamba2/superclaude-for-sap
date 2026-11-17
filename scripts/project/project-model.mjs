@@ -36,8 +36,30 @@ export const MS_STATUS = ['planned', 'passed', 'conditional', 'failed'];
 export const WRICEF_KINDS = ['R', 'I', 'C', 'E', 'F', 'W'];
 export const STAGES = ['req', 'fs', 'ts', 'build', 'ut', 'fut', 'sit', 'done'];
 export const STAGE_SIDE = { req: 'F', fs: 'F', ts: 'D', build: 'D', ut: 'D', fut: 'F', sit: 'F', done: '' };
-export const STAGE_PCT = { req: 0, fs: 15, ts: 25, build: 50, ut: 65, fut: 80, sit: 90, done: 100 };
+export const RISK_IMPACT = ['H', 'M', 'L'];
+export const RISK_STATUS = ['open', 'closed'];
+export const DECISION_STATUS = ['open', 'decided'];
+export const STAGE_PCT ={ req: 0, fs: 15, ts: 25, build: 50, ut: 65, fut: 80, sit: 90, done: 100 };
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
+export const UAT_SET_ID = /^[A-Za-z0-9_-]{1,30}$/; // same rule as scripts/uat/build-uat.mjs
+
+/**
+ * A number typed into a dashboard cell: '' (empty), a number, or null (not a number — the editor keeps the old value).
+ * Commas in 3-digit groups after a non-zero lead are thousands ("1,500" → 1500, "1,500,000.5" → 1500000.5); one comma not followed by
+ * exactly 3 digits — or after a whole part of 0 — is a decimal comma ("1,5" → 1.5, "0,500" → 0.5); any other comma
+ * ("1,50,0", "00,500") is no number.
+ */
+export function parseNumber(text) {
+  let t = String(text ?? '').trim().replace(/\s+/g, '');
+  if (t === '') return '';
+  if (/^[-+]?[1-9]\d{0,2}(,\d{3})+(\.\d+)?$/.test(t)) t = t.replace(/,/g, '');
+  else {
+    // a decimal comma: "1,5", "12,34"; with exactly 3 digits after it only when the whole part is 0 ("0,500" → 0.5)
+    const d = /^[-+]?(0|[1-9]\d*)?,(\d+)$/.exec(t);
+    if (d && (d[2].length !== 3 || !d[1] || d[1] === '0')) t = t.replace(',', '.');
+  }
+  return /^[-+]?(\d+\.?\d*|\.\d+)$/.test(t) ? +t : null;
+}
 
 /** Fills defaults, keeps unknown fields. Returns a new model. */
 export function normalizeModel(m) {
@@ -45,6 +67,9 @@ export function normalizeModel(m) {
   out.schema = 1;
   out.lang = out.lang || 'ko';
   out.project = { modules: [], packages: [], ...out.project };
+  // UAT sets of the project (set ids; `{ id }` accepted) — the weekly status reads them as evidence
+  // a set id is never a path: only the UAT builder's ids (letters, digits, _ or -, up to 30) stay
+  if (out.project.uatSets != null) out.project.uatSets = arr(out.project.uatSets).map(x => String((typeof x === 'string' ? x : x?.id) || '').trim()).filter(x => UAT_SET_ID.test(x));
   out.team = arr(out.team);
   out.workstreams = arr(out.workstreams);
   out.wbs = arr(out.wbs).map(w => {
@@ -60,6 +85,10 @@ export function normalizeModel(m) {
   out.milestones = arr(out.milestones).map(x => ({ status: 'planned', criteria: [], ...x }));
   out.snapshots = arr(out.snapshots);
   out.kpis = arr(out.kpis).map(k => ({ dir: 'up', history: [], ...k }));
+  // weekly status (all optional; older models open unchanged)
+  out.risks = arr(out.risks).map(r => ({ impact: 'M', status: 'open', ...r }));
+  out.decisions = arr(out.decisions).map(d => ({ status: 'open', ...d }));
+  out.statusLog = arr(out.statusLog);
   return out;
 }
 const clampPct = (n) => Math.max(0, Math.min(100, Math.round(Number(n) || 0)));
@@ -115,6 +144,22 @@ export function checkModel(m) {
     if (!DATE.test(x.base || '')) errors.push(`milestone ${x.id}: base must be YYYY-MM-DD`);
     if (x.phase && !ids.has(x.phase)) warnings.push(`milestone ${x.id}: phase ${x.phase} not found`);
   }
+  for (const [list, kind, states] of [[m?.risks, 'risk', RISK_STATUS], [m?.decisions, 'decision', DECISION_STATUS]]) {
+    const seen = new Set();
+    for (const x of arr(list)) {
+      if (!x.id) { errors.push(`${kind} without id ("${x.text || ''}")`); continue; }
+      if (seen.has(x.id)) errors.push(`duplicate ${kind} id ${x.id}`);
+      seen.add(x.id);
+      if (!x.text) warnings.push(`${kind} ${x.id}: text missing`);
+      if (x.status && !states.includes(x.status)) errors.push(`${kind} ${x.id}: unknown status "${x.status}"`);
+      if (kind === 'risk' && x.impact && !RISK_IMPACT.includes(x.impact)) errors.push(`risk ${x.id}: impact must be H, M or L`);
+      for (const k of ['due', 'raised', 'decided']) if (x[k] && !DATE.test(x[k])) errors.push(`${kind} ${x.id}: ${k} must be YYYY-MM-DD`);
+      if (x.owner && !team.has(x.owner)) warnings.push(`${kind} ${x.id}: owner ${x.owner} is not in the team`);
+    }
+  }
+  const st = m?.status;
+  if (st?.overall && !['red', 'amber', 'green'].includes(st.overall)) errors.push(`status.overall must be red, amber or green`);
+  for (const [w, r] of Object.entries(st?.wsRag || {})) if (!['red', 'amber', 'green'].includes(r)) errors.push(`status.wsRag.${w} must be red, amber or green`);
   return { errors, warnings };
 }
 
@@ -341,4 +386,14 @@ export function withSnapshot(model, today = iso(Date.now())) {
   snaps.push({ date: v.today, planned: v.progress.planned, actual: v.progress.actual, kpi });
   snaps.sort((a, b) => (a.date < b.date ? -1 : 1));
   return { ...model, snapshots: snaps };
+}
+
+/** One list card of the web workbench: code, name, type, go-live, overall RAG, days to go-live, last status week, progress, open risks, late items. */
+export function summary(model, today = iso(Date.now())) {
+  const m = normalizeModel(model || {});
+  const v = viewModel(m, today), p = m.project || {};
+  const last = arr(m.statusLog).map((x) => x.weekEnd).sort().at(-1) || '';
+  return { kind: 'project', code: p.code || '', name: p.name || '', type: p.type || '', goLive: p.goLive || '', lang: m.lang || 'ko',
+    overall: m.status?.overall || v.overall, dDay: p.goLive ? days(v.today, p.goLive) : null, lastWeek: last,
+    progress: v.progress, risksOpen: m.risks.filter((r) => r.status !== 'closed').length, late: v.late.length };
 }

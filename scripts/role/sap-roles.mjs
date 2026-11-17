@@ -10,14 +10,16 @@
 // the AGR_* role tables too (see abap/zmcp_adt_dispatch_ecc.abap).
 
 import { connect, readTable, readIn } from '../config/sap-reader.mjs';
-import { arr, MODULES, LEVEL_RANK } from './role-model.mjs';
+import { arr, MODULES, LEVEL_RANK, normalizeModel } from './role-model.mjs';
 
 export const ROLE_TABLES = ['AGR_DEFINE', 'AGR_TEXTS', 'AGR_FLAGS', 'AGR_AGRS', 'AGR_TCODES', 'AGR_1251', 'AGR_1252'];
 export const USER_TABLES = ['AGR_USERS'];
+/** Every table readRoles reads — the fixed allow list a caller hands its own connection (never named by a request). */
+export const ROLE_READ_TABLES = (withUsers = true) => [...ROLE_TABLES, ...(withUsers ? USER_TABLES : []), 'TSTCT', 'TOBJT', 'AUTHX', 'DD04T', 'USORG'];
 
 const ORG_NAMES = { BUKRS: 'Company Code', WERKS: 'Plant', IWERK: 'Planning Plant', SWERK: 'Plant', VKORG: 'Sales Org', EKORG: 'Purchasing Org', KOKRS: 'Controlling Area',
   VTWEG: 'Distribution Channel', SPART: 'Division', LGNUM: 'Warehouse', GSBER: 'Business Area', PERSA: 'Personnel Area', BWKEY: 'Valuation Area', VSTEL: 'Shipping Point' };
-const DISPLAY_RE = /display|show|anzeig|조회|표시|list|report|overview|리스트|현황|보고/i;
+const DISPLAY_RE = /display|show|anzeig|조회|표시|list|report|overview|리스트|현황|보고|照会|表示|一覧|レポート/i;
 const sapDate = (s) => { const t = String(s || '').replace(/-/g, ''); return /^\d{8}$/.test(t) && t !== '00000000' ? `${t.slice(0, 4)}-${t.slice(4, 6)}-${t.slice(6, 8)}` : ''; };
 
 /** SAP role-name patterns (Z*, Z_PM_*) → SQL LIKE conditions. */
@@ -152,10 +154,48 @@ export async function readRoleNames(client, pattern, max = 5000) {
   return { ok: errors.length === 0, rows, error: errors[0], errors, truncated };
 }
 
+/**
+ * The roles read from SAP (readRoles rows) laid onto the existing document — the merge of `build-role-doc sync`, shared
+ * with the web workbench. Without `replace`, what people wrote stays: business-role names / texts, user names and
+ * departments, SoD rules, authorization notes; SAP decides roles, T-codes, levels and assignments.
+ * Returns the new model (`old` is not changed).
+ */
+export function mergeSync(oldModel, rows, { module = '', replace = false, patterns = [], withUsers = true, system = '', today = new Date().toISOString().slice(0, 10), doc = {}, code = '' } = {}) {
+  const old = normalizeModel(JSON.parse(JSON.stringify(oldModel || {})));
+  const got = mapRoles(rows, { module, today });
+  const keep = (list, key, fresh, fields) => fresh.map((x) => { const o = replace ? null : list.find((y) => y[key] === x[key]); if (!o) return x; for (const k of fields) if (o[k]) x[k] = o[k]; return x; });
+  return normalizeModel({
+    ...old,
+    doc: { ...old.doc, ...Object.fromEntries(Object.entries(doc || {}).filter(([, x]) => x)), code: code || old.doc.code, mode: 'sap' },
+    broles: keep(old.broles, 'id', got.broles, ['name', 'nameEn', 'desc', 'tasks', 'org', 'note', 'ext']),
+    troles: keep(old.troles, 'id', got.troles, ['owner', 'note', 'status', 'ext']),
+    tcodes: keep(old.tcodes, 'tcode', got.tcodes, ['area', 'note', 'module', 'ext']),
+    users: keepShared(old.users, keep(old.users, 'uid', got.users, ['empNo', 'name', 'dept', 'pos', 'plant', 'note', 'approval', 'ext'])),
+    auths: got.auths.map((a) => { const o = replace ? null : old.auths.find((y) => y.trole === a.trole && y.object === a.object && y.field === a.field); return o ? { ...a, note: o.note, ext: o.ext } : a; }),
+    sod: old.sod,
+    source: { system, readAt: today, patterns, users: withUsers, roles: arr(rows?.define).length },
+  });
+}
+
+/**
+ * A shared user ID (several people on one ID in the workbook) is one user in SAP: keep() fills the first of those
+ * rows; the other rows stay, with what people wrote, and take the roles SAP gives that ID.
+ */
+export function keepShared(old, fresh) {
+  if (!old.length) return fresh;
+  const out = [];
+  for (const x of fresh) {
+    out.push(x);
+    for (const o of old.filter((y) => y.uid && y.uid === x.uid).slice(1)) out.push({ ...o, roles: { ...x.roles }, valid: x.valid });
+  }
+  return out;
+}
+
 /** Reads the roles matching the patterns from the connected system. */
-export async function readRoles({ patterns = ['Z*'], withUsers = true, lang = 'ko', maxRoles = 5000 } = {}) {
-  const allow = [...ROLE_TABLES, ...(withUsers ? USER_TABLES : []), 'TSTCT', 'TOBJT', 'AUTHX', 'DD04T', 'USORG'];
-  const client = await connect('role-matrix', { allowTables: allow });
+export async function readRoles({ patterns = ['Z*'], withUsers = true, lang = 'ko', maxRoles = 5000, client: given = null } = {}) {
+  // A caller's own connection (e.g. a backend with its own guards) is used as given and left open; else one is opened
+  // here with ROLE_READ_TABLES as its allow list and closed at the end.
+  const client = given || await connect('role-matrix', { allowTables: ROLE_READ_TABLES(withUsers) });
   const errors = [];
   const need = (r, what) => {
     if (!r.ok) errors.push(`${what}: ${String(r.error || arr(r.errors).join(' | ')).slice(0, 240)}`);
@@ -165,7 +205,7 @@ export async function readRoles({ patterns = ['Z*'], withUsers = true, lang = 'k
     return r.rows || [];
   };
   try {
-    const spras = lang === 'en' ? 'E' : '3';
+    const spras = lang === 'en' ? 'E' : lang === 'ja' ? 'J' : '3';
     const define = [], seen = new Set();
     for (const p of patterns) {
       const r = await readRoleNames(client, p, maxRoles);
@@ -183,18 +223,23 @@ export async function readRoles({ patterns = ['Z*'], withUsers = true, lang = 'k
     rows.org = need(await readIn(client, 'AGR_1252', 'AGR_NAME', names), 'AGR_1252');
     if (withUsers) rows.users = need(await readIn(client, 'AGR_USERS', 'AGR_NAME', names, { fields: ['AGR_NAME', 'UNAME', 'FROM_DAT', 'TO_DAT'] }), 'AGR_USERS');
     const tcs = [...new Set(rows.tcodes.map((t) => t.TCODE || t.LOW).filter(Boolean))];
-    rows.tstct = need(await readIn(client, 'TSTCT', 'TCODE', tcs, { extra: { SPRSL: spras } }), 'TSTCT');
+    // A language not installed on the system (often Japanese) has no texts: English then.
+    const texts = async (table, key, keys, langField, extra = {}) => {
+      const got = need(await readIn(client, table, key, keys, { extra: { [langField]: spras, ...extra } }), table);
+      return got.length || spras === 'E' || !keys.length ? got : need(await readIn(client, table, key, keys, { extra: { [langField]: 'E', ...extra } }), table);
+    };
+    rows.tstct = await texts('TSTCT', 'TCODE', tcs, 'SPRSL');
     const objs = [...new Set(rows.auth.map((a) => a.OBJECT))];
-    rows.tobjt = need(await readIn(client, 'TOBJT', 'OBJECT', objs, { extra: { LANGU: spras } }), 'TOBJT');
+    rows.tobjt = await texts('TOBJT', 'OBJECT', objs, 'LANGU');
     const fields = [...new Set(rows.auth.map((a) => a.FIELD))];
     const authx = need(await readIn(client, 'AUTHX', 'FIELDNAME', fields), 'AUTHX');
     const rolls = [...new Set(authx.map((a) => a.ROLLNAME).filter(Boolean))];
-    const dd04t = need(await readIn(client, 'DD04T', 'ROLLNAME', rolls, { extra: { DDLANGUAGE: spras, AS4LOCAL: 'A' } }), 'DD04T');
+    const dd04t = await texts('DD04T', 'ROLLNAME', rolls, 'DDLANGUAGE', { AS4LOCAL: 'A' });
     const dt = new Map(dd04t.map((d) => [d.ROLLNAME, d.SCRTEXT_M || d.DDTEXT]));
     rows.fieldText = Object.fromEntries(authx.map((a) => [a.FIELDNAME, dt.get(a.ROLLNAME) || '']));
     rows.usorg = need(await readTable(client, 'USORG', {}), 'USORG');
     return { rows, errors };
   } finally {
-    await client.close().catch(() => {});
+    if (!given) await client.close().catch(() => {});
   }
 }

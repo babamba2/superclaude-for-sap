@@ -46,31 +46,38 @@ Settled with the user (2026-11-06) — do not ask again:
 
 <Paths>
 `<AB>` = the active profile's artifact base ([`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md)). `<DIR>` = `<AB>/cbo/<MODULE>/<PACKAGE>` (whole package, the inventory folder), `<UDIR>` = `<AB>/cbo/<MODULE>/<PACKAGE>.used` (used TCodes only). One package → `<DIR or UDIR>/<PACKAGE>-relation-map-<lang>.html`; several → `<AB>/cbo/<MODULE>/_relmap/<A+B+…>-relation-map-<lang>.html`.
-Tool: `node "<PLUGIN_ROOT>/scripts/relmap/build-relation-map.mjs" --dir <dir> [--dir <dir2> …] --lang ko|en [--snippets] [--includes keep] [--out <file>]` — the header of that file lists every option.
+Tool: `node "<PLUGIN_ROOT>/scripts/relmap/build-relation-map.mjs" find --base <dir> … --packages <list>` and `… --dir <dir> [--dir <dir2> …] --lang ko|en|ja [--snippets [--src <dir> …]] [--includes keep] [--sid <SID>] [--max-bytes <n>] [--out <file>]` — both offline; the header of that file lists every option.
 </Paths>
 
 <Workflow>
-**Step 1 — Find the graphs.** Packages from the request (ask once if none). For each, Glob `<AB>/cbo/*/<PACKAGE>/graph.json` and `<AB>/cbo/*/<PACKAGE>.used/graph.json` on the active profile only.
-- Found → those folders are the inputs (both, when both exist).
-- Same package under two modules → ask which one.
-- None, a refresh asked for, or the user wants used TCodes only → [`collect.md`](collect.md), then continue here.
+**Step 0 — Intake.** From ARGUMENTS, plain words or one `Label: value` line each (web form):
+- `Packages: ZMM*, ZSD_CBO` — names or prefixes ending in `*` or `%` (`ZMM%` = `ZMM*`; write `%` on the command line where `*` is refused), comma-separated (required; ask once if none)
+- `Scope: Use existing graph | Collect whole package | Collect used TCodes only` — default *Use existing graph*: never collect unasked. The two Collect values go to [`collect.md`](collect.md) § A / § B for those packages (reads SAP)
+- `Source lines: Yes | No` → `--snippets` (default Yes)
+- `Language: Korean | English | Japanese` → `--lang ko | en | ja` (default: the profile language; Korean page + English companion when nothing is named)
+- Paths a hosted run gives (knowledge base, source folders, output file, `--max-bytes`) are used as given.
 
-**Step 2 — Check what each graph holds** (main thread, one Bash call per graph; never read `graph.json` into context):
+**Step 1 — Find the graphs** (offline, one call; `--base` repeats — the profile's `<AB>/cbo`, plus any knowledge-base or run folder named):
 
 ```bash
-node -e "const g=require(process.argv[1]);const c={};for(const e of g.edges)c[e.kind]=(c[e.kind]||0)+1;console.log(JSON.stringify({builtAt:g.builtAt,sapVersion:g.sapVersion,parsed:g.coverage?.parsed??0,kinds:c}))" "<dir>/graph.json"
+node "<PLUGIN_ROOT>/scripts/relmap/build-relation-map.mjs" find --base "<AB>/cbo" [--base "<dir2>" …] --packages "<list>"
 ```
 
-One line each, only when true (notes, not stops): `parsed` = 0 → DDIC relations only (no code relations, no CRUD or Fields tab); `parsed` > 0 but no `fields.json` beside `graph.json` and `ddic-reads.json` present → rerun G5 of [`../stock-cbo/graph-usage.md`](../stock-cbo/graph-usage.md) first (seconds, no SAP call) so the Fields tab has data; no `checks` / `searchHelp` / `rowType` / `basedOn` / `valueTable` → the inventory predates the DDIC relation reads (G3), typing only; `builtAt` older than 30 days → may be out of date — offer [`collect.md`](collect.md).
+It prints `{ ok, graphs[{ package, packages, module, scope, dir, builtAt, parsed, kinds, hasFields, moduleWide, notes }], missing, ambiguous, dirs }`. `dirs` is the `--dir` list for Step 3 (per package its whole-package graph and its used-TCode graph; a module-wide used graph only for a package with no graph of its own).
+- `missing` → Scope *Use existing graph*: stop and name the packages (offer the Collect scopes); a Collect scope → [`collect.md`](collect.md), then run `find` again.
+- `ambiguous` (same package under two modules, or two equal folders) → ask which `dir`; a hosted run stops and names them.
+- A refresh asked for, or used TCodes only wanted and no used graph → [`collect.md`](collect.md).
 
-**Step 3 — Build** (one Bash call per language, all folders in one call; `--snippets` when any graph has `parsed` > 0):
+**Step 2 — Notes.** Relay each graph's `notes` in one line (notes, not stops): *DDIC relations only*; *no fields.json* with `ddic-reads.json` present → rerun G5 of [`../stock-cbo/graph-usage.md`](../stock-cbo/graph-usage.md) first (seconds, no SAP call) so the Fields tab has data; *typing only* → the inventory predates the DDIC relation reads (G3); *older than 30 days* → may be out of date, offer [`collect.md`](collect.md). Never read `graph.json` into context.
+
+**Step 3 — Build** (one Bash call per language — only the named one when a language is given; all folders in one call; `--snippets` when any graph has `parsed` > 0, unless `Source lines: No`):
 
 ```bash
 node "<PLUGIN_ROOT>/scripts/relmap/build-relation-map.mjs" --dir "<dir1>" [--dir "<dir2>" …] --lang ko --snippets
 node "<PLUGIN_ROOT>/scripts/relmap/build-relation-map.mjs" --dir "<dir1>" [--dir "<dir2>" …] --lang en --snippets
 ```
 
-Each prints `{ page, bytes, nodes, edges, members, custom, groups, isolated, droppedEdges, foldedIncludes, byBasis, usage, stdChecks, snippets, sourcesParsed, packages }`. Exit 2 = graph missing or no customer object → show the stderr line and stop. Do not open the HTML into context. `bytes` over 15 MB → rebuild without `--snippets` and say so.
+Use `--dir` once per entry of `dirs`. Add `--sid <SID>` (the profile's system) and, in a hosted run, `--src <dir>` per source folder, `--max-bytes <n>` and `--out <file>` as given. Each prints `{ page, bytes, nodes, edges, members, custom, groups, isolated, droppedEdges, foldedIncludes, byBasis, usage, stdChecks, snippets, sourcesParsed, packages[, reason] }`. Exit 2 = graph missing or no customer object → show the stderr line and stop. `reason: "size"` → the page was rebuilt without source snippets to fit `--max-bytes`; say so. Exit 3 = still over `--max-bytes` without snippets, nothing written → stop and suggest fewer packages. Without `--max-bytes`: `bytes` over 15 MB → rebuild without `--snippets` and say so. Do not open the HTML into context.
 
 **Step 4 — Report** in the Output_Format. Offer to open the page in the browser.
 </Workflow>

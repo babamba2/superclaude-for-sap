@@ -339,7 +339,8 @@
         {
           "param": "shtyp",
           "ask": "Which shipment type?",
-          "when": "shtyp is missing"
+          "when": "shtyp is missing",
+          "values": "LE_SHIPMENT_TYPE"
         },
         {
           "param": "tplst",

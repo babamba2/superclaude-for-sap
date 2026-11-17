@@ -24,7 +24,7 @@ Multi-phase skill. Before each `Agent(...)` dispatch (including every parallel c
 </Phase_Banner>
 
 <Team_Mode>
-When module routing produces ≥ 2 consultants, Step 4 doubles as teamMode Round 1. If Round 1 POSITIONs diverge (per [`team-mode.md`](team-mode.md) § Divergence check), escalate to Rounds 2-3 and use the teamMode synthesis variant instead of Step 5 legacy synthesis. Single-consultant questions and aligned Round 1 → legacy synthesis (Step 5) unchanged. See [`team-mode.md`](team-mode.md) for orchestration + shared task list layout + response prefix variant. Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md).
+When module routing produces ≥ 2 consultants, Step 4 doubles as teamMode Round 1 (POSITION block requested inline — no team files, no team docs read). If Round 1 POSITIONs diverge (Step 4 § Divergence check), only then read [`team-mode.md`](team-mode.md) + [`team-rounds.md`](team-rounds.md), persist Round 1, run Rounds 2-3 and the teamMode synthesis. Single-consultant questions and aligned Round 1 → legacy synthesis (Step 5). Base protocol: [`../../common/team-consultation-protocol.md`](../../common/team-consultation-protocol.md).
 </Team_Mode>
 
 <Use_When>
@@ -85,9 +85,21 @@ Supported consultants (15 total):
 Per-step model allocation (the main thread follows the session model — frontmatter `model: inherit`, because it judges divergence and reviews the synthesis; Agent dispatches carry their own model):
 
 1. **Trust bootstrap** — § `<Session_Trust_Bootstrap>`. (main · skill-to-skill)
-2. **Environment load** — read `config.json` + `sap.env`; surface resolved values on the FIRST turn only (one line: `SAP: <version> · <industry> · <country> · active: <modules>`). (main thread)
+2. **Environment load** — run `node "${CLAUDE_PLUGIN_ROOT}/scripts/spro-query.mjs" --status <routed modules>` first: line 1 gives the `config=` and `env=` paths (the active profile under `~/.sc4sap/profiles/<alias>/`, not `.sc4sap/` of the workspace), then the exact SPRO cache file and customizations dir per module, or `none`. Read the two files at those paths and copy the module lines into the context kit verbatim; `config=none` → ask the user per § Environment_Context; surface resolved values on the FIRST turn only (one line: `SAP: <version> · <industry> · <country> · active: <modules>`). (main thread)
 3. **Module routing** — apply § `<Module_Routing>`. If ambiguous, ask one question and stop. (main thread)
-4. **Consultant dispatch** — one `Agent(...)` per resolved module (parallel in a single message when 2–3 modules match).
+4. **Consultant dispatch** — always dispatch; the main thread never answers from its own knowledge, however general the question looks (the consultant checks the configured environment and the reference files). One `Agent(...)` per resolved module (parallel in a single message when 2–3 modules match). Every prompt carries the **context kit** below so the consultant never searches the file system for the plugin or re-parses caches:
+   ```
+   Environment: <sapVersion> · <abapRelease> · <industry> · <country> · active: <modules> (resolved — do not re-read config.json / sap.env)
+   Plugin root: ${CLAUDE_PLUGIN_ROOT} — rules common/, module docs configs/<M>/, industry/, country/. Use only this root.
+   SPRO cache: <yes: file | no>. Query it only with
+     node "${CLAUDE_PLUGIN_ROOT}/scripts/spro-query.mjs" --module <M> [--find FIELD | --table T [--where F=v1|v2,G~txt] [--fields A,B]]
+     (list → find → filtered rows; no ad-hoc scripts, no full reads of the cache file). Cache present and the answer
+     depends on this system's configuration → check the relevant tables with it before answering.
+   Customizations cache: <path | none> — grep it for customer exits / BAdIs / BTEs on the process asked about (they can
+     change standard behaviour) and name any hit in the answer (common/customization-lookup.md).
+   configs/<M>/*.md: grep the TCodes / tables / BAPIs you cite (ECC/S4 column) — no whole-file reads.
+   Answer size follows the question; drop Output_Format sections that do not apply.
+   ```
    Emit phase banner per dispatch:
    ```
    ▶ phase=4 (consultant-<MODULE>) · agent=sap-<module>-consultant · model=Opus
@@ -100,7 +112,8 @@ Per-step model allocation (the main thread follows the session model — frontma
      prompt: <user question + environment context + expected format>
    })
    ```
-   **teamMode variant**: when N ≥ 2, Step 4 doubles as Round 1 of teamMode — use the Round 1 spawn shape in [`team-rounds.md`](team-rounds.md) § Round 1 (inlined charter + `teamMode=true`; each consultant returns a POSITION block ahead of its answer and the lead persists it to the run directory — no `team_name`).
+   **N ≥ 2 (teamMode Round 1)**: append to each prompt — `teamMode=true, round=1, member=sap-<module>-consultant. Do NOT write any file and do not read the team protocol. Start your reply with this block, then your answer:` followed by `POSITION` / `assumption: …` / `recommendation: …` / `confidence: high|med|low` / `rule-cites: …` (one `field: value` per line, ≤ 5 lines of reasoning). Banner phase id `4.R1`.
+   **Divergence check** (main, no agent call): aligned = every `recommendation` names the same core action on the same object and no `assumption` contradicts another; fast path: same primary TCode / IMG node in every recommendation with confidence ≥ med. One `low` that does not contradict the rest = aligned. Aligned → append `<UTC timestamp> aligned R1 <members>` to `~/.claude/tasks/ask-consultant-r1.log` (round statistics) and go to Step 5. Divergent → read [`team-rounds.md`](team-rounds.md), write `00-charter.md` + the R1 `10-*-position.md` files from the returns, continue at Round 2.
 5. **Synthesis (conditional — only when ≥ 2 consultants replied)** — dispatch `sap-writer` with `model: "sonnet"` override. Writer's base model is Haiku (pure formatting); Sonnet override gives the light cross-domain reasoning needed to detect agreement / disagreement between consultant answers without jumping to Opus.
    Emit banner:
    ```
@@ -130,7 +143,7 @@ Per-step model allocation (the main thread follows the session model — frontma
    ```
    **teamMode variant**: if Round 1 POSITIONs diverged (per [`team-rounds.md`](team-rounds.md) § Divergence check), do NOT run the legacy synthesis above — follow [`team-rounds.md`](team-rounds.md) Rounds 2-3 then [`team-mode.md`](team-mode.md) § Synthesis (task-list–driven writer dispatch).
    On single-consultant case: SKIP Step 5 entirely — main thread just forwards the consultant's answer to Step 6.
-6. **Return & follow-up** — review the synthesis against the consultant answers first (identifiers, what each consultant actually claimed; correct and note mismatches — writers do misstate), then present the final answer (single-consultant: verbatim; multi-consultant: synthesis output as the body + per-module subsections). Offer follow-up paths: `/sc4sap:create-program` (if the answer leads to a new build), `/sc4sap:program-to-spec` (if user wants the existing asset documented), `/sc4sap:analyze-code` (if quality review needed). (main thread)
+6. **Return & follow-up** — review the synthesis against the consultant answers first (identifiers, what each consultant actually claimed; correct and note mismatches — writers do misstate), then present the final answer (single-consultant: verbatim; multi-consultant: synthesis output as the body + per-module summaries of 3–5 lines; full consultant answers are not repeated — offer them on request). Offer follow-up paths: `/sc4sap:create-program` (if the answer leads to a new build), `/sc4sap:program-to-spec` (if user wants the existing asset documented), `/sc4sap:analyze-code` (if quality review needed). (main thread)
 
 **No writes**: this skill never calls `Create*` / `Update*` / `Delete*` / `Activate*` / `CreateTransport`. If the consultant's answer suggests a change, the user must run a separate creation / modification skill.
 
@@ -155,7 +168,7 @@ Return the consultant's answer verbatim, prefixed with the consultant identity a
 - /sc4sap:analyze-code — to review existing code
 ```
 
-For multi-module dispatches, the `🧭 Consultant` line lists all names, the body leads with the sap-writer synthesis (Sonnet) — shared points, disagreements, cross-module summary — followed by one verbatim subsection per consultant.
+For multi-module dispatches, the `🧭 Consultant` line lists all names, the body leads with the sap-writer synthesis (Sonnet) — shared points, disagreements, cross-module summary — followed by a 3–5 line summary per consultant (full answers on request, not repeated by default).
 
 Dispatch-summary examples in the prefix:
 - Single consultant: `[Model: <main> · Dispatched: Opus×1 (sap-mm-consultant)]`

@@ -7,6 +7,7 @@ import { GUIDE, codeLists } from './if-codes.mjs';
 import { VALIDATE_SRC, MESSAGES_SRC } from './if-validate.mjs';
 import { renumber, orderRows, newGroupId } from './if-model.mjs';
 import { EDITOR_STYLE, EDITOR_SCRIPT } from './if-spec-editor.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const LABELS = {
   ko: {
@@ -89,6 +90,7 @@ body.checks #checks{display:flex}#checks h3{margin:0;padding:10px 14px;font-size
 #checks .s{font-weight:700;flex:none;width:14px}#checks .s.error{color:var(--err)}#checks .s.warn{color:var(--warn)}#checks .s.info{color:var(--info)}
 #checks .where{color:var(--mute);font-size:11px;display:block}
 @media (max-width:900px){#doc{padding:10px}section.pg{padding:14px}.gwrap{overflow-x:auto}.grid{min-width:1100px}#checks{width:auto;left:10px}}
+@media (max-width:600px){.top{padding:6px 10px}.top h1{flex-basis:100%;min-width:0}#doc{padding:8px}section.pg{padding:12px}.cover{min-height:0;padding:28px 12px 20px!important}.cover .title{font-size:22px;margin:16px 0 18px}.cover .proj{margin-top:12px}table.sides .arrow{display:none!important}table.sides th.grp{grid-column:1/-1}table.sides .sc{order:1}table.sides .tc{order:2}.gwrap .grid tr:not(.gh)>td.no,.gwrap .grid thead tr:last-child>th:first-child{position:sticky;left:0;z-index:2;background:#fff;box-shadow:1px 0 0 var(--line)}.gwrap .grid{table-layout:auto}.gwrap .grid th{white-space:nowrap}#checks{top:auto;left:8px;right:8px;width:auto;max-height:70vh}}
 @media print{@page{size:A4 landscape;margin:10mm}body{background:#fff}.top,#checks,.noprint{display:none!important}#doc{max-width:none;padding:0}
 section.pg{border:0;padding:0;margin:0 0 6mm;break-after:page}section.pg:last-child{break-after:auto}.grid{font-size:9.5px}.v-error,.v-warn{box-shadow:none}.tip{display:none}}
 `;
@@ -184,13 +186,13 @@ export function pageHtml({ model, project = {}, codes = {}, companion = '' }) {
   const L = pageLabels(lang);
   const title = `${model.ifId} ${model.header?.name || ''} — ${project.title || L.sheet} v${model.version}`;
   const guide = Object.fromEntries(Object.entries(GUIDE));
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title.replace(/[<&]/g, '')}</title>
 <meta name="generator" content="sc4sap interface-mapping-spec">
 <style>${STYLE}${EDITOR_STYLE}</style></head>
 <body>
-<div class="top"><h1 id="ttl"></h1><span class="ver" id="ver"></span>
+<div class="top m-bar"><h1 id="ttl"></h1><span class="ver" id="ver"></span>
 <button id="ck-btn">${L.checks}<span class="cnt" id="ck-n">0</span></button>
 <button id="ie-edit"></button><button id="ie-undo"></button><button id="ie-save"></button>
 <button id="pr-btn">${L.print}</button>${companion ? `<a href="${encodeURI(companion)}">${L.companion}</a>` : ''}</div>
@@ -213,7 +215,7 @@ ${EDITOR_SCRIPT}
 render();
 </script>
 </body></html>
-`;
+`);
 }
 
 /** The model embedded in a page (an edited page handed back for --import). */

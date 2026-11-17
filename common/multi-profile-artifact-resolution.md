@@ -26,10 +26,10 @@ Cross-view reads let a QA-active session open a Dev-produced spec without copyin
 
 The SAP object a skill works on (program, FM, package, table, form) is looked up on the **active profile's system only**.
 
-- Not found → stop and tell the user. Never substitute a similarly named object (e.g. `ZSDM2010` → `ZSDM20100`) and never switch profiles on your own.
-- If a cross-view artifact or another profile suggests where it lives, say so: `ZSDM2010 is not on HKT-DEV. An earlier manual exists under ES-DEV.` Then ask with `AskUserQuestion`: `Switch to <alias> and continue` / `Stop`. Switching follows `/sc4sap:sap-option switch` (pointer + `ReloadProfile`) and is announced in the report.
+- Not found → stop and tell the user. Never substitute a similarly named object (e.g. `ZDEMO0001` → `ZDEMO00010`) and never switch profiles on your own.
+- If a cross-view artifact or another profile suggests where it lives, say so: `ZDEMO0001 is not on DEV1. An earlier manual exists under DEV2.` Then ask with `AskUserQuestion`: `Switch to <alias> and continue` / `Stop`. Switching follows `/sc4sap:sap-option switch` (pointer + `ReloadProfile`) and is announced in the report.
 - Unattended runs (no user to answer) → stop with that message; do not switch.
-- A similar name is only offered as an option in the question (`Did you mean ZSDM20100?`), never used without an answer.
+- A similar name is only offered as an option in the question (`Did you mean ZDEMO00010?`), never used without an answer.
 
 ## Skill implementation pattern
 
@@ -76,6 +76,9 @@ Skills that read or produce project-local artifacts must adopt this pattern:
 - `/sc4sap:smartform-from-pdf` — writes `smartforms/<FORM>/` (`layout.json`, `styles.json`, `spec.json`, `shape.json`, `<FORM>.xml`, `<FORM>.printed.pdf`, `compare.json`)
 - `/sc4sap:project-dashboard` — writes `projects/<CODE>/` (`<CODE>-project.json`, `<CODE>-dashboard-v<ver>-<lang>.html`, history, `_src/`, `_i18n/`) + `projects/portfolio-<lang>.html`
 - `/sc4sap:role-matrix` — writes `roles/<CODE>/` (`<CODE>-roles.json`, `<CODE>-role-matrix-v<ver>-<lang>.html`, `_src/`)
+- `/sc4sap:uat-scenarios` — writes `uat/<ID>/<ID>-uat.json` + exports `<ID>-uat-{A,B}.xlsx`; `uat/_answers/`, `uat/_patch/` (consultant drafts and accepted proposals)
+- `/sc4sap:transport-readiness` — writes `transport/<date>/` (`collect.json`, `model.json`, `tr-check-<lang>.{html,md}`)
+- `/sc4sap:ops-health-check` — writes `ops-check/<to>/` (`collect.json`, `model.json`, the operations report `ops-report-<to>-<lang>.{html,md}`)
 - `/sc4sap:analyze-symptom` — writes audit reports
 - `/sc4sap:create-object` — writes nothing long-term (transient state only)
 - Setup / sap-option — manage profile files themselves; outside this pattern

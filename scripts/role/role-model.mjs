@@ -46,7 +46,7 @@ export function normalizeModel(m = {}) {
     level: pick(up(s.level), RISK, 'M'), mitigation: str(s.mitigation), approver: str(s.approver), status: pick(s.status, SOD_STATUS, 'open'), note: str(s.note),
     tcodesA: arr(s.tcodesA).map(up), tcodesB: arr(s.tcodesB).map(up), ext: ext(s.ext) }));
   const revisions = arr(m.revisions).map((r) => ({ ver: str(r.ver), date: str(r.date), author: str(r.author), change: str(r.change), approver: str(r.approver), note: str(r.note), ext: ext(r.ext) }));
-  return { lang: m.lang === 'en' ? 'en' : 'ko', doc, broles, troles, tcodes, users, auths, sod, revisions, source: m.source || null,
+  return { lang: ['en', 'ja'].includes(m.lang) ? m.lang : 'ko', doc, broles, troles, tcodes, users, auths, sod, revisions, source: m.source || null,
     // company layout (sheets, columns, level codes, cover, theme) — see skills/role-matrix/layout.md; null = the default workbook
     layout: m.layout && typeof m.layout === 'object' ? m.layout : null };
 }
@@ -147,6 +147,20 @@ export function nextVersion(last, { major = false } = {}) {
   if (!last) return '0.1';
   const [a, b] = String(last).replace(/^v/i, '').split('.').map((n) => Number(n) || 0);
   return major ? `${a + 1}.0` : `${a}.${b + 1}`;
+}
+
+/**
+ * A new version of the document: a change-history row (sheet 7) and the document date — what the page's Save does,
+ * and what the web workbench does for "save a version". `version` is the current one (else the last history row).
+ * Returns { model (a new object), version }.
+ */
+export function addRevision(model, { author = '', note = '', major = false, version = '', date = '' } = {}) {
+  const m = normalizeModel(JSON.parse(JSON.stringify(model || {})));
+  const last = version || String(arr(m.revisions).at(-1)?.ver || '').replace(/^v/i, '');
+  const nv = nextVersion(last, { major });
+  m.revisions.push({ ver: `v${nv}`, date, author, change: note, approver: '', note: '' });
+  m.doc.date = date;
+  return { model: m, version: nv };
 }
 
 /** RFC 4180 CSV with a BOM so Excel opens Korean text correctly. */

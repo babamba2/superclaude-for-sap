@@ -9,6 +9,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderAll, esc, labelsFor } from './project-render.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const inline = (f) => readFileSync(join(here, f), 'utf8').replace(/^import .*$/gm, '').replace(/^export (const|function|async function|let)/gm, '$1');
@@ -28,12 +29,12 @@ a{color:var(--link)}.muted{color:var(--muted)}.bad{color:var(--red);font-weight:
 .topbar .t{font-weight:700;flex:1;min-width:180px}.topbar .t small{font-weight:400;margin-left:8px}
 .topbar button,.tools button,.rowtools button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);cursor:pointer}
 .tabs{position:sticky;top:45px;z-index:5;display:flex;gap:2px;overflow-x:auto;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--line)}
-.tabs button{font:inherit;border:0;border-bottom:3px solid transparent;background:none;color:var(--muted);padding:9px 14px;cursor:pointer;white-space:nowrap}
+.tabs button{font:inherit;border:0;border-bottom:3px solid transparent;background:none;color:var(--muted);padding:9px 14px;cursor:pointer;white-space:nowrap;flex:none}
 .tabs button[aria-selected=true]{color:var(--fg);border-bottom-color:var(--accent);font-weight:600}
 main{max-width:1680px;margin:0 auto;padding:12px 16px 64px}section.tab{display:none}section.tab.on{display:block}
 h3{font-size:16px;margin:22px 0 8px}h4{font-size:14px;margin:12px 0 6px;color:var(--muted)}
 .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:8px 0 6px}
-.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--card)}.tile .k{color:var(--muted);font-size:12.5px}.tile .v{font-size:20px;margin-top:2px}
+.tile{border:1px solid var(--line);border-radius:10px;padding:10px 12px;background:var(--card);min-width:0}.tile .k{color:var(--muted);font-size:12.5px}.tile .v{font-size:20px;margin-top:2px}
 .grid2{display:grid;grid-template-columns:minmax(0,1fr);gap:0 28px}@media (min-width:1100px){.grid2{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}}
 .tw{overflow-x:auto;margin:6px 0 14px}table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{border:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:middle}th{background:var(--head);font-weight:600;white-space:nowrap}
@@ -97,15 +98,15 @@ body.dw main,body.dw .banner{padding-right:min(436px,94vw);transition:padding .1
 @media (pointer: coarse){.t-touch{display:table}.t-keys{display:none}.gb .hc,.gb .hp{display:none!important}}
 @media (max-width: 760px){
  .topbar{gap:6px;padding:6px 10px}.topbar .t{min-width:0;flex-basis:100%;font-size:14px}.topbar .t small{display:block;margin:0}#print,#theme,.state{display:none}
- .topbar button,.wtools button,.wtools select,.wtools input{min-height:34px}.tabs{top:auto;position:static}main{padding:8px 10px 80px}
+ .topbar button,.wtools button,.wtools select,.wtools input:not([type=checkbox]){min-height:44px}.wtools label{display:inline-flex;align-items:center;gap:6px;min-height:44px}.wtools input[type=checkbox]{width:22px;height:22px;margin:0}.tabs{top:auto;position:static}main{padding:8px 10px 80px}
  .mv{display:inline-flex}.mo{display:inline-block}.wtools > input,.wtools > select,.wtools > label,.wtools > button:not(.mo),.wtools .sep{display:none}.wtools.open > input,.wtools.open > select,.wtools.open > label,.wtools.open > button{display:inline-block}.editing .wtools.open .eo{display:inline-block}
- .wbs-w{max-height:none}.wbs .lbl{min-width:0;max-width:36vw;overflow:hidden;text-overflow:ellipsis}.wbs td,.wbs th{padding:4px 6px}.wbs td:nth-child(1),.wbs th:nth-child(1){min-width:34px;font-size:11.5px}.wbs td:nth-child(2),.wbs th:nth-child(2){left:34px}.wbs .lbl .wk{display:none}
+ .wbs-w{max-height:none}.wbs .lbl{min-width:0;max-width:36vw;overflow:hidden;text-overflow:ellipsis}.editing td.lbl{max-width:50vw;text-overflow:clip}.editing td.lbl .ed{display:inline-block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;line-height:34px}.editing td.lbl .tg~.ed{max-width:calc(100% - 48px)}.wbs td,.wbs th{padding:4px 6px}.wbs td:nth-child(1),.wbs th:nth-child(1){min-width:34px;font-size:11.5px}.wbs td:nth-child(2),.wbs th:nth-child(2){left:34px}.wbs .lbl .wk{display:none}
  body.m-gantt .wbs th:nth-child(n+3):nth-child(-n+9),body.m-gantt .wbs td:nth-child(n+3):nth-child(-n+9){display:none}
  body.m-table .wbs th.gantt-h,body.m-table .wbs td.gantt,body.m-table #arr{display:none}
  .wbs td.gantt{height:38px}.gb{top:10px;height:18px}.gb-phase{top:9px;height:20px}.gms{top:12px;width:14px;height:14px}.gbase{top:30px}.rowtools{display:none!important}
  body.dw main,body.dw .banner,body.dw .topbar{padding-right:10px}
  #drawer{top:auto;left:0;right:0;width:100%;height:74vh;border-left:0;border-top:1px solid var(--line);border-radius:14px 14px 0 0;transform:translateY(105%)}#drawer.on{transform:none}#drawer::before{content:"";display:block;width:42px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 10px}
- #drawer dl{grid-template-columns:96px 1fr}#drawer .ed{min-height:28px}
+ #drawer dl{grid-template-columns:96px 1fr}#drawer .ed{min-height:44px}
  #bulk{left:8px;right:8px;transform:none;bottom:12px}#toast{bottom:12px;max-width:92vw}#pal{padding-top:6vh}.banner{margin:6px 10px;font-size:13px}
  .tiles{grid-template-columns:repeat(2,minmax(0,1fr))}.tile .v{font-size:17px}
  .topbar .tx{display:none}.topbar .t{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.topbar .t small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -114,7 +115,7 @@ body.dw main,body.dw .banner{padding-right:min(436px,94vw);transition:padding .1
  table.rt td{display:flex;gap:12px;justify-content:space-between;align-items:center;border:0;padding:4px 0;min-height:26px;text-align:right}
  table.rt td::before{content:attr(data-l);color:var(--muted);font-size:12px;text-align:left;flex:none;max-width:45%}
  table.rt td:first-child{font-weight:600;text-align:left;display:block}table.rt td:first-child::before{display:none}table.rt td:empty{display:none}
- .editing .ed{min-height:32px;min-width:32px;padding:4px 8px;display:inline-flex;align-items:center}.ed select,.ed input{font-size:16px;min-height:32px}
+ :root .editing .ed{min-height:44px;min-width:44px;padding:4px 8px;display:inline-flex;align-items:center;max-width:100%;box-sizing:border-box;font-size:16px}:root .ed select,:root .ed input{font-size:16px;min-height:44px;max-width:100%;box-sizing:border-box}
  .timeline{margin:6px 60px 4px 30px}
  #drawer .dacts{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0 4px}#drawer .dacts button{font:inherit;font-size:14px;min-height:38px;padding:4px 12px;border:1px solid var(--line);border-radius:8px;background:var(--card);color:var(--fg)}#drawer .dacts .del{color:var(--red)}
 }
@@ -140,7 +141,7 @@ dialog{border:1px solid var(--line);border-radius:10px;background:var(--bg);colo
 
 /** In-browser code: the inlined model + render library, the labels, then project-client.js. */
 function clientScript(E) {
-  return `(function(){\n${inline('project-model.mjs')}\n${inline('project-render.mjs')}\nvar E=${JSON.stringify(E)};\n${readFileSync(join(here, 'project-client.js'), 'utf8')}\n})();`;
+  return `(function(){\n${inline('project-model.mjs')}\n${inline('cutover-model.mjs')}\n${inline('cutover-tab.mjs')}\n${inline('project-render.mjs')}\nvar E=${JSON.stringify(E)};\n${readFileSync(join(here, 'project-client.js'), 'utf8')}\n})();`;
 }
 
 const EDIT = {
@@ -167,6 +168,11 @@ const EDIT = {
     saveTitle: 'Save — revision', author: 'Author', note: 'Change', noteDefault: 'Plan edited in edit mode', ok: 'Save', cancel: 'Cancel',
     saved: 'Saved. Send this file to the PMO (or owner) — importing it makes the next version. Keep editing; Ctrl+S overwrites the same file.' },
 };
+Object.assign(EDIT.ko, { addRisk: '+ 리스크', addDecision: '+ 결정 사항', newRisk: '새 리스크', newDecision: '새 결정 사항' });
+Object.assign(EDIT.en, { addRisk: '+ Risk', addDecision: '+ Decision', newRisk: 'New risk', newDecision: 'New decision' });
+// cutover runbook tab (cutover-tab.mjs)
+Object.assign(EDIT.ko, { addCt: '+ 컷오버 작업', newCt: '새 컷오버 작업', badDt: '형식이 맞지 않아 이전 값으로 되돌렸어요 (YYYY-MM-DD HH:MM).', badDay: '달력에 없는 날짜라 이전 값으로 되돌렸어요 (YYYY-MM-DD).', badDate: '날짜 형식이 맞지 않아 이전 값으로 되돌렸어요 (YYYY-MM-DD).', badVal: '형식이 맞지 않아 이전 값으로 되돌렸어요.' });
+Object.assign(EDIT.en, { addCt: '+ Cutover task', newCt: 'New cutover task', badDt: 'Not a date and time — the previous value is kept (YYYY-MM-DD HH:MM).', badDay: 'Not a calendar date — the previous value is kept (YYYY-MM-DD).', badDate: 'Not a date — the previous value is kept (YYYY-MM-DD).', badVal: 'Not a valid value — the previous value is kept.' });
 
 /** WBS toolbar: filters and zoom for everyone, auto-shift in edit mode. */
 const wbsTools = (E) => `<div class="wtools"><span class="mv"><button data-v="gantt">${esc(E.vGantt)}</button><button data-v="table">${esc(E.vTable)}</button></span><button id="f-sel" class="mo" aria-pressed="false">${esc(E.select)}</button><button id="f-more" class="mo">${esc(E.filters)} ▾</button><input id="f-q" type="search" placeholder="${esc(E.search)}"><select id="f-ws"></select><select id="f-owner"></select>
@@ -176,29 +182,34 @@ const wbsTools = (E) => `<div class="wtools"><span class="mv"><button data-v="ga
 <label class="eo"><input id="f-shift" type="checkbox" checked> ${esc(E.autoShift)}</label><button class="eo" id="f-base">${esc(E.baseline)}</button><button class="eo" id="f-phase">+ ${esc(E.newPhase)}</button></div>`;
 
 /** The whole page for a model. */
-export function renderPage(model, { version, date, history = [], today, companion = '' }) {
+/**
+ * The editable dashboard page. embed: the page runs inside the web workbench, which stores every change itself —
+ * no Save button / dialog, no draft banner or local drafts (window.SC4SAP_PAGE is the bridge, project-client.js).
+ * Without embed the output is the CLI page.
+ */
+export function renderPage(model, { version, date, history = [], today, companion = '', embed = false }) {
   const { v, L, ...tabs } = renderAll(model, { history, today });
   const E = EDIT[String(v.m.lang).slice(0, 2)] || EDIT.en;
   const p = v.m.project;
-  const data = JSON.stringify({ model, version, history }).replace(/</g, '\\u003c');
+  const data = JSON.stringify(embed ? { model, version, history, embed: true } : { model, version, history }).replace(/</g, '\\u003c');
   const sec = (t, extra = '') => `<section class="tab" id="tab-${t}">${extra}<div class="body">${tabs[t]}</div></section>`;
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${esc(v.m.lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(p.name)} — ${esc(L.tabs.sum)} v${esc(version)}</title><style>${STYLE}</style></head>
 <body>
 <div class="topbar"><div class="t">${esc(p.code)} · ${esc(p.name)} <small>v${esc(version)} · ${esc(date)} · Go-Live ${esc(p.goLive)}</small></div>
 <span id="state" class="state"></span><span id="overall" class="rag rag-${v.overall}">${esc(L.rag[v.overall])}</span><button id="cmd" title="${esc(E.cmd)}">⌘K</button>
 ${companion ? `<a href="${esc(companion)}">${v.m.lang === 'en' ? '한국어' : 'English'}</a>` : ''}
-<button id="edit">${E.edit}</button><button id="undo" title="${E.undo} (Ctrl+Z)"><span class="ic">↶</span><span class="tx">${E.undo}</span></button><button id="save" title="${E.save} (Ctrl+S)"><span class="ic">💾</span><span class="tx">${E.save}</span></button><button id="print">${E.print}</button><button id="theme">${E.theme}</button></div>
+<button id="edit">${E.edit}</button><button id="undo" title="${E.undo} (Ctrl+Z)"><span class="ic">↶</span><span class="tx">${E.undo}</span></button>${embed ? '' : `<button id="save" title="${E.save} (Ctrl+S)"><span class="ic">💾</span><span class="tx">${E.save}</span></button>`}<button id="print">${E.print}</button><button id="theme">${E.theme}</button></div>
 <nav class="tabs">${Object.entries(L.tabs).map(([k, t]) => `<button data-t="${k}">${esc(t)}</button>`).join('')}</nav>
 <div class="banner hint">${esc(E.hint)}</div>
-<div class="banner" id="draft">${esc(E.draft)} <button id="resume">${E.resume}</button> <button id="discard">${E.discard}</button></div>
-<main>
-${sec('sum')}${sec('kpi', `<div class="tools"><button id="add-kpi">${E.addKpi}</button></div>`)}${sec('ms', `<div class="tools"><button id="add-ms">${E.addMs}</button></div>`)}${sec('wbs', wbsTools(E))}${sec('sap')}${sec('team', `<div class="tools"><button id="add-tm">${E.addTm}</button></div>`)}${sec('hist')}
+${embed ? '' : `<div class="banner" id="draft">${esc(E.draft)} <button id="resume">${E.resume}</button> <button id="discard">${E.discard}</button></div>
+`}<main>
+${sec('sum')}${sec('kpi', `<div class="tools"><button id="add-kpi">${E.addKpi}</button></div>`)}${sec('ms', `<div class="tools"><button id="add-ms">${E.addMs}</button></div>`)}${sec('risk', `<div class="tools"><button id="add-rk">${E.addRisk}</button> <button id="add-dc">${E.addDecision}</button></div>`)}${sec('cut', `<div class="tools"><button id="add-ct">${E.addCt}</button></div>`)}${sec('wbs', wbsTools(E))}${sec('sap')}${sec('team', `<div class="tools"><button id="add-tm">${E.addTm}</button></div>`)}${sec('hist')}
 </main>
-<dialog id="save-dlg"><h3>${E.saveTitle}</h3><label>${E.author}<input id="s-author"></label><label>${E.note}<input id="s-note"></label>
+${embed ? '' : `<dialog id="save-dlg"><h3>${E.saveTitle}</h3><label>${E.author}<input id="s-author"></label><label>${E.note}<input id="s-note"></label>
 <div><button id="s-ok">${E.ok}</button> <button id="s-cancel">${E.cancel}</button></div></dialog>
-<script type="application/json" id="project-model">${data}</script>
+`}<script type="application/json" id="project-model">${data}</script>
 <div id="toast" role="status"></div>
 <aside id="drawer" aria-label="detail"></aside>
 <div id="bulk"></div>
@@ -206,7 +217,21 @@ ${sec('sum')}${sec('kpi', `<div class="tools"><button id="add-kpi">${E.addKpi}</
 <div id="help"><div class="hbox"><button class="hx">✕</button><h3>${esc(E.help)}</h3><table class="t-touch">${E.touchRows.map(([k, d]) => `<tr><th>${esc(k)}</th><td>${esc(d)}</td></tr>`).join('')}</table><table class="t-keys">${E.helpRows.map(([k, d]) => `<tr><th>${esc(k)}</th><td>${esc(d)}</td></tr>`).join('')}</table></div></div>
 <svg id="linksvg"><line id="linkline"/></svg>
 <script>${clientScript(E)}</script>
-</body></html>`;
+</body></html>`);
+}
+
+/**
+ * The model a dashboard page carries (<script id="project-model">): { model, version, history }. Used by
+ * build-project-doc import and the web workbench import. Throws when the page has none or no valid project.code.
+ */
+export function modelFromPage(html) {
+  const mm = /<script type="application\/json" id="project-model">([\s\S]*?)<\/script>/.exec(String(html || ''));
+  if (!mm) throw new Error('no embedded project model — was the page saved from the dashboard\'s edit mode?');
+  let data;
+  try { data = JSON.parse(mm[1]); } catch { throw new Error('the embedded project model is not valid JSON'); }
+  const { model, version, history = [] } = data || {};
+  if (!model || typeof model !== 'object' || !/^[A-Za-z0-9_-]{1,30}$/.test(model.project?.code || '')) throw new Error('embedded model has no valid project.code');
+  return { model, version, history: Array.isArray(history) ? history : [] };
 }
 
 export { labelsFor };

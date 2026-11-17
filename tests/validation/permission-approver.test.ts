@@ -68,6 +68,8 @@ describe('permission-approver DD* metadata exception', () => {
     expect(inline.hookSpecificOutput).toBeUndefined();
     const contents = runHook('mcp__plugin_sc4sap_sap__GetTableContents', { table_name: 'DD03L' });
     expect(contents.hookSpecificOutput).toBeUndefined();
+    const remote = runHook('mcp__plugin_sc4sap_sap__GetRemoteTableContents', { table_name: 'T001', destination: 'PRDCLNT100' });
+    expect(remote.hookSpecificOutput).toBeUndefined();
     const other = runHook('mcp__plugin_sc4sap_sap__GetTable', { table_name: 'T001W' });
     expect(other.hookSpecificOutput?.permissionDecision).toBe('allow');
   });

@@ -127,7 +127,13 @@ function main(argv) {
       console.error(`unknown action ${first}`);
       return 1;
     }
-    console.log(JSON.stringify({ ...a, verified_for_family: isVerified(a, family) }, null, 2));
+    // clarify entries with a customizing value list: how to read the choices (scripts/assist/values.mjs)
+    const valueLists = (a.clarify ?? []).filter((c) => c.values).map((c) => ({
+      param: c.param,
+      values: c.values,
+      plan: `node scripts/assist/values.mjs plan ${c.values} --lang <SAP_LANGUAGE> --family ${family}`,
+    }));
+    console.log(JSON.stringify({ ...a, verified_for_family: isVerified(a, family), ...(valueLists.length ? { value_lists: valueLists } : {}) }, null, 2));
     return 0;
   }
   if (cmd === 'triggers') {

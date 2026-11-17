@@ -94,13 +94,13 @@ Evidence collection strategy — prefer MCP auto-query, fall back to manual TCod
 | System / session info | `GetSession` | /n (status), /o SM04 |
 | Table schema (not rows) | `GetTable`, `GetStructure`, `GetView`, `GetDataElement`, `GetDomain` | SE11 |
 | Unit test results | `GetUnitTestResult`, `RunUnitTest` | SE80 → test class |
-| Authorization error | (MCP not supported) | SU53, STAUTHTRACE |
+| Authorization error | Hand off to `/sc4sap:role-matrix triage` (user ID, T-code, SU53 screen capture attached) — missing object / values, roles that grant them, SoD impact; read-only | SU53, STAUTHTRACE |
 | Application log | (MCP not supported) | SLG1 |
 | System log | (MCP not supported) | SM21 |
 | Update error | (MCP not supported) | SM13 |
 | RFC / tRFC / qRFC | (MCP not supported) | SM58, SMQ1, SMQ2 |
-| Background job | (MCP not supported) | SM37 |
-| IDoc | (MCP not supported) | WE02, WE05, BD87 |
+| Background job | Facts first — runs, steps, concurrent aborts, dumps, changing requests — per [`job-idoc.md`](job-idoc.md) (`scripts/ops/incident.mjs`, read-only; no job log in phase 1) | SM37 · aborted jobs of a period: `/sc4sap:ops-health-check` |
+| IDoc | Facts first — header, status text, volume of the type + partner, changing requests — per [`job-idoc.md`](job-idoc.md) (`scripts/ops/incident.mjs`, read-only; no status records in phase 1) | WE02, WE05, BD87 · IDocs in error of a period: `/sc4sap:ops-health-check` |
 | OData / Fiori | (MCP not supported) | /IWFND/ERROR_LOG, /IWBEP/ERROR_LOG |
 
 **Rule**: For any MCP-supported item, never ask the user — query it directly.

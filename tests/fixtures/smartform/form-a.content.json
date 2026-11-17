@@ -1,0 +1,178 @@
+{
+ "form": "ZTEST_FORM",
+ "stdStyles": [
+  "ZTEST_STYLE"
+ ],
+ "data": [
+  {
+   "name": "HEADER",
+   "scope": "import",
+   "typing": "TYPE",
+   "typeName": "ZTEST_S_HEAD"
+  },
+  {
+   "name": "GS_ITEM",
+   "scope": "global",
+   "typing": "TYPE",
+   "typeName": "ZTEST_S_ITEM"
+  }
+ ],
+ "styles": [
+  {
+   "name": "ZTEST_STYLE",
+   "css": ".ZTEST-STYLE  div#AA.par{    font-family : 'Arial' ;    font-size : 10pt ;    line-height : 4.23mm ;}.ZTEST-STYLE  div#BJ.par{    font-family : 'Arial' ;    font-size : 20pt ;    line-height : 4.23mm ;}.ZTEST-STYLE  div#C8.par{    font-family : 'Arial' ;    font-size : 8pt ;    line-height : 4.23mm ;}"
+  }
+ ],
+ "graphics": [],
+ "includeTexts": [],
+ "pages": [
+  {
+   "name": "%PAGE1",
+   "format": "DINA4",
+   "orientation": "portrait",
+   "windows": [
+    {
+     "name": "%WINDOW1",
+     "type": "SECONDARY",
+     "leftMm": 10,
+     "topMm": 10,
+     "widthMm": 190,
+     "heightMm": 10,
+     "content": [
+      {
+       "kind": "text",
+       "name": "%TEXT1",
+       "caption": "%TEXT1",
+       "children": [],
+       "style": "ZTEST_STYLE",
+       "lines": [
+        {
+         "format": "BJ",
+         "text": "<AA>ORDER</> &HEADER-EBELN&"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "%WINDOW2",
+     "type": "SECONDARY",
+     "leftMm": 10,
+     "topMm": 20,
+     "widthMm": 190,
+     "heightMm": 5,
+     "content": [
+      {
+       "kind": "text",
+       "name": "%TEXT2",
+       "caption": "%TEXT2",
+       "children": [],
+       "style": "ZTEST_STYLE",
+       "lines": [
+        {
+         "format": "C8",
+         "text": "Page &SFSY-PAGE(4Z)& of &SFSY-FORMPAGES(4Z)&"
+        }
+       ]
+      }
+     ]
+    },
+    {
+     "name": "MAIN",
+     "type": "MAIN",
+     "leftMm": 10,
+     "topMm": 30,
+     "widthMm": 190,
+     "heightMm": 200,
+     "content": [
+      {
+       "kind": "loop",
+       "name": "%LOOP1",
+       "caption": "Items",
+       "dataTable": "ITEM",
+       "children": [
+        {
+         "kind": "template",
+         "name": "%TEMPLATE1",
+         "caption": "Row",
+         "width": {
+          "mm": 50
+         },
+         "templateLines": [
+          {
+           "name": "%C1",
+           "from": 1,
+           "to": 1,
+           "heightMm": 5
+          }
+         ],
+         "cells": [
+          {
+           "line": "%C1",
+           "column": 1,
+           "widthMm": 30,
+           "fill": "#d4d4d4",
+           "borders": {
+            "left": 0.26,
+            "top": 0,
+            "right": 0,
+            "bottom": 0
+           }
+          },
+          {
+           "line": "%C1",
+           "column": 2,
+           "widthMm": 20,
+           "borders": {
+            "left": 0,
+            "top": 0,
+            "right": 0,
+            "bottom": 0
+           }
+          }
+         ],
+         "children": [
+          {
+           "kind": "text",
+           "name": "%TEXT3",
+           "caption": "%TEXT3",
+           "children": [],
+           "style": "ZTEST_STYLE",
+           "lines": [
+            {
+             "format": "AA",
+             "text": "&GS_ITEM-MATNR&"
+            }
+           ],
+           "tableCell": {
+            "line": 1,
+            "cell": 1
+           }
+          },
+          {
+           "kind": "text",
+           "name": "%TEXT4",
+           "caption": "%TEXT4",
+           "children": [],
+           "style": "ZTEST_STYLE",
+           "lines": [
+            {
+             "format": "*",
+             "text": "&GS_ITEM-MENGE&"
+            }
+           ],
+           "tableCell": {
+            "line": 1,
+            "cell": 2
+           }
+          }
+         ]
+        }
+       ]
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

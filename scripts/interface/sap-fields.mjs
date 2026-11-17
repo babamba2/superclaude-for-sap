@@ -50,13 +50,104 @@ export function rowsFromDdic(def, table = '') {
   return rows;
 }
 
+// ── S/4HANA answers (2026-11-16) ──────────────────────────────────────────
+// On a release with DDL-defined tables, GetTable / GetStructure return the DDL source
+// ("define table likp { key vbeln : vbeln_vl not null; … }") and GetDataElement the ADT XML,
+// where ECC returns field lists as JSON. Read both into the same `def.fields` shape.
+
+const DDL_BUILTIN = {
+  char: 'CHAR', numc: 'NUMC', dats: ['DATS', 8], tims: ['TIMS', 6], dec: 'DEC', curr: 'CURR', quan: 'QUAN',
+  int1: ['INT1', 3], int2: ['INT2', 5], int4: ['INT4', 10], int8: ['INT8', 19], cuky: ['CUKY', 5], unit: ['UNIT', 3],
+  clnt: ['CLNT', 3], lang: ['LANG', 1], string: ['STRG', 0], rawstring: ['RSTR', 0], fltp: ['FLTP', 16], raw: 'RAW',
+  sstring: 'SSTR', d16n: ['D16N', 16], d34n: ['D34N', 34], datn: ['DATN', 8], timn: ['TIMN', 6], utclong: ['UTCL', 27],
+};
+
+/** Fields of a DDL table / structure source: name, key, not null, and the type as written. */
+export function parseDdlFields(src) {
+  const out = [];
+  // Comments and annotation lines (`@AbapCatalog.foreignKey.screenCheck : true`) out: an annotation
+  // sits between fields with no `;`, and its `: true` read as a field.
+  const body = String(src || '').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*@.*$/gm, ';');
+  const re = /(?:^|;|\{)\s*(key\s+)?([a-z0-9_/]+)\s*:\s*([a-z0-9_/]+(?:\.[a-z0-9_]+)?(?:\s*\(\s*\d+\s*(?:,\s*\d+\s*)?\))?)(\s+not\s+null)?/gi;
+  for (const m of body.matchAll(re)) {
+    const name = m[2].toUpperCase();
+    // `node_data : include tds_node` is an include with a name, read through parseDdlIncludes.
+    if (/^(INCLUDE|DEFINE|WITH|WHERE)$/.test(name) || /^include$/i.test(m[3])) continue;
+    out.push({ fieldname: name, key: !!m[1], notnull: !!m[4], type: m[3].replace(/\s+/g, '') });
+  }
+  return out;
+}
+
+/** The ADT XML of a data element → { datatype, leng, description, domname }. */
+export function dtelFromXml(xml) {
+  const tag = (t) => new RegExp(`<dtel:${t}>([^<]*)</dtel:${t}>`).exec(String(xml))?.[1] ?? '';
+  const datatype = tag('dataType');
+  if (!datatype) return null;
+  return {
+    datatype, leng: String(Number(tag('dataTypeLength')) || ''), decimals: String(Number(tag('dataTypeDecimals')) || ''),
+    description: tag('mediumFieldLabel') || /adtcore:description="([^"]*)"/.exec(String(xml))?.[1] || '',
+    ...(tag('typeKind') === 'domain' && tag('typeName') ? { domname: tag('typeName') } : {}),
+  };
+}
+
+/** A data element, from the ECC JSON or the S/4 XML answer. */
+async function dataElement(client, name) {
+  const r = await call(client, 'GetDataElement', { data_element_name: name });
+  const json = inner(r, 'data_element_data');
+  if (json?.datatype) return json;
+  return typeof r?.data_element_data === 'string' ? dtelFromXml(r.data_element_data) : null;
+}
+
+/** The structures a DDL source includes (`include lipsd;`, `include x with suffix _y;`), in order. */
+export function parseDdlIncludes(src) {
+  const body = String(src || '').replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  return [...body.matchAll(/\binclude\s+([a-z0-9_/]+)/gi)].map((m) => m[1].toUpperCase());
+}
+
+/** A DDL source → the `def` rowsFromDdic reads; data elements looked up, built-in types read as written. */
+async function defFromDdl(client, src, depth = 0) {
+  const fields = [];
+  // Included structures first, as SE11 lists them (LIPS keeps most of its fields in includes).
+  if (depth < 3) {
+    for (const inc of parseDdlIncludes(src)) {
+      const s = await call(client, 'GetStructure', { structure_name: inc });
+      const json = inner(s, 'structure_data');
+      if (json?.fields?.length) fields.push(...json.fields.filter((f) => !String(f.fieldname || '').startsWith('.')));
+      else if (typeof s?.structure_data === 'string') fields.push(...((await defFromDdl(client, s.structure_data, depth + 1))?.fields || []));
+    }
+  }
+  for (const f of parseDdlFields(src)) {
+    const b = /^abap\.([a-z0-9]+)(?:\((\d+)(?:,(\d+))?\))?$/i.exec(f.type);
+    if (b) {
+      const spec = DDL_BUILTIN[b[1].toLowerCase()];
+      if (!spec) continue;
+      const [datatype, leng] = Array.isArray(spec) ? spec : [spec, b[2] || ''];
+      fields.push({ fieldname: f.fieldname, key: f.key, notnull: f.notnull, datatype, leng: String(leng) });
+      continue;
+    }
+    const de = await dataElement(client, f.type.toUpperCase());
+    if (!de) continue;
+    fields.push({ fieldname: f.fieldname, key: f.key, notnull: f.notnull, datatype: de.datatype, leng: de.leng, description: de.description, rollname: f.type.toUpperCase(), ...(de.domname ? { domname: de.domname } : {}) });
+  }
+  const label = /@EndUserText\.label\s*:\s*'([^']*)'/.exec(String(src))?.[1] || '';
+  return fields.length ? { fields, description: label } : null;
+}
+
 async function ddicObject(client, name) {
   const t = await call(client, 'GetTable', { table_name: name });
   const td = inner(t, 'table_data');
   if (td?.fields?.length) return { kind: td.tabclass === 'VIEW' ? 'VIEW' : 'TABLE', def: td };
+  if (typeof t?.table_data === 'string' && /define\s+table/i.test(t.table_data)) {
+    const def = await defFromDdl(client, t.table_data);
+    if (def) return { kind: 'TABLE', def };
+  }
   const s = await call(client, 'GetStructure', { structure_name: name });
   const sd = inner(s, 'structure_data');
   if (sd?.fields?.length) return { kind: sd.tabclass === 'VIEW' ? 'VIEW' : 'STRUCTURE', def: sd };
+  if (typeof s?.structure_data === 'string' && /define\s+structure/i.test(s.structure_data)) {
+    const def = await defFromDdl(client, s.structure_data);
+    if (def) return { kind: 'STRUCTURE', def };
+  }
   const v = await call(client, 'GetView', { view_name: name });
   const vd = inner(v, 'view_data') || v;
   if (vd?.fields?.length) return { kind: 'VIEW', def: vd };
@@ -248,7 +339,7 @@ export async function resolveRefs(client, refs) {
       else problems.push(o ? `${ref}: ${tab} has no field ${fld}` : `${ref}: ${tab} not found`);
       continue;
     }
-    const de = inner(await call(client, 'GetDataElement', { data_element_name: ref }), 'data_element_data');
+    const de = await dataElement(client, ref);
     if (!de?.datatype) { problems.push(`${ref}: no data element or TABLE-FIELD of that name`); continue; }
     const { type, size } = ddicToDb(de.datatype, de.leng);
     rows.push({ table: '', field: ref, key: 'N', type, size, nul: 'Y', desc: de.description || de.medium_label || '',

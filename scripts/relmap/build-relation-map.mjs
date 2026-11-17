@@ -1,8 +1,12 @@
 // sc4sap:cbo-relation-map — build the relation map page from stock-cbo's graph.json.
 //
-//   node build-relation-map.mjs --dir <inventory dir> [--dir <dir2> …] [--lang ko|en] [--out <file.html>]
+//   node build-relation-map.mjs --dir <inventory dir> [--dir <dir2> …] [--lang ko|en|ja] [--out <file.html>]
 //                               [--snippets [--src <MCP output src dir>]] [--includes keep] [--hubs 40] [--groups 60]
 //   node build-relation-map.mjs --graph <graph.json> [--graph …] --out <file.html>   (no side files)
+//   node build-relation-map.mjs find --base <dir> [--base …] --packages "ZMM*, ZSD_CBO"   (relmap-find.mjs)
+//   build options for a hosted run: --src <dir> may repeat (the first folder holding a unit wins);
+//   --max-bytes <n> rebuilds without snippets when the page is larger (JSON: snippets:false, reason:"size") and
+//   exits 3 without writing when it is still larger; --sid <SID> names the system on the page.
 //
 // Per --dir it reads graph.json and, when present: walk.json / inventory.json (descriptions), usage-result.json
 // (used / unused), ddic-reads.json (standard check tables, shown as text only; repository short texts),
@@ -12,7 +16,7 @@
 // from the local MCP output (default <artifactBase>/mcp-output/src) — never from SAP.
 //
 // Prints one JSON line: { page, bytes, nodes, edges, members, custom, groups, isolated, droppedEdges,
-// foldedIncludes, byBasis, usage, stdChecks, snippets, sourcesParsed, packages }.
+// foldedIncludes, byBasis, usage, stdChecks, snippets, sourcesParsed, packages[, reason] }.
 // Exit 2 = graph.json missing or no customer object. Never calls SAP.
 
 import { existsSync, readdirSync, readFileSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -24,6 +28,7 @@ import { buildFieldBlock, mergeFields } from './relmap-fields.mjs';
 import { isCustomName } from '../graph/ddic-edges.mjs';
 import { mergeGraphs } from '../process/merge-graphs.mjs';
 import { TEXT_READS } from '../graph/ddic-queries.mjs';
+import { findGraphs } from './relmap-find.mjs';
 
 const TEXT_BY_TABLE = new Map(TEXT_READS.map((t) => [t.table, t]));
 
@@ -92,18 +97,22 @@ export function readSideInfo(dir, info = { desc: new Map(), usage: new Map(), st
   return info;
 }
 
-/** (unit, line) → { start, text } from the MCP output source folder; ±10 lines; stops at SNIPPET_BYTES */
-export function snippetReader(srcDir, { around = 10, budget = SNIPPET_BYTES } = {}) {
+/**
+ * (unit, line) → { start, text } from source folders; ±10 lines; stops at SNIPPET_BYTES. A file is keyed by its
+ * name up to the first dot, lower case: `<name>.<kind>.abap` (MCP output) and `<UNIT>.abap` (`/` written as `#`)
+ * both index. Several folders: the first one holding a unit wins.
+ */
+export function snippetReader(srcDirs, { around = 10, budget = SNIPPET_BYTES } = {}) {
   const files = new Map();
   const walkDir = (d) => {
     for (const f of readdirSync(d)) {
       const p = join(d, f);
       let st; try { st = statSync(p); } catch { continue; }
       if (st.isDirectory()) walkDir(p);
-      else if (f.endsWith('.abap')) { const k = f.split('.')[0]; if (!files.has(k)) files.set(k, p); }
+      else if (f.toLowerCase().endsWith('.abap')) { const k = f.split('.')[0].toLowerCase(); if (!files.has(k)) files.set(k, p); }
     }
   };
-  if (srcDir && existsSync(srcDir)) walkDir(srcDir);
+  for (const d of [srcDirs].flat()) if (d && existsSync(d)) walkDir(d);
   const cache = new Map();
   let used = 0;
   return (unit, line) => {
@@ -120,7 +129,7 @@ export function snippetReader(srcDir, { around = 10, budget = SNIPPET_BYTES } = 
   };
 }
 
-export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 40, groups = 60, fold = true, snippets = false, src, fields = [] }) {
+export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 40, groups = 60, fold = true, snippets = false, src, fields = [], sid }) {
   const gs = graphs.map((g) => (typeof g === 'string' ? JSON.parse(readFileSync(g, 'utf8')) : g));
   let graph = gs[0];
   if (gs.length > 1) {
@@ -140,6 +149,7 @@ export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 4
     graph.sapVersion = gs[0].sapVersion;
     graph.builtAt = gs.map((g) => g.builtAt).sort()[0];
   }
+  if (sid) graph = { ...graph, system: String(sid) };
   const info = { desc: new Map(), usage: new Map(), std: new Map() };
   for (const d of dirs) readSideInfo(d, info);
   applyTexts(info);
@@ -160,7 +170,7 @@ export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 4
 }
 
 function args(argv) {
-  const a = { lang: 'ko', hubs: 40, groups: 60, dirs: [], graphs: [], fold: true, snippets: false };
+  const a = { lang: 'ko', hubs: 40, groups: 60, dirs: [], graphs: [], fold: true, snippets: false, src: [] };
   for (let i = 0; i < argv.length; i++) {
     const k = argv[i], v = () => argv[++i];
     if (k === '--graph') a.graphs.push(resolve(v()));
@@ -171,17 +181,53 @@ function args(argv) {
     else if (k === '--groups') a.groups = Number(v());
     else if (k === '--includes') { const x = v(); if (x !== 'keep' && x !== 'fold') throw new Error('--includes keep|fold'); a.fold = x === 'fold'; }
     else if (k === '--snippets') a.snippets = true;
-    else if (k === '--src') a.src = resolve(v());
+    else if (k === '--src') a.src.push(resolve(v()));
+    else if (k === '--max-bytes') { a.maxBytes = Number(v()); if (!(a.maxBytes > 0)) throw new Error('--max-bytes must be a positive number'); }
+    else if (k === '--sid') a.sid = String(v() || '').trim();
     else throw new Error(`unknown option ${k}`);
   }
-  if (!['ko', 'en'].includes(a.lang)) throw new Error('--lang must be ko or en');
+  if (!['ko', 'en', 'ja'].includes(a.lang)) throw new Error('--lang must be ko, en or ja');
   for (const d of a.dirs) a.graphs.push(join(d, 'graph.json'));
-  if (!a.graphs.length) throw new Error('usage: build-relation-map.mjs --dir <inventory dir> [--dir …] | --graph <graph.json> [--out file] [--lang ko|en]');
+  if (!a.graphs.length) throw new Error('usage: build-relation-map.mjs --dir <inventory dir> [--dir …] | --graph <graph.json> [--out file] [--lang ko|en] [--snippets [--src dir …]] [--max-bytes n] [--sid SID] | find --base <dir> … --packages <list>');
   return a;
+}
+
+/**
+ * Build and write the page. With maxBytes: a page with snippets over the limit is rebuilt without them
+ * (reason "size"); a page still over it is not written ({ tooBig: true }).
+ */
+export function buildToFile(o) {
+  let r = buildRelationMap({ ...o, out: undefined });
+  if (o.maxBytes && r.bytes > o.maxBytes && o.snippets) {
+    r = { ...buildRelationMap({ ...o, out: undefined, snippets: false }), snippets: false, reason: 'size' };
+  }
+  if (o.maxBytes && r.bytes > o.maxBytes) {
+    const { html, ...rest } = r;
+    return { ...rest, page: null, tooBig: true, maxBytes: o.maxBytes };
+  }
+  if (r.nodes) { mkdirSync(dirname(o.out), { recursive: true }); writeFileSync(o.out, r.html, 'utf8'); }
+  const { html, ...rest } = r;
+  return { ...rest, page: r.nodes ? o.out : null };
+}
+
+function findArgs(argv) {
+  const f = { bases: [], packages: '' };
+  for (let i = 0; i < argv.length; i++) {
+    const k = argv[i];
+    if (k === '--base') f.bases.push(argv[++i]);
+    else if (k === '--packages') f.packages = argv[++i];
+    else throw new Error(`unknown option ${k}`);
+  }
+  return f;
 }
 
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   try {
+    if (process.argv[2] === 'find') {
+      const r = findGraphs(findArgs(process.argv.slice(3)));
+      console.log(JSON.stringify(r));
+      process.exit(r.ok ? 0 : 1);
+    }
     const a = args(process.argv.slice(2));
     const missing = a.graphs.filter((g) => !existsSync(g));
     if (missing.length) { console.error(`graph.json not found: ${missing.join(', ')} — run /sc4sap:stock-cbo on the package first`); process.exit(2); }
@@ -193,13 +239,13 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
         : join(first, `${graphs[0].package || 'package'}-relation-map-${a.lang}.html`);
     }
     // <artifactBase>/cbo/<MODULE>/<PACKAGE> → <artifactBase>/mcp-output/src
-    if (a.snippets && !a.src) a.src = join(first, '..', '..', '..', 'mcp-output', 'src');
-    const r = buildRelationMap({ ...a, graphs });
+    if (a.snippets && !a.src.length) a.src = [join(first, '..', '..', '..', 'mcp-output', 'src')];
+    const r = buildToFile({ ...a, graphs });
     if (!r.nodes) { console.error('graph.json has no customer (Z/Y/namespace) object'); process.exit(2); }
     console.log(JSON.stringify(r));
+    if (r.tooBig) { console.error(`page is ${r.bytes} bytes without source snippets, over --max-bytes ${r.maxBytes} — map fewer packages`); process.exit(3); }
   } catch (e) {
     console.error(e.message);
     process.exit(1);
   }
 }
-

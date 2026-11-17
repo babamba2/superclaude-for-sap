@@ -4,6 +4,8 @@
 // and copy, dependency arrows, change marks, undo / redo, drafts, and Save that overwrites the same file.
 var DATA = JSON.parse(document.getElementById('project-model').textContent);
 var model = DATA.model, history = DATA.history || [], ORIG = JSON.parse(JSON.stringify(DATA.model));
+// Inside the web workbench (renderPage embed) the workbench stores every change: no Save, no drafts, no leave warning.
+var EMBED = !!DATA.embed;
 var undo = [], redo = [], edits = 0, dirty = false, editing = false, lastDraft = '', savedAt = '';
 var L = labelsFor(model.lang);
 var today = new Date().toISOString().slice(0, 10);
@@ -29,7 +31,7 @@ function draw(after) {
   var a = renderAll(model, { history: history, today: today });
   view = a.v; nums = {}; ids = {};
   a.v.rows.forEach(function (r) { nums[r.id] = r.num; ids[r.num] = r.id; });
-  ['sum', 'kpi', 'ms', 'wbs', 'sap', 'team', 'hist'].forEach(function (t) { var el = $('#tab-' + t + ' .body'); if (el) el.innerHTML = a[t]; });
+  ['sum', 'kpi', 'ms', 'risk', 'cut', 'wbs', 'sap', 'team', 'hist'].forEach(function (t) { var el = $('#tab-' + t + ' .body'); if (el) el.innerHTML = a[t]; });
   var rg = $('#overall'); if (rg) { rg.className = 'rag rag-' + a.v.overall; rg.textContent = L.rag[a.v.overall]; }
   var wt = $('.wbs'), span = wt ? +wt.dataset.days || 365 : 365;
   document.documentElement.style.setProperty('--gw', Math.round(Math.max(520, span * (narrow() ? 4 : 3.4)) * zoom) + 'px');
@@ -188,7 +190,15 @@ function toToday() { tab('wbs'); var g = $('.wbs .gtoday'), w = $('.wbs-w'); if 
 
 // ---------- model access, undo / redo ----------
 function find(scope, id) {
-  var list = scope === 'w' ? model.wbs : scope === 'm' ? model.milestones : scope === 'k' ? (model.kpis = model.kpis || []) : model.team;
+  if (scope === 's') return (model.status = model.status || {});
+  if (scope === 'p') return model.project;
+  // cutover tab (cutover-tab.mjs): window / freeze objects, tasks and go / no-go items by id
+  if (scope === 'cw' || scope === 'cf' || scope === 'c' || scope === 'g') model.cutover = model.cutover || { tasks: [], goNoGo: [] };
+  if (scope === 'cw') return (model.cutover.window = model.cutover.window || {});
+  if (scope === 'cf') return (model.cutover.freeze = model.cutover.freeze || {});
+  var list = scope === 'w' ? model.wbs : scope === 'm' ? model.milestones : scope === 'k' ? (model.kpis = model.kpis || [])
+    : scope === 'r' ? (model.risks = model.risks || []) : scope === 'd' ? (model.decisions = model.decisions || [])
+    : scope === 'c' ? (model.cutover.tasks = model.cutover.tasks || []) : scope === 'g' ? (model.cutover.goNoGo = model.cutover.goNoGo || []) : model.team;
   for (var i = 0; i < list.length; i++) if (list[i].id === id) return list[i];
   return null;
 }
@@ -196,7 +206,7 @@ function get(o, f) { return f.split('.').reduce(function (x, k) { return x == nu
 function set(o, f, v) { var ks = f.split('.'), x = o; for (var i = 0; i < ks.length - 1; i++) { x[ks[i]] = x[ks[i]] || {}; x = x[ks[i]]; } x[ks[ks.length - 1]] = v; }
 function snap() { undo.push(JSON.stringify(model)); if (undo.length > 300) undo.shift(); redo = []; edits++; dirty = true; queueDraft(); }
 var draftTimer = null;
-function queueDraft() { clearTimeout(draftTimer); draftTimer = setTimeout(function () { store(key, JSON.stringify({ model: model, history: history })); lastDraft = hhmm(); updateState(); }, 400); }
+function queueDraft() { if (EMBED) return; clearTimeout(draftTimer); draftTimer = setTimeout(function () { store(key, JSON.stringify({ model: model, history: history })); lastDraft = hhmm(); updateState(); }, 400); }
 function doUndo() { if (!undo.length) return; redo.push(JSON.stringify(model)); model = JSON.parse(undo.pop()); edits = Math.max(0, edits - 1); dirty = true; queueDraft(); draw(); }
 function doRedo() { if (!redo.length) return; undo.push(JSON.stringify(model)); model = JSON.parse(redo.pop()); edits++; dirty = true; queueDraft(); draw(); }
 $('#undo').onclick = doUndo;
@@ -271,9 +281,11 @@ function openEditor(el) {
     inp = document.createElement('select');
     opts.forEach(function (x) { var op = document.createElement('option'); op.value = x[0]; op.textContent = x[1]; if (x[0] === (cur || '')) op.selected = true; inp.appendChild(op); });
   } else {
-    inp = document.createElement('input'); inp.type = kind === 'pct' || kind === 'num' ? 'number' : 'text';
-    if (kind === 'num') inp.step = 'any'; if (kind === 'pct') { inp.min = 0; inp.max = 100; }
+    inp = document.createElement('input'); inp.type = 'text';
+    // numbers as text with a number keypad: a browser number field turns letters into an empty value (= cleared)
+    if (kind === 'num') inp.inputMode = 'decimal'; if (kind === 'pct') inp.inputMode = 'numeric';
     if (kind === 'date') inp.placeholder = E.datePh;
+    if (kind === 'datetime') inp.placeholder = 'YYYY-MM-DD HH:MM';
     if (kind === 'deps') { inp.placeholder = E.depsPh; cur = (cur || []).map(function (d) { return nums[d] || d; }).join(', '); }
     inp.value = kind === 'list' ? (cur || []).join(' · ') : cur == null ? '' : cur;
     inp.size = Math.max(kind === 'date' ? 11 : 6, String(inp.value).length + 2);
@@ -291,16 +303,22 @@ function openEditor(el) {
   inp.focus(); if (inp.select && !opts) inp.select();
   function value() {
     var v = inp.value;
+    if (kind === 'pct' || kind === 'num') { v = parseNumber(v); if (v === null) return null; } // project-model.mjs
     if (kind === 'pct') return Math.max(0, Math.min(100, Math.round(+v || 0)));
-    if (kind === 'num') return v === '' ? '' : +v;
+    if (kind === 'num') return v;
     if (kind === 'list') return v.split(/\s*[·,;]\s*/).filter(Boolean);
+    // cutover freeze dates (scope cf) must be real calendar days (2027-13-40 stays in the field); other date cells unchanged
+    if (kind === 'date' && p[0] === 'cf') { var cd = parseDate(v, cur); return cd && !cutDT(cd + 'T00:00') ? null : cd; }
     if (kind === 'date') return parseDate(v, cur);
+    // cutover window times: "YYYY-MM-DD HH:MM" (or with T) only; anything else keeps the old value (null = stay in the field)
+    if (kind === 'datetime') return v.trim() === '' ? '' : cutDT(v) || null;
     if (kind === 'deps') return v.split(/[\s,;]+/).filter(Boolean).map(function (n) { return ids[n] || n; }).filter(function (d) { return d !== p[1] && find('w', d); });
     return v;
   }
   function finish(save, move) {
     if (done) return; var v = save ? value() : undefined;
-    if (save && v === null) { inp.classList.add('bad-in'); inp.focus(); return; }
+    // A value that does not parse never traps the user in the cell (phones have no Esc): the old value stays and a toast says so.
+    if (save && v === null) { save = false; move = null; toast(kind === 'datetime' ? E.badDt : p[0] === 'cf' ? E.badDay : kind === 'date' ? E.badDate : E.badVal, false); }
     done = true;
     var target = move ? neighbour(el, move) : null;
     var before = get(o, p[2]); before = before == null ? (kind === 'deps' || kind === 'list' ? [] : '') : before;
@@ -327,6 +345,9 @@ function neighbour(el, dir) {
 }
 
 // ---------- clicks ----------
+// iPhone Safari sends no click for a tap on a plain element (an edit cell, a WBS row) when the only
+// listener sits on document; a listener on body makes those taps clickable.
+document.body.addEventListener('click', function () {});
 document.addEventListener('click', function (ev) {
   var t = ev.target;
   if (t.closest('.tg')) { var tr0 = t.closest('tr.wr'); closed[tr0.dataset.id] = !closed[tr0.dataset.id]; applyView(); return; }
@@ -334,6 +355,8 @@ document.addEventListener('click', function (ev) {
   if (num) { var id = num.parentNode.dataset.id; var multi = ev.ctrlKey || ev.metaKey || selectMode; select(id, ev.shiftKey ? 'range' : multi ? 'toggle' : ''); if (!ev.shiftKey && !multi) openDrawer(id); return; }
   var lnk = t.closest('[data-go]'); if (lnk) { goRow(lnk.dataset.go); return; }
   var el = t.closest('.ed'); if (editing && el) { openEditor(el); return; }
+  // A tap beside the name in a WBS name cell (phones: the cell is wider than the name) edits the name too.
+  var lc = editing && t.closest('.wbs td.lbl'); if (lc && !t.closest('button,input,select')) { var le = $('.ed', lc); if (le) { openEditor(le); return; } }
   var tr = t.closest('.wbs tr.wr[data-id]');
   if (tr && !t.closest('button,input,select,.gb')) {
     select(tr.dataset.id, ev.shiftKey ? 'range' : ev.ctrlKey || ev.metaKey || selectMode ? 'toggle' : '');
@@ -449,6 +472,9 @@ function tools() {
 }
 $('#add-ms').onclick = function () { snap(); var n = model.milestones.length + 1; while (find('m', 'MS.N' + n)) n++; model.milestones.push({ id: 'MS.N' + n, label: E.newMs, kind: 'other', base: today, forecast: today, status: 'planned', criteria: [] }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="m|MS.N' + n + '|label"]')); }); };
 $('#add-kpi').onclick = function () { snap(); model.kpis = model.kpis || []; var n = model.kpis.length + 1; while (find('k', 'K' + n)) n++; model.kpis.push({ id: 'K' + n, label: E.newKpi, group: 'other', dir: 'up', unit: '', target: '', actual: '', history: [] }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="k|K' + n + '|label"]')); }); };
+$('#add-rk').onclick = function () { snap(); model.risks = model.risks || []; var n = model.risks.length + 1; while (find('r', 'RK' + n)) n++; model.risks.push({ id: 'RK' + n, text: E.newRisk, impact: 'M', status: 'open', raised: today }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="r|RK' + n + '|text"]')); }); };
+$('#add-ct').onclick = function () { snap(); find('c', ''); var l = model.cutover.tasks; var n = l.length + 1; while (find('c', 'CT.N' + n)) n++; l.push({ id: 'CT.N' + n, phase: 'window', label: E.newCt, ws: '', owner: '', status: 'planned', deps: [], durationH: 1, note: '' }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="c|CT.N' + n + '|label"]')); }); };
+$('#add-dc').onclick = function () { snap(); model.decisions = model.decisions || []; var n = model.decisions.length + 1; while (find('d', 'DC' + n)) n++; model.decisions.push({ id: 'DC' + n, text: E.newDecision, status: 'open' }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="d|DC' + n + '|text"]')); }); };
 $('#add-tm').onclick = function () { snap(); var n = model.team.length + 1; while (find('t', 'T' + n)) n++; model.team.push({ id: 'T' + n, name: E.newTm, role: 'module', from: today }); if (!editing) setEditing(true); draw(function () { openEditor($('.ed[data-f="t|T' + n + '|name"]')); }); };
 
 // ---------- bulk actions on picked rows ----------
@@ -655,7 +681,7 @@ function commands() {
     [E.newPhase, addPhase], [E.openAll, function () { closed = {}; tab('wbs'); applyView(); }], [E.closeAll, function () { tab('wbs'); $('#f-close').click(); }],
     [E.toToday, toToday], [E.late, function () { tab('wbs'); $('#f-late').checked = !$('#f-late').checked; filt.late = $('#f-late').checked; applyView(); }],
     [E.changes, function () { tab('wbs'); $('#f-chg').checked = !$('#f-chg').checked; showChanges = $('#f-chg').checked; applyView(); updateState(); }],
-    [E.csv, exportCsv], [E.baseline, setBaseline], [E.help + ' (?)', toggleHelp], [E.theme, function () { $('#theme').click(); }], [E.print, function () { window.print(); }]].forEach(function (x) { c.push({ k: 'act', label: x[0], run: x[1] }); });
+    [E.csv, exportCsv], [E.baseline, setBaseline], [E.help + ' (?)', toggleHelp], [E.theme, function () { $('#theme').click(); }], [E.print, function () { window.print(); }]].filter(function (x) { return !(EMBED && x[1] === save); }).forEach(function (x) { c.push({ k: 'act', label: x[0], run: x[1] }); });
   view.rows.forEach(function (r) { c.push({ k: 'row', label: r.num + ' ' + r.label, sub: [r.ws, L.status[r.status]].filter(Boolean).join(' · '), run: function () { goRow(r.id); } }); });
   model.milestones.forEach(function (m) { c.push({ k: 'ms', label: '◆ ' + m.label, sub: m.forecast || m.base, run: function () { tab('ms'); } }); });
   model.team.forEach(function (t) { c.push({ k: 'tm', label: '👤 ' + t.name, sub: L.role[t.role] || t.role, run: function () { tab('wbs'); $('#f-owner').value = t.id; filt.owner = t.id; applyView(); } }); });
@@ -686,7 +712,7 @@ $('#help').addEventListener('click', function (e) { if (e.target.id === 'help' |
 document.addEventListener('keydown', function (e) {
   var typing = /INPUT|SELECT|TEXTAREA/.test((e.target || {}).tagName || ''), k = e.key, mod = e.ctrlKey || e.metaKey;
   if (mod && k.toLowerCase() === 'k') { e.preventDefault(); $('#pal').classList.contains('on') ? closePalette() : openPalette(); return; }
-  if (mod && k.toLowerCase() === 's') { e.preventDefault(); save(); return; }
+  if (mod && k.toLowerCase() === 's') { e.preventDefault(); if (!EMBED) save(); return; }
   if (typing) return;
   if (mod && (k.toLowerCase() === 'y' || (e.shiftKey && k.toLowerCase() === 'z'))) { e.preventDefault(); doRedo(); return; }
   if (mod && k.toLowerCase() === 'z') { e.preventDefault(); doUndo(); return; }
@@ -703,7 +729,7 @@ document.addEventListener('keydown', function (e) {
   if (k === 'Delete') { e.preventDefault(); delRows(pickedIds().length > 1 ? pickedIds() : [current]); return; }
   if (k === 'F2' || k === 'Enter') { e.preventDefault(); openEditor($('.wbs .ed[data-f="w|' + cssq(current) + '|label"]')); }
 });
-window.addEventListener('beforeunload', function (e) { if (dirty) { e.preventDefault(); e.returnValue = E.unsaved; } });
+window.addEventListener('beforeunload', function (e) { if (dirty && !EMBED) { e.preventDefault(); e.returnValue = E.unsaved; } });
 
 // ---------- toast ----------
 var toastTimer = null;
@@ -714,12 +740,13 @@ function toast(msg, withUndo) {
 }
 
 // ---------- draft ----------
-var d0 = load(key);
+var d0 = EMBED ? null : load(key);
 if (d0) { var dr = $('#draft'); dr.classList.add('on'); $('#resume').onclick = function () { var x = JSON.parse(d0); model = x.model; history = x.history || history; dirty = true; edits = 1; dr.classList.remove('on'); draw(); }; $('#discard').onclick = function () { store(key); dr.classList.remove('on'); }; }
 
 // ---------- save: one revision per editing session; overwrite the chosen file where the browser allows ----------
 function nextV() { var last = (history[history.length - 1] || {}).version || DATA.version || '1.0'; var p = String(last).split('.'); return p[0] + '.' + ((+p[1] || 0) + 1); }
 function save() { var dlg = $('#save-dlg'); $('#s-author').value = load('sc4sap-pd-author') || ''; var last = history[history.length - 1]; $('#s-note').value = last && last.session === session ? last.note : E.noteDefault; dlg.showModal(); ($('#s-author').value ? $('#s-note') : $('#s-author')).focus(); }
+if (!EMBED) {
 $('#save').onclick = save;
 $('#s-cancel').onclick = function () { $('#save-dlg').close(); };
 $('#s-ok').onclick = function () {
@@ -741,6 +768,10 @@ $('#s-ok').onclick = function () {
     .then(function (h) { fileHandle = h; return h.createWritable(); }).then(function (w) { return w.write(html).then(function () { return w.close(); }); }).then(done, function (e) { if (e && e.name === 'AbortError') return; download(); });
   else download();
 };
+}
+
+// ---------- bridge for the web workbench: the live model (every edit, undo and tab writes this variable) and edit mode ----------
+window.SC4SAP_PAGE = { kind: 'project', model: function () { return model; }, edit: function (on) { if (!!on !== editing) setEditing(!!on); }, editing: function () { return editing; } };
 
 bindTools();
 setMobileView(load('sc4sap-pd-mview') || 'gantt');

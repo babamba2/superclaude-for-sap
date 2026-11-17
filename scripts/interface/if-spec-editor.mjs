@@ -102,7 +102,7 @@ if(d.ldel){const [k,i]=d.ldel.split('|');change(()=>D[k].splice(Number(i),1));re
 if(d.radd){change(()=>D.revisions.push({seq:D.revisions.length+1,version:D.version,date:new Date().toISOString().slice(0,10),text:'',author:'',approver:''}));rerender();return}
 if(d.rdel){change(()=>D.revisions.splice(Number(d.rdel),1));rerender();return}
 if(d.resp!=null){change(()=>{if(d.resp==='1'){const side=()=>({object:'',structure:'PARAMETER',cardinality:'1:1'});D.response={source:{object:''},target:{object:''},groups:[{id:'g1',s:{name:'',kind:'PARAMETER',card:'1:1'},t:{name:'',kind:'PARAMETER',card:'1:1'}}],rows:[{no:'B01',g:'g1',s:newCell(),r:'',t:newCell(),map:''}]}}else D.response=null});rerender();return}});
-function setEdit(on){EDIT=on;document.body.classList.toggle('editing',on);$('#ie-edit').textContent=on?EL.done:EL.edit;if(on)document.body.classList.add('checks');rerender()}
+function setEdit(on){EDIT=on;document.body.classList.toggle('editing',on);$('#ie-edit').textContent=on?EL.done:EL.edit;if(on&&!matchMedia('(max-width: 760px)').matches)document.body.classList.add('checks');rerender()}
 $('#ie-edit').onclick=()=>setEdit(!EDIT);
 function doUndo(){const u=undo.pop();if(!u)return;replace(JSON.parse(u));dirty=true;saveDraft();rerender()}
 $('#ie-undo').onclick=doUndo;

@@ -85,3 +85,14 @@
 | Assign Output Types to Partners | V_TNAPN | Assign Output Types to Partners / 출력 유형을 파트너에 배정 |
 | Configure Billing Output | V_TNAPR_F | Billing Output configuration / 청구 출력 설정 |
 | Maintain Print Parameters | V_TNAPT | Maintain Print Parameters / 인쇄 매개변수 유지 |
+
+## Value tables (assistant choices)
+Read by `scripts/assist/values.mjs` for `/sc4sap:assist`: the codes a write action asks for, offered as numbered choices from the connected system. Customizing tables only (Class = DD02L-CONTFLAG C / G, checked on an ECC 7.40 system 2026-11-16). Text table key = SPRAS + key field.
+
+| Value | System | Table/View | Key field | Filter | Text table | Text field | Text filter | Class | Used by | Description |
+|---|---|---|---|---|---|---|---|---|---|---|
+| SD_DELIVERY_BLOCK | ECC, S4 | TVLS | LIFSP | | TVLST | VTEXT | | C / C | SD.SO.SET_DELIVERY_BLOCK.reason | Delivery block reasons (VBAK-LIFSK) |
+| SD_BILLING_BLOCK | ECC, S4 | TVFS | FAKSP | | TVFST | VTEXT | | C / C | SD.SO.SET_BILLING_BLOCK.reason | Billing block reasons (VBAK-FAKSK) |
+| SD_REJECTION_REASON | ECC, S4 | TVAG | ABGRU | | TVAGT | BEZEI | | C / C | SD.SO.REJECT_ITEM.reason | Reasons for rejection (VBAP-ABGRU) |
+| SD_PRICING_CONDITION | ECC, S4 | T685 | KSCHL | KVEWE = 'A' AND KAPPL = 'V' | T685T | VTEXT | KVEWE = 'A' AND KAPPL = 'V' | C / C | SD.SO.CHANGE_PRICE.cond_type | Pricing condition types of sales (usage A, application V) |
+| LE_SHIPMENT_TYPE | ECC | TVTK | SHTYP | | TVTKT | BEZEI | | G / G | LE.SHP.CREATE.shtyp | Shipment types |

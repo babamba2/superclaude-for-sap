@@ -14,6 +14,7 @@ import { STYLE } from './process-page.mjs';
 import { drawSwimlane } from './swimlane.mjs';
 import { anchorId } from './process-model.mjs';
 import { latestPage, stepWhere } from './integration-view.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const arr = (v) => (Array.isArray(v) ? v : []);
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -149,7 +150,7 @@ var pb=document.getElementById('print-btn');if(pb)pb.addEventListener('click',fu
 var q=document.getElementById('ix-q');if(q)q.addEventListener('input',function(){var s=q.value.trim().toLowerCase();var rows=document.querySelectorAll('table.ix tbody tr');var obj='';
 rows.forEach(function(r){var c=r.cells[0];if(c&&c.hasAttribute('rowspan'))obj=c.textContent.toLowerCase();r.hidden=!!s&&(obj+' '+r.textContent.toLowerCase()).indexOf(s)<0;});});})();`;
   const tocHtml = `<ol>${toc.map(([id, l]) => `<li><a href="#${id}">${esc(l)}</a></li>`).join('')}</ol>`;
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${esc(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} v${esc(version)}</title>
 <style>${STYLE}${css}</style></head>
@@ -163,7 +164,7 @@ ${sec.join('\n')}
 <script type="application/json" id="integration-model">${JSON.stringify({ touchpoints: tp, scenarios: scen || null }).replace(/</g, '\\u003c')}</script>
 <script>${js}</script>
 </body></html>
-`;
+`);
 }
 
 export function buildIntegrationDoc({ dir, lang = 'ko', sameVersion = false }) {

@@ -35,6 +35,7 @@ import { readManualConfig } from './manual-config.mjs';
 import { labelsFor, STYLE, SCRIPT, LINK_SCRIPT } from './manual-page.mjs';
 import { renderExcelSheetSVG } from './excel-sheet-svg.mjs';
 import { EDITOR_STYLE, EDITOR_SCRIPT, QUILL_CSS, QUILL_JS, editorLabels } from './manual-editor.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 /** JSON inside a <script> element: nothing in it may close the element. */
 const LS = String.fromCharCode(0x2028), PS = String.fromCharCode(0x2029);
@@ -424,7 +425,7 @@ export function renderManualHtml(manual, { version, date, config = {}, history =
 
   const tocHtml = `<ol>${toc.map(([id, label, kids]) => `<li><a href="#${id}">${esc(label)}</a>${kids?.length ? `<ol>${kids.map(([k, l]) => `<li><a href="#${k}">${esc(l)}</a></li>`).join('')}</ol>` : ''}</li>`).join('')}</ol>`;
   const footer = [config.company, config.confidentiality].filter(Boolean).join(' · ');
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${esc(manual.lang || 'ko')}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} — ${esc(T.manual)} v${esc(version)}</title>
 <style>${STYLE}${QUILL_CSS}${EDITOR_STYLE}${FLOW_EDITOR_STYLE}</style></head>
@@ -444,7 +445,7 @@ ${QUILL_JS ? `<script>${QUILL_JS}</script>` : ''}
 <script>${FLOW_EDITOR_SCRIPT}</script>
 <script>${EDITOR_SCRIPT}</script>
 </body></html>
-`;
+`);
 }
 
 // ── Build ───────────────────────────────────────────────────────────────

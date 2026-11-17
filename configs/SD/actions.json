@@ -609,7 +609,8 @@
         {
           "param": "cond_type",
           "ask": "Which condition type should be changed?",
-          "when": "cond_type is missing"
+          "when": "cond_type is missing",
+          "values": "SD_PRICING_CONDITION"
         },
         {
           "param": "new_price",
@@ -719,7 +720,8 @@
         {
           "param": "reason",
           "ask": "Which delivery block reason?",
-          "when": "reason is missing"
+          "when": "reason is missing",
+          "values": "SD_DELIVERY_BLOCK"
         }
       ],
       "impl": {
@@ -922,7 +924,8 @@
         {
           "param": "reason",
           "ask": "Which billing block reason?",
-          "when": "reason is missing"
+          "when": "reason is missing",
+          "values": "SD_BILLING_BLOCK"
         }
       ],
       "impl": {
@@ -1123,7 +1126,8 @@
         {
           "param": "reason",
           "ask": "Which reason for rejection?",
-          "when": "reason is missing"
+          "when": "reason is missing",
+          "values": "SD_REJECTION_REASON"
         },
         {
           "param": "posnr",

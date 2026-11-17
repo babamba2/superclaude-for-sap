@@ -1,0 +1,1848 @@
+{
+ "DEMO-A": {
+  "kpis": [
+   {
+    "dir": "down",
+    "history": [],
+    "id": "K.BUDGET",
+    "label": "예산 집행률 (계획 대비)",
+    "group": "cost",
+    "unit": "%",
+    "target": 100,
+    "actual": ""
+   },
+   {
+    "dir": "down",
+    "history": [],
+    "id": "K.DEFECT12",
+    "label": "미해결 결함 (Sev 1·2)",
+    "group": "quality",
+    "unit": "",
+    "target": 0,
+    "actual": ""
+   },
+   {
+    "dir": "up",
+    "history": [],
+    "id": "K.TESTPASS",
+    "label": "테스트 케이스 통과율",
+    "group": "quality",
+    "unit": "%",
+    "target": 95,
+    "actual": ""
+   },
+   {
+    "dir": "up",
+    "history": [],
+    "id": "K.MIGREC",
+    "label": "이관 리허설 정합률",
+    "group": "data",
+    "unit": "%",
+    "target": 99.5,
+    "actual": ""
+   },
+   {
+    "dir": "up",
+    "history": [],
+    "id": "K.TRAIN",
+    "label": "최종 사용자 교육 이수율",
+    "group": "ocm",
+    "unit": "%",
+    "target": 95,
+    "actual": ""
+   },
+   {
+    "dir": "down",
+    "history": [],
+    "id": "K.FTSGAP",
+    "label": "미결 Fit-Gap 항목",
+    "group": "quality",
+    "unit": "",
+    "target": 0,
+    "actual": ""
+   }
+  ],
+  "lang": "ko",
+  "title": "Demo implementation",
+  "project": {
+   "modules": [
+    "SD",
+    "MM"
+   ],
+   "packages": [],
+   "code": "DEMO-A",
+   "name": "Demo implementation",
+   "type": "implementation",
+   "sponsor": "",
+   "pm": "",
+   "pmo": "",
+   "start": "2027-01-04",
+   "goLive": "2027-04-19",
+   "end": "2027-05-31",
+   "system": ""
+  },
+  "team": [
+   {
+    "id": "PM1",
+    "name": "Park PM",
+    "role": "pm"
+   },
+   {
+    "id": "SD1",
+    "name": "Kim SD",
+    "role": "module",
+    "module": "SD",
+    "sapUser": "DEMOSD"
+   },
+   {
+    "id": "DEV1",
+    "name": "Lee Dev",
+    "role": "dev",
+    "module": "SD",
+    "sapUser": "DEMODEV"
+   },
+   {
+    "id": "MM1",
+    "name": "Choi MM",
+    "role": "module",
+    "module": "MM"
+   }
+  ],
+  "workstreams": [
+   {
+    "code": "SD",
+    "label": "SD",
+    "kind": "module"
+   },
+   {
+    "code": "MM",
+    "label": "MM",
+    "kind": "module"
+   },
+   {
+    "code": "PMO",
+    "label": "PMO·프로젝트 관리",
+    "kind": "cross"
+   },
+   {
+    "code": "DM",
+    "label": "데이터 이관",
+    "kind": "cross"
+   },
+   {
+    "code": "INT",
+    "label": "인터페이스",
+    "kind": "cross"
+   },
+   {
+    "code": "BAS",
+    "label": "Basis·인프라",
+    "kind": "cross"
+   },
+   {
+    "code": "SEC",
+    "label": "권한",
+    "kind": "cross"
+   },
+   {
+    "code": "TST",
+    "label": "테스트",
+    "kind": "cross"
+   },
+   {
+    "code": "OCM",
+    "label": "교육·변화관리",
+    "kind": "cross"
+   },
+   {
+    "code": "CUT",
+    "label": "컷오버",
+    "kind": "cross"
+   }
+  ],
+  "wbs": [
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "PRE",
+    "label": "Prepare — 준비",
+    "type": "phase",
+    "start": "2027-01-04",
+    "finish": "2027-01-11",
+    "baseStart": "2027-01-04",
+    "baseFinish": "2027-01-11"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "PRE.CHARTER",
+    "parent": "PRE",
+    "label": "프로젝트 헌장·킥오프",
+    "type": "deliverable",
+    "ws": "PMO",
+    "start": "2027-01-04",
+    "finish": "2027-01-07",
+    "owner": "PM1",
+    "baseStart": "2027-01-04",
+    "baseFinish": "2027-01-07"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "PRE.STD",
+    "parent": "PRE",
+    "label": "프로젝트 표준·도구·보고 체계",
+    "type": "deliverable",
+    "ws": "PMO",
+    "start": "2027-01-05",
+    "finish": "2027-01-10",
+    "owner": "PM1",
+    "baseStart": "2027-01-05",
+    "baseFinish": "2027-01-10"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "PRE.SBX",
+    "parent": "PRE",
+    "label": "샌드박스·개발 시스템 준비",
+    "type": "deliverable",
+    "ws": "BAS",
+    "start": "2027-01-04",
+    "finish": "2027-01-11",
+    "owner": "",
+    "baseStart": "2027-01-04",
+    "baseFinish": "2027-01-11"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "PRE.ONB",
+    "parent": "PRE",
+    "label": "프로젝트 팀 온보딩·교육",
+    "type": "deliverable",
+    "ws": "OCM",
+    "start": "2027-01-07",
+    "finish": "2027-01-11",
+    "owner": "",
+    "baseStart": "2027-01-07",
+    "baseFinish": "2027-01-11"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP",
+    "label": "Explore — 설계",
+    "type": "phase",
+    "start": "2027-01-12",
+    "finish": "2027-02-04",
+    "baseStart": "2027-01-12",
+    "baseFinish": "2027-02-04"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.FTS.SD",
+    "parent": "EXP",
+    "label": "SD Fit-to-Standard 워크숍",
+    "type": "deliverable",
+    "ws": "SD",
+    "start": "2027-01-12",
+    "finish": "2027-01-24",
+    "fnOwner": "SD1",
+    "baseStart": "2027-01-12",
+    "baseFinish": "2027-01-24"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.FTS.MM",
+    "parent": "EXP",
+    "label": "MM Fit-to-Standard 워크숍",
+    "type": "deliverable",
+    "ws": "MM",
+    "start": "2027-01-12",
+    "finish": "2027-01-24",
+    "fnOwner": "MM1",
+    "baseStart": "2027-01-12",
+    "baseFinish": "2027-01-24"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.BPD.SD",
+    "parent": "EXP",
+    "label": "SD 솔루션 설계서·Delta 요구사항",
+    "type": "deliverable",
+    "ws": "SD",
+    "start": "2027-01-21",
+    "finish": "2027-02-03",
+    "fnOwner": "SD1",
+    "baseStart": "2027-01-21",
+    "baseFinish": "2027-02-03"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.BPD.MM",
+    "parent": "EXP",
+    "label": "MM 솔루션 설계서·Delta 요구사항",
+    "type": "deliverable",
+    "ws": "MM",
+    "start": "2027-01-21",
+    "finish": "2027-02-03",
+    "fnOwner": "MM1",
+    "baseStart": "2027-01-21",
+    "baseFinish": "2027-02-03"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.WRL",
+    "parent": "EXP",
+    "label": "WRICEF 목록 확정·담당 배정 (모듈·개발)",
+    "type": "deliverable",
+    "ws": "PMO",
+    "start": "2027-01-26",
+    "finish": "2027-02-04",
+    "owner": "PM1",
+    "baseStart": "2027-01-26",
+    "baseFinish": "2027-02-04"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.DMS",
+    "parent": "EXP",
+    "label": "데이터 이관 전략·대상 정의",
+    "type": "deliverable",
+    "ws": "DM",
+    "start": "2027-01-19",
+    "finish": "2027-02-04",
+    "owner": "",
+    "baseStart": "2027-01-19",
+    "baseFinish": "2027-02-04"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.IFD",
+    "parent": "EXP",
+    "label": "인터페이스 목록·설계",
+    "type": "deliverable",
+    "ws": "INT",
+    "start": "2027-01-19",
+    "finish": "2027-02-04",
+    "owner": "",
+    "baseStart": "2027-01-19",
+    "baseFinish": "2027-02-04"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.SECD",
+    "parent": "EXP",
+    "label": "권한 역할 설계",
+    "type": "deliverable",
+    "ws": "SEC",
+    "start": "2027-01-24",
+    "finish": "2027-02-04",
+    "owner": "",
+    "baseStart": "2027-01-24",
+    "baseFinish": "2027-02-04"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.TSTS",
+    "parent": "EXP",
+    "label": "테스트 전략·시나리오",
+    "type": "deliverable",
+    "ws": "TST",
+    "start": "2027-01-26",
+    "finish": "2027-02-04",
+    "owner": "",
+    "baseStart": "2027-01-26",
+    "baseFinish": "2027-02-04"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.OCMI",
+    "parent": "EXP",
+    "label": "변화 영향 분석",
+    "type": "deliverable",
+    "ws": "OCM",
+    "start": "2027-01-24",
+    "finish": "2027-02-04",
+    "owner": "",
+    "baseStart": "2027-01-24",
+    "baseFinish": "2027-02-04"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA",
+    "label": "Realize — 구축",
+    "type": "phase",
+    "start": "2027-02-05",
+    "finish": "2027-03-23",
+    "baseStart": "2027-02-05",
+    "baseFinish": "2027-03-23"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.CFG.SD",
+    "parent": "REA",
+    "label": "SD 설정(Configuration)·단위 테스트",
+    "type": "deliverable",
+    "ws": "SD",
+    "start": "2027-02-05",
+    "finish": "2027-03-05",
+    "fnOwner": "SD1",
+    "baseStart": "2027-02-05",
+    "baseFinish": "2027-03-05"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.CFG.MM",
+    "parent": "REA",
+    "label": "MM 설정(Configuration)·단위 테스트",
+    "type": "deliverable",
+    "ws": "MM",
+    "start": "2027-02-05",
+    "finish": "2027-03-05",
+    "fnOwner": "MM1",
+    "baseStart": "2027-02-05",
+    "baseFinish": "2027-03-05"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.DEV.SD",
+    "parent": "REA",
+    "label": "SD WRICEF 개발",
+    "type": "deliverable",
+    "ws": "SD",
+    "start": "2027-02-07",
+    "finish": "2027-03-12",
+    "devOwner": "DEV1",
+    "wricefContainer": true,
+    "baseStart": "2027-02-07",
+    "baseFinish": "2027-03-12"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.DEV.MM",
+    "parent": "REA",
+    "label": "MM WRICEF 개발",
+    "type": "deliverable",
+    "ws": "MM",
+    "start": "2027-02-07",
+    "finish": "2027-03-12",
+    "devOwner": "DEV1",
+    "wricefContainer": true,
+    "baseStart": "2027-02-07",
+    "baseFinish": "2027-03-12"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.IFB",
+    "parent": "REA",
+    "label": "인터페이스 개발·연동 테스트",
+    "type": "deliverable",
+    "ws": "INT",
+    "start": "2027-02-10",
+    "finish": "2027-03-12",
+    "devOwner": "DEV1",
+    "baseStart": "2027-02-10",
+    "baseFinish": "2027-03-12"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.MOCK1",
+    "parent": "REA",
+    "label": "데이터 이관 리허설 1차",
+    "type": "deliverable",
+    "ws": "DM",
+    "start": "2027-02-26",
+    "finish": "2027-03-05",
+    "owner": "",
+    "baseStart": "2027-02-26",
+    "baseFinish": "2027-03-05"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.SIT1",
+    "parent": "REA",
+    "label": "통합 테스트 1차 (SIT1)",
+    "type": "deliverable",
+    "ws": "TST",
+    "start": "2027-03-06",
+    "finish": "2027-03-14",
+    "owner": "",
+    "baseStart": "2027-03-06",
+    "baseFinish": "2027-03-14"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.MOCK2",
+    "parent": "REA",
+    "label": "데이터 이관 리허설 2차",
+    "type": "deliverable",
+    "ws": "DM",
+    "start": "2027-03-13",
+    "finish": "2027-03-18",
+    "owner": "",
+    "baseStart": "2027-03-13",
+    "baseFinish": "2027-03-18"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.SIT2",
+    "parent": "REA",
+    "label": "통합 테스트 2차 (SIT2)",
+    "type": "deliverable",
+    "ws": "TST",
+    "start": "2027-03-15",
+    "finish": "2027-03-23",
+    "owner": "",
+    "baseStart": "2027-03-15",
+    "baseFinish": "2027-03-23"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.SECB",
+    "parent": "REA",
+    "label": "권한 역할 구축·테스트",
+    "type": "deliverable",
+    "ws": "SEC",
+    "start": "2027-02-23",
+    "finish": "2027-03-21",
+    "owner": "",
+    "baseStart": "2027-02-23",
+    "baseFinish": "2027-03-21"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.MAN",
+    "parent": "REA",
+    "label": "사용자 매뉴얼·교육 자료",
+    "type": "deliverable",
+    "ws": "OCM",
+    "start": "2027-03-05",
+    "finish": "2027-03-23",
+    "owner": "",
+    "baseStart": "2027-03-05",
+    "baseFinish": "2027-03-23"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DEP",
+    "label": "Deploy — 전개",
+    "type": "phase",
+    "start": "2027-03-24",
+    "finish": "2027-04-19",
+    "baseStart": "2027-03-24",
+    "baseFinish": "2027-04-19"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DEP.UAT",
+    "parent": "DEP",
+    "label": "사용자 인수 테스트 (UAT)",
+    "type": "deliverable",
+    "ws": "TST",
+    "start": "2027-03-24",
+    "finish": "2027-04-05",
+    "owner": "",
+    "baseStart": "2027-03-24",
+    "baseFinish": "2027-04-05"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DEP.EUT",
+    "parent": "DEP",
+    "label": "최종 사용자 교육",
+    "type": "deliverable",
+    "ws": "OCM",
+    "start": "2027-04-02",
+    "finish": "2027-04-15",
+    "owner": "",
+    "baseStart": "2027-04-02",
+    "baseFinish": "2027-04-15"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DEP.CUTP",
+    "parent": "DEP",
+    "label": "컷오버 계획·리허설",
+    "type": "deliverable",
+    "ws": "CUT",
+    "start": "2027-03-29",
+    "finish": "2027-04-14",
+    "owner": "",
+    "baseStart": "2027-03-29",
+    "baseFinish": "2027-04-14"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DEP.PRD",
+    "parent": "DEP",
+    "label": "운영 시스템 준비·이관",
+    "type": "deliverable",
+    "ws": "BAS",
+    "start": "2027-04-06",
+    "finish": "2027-04-16",
+    "owner": "",
+    "baseStart": "2027-04-06",
+    "baseFinish": "2027-04-16"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DEP.FMIG",
+    "parent": "DEP",
+    "label": "최종 데이터 이관",
+    "type": "deliverable",
+    "ws": "DM",
+    "start": "2027-04-16",
+    "finish": "2027-04-18",
+    "owner": "",
+    "baseStart": "2027-04-16",
+    "baseFinish": "2027-04-18"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DEP.GOD",
+    "parent": "DEP",
+    "label": "Go/No-Go 결정",
+    "type": "deliverable",
+    "ws": "PMO",
+    "start": "2027-04-15",
+    "finish": "2027-04-16",
+    "owner": "PM1",
+    "baseStart": "2027-04-15",
+    "baseFinish": "2027-04-16"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "RUN",
+    "label": "Run — 안정화",
+    "type": "phase",
+    "start": "2027-04-20",
+    "finish": "2027-05-31",
+    "baseStart": "2027-04-20",
+    "baseFinish": "2027-05-31"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "RUN.HYP",
+    "parent": "RUN",
+    "label": "하이퍼케어 (덤프·사용률 모니터링)",
+    "type": "deliverable",
+    "ws": "PMO",
+    "start": "2027-04-20",
+    "finish": "2027-05-31",
+    "owner": "PM1",
+    "baseStart": "2027-04-20",
+    "baseFinish": "2027-05-31"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "RUN.AMS",
+    "parent": "RUN",
+    "label": "운영(AMS) 인수인계",
+    "type": "deliverable",
+    "ws": "PMO",
+    "start": "2027-05-11",
+    "finish": "2027-05-31",
+    "owner": "PM1",
+    "baseStart": "2027-05-11",
+    "baseFinish": "2027-05-31"
+   },
+   {
+    "status": "inprogress",
+    "pct": 15,
+    "deps": [],
+    "id": "REA.DEV.SD.C001",
+    "parent": "REA.DEV.SD",
+    "label": "Order upload",
+    "type": "wricef",
+    "ws": "SD",
+    "start": "2027-02-07",
+    "finish": "2027-03-12",
+    "baseStart": "2027-02-07",
+    "baseFinish": "2027-03-12",
+    "fnOwner": "SD1",
+    "devOwner": "DEV1",
+    "wricef": {
+     "kind": "C",
+     "stage": "fs",
+     "stageDates": {
+      "fs": "2027-02-20"
+     },
+     "objects": [],
+     "trs": []
+    }
+   },
+   {
+    "status": "inprogress",
+    "pct": 50,
+    "deps": [],
+    "id": "REA.DEV.SD.R002",
+    "parent": "REA.DEV.SD",
+    "label": "Pricing report",
+    "type": "wricef",
+    "ws": "SD",
+    "start": "2027-02-07",
+    "finish": "2027-03-12",
+    "baseStart": "2027-02-07",
+    "baseFinish": "2027-03-12",
+    "fnOwner": "SD1",
+    "devOwner": "DEV1",
+    "wricef": {
+     "kind": "R",
+     "stage": "build",
+     "stageDates": {
+      "build": "2027-02-20"
+     },
+     "objects": [],
+     "trs": []
+    }
+   },
+   {
+    "status": "inprogress",
+    "pct": 65,
+    "deps": [],
+    "id": "REA.DEV.SD.F003",
+    "parent": "REA.DEV.SD",
+    "label": "Invoice form",
+    "type": "wricef",
+    "ws": "SD",
+    "start": "2027-02-07",
+    "finish": "2027-03-12",
+    "baseStart": "2027-02-07",
+    "baseFinish": "2027-03-12",
+    "fnOwner": "SD1",
+    "devOwner": "DEV1",
+    "wricef": {
+     "kind": "F",
+     "stage": "ut",
+     "stageDates": {
+      "ut": "2027-02-20"
+     },
+     "objects": [],
+     "trs": []
+    }
+   },
+   {
+    "status": "done",
+    "pct": 100,
+    "deps": [],
+    "id": "REA.DEV.MM.I001",
+    "parent": "REA.DEV.MM",
+    "label": "Stock interface",
+    "type": "wricef",
+    "ws": "MM",
+    "start": "2027-02-07",
+    "finish": "2027-03-12",
+    "baseStart": "2027-02-07",
+    "baseFinish": "2027-03-12",
+    "fnOwner": "MM1",
+    "devOwner": "DEV1",
+    "wricef": {
+     "kind": "I",
+     "stage": "done",
+     "stageDates": {
+      "done": "2027-02-20"
+     },
+     "objects": [],
+     "trs": []
+    }
+   }
+  ],
+  "milestones": [
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.PRE",
+    "label": "Q-gate 1 — Prepare 완료",
+    "kind": "qgate",
+    "phase": "PRE",
+    "base": "2027-01-11",
+    "forecast": "2027-01-11"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.EXP",
+    "label": "Q-gate 2 — 설계 승인",
+    "kind": "qgate",
+    "phase": "EXP",
+    "base": "2027-02-04",
+    "forecast": "2027-02-04"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.REA",
+    "label": "Q-gate 3 — 구축·통합 테스트 완료",
+    "kind": "qgate",
+    "phase": "REA",
+    "base": "2027-03-23",
+    "forecast": "2027-03-23"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.DEP.GOD",
+    "label": "Q-gate 4 — Go/No-Go",
+    "kind": "qgate",
+    "phase": "DEP",
+    "base": "2027-04-16",
+    "forecast": "2027-04-16"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.DEP",
+    "label": "Go-Live",
+    "kind": "golive",
+    "phase": "DEP",
+    "base": "2027-04-19",
+    "forecast": "2027-04-19"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.RUN",
+    "label": "Q-gate 5 — 프로젝트 종료",
+    "kind": "signoff",
+    "phase": "RUN",
+    "base": "2027-05-31",
+    "forecast": "2027-05-31"
+   }
+  ],
+  "schema": 1,
+  "snapshots": [],
+  "risks": [
+   {
+    "impact": "H",
+    "status": "open",
+    "id": "R1",
+    "text": "Interface partner late",
+    "owner": "PM1",
+    "due": "2027-03-01"
+   },
+   {
+    "impact": "H",
+    "status": "open",
+    "id": "R2",
+    "text": "Data quality",
+    "owner": "MM1",
+    "due": "2027-03-20"
+   },
+   {
+    "impact": "L",
+    "status": "open",
+    "id": "R3",
+    "text": "Minor"
+   },
+   {
+    "impact": "H",
+    "status": "closed",
+    "id": "R4",
+    "text": "Closed one"
+   }
+  ],
+  "decisions": [
+   {
+    "status": "open",
+    "id": "D1",
+    "text": "Pricing procedure",
+    "owner": "SD1",
+    "due": "2027-03-05"
+   },
+   {
+    "status": "decided",
+    "id": "D2",
+    "text": "Done"
+   }
+  ],
+  "statusLog": [
+   {
+    "weekEnd": "2027-02-26",
+    "overall": "amber"
+   }
+  ],
+  "cutover": {
+   "window": {
+    "start": "2027-04-16T18:00",
+    "end": "2027-04-18T22:00"
+   }
+  }
+ },
+ "DEMO-B": {
+  "kpis": [
+   {
+    "dir": "down",
+    "history": [],
+    "id": "K.BUDGET",
+    "label": "예산 집행률 (계획 대비)",
+    "group": "cost",
+    "unit": "%",
+    "target": 100,
+    "actual": ""
+   },
+   {
+    "dir": "down",
+    "history": [],
+    "id": "K.DEFECT12",
+    "label": "미해결 결함 (Sev 1·2)",
+    "group": "quality",
+    "unit": "",
+    "target": 0,
+    "actual": ""
+   },
+   {
+    "dir": "up",
+    "history": [],
+    "id": "K.TESTPASS",
+    "label": "테스트 케이스 통과율",
+    "group": "quality",
+    "unit": "%",
+    "target": 95,
+    "actual": ""
+   },
+   {
+    "dir": "up",
+    "history": [],
+    "id": "K.LOCREQ",
+    "label": "현지화 요건 구현률",
+    "group": "quality",
+    "unit": "%",
+    "target": 100,
+    "actual": ""
+   },
+   {
+    "dir": "up",
+    "history": [],
+    "id": "K.TRAIN",
+    "label": "현지 사용자 교육 이수율",
+    "group": "ocm",
+    "unit": "%",
+    "target": 95,
+    "actual": ""
+   }
+  ],
+  "lang": "ko",
+  "title": "Demo rollout",
+  "project": {
+   "modules": [
+    "SD"
+   ],
+   "packages": [],
+   "code": "DEMO-B",
+   "name": "Demo rollout",
+   "type": "rollout",
+   "sponsor": "",
+   "pm": "",
+   "pmo": "",
+   "start": "2027-02-01",
+   "goLive": "2027-09-01",
+   "end": "2027-09-29",
+   "system": ""
+  },
+  "team": [
+   {
+    "id": "PMB",
+    "name": "Jung PM",
+    "role": "pm"
+   },
+   {
+    "id": "X1",
+    "name": "Kim SD",
+    "role": "lead",
+    "module": "SD",
+    "sapUser": "DEMOSD"
+   },
+   {
+    "id": "X2",
+    "name": "Lee Dev",
+    "role": "dev",
+    "sapUser": "DEMODEV"
+   }
+  ],
+  "workstreams": [
+   {
+    "code": "SD",
+    "label": "SD",
+    "kind": "module"
+   },
+   {
+    "code": "PMO",
+    "label": "PMO·프로젝트 관리",
+    "kind": "cross"
+   },
+   {
+    "code": "DM",
+    "label": "데이터 이관",
+    "kind": "cross"
+   },
+   {
+    "code": "INT",
+    "label": "인터페이스",
+    "kind": "cross"
+   },
+   {
+    "code": "BAS",
+    "label": "Basis·인프라",
+    "kind": "cross"
+   },
+   {
+    "code": "SEC",
+    "label": "권한",
+    "kind": "cross"
+   },
+   {
+    "code": "TST",
+    "label": "테스트",
+    "kind": "cross"
+   },
+   {
+    "code": "OCM",
+    "label": "교육·변화관리",
+    "kind": "cross"
+   },
+   {
+    "code": "CUT",
+    "label": "컷오버",
+    "kind": "cross"
+   }
+  ],
+  "wbs": [
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "PRE",
+    "label": "Prepare — 준비",
+    "type": "phase",
+    "start": "2027-02-01",
+    "finish": "2027-02-21",
+    "baseStart": "2027-02-01",
+    "baseFinish": "2027-02-21"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "PRE.TPL",
+    "parent": "PRE",
+    "label": "글로벌 템플릿·범위 확인",
+    "type": "deliverable",
+    "ws": "PMO",
+    "start": "2027-02-01",
+    "finish": "2027-02-15",
+    "owner": "PMB",
+    "baseStart": "2027-02-01",
+    "baseFinish": "2027-02-15",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "PRE.ORG",
+    "parent": "PRE",
+    "label": "현지 조직·키유저 구성",
+    "type": "deliverable",
+    "ws": "PMO",
+    "start": "2027-02-07",
+    "finish": "2027-02-21",
+    "owner": "PMB",
+    "baseStart": "2027-02-07",
+    "baseFinish": "2027-02-21",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP",
+    "label": "Explore — 로컬 Fit-Gap",
+    "type": "phase",
+    "start": "2027-02-22",
+    "finish": "2027-04-05",
+    "baseStart": "2027-02-22",
+    "baseFinish": "2027-04-05"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.FG.SD",
+    "parent": "EXP",
+    "label": "SD 템플릿 대비 Fit-Gap",
+    "type": "deliverable",
+    "ws": "SD",
+    "start": "2027-02-22",
+    "finish": "2027-03-23",
+    "fnOwner": "",
+    "baseStart": "2027-02-22",
+    "baseFinish": "2027-03-23",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.LOC",
+    "parent": "EXP",
+    "label": "현지화 요건 (세금·전자세금계산서·법정 보고)",
+    "type": "deliverable",
+    "ws": "PMO",
+    "start": "2027-03-02",
+    "finish": "2027-04-05",
+    "fnOwner": "",
+    "baseStart": "2027-03-02",
+    "baseFinish": "2027-04-05",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "EXP.DMS",
+    "parent": "EXP",
+    "label": "로컬 데이터 이관 대상",
+    "type": "deliverable",
+    "ws": "DM",
+    "start": "2027-03-11",
+    "finish": "2027-04-05",
+    "owner": "",
+    "baseStart": "2027-03-11",
+    "baseFinish": "2027-04-05",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA",
+    "label": "Realize — 구축",
+    "type": "phase",
+    "start": "2027-04-06",
+    "finish": "2027-07-09",
+    "baseStart": "2027-04-06",
+    "baseFinish": "2027-07-09"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.CFG.SD",
+    "parent": "REA",
+    "label": "SD 로컬 설정",
+    "type": "deliverable",
+    "ws": "SD",
+    "start": "2027-04-06",
+    "finish": "2027-05-28",
+    "fnOwner": "",
+    "baseStart": "2027-04-06",
+    "baseFinish": "2027-05-28",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.DEV.SD",
+    "parent": "REA",
+    "label": "SD 로컬 개발 (WRICEF)",
+    "type": "deliverable",
+    "ws": "SD",
+    "start": "2027-04-11",
+    "finish": "2027-06-11",
+    "devOwner": "X2",
+    "wricefContainer": true,
+    "baseStart": "2027-04-11",
+    "baseFinish": "2027-06-11",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.MOCK",
+    "parent": "REA",
+    "label": "데이터 이관 리허설",
+    "type": "deliverable",
+    "ws": "DM",
+    "start": "2027-05-23",
+    "finish": "2027-06-16",
+    "owner": "",
+    "baseStart": "2027-05-23",
+    "baseFinish": "2027-06-16",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.SIT",
+    "parent": "REA",
+    "label": "통합 테스트 (글로벌 회귀 포함)",
+    "type": "deliverable",
+    "ws": "TST",
+    "start": "2027-06-06",
+    "finish": "2027-07-09",
+    "owner": "",
+    "baseStart": "2027-06-06",
+    "baseFinish": "2027-07-09",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DEP",
+    "label": "Deploy — 전개",
+    "type": "phase",
+    "start": "2027-07-10",
+    "finish": "2027-09-01",
+    "baseStart": "2027-07-10",
+    "baseFinish": "2027-09-01"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DEP.UAT",
+    "parent": "DEP",
+    "label": "사용자 인수 테스트",
+    "type": "deliverable",
+    "ws": "TST",
+    "start": "2027-07-10",
+    "finish": "2027-08-03",
+    "owner": "",
+    "baseStart": "2027-07-10",
+    "baseFinish": "2027-08-03",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DEP.EUT",
+    "parent": "DEP",
+    "label": "현지 사용자 교육",
+    "type": "deliverable",
+    "ws": "OCM",
+    "start": "2027-07-29",
+    "finish": "2027-08-24",
+    "owner": "",
+    "baseStart": "2027-07-29",
+    "baseFinish": "2027-08-24",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DEP.CUTP",
+    "parent": "DEP",
+    "label": "컷오버·최종 이관",
+    "type": "deliverable",
+    "ws": "CUT",
+    "start": "2027-08-11",
+    "finish": "2027-09-01",
+    "owner": "",
+    "baseStart": "2027-08-11",
+    "baseFinish": "2027-09-01",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "RUN",
+    "label": "Run — 안정화",
+    "type": "phase",
+    "start": "2027-09-02",
+    "finish": "2027-09-29",
+    "baseStart": "2027-09-02",
+    "baseFinish": "2027-09-29"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "RUN.HYP",
+    "parent": "RUN",
+    "label": "하이퍼케어",
+    "type": "deliverable",
+    "ws": "PMO",
+    "start": "2027-09-02",
+    "finish": "2027-09-29",
+    "owner": "PMB",
+    "baseStart": "2027-09-02",
+    "baseFinish": "2027-09-29",
+    "effortPlan": 3,
+    "effortActual": 1
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REA.DEV.SD.R001",
+    "parent": "REA.DEV.SD",
+    "label": "Rollout report",
+    "type": "wricef",
+    "ws": "SD",
+    "start": "2027-04-11",
+    "finish": "2027-06-11",
+    "baseStart": "2027-04-11",
+    "baseFinish": "2027-06-11",
+    "fnOwner": "",
+    "devOwner": "X2",
+    "wricef": {
+     "kind": "R",
+     "stage": "req",
+     "stageDates": {},
+     "objects": [],
+     "trs": []
+    }
+   }
+  ],
+  "milestones": [
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.PRE",
+    "label": "Q-gate 1 — 롤아웃 범위 확정",
+    "kind": "qgate",
+    "phase": "PRE",
+    "base": "2027-02-21",
+    "forecast": "2027-02-21"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.EXP",
+    "label": "Q-gate 2 — 로컬 요건 승인",
+    "kind": "qgate",
+    "phase": "EXP",
+    "base": "2027-04-05",
+    "forecast": "2027-04-05"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.REA",
+    "label": "Q-gate 3 — 통합 테스트 완료",
+    "kind": "qgate",
+    "phase": "REA",
+    "base": "2027-07-09",
+    "forecast": "2027-07-09"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.DEP",
+    "label": "Go-Live",
+    "kind": "golive",
+    "phase": "DEP",
+    "base": "2027-09-01",
+    "forecast": "2027-09-01"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.RUN",
+    "label": "롤아웃 종료",
+    "kind": "signoff",
+    "phase": "RUN",
+    "base": "2027-09-29",
+    "forecast": "2027-09-29"
+   },
+   {
+    "id": "MB1",
+    "label": "Template sign-off",
+    "kind": "signoff",
+    "base": "2027-03-04"
+   },
+   {
+    "id": "MB2",
+    "label": "Rollout gate",
+    "kind": "qgate",
+    "base": "2027-03-12"
+   }
+  ],
+  "schema": 1,
+  "snapshots": [],
+  "risks": [],
+  "decisions": [],
+  "statusLog": []
+ },
+ "DEMO-C": {
+  "kpis": [
+   {
+    "dir": "down",
+    "history": [],
+    "id": "K.BUDGET",
+    "label": "예산 집행률 (계획 대비)",
+    "group": "cost",
+    "unit": "%",
+    "target": 100,
+    "actual": ""
+   },
+   {
+    "dir": "down",
+    "history": [],
+    "id": "K.DEFECT12",
+    "label": "미해결 결함 (Sev 1·2)",
+    "group": "quality",
+    "unit": "",
+    "target": 0,
+    "actual": ""
+   },
+   {
+    "dir": "up",
+    "history": [],
+    "id": "K.TESTPASS",
+    "label": "테스트 케이스 통과율",
+    "group": "quality",
+    "unit": "%",
+    "target": 95,
+    "actual": ""
+   },
+   {
+    "dir": "down",
+    "history": [],
+    "id": "K.REQCHG",
+    "label": "요건 변경 횟수",
+    "group": "quality",
+    "unit": "",
+    "target": 2,
+    "actual": ""
+   }
+  ],
+  "lang": "ko",
+  "title": "Demo small task",
+  "project": {
+   "modules": [
+    "FI"
+   ],
+   "packages": [],
+   "code": "DEMO-C",
+   "name": "Demo small task",
+   "type": "task",
+   "sponsor": "",
+   "pm": "",
+   "pmo": "",
+   "start": "2027-02-15",
+   "goLive": "2027-03-20",
+   "end": "2027-04-03",
+   "system": ""
+  },
+  "team": [
+   {
+    "id": "PMC",
+    "name": "Han PM",
+    "role": "pm"
+   },
+   {
+    "id": "Y1",
+    "name": "Kim SD",
+    "role": "module",
+    "sapUser": "DEMOSD"
+   }
+  ],
+  "workstreams": [
+   {
+    "code": "FI",
+    "label": "FI",
+    "kind": "module"
+   },
+   {
+    "code": "PMO",
+    "label": "PMO·프로젝트 관리",
+    "kind": "cross"
+   },
+   {
+    "code": "DM",
+    "label": "데이터 이관",
+    "kind": "cross"
+   },
+   {
+    "code": "INT",
+    "label": "인터페이스",
+    "kind": "cross"
+   },
+   {
+    "code": "BAS",
+    "label": "Basis·인프라",
+    "kind": "cross"
+   },
+   {
+    "code": "SEC",
+    "label": "권한",
+    "kind": "cross"
+   },
+   {
+    "code": "TST",
+    "label": "테스트",
+    "kind": "cross"
+   },
+   {
+    "code": "OCM",
+    "label": "교육·변화관리",
+    "kind": "cross"
+   },
+   {
+    "code": "CUT",
+    "label": "컷오버",
+    "kind": "cross"
+   }
+  ],
+  "wbs": [
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REQ",
+    "label": "요건 정의",
+    "type": "phase",
+    "start": "2027-02-15",
+    "finish": "2027-02-19",
+    "baseStart": "2027-02-15",
+    "baseFinish": "2027-02-19"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "REQ.REQ.FI",
+    "parent": "REQ",
+    "label": "FI 요건 정의·현업 인터뷰",
+    "type": "deliverable",
+    "ws": "FI",
+    "start": "2027-02-15",
+    "finish": "2027-02-19",
+    "fnOwner": "Y1",
+    "baseStart": "2027-02-15",
+    "baseFinish": "2027-02-19"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DES",
+    "label": "설계",
+    "type": "phase",
+    "start": "2027-02-20",
+    "finish": "2027-02-26",
+    "baseStart": "2027-02-20",
+    "baseFinish": "2027-02-26"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DES.FS.FI",
+    "parent": "DES",
+    "label": "FI 기능 명세(FS)",
+    "type": "deliverable",
+    "ws": "FI",
+    "start": "2027-02-20",
+    "finish": "2027-02-24",
+    "fnOwner": "Y1",
+    "baseStart": "2027-02-20",
+    "baseFinish": "2027-02-24"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "DES.TS.FI",
+    "parent": "DES",
+    "label": "FI 기술 명세(TS)",
+    "type": "deliverable",
+    "ws": "FI",
+    "start": "2027-02-23",
+    "finish": "2027-02-26",
+    "devOwner": "",
+    "baseStart": "2027-02-23",
+    "baseFinish": "2027-02-26"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "BLD",
+    "label": "개발",
+    "type": "phase",
+    "start": "2027-02-27",
+    "finish": "2027-03-09",
+    "baseStart": "2027-02-27",
+    "baseFinish": "2027-03-09"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "BLD.DEV.FI",
+    "parent": "BLD",
+    "label": "FI 개발·단위 테스트 (WRICEF)",
+    "type": "deliverable",
+    "ws": "FI",
+    "start": "2027-02-27",
+    "finish": "2027-03-09",
+    "devOwner": "",
+    "wricefContainer": true,
+    "baseStart": "2027-02-27",
+    "baseFinish": "2027-03-09"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "TST",
+    "label": "테스트",
+    "type": "phase",
+    "start": "2027-03-10",
+    "finish": "2027-03-16",
+    "baseStart": "2027-03-10",
+    "baseFinish": "2027-03-16"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "TST.FUT.FI",
+    "parent": "TST",
+    "label": "FI 기능 단위 테스트(FUT)",
+    "type": "deliverable",
+    "ws": "FI",
+    "start": "2027-03-10",
+    "finish": "2027-03-13",
+    "fnOwner": "Y1",
+    "baseStart": "2027-03-10",
+    "baseFinish": "2027-03-13"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "TST.UAT",
+    "parent": "TST",
+    "label": "현업 확인 (UAT)",
+    "type": "deliverable",
+    "ws": "TST",
+    "start": "2027-03-12",
+    "finish": "2027-03-16",
+    "owner": "",
+    "baseStart": "2027-03-12",
+    "baseFinish": "2027-03-16"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "TRN",
+    "label": "이관",
+    "type": "phase",
+    "start": "2027-03-17",
+    "finish": "2027-03-20",
+    "baseStart": "2027-03-17",
+    "baseFinish": "2027-03-20"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "TRN.TRP",
+    "parent": "TRN",
+    "label": "운영 이관·사용자 안내",
+    "type": "deliverable",
+    "ws": "BAS",
+    "start": "2027-03-18",
+    "finish": "2027-03-20",
+    "owner": "",
+    "baseStart": "2027-03-18",
+    "baseFinish": "2027-03-20"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "STB",
+    "label": "안정화",
+    "type": "phase",
+    "start": "2027-03-21",
+    "finish": "2027-04-03",
+    "baseStart": "2027-03-21",
+    "baseFinish": "2027-04-03"
+   },
+   {
+    "status": "notstarted",
+    "pct": 0,
+    "deps": [],
+    "id": "STB.MON.FI",
+    "parent": "STB",
+    "label": "FI 반영 후 확인",
+    "type": "deliverable",
+    "ws": "FI",
+    "start": "2027-03-21",
+    "finish": "2027-04-03",
+    "fnOwner": "Y1",
+    "baseStart": "2027-03-21",
+    "baseFinish": "2027-04-03"
+   }
+  ],
+  "milestones": [
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.REQ",
+    "label": "요건 확정",
+    "kind": "signoff",
+    "phase": "REQ",
+    "base": "2027-02-19",
+    "forecast": "2027-02-19"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.TST",
+    "label": "테스트 완료",
+    "kind": "qgate",
+    "phase": "TST",
+    "base": "2027-03-16",
+    "forecast": "2027-03-16"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.TRN",
+    "label": "운영 반영",
+    "kind": "golive",
+    "phase": "TRN",
+    "base": "2027-03-20",
+    "forecast": "2027-03-20"
+   },
+   {
+    "status": "planned",
+    "criteria": [],
+    "id": "MS.STB",
+    "label": "과제 종료",
+    "kind": "signoff",
+    "phase": "STB",
+    "base": "2027-04-03",
+    "forecast": "2027-04-03"
+   },
+   {
+    "id": "MC1",
+    "label": "Build gate",
+    "kind": "qgate",
+    "base": "2027-03-05",
+    "status": "conditional"
+   },
+   {
+    "id": "MC2",
+    "label": "Weekend gate",
+    "kind": "qgate",
+    "base": "2027-03-07"
+   },
+   {
+    "id": "MC3",
+    "label": "Monday after",
+    "kind": "other",
+    "base": "2027-03-15"
+   }
+  ],
+  "schema": 1,
+  "snapshots": [],
+  "risks": [],
+  "decisions": [
+   {
+    "id": "D1",
+    "text": "Tax code",
+    "status": "open",
+    "due": "2027-03-15"
+   }
+  ],
+  "statusLog": []
+ }
+}

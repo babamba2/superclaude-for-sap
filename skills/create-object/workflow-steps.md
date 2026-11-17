@@ -10,7 +10,7 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:create-object`. Skip si
 
 ## Step 1 — Classify Object Type (main thread)
 
-- Parse user request to determine object type (class / interface / program / function module / table / structure / data element / domain / CDS view / service definition / service binding / behavior definition / screen / GUI status).
+- Parse user request to determine object type (class / interface / program / function module / table / structure / data element / domain / screen / GUI status, or a CDS / RAP object: CDS view / view entity / projection / custom entity / table function / metadata extension / behavior definition / behavior pool / service definition / service binding / CDS unit test / RAP stack — see [`rap-stack.md`](rap-stack.md) § 2).
 - If ambiguous: ask a single clarifying question and stop.
 
 ## Step 2 — Collect Metadata (main thread)
@@ -29,6 +29,7 @@ Invoke `/sc4sap:trust-session` with `parent_skill=sc4sap:create-object`. Skip si
 ## Step 3.5 — Version Branch Decision (main thread)
 
 - Read `SAP_VERSION` from `.sc4sap/config.json` (or `sap.env`).
+- **CDS / RAP object** → run the gate of [`rap-stack.md`](rap-stack.md) § 1 first. Refused (always on ECC) → report the gate message, make no MCP call, stop. Passed → stack or single mode continues in `rap-stack.md` § 3–4; a single view / DDLX / BDEF / behavior pool / SRVD / SRVB on existing objects continues in Step 4 with the matching template as starting source.
 - All object types, ECC included → Step 4 (standard flow). On ECC, Table / Structure / Data Element / Domain use the ECC call shapes in `common/ecc-ddic-fallback.md` § Path 1 (e.g. `CreateTable` with `fields`).
 - Step 4-ECC (helper report) runs **only** when the Step 4 executor returns `flow: "ecc-fallback-needed"` with one of the fallback errors in `common/ecc-ddic-fallback.md` § Path 2.
 

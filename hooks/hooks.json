@@ -57,7 +57,7 @@
         ]
       },
       {
-        "matcher": "mcp__(plugin_sc4sap_sap|mcp-abap-adt)__(GetTableContents|GetSqlQuery|(Create|Update)(Program|Include|Class|Interface|FunctionModule|FunctionGroup|LocalTestClass|LocalDefinitions|LocalTypes|LocalMacros|UnitTest|CdsUnitTest|BehaviorImplementation|View))",
+        "matcher": "mcp__(plugin_sc4sap_sap|mcp-abap-adt)__(GetTableContents|GetRemoteTableContents|GetSqlQuery|(Create|Update)(Program|Include|Class|Interface|FunctionModule|FunctionGroup|LocalTestClass|LocalDefinitions|LocalTypes|LocalMacros|UnitTest|CdsUnitTest|BehaviorImplementation|View))",
         "hooks": [
           {
             "type": "command",

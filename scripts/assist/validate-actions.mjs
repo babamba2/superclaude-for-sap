@@ -9,6 +9,10 @@
 import { readFileSync, readdirSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { loadValueTables } from './values.mjs';
+
+let valueTables = null;
+const valueTable = (v) => (valueTables ??= loadValueTables()).find((r) => r.value === v);
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
 
@@ -93,6 +97,12 @@ export function validateCatalog(cat, label = 'catalog') {
     for (const c of a.clarify ?? []) {
       if (!c.param || !c.ask) err(`${at}: clarify entries need param and ask`);
       if ('default' in c) err(`${at}: clarify must not carry a default (business questions are asked)`);
+      if (c.values) {
+        // a customizing value list (configs/<M>/spro.md § Value tables) offered as choices
+        const vt = valueTable(c.values);
+        if (!vt) err(`${at}: clarify values ${c.values} is not in any configs/<M>/spro.md value table`);
+        else if (!vt.usedBy.includes(`${a.id}.${c.param}`)) err(`${at}: value table ${c.values} does not list ${a.id}.${c.param} under Used by`);
+      }
     }
 
     // implementation per system family

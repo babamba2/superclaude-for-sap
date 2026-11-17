@@ -9,6 +9,8 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { renderAll, esc, sheetsOf } from './role-render.mjs';
+import { EDIT_JA } from './role-labels-ja.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const inline = (f) => readFileSync(join(here, f), 'utf8').replace(/^import .*$/gm, '').replace(/^export \{[^}]*\};?$/gm, '').replace(/^export (const|function|async function|let)/gm, '$1');
@@ -29,7 +31,7 @@ a{color:var(--link)}.muted{color:var(--muted)}.bad{color:var(--red);font-weight:
 button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);cursor:pointer}
 #chk-n{display:inline-block;min-width:18px;margin-left:4px;padding:0 5px;border-radius:9px;background:var(--red);color:#fff;font-size:11px;text-align:center}
 .tabs{position:sticky;top:45px;z-index:19;display:flex;gap:2px;overflow-x:auto;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--line)}
-.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;color:var(--muted);padding:9px 12px;white-space:nowrap;font-size:14px}
+.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;color:var(--muted);padding:9px 12px;white-space:nowrap;flex:none;font-size:14px}
 .tabs button[aria-selected=true]{color:var(--fg);border-bottom-color:var(--accent);font-weight:600}
 main{max-width:1800px;margin:0 auto;padding:6px 16px 30px}section.tab{display:none}section.tab.on{display:block}
 h1{font-size:22px;margin:14px 0 4px}h2{font-size:17px;margin:12px 0 2px}h3{font-size:15px;margin:18px 0 6px}.sub{margin:0 0 6px;font-size:13px}
@@ -77,7 +79,8 @@ dialog{border:1px solid var(--line);border-radius:10px;background:var(--bg);colo
  .topbar{gap:6px;padding:6px 10px}.topbar .t{flex-basis:100%;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#print,#theme,.state{display:none}
  .tabs{top:auto;position:static;padding:0 6px}.tabs button{padding:9px 9px;font-size:13px}main{padding:4px 8px 20px}
  .grid td.wrap{min-width:150px;max-width:62vw}.grid th small{max-width:70px}.grid td,.grid th{padding:6px 6px}.grid td.lv,.grid td.xx{min-width:44px;height:38px}
- .grid .fin{font-size:16px;padding:3px 5px}button{min-height:34px}.stools input[type=search]{min-width:0;flex:1;font-size:16px;min-height:34px}.cell-ed{font-size:16px}h1{font-size:19px}
+ .grid th .flt{min-width:44px;min-height:44px;margin-left:0;padding:0;font-size:14px;opacity:.7}
+ .grid .fin{font-size:16px;padding:3px 5px}button{min-height:34px}.stools input[type=search]{min-width:44px;flex:1 1 100%;font-size:16px;min-height:34px}.cell-ed{font-size:16px}h1{font-size:19px}
 }
 @media print{.topbar button,.tabs,.stools,.banner,#help,#toast,.grid tr.frow{display:none!important}section.tab{display:block!important;break-before:page}.gw{max-height:none!important;overflow:visible;border:0}.grid .stk{position:static}}
 `;
@@ -115,10 +118,11 @@ const EDIT = {
       ['Insert row · Ctrl+Enter · Ctrl+-', 'Row above the picked cell · add a row below · delete the selected rows'], ['Alt+↑ ↓', 'Reorder rows'], ['Ctrl+A', 'Select the sheet'], ['Ctrl+Z · Ctrl+Y', 'Undo · redo'], ['Ctrl+S', 'Save'],
       ['Click a matrix column header (edit mode)', 'Go to that business role to change its ID / name — a new ID follows into every sheet'], ['?', 'This help']],
     touch: [['Tap a cell', 'Select · tap again to edit'], ['Tap a matrix cell (edit mode)', 'Choose the value / toggle X'], ['Buttons above', 'Insert (above the picked cell), delete, reorder rows; CSV'], ['Search · ▾ in a header', 'Filter rows · column filter']] },
+  ja: EDIT_JA,
 };
 
 function clientScript(E) {
-  return `(function(){\n${inline('role-model.mjs')}\n${inline('role-render.mjs')}\nvar E=${JSON.stringify(E)};\n${readFileSync(join(here, 'role-client.js'), 'utf8')}\n})();`;
+  return `(function(){\n${inline('role-model.mjs')}\n${inline('role-labels-ja.mjs')}\n${inline('role-render.mjs')}\nvar E=${JSON.stringify(E)};\n${readFileSync(join(here, 'role-client.js'), 'utf8')}\n})();`;
 }
 
 const tools = (s, E, L) => `<div class="stools"><input type="search" data-s="${s}" placeholder="${esc(E.search)}">
@@ -153,32 +157,51 @@ function withCodes(E, L) {
 }
 
 /** The whole page for a model. */
-export function renderPage(model, { version, date }) {
+/**
+ * The editable workbook page. embed: the page runs inside the web workbench, which stores every change and every
+ * version itself — no Save button / dialog, no draft banner or local drafts, no leave warning (window.SC4SAP_PAGE is
+ * the bridge, role-client.js). Without embed the output is the CLI page.
+ */
+export function renderPage(model, { version, date, embed = false }) {
   const { v, L, ...tabs } = renderAll(model, { version, date });
   const E = withCodes(EDIT[v.m.lang] || EDIT.en, L);
   const d = v.m.doc;
-  const data = JSON.stringify({ model, version, builtFrom: version }).replace(/</g, '\\u003c');
+  const data = JSON.stringify(embed ? { model, version, builtFrom: version, embed: true } : { model, version, builtFrom: version }).replace(/</g, '\\u003c');
   const sec = (t) => `<section class="tab" id="tab-${t}">${t === 'cover' ? '' : tools(t, E, L)}<div class="body">${tabs[t]}</div></section>`;
   const shown = ['cover', ...sheetsOf(L)];
   const logo = /^data:image\//.test(L.layout?.theme?.logo || '') ? `<img class="logo" alt="" src="${esc(L.layout.theme.logo)}">` : '';
   const title = `${d.project || d.code} — ${L.title}`;
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${esc(v.m.lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(title)} v${esc(version)}</title><style>${STYLE}${themeCss(L.layout?.theme)}</style></head>
 <body>
 <div class="topbar">${logo}<div class="t">${esc(d.code)} · ${esc(d.project || L.title)} <small><span id="ver">v${esc(version)}</span> · ${esc(date)}${d.system ? ` · ${esc(d.system)}` : ''}</small></div>
 <span id="selinfo" class="state"></span><span id="state" class="state"></span><button data-go="cover" title="${esc(E.checks)}">${esc(E.checks)}<span id="chk-n"></span></button><button id="help-b">${esc(E.help)}</button>
-<button id="edit">${esc(E.edit)}</button><button id="undo" title="${esc(E.undo)} (Ctrl+Z)">↶<span class="tx"> ${esc(E.undo)}</span></button><button id="save" title="${esc(E.save)} (Ctrl+S)">💾<span class="tx"> ${esc(E.save)}</span></button><button id="print">${esc(E.print)}</button><button id="theme">${esc(E.theme)}</button></div>
+<button id="edit">${esc(E.edit)}</button><button id="undo" title="${esc(E.undo)} (Ctrl+Z)">↶<span class="tx"> ${esc(E.undo)}</span></button>${embed ? '' : `<button id="save" title="${esc(E.save)} (Ctrl+S)">💾<span class="tx"> ${esc(E.save)}</span></button>`}<button id="print">${esc(E.print)}</button><button id="theme">${esc(E.theme)}</button></div>
 <nav class="tabs">${shown.map((k) => `<button data-t="${k}">${esc(L.tabs[k])}</button>`).join('')}</nav>
 <div class="banner hint">${esc(E.hint)}</div>
-<div class="banner" id="draft">${esc(E.draft)} <button id="resume">${esc(E.resume)}</button> <button id="discard">${esc(E.discard)}</button></div>
-<main>${shown.map(sec).join('\n')}</main>
+${embed ? '' : `<div class="banner" id="draft">${esc(E.draft)} <button id="resume">${esc(E.resume)}</button> <button id="discard">${esc(E.discard)}</button></div>
+`}<main>${shown.map(sec).join('\n')}</main>
 <datalist id="dl"></datalist>
-<dialog id="save-dlg"><h3>${esc(E.saveTitle)} <small id="s-ver"></small></h3><label>${esc(E.author)}<input id="s-author"></label><label>${esc(E.note)}<input id="s-note"></label>
+${embed ? '' : `<dialog id="save-dlg"><h3>${esc(E.saveTitle)} <small id="s-ver"></small></h3><label>${esc(E.author)}<input id="s-author"></label><label>${esc(E.note)}<input id="s-note"></label>
 <div><button id="s-ok">${esc(E.ok)}</button> <button id="s-cancel">${esc(E.cancel)}</button></div></dialog>
-<script type="application/json" id="role-model">${data}</script>
+`}<script type="application/json" id="role-model">${data}</script>
 <div id="toast" role="status"></div>
 <div id="help"><div class="hbox"><button class="hx">✕</button><h3>${esc(E.help)}</h3><table class="t-touch">${E.touch.map(([k, x]) => `<tr><th>${esc(k)}</th><td>${esc(x)}</td></tr>`).join('')}</table><table class="t-keys">${E.keys.map(([k, x]) => `<tr><th>${esc(k)}</th><td>${esc(x)}</td></tr>`).join('')}</table></div></div>
 <script>${clientScript(E)}</script>
-</body></html>`;
+</body></html>`);
+}
+
+/**
+ * The model a workbook page carries (<script id="role-model">): { model, version }. Used by build-role-doc import and
+ * the web workbench import. Throws when the page has none or no valid doc.code.
+ */
+export function modelFromPage(html) {
+  const mm = /<script type="application\/json" id="role-model">([\s\S]*?)<\/script>/.exec(String(html || ''));
+  if (!mm) throw new Error('no embedded role model — was the page saved from the role workbook?');
+  let data;
+  try { data = JSON.parse(mm[1]); } catch { throw new Error('the embedded role model is not valid JSON'); }
+  const { model, version } = data || {};
+  if (!model || typeof model !== 'object' || !/^[A-Za-z0-9_-]{1,30}$/.test(model.doc?.code || '')) throw new Error('embedded model has no valid doc.code');
+  return { model, version: version || '' };
 }

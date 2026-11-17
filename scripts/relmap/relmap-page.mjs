@@ -4,6 +4,8 @@
 import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { withResponsive } from '../lib/responsive.mjs';
+import { TEXT_JA } from './relmap-text-ja.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 
@@ -30,14 +32,14 @@ a{color:var(--link);text-decoration:none}a:hover{text-decoration:underline}.mute
 .topbar .t{font-weight:700;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.topbar .t small{font-weight:400;margin-left:8px}
 button,select,input{font:inherit;font-size:13px;padding:3px 8px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg)}button{cursor:pointer}
 .tabs{position:sticky;top:45px;z-index:19;display:flex;gap:2px;overflow-x:auto;padding:0 16px;background:var(--bg);border-bottom:1px solid var(--line)}
-.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;color:var(--muted);padding:9px 12px;white-space:nowrap;font-size:14px}
+.tabs button{border:0;border-bottom:3px solid transparent;border-radius:0;background:none;color:var(--muted);padding:9px 12px;white-space:nowrap;flex:none;font-size:14px}
 .tabs button[aria-selected=true]{color:var(--fg);border-bottom-color:var(--accent);font-weight:600}
 main{max-width:1800px;margin:0 auto;padding:6px 16px 30px}section.tab{display:none}section.tab.on{display:block}
 h1{font-size:22px;margin:14px 0 4px}h2{font-size:17px;margin:12px 0 4px}h3{font-size:15px;margin:16px 0 6px}h4{font-size:13px;margin:12px 0 4px}.sub{margin:0 0 8px;font-size:13px}
 .note{background:var(--note);color:var(--notefg);padding:6px 10px;border-radius:6px;margin:6px 0;font-size:13px}
 .cards{display:flex;flex-wrap:wrap;gap:8px;margin:10px 0}.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:8px 14px;min-width:120px}
 .card b{display:block;font-size:20px}.card span{font-size:12px;color:var(--muted)}.cards.small .card b{font-size:16px}
-.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:24px}@media (max-width:900px){.cols{grid-template-columns:1fr}}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.4fr);gap:24px}@media (max-width:900px){.cols{grid-template-columns:minmax(0,1fr)}}
 table{border-collapse:collapse;font-size:13px;width:100%}th,td{border-bottom:1px solid var(--line);padding:4px 8px;text-align:left;vertical-align:top}th{background:var(--head);font-weight:600}td.r{text-align:right;white-space:nowrap}
 .dot{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;background:var(--c,#888);vertical-align:-1px}
 .ln{display:inline-block;width:18px;height:0;border-top:3px solid var(--k,#888);margin-right:6px;vertical-align:3px}
@@ -201,6 +203,7 @@ export const TEXT = {
     typeName: { TABL: 'table', STRU: 'structure', VIEW: 'view', TTYP: 'table type', DTEL: 'data element', DOMA: 'domain', SHLP: 'search help', TRAN: 'transaction', PROG: 'program', INCL: 'include', FUGR: 'function group', FUNC: 'function module', CLAS: 'class', INTF: 'interface', ENQU: 'lock object', MSAG: 'message class' },
     kindName: { types: 'field → data element, data element → domain, .INCLUDE', checks: 'field → check table (foreign key)', valueTable: 'domain → value table', searchHelp: 'field / data element → search help', rowType: 'table type → row type', basedOn: 'view → base table', selects: 'search help → selection method', contains: 'collective → elementary search help', include: 'INCLUDE', calls: 'CALL FUNCTION / method call', submits: 'SUBMIT', starts: 'CALL TRANSACTION', launches: 'transaction → program', reads: 'SELECT', writes: 'INSERT / UPDATE / MODIFY / DELETE', uses: 'TYPE REF TO / class use' },
   },
+  ja: TEXT_JA,
 };
 
 const json = (x) => JSON.stringify(x).replace(/</g, '\\u003c');
@@ -210,7 +213,7 @@ export function renderPage(model, { lang = 'ko' } = {}) {
   const T = TEXT[lang] || TEXT.ko;
   const client = readFileSync(join(here, 'relmap-client.js'), 'utf8');
   const pkg = model.meta.package || '';
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${esc(pkg)} ${esc(T.title)}</title>
 <style>${STYLE}</style></head>
@@ -253,5 +256,5 @@ export function renderPage(model, { lang = 'ko' } = {}) {
 <script type="application/json" id="relmap-colors">${json({ types: TYPE_COLOR, kinds: KIND_COLOR })}</script>
 <script>${client}</script>
 </body></html>
-`;
+`);
 }

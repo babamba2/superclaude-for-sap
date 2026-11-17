@@ -107,7 +107,7 @@ th{background:var(--head);font-weight:600;white-space:nowrap}
 .card .stats{display:flex;gap:12px;flex-wrap:wrap;margin-top:8px;color:var(--muted);font-size:13px;font-variant-numeric:tabular-nums}
 .badge{display:inline-block;font-size:12px;font-weight:700;border:1px solid currentColor;border-radius:10px;padding:0 7px;white-space:nowrap;line-height:1.55}
 .k-std{color:var(--k-std)}.k-cbo{color:var(--k-cbo)}.k-enh{color:var(--k-enh)}.k-manual{color:var(--k-manual)}.k-ext{color:var(--k-ext)}
-.sys{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.sys{display:inline-flex;align-items:center;gap:5px;white-space:nowrap}@media (max-width:600px){.sys{white-space:normal;overflow-wrap:anywhere;max-width:100%}}
 .sys::before{content:"";width:10px;height:10px;border-radius:2px;background:var(--sys-c,var(--sys-sap))}
 .sys-sap{--sys-c:var(--sys-sap)}.sys-legacy{--sys-c:var(--sys-legacy)}.sys-manual{--sys-c:var(--sys-manual)}.sys-external{--sys-c:var(--sys-external)}
 .flag{display:inline-block;font-size:12px;font-weight:700;color:var(--flag);border:1px solid var(--flag);border-radius:10px;padding:0 7px;margin-left:4px;vertical-align:1px;white-space:nowrap}

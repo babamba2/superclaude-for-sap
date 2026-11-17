@@ -11,8 +11,11 @@
 //     → every printed &symbol& with where it prints (window, node, cell width,
 //       font size, inside a loop or not) and the form's data declarations,
 //       so the sample values can follow the field types and the space.
+//   node build-preview.mjs fields <content.json> --ddic <ddic.json> --out <fields.json>
+//     → fields.json: per symbol its DDIC type, length, decimals, text, loop and windows
+//       (preview-workbench.mjs fieldsFrom; ddic.json = the Step 4 answers per type name)
 //   node build-preview.mjs build <content.json> --values <values.json>
-//        --out-dir <dir> [--rows N] [--no-jpg] [--mark]
+//        --out-dir <dir> [--rows N] [--no-jpg] [--mark] [--fields <fields.json>]
 //     → { html, jpg, rows, filled, unfilled, overflow, approximations, defaultParagraph }
 //
 // values.json
@@ -24,11 +27,13 @@
 //
 // Sample values are invented by the skill — never business data.
 
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { join, resolve } from 'node:path';
+import { existsSync, mkdirSync, readFileSync, realpathSync, rmSync, writeFileSync } from 'node:fs';
+import { dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 import { tmpdir } from 'node:os';
 import { pathToFileURL } from 'node:url';
+import { barcodeSize, barcodeSvg } from '../forms-common/barcode.mjs';
+import { blankWidths, glyphWidths } from '../forms-common/fonts.mjs';
+import { findBrowser, runBrowser } from '../forms-common/browser.mjs';
 
 const PT_MM = 0.3528;
 // The page is laid out 4x and scaled back for the picture: at print sizes (10-20 px)
@@ -80,71 +85,34 @@ function formatSymbol(value, raw) {
   }
   return v;
 }
-const SYMBOL_RE = /&([^&\s][^&]*?)&/g;
 
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 const unesc = (s) => String(s).replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&');
 
-// ── bar codes: Code 128 (set B) bars; SAP's own symbology / module come from SE73 ──
-const CODE128 = ('212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 123122 123221 223211 221132 ' +
-  '221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 ' +
-  '231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 ' +
-  '314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 ' +
-  '111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 ' +
-  '114131 311141 411131 211412 211214 211232 2331112').split(' ');
-/** Code 128 symbol values of a value, as SAP's BRLC bar codes print it: set B, switching
- *  to set C for runs of 4+ digits (an odd run gives its first digit to B) — 101 modules
- *  for "BC12345", 123 for "BC0012345678" in SAP's PDF. Start, check and stop included. */
-export function code128Codes(value) {
-  const s = [...String(value)].filter((ch) => ch.charCodeAt(0) >= 32 && ch.charCodeAt(0) < 127).join('');
-  const digitsAt = (i) => { let n = 0; while (i + n < s.length && /\d/.test(s[i + n])) n++; return n; };
-  const lead = digitsAt(0);
-  let set = lead >= 4 && lead % 2 === 0 ? 'C' : 'B';
-  const codes = [set === 'C' ? 105 : 104];
-  for (let i = 0; i < s.length;) {
-    if (set === 'C') {
-      if (digitsAt(i) >= 2) { codes.push(Number(s.substr(i, 2))); i += 2; continue; }
-      codes.push(100); set = 'B';
-    }
-    const run = digitsAt(i);
-    if (run >= 4 && run % 2 === 0) { codes.push(99); set = 'C'; continue; }
-    codes.push(s.charCodeAt(i) - 32); i++;
-  }
-  codes.push(codes.reduce((t, c, i) => t + c * (i || 1), 0) % 103, 106);
-  return codes;
-}
-
-/** Module and height of an SE73 bar code: TFO05-TDBARCAUX "N08X00080A" = module 8, height 80,
- *  both in 1/600 inch (measured on SAP's PDF: 0.339 mm / 3.39 mm, 6 / 150 → 0.254 / 6.35). */
-export function barcodeSize(def) {
-  const m = /^.(\d{2}).(\d{5})/.exec(String(def?.aux || ''));
-  if (!m) return null;
-  // the place the text line keeps for it is the SE73 width (TFO05 TDBCSIZE), whatever the bars
-  // take: a right-aligned bar code starts at edge − that width (ZWO_NA_HQ_WARRANTY_RETURN 50 mm)
-  const w = /([\d.]+)\s*([A-Z]{2})?/i.exec(String(def?.width || ''));
-  const f = { MM: 1, CM: 10, IN: 25.4, PT: 25.4 / 72, TW: 25.4 / 1440 }[String(w?.[2] || 'MM').toUpperCase()];
-  const layoutMm = w && f ? Number(w[1]) * f : 0; // an unknown unit (CH, LN): the bars' own width
-  return { moduleMm: Number(m[1]) * 25.4 / 600, heightMm: Number(m[2]) * 25.4 / 600, ...(layoutMm > 0 ? { layoutMm } : {}) };
-}
-
-/** Bars of a value as an inline SVG standing on the baseline. Without a definition
- *  0.3 mm module and 3.5 mm height are assumed. */
-export function barcodeSvg(value, def = {}) {
-  const mod = Number(def.moduleMm) || 0.3;
-  const h = Number(def.heightMm) || 3.5;
-  const codes = code128Codes(value);
-  let x = 0;
-  const bars = [];
-  for (const c of codes) {
-    [...CODE128[c]].forEach((w, i) => { if (i % 2 === 0) bars.push(`M${x} 0h${w}v1h-${w}z`); x += Number(w); });
-  }
-  // the bars rise from the baseline without making the line taller (as in SAP's print)
-  const wmm = (x * mod).toFixed(2);
-  const place = Number(def.layoutMm) > 0 ? Number(def.layoutMm).toFixed(2) : wmm;
-  return `<span class="bcw" style="width:${place}mm"><svg class="bc" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${x} 1" preserveAspectRatio="none" ` +
-    `style="width:${wmm}mm;height:${h.toFixed(2)}mm"><path d="${bars.join('')}"/></svg></span>`;
+// numeric, packed, date and time DDIC types: a zero value is initial
+const ZERO_INITIAL = /^(CURR|QUAN|DEC|INT1|INT2|INT4|INT8|FLTP|D16[DNR]|D34[DNR]|DF16_\w+|DF34_\w+|NUMC|DATS|TIMS|ACCP|PREC|P|I|F|N|D|T|B|S)$/;
+/** Is a sample value initial for SAPscript (&'pre'F'post'&)? Blank always; zero for numeric / date / time types;
+ *  without a known type only a blank or the number 0 counts. */
+function isInitialValue(v, type) {
+  if (v === undefined || v === null) return true;
+  if (typeof v === 'number') return v === 0;
+  const s = String(v);
+  if (!s.trim()) return true;
+  if (ZERO_INITIAL.test(String(type || '').toUpperCase())) return /\d/.test(s) && !/[1-9]/.test(s) && !/[A-Za-z]/.test(s);
+  return false;
 }
 const baseSymbol = (raw) => raw.replace(/\(.*\)$/, '').replace(/\+\d+$/, '').trim(); // &F+off(len)& → F
+// &'pre'NAME(opts)'post'&: NAME printed between two literal texts, which print only when NAME is not initial
+function splitPrePost(raw) {
+  const m = /^(?:'([^']*)')?([^']*?)(?:'([^']*)')?$/.exec(raw);
+  return m ? { pre: m[1] ?? '', core: m[2], post: m[3] ?? '' } : { pre: '', core: raw, post: '' };
+}
+// symbol names of one text line: <(>…<)> protects its content (<(>&<)> is a literal '&'), && is a literal '&'
+const LINE_SYMBOL_RE = /&(?:'[^']*')?([^&'\s(]+(?:\([^)]*\))?)(?:'[^']*')?&/g;
+function lineSymbols(text) {
+  const plain = String(text).replace(/<\(>[\s\S]*?<\)>/g, ' ');
+  return [...plain.matchAll(LINE_SYMBOL_RE)].map((m) => baseSymbol(m[1])).filter(Boolean);
+}
 const styleClass = (name) => String(name || '').replace(/_/g, '-');
 
 // ── style: paragraph font sizes (for the symbol list and line heights) ──────────
@@ -231,36 +199,6 @@ function printedFamily(family, printer, size10) {
   if (printer.deviceType === 'PDFUC' && /^(KP|CN|TW|JP|DB|TH|A_(SIMP|TRAN|TRAD))/.test(f)) return 'ANDALE_J';
   return 'COURIER';
 }
-
-/** Blank widths (twips) SAP's OTF sent per device type, keyed "FAMILY|size×10|B" (bold) or
- *  "FAMILY|size×10|" — the widths of the device type's font metrics, which a browser font
- *  does not round alike (collected from the SW records of the learning-loop OTFs). */
-/** Glyph widths (1/1000 em, index = code − 32, WinAnsi) SAP's PDF converter uses per device type
- *  and SAP family / bold, keyed "FAMILY|B" or "FAMILY|" — read from SAP's own PDFs
- *  (glyph-widths.json). Only device types whose widths do not depend on the size (PDFUC,
- *  SAPWIN); KPPDF stores per-size widths and is left to the browser. */
-let GLYPH_WIDTHS = null;
-function glyphWidths(deviceType) {
-  if (!GLYPH_WIDTHS) {
-    try { GLYPH_WIDTHS = JSON.parse(readFileSync(new URL('./glyph-widths.json', import.meta.url), 'utf8')).widths || {}; } catch { GLYPH_WIDTHS = {}; }
-  }
-  const dev = `${String(deviceType || '').trim().toUpperCase()}|`;
-  const out = {};
-  for (const [k, v] of Object.entries(GLYPH_WIDTHS)) if (k.startsWith(dev)) out[k.slice(dev.length)] = v;
-  return out;
-}
-
-let BLANK_WIDTHS = null;
-function blankWidths(deviceType) {
-  if (!BLANK_WIDTHS) {
-    try { BLANK_WIDTHS = JSON.parse(readFileSync(new URL('./blank-widths.json', import.meta.url), 'utf8')); } catch { BLANK_WIDTHS = {}; }
-  }
-  const dev = `${String(deviceType || '').trim().toUpperCase()}|`;
-  const out = {};
-  for (const [k, v] of Object.entries(BLANK_WIDTHS)) if (k.startsWith(dev)) out[k.slice(dev.length)] = v;
-  return out;
-}
-
 /** A TrueType family installed with SE73 (proportional, no TFO01 substitutes, not a printer
  *  font of the device type) has no bold of its own — its bold is a family of its own (ARIAL_B):
  *  ZFI_JAX_AR_STATEMENT T1 ARIAL 12 pt bold on SAPWIN printed regular (FC flag blank).
@@ -377,8 +315,7 @@ function listSymbols(content) {
         if (l.format === '/*') continue; // comment line, not printed
         const command = l.format === '/:';
         if (l.format && !command && l.format !== '=' && l.format !== '/') para = l.format;
-        for (const m of l.text.matchAll(SYMBOL_RE)) {
-          const name = baseSymbol(m[1]);
+        for (const name of lineSymbols(l.text)) {
           if (!found.has(name)) found.set(name, { name, occurrences: [] });
           found.get(name).occurrences.push({
             window: ctx.window, node: n.name, caption: n.caption, paragraph: para,
@@ -515,9 +452,19 @@ function boxPadding(box) {
 
 // ── rendering ───────────────────────────────────────────────────────────────────
 class Renderer {
-  constructor(content, values) {
+  /** opts.inspect: every symbol and every drawn node carries data-sym / data-node (preview workbench);
+   *  without it the page is byte for byte what it always was. */
+  constructor(content, values, opts = {}) {
     this.c = content;
+    this.inspect = Boolean(opts.inspect);
+    // Graphics come only from (1) opts.graphics { NAME: { mime, base64 } } — the workbench, which never reads a path —
+    // or (2) a `file` GetSmartFormContent wrote, read only with opts.graphicsBase (the CLI passes the content.json's
+    // folder) and only when its real path lies inside that folder. Nothing else is read; else a labelled box.
+    this.graphicsMap = opts.graphics && typeof opts.graphics === 'object' ? opts.graphics : null;
+    this.graphicsBase = typeof opts.graphicsBase === 'string' && opts.graphicsBase ? opts.graphicsBase : null;
     this.values = values.values || {};
+    // fields.json (preview-workbench fieldsFrom): DDIC type per symbol, for the initial check of pre / post texts
+    this.fields = opts.fields && typeof opts.fields === 'object' ? opts.fields : {};
     this.rows = Number(values.rows ?? 3);
     this.defaultPara = values.defaultParagraph || null;
     this.mark = Boolean(values.mark);
@@ -551,7 +498,50 @@ class Renderer {
     return inherited;
   }
 
-  symbol(raw) {
+  /** A graphic as { mime, b64 }, or null (see constructor: the given map, else a file inside graphicsBase). */
+  graphicData(g) {
+    const m = this.graphicsMap;
+    const key = m && [String(g.name || ''), String(g.name || '').toUpperCase()].find((k) => Object.prototype.hasOwnProperty.call(m, k));
+    if (key) {
+      const e = m[key];
+      const b64 = typeof e?.base64 === 'string' ? e.base64.replace(/\s+/g, '') : '';
+      const mime = String(e?.mime || 'image/bmp').toLowerCase();
+      return b64 && /^[A-Za-z0-9+/]+={0,2}$/.test(b64) && /^image\/(bmp|png|jpeg|gif)$/.test(mime) ? { mime, b64 } : null;
+    }
+    if (!g.file || !this.graphicsBase) return null;
+    try {
+      // the real path (symlinks resolved) must lie inside the real base folder: "../", absolute paths elsewhere,
+      // another drive and a link pointing out are all refused
+      const root = realpathSync(this.graphicsBase);
+      const real = realpathSync(resolve(root, String(g.file)));
+      const rel = relative(root, real);
+      if (!rel || rel === '..' || rel.startsWith(`..${sep}`) || isAbsolute(rel)) return null;
+      return { mime: 'image/bmp', b64: readFileSync(real).toString('base64') };
+    } catch { return null; } // missing
+  }
+
+  /** data-node on an element that has none of its own (graphics, address boxes) — inspect only. */
+  nodeAttr(n) { return this.inspect ? ` data-node="${esc(n.name)}"` : ''; }
+
+  symbol(full) {
+    // &'pre'NAME'post'&: the texts around print only when NAME is not initial (SAPscript): blank, and for
+    // numeric / date / time DDIC types (fields.json) a zero value (0, 0.00, 00000000, 00:00:00) is initial
+    const { pre, core: raw, post } = splitPrePost(full);
+    if (!pre && !post) return this.symbolValue(raw);
+    this.lastRaw = undefined;
+    const out = this.symbolValue(raw);
+    if (this.lastRaw === undefined) return `${esc(pre)}${out}${esc(post)}`; // placeholder: keep the texts visible
+    return isInitialValue(this.lastRaw, this.fieldType(baseSymbol(raw))) ? out : `${esc(pre)}${out}${esc(post)}`;
+  }
+
+  /** DDIC type of a symbol from fields.json (opts.fields), '' when unknown. */
+  fieldType(name) {
+    const up = name.toUpperCase();
+    const f = this.fields[name] ?? this.fields[up] ?? Object.entries(this.fields).find(([k]) => k.toUpperCase() === up)?.[1];
+    return String(f?.type || '').toUpperCase();
+  }
+
+  symbolValue(raw) {
     const name = baseSymbol(raw);
     const up = name.toUpperCase(); // symbols are not case sensitive (&sy-uline& = &SY-ULINE&)
     // "NAME@%TEXT59": a value for one text node only (a total the code sets for the footer,
@@ -572,11 +562,13 @@ class Renderer {
     if (v === undefined && SYS_DEFAULTS[up] !== undefined) v = SYS_DEFAULTS[up];
     if (v === undefined || v === null) {
       this.unfilled.add(name);
-      return `<span class="sym" title="${esc(name)}">&amp;${esc(name)}&amp;</span>`;
+      return `<span class="sym"${this.inspect ? ` data-sym="${esc(name)}"` : ''} title="${esc(name)}">&amp;${esc(name)}&amp;</span>`;
     }
     this.filled.add(name);
+    this.lastRaw = v;
     v = formatSymbol(String(v), raw);
-    return this.mark ? `<span class="val" title="${esc(name)}">${esc(v)}</span>` : esc(v);
+    if (this.mark) return `<span class="val"${this.inspect ? ` data-sym="${esc(name)}"` : ''} title="${esc(name)}">${esc(v)}</span>`;
+    return this.inspect ? `<span data-sym="${esc(name)}">${esc(v)}</span>` : esc(v);
   }
 
   inline(raw, style) {
@@ -612,7 +604,8 @@ class Renderer {
     const strFam = new Map((((this.c.styles || []).find((x) => x.name === style) || {}).strings || []).map((s) => [s.tag, String(s.family || '').trim() && printedFamily(String(s.family).trim(), this.c.printer)]));
     const fam = () => (stack.length ? stack[stack.length - 1].fam : this.parFam) || '';
     const bcTags = style ? this.barcodeTags(style) : new Map();
-    const re = /<([A-Z0-9]{1,2})>|<\/>|&([^&\s][^&]*?)&/g;
+    // '&&' is a literal '&' (SAPscript), never the start of a symbol
+    const re = /<([A-Z0-9]{1,2})>|<\/>|(&&)|&([^&\s][^&]*?)&/g;
     const close = () => {
       const o = stack.pop();
       if (!o.bc) { out += '</span>'; return; }
@@ -637,7 +630,8 @@ class Renderer {
         out += `<span id="${m[1]}" class="char${bc ? ' barcode' : ''}">`;
         stack.push({ bc, at: out.length, fam: strFam.get(m[1]) || fam() });
       } else if (m[0] === '</>') { if (stack.length) close(); }
-      else out += this.symbol(m[2]);
+      else if (m[2]) out += '&amp;';
+      else out += this.symbol(m[3]);
       last = re.lastIndex;
     }
     out += esc(this.cp(text.slice(last), fam())).split(',,').join('<span class="tab"></span>');
@@ -769,18 +763,18 @@ class Renderer {
     // a key holding a &symbol& takes the sample value (&IM_SIGN& → ZHANTA_NEW, ZFTA0540_KR05_OLD)
     const sub = (v) => String(v).replace(/&([^&]+)&/g, (m, k) => { const x = this.values[k.trim().toUpperCase()] ?? this.values[k.trim()]; return x === undefined || Array.isArray(x) ? m : String(x); });
     const g = n.graphic && this.graphics.get(`${sub(n.graphic.object)}|${sub(n.graphic.name)}|${sub(n.graphic.id)}|${sub(n.graphic.btype)}`);
-    if (!g?.file || !existsSync(g.file)) {
+    const pic = g ? this.graphicData(g) : null;
+    if (!pic) {
       this.approx.push(`${n.name}: graphic ${n.graphic?.name || '?'} ${n.graphic?.dynamic ? '(key set at print time)' : 'not available'} — drawn as a box`);
-      return `<div class="missing" title="${esc(n.graphic?.name || '')}">${esc(n.graphic?.name || 'graphic')}</div>`;
+      return `<div class="missing"${this.nodeAttr(n)} title="${esc(n.graphic?.name || '')}">${esc(n.graphic?.name || 'graphic')}</div>`;
     }
-    const b64 = readFileSync(g.file).toString('base64');
     // the graphic node's own resolution overrides the one stored with the SE78 graphic
     const dpi = Number(n.graphic.resolution) || 0;
     const [wMm, hMm] = dpi && g.widthPix ? [g.widthPix / dpi * 25.4, g.heightPix / dpi * 25.4] : [g.widthMm, g.heightMm];
     // ALIGNMENT L / C / R places the graphic in its window or cell (ZMM_SF_POFORM3 %GRAPHIC2 centred)
     const al = String(n.attrs?.ALIGNMENT || "L").toUpperCase();
     const place = al === "C" ? "margin-left:auto;margin-right:auto;" : al === "R" ? "margin-left:auto;" : "";
-    return `<img src="data:image/bmp;base64,${b64}" style="width:${wMm.toFixed(2)}mm;height:${hMm.toFixed(2)}mm;${place}" alt="${esc(g.name)}">`;
+    return `<img${this.nodeAttr(n)} src="data:${pic.mime};base64,${pic.b64}" style="width:${wMm.toFixed(2)}mm;height:${hMm.toFixed(2)}mm;${place}" alt="${esc(g.name)}">`;
   }
 
   grid(n, rows) {
@@ -1178,7 +1172,7 @@ class Renderer {
       }
       case 'address':
         this.approx.push(`${n.name}: address node — drawn as a box`);
-        return `<div class="missing">address ${esc(n.caption || n.name)}</div>`;
+        return `<div class="missing"${this.nodeAttr(n)}>address ${esc(n.caption || n.name)}</div>`;
       case 'code': return '';
       // a command with NEWPAGE (its condition already held) starts the next page: what follows
       // in MAIN is not on page 1 (ZFI_SMT_VAT_0606_BK: one invoice per row)
@@ -1222,9 +1216,9 @@ class Renderer {
     try { return this.nodes(win.content); } finally { this.styleStack.pop(); }
   }
 
-  page() {
-    const p = this.c.pages[0];
-    if (this.c.pages.length > 1) this.approx.push(`form has ${this.c.pages.length} pages — first page drawn (${p.name})`);
+  page(index = 0) {
+    const p = this.c.pages[index] || this.c.pages[0];
+    if (this.c.pages.length > 1) this.approx.push(p === this.c.pages[0] ? `form has ${this.c.pages.length} pages — first page drawn (${p.name})` : `form has ${this.c.pages.length} pages — page ${p.name} drawn`);
     const landscape = p.orientation === 'landscape';
     const [w, h] = landscape ? [297, 210] : [210, 297];
     if (p.format && p.format !== 'DINA4') this.approx.push(`page format ${p.format} drawn as A4`);
@@ -1388,52 +1382,45 @@ var e=document.createElement('script');e.type='application/json';e.id='sf-overfl
   }
 }
 
-// ── browser ─────────────────────────────────────────────────────────────────────
-function findBrowser() {
-  const env = process.env.SC4SAP_CHROME || process.env.CHROME_PATH;
-  const list = env ? [env] : process.platform === 'win32' ? [
-    `${process.env.PROGRAMFILES}\\Google\\Chrome\\Application\\chrome.exe`,
-    `${process.env['PROGRAMFILES(X86)']}\\Google\\Chrome\\Application\\chrome.exe`,
-    `${process.env.LOCALAPPDATA}\\Google\\Chrome\\Application\\chrome.exe`,
-    `${process.env['PROGRAMFILES(X86)']}\\Microsoft\\Edge\\Application\\msedge.exe`,
-    `${process.env.PROGRAMFILES}\\Microsoft\\Edge\\Application\\msedge.exe`,
-  ] : process.platform === 'darwin' ? [
-    '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome',
-    '/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge',
-    '/Applications/Chromium.app/Contents/MacOS/Chromium',
-  ] : ['/usr/bin/google-chrome', '/usr/bin/google-chrome-stable', '/usr/bin/chromium', '/usr/bin/chromium-browser', '/usr/bin/microsoft-edge'];
-  return list.find((p) => p && existsSync(p)) || null;
-}
-
-function runBrowser(browser, args, profileDir) {
-  return spawnSync(browser, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--no-first-run',
-    `--user-data-dir=${profileDir}`, ...args], { encoding: 'utf8', timeout: 90000, maxBuffer: 64 * 1024 * 1024 });
-}
-
 // ── CLI ─────────────────────────────────────────────────────────────────────────
 function arg(argv, name, dflt) {
   const i = argv.indexOf(name);
   return i >= 0 && argv[i + 1] !== undefined ? argv[i + 1] : dflt;
 }
 
-function main(argv) {
+async function main(argv) {
   const [cmd, contentFile] = argv;
   if (!cmd || !contentFile || !existsSync(contentFile)) {
-    console.error('usage: build-preview.mjs symbols <content.json> | build <content.json> --values <values.json> --out-dir <dir> [--rows N] [--no-jpg] [--mark]');
+    console.error('usage: build-preview.mjs symbols <content.json> | fields <content.json> --ddic <ddic.json> --out <fields.json> | build <content.json> --values <values.json> --out-dir <dir> [--rows N] [--no-jpg] [--mark] [--fields <fields.json>]');
     process.exit(2);
   }
   const content = JSON.parse(readFileSync(contentFile, 'utf8'));
   if (cmd === 'symbols') { console.log(JSON.stringify(listSymbols(content), null, 1)); return; }
+  if (cmd === 'fields') {
+    const ddicFile = arg(argv, '--ddic');
+    const out = arg(argv, '--out');
+    if (!out) { console.error('fields: --out <fields.json> is required'); process.exit(2); }
+    const { fieldsFrom } = await import('./preview-workbench.mjs');
+    const fields = fieldsFrom(content, ddicFile && existsSync(ddicFile) ? JSON.parse(readFileSync(ddicFile, 'utf8')) : {});
+    writeFileSync(out, `${JSON.stringify(fields, null, 1)}
+`);
+    const unknown = Object.keys(fields).filter((k) => !fields[k].type);
+    console.log(JSON.stringify({ fields: out, symbols: Object.keys(fields).length, unknownType: unknown }));
+    return;
+  }
   if (cmd !== 'build') { console.error(`unknown command ${cmd}`); process.exit(2); }
 
   const valuesFile = arg(argv, '--values');
   const values = valuesFile ? JSON.parse(readFileSync(valuesFile, 'utf8')) : {};
   if (arg(argv, '--rows')) values.rows = Number(arg(argv, '--rows'));
   if (argv.includes('--mark')) values.mark = true;
+  const fieldsFile = arg(argv, '--fields');
   const outDir = resolve(arg(argv, '--out-dir', '.'));
   mkdirSync(outDir, { recursive: true });
 
-  const r = new Renderer(content, values);
+  // graphics only from the content.json's own folder (where GetSmartFormContent wrote them)
+  const r = new Renderer(content, values, { graphicsBase: dirname(resolve(contentFile)) });
+  if (fieldsFile && existsSync(fieldsFile)) r.fields = JSON.parse(readFileSync(fieldsFile, 'utf8'));
   const page = r.page();
   const base = join(outDir, `${content.form}-preview`);
   writeFileSync(`${base}.html`, page.html);
@@ -1474,3 +1461,4 @@ function main(argv) {
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) main(process.argv.slice(2));
 
 export { listSymbols, Renderer, paragraphFonts, findBrowser, runBrowser };
+export { code128Codes, barcodeSize, barcodeSvg } from '../forms-common/barcode.mjs';

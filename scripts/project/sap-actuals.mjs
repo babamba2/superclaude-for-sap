@@ -33,15 +33,28 @@ export function weekOf(d) {
   return iso(t - wd * 86400000);
 }
 
+// SAP CHAR fields may come back blank-padded (" " for an empty STRKORR, "K " …) depending on the reader: compare trimmed.
+const f = (v) => String(v ?? '').trim();
+
+/**
+ * E071 rows of the WBS objects + their E070 tasks + the tasks' requests → [{ name, trkorr (the request), status }].
+ * Names are matched against the WBS item objects, so they are trimmed like the keys.
+ */
+export function mapObjectTrs(e071, tasks, reqs) {
+  const parent = new Map(arr(tasks).map(r => [f(r.TRKORR), f(r.STRKORR) || f(r.TRKORR)]));
+  const st = new Map(arr(reqs).map(r => [f(r.TRKORR), STATUS[f(r.TRSTATUS)] || 'open']));
+  return arr(e071).map(r => { const tr = parent.get(f(r.TRKORR)) || f(r.TRKORR); return { name: f(r.OBJ_NAME), trkorr: tr, status: st.get(tr) || 'open' }; });
+}
+
 /** E070 headers + E07T texts → [{ trkorr, side, status, user, date, text, ws }]. */
 export function mapTransports(e070, e07t, { trPattern = DEFAULT_TR_PATTERN, workstreams = [] } = {}) {
   const re = new RegExp(trPattern || DEFAULT_TR_PATTERN, 'i');
   const known = new Set(arr(workstreams).map(w => String(w.code).toUpperCase()));
-  const text = new Map(arr(e07t).map(r => [r.TRKORR, r.AS4TEXT]));
-  return arr(e070).filter(r => !r.STRKORR && SIDE[r.TRFUNCTION]).map(r => {
-    const t = text.get(r.TRKORR) || '';
+  const text = new Map(arr(e07t).map(r => [f(r.TRKORR), r.AS4TEXT]));
+  return arr(e070).filter(r => !f(r.STRKORR) && SIDE[f(r.TRFUNCTION)]).map(r => {
+    const t = text.get(f(r.TRKORR)) || '';
     const g = re.exec(t)?.[1]?.toUpperCase() || '';
-    return { trkorr: r.TRKORR, side: SIDE[r.TRFUNCTION], status: STATUS[r.TRSTATUS] || 'open', user: r.AS4USER, date: fromSap(r.AS4DATE), text: t, ws: known.size && !known.has(g) ? '' : g };
+    return { trkorr: f(r.TRKORR), side: SIDE[f(r.TRFUNCTION)], status: STATUS[f(r.TRSTATUS)] || 'open', user: f(r.AS4USER), date: fromSap(r.AS4DATE), text: t, ws: known.size && !known.has(g) ? '' : g };
   });
 }
 
@@ -82,18 +95,36 @@ export function wricefEvidence(model, { objects = [], inactive = [], objectTrs =
   return out;
 }
 
+/**
+ * A read that hit the row limit is said, never silent: one line in `errors` and the table in `truncated`.
+ * readTable gives truncated = true; readIn gives the values that alone still filled a read (e.g. a package like $TMP).
+ */
+export function noteTruncated(table, r, errors, truncated, max = 5000) {
+  const vals = Array.isArray(r?.truncated) ? r.truncated : [];
+  if (r?.truncated === true || vals.length) {
+    errors.push(`${table}: first ${max} rows only${vals.length ? ` for ${vals.slice(0, 5).join(', ')}${vals.length > 5 ? ' …' : ''}` : ''} — the figures may be low; narrow the packages or the period`);
+    if (!truncated.includes(table)) truncated.push(table);
+  }
+}
+// E07T texts by request number and DWINACTV by object name: 200 keys per read (one value per line in the WHERE, so
+// lines stay short; 40 per read made a $TMP-sized package 125 calls).
+const TEXT_CHUNK = 200;
+const NAME_CHUNK = 200;
+
 /** Reads everything for the model's project. Returns the `actuals` block. */
 export async function collectActuals(model, { client: given, today = iso(Date.now()) } = {}) {
   const p = model.project || {};
   const client = given || await connect('project-dashboard');
-  const errors = [];
+  const errors = [], truncated = [];
   try {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(p.start || '')) throw new Error('project.start missing');
     // Request headers since the project start (dates are validated above, so the raw condition is safe).
     const e070r = await readTable(client, 'E070', { where: `AS4DATE >= '${sapDate(p.start)}' AND STRKORR = ' '`, maxRows: 5000 });
     if (!e070r.ok) errors.push(`E070: ${e070r.error}`);
-    const heads = arr(e070r.rows).filter(r => SIDE[r.TRFUNCTION]);
-    const e07t = await readIn(client, 'E07T', 'TRKORR', heads.map(r => r.TRKORR));
+    noteTruncated('E070', e070r, errors, truncated);
+    const heads = arr(e070r.rows).filter(r => SIDE[f(r.TRFUNCTION)]);
+    const e07t = await readIn(client, 'E07T', 'TRKORR', heads.map(r => f(r.TRKORR)), { chunk: TEXT_CHUNK });
+    noteTruncated('E07T', e07t, errors, truncated);
     const transports = mapTransports(heads, e07t.rows, { trPattern: p.trPattern, workstreams: model.workstreams });
 
     // Package objects: TADIR (author, created on) where the SQL path allows it (BASIS ≥ 7.50); on older releases
@@ -101,7 +132,8 @@ export async function collectActuals(model, { client: given, today = iso(Date.no
     let objects = [];
     if (arr(p.packages).length) {
       const t = await readIn(client, 'TADIR', 'DEVCLASS', p.packages, { extra: { PGMID: 'R3TR' } });
-      if (t.ok) objects = t.rows.map(r => ({ type: r.OBJECT, name: r.OBJ_NAME, package: r.DEVCLASS, author: r.AUTHOR, created: fromSap(r.CREATED_ON) }));
+      noteTruncated('TADIR', t, errors, truncated);
+      if (t.ok) objects = t.rows.map(r => ({ type: f(r.OBJECT), name: f(r.OBJ_NAME), package: r.DEVCLASS, author: r.AUTHOR, created: fromSap(r.CREATED_ON) }));
       else {
         for (const pkg of p.packages) {
           try {
@@ -114,8 +146,9 @@ export async function collectActuals(model, { client: given, today = iso(Date.no
     const names = [...new Set([...objects.map(o => o.name), ...arr(model.wbs).flatMap(w => arr(w.wricef?.objects))])];
     // Inactive objects: DWINACTV for everybody where allowed, else ADT's list (the connection user's objects only).
     let inactive = [];
-    const ina = names.length ? await readIn(client, 'DWINACTV', 'OBJ_NAME', names) : { ok: true, rows: [] };
-    if (ina.ok) inactive = arr(ina.rows).map(r => ({ type: r.OBJECT, name: r.OBJ_NAME, user: r.UNAME }));
+    const ina = names.length ? await readIn(client, 'DWINACTV', 'OBJ_NAME', names, { chunk: NAME_CHUNK }) : { ok: true, rows: [] };
+    noteTruncated('DWINACTV', ina, errors, truncated);
+    if (ina.ok) inactive = arr(ina.rows).map(r => ({ type: f(r.OBJECT), name: f(r.OBJ_NAME), user: f(r.UNAME) }));
     else {
       try {
         const j = await toolJson(client, 'GetInactiveObjects', {});
@@ -130,11 +163,12 @@ export async function collectActuals(model, { client: given, today = iso(Date.no
     let objectTrs = [];
     if (wNames.length) {
       const e071 = await readIn(client, 'E071', 'OBJ_NAME', wNames);
-      const tasks = await readIn(client, 'E070', 'TRKORR', [...new Set(e071.rows.map(r => r.TRKORR))]);
-      const parent = new Map(tasks.rows.map(r => [r.TRKORR, r.STRKORR || r.TRKORR]));
-      const reqs = await readIn(client, 'E070', 'TRKORR', [...new Set([...parent.values()])]);
-      const st = new Map(reqs.rows.map(r => [r.TRKORR, STATUS[r.TRSTATUS] || 'open']));
-      objectTrs = e071.rows.map(r => { const tr = parent.get(r.TRKORR) || r.TRKORR; return { name: r.OBJ_NAME, trkorr: tr, status: st.get(tr) || 'open' }; });
+      noteTruncated('E071', e071, errors, truncated);
+      const tasks = await readIn(client, 'E070', 'TRKORR', [...new Set(e071.rows.map(r => f(r.TRKORR)))]);
+      noteTruncated('E070', tasks, errors, truncated);
+      const reqs = await readIn(client, 'E070', 'TRKORR', [...new Set(tasks.rows.map(r => f(r.STRKORR) || f(r.TRKORR)))]);
+      noteTruncated('E070', reqs, errors, truncated);
+      objectTrs = mapObjectTrs(e071.rows, tasks.rows, reqs.rows);
     }
 
     // Dumps per day after go-live (hypercare).
@@ -155,7 +189,7 @@ export async function collectActuals(model, { client: given, today = iso(Date.no
     return {
       readAt: today, system: p.system || '', transports, throughput: throughput(transports),
       objects: objects.length, objectsByAuthor: countBy(objects, 'author'), objectsByType: countBy(objects, 'type'),
-      inactive, evidence, dumps, errors,
+      inactive, evidence, dumps, errors, ...(truncated.length ? { truncated } : {}),
     };
   } finally {
     if (!given) await client.close().catch(() => {});

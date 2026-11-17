@@ -20,6 +20,7 @@
  *   - EXCEPT the two row-data extraction tools, which are never auto-approved and
  *     fall through to normal prompting + the block-forbidden-tables safeguard:
  *       · GetTableContents
+ *       · GetRemoteTableContents (rows of another system over SM59)
  *       · GetSqlQuery
  *     One narrow exception: a GetSqlQuery that is a DD* repository metadata read
  *     in the shape stock-cbo Step G3a uses (lib/dd-metadata-query.mjs) is allowed.
@@ -46,7 +47,7 @@ function extractToolInput(input) {
 const SAP_NAMESPACES = ['mcp__plugin_sc4sap_sap__', 'mcp__mcp-abap-adt__'];
 
 // Row-level data extraction — must always remain an explicit user decision.
-const GATED_TOOLS = ['GetTableContents', 'GetSqlQuery'];
+const GATED_TOOLS = ['GetTableContents', 'GetRemoteTableContents', 'GetSqlQuery'];
 
 // Business-data changes (/sc4sap:assist) — always an explicit user decision.
 const BUSINESS_WRITE_TOOLS = ['PreviewBusinessAction', 'ExecuteBusinessAction'];

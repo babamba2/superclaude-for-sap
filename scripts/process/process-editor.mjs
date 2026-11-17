@@ -114,8 +114,11 @@ export const EDITOR_SCRIPT = String.raw`
   function doUndo(){ var u = undo.pop(); if (!u) return; M = JSON.parse(u.m); main.innerHTML = u.h; arm(); touch(); }
 
   // ── edit mode on / off ──
+  // text fields only; <select data-p> / <input type=checkbox data-p> are handled by the change listener below
+  function txtEl(e){ var el = EDIT && e.target.closest && e.target.closest('[data-p]'); return el && !/^(SELECT|INPUT)$/.test(el.tagName) ? el : null; }
   function arm(){
     document.querySelectorAll('[data-p]').forEach(function(el){
+      if (/^(SELECT|INPUT)$/.test(el.tagName)) { el.disabled = !EDIT; return; }
       if (EDIT) { el.setAttribute('contenteditable', 'plaintext-only'); el.setAttribute('spellcheck', 'false'); el.setAttribute('data-ph', EL.newItem); }
       else { el.removeAttribute('contenteditable'); }
     });
@@ -125,14 +128,14 @@ export const EDITOR_SCRIPT = String.raw`
   $('#ed-undo').addEventListener('click', doUndo);
   document.addEventListener('keydown', function(e){
     if (EDIT && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !(e.target.closest && e.target.closest('[contenteditable]'))) { e.preventDefault(); doUndo(); }
-    var el = EDIT && e.target.closest && e.target.closest('[data-p]');
+    var el = txtEl(e);
     if (el && e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); el.blur(); }
   });
 
   // ── text fields: written back on blur; every element showing the same path follows ──
-  document.addEventListener('focusin', function(e){ var el = EDIT && e.target.closest && e.target.closest('[data-p]'); if (el) el.dataset.o = el.innerText; });
+  document.addEventListener('focusin', function(e){ var el = txtEl(e); if (el) el.dataset.o = el.innerText; });
   document.addEventListener('focusout', function(e){
-    var el = EDIT && e.target.closest && e.target.closest('[data-p]'); if (!el) return;
+    var el = txtEl(e); if (!el) return;
     var v = el.innerText.replace(/ /g, ' ').replace(/\s+$/, '');
     if (v === String(el.dataset.o || '').replace(/\s+$/, '')) return;
     var p = el.dataset.p;
@@ -144,9 +147,9 @@ export const EDITOR_SCRIPT = String.raw`
   // Typing also writes through at once (a field left without a blur — closing the tab, saving — keeps its text).
   // The undo point stays the state when the field was entered.
   var entry = null;
-  document.addEventListener('focusin', function(e){ var el = EDIT && e.target.closest && e.target.closest('[data-p]'); if (el) entry = { el: el, m: JSON.stringify(M), h: main.innerHTML, pushed: false }; });
+  document.addEventListener('focusin', function(e){ var el = txtEl(e); if (el) entry = { el: el, m: JSON.stringify(M), h: main.innerHTML, pushed: false }; });
   document.addEventListener('input', function(e){
-    var el = EDIT && e.target.closest && e.target.closest('[data-p]'); if (!el) return;
+    var el = txtEl(e); if (!el) return;
     var v = el.innerText.replace(/\s+$/, '');
     if (entry && entry.el === el && !entry.pushed) { undo.push({ m: entry.m, h: entry.h }); entry.pushed = true; }
     else if (!entry || entry.el !== el) {
@@ -159,6 +162,18 @@ export const EDITOR_SCRIPT = String.raw`
     document.querySelectorAll('[data-p="' + CSS.escape(el.dataset.p) + '"]').forEach(function(x){ if (x !== el) x.textContent = v; });
     el.dataset.o = el.innerText; touch();
   });
+
+  // ── selects / checkboxes: value into the model; the chosen state is kept as an attribute so undo (innerHTML) restores it ──
+  document.addEventListener('change', function(e){
+    var el = EDIT && e.target.closest && e.target.closest('select[data-p],input[data-p]'); if (!el) return;
+    var html = main.innerHTML, before = JSON.stringify(M);
+    var v = el.type === 'checkbox' ? el.checked : el.value;
+    if (el.type === 'checkbox') { if (v) el.setAttribute('checked', ''); else el.removeAttribute('checked'); }
+    else Array.prototype.forEach.call(el.options, function(o){ if (o.value === v) o.setAttribute('selected', ''); else o.removeAttribute('selected'); });
+    undo.push({ m: before, h: html }); setP(el.dataset.p, v); touch();
+    document.dispatchEvent(new CustomEvent('ed:change', { detail: { path: el.dataset.p, value: v, el: el } }));
+  });
+  window.sc4sapEditModel = function(){ return M; };
 
   // ── lists: + add / ✕ delete ──
   function renumber(ul){

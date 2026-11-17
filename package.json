@@ -1,6 +1,6 @@
 {
   "name": "@babamba2/superclaude-for-sap",
-  "version": "0.6.66",
+  "version": "0.6.69",
   "description": "SuperClaude for SAP — Claude Code plugin for SAP On-Premise S/4HANA development",
   "homepage": "https://sc4sap.dev",
   "type": "module",
@@ -33,7 +33,8 @@
     ".mcp.json",
     "CLAUDE.md",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "!**/.sc4sap/**"
   ],
   "scripts": {
     "build": "tsc && node scripts/build-mcp-server.mjs",

@@ -65,6 +65,7 @@ import { fileURLToPath } from 'node:url';
 import { STYLE, SCRIPT, labelsFor } from './md-to-html-assets.mjs';
 import { FLOW_EDITOR_STYLE, FLOW_EDITOR_SCRIPT, FLOW_PAGE_SCRIPT, flowEditorLabels } from './flow-editor.mjs';
 import { SPEC_EDITOR_STYLE, SPEC_EDITOR_SCRIPT, specEditorLabels, quillAssets } from './spec-editor.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
 
 const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
 
@@ -894,7 +895,7 @@ export function mdToHtml(markdown, { baseDir = process.cwd(), title, lang, edita
   const mermaid = ctx.mermaid
     ? `\n<script src="${MERMAID_CDN}"></script>\n<script>if(window.mermaid){var d=document.documentElement.dataset.theme||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');mermaid.initialize({startOnLoad:true,securityLevel:'strict',theme:d==='dark'?'dark':'default'});}</script>`
     : '';
-  return `<!doctype html>
+  return withResponsive(`<!doctype html>
 <html lang="${escapeHtml(lang || 'en')}">
 <head>
 <meta charset="utf-8">
@@ -914,7 +915,7 @@ ${body}
 <script>var L=${JSON.stringify(labels).replace(/</g, '\\u003c')};${SCRIPT}</script>${flowEditor}${editor}${mermaid}
 </body>
 </html>
-`;
+`);
 }
 
 export function convertMdFile(inPath, outPath) {

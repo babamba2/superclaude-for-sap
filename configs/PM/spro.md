@@ -56,3 +56,11 @@
 | Define Maintenance Cost Centers | V_CSKS_PM | Maintenance Cost Center definition / 유지보수 원가 센터 정의 |
 | Configure WBS Element Integration | V_PRPS_PM | WBS Element Integration configuration / WBS 요소 통합 설정 |
 | Define Activity Types for PM | V_CSLA_PM | Activity Type definition for PM / PM용 활동 유형 정의 |
+
+## Value tables (assistant choices)
+Read by `scripts/assist/values.mjs` for `/sc4sap:assist`: the codes a write action asks for, offered as numbered choices from the connected system. Customizing tables only (Class = DD02L-CONTFLAG C / G, checked on an ECC 7.40 system 2026-11-16). Text table key = SPRAS + key field.
+
+| Value | System | Table/View | Key field | Filter | Text table | Text field | Text filter | Class | Used by | Description |
+|---|---|---|---|---|---|---|---|---|---|---|
+| PM_NOTIFICATION_TYPE | ECC, S4 | TQ80 | QMART | QMTYP = '01' | TQ80_T | QMARTX | | C / C | PM.NOTIF.CREATE.qmart | Maintenance notification types (category 01) |
+| PM_ORDER_TYPE | ECC, S4 | T003O | AUART | AUTYP = '30' | T003P | TXT | | C / C | PM.ORD.CREATE.auart | Maintenance order types (category 30) |

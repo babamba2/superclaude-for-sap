@@ -37,7 +37,7 @@ CDS objects do NOT follow the numbered `Z{MODULE}{TYPE}{NN}` pattern. Use SAP Vi
 | Basic / Interface View | `ZI_{MODULE}_{Name}`  | `ZI_FI_ClearingItem`  | Reusable VDM layer — 1:1 or light joins, no business logic gating |
 | Root View (RAP)        | `ZR_{MODULE}_{Name}`  | `ZR_FI_Clearing`      | Root entity of a Behavior Definition / Business Object |
 | Consumption View       | `ZC_{MODULE}_{Name}`  | `ZC_FI_Clearing`      | UI/OData-facing; annotations for Fiori Elements / RAP service |
-| Metadata Extension     | `{TargetView}_EXT`    | `ZC_FI_Clearing_EXT`  | Separates UI annotations from the view definition |
+| Metadata Extension     | same name as the projection view | `ZC_FI_Clearing` | Separates UI annotations from the view definition (DDLX is its own object type, so the name can repeat the view) |
 | Projection View (RAP)  | `ZP_{MODULE}_{Name}`  | `ZP_FI_Clearing`      | Intermediate projection layer when separating read/write |
 
 Sub-types to verify at first use (ask user before defaulting):

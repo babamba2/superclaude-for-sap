@@ -3,7 +3,7 @@
 // model.json (one per interface and language, next to the pages):
 // {
 //   schema: 2, ifId, lang, version, created,
-//   header:   { name, summary, detail, transfer, trigger, cycle, cycleCount, perRun, recordSize,
+//   header:   { name, summary, detail, transfer, trigger, cycle, cycleCount, perRun, recordSize, idoc { mestyp, idoctp },
 //               relation, targetLogic, author, writtenAt },
 //   sap:      { side: 'source' | 'target' | 'both', system, readAt,
 //               source: { object, kind, lines }, target: { … } }      — what --refresh reads again
@@ -154,7 +154,10 @@ export function newModel(input) {
   };
   const m = {
     schema: 2, ifId: String(ifId).trim(), lang, version: '0.1', created: today(), ...(input.preset ? { preset: input.preset } : {}),
-    header: { name: '', summary: '', detail: '', transfer: '', trigger: '', cycle: '', cycleCount: '', perRun: '', recordSize: '', relation: '', targetLogic: '', author: '', writtenAt: today(), ...header },
+    header: { name: '', summary: '', detail: '', transfer: '', trigger: '', cycle: '', cycleCount: '', perRun: '', recordSize: '', relation: '', targetLogic: '', author: '', writtenAt: today(), ...header,
+      // optional IDoc message / basic type (protocol IDoc) — an incident on that message type links to this spec;
+      // models saved before 2026-11-16 have no `idoc` and read it as absent
+      idoc: { mestyp: '', idoctp: '', ...(header.idoc || {}) } },
     sap: { side: sapSide, system, readAt: new Date().toISOString(), source: objects.source || null, target: objects.target || null },
     request: { source: side('source'), target: side('target'), groups: [], rows: [] },
     response: null, rules: [], extract: [], remarks: '', etc: '', revisions: [],

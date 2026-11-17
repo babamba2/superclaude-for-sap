@@ -143,6 +143,31 @@ describe('role-matrix page and files', () => {
     expect(renderPage(m, { version: '0.1', date: '2026-10-28' }).length).toBeLessThan(6e6);
   });
 
+  it('Japanese: same label keys and placeholders as English; init builds a ja page with ja SoD texts', () => {
+    const flat = (o: any, p = ''): [string, string][] => Object.entries(o).flatMap(([k, v]) => (v && typeof v === 'object' ? flat(v, `${p}${k}.`) : [[`${p}${k}`, String(v)]] as [string, string][]));
+    const ph = (s: string) => (s.match(/\{\w+\}/g) || []).sort().join();
+    const en = flat(labelsFor('en')), ja = new Map(flat(labelsFor('ja')));
+    expect(en.filter(([k, v]) => !ja.has(k) || ph(v) !== ph(ja.get(k)!)).map(([k]) => k)).toEqual([]);
+    expect(labelsFor('ja').tabs.broles).toBe('1.業務ロール');
+    const dir = mkdtempSync(join(tmpdir(), 'rm-ja-'));
+    try {
+      const from = join(dir, 'draft.json');
+      writeFileSync(from, JSON.stringify({ ...draft(), lang: undefined }));
+      const a = cmdInit({ root: dir, code: 'J1', from, lang: 'ja' });
+      expect(a.html).toMatch(/-ja\.html$/);
+      cmdSod({ root: dir, code: 'J1', modules: ['MM'] });
+      const m = JSON.parse(readFileSync(join(dir, 'J1', 'J1-roles.json'), 'utf8'));
+      expect(m.lang).toBe('ja');
+      expect(m.revisions[0].change).toBe('初版作成');
+      expect(m.sod.some((s: any) => s.kind === '仕入先マスタ vs 支払')).toBe(true);
+      const page = readFileSync(a.html, 'utf8');
+      expect(page).toContain('<button data-t="broles"');
+      expect(page).toContain('編集終了');
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
   it('init → sod → import round trip keeps the saved version', () => {
     const dir = mkdtempSync(join(tmpdir(), 'rm-'));
     try {

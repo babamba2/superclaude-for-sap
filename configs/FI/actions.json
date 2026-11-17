@@ -365,7 +365,8 @@
         {
           "param": "doc_type",
           "ask": "Which document type? (for example SA for a general journal entry)",
-          "when": "doc_type is missing"
+          "when": "doc_type is missing",
+          "values": "FI_DOCUMENT_TYPE"
         },
         {
           "param": "lines",
@@ -531,7 +532,8 @@
         {
           "param": "reason",
           "ask": "Which reversal reason? (it decides whether the reversal posts in the original period or in the posting-date period)",
-          "when": "reason is missing"
+          "when": "reason is missing",
+          "values": "FI_REVERSAL_REASON"
         },
         {
           "param": "posting_date",
@@ -664,7 +666,8 @@
         {
           "param": "block_key",
           "ask": "Which payment block key? Answer - to remove the block.",
-          "when": "block_key is missing"
+          "when": "block_key is missing",
+          "values": "FI_PAYMENT_BLOCK"
         },
         {
           "param": "buzei",

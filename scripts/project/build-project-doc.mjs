@@ -17,7 +17,14 @@
 //   node build-project-doc.mjs texts --project <CODE>                         Korean texts to translate → _i18n/texts.json
 //   node build-project-doc.mjs companion --project <CODE> [--texts <translated.json>]   English model + page (same version)
 //   node build-project-doc.mjs portfolio [--lang ko]
+//   node build-project-doc.mjs portfolio-status [--week-end YYYY-MM-DD] [--prev <last week's .json>] [--lang ko|en]
+//        portfolio weekly status portfolio-status-<weekEnd>-<lang>.{html,json,xlsx} (project-portfolio.mjs); offline
 //   node build-project-doc.mjs check --project <CODE>
+//   node build-project-doc.mjs status --project <CODE> [--week-end YYYY-MM-DD] [--gate <id|label>] [--evidence <file>]… [--uat <ID>]… [--uat-dir <dir>] [--refresh] [--lang ko|en]
+//        weekly status page <CODE>-status-<weekEnd>-<lang>.html + statusLog in the model (project-status.mjs); offline unless --refresh
+//   node build-project-doc.mjs cutover --project <CODE> [--seed] [--window "<start>/<end>"] [--freeze-code D] [--freeze-config D] [--rehearsal <id> --actuals <csv|json>]
+//        [--evidence <file>]… [--uat <ID>]… [--uat-dir <dir>] [--jobs [--confirm-prd]] [--lang ko|en]
+//        cutover readiness page <CODE>-cutover-<lang>.html + runbook in the model (cutover-cli.mjs); offline unless --jobs (TBTCO / TBTCP read)
 //   common: [--dir <projects folder>] (default <artifactBase>/projects)
 
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -25,10 +32,13 @@ import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveArtifactBase } from '../lib/profile-resolve.mjs';
 import { jsonTexts, jsonApply } from '../lib/humanize.mjs';
-import { checkModel, normalizeModel, viewModel, withSnapshot, reassign, isActive, iso, arr } from './project-model.mjs';
+import { checkModel, normalizeModel, viewModel, withSnapshot, reassign, isActive, iso, arr, UAT_SET_ID } from './project-model.mjs';
 import { instantiate, addWricef } from './project-template.mjs';
-import { renderPage } from './project-page.mjs';
+import { renderPage, modelFromPage } from './project-page.mjs';
 import { esc, labelsFor } from './project-render.mjs';
+import { withResponsive } from '../lib/responsive.mjs';
+import { computeStatus, weekEndOf } from './project-status.mjs';
+import { peopleAcross, portfolioStatus, renderPortfolioStatusPage, portfolioXlsx } from './project-portfolio.mjs';
 
 const readJson = (f, d) => (existsSync(f) ? JSON.parse(readFileSync(f, 'utf8')) : d);
 const writeJson = (f, o) => writeFileSync(f, `${JSON.stringify(o, null, 2)}\n`, 'utf8');
@@ -93,10 +103,9 @@ export function cmdInit({ answers, root, force = false }) {
 
 /** Model saved from the page's edit mode → model file + history entries (source: 'edit'), rebuilt as that version. */
 export function cmdImport({ html, root }) {
-  const text = readFileSync(html, 'utf8');
-  const mm = /<script type="application\/json" id="project-model">([\s\S]*?)<\/script>/.exec(text);
-  if (!mm) throw new Error(`${html} has no embedded project model — was it saved from the page's edit mode?`);
-  const { model, version, history = [] } = JSON.parse(mm[1]);
+  let page;
+  try { page = modelFromPage(readFileSync(html, 'utf8')); } catch (e) { throw new Error(`${html}: ${e.message}`); }
+  const { model, version, history } = page;
   const lang = model.lang || 'ko', code = model.project?.code;
   if (!CODE_RE.test(code || '')) throw new Error('embedded model has no valid project.code');
   const f = files(root, code, lang);
@@ -107,6 +116,7 @@ export function cmdImport({ html, root }) {
   const added = arr(history).filter(v => after(v.version, version) > 0 && !known.has(v.version));
   if (!added.length) throw new Error('the page has no new revision after the version it was built as (already imported?)');
   const target = lang === 'en' ? f.en : f.model;
+  mkdirSync(f.dir, { recursive: true }); // a fresh folder (a web run) has no project folder yet
   if (existsSync(target)) writeFileSync(`${target}.bak`, readFileSync(target));
   writeJson(target, model);
   h.versions = [...arr(h.versions), ...added.map(v => ({ ...v, source: 'edit' }))].sort((a, b) => after(a.version, b.version));
@@ -126,8 +136,32 @@ export async function cmdRefresh({ code, root }) {
   return { ...r, transports: model.actuals.transports.length, objects: model.actuals.objects, inactive: model.actuals.inactive.length, errors: model.actuals.errors };
 }
 
+/** Weekly status: log the week in the model (statusLog), rebuild the dashboard (same version), write the status page. */
+export async function cmdStatus({ code, root, weekEnd = '', gate = '', evidence = [], uat = [], uatDir = '', refresh = false, lang = '', today = iso(Date.now()) }) {
+  if (refresh) await cmdRefresh({ code, root });
+  const f = files(root, code);
+  const model = normalizeModel(readJson(f.model) || {});
+  if (!model.project?.code) throw new Error(`no model for ${code} — import the dashboard page first`);
+  // files → evidence texts; the run itself is computeStatus (project-status.mjs), shared with the web workbench
+  const read = (p) => { try { return { name: p, text: readFileSync(p, 'utf8') }; } catch (e) { return { name: p, result: { ok: false, kind: 'unknown', code: 'read-error', reason: e.message } }; } };
+  // UAT sets of the project (project.uatSets, or --uat): <artifact base>/uat/<ID>/<ID>-uat.json (+ <ID>-defects.json)
+  const ids = uat.length ? uat : arr(model.project.uatSets).map((x) => (typeof x === 'string' ? x : x?.id)).filter(Boolean);
+  const ur = uatDir || (ids.length ? join(resolveArtifactBase(process.cwd()), 'uat') : '');
+  const uatEv = ids.flatMap((id) => {
+    // the UAT builder's own id rule: a set id is never a path
+    if (!UAT_SET_ID.test(id)) return [{ name: String(id).slice(0, 40), result: { ok: false, kind: 'uat', id: String(id).slice(0, 40), code: 'bad-id', reason: 'not a UAT set id' } }];
+    const f = join(ur, id, `${id}-uat.json`), d = join(ur, id, `${id}-defects.json`);
+    return existsSync(f) ? [read(f), ...(existsSync(d) ? [read(d)] : [])] : [{ name: id, result: { ok: false, kind: 'uat', id, code: 'not-found', reason: `${f} not found` } }]; });
+  const run = computeStatus(model, { weekEnd, gateId: gate, evidence: [...evidence.map(read), ...uatEv], lang, today });
+  writeJson(f.model, run.model);
+  const r = buildProject({ modelPath: f.model, root, sameVersion: true, today });
+  const out = join(f.dir, `${code}-status-${run.summary.weekEnd}-${run.lang}.html`);
+  writeFileSync(out, run.html, 'utf8');
+  return { html: out, dashboard: r.html, ...run.summary, warnings: r.warnings };
+}
+
 // Keys that are never translated: ids, codes, people, enums, dates.
-const NO_TR = ['parent', 'owner', 'fnOwner', 'devOwner', 'ws', 'status', 'stage', 'name', 'sapUser', 'role', 'module', 'approver', 'dir', 'unit', 'group', 'system', 'pm', 'pmo', 'sponsor', 'author', 'actuals', 'snapshots', 'history', 'company'];
+const NO_TR = ['parent', 'owner', 'fnOwner', 'devOwner', 'ws', 'status', 'stage', 'name', 'sapUser', 'role', 'module', 'approver', 'dir', 'unit', 'group', 'system', 'pm', 'pmo', 'sponsor', 'author', 'actuals', 'snapshots', 'history', 'company', 'statusLog', 'impact', 'overall', 'wsRag', 'uatSets', 'phase', 'deps', 'anchor', 'jobsRead', 'rehearsals', 'window', 'freeze', 'actual'];
 
 export function cmdTexts({ code, root }) {
   const f = files(root, code);
@@ -187,33 +221,49 @@ export function cmdPortfolio({ root, lang = 'ko', today = iso(Date.now()) }) {
 <td>${next ? `${esc(next.label)} · ${esc(next.date)} ${chip(next.rag)}` : ''}</td><td class="num">${v.late.length || ''}</td><td class="num">${v.wricef.done}/${v.wricef.total}</td>
 <td class="num">${v.handoff.toDev.length + v.handoff.toFn.length || ''}</td><td class="num">${v.orphans.length || ''}</td><td class="num">${watch || ''}</td><td>${esc(ver)}</td></tr>`;
   }).join('');
-  // People across projects: the same person by SAP user (else by name), active and with open items in two or more.
-  const people = new Map();
-  for (const { v } of views) for (const t of v.m.team) {
-    if (!isActive(t, today)) continue;
-    const key = (t.sapUser || t.name || t.id).toUpperCase();
-    const open = v.rows.filter(r => r.leaf && r.status !== 'done' && [r.owner, r.fnOwner, r.devOwner].includes(t.id));
-    const x = people.get(key) || { name: t.name, sapUser: t.sapUser || '', roles: new Set(), projects: [] };
-    x.roles.add(L.role[t.role] || t.role);
-    x.projects.push({ code: v.m.project.code, open: open.length, late: open.filter(r => r.rag === 'red').length });
-    people.set(key, x);
-  }
-  const multi = [...people.values()].filter(x => x.projects.length > 1).sort((a, b) => b.projects.length - a.projects.length);
+  // People across projects: the same person by SAP user (else by name), active, in two or more (project-portfolio.mjs).
+  const multi = peopleAcross(views.map(({ v }) => ({ view: v })), today).map(x => ({ ...x, roles: new Set(x.roles.map(r => L.role[r] || r)) }));
   const prow = multi.map(x => `<tr><td>${esc(x.name)}</td><td>${esc(x.sapUser)}</td><td>${esc([...x.roles].join(', '))}</td>
 <td>${x.projects.map(p => `${esc(p.code)} <small>(${p.open}${p.late ? `, <span class="bad">${p.late}</span>` : ''})</small>`).join(' · ')}</td>
 <td class="num">${x.projects.reduce((s, p) => s + p.open, 0)}</td></tr>`).join('');
-  const html = `<!doctype html><html lang="${esc(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(P.title)}</title>
+  const html = withResponsive(`<!doctype html><html lang="${esc(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(P.title)}</title>
 <style>${PORT_STYLE}</style></head><body><header><h1>${esc(P.title)}</h1><p class="muted">${esc(today)} · ${views.length} ${esc(P.projects)}</p></header><main>
 <div class="tw"><table><thead><tr>${P.cols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows || `<tr><td colspan="15" class="muted">${esc(L.none)}</td></tr>`}</tbody></table></div>
 <h2>${esc(P.people)}</h2><p class="muted">${esc(P.peopleHint)}</p>
 <div class="tw"><table><thead><tr>${P.pcols.map(c => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${prow || `<tr><td colspan="5" class="muted">${esc(L.none)}</td></tr>`}</tbody></table></div>
-</main></body></html>`;
+</main></body></html>`);
   const out = join(root, `portfolio-${lang}.html`);
   mkdirSync(root, { recursive: true });
   writeFileSync(out, html, 'utf8');
   return { html: out, projects: views.length, sharedPeople: multi.length };
 }
 const name = (v, id) => v.m.team.find(t => t.id === id)?.name;
+
+/**
+ * The portfolio weekly status of every project in the folder (plugin view): portfolio-status-<weekEnd>-<lang>.html,
+ * .json (the result — next week's `prev`) and .xlsx. prev: the given JSON file, else the latest earlier week's JSON
+ * of the folder (same language); none → no comparison.
+ */
+export function cmdPortfolioStatus({ root, lang = 'ko', weekEnd = '', prev = '', today = iso(Date.now()) }) {
+  lang = lang === 'en' ? 'en' : 'ko'; // goes into file names
+  const we = weekEndOf(/^\d{4}-\d{2}-\d{2}$/.test(weekEnd) ? weekEnd : today);
+  const codes = existsSync(root) ? readdirSync(root, { withFileTypes: true }).filter(d => d.isDirectory() && !d.name.startsWith('_')).map(d => d.name).sort() : [];
+  const items = [];
+  for (const c of codes) {
+    const f = files(root, c, lang);
+    const m = readJson(lang === 'en' && existsSync(f.en) ? f.en : f.model);
+    if (m?.project) items.push({ ref: m.project.code || c, model: m, view: viewModel(m, today) });
+  }
+  const re = new RegExp(`^portfolio-status-(\\d{4}-\\d{2}-\\d{2})-${lang === 'en' ? 'en' : 'ko'}\\.json$`);
+  const prevFile = prev || (existsSync(root) ? readdirSync(root).map(n => [n, re.exec(n)?.[1]]).filter(([, w]) => w && w < we).sort((a, b) => (a[1] < b[1] ? -1 : 1)).map(([n]) => join(root, n)).at(-1) || '' : '');
+  const res = portfolioStatus(items, { weekEnd: we, lang, today, prev: prevFile ? readJson(prevFile, null) : null, viewSource: 'plugin', at: today });
+  mkdirSync(root, { recursive: true });
+  const base = join(root, `portfolio-status-${res.weekEnd}-${lang}`);
+  writeFileSync(`${base}.html`, renderPortfolioStatusPage(res, lang), 'utf8');
+  writeJson(`${base}.json`, res);
+  writeFileSync(`${base}.xlsx`, portfolioXlsx(res, lang));
+  return { html: `${base}.html`, json: `${base}.json`, xlsx: `${base}.xlsx`, weekEnd: res.weekEnd, projects: res.summary.projects, prev: prevFile, summary: res.summary.sentence };
+}
 const PORT = {
   ko: { title: 'SAP 프로젝트 포트폴리오', projects: '개 프로젝트', type: { implementation: '신규 구축', conversion: 'S/4 전환', rollout: '롤아웃', ams: '운영·개선', task: '과제' },
     cols: ['상태', '코드', '프로젝트', '유형', '모듈', 'PM', 'Go-Live', '진척 (실적/계획)', '다음 마일스톤', '지연', 'WRICEF', '인계 대기', '담당 공백', '주의 KPI', '버전'],
@@ -250,8 +300,17 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
     } else if (cmd === 'texts') r = cmdTexts({ code: need(), root });
     else if (cmd === 'companion') r = cmdCompanion({ code: need(), root, texts: get('--texts') ? resolve(get('--texts')) : undefined });
     else if (cmd === 'portfolio') r = cmdPortfolio({ root, lang: get('--lang') || 'ko' });
+    else if (cmd === 'portfolio-status') r = cmdPortfolioStatus({ root, lang: get('--lang') || 'ko', weekEnd: get('--week-end') || '', prev: get('--prev') ? resolve(get('--prev')) : '' });
     else if (cmd === 'check') r = checkModel(normalizeModel(readJson(files(root, need()).model)));
-    else { console.error('Usage: node build-project-doc.mjs init|build|refresh|import|add-wricef|reassign|texts|companion|portfolio|check … (see the header)'); process.exit(2); }
+    else if (cmd === 'status') r = await cmdStatus({ code: need(), root, weekEnd: get('--week-end') || '', gate: get('--gate') || '', refresh: args.includes('--refresh'), lang: get('--lang') || '',
+      evidence: args.flatMap((a, i) => (a === '--evidence' && args[i + 1] ? [resolve(args[i + 1])] : [])),
+      uat: args.flatMap((a, i) => (a === '--uat' && args[i + 1] ? [args[i + 1]] : [])), uatDir: get('--uat-dir') ? resolve(get('--uat-dir')) : '' });
+    else if (cmd === 'cutover') r = await (await import('./cutover-cli.mjs')).cmdCutover({ code: need(), root, buildProject, seed: args.includes('--seed'), window: get('--window') || '',
+      freezeCode: get('--freeze-code') || '', freezeConfig: get('--freeze-config') || '', rehearsal: get('--rehearsal') || '', actuals: get('--actuals') ? resolve(get('--actuals')) : '',
+      jobs: args.includes('--jobs'), confirmPrd: args.includes('--confirm-prd'), lang: get('--lang') || '',
+      evidence: args.flatMap((a, i) => (a === '--evidence' && args[i + 1] ? [resolve(args[i + 1])] : [])),
+      uat: args.flatMap((a, i) => (a === '--uat' && args[i + 1] ? [args[i + 1]] : [])), uatDir: get('--uat-dir') ? resolve(get('--uat-dir')) : '' });
+    else { console.error('Usage: node build-project-doc.mjs init|build|refresh|import|add-wricef|reassign|texts|companion|portfolio|portfolio-status|check|status|cutover … (see the header)'); process.exit(2); }
     if (r?.warnings?.length) for (const w of r.warnings) console.error(`⚠ project-dashboard: ${w}`);
     console.log(JSON.stringify({ ...r, warnings: r?.warnings?.length ?? 0 }));
   })().catch((e) => { console.error(`build-project-doc: ${e.message}`); process.exit(1); });

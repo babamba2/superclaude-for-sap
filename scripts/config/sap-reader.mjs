@@ -25,10 +25,20 @@ const BRIDGE = process.env.SC4SAP_MCP_BRIDGE || resolve(ROOT, 'bridge', 'mcp-ser
 export const TABLE_NAME_RE = /^(?=.{2,30}$)(\/[A-Z0-9_]+\/)?[A-Z][A-Z0-9_]*$/;
 const MAX_ROWS = 5000;
 
+/**
+ * The sc4sap settings of this process, which the SDK's minimal environment leaves out — above all
+ * SC4SAP_HOME_DIR, where a hosted account keeps its profiles (measured 2026-11-16: on the web, a
+ * profile that exists only in the account's home could not be read by any plugin script —
+ * "MCP error -32000: Connection closed", the bridge found no config).
+ */
+export function sc4sapEnv(source = process.env) {
+  return Object.fromEntries(Object.entries(source).filter(([k, v]) => /^SC4SAP_/.test(k) && typeof v === 'string'));
+}
+
 // allowTables: audited one-off blocklist bypass for this server only. The SDK
 // starts the server with a minimal environment, so it goes in explicitly.
 export async function connect(name = 'config-to-document', { allowTables = [] } = {}) {
-  const env = { ...getDefaultEnvironment(), ...(allowTables.length ? { MCP_ALLOW_TABLE: allowTables.join(',') } : {}) };
+  const env = { ...getDefaultEnvironment(), ...sc4sapEnv(), ...(allowTables.length ? { MCP_ALLOW_TABLE: allowTables.join(',') } : {}) };
   const transport = new StdioClientTransport({ command: 'node', args: [BRIDGE], stderr: 'ignore', env });
   const client = new Client({ name, version: '1.0.0' });
   await client.connect(transport);
@@ -46,7 +56,10 @@ export function whereOf(cond = {}) {
     if (!/^[A-Z][A-Z0-9_]*$/.test(field)) throw new Error(`bad field name ${field}`);
     if (Array.isArray(value)) {
       if (!value.length) return null;
-      parts.push(`${field} IN (${value.map(quote).join(', ')})`);
+      // A long list goes one value per line: the S/4 ADT data preview rejects a SQL line over ~255 characters
+      // (HTTP 400; measured on S/4 816 with 14 role names). ECC TABLE_READ accepts both forms. Short lists stay on one line.
+      const one = `${field} IN (${value.map(quote).join(', ')})`;
+      parts.push(one.length <= 200 ? one : `${field} IN (${value.map(quote).join(',\n')})`);
     } else if (value && typeof value === 'object' && 'like' in value) {
       parts.push(`${field} LIKE ${quote(value.like)}`);
     } else {
@@ -83,7 +96,9 @@ async function runSql(client, sql, maxRows) {
     const text = res?.content?.[0]?.text ?? '';
     if (res?.isError) return { ok: false, rows: [], error: text.slice(0, 400) };
     const data = JSON.parse(text);
-    return { ok: true, rows: data.rows || [], truncated: !!data.truncated };
+    // Not every answer says it was cut (GetSqlQuery on S/4 sends no flag): a read that came back full is taken as cut.
+    const rows = data.rows || [];
+    return { ok: true, rows, truncated: !!data.truncated || rows.length >= maxRows };
   } catch (e) {
     return { ok: false, rows: [], error: String(e?.message ?? e).slice(0, 400) };
   }
@@ -100,14 +115,16 @@ export async function readIn(client, table, field, values, { extra = {}, fields 
   const uniq = all.filter((v) => !GUARD.test(String(v)));
   const out = [];
   const errors = [];
+  // A chunk that hits the row limit is read again in halves; a single value that still hits it is reported.
+  const truncated = [];
   for (const v of all.filter((x) => GUARD.test(String(x)))) {
     const like = String(v).replace(/SELECT/gi, 'SELEC_').replace(/JOIN/gi, 'JOI_').replace(/ FROM /gi, ' FRO_ ');
     const r = await readTable(client, table, { where: { ...extra, [field]: { like } }, fields });
     if (r.ok) out.push(...r.rows.filter((row) => String(row[field]) === String(v)));
     else errors.push(r.error);
+    // the LIKE read of one value hit the row limit: its rows may be incomplete — said like any other value
+    if (r.ok && r.truncated) truncated.push(v);
   }
-  // A chunk that hits the row limit is read again in halves; a single value that still hits it is reported.
-  const truncated = [];
   const grab = async (vals) => {
     const r = await readTable(client, table, { where: { ...extra, [field]: vals }, fields });
     if (!r.ok) { errors.push(r.error); return; }
