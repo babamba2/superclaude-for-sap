@@ -10,7 +10,8 @@
 * FP_MIGRATE (MCP tool CreateAdobeFormFromSmartForm) - writes NEW $TMP objects
 *   params: source (SAP SmartForm), form / interface (ZSC4SAP_AFM_*),
 *           preset (FULL), sender_country (optional T005 key for address
-*           nodes without one)
+*           nodes without one), correction (optional: the layout
+*           correction as a JSON string - checked in ZMCP_FP_MIGRATE)
 * result: EV_RESULT of ZMCP_FP_MIGRATE unchanged
 * subrc : 0 ok, 8 refused or SAP's migration raised - EV_MESSAGE says why
 
@@ -39,6 +40,7 @@ FORM fp_migrate_call USING iv_params TYPE string
           interface TYPE string,
           preset    TYPE string,
           sender_country TYPE string,
+          correction TYPE string,
         END OF ls_input.
   DATA lv_ctry TYPE land1.
   DATA lv_subrc TYPE sysubrc.
@@ -62,6 +64,7 @@ FORM fp_migrate_call USING iv_params TYPE string
       iv_interface = ls_input-interface
       iv_preset    = ls_input-preset
       iv_sender_country = lv_ctry
+      iv_correction = ls_input-correction
     IMPORTING
       ev_subrc     = lv_subrc
       ev_message   = ev_message

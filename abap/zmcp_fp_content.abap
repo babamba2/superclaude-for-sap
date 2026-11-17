@@ -43,6 +43,24 @@ FUNCTION zmcp_fp_content
 *              the active one, loaded in display mode; nothing is saved,
 *              activated or corrected. Result {"form","messages":[{"msgty",
 *              "msgid","msgno","text","type","navcursor"}]}.
+*   RENDER_XDP an XDP template rendered with XML data in ADS
+*              (CL_FP_ADS_UTIL=>RENDER_PDF, the call of SAP's form-template
+*              samples): no form object, no form code, no print, no spool, no
+*              database write. IV_NAME = a label: the SAP sample templates
+*              ZF_CINE_TICKET / ZFORM_FDP_SCRATCH (from
+*              github.com/SAP-samples/forms-service-by-adobe-samples,
+*              Apache-2.0 - SAP's public samples, not customer objects) or
+*              ZSC4SAP_*. IV_PARAMS
+*              {"xdp":"<base64>","xml":"<base64>","locale":"en_US",
+*              "embedFonts":true}, at most 3 000 000 characters. Result
+*              {"form","pages","pdf","trace"} - pdf in base64, trace (ADS
+*              trace text) at most 100 000 characters. Refused: a template
+*              with a <connectionSet> packet, external href / src / url( ),
+*              <uri> / <submit> / web-service elements or host calls that
+*              load content (gotoURL, importData, FormCalc Get / Post / Put,
+*              usehref fragments not starting with #) - ADS fetches nothing.
+*              On an ADS error: subrc 0, {"form","pages":0,"pdf":"",
+*              "error","trace"} - callers must check "error".
 *   INTERFACE  the form interface as XML (CONVERT_INTERFACE_TO_XSTRING:
 *              parameters, global definitions, types). IV_NAME = interface.
 *              Result {"interface","xml"} - xml in base64.
@@ -161,7 +179,24 @@ FUNCTION zmcp_fp_content
         lv_cnav    TYPE string,
         " key guard for migrated forms
         lv_keybad  TYPE string,
-        lv_keyval  TYPE string.
+        lv_keyval  TYPE string,
+        " RENDER_XDP
+        BEGIN OF ls_xin,
+          xdp        TYPE string,
+          xml        TYPE string,
+          locale     TYPE string,
+          embedfonts TYPE abap_bool,
+        END OF ls_xin,
+        ls_xopt    TYPE cl_fp_ads_util=>ty_gs_options_pdf,
+        lv_xdpx    TYPE xstring,
+        lv_xmlx    TYPE xstring,
+        lv_xtrace  TYPE string,
+        lv_xdps    TYPE string,
+        lv_xext    TYPE string,
+        lv_xoff    TYPE i,
+        lv_xre     TYPE string,
+        lx_xads    TYPE REF TO cx_fp_ads_util,
+        lv_xdp_allowed TYPE string VALUE ` ZF_CINE_TICKET ZFORM_FDP_SCRATCH `.
   CONSTANTS lc_eof TYPE x LENGTH 5 VALUE '2525454F46'.   " %%EOF
   FIELD-SYMBOLS: <lv_any> TYPE any,
                  <lv_x>   TYPE x,
@@ -244,6 +279,84 @@ FUNCTION zmcp_fp_content
           lo_wbf->free( ).
           CLEAR lo_wbf.
 
+        WHEN 'RENDER_XDP'.
+          " Template + data straight into ADS: no SAP form, no form code, nothing stored.
+          " ZF_CINE_TICKET / ZFORM_FDP_SCRATCH: SAP's public form-template samples
+          " (github.com/SAP-samples/forms-service-by-adobe-samples, Apache-2.0).
+          IF lv_xdp_allowed NS | { lv_nm } | AND NOT matches( val = lv_nm regex = `ZSC4SAP_[A-Z0-9_]+` ).
+            ev_subrc = 8.
+            ev_message = |FP_CONTENT: RENDER_XDP label { lv_nm } not allowed (ZF_CINE_TICKET, ZFORM_FDP_SCRATCH, ZSC4SAP_*)|.
+            RETURN.
+          ENDIF.
+          IF strlen( iv_params ) > 3000000.
+            ev_subrc = 8. ev_message = |FP_CONTENT: RENDER_XDP params longer than 3 000 000 characters|.
+            RETURN.
+          ENDIF.
+          /ui2/cl_json=>deserialize( EXPORTING json = iv_params CHANGING data = ls_xin ).
+          IF ls_xin-locale IS INITIAL.
+            ls_xin-locale = `en_US`.
+          ENDIF.
+          IF NOT matches( val = ls_xin-locale regex = `[a-z]{2}_[A-Z]{2}` ).
+            ev_subrc = 8. ev_message = |FP_CONTENT: RENDER_XDP locale "{ ls_xin-locale }" refused (e.g. en_US)|.
+            RETURN.
+          ENDIF.
+          lv_xdpx = cl_http_utility=>decode_x_base64( ls_xin-xdp ).
+          lv_xmlx = cl_http_utility=>decode_x_base64( ls_xin-xml ).
+          IF lv_xdpx IS INITIAL OR lv_xmlx IS INITIAL.
+            ev_subrc = 8. ev_message = |FP_CONTENT: RENDER_XDP needs xdp and xml (base64)|.
+            RETURN.
+          ENDIF.
+          " ADS must not fetch anything from outside: no data connection packet, no
+          " external href / src / url( ), no uri / submit / web-service elements, no
+          " host calls that load content. Only embedded content and #internal references.
+          TRY.
+              lv_xdps = cl_abap_codepage=>convert_from( lv_xdpx ).
+            CATCH cx_root.
+              ev_subrc = 8. ev_message = |FP_CONTENT: RENDER_XDP template is not UTF-8 text|.
+              RETURN.
+          ENDTRY.
+          CLEAR lv_xext.
+          " one pattern, split only because an ABAP source line holds at most 255 characters;
+          " (?-x): ABAP runs PCRE in extended mode by default, where # starts a comment
+          lv_xre = `(?i-x)<(\w+:)?connectionSet\b|<(\w+:)?(wsdlAddress|soapAddress|submit|effectiveOutputPolicy)\b`
+                && `|<(\w+:)?uri\s*>\s*[^<\s]|\b(href|src)\s*=\s*["'](?!#|data:)|usehref\s*=\s*["'](?!#)|url\s*\(`
+                && `|\.(gotoURL|importData|launchURL|exportData)\b|\b(Get|Post|Put)\s*\(`.
+          FIND FIRST OCCURRENCE OF PCRE lv_xre IN lv_xdps MATCH OFFSET lv_xoff.
+          IF sy-subrc = 0.
+            lv_xext = substring( val = lv_xdps off = lv_xoff len = nmin( val1 = 60 val2 = strlen( lv_xdps ) - lv_xoff ) ).
+            lv_xext = escape( val = lv_xext format = cl_abap_format=>e_json_string ).
+            ev_subrc = 8.
+            ev_message = |FP_CONTENT: RENDER_XDP refuses a template with an external or data-connection reference ("{ lv_xext }")|.
+            RETURN.
+          ENDIF.
+          ls_xopt-embed_fonts = ls_xin-embedfonts.
+          " On an ADS error render_pdf fills ev_trace_string (by reference) before it
+          " raises cx_fp_ads_util - keep that trace and return it with the error.
+          CLEAR lx_xads.
+          TRY.
+              cl_fp_ads_util=>render_pdf( EXPORTING iv_xml_data     = lv_xmlx
+                                                    iv_xdp_layout   = lv_xdpx
+                                                    iv_locale       = ls_xin-locale
+                                                    is_options      = ls_xopt
+                                          IMPORTING ev_pdf          = lv_pdfx
+                                                    ev_pages        = lv_pages
+                                                    ev_trace_string = lv_xtrace ).
+            CATCH cx_fp_ads_util INTO lx_xads.
+          ENDTRY.
+          IF strlen( lv_xtrace ) > 100000.
+            lv_xtrace = lv_xtrace(100000).
+          ENDIF.
+          lv_xtrace = escape( val = lv_xtrace format = cl_abap_format=>e_json_string ).
+          " The dispatcher drops ev_result on subrc <> 0, so an ADS error comes back as
+          " subrc 0 with "error" set and no pdf - the caller must check "error".
+          IF lx_xads IS BOUND.
+            lv_xext = escape( val = lx_xads->get_text( ) format = cl_abap_format=>e_json_string ).
+            ev_message = |FP_CONTENT: RENDER_XDP ADS error: { lx_xads->get_text( ) }|.
+            ev_result = |\{"form":"{ lv_nm }","pages":0,"pdf":"","error":"{ lv_xext }","trace":"{ lv_xtrace }"\}|.
+            RETURN.
+          ENDIF.
+          ev_result = |\{"form":"{ lv_nm }","pages":{ lv_pages },"pdf":"{ cl_http_utility=>encode_x_base64( lv_pdfx ) }","trace":"{ lv_xtrace }"\}|.
+
         WHEN 'CHECK'.
           " SAP's form check, read-only (display-mode load inside CHECK, freed there).
           lt_chk = cl_fp_wb_form=>check( i_name = iv_name ).
@@ -316,7 +429,7 @@ FUNCTION zmcp_fp_content
               e_funcname = lv_fm.
           " A generation here must stay whole: the generator commits the new function
           " group frame itself, a later ROLLBACK would orphan it (SmartForm finding,
-          " S4-DEV 2026-11-17). Only the generator's writes are in this LUW.
+          " S/4 816 DEV system 2026-11-17). Only the generator's writes are in this LUW.
           COMMIT WORK.
 
           CALL FUNCTION 'FUNCTION_IMPORT_INTERFACE'
@@ -628,7 +741,7 @@ FUNCTION zmcp_fp_content
 
         WHEN OTHERS.
           ev_subrc = 8.
-          ev_message = |FP_CONTENT: unknown part "{ iv_part }" (FORM, LAYOUT, INTERFACE, CHECK, RENDER)|.
+          ev_message = |FP_CONTENT: unknown part "{ iv_part }" (FORM, LAYOUT, INTERFACE, CHECK, RENDER, RENDER_XDP)|.
       ENDCASE.
     CATCH cx_fp_api_repository INTO lx_repo.
       ev_subrc = 4. ev_message = |FP_CONTENT: { lx_repo->get_text( ) }|. ev_result = '{}'.
