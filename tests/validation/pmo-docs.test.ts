@@ -13,6 +13,11 @@ import {
   weeklyDocXlsx, weeklySyncPlan,
 } from '../../scripts/project/weekly-doc.mjs';
 import { applyManualOps, checkManualDoc, manualDocFromPage, manualDocId, manualDocPage, normalizeManualDoc } from '../../scripts/manual/manual-doc.mjs';
+import {
+  applyMeetingOps, applyMeetingSync, blankMeetingDoc, carryOverMeeting, checkMeetingDoc, meetingActionsCsv, meetingDocFromPage, meetingDocPage,
+  meetingDocXlsx, meetingSyncPlan, normalizeMeetingDoc, openActions, taskIdOf,
+} from '../../scripts/project/meeting-doc.mjs';
+import { checkModel, normalizeModel } from '../../scripts/project/project-model.mjs';
 
 const ROOT = resolve(__dirname, '../..');
 const models = JSON.parse(readFileSync(join(ROOT, 'tests/fixtures/project/portfolio-models.json'), 'utf8'));
@@ -118,6 +123,28 @@ describe('cutover document', () => {
     expect(after.cutover.tasks.some((t: any) => t.id === 'ONLY.IN.PROJECT')).toBe(true);
     expect(applyCutoverSync(after, plan)).toEqual(after);
   });
+  it('write back never wipes /wbs values: blank owner / evidence / window keep, actuals merge, a backward status is only flagged', () => {
+    const proj = JSON.parse(JSON.stringify({ project: { code: 'P' }, cutover: doc.cutover }));
+    const t0 = proj.cutover.tasks[0], g0 = proj.cutover.goNoGo[0];
+    Object.assign(t0, { owner: 'lee', status: 'done', actual: { R1: { start: '2027-04-01T08:00', end: '2027-04-01T09:00' } } });
+    Object.assign(g0, { owner: 'park', status: 'go', evidence: 'signed' });
+    proj.cutover.window = { start: '2027-05-01T18:00', end: '2027-05-03T06:00' };
+    const edited = JSON.parse(JSON.stringify(doc));
+    Object.assign(edited.cutover.tasks[0], { owner: '', status: 'planned', actual: { live: { start: '2027-05-01T20:00', end: '2027-05-01T21:00' } } });
+    Object.assign(edited.cutover.goNoGo[0], { owner: '', status: 'open', evidence: '' });
+    edited.cutover.window = { start: '', end: '' };
+    const plan = cutoverSyncPlan(edited, proj);
+    expect(plan.window).toEqual([]);
+    expect(plan.goNoGo).toEqual([]);
+    expect(plan.tasks).toEqual([{ id: t0.id, changes: [{ field: 'actual', from: t0.actual, to: { ...t0.actual, ...edited.cutover.tasks[0].actual } }] }]);
+    expect(plan.flagged.map((f: any) => f.key)).toEqual([`tasks:${t0.id}:status`, `goNoGo:${g0.id}:status`]);
+    const after = applyCutoverSync(proj, plan);
+    expect([after.cutover.tasks[0].owner, after.cutover.tasks[0].status, Object.keys(after.cutover.tasks[0].actual).sort()]).toEqual(['lee', 'done', ['R1', 'live']]);
+    expect([after.cutover.goNoGo[0].owner, after.cutover.goNoGo[0].status, after.cutover.goNoGo[0].evidence]).toEqual(['park', 'go', 'signed']);
+    expect(after.cutover.window.start).toBe('2027-05-01T18:00');
+    const ticked = applyCutoverSync(proj, plan, [`goNoGo:${g0.id}:status`]);
+    expect([ticked.cutover.tasks[0].status, ticked.cutover.goNoGo[0].status]).toEqual(['done', 'open']);
+  });
 });
 
 describe('weekly status document', () => {
@@ -182,6 +209,13 @@ describe('weekly status document', () => {
     expect(weeklySyncPlan(edited, after).empty).toBe(true);
     expect(after.risks).toEqual(project.risks);
   });
+  it('write back: a blank comment or RAG keeps the project value', () => {
+    const proj = { ...project, status: { ...(project as any).status, overall: 'green', comment: 'PM comment' } };
+    const plan = weeklySyncPlan({ ...doc, overall: { rag: '', summary: '' } }, proj);
+    expect(plan.changes.map((c: any) => c.field)).not.toContain('comment');
+    expect(plan.changes.map((c: any) => c.field)).not.toContain('overall');
+    expect(applyWeeklySync(proj, plan).status.comment).toBe('PM comment');
+  });
 });
 
 describe('manual document', () => {
@@ -229,5 +263,118 @@ describe('manual document', () => {
     expect(r.doc.manual.program).toBe(example.program);
     expect(r.doc.manual.scenarios[0].steps[0].callouts?.[0]?.anchor).toEqual(example.scenarios[0].steps[0].callouts?.[0]?.anchor);
     expect(r.doc.version).toBe('1.2');
+  });
+});
+
+describe('meeting minutes document', () => {
+  const pm = project.team[0];
+  const base = normalizeMeetingDoc({
+    id: 'MTG-01', date: '2027-03-08', forum: 'PMO weekly', lang: 'en',
+    attendees: [{ name: pm.name, role: 'PM' }, { name: 'Kim', role: 'MM' }],
+    agenda: [{ no: '1', title: 'Cutover', summary: '' }],
+    decisions: [{ id: 'D01', text: 'Freeze the runbook', decidedBy: pm.name, basis: 'Rehearsal 1' }, { id: 'D02', text: 'No decider yet' }],
+    actions: [
+      { id: 'A01', text: 'Clean material masters', owner: pm.name, due: '2027-03-09', status: 'open' },
+      { id: 'A02', text: 'Done already', owner: 'Kim', due: '2027-03-01', status: 'done' },
+      { id: 'A03', text: 'Late one', owner: 'Kim', due: '2027-03-01', status: 'inprogress' },
+      { id: 'A04', text: 'No owner, no due', status: 'open' },
+    ],
+  });
+  it('every action gets its origin; checks name what is missing', () => {
+    expect(base.actions.map((a) => a.origin)).toEqual(['MTG-01:A01', 'MTG-01:A02', 'MTG-01:A03', 'MTG-01:A04']);
+    expect(checkMeetingDoc(base).errors).toEqual([]);
+    expect(checkMeetingDoc(base).warnings.join(' ')).toMatch(/action A04: no owner/);
+    expect(blankMeetingDoc({ id: 'M' }).actions).toEqual([]);
+  });
+  it('the action board: open and in-progress only, overdue and due this week', () => {
+    expect(openActions(base, '2027-03-08').map((a) => [a.id, a.overdue, a.dueThisWeek])).toEqual([['A01', false, true], ['A03', true, false], ['A04', false, false]]);
+  });
+  it('carry-over: forum, attendees and every action not done, renumbered, origin kept', () => {
+    const next = carryOverMeeting(base, { id: 'MTG-02', date: '2027-03-15' });
+    expect(next.forum).toBe('PMO weekly');
+    expect(next.attendees.length).toBe(2);
+    expect(next.actions.map((a) => [a.id, a.origin, a.carriedFrom])).toEqual([
+      ['A01', 'MTG-01:A01', 'MTG-01:A01'], ['A02', 'MTG-01:A03', 'MTG-01:A03'], ['A03', 'MTG-01:A04', 'MTG-01:A04'],
+    ]);
+    expect(next.decisions).toEqual([]);
+  });
+  it('AI proposals never set an owner, a status, decided-by or the date; a suggested owner must be an attendee', () => {
+    const r = applyMeetingOps(base, [
+      { op: 'set', list: 'agenda', index: 0, field: 'summary', value: 'AI summary' },
+      { op: 'set', list: 'actions', id: 'A01', field: 'owner', value: 'x' },
+      { op: 'set', list: 'actions', id: 'A01', field: 'status', value: 'done' },
+      { op: 'set', list: 'decisions', id: 'D01', field: 'decidedBy', value: 'x' },
+      { op: 'set', list: 'doc', field: 'date', value: '2030-01-01' },
+      { op: 'set', list: 'actions', id: 'A04', field: 'suggestedOwner', value: 'Kim' },
+      { op: 'set', list: 'actions', id: 'A04', field: 'suggestedOwner', value: 'Outsider' },
+      { op: 'add', list: 'actions', row: { text: 'AI action', owner: 'x', status: 'done', due: '2027-03-20', suggestedOwner: 'Kim' } },
+      { op: 'add', list: 'decisions', row: { text: 'AI decision', decidedBy: 'x', basis: 'b' } },
+      { op: 'set', list: '__proto__', field: 'x' },
+      { op: 'add', list: 'attendees', row: { name: 'x' } },
+    ]);
+    expect(r.applied.length).toBe(4);
+    expect(r.doc.agenda[0].summary).toBe('AI summary');
+    expect(r.doc.actions.find((a) => a.id === 'A04')!.suggestedOwner).toBe('Kim');
+    expect(r.doc.actions.at(-1)).toMatchObject({ text: 'AI action', owner: '', status: 'open', suggestedOwner: 'Kim', origin: `MTG-01:${r.doc.actions.at(-1)!.id}` });
+    expect(r.doc.decisions.at(-1)).toMatchObject({ text: 'AI decision', decidedBy: '' });
+    expect(r.doc.date).toBe('2027-03-08');
+    expect(r.doc.attendees.length).toBe(2);
+  });
+  it('transcript and live summary ride in the document; an AI proposal cannot write either', () => {
+    const d = normalizeMeetingDoc({ ...base, transcript: 'spoken text', liveSummary: 'so far' });
+    expect([d.transcript, d.liveSummary]).toEqual(['spoken text', 'so far']);
+    const r = applyMeetingOps(d, [{ op: 'set', list: 'doc', field: 'liveSummary', value: 'x' }, { op: 'set', list: 'doc', field: 'transcript', value: 'x' }]);
+    expect(r.applied).toEqual([]);
+    expect([r.doc.transcript, r.doc.liveSummary]).toEqual(['spoken text', 'so far']);
+    expect(meetingDocFromPage(meetingDocPage(d))?.model.liveSummary).toBe('so far');
+  });
+  it('the page round-trips; exports', () => {
+    const html = meetingDocPage(base, { today: '2027-03-08', embed: true });
+    expect(html).toContain('window.SC4SAP_PAGE');
+    expect(meetingDocFromPage(html)?.model).toEqual(base);
+    expect(meetingActionsCsv(base).split('\r\n')[0]).toBe('﻿ID,Text,Owner,Due,Status,Module,WBS,Agenda no,Carried');
+    expect(meetingDocXlsx(base).subarray(0, 2).toString()).toBe('PK');
+  });
+  it('write back to /wbs: tasks for actions with an owner or a due, decisions with a decider; idempotent; carried actions keep their task', () => {
+    const plan = meetingSyncPlan(base, project);
+    expect(plan.added.tasks.map((t: any) => t.id)).toEqual([taskIdOf('MTG-01:A01'), taskIdOf('MTG-01:A02'), taskIdOf('MTG-01:A03')]);
+    expect(plan.added.tasks[0]).toMatchObject({ type: 'task', owner: pm.id, finish: '2027-03-09', status: 'notstarted' });
+    expect((plan.added.tasks[1] as any).note).toBe('Minutes 2027-03-08: PMO weekly · Owner: Kim');
+    expect(plan.added.decisions.map((x: any) => x.id)).toEqual(['MTG.MTG-01.D01']);
+    const after = applyMeetingSync(project, plan);
+    expect(checkModel(normalizeModel(after)).errors).toEqual([]);
+    expect(meetingSyncPlan(base, after).empty).toBe(true);
+    expect(after.risks).toEqual(project.risks);
+    expect(after.wbs.length).toBe(project.wbs.length + 3);
+    // the next minutes carry A01 / A03 / A04: the same tasks, so changes only, no new task for what was sent
+    const next = carryOverMeeting(base, { id: 'MTG-02', date: '2027-03-15' });
+    next.actions[0].status = 'done';
+    const p2 = meetingSyncPlan(next, after);
+    expect(p2.added.tasks).toEqual([]);
+    expect(p2.tasks.find((x: any) => x.id === taskIdOf('MTG-01:A01'))?.changes.map((c: any) => c.field)).toContain('status');
+  });
+  it('write back never wipes /wbs values: blank keeps, notes append once, a backward status is only flagged', () => {
+    const id = taskIdOf('MTG-01:A01');
+    const proj = { ...project, wbs: [...project.wbs, { id, parent: project.wbs[0].id, label: 'Old label', type: 'task', owner: pm.id, finish: '2026-12-01', status: 'inprogress', note: 'PM note' }],
+      decisions: [{ id: 'MTG.MTG-01.D01', text: 'Old', status: 'decided', owner: '', due: '', decided: '2027-03-01', note: 'PMO basis' }] };
+    const doc = normalizeMeetingDoc({ ...base, actions: base.actions.map((a: any, i: number) => (i === 0 ? { ...a, owner: '', due: '', status: 'open' } : a)) });
+    const plan = meetingSyncPlan(doc, proj);
+    const ch = plan.tasks.find((x: any) => x.id === id)!.changes;
+    expect(ch.map((c: any) => c.field).sort()).toEqual(['label', 'note']);
+    expect(ch.find((c: any) => c.field === 'note').to).toBe('PM note\nMinutes 2027-03-08: PMO weekly');
+    expect(plan.flagged).toEqual([{ key: `tasks:${id}:status`, list: 'tasks', id, field: 'status', from: 'inprogress', to: 'notstarted' }]);
+    expect(plan.decisions[0].changes.find((c: any) => c.field === 'note').to).toMatch(/^PMO basis\nMinutes 2027-03-08: /);
+    const after = applyMeetingSync(proj, plan);
+    const t = after.wbs.find((w: any) => w.id === id);
+    expect([t.owner, t.finish, t.status]).toEqual([pm.id, '2026-12-01', 'inprogress']);
+    expect(after.decisions[0].note.startsWith('PMO basis\n')).toBe(true);
+    // pressing again: the line is in the note already → nothing but the flag
+    const again = meetingSyncPlan(doc, after);
+    expect([again.tasks, again.decisions, again.added.tasks, again.added.decisions]).toEqual([[], [], [], []]);
+    expect(again.flagged.length).toBe(1);
+    // the user ticks the flag → written; a key not in the plan does nothing
+    const ticked = applyMeetingSync(after, again, [`tasks:${id}:status`, 'tasks:other:status']);
+    expect(ticked.wbs.find((w: any) => w.id === id).status).toBe('notstarted');
+    expect(applyMeetingSync(after, again, []).wbs.find((w: any) => w.id === id).status).toBe('inprogress');
   });
 });

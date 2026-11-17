@@ -294,17 +294,20 @@ export function weeklyDocXlsx(doc) {
 }
 
 // ── write back to a /wbs project (button only, after a preview) ────────────────────────────────────────────
-/** The project's status part this document would set: overall RAG, workstream RAGs, the week's comment. */
+/**
+ * The project's status part this document would set: overall RAG, workstream RAGs, the week's comment. A blank RAG or
+ * comment keeps the project's value (write-back rules); RAG has no order, so nothing here is a backward move.
+ */
 export function weeklySyncPlan(doc, project) {
   const d = normalizeWeeklyDoc(doc);
   const st = project?.status || {};
   const changes = [];
   if (d.overall.rag && d.overall.rag !== st.overall) changes.push({ field: 'overall', from: st.overall ?? null, to: d.overall.rag });
-  if (d.overall.summary !== (st.comment || '')) changes.push({ field: 'comment', from: st.comment ?? null, to: d.overall.summary });
+  if (d.overall.summary && d.overall.summary !== (st.comment || '')) changes.push({ field: 'comment', from: st.comment ?? null, to: d.overall.summary });
   const ws = {};
   for (const w of d.workstreams) if (w.name && w.rag && st.wsRag?.[w.name] !== w.rag) ws[w.name] = { from: st.wsRag?.[w.name] ?? null, to: w.rag };
   if (Object.keys(ws).length) changes.push({ field: 'wsRag', from: null, to: ws });
-  return { weekEnd: d.weekEnd, changes, empty: !changes.length };
+  return { weekEnd: d.weekEnd, changes, flagged: [], empty: !changes.length };
 }
 
 /** The project model with the plan written in. Applying the same plan twice changes nothing more. */

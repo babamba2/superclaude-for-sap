@@ -22,7 +22,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CUT_PHASES, CUT_STATUS, GNG_STATUS, checkCutover, criticalPath, cutDT, goNoGoView, normalizeCutover, rehearsalFit, seedCutover, tMinus } from './cutover-model.mjs';
-import { arr, csvOf, esc, optionsOf, renderDocPage, str, modelFromDocPage } from './doc-kit.mjs';
+import { acceptedFlags, arr, csvOf, esc, optionsOf, renderDocPage, str, modelFromDocPage, syncDiff } from './doc-kit.mjs';
 import { workbook } from '../uat/uat-xlsx.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -272,36 +272,44 @@ export function cutoverDocXlsx(doc) {
  * What writing this document into the project would change: per task / item present in both (by id) the fields
  * that differ among status, owner, actual (tasks) and status, owner, evidence (items); tasks and items only in the
  * document (added); the window and freeze when they differ. Nothing in the project that the document lacks is removed.
+ * Write-back rules (syncDiff): a blank owner / evidence / date keeps the project's value, actuals are merged per run
+ * (a run the document lacks stays), and a status going back to planned / open is only `flagged` (written when ticked).
  */
+const CUT_RANK = { planned: 0, done: 1, skipped: 1, failed: 1 };
+const GNG_RANK = { open: 0, go: 1, nogo: 1, waived: 1 };
 export function cutoverSyncPlan(doc, project) {
   const d = normalizeCutoverDoc(doc);
   const pc = normalizeCutover(project?.cutover || { tasks: [], goNoGo: [], window: {}, freeze: {} });
-  const diff = (a, b, fields) => fields.filter((f) => JSON.stringify(a?.[f] ?? null) !== JSON.stringify(b?.[f] ?? null)).map((f) => ({ field: f, from: b?.[f] ?? null, to: a?.[f] ?? null }));
-  const tasks = [], items = [], added = { tasks: [], goNoGo: [] };
+  const tasks = [], items = [], added = { tasks: [], goNoGo: [] }, flagged = [];
   for (const t of d.cutover.tasks) {
     const p = pc.tasks.find((x) => x.id === t.id);
     if (!p) { added.tasks.push(t); continue; }
-    const ch = diff(t, p, ['status', 'owner', 'actual']);
-    if (ch.length) tasks.push({ id: t.id, changes: ch });
+    const want = { ...t, actual: { ...(p.actual || {}), ...(t.actual || {}) } };
+    const r = syncDiff('tasks', t.id, want, p, ['status', 'owner', 'actual'], { rank: { status: CUT_RANK } });
+    if (r.changes.length) tasks.push({ id: t.id, changes: r.changes });
+    flagged.push(...r.flagged);
   }
   for (const g of d.cutover.goNoGo) {
     const p = pc.goNoGo.find((x) => x.id === g.id);
     if (!p) { added.goNoGo.push(g); continue; }
-    const ch = diff(g, p, ['status', 'owner', 'evidence']);
-    if (ch.length) items.push({ id: g.id, changes: ch });
+    const r = syncDiff('goNoGo', g.id, g, p, ['status', 'owner', 'evidence'], { rank: { status: GNG_RANK } });
+    if (r.changes.length) items.push({ id: g.id, changes: r.changes });
+    flagged.push(...r.flagged);
   }
-  const window = diff(d.cutover.window, pc.window, ['start', 'end']);
-  const freeze = diff(d.cutover.freeze, pc.freeze, ['code', 'config']);
-  const empty = !tasks.length && !items.length && !added.tasks.length && !added.goNoGo.length && !window.length && !freeze.length;
-  return { tasks, goNoGo: items, added, window, freeze, empty };
+  const window = syncDiff('window', 'window', d.cutover.window, pc.window, ['start', 'end']).changes;
+  const freeze = syncDiff('freeze', 'freeze', d.cutover.freeze, pc.freeze, ['code', 'config']).changes;
+  const empty = !tasks.length && !items.length && !added.tasks.length && !added.goNoGo.length && !window.length && !freeze.length && !flagged.length;
+  return { tasks, goNoGo: items, added, window, freeze, flagged, empty };
 }
 
-/** The project model with the plan written in. Applying the same plan twice changes nothing more. */
-export function applyCutoverSync(project, plan) {
+/** The project model with the plan written in, plus the flagged changes whose keys are in `accept`. Idempotent. */
+export function applyCutoverSync(project, plan, accept = []) {
   const m = JSON.parse(JSON.stringify(project || {}));
   const c = normalizeCutover(m.cutover || { tasks: [], goNoGo: [], window: {}, freeze: {}, rehearsals: [] });
   for (const x of arr(plan?.tasks)) { const t = c.tasks.find((r) => r.id === x.id); if (t) for (const ch of arr(x.changes)) t[ch.field] = ch.to; }
   for (const x of arr(plan?.goNoGo)) { const g = c.goNoGo.find((r) => r.id === x.id); if (g) for (const ch of arr(x.changes)) g[ch.field] = ch.to; }
+  for (const f of acceptedFlags(plan, 'tasks', accept)) { const t = c.tasks.find((r) => r.id === f.id); if (t && f.field === 'status') t.status = f.to; }
+  for (const f of acceptedFlags(plan, 'goNoGo', accept)) { const g = c.goNoGo.find((r) => r.id === f.id); if (g && f.field === 'status') g.status = f.to; }
   for (const t of arr(plan?.added?.tasks)) if (!c.tasks.some((r) => r.id === t.id)) c.tasks.push(t);
   for (const g of arr(plan?.added?.goNoGo)) if (!c.goNoGo.some((r) => r.id === g.id)) c.goNoGo.push(g);
   for (const ch of arr(plan?.window)) { if (ch.to && cutDT(ch.to)) c.window[ch.field] = cutDT(ch.to); }

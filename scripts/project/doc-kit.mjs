@@ -177,3 +177,37 @@ export function csvOf(rows, columns) {
 
 /** Options of a select from a value list and a label map. */
 export const optionsOf = (values, labels = {}) => values.map((v) => ({ value: v, label: labels[v] || v }));
+
+// ── write back rules shared by every document → /wbs sync plan ───────────────────────────────────────────────
+const blank = (v) => v == null || v === '' || (Array.isArray(v) ? !v.length : typeof v === 'object' && !Object.keys(v).length);
+/**
+ * The changes writing `want` over `have` may make, by the write-back rules (verifier A1 condition):
+ * - a blank value never overwrites a value the project has (blank in the document = keep the project's);
+ * - `append` fields add the document's line to the project's text (once), never replace it;
+ * - `rank` fields that would move backwards (e.g. done → open) are not changes but `flagged`: the preview lists
+ *   them and only the ones the user ticks are written (key = `${list}:${id}:${field}`).
+ */
+export function syncDiff(list, id, want, have, fields, { append = [], rank = {} } = {}) {
+  const changes = [], flagged = [];
+  for (const f of fields) {
+    const to = want?.[f], from = have?.[f];
+    if (blank(to)) continue;
+    if (append.includes(f)) {
+      const cur = str(from, 100000);
+      if (cur.split('\n').includes(String(to))) continue;
+      changes.push({ field: f, from: from ?? null, to: cur ? `${cur}\n${to}` : String(to) });
+      continue;
+    }
+    if (JSON.stringify(to) === JSON.stringify(from ?? null)) continue;
+    const r = rank[f];
+    if (r && !blank(from) && (r[to] ?? 0) < (r[from] ?? 0)) { flagged.push({ key: `${list}:${id}:${f}`, list, id, field: f, from, to }); continue; }
+    changes.push({ field: f, from: from ?? null, to });
+  }
+  return { changes, flagged };
+}
+
+/** The flagged changes the user ticked (`accept` = keys), as per-row change lists of `list`. */
+export function acceptedFlags(plan, list, accept) {
+  const ok = new Set(arr(accept).map(String));
+  return arr(plan?.flagged).filter((x) => x.list === list && ok.has(x.key));
+}
