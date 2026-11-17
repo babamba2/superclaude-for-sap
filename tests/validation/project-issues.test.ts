@@ -111,9 +111,15 @@ describe('open-issue counts: weekly status, list card, portfolio', () => {
     const m2 = withIssues([{ id: 'IS1', text: 'a', status: 'closed' }, { id: 'IS2', text: 'b', status: 'inprogress' }, { id: 'IS4', text: 'd', status: 'open' }]);
     const v2 = viewModel(m2, '2027-02-12');
     const d = delta(e1, statusEntry(v2, [], '2027-02-12'), v2);
-    expect(d.issues).toEqual({ added: ['IS4'], closed: ['IS1'] });
+    expect(d.issues).toEqual({ added: ['IS4'], closed: ['IS1'], deleted: [] });
+    // an issue deleted from the log is told apart from one resolved or closed
+    const m3 = withIssues([{ id: 'IS2', text: 'b', status: 'inprogress' }]);
+    const v3 = viewModel(m3, '2027-02-12');
+    expect(delta(e1, statusEntry(v3, [], '2027-02-12'), v3).issues).toEqual({ added: [], closed: [], deleted: ['IS1'] });
+    const page = computeStatus({ ...m3, statusLog: [e1] }, { weekEnd: '2027-02-12', today: '2027-02-12', lang: 'ko' }).html;
+    expect(page).toContain('삭제된 이슈: IS1');
     // a log entry from before the issue log: nothing is reported as added or closed
-    expect(delta({ ...e1, issues: undefined }, statusEntry(v2, [], '2027-02-12'), v2).issues).toEqual({ added: [], closed: [] });
+    expect(delta({ ...e1, issues: undefined }, statusEntry(v2, [], '2027-02-12'), v2).issues).toEqual({ added: [], closed: [], deleted: [] });
     const r = computeStatus(m2, { weekEnd: '2027-02-12', today: '2027-02-12', lang: 'ko' });
     expect(r.summary.issuesOpen).toBe(2);
     expect(r.html).toContain('열린 이슈 (상위 5)');

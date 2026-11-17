@@ -112,6 +112,12 @@ export function logStatus(log, entry, weeks = LOG_WEEKS) {
 /** The entry to compare with: the latest status run before this week. */
 export const previousOf = (log, weekEnd) => arr(log).filter((x) => x.weekEnd < weekEnd).sort((a, b) => (a.weekEnd < b.weekEnd ? -1 : 1)).at(-1) || null;
 
+/** Issues no longer open, split by whether they are still in the issue log (verifier note on 8b151ac). */
+function issueMoves(addedIds, goneIds, v) {
+  const known = new Set(arr(v?.m?.issues).map((x) => x.id));
+  return { added: addedIds, closed: goneIds.filter((id) => known.has(id)), deleted: goneIds.filter((id) => !known.has(id)) };
+}
+
 export function delta(prev, cur, v) {
   const label = (id) => v.byId.get(id)?.label || v.milestones.find((x) => x.id === id)?.label || id;
   const kpi = (base) => Object.entries(cur.kpi).filter(([k]) => base?.[k] != null).map(([k, x]) => ({ id: k, from: base[k], to: x, diff: Math.round((x - base[k]) * 10) / 10 })).filter((x) => x.diff);
@@ -146,7 +152,8 @@ export function delta(prev, cur, v) {
     moved, done, late, ms, released: rel, kpi: kpi(prev.kpi), evidence: evDiff,
     risks: { added: added(cur.risks, prev.risks || []), closed: added(prev.risks || [], cur.risks) },
     // an older log entry has no issues: nothing counts as added or closed against it
-    issues: prev.issues ? { added: added(cur.issues || [], prev.issues), closed: added(prev.issues, cur.issues || []) } : { added: [], closed: [] },
+    // gone from the open list: resolved / closed if the issue is still in the log, deleted if it is not
+    issues: prev.issues ? issueMoves(added(cur.issues || [], prev.issues), added(prev.issues, cur.issues || []), v) : { added: [], closed: [], deleted: [] },
     decisions: { added: added(cur.decisions, prev.decisions || []), decided: added(prev.decisions || [], cur.decisions) },
   };
 }
