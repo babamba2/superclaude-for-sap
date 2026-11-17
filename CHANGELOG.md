@@ -5,6 +5,22 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.70] — 2026-11-17
+
+### Added
+- **`/sc4sap:program-test`**: tests a DEV program before the transport — cases and expected values frozen first, test rows read from DEV or QA through server-side masked reads (PRD locked), injected as test doubles into a `$TMP` ABAP Unit harness; verdict per case from the ledger, mutants and a tamper copy must fail. Masked reads are allow-list masked (`hmac-v2`; v1 answers are refused); the evidence guard denies reads of `mask.key`, the profiles folder in shell commands and commands that decode text inside themselves.
+- **PMO document models** (web workbench): editable cutover, weekly and manual documents with revision history; meeting minutes; a data-migration document (objects, mock runs, reconciliation rules, results, issues; Migration Cockpit import states as status words); `/wbs` write-back never wipes values.
+- **Form fidelity tooling**: a text + position scorer of a form print against SAP's PDF; the SmartForm preview prints several pages (NEWPAGE targets, repeated table headers, window conditions, the output device's fonts, loops sorted by their sort events, the sign place of amounts); the Adobe preview follows layout rules measured on ADS (row heights, CSS line heights, embedded values, SAPscript include texts with their SmartStyle — SAP character numbers, character formats, justified paragraphs —, fields split across pages, Times widths) and runs simple interface initialization code.
+- **SmartForm → Adobe correction** (`ZMCP_FP_MIGRATE`, `abap/`): RENDER_XDP in `ZMCP_FP_CONTENT`; correction ops `datePicture`, `bind`, `embedLead` and the totals ops `contextDeactivate` / `initSumByKey`; a correction-spec generator (`scripts/adobe/sf-to-adobe-correct.mjs`, rules R1–R11: window and block offsets, dates, hidden holders, embed fonts and alignment, row pitch with a column-consistency guard, header-row height).
+- `config-to-document --kb-notes`: reviewed KB templates for the consultant notes, no LLM tokens.
+
+### Changed
+- **Blocklist `off` tier** in the profile CLI and the table hook; the `ZMCP_ADT_DISPATCH` TABLE_READ action takes an `all_tables` flag for it (credential tables stay closed). Known gaps under `off`: the dispatcher's credential guard is a name-prefix list; it does not cover `USH*` (user change history) or database views over the credential tables. Keep `off` for systems where SE16 authority already restricts them.
+- `GetStandardText` is DEV-only in the tier-readonly-guard hook.
+- `module-to-process`: `backbone.mjs` creates its `--out` folder.
+- Public repo: generic demo names instead of customer object names in scripts, skills, goldens and tests; no system names or transport numbers in configs, docs and tests.
+- `abap-mcp-adt-powerup` pin `c82125e` (4.13.0) → `23161c3` (4.14.0): `RenderAdobeXdp`, correction specs for `CreateAdobeFormFromSmartForm`, `GetStandardText`, allow-list masked (`hmac-v2`) table reads, `RunUnitTest` for programs and function groups, text modules read by `REF_NAME` in `GetSmartFormContent`.
+
 ## [0.6.69] — 2026-11-17
 
 ### Added
