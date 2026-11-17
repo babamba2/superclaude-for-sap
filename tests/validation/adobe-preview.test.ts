@@ -594,6 +594,14 @@ describe('adobe-preview: interface initialization code (simple statements only)'
   it('runs LOOP / assignments / COLLECT: numeric fields summed per equal other fields', () => {
     expect(runInitCoding(code, values)).toMatchObject({ ok: true, tables: { T_SUMS: [{ AMOUNT: 14.75, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }] } });
   });
+  it('runs the G5 initSumByKey template of ZMCP_FP_MIGRATE (FIELD-SYMBOLS, LOOP … ASSIGNING <fs>)', () => {
+    const g5 = ['* sc4sap G5 initSumByKey (generated) GT_TOTAL', 'DATA ls_sc4sap_g5_0 LIKE LINE OF gt_total.',
+      'FIELD-SYMBOLS <ls_sc4sap_g5_0> LIKE LINE OF t_rows.', 'CLEAR gt_total.', 'LOOP AT t_rows ASSIGNING <ls_sc4sap_g5_0>.',
+      '  CLEAR ls_sc4sap_g5_0.', '  ls_sc4sap_g5_0-curr = <ls_sc4sap_g5_0>-curr.', '  ls_sc4sap_g5_0-amount = <ls_sc4sap_g5_0>-amount.',
+      '  COLLECT ls_sc4sap_g5_0 INTO gt_total.', 'ENDLOOP.'];
+    const rows = { T_ROWS: [{ CURR: 'EUR', AMOUNT: 250 }, { CURR: 'EUR', AMOUNT: 980.5 }, { CURR: 'USD', AMOUNT: 120 }, { CURR: 'USD', AMOUNT: 75.25 }] };
+    expect(runInitCoding(g5, rows)).toMatchObject({ ok: true, tables: { GT_TOTAL: [{ CURR: 'EUR', AMOUNT: 1230.5 }, { CURR: 'USD', AMOUNT: 195.25 }] } });
+  });
   it('stops at anything else and fills nothing', () => {
     expect(runInitCoding([...code, 'select * from zdemo_tab into table t_x.'], values)).toMatchObject({ ok: false });
     expect(runInitCoding(['loop at missing into l_row.', 'endloop.'], values)).toMatchObject({ ok: false });

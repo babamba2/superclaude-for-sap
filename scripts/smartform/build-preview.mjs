@@ -183,7 +183,9 @@ function sapLenMm(v, style) {
  *  KPGULIM → COURIER although its substitute KPSAMMUL exists). */
 function printedFamily(family, printer, size10) {
   const f = String(family || '').trim().toUpperCase();
-  if (!f || !printer?.fonts?.length) return f;
+  // fonts not read: keep the family. Read but empty: the device type has none of the form's families (S4-DEV
+  // LP01 / I7PDF has only COUR_I7 / HELV_I7 / TIME_I7: SAP printed SF_DEMO's TIMES and HELVE in Courier)
+  if (!f || !printer || !Array.isArray(printer.fonts) || (!printer.fonts.length && !printer.deviceType)) return f;
   const own = printer.fonts.filter((x) => String(x[0]).toUpperCase() === f);
   // a family the device type has only in fixed sizes (not scalable, size 0) prints a size it
   // lacks in COURIER (ZSF_DEMO_10 on CNA60TP: LETGOTH 6/8/10/12/14/16 pt, asked 11 pt → COURIER)
@@ -1710,5 +1712,5 @@ async function main(argv) {
 
 if (import.meta.url === pathToFileURL(process.argv[1] || '').href) main(process.argv.slice(2));
 
-export { listSymbols, Renderer, paragraphFonts, findBrowser, runBrowser };
+export { listSymbols, Renderer, paragraphFonts, findBrowser, runBrowser, printedFamily };
 export { code128Codes, barcodeSize, barcodeSvg } from '../forms-common/barcode.mjs';

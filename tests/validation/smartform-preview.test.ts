@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { listSymbols, Renderer, paragraphFonts, barcodeSvg, code128Codes, barcodeSize, legacyDbcs } from '../../scripts/smartform/build-preview.mjs';
+import { listSymbols, Renderer, paragraphFonts, barcodeSvg, code128Codes, barcodeSize, legacyDbcs, printedFamily } from '../../scripts/smartform/build-preview.mjs';
 import { compare } from '../../scripts/smartform/compare-otf.mjs';
 
 // Shape of GetSmartFormContent's content.json; names and values are invented.
@@ -269,5 +269,22 @@ describe('smartform-preview: compare with the SAP OTF', () => {
   it('does not match spaced digits against the unspaced number far away', () => {
     const r = compare(page([run('0 0 1 2', 200, 10), run('0012', 10, 6)]), page([run('0012', 10, 6), run('0 0 1 2', 200, 10)]));
     expect(r.texts.moved).toEqual([]);
+  });
+});
+
+describe('smartform-preview: printer fonts of the output device', () => {
+  const families = [{ family: 'COURIER', proportional: '', substitutes: ['LETGOTH'] }, { family: 'TIMES', proportional: 'X', substitutes: ['HELVE'] }, { family: 'HELVE', proportional: 'X', substitutes: ['TIMES'] }];
+  it('a device type with none of the form\'s families prints them in COURIER (S4-DEV LP01 / I7PDF)', () => {
+    const p = { device: 'LP01', deviceType: 'I7PDF', families, fonts: [] };
+    expect(printedFamily('TIMES', p, 140)).toBe('COURIER');
+    expect(printedFamily('HELVE', p, 120)).toBe('COURIER');
+  });
+  it('keeps the family when the fonts were not read (no printer, no device type, or an error)', () => {
+    expect(printedFamily('TIMES', undefined, 140)).toBe('TIMES');
+    expect(printedFamily('TIMES', { error: 'x' }, 140)).toBe('TIMES');
+    expect(printedFamily('TIMES', { families, fonts: [] }, 140)).toBe('TIMES');
+  });
+  it('keeps a family the device type has', () => {
+    expect(printedFamily('TIMES', { deviceType: 'X', families, fonts: [['TIMES', '000', '', '']] }, 140)).toBe('TIMES');
   });
 });

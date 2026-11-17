@@ -115,7 +115,7 @@ function abapStatements(lines) {
 }
 
 /** The interface's initialization code (or a SmartForm's program lines) for the few statements it can run without
- *  SAP — LOOP AT … INTO / ENDLOOP, IF [NOT] x IS INITIAL / ELSE / ENDIF, field assignments (from a field, a quoted
+ *  SAP — LOOP AT … INTO / ASSIGNING <fs> / ENDLOOP, IF [NOT] x IS INITIAL / ELSE / ENDIF, field assignments (from a field, a quoted
  *  literal or a number), CLEAR / REFRESH (a work area, a table, t[]), APPEND, COLLECT; DATA / TYPES are skipped.
  *  Anything else stops it: { ok: false, reason }, nothing of this run is kept. On success: { ok: true, tables, vars }
  *  (the tables it filled, its work areas). COLLECT sums the numeric fields (numbers in the data, or numeric DDIC types)
@@ -150,14 +150,15 @@ export function runInitCoding(lines, values = {}, ddic = {}, state = {}) {
     for (let k = from; k < to; k++) {
       const s = stmts[k];
       let m;
-      if (/^(DATA|TYPES|CONSTANTS)\b/i.test(s)) continue;
-      if ((m = /^LOOP AT (\w+) INTO (\w+)$/i.exec(s))) {
+      if (/^(DATA|TYPES|CONSTANTS|FIELD-SYMBOLS)\b/i.test(s)) continue;
+      // INTO a work area or ASSIGNING a field symbol (the G5 initSumByKey template of ZMCP_FP_MIGRATE): the row either way
+      if ((m = /^LOOP AT (\w+) (?:INTO (\w+)|ASSIGNING (<\w+>))$/i.exec(s))) {
         const b = close(k, to, /^LOOP AT /i, /^ENDLOOP$/i);
         if (!b) return fail('LOOP without ENDLOOP');
         const rows = tables[up(m[1])] ?? get(m[1]);
         if (!Array.isArray(rows)) return fail(`LOOP AT ${up(m[1])}: no table in the values`);
         for (const row of rows.slice()) {
-          vars[up(m[2])] = Object.fromEntries(Object.entries(row || {}).map(([a, c]) => [up(a), c]));
+          vars[up(m[2] || m[3])] = Object.fromEntries(Object.entries(row || {}).map(([a, c]) => [up(a), c]));
           const r = exec(k + 1, b.e);
           if (r) return r;
         }
@@ -179,7 +180,7 @@ export function runInitCoding(lines, values = {}, ddic = {}, state = {}) {
         else vars[n] = {};
         continue;
       }
-      if ((m = /^(\w+)-(\w+) = (?:(\w+)-(\w+)|'([^']*)'|(-?\d+(?:\.\d+)?))$/i.exec(s))) {
+      if ((m = /^(<\w+>|\w+)-(\w+) = (?:(<\w+>|\w+)-(\w+)|'([^']*)'|(-?\d+(?:\.\d+)?))$/i.exec(s))) {
         const tgt = (vars[up(m[1])] ||= {});
         tgt[up(m[2])] = m[3] ? (vars[up(m[3])] || get(m[3]) || {})[up(m[4])] : m[5] !== undefined ? m[5] : Number(m[6]);
         continue;
