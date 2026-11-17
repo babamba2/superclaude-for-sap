@@ -15,7 +15,7 @@
  *   pt.mjs close --run <dir>                                  stop capturing
  *
  * Exit: 0 ok / PASS · 1 problems / FAIL verdicts · 2 INCOMPLETE · 3 usage / I/O · 4 PARTIAL / NOT_TESTABLE ·
- *       5 destination missing (QA) · 6 connected system is not DEV · 7 production refused (no MCP-side masking yet).
+ *       5 destination missing (QA / PRD) · 6 connected system is not DEV · 7 production locked (MASKING_RELEASE_PINNED).
  */
 
 import { randomBytes } from 'node:crypto';
@@ -26,7 +26,7 @@ import { readActiveConfigJson, readActiveSapEnv, resolveArtifactBase } from '../
 import { activePath } from './pt-capture.mjs';
 import {
   abapRows, buildHarness, buildMutant, buildTamper, checkCases, checkExpected, checkPlan, decide, evidenceLines,
-  exitCode, harnessNames, lintHarness, MAX_ROUNDS, mutationCandidates, PRD_REFUSED, sha, SOURCES, srcSha,
+  exitCode, harnessNames, lintHarness, MAX_ROUNDS, MASKING_RELEASE_PINNED, mutationCandidates, PRD_LOCKED, sha, SOURCES, srcSha,
 } from './pt-lib.mjs';
 
 const argv = process.argv.slice(2);
@@ -85,7 +85,7 @@ switch (cmd) {
     const source = arg('--source') || 'dev';
     if (!prog || !/^(?:[ZY][A-Z0-9_]{0,39}|\/[A-Z0-9_]{1,10}\/[A-Z0-9_]{1,30})$/.test(prog)) die('usage: pt.mjs init <PROG> | --program <PROG> --source dev|qa [--base <dir>]');
     if (!SOURCES.includes(source)) die(`--source must be ${SOURCES.join(' / ')}`);
-    if (source === 'prd') die(PRD_REFUSED, 7);
+    if (source === 'prd' && !MASKING_RELEASE_PINNED) die(PRD_LOCKED, 7);
     const root = projectRoot(arg('--root'));
     const env = readActiveSapEnv(root)?.env || {};
     const tier = up(env.SAP_TIER || 'DEV');

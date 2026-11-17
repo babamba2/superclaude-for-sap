@@ -1,0 +1,464 @@
+{
+  "about": "Shared masking rules (personal lists, refused tables, strict SELECT grammar, which columns get masked): generated from sc4sap scripts/program-test/pt-lib.mjs; asserted by sc4sap (program-test.test.ts) and abap-mcp-adt-powerup (personalMask.test.ts). Tokens are made only by the MCP server (HMAC with its own key) and are not part of these vectors. Change both implementations together, then regenerate.",
+  "salt": "0123456789abcdef0123456789abcdef",
+  "lists": {
+    "exact": [
+      "ACCNAME",
+      "AENAM",
+      "BANKN",
+      "BIRTHDT",
+      "BIRTHPL",
+      "BKONT",
+      "BKREF",
+      "BNAME",
+      "CCINS_NUM",
+      "CCNUM",
+      "CHANGED_BY",
+      "CHUSR",
+      "CITY1",
+      "CITY2",
+      "CREATED_BY",
+      "CRUSR",
+      "EMAIL",
+      "ENAME",
+      "ERNAM",
+      "E_MAIL",
+      "FAX_EXTENS",
+      "FAX_NUMBER",
+      "GBDAT",
+      "GBORT",
+      "GESCH",
+      "HOUSE_NUM1",
+      "HOUSE_NUM2",
+      "IBAN",
+      "ICNUM",
+      "IDNUMBER",
+      "INTAD",
+      "J_1KFREPRE",
+      "J_1KFTBUS",
+      "J_1KFTIND",
+      "KOINH",
+      "LAST_CHANGED_BY",
+      "MCOD1",
+      "MCOD2",
+      "MC_CITY1",
+      "MC_NAME1",
+      "MC_NAME2",
+      "MC_STREET",
+      "MOB_NUMBER",
+      "NACHN",
+      "NAME1",
+      "NAME2",
+      "NAME3",
+      "NAME4",
+      "NAMEMIDDLE",
+      "NAMEV",
+      "NAME_CO",
+      "NAME_FIRST",
+      "NAME_LAST",
+      "NAME_LST2",
+      "NAME_ORG1",
+      "NAME_ORG2",
+      "NAME_ORG3",
+      "NAME_ORG4",
+      "NAME_TEXT",
+      "ORT01",
+      "ORT02",
+      "PASSPORT",
+      "PERID",
+      "PERNR",
+      "PFACH",
+      "PO_BOX",
+      "PSTL2",
+      "RUFNM",
+      "SMTP_ADDR",
+      "SORT1",
+      "SORT2",
+      "SORTL",
+      "STCD1",
+      "STCD2",
+      "STCD3",
+      "STCD4",
+      "STCD5",
+      "STCEG",
+      "STENR",
+      "STKZN",
+      "STRAS",
+      "STREET",
+      "STR_SUPPL1",
+      "STR_SUPPL2",
+      "STR_SUPPL3",
+      "TAXNUM",
+      "TELBX",
+      "TELF1",
+      "TELF2",
+      "TELFX",
+      "TELTX",
+      "TELX1",
+      "TEL_EXTENS",
+      "TEL_NUMBER",
+      "UNAME",
+      "USERNAME",
+      "USNAM",
+      "VORNA"
+    ],
+    "dtel": [
+      "ABP_CREATION_USER",
+      "ABP_LASTCHANGE_USER",
+      "AD_CITY1",
+      "AD_CITY2",
+      "AD_FXNMBR",
+      "AD_FXNMBR1",
+      "AD_FXXTNS",
+      "AD_HSNM1",
+      "AD_HSNM2",
+      "AD_MBNMBR1",
+      "AD_MC_CITY",
+      "AD_MC_STRT",
+      "AD_NAME1",
+      "AD_NAME2",
+      "AD_NAME3",
+      "AD_NAME4",
+      "AD_NAMEFIR",
+      "AD_NAMELAS",
+      "AD_NAMEMID",
+      "AD_NAME_CO",
+      "AD_NAMTEXT",
+      "AD_POBX",
+      "AD_SMTPADR",
+      "AD_STREET",
+      "AD_STRSPP1",
+      "AD_STRSPP2",
+      "AD_STRSPP3",
+      "AD_TLNMBR",
+      "AD_TLNMBR1",
+      "AD_TLXTNS",
+      "AENAM",
+      "BANKN",
+      "BKONT",
+      "BKREF",
+      "BNAME",
+      "BPTAXNUM",
+      "BPTAXNUMXL",
+      "BU_BIRTHDT",
+      "BU_BIRTHPL",
+      "BU_KOINH",
+      "BU_MCNAME1",
+      "BU_MCNAME2",
+      "BU_NAMEOR1",
+      "BU_NAMEOR2",
+      "BU_NAMEOR3",
+      "BU_NAMEOR4",
+      "BU_NAMEPL2",
+      "BU_NAMEP_F",
+      "BU_NAMEP_L",
+      "BU_SEXID",
+      "CCNUM",
+      "CHUSR",
+      "CRUSR",
+      "CVVAL",
+      "EMNAM",
+      "ERNAM",
+      "GBDAT",
+      "GBDAT_GP",
+      "GBORT",
+      "GESCH",
+      "IBAN",
+      "ICNUM",
+      "INTAD",
+      "KOINH_FI",
+      "NACHN",
+      "NAME1",
+      "NAME1_GP",
+      "NAME1_VP",
+      "NAME2",
+      "NAME2_GP",
+      "NAME3_GP",
+      "NAME4_GP",
+      "NAMEV_VP",
+      "ORT01_GP",
+      "ORT02_GP",
+      "PAD_NACHN",
+      "PAD_VORNA",
+      "PERID",
+      "PERNR_D",
+      "PERSNO",
+      "PFACH",
+      "PRDNI",
+      "P_PERNR",
+      "STCD1",
+      "STCD2",
+      "STCD3",
+      "STCD4",
+      "STCD5",
+      "STCEG",
+      "STENR",
+      "STRAS_GP",
+      "SYUNAME",
+      "TELBX",
+      "TELF1",
+      "TELF2",
+      "TELFX",
+      "TELTX",
+      "TELX1",
+      "UNAME",
+      "USNAM",
+      "VDM_CREATEDBYUSERID",
+      "VDM_LASTCHANGEDBYUSERID",
+      "VORNA",
+      "XUBNAME"
+    ],
+    "domain": [
+      "AD_FXNMBR",
+      "AD_NAME",
+      "AD_SMTPADR",
+      "AD_STREET",
+      "AD_TLNMBR",
+      "BANKN",
+      "BU_BIRTHDT",
+      "GBDAT",
+      "IBAN",
+      "NAME",
+      "ORT01",
+      "PERNR",
+      "STCD1",
+      "STCD2",
+      "STCD3",
+      "STCEG",
+      "STRAS",
+      "TELF1",
+      "USNAM",
+      "XUBNAME"
+    ]
+  },
+  "refused_tables": [
+    {
+      "table": "PA0002",
+      "refused": true
+    },
+    {
+      "table": "USR02",
+      "refused": true
+    },
+    {
+      "table": "ADR6",
+      "refused": true
+    },
+    {
+      "table": "LFBK",
+      "refused": true
+    },
+    {
+      "table": "HRP1000",
+      "refused": true
+    },
+    {
+      "table": "AGR_USERS",
+      "refused": true
+    },
+    {
+      "table": "KNBK",
+      "refused": true
+    },
+    {
+      "table": "EKPO",
+      "refused": false
+    },
+    {
+      "table": "KNA1",
+      "refused": false
+    },
+    {
+      "table": "MARA",
+      "refused": false
+    },
+    {
+      "table": "VBAK",
+      "refused": false
+    }
+  ],
+  "strict_select": [
+    {
+      "sql": "SELECT kunnr, name1 AS n FROM kna1 WHERE land1 = 'KR' UP TO 5 ROWS",
+      "ok": true,
+      "table": "KNA1",
+      "columns": [
+        [
+          "KUNNR",
+          "KUNNR"
+        ],
+        [
+          "N",
+          "NAME1"
+        ]
+      ],
+      "star": false
+    },
+    {
+      "sql": "SELECT * FROM ekpo",
+      "ok": true,
+      "table": "EKPO",
+      "columns": [],
+      "star": true
+    },
+    {
+      "sql": "SELECT SINGLE kunnr name1 AS n FROM kna1",
+      "ok": true,
+      "table": "KNA1",
+      "columns": [
+        [
+          "KUNNR",
+          "KUNNR"
+        ],
+        [
+          "N",
+          "NAME1"
+        ]
+      ],
+      "star": false
+    },
+    {
+      "sql": "SELECT a~kunnr FROM kna1 AS a WHERE a~kunnr IN ( '1', '2' ) ORDER BY kunnr",
+      "ok": true,
+      "table": "KNA1",
+      "columns": [
+        [
+          "KUNNR",
+          "KUNNR"
+        ]
+      ],
+      "star": false
+    },
+    {
+      "sql": "SELECT kunnr FROM kna1 WHERE name1 = 'a'' UNION SELECT name1 FROM kna1 --'",
+      "ok": true,
+      "table": "KNA1",
+      "columns": [
+        [
+          "KUNNR",
+          "KUNNR"
+        ]
+      ],
+      "star": false
+    },
+    {
+      "sql": "SELECT kunnr, land1 FROM kna1 UNION SELECT kunnr, name1 FROM kna1",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr FROM kna1 WHERE kunnr IN ( SELECT kunnr FROM knvv )",
+      "ok": false
+    },
+    {
+      "sql": "WITH +x AS ( SELECT kunnr FROM kna1 ) SELECT * FROM +x",
+      "ok": false
+    },
+    {
+      "sql": "SELECT a~kunnr FROM kna1 AS a INNER JOIN knvv AS b ON b~kunnr = a~kunnr",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr, concat( name1, land1 ) AS full FROM kna1",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr FROM kna1 WHERE upper( name1 ) = 'X'",
+      "ok": false
+    },
+    {
+      "sql": "SELECT name1 AS a, land1 AS A FROM kna1",
+      "ok": false
+    },
+    {
+      "sql": "SELECT *, name1 AS land1 FROM kna1",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr FROM kna1; SELECT name1 FROM kna1",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr FROM kna1 WHERE kunnr = @lv",
+      "ok": false
+    },
+    {
+      "sql": "SELECT kunnr \"x\nFROM kna1",
+      "ok": false
+    }
+  ],
+  "tables_in_sql": [
+    {
+      "sql": "SELECT a~kunnr FROM kna1 AS a INNER JOIN usr02 AS b ON b~bname = a~ernam WHERE x IN ( SELECT y FROM pa0002 )",
+      "tables": [
+        "KNA1",
+        "USR02",
+        "PA0002"
+      ]
+    }
+  ],
+  "ddic": {
+    "KUNNR": {
+      "rollname": "KUNNR",
+      "domname": "KUNNR"
+    },
+    "NAME1": {
+      "rollname": "NAME1_GP",
+      "domname": "NAME"
+    },
+    "LAND1": {
+      "rollname": "LAND1_GP",
+      "domname": "LAND1"
+    },
+    "ZZCONTACT": {
+      "rollname": "ZZ_CONTACT",
+      "domname": "AD_SMTPADR"
+    },
+    "ZZOWNER": {
+      "rollname": "ZZ_OWNER",
+      "domname": "CHAR30"
+    }
+  },
+  "mask_rows_select": {
+    "sql": "SELECT kunnr, name1 AS n, land1, zzcontact, zzowner FROM kna1",
+    "extra": [
+      "ZZOWNER"
+    ],
+    "rows": [
+      {
+        "KUNNR": "0000001",
+        "N": "Hong Gildong",
+        "LAND1": "KR",
+        "ZZCONTACT": "me@example.com",
+        "ZZOWNER": "Kim",
+        "EXTRA": "free text"
+      },
+      {
+        "KUNNR": "0000002",
+        "N": "Hong Gildong",
+        "LAND1": "DE",
+        "ZZCONTACT": "",
+        "ZZOWNER": "Lee"
+      }
+    ],
+    "expected_masked": [
+      "EXTRA",
+      "N",
+      "ZZCONTACT",
+      "ZZOWNER"
+    ]
+  },
+  "mask_rows_plain": {
+    "rows": [
+      {
+        "KUNNR": "1",
+        "NAME1": "Kim",
+        "LAND1": "KR",
+        "UNKNOWN": "x"
+      }
+    ],
+    "expected_masked": [
+      "NAME1",
+      "UNKNOWN"
+    ]
+  }
+}

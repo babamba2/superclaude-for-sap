@@ -6,9 +6,10 @@ import { afterAll, describe, expect, it } from 'vitest';
 import { ledgerEntry, parseAunit } from '../../scripts/evidence/lib.mjs';
 import { decide as guard, onlyPluginPt } from '../../scripts/evidence/guard.mjs';
 import { activePath, capture } from '../../scripts/program-test/pt-capture.mjs';
+import { gate, serverMaskingProven } from '../../scripts/program-test/pt-gate.mjs';
 import {
   abapRows, buildHarness, buildMutant, buildTamper, checkCases, checkExpected, checkPlan, decide, evidenceLines, exitCode,
-  ddicFromGetTable, extractRows, fingerprint, harnessNames, isRefusedTable, lintHarness, maskRows, maskValue, mutationCandidates, parseSelect, srcSha, tablesInSql,
+  ddicFromGetTable, extractRows, fingerprint, harnessNames, isRefusedTable, lintHarness, maskRows, maskValue, mutationCandidates, parseSelect, MASKING_RELEASE_PINNED, PERSONAL_DOMAIN, PERSONAL_DTEL, PERSONAL_EXACT, PRD_LOCKED, srcSha, tablesInSql,
 } from '../../scripts/program-test/pt-lib.mjs';
 
 const ROOT = join(__dirname, '..', '..');
@@ -336,41 +337,50 @@ describe('capture hook side', () => {
     expect(parseSelect(sql).ok).toBe(false);
   });
 
-  it('saves nothing outside an active run, and nothing without the DDIC of the table', () => {
+  it('saves nothing outside an active run, and nothing the server did not mask', () => {
     const root = join(tmp, 'idle');
     mkdirSync(root, { recursive: true });
     expect(capture(root, 'GetTableContents', { table_name: 'lfa1' }, JSON.stringify({ rows: [{ LIFNR: '1' }] }), false)).toBeNull();
-    const { root: r2, run } = setupRun('noddic');
-    expect(capture(r2, 'GetSqlQuery', { sql_query: 'SELECT kunnr FROM kna1' }, sqlResp(['KUNNR'], [{ KUNNR: '1' }]), false)).toMatchObject({ error: expect.stringMatching(/no DDIC for KNA1/) });
+    const { root: r2, run } = setupRun('unmasked');
+    // an older MCP server ignores `mask`: the raw answer is never saved, for any source
+    expect(capture(r2, 'GetSqlQuery', { sql_query: 'SELECT kunnr, name1 FROM kna1', mask: { salt: 'abc' } }, sqlResp(['KUNNR', 'NAME1'], [{ KUNNR: '1', NAME1: 'Real Person' }]), false)).toMatchObject({ error: expect.stringMatching(/without server masking/) });
     expect(existsSync(join(run, 'rows'))).toBe(false);
+    expect(readFileSync(join(run, 'capture.jsonl'), 'utf-8')).not.toMatch(/Real Person/);
   });
 
+  // the masking rules (the MCP server runs the same code, asserted by the shared vectors)
   it('masks by name, data element / domain, and default-denies unmapped columns', () => {
-    const { root, run } = setupRun('mask');
-    expect(capture(root, 'GetTable', { table_name: 'kna1' }, KNA1_ECC, false)).toMatchObject({ kind: 'ddic', fields: 4 });
-    const line = capture(root, 'GetSqlQuery', { sql_query: 'SELECT kunnr, name1, land1, zzcontact, zzother FROM kna1' },
-      sqlResp(['KUNNR', 'NAME1', 'LAND1', 'ZZCONTACT', 'ZZOTHER'], [{ KUNNR: '0000001', NAME1: 'Real Person', LAND1: 'KR', ZZCONTACT: 'me@example.com', ZZOTHER: 'free text' }]), false);
-    expect(line).toMatchObject({ kind: 'data', table: 'KNA1', source: 'dev', count: 1, masked: ['NAME1', 'ZZCONTACT', 'ZZOTHER'] });
-    const saved = JSON.parse(readFileSync(join(run, 'rows', 'KNA1.json'), 'utf-8'));
-    expect(saved.rows[0]).toMatchObject({ KUNNR: '0000001', LAND1: 'KR' });
-    expect(JSON.stringify(saved)).not.toMatch(/Real Person|me@example|free text/);
-    expect(JSON.parse(readFileSync(join(run, 'fingerprints.json'), 'utf-8'))).toContain(fingerprint('Real Person', 'abc'));
+    const ddic = ddicFromGetTable(KNA1_ECC)!;
+    const { rows, masked, fingerprints } = maskRows(
+      [{ KUNNR: '0000001', NAME1: 'Real Person', LAND1: 'KR', ZZCONTACT: 'me@example.com', ZZOTHER: 'free text' }], 'abc', [], { ddic },
+    );
+    expect(masked).toEqual(['NAME1', 'ZZCONTACT', 'ZZOTHER']);
+    expect(rows[0]).toMatchObject({ KUNNR: '0000001', LAND1: 'KR' });
+    expect(JSON.stringify(rows)).not.toMatch(/Real Person|me@example|free text/);
+    expect(fingerprints).toContain(fingerprint('Real Person', 'abc'));
+    // the capture keeps a server-masked answer as it came, for this run's salt
+    const { root, run } = setupRun('server-masked');
+    const answer = JSON.stringify({ rows, masking: { version: 'hmac-v1', default_deny: true, masked_columns: masked } });
+    expect(capture(root, 'GetSqlQuery', { sql_query: 'SELECT kunnr, name1, land1, zzcontact, zzother FROM kna1', mask: { salt: 'abc' } }, answer, false))
+      .toMatchObject({ kind: 'data', table: 'KNA1', source: 'dev', count: 1, masked: ['NAME1', 'ZZCONTACT', 'ZZOTHER'], server_masked: true });
+    expect(JSON.parse(readFileSync(join(run, 'rows', 'KNA1.json'), 'utf-8')).rows).toEqual(rows);
+    expect(existsSync(join(run, 'fingerprints.json'))).toBe(false);
   });
 
   // verifier repro 1: alias / computed column saved unmasked
   it('masks aliased columns by their source field, saves nothing for computed or UNION SELECTs', () => {
+    const ddic = ddicFromGetTable(KNA1_ECC)!;
+    const sel = parseSelect('SELECT kunnr, name1 AS n, land1 AS country FROM kna1');
+    const out = maskRows([{ KUNNR: '1', N: 'Hong Gildong', COUNTRY: 'KR' }], 'abc', [], { ddic, columns: sel.columns, star: sel.star });
+    expect(JSON.stringify(out.rows)).not.toMatch(/Hong Gildong/);
+    expect(out.masked).toEqual(['N']);
+    expect(out.rows[0].COUNTRY).toBe('KR');
     const { root, run } = setupRun('alias');
-    capture(root, 'GetTable', { table_name: 'KNA1' }, KNA1_ECC, false);
-    capture(root, 'GetSqlQuery', { sql_query: 'SELECT kunnr, name1 AS n, land1 AS country FROM kna1' },
-      sqlResp(['KUNNR', 'N', 'COUNTRY'], [{ KUNNR: '1', N: 'Hong Gildong', COUNTRY: 'KR' }]), false);
-    const saved = JSON.parse(readFileSync(join(run, 'rows', 'KNA1.json'), 'utf-8'));
-    expect(JSON.stringify(saved)).not.toMatch(/Hong Gildong/);
-    expect(saved.masked).toEqual(['N']);
-    expect(saved.rows[0].COUNTRY).toBe('KR');
+    const masked = JSON.stringify({ rows: [{ KUNNR: '2', LAND1: 'MXX' }], masking: { version: 'hmac-v1', default_deny: true, masked_columns: ['LAND1'] } });
     for (const sql of ['SELECT kunnr, concat( name1, land1 ) AS full FROM kna1', 'SELECT kunnr, land1 FROM kna1 UNION SELECT kunnr, name1 FROM kna1']) {
-      expect(capture(root, 'GetSqlQuery', { sql_query: sql }, sqlResp(['KUNNR', 'LAND1'], [{ KUNNR: '2', LAND1: 'Kim Chulsoo' }]), false)).toMatchObject({ error: expect.stringMatching(/SELECT not saved/) });
+      expect(capture(root, 'GetSqlQuery', { sql_query: sql, mask: { salt: 'abc' } }, masked, false)).toMatchObject({ error: expect.stringMatching(/SELECT not saved/) });
     }
-    expect(readFileSync(join(run, 'rows', 'KNA1.json'), 'utf-8')).not.toMatch(/Kim Chulsoo/);
+    expect(existsSync(join(run, 'rows'))).toBe(false);
   });
 
   // verifier repro 2: array rows without column names → COLn keys, nothing masked
@@ -444,13 +454,14 @@ describe('guard and CLI', () => {
     const r = spawnSync(process.execPath, [join(ROOT, 'scripts/program-test/pt.mjs'), 'init', 'ZP', '--source', 'qa', '--root', root], { encoding: 'utf-8', env: { ...process.env, SC4SAP_HOME_DIR: join(tmp, 'home') } });
     expect(r.status).toBe(5);
     expect(r.stderr).toMatch(/SM59/);
-    // production is refused until the MCP read tools mask personal values themselves
+    // production: locked until the masking MCP release is pinned and installed (MASKING_RELEASE_PINNED)
     writeFileSync(join(root, '.sc4sap', 'config.json'), JSON.stringify({ sapVersion: 'ECC', testDataSources: { prd: 'PRD100' } }));
     const prd = spawnSync(process.execPath, [join(ROOT, 'scripts/program-test/pt.mjs'), 'init', 'ZP', '--source', 'prd', '--root', root], { encoding: 'utf-8', env: { ...process.env, SC4SAP_HOME_DIR: join(tmp, 'home') } });
+    expect(MASKING_RELEASE_PINNED).toBe(false);
     expect(prd.status).toBe(7);
-    expect(prd.stderr.trim().split('\n')).toHaveLength(1);
-    expect(prd.stderr).toMatch(/Production rows are not used yet.*QA or DEV/);
-    expect(checkPlan({ source: 'prd', destination: 'PRD100', tables: [{ table: 'EKPO', fields: ['EBELN'], where: "EBELN = '1'", cases: ['C01'] }] })).toEqual([expect.stringMatching(/^Production rows are not used yet/)]);
+    expect(prd.stderr.trim()).toBe(PRD_LOCKED);
+    expect(checkPlan({ source: 'prd', destination: 'PRD100', tables: [{ table: 'EKPO', fields: ['EBELN'], where: "EBELN = '1'", cases: ['C01'] }] })).toEqual([PRD_LOCKED]);
+    expect(checkPlan({ source: 'prd', destination: 'PRD100', tables: [{ table: 'EKPO', fields: ['EBELN'], cases: ['C01'] }] }).join()).toMatch(/WHERE on key/);
     const ok = spawnSync(process.execPath, [join(ROOT, 'scripts/program-test/pt.mjs'), 'init', 'ZP', '--source', 'dev', '--root', root], { encoding: 'utf-8', env: { ...process.env, SC4SAP_HOME_DIR: join(tmp, 'home') } });
     expect(ok.status).toBe(0);
     expect(existsSync(activePath(root))).toBe(true);
@@ -464,5 +475,91 @@ describe('guard and CLI', () => {
     expect(existsSync(join(runDir, 'state.json'))).toBe(true);
     const bad = spawnSync(process.execPath, [join(ROOT, 'scripts/program-test/pt.mjs'), 'init', '--program', 'ABC;rm', '--root', root], { encoding: 'utf-8' });
     expect(bad.status).toBe(3);
+  });
+});
+
+describe('server-side masking (MCP mask argument)', () => {
+  const V = JSON.parse(readFileSync(join(ROOT, 'tests', 'validation', 'fixtures', 'mask-vectors.json'), 'utf-8'));
+
+  it('pt-lib follows the shared masking rules the MCP server asserts too', () => {
+    expect([...PERSONAL_EXACT].sort()).toEqual(V.lists.exact);
+    expect([...PERSONAL_DTEL].sort()).toEqual(V.lists.dtel);
+    expect([...PERSONAL_DOMAIN].sort()).toEqual(V.lists.domain);
+    for (const c of V.refused_tables) expect(isRefusedTable(c.table)).toBe(c.refused);
+    for (const c of V.strict_select) {
+      const r = parseSelect(c.sql);
+      expect(r.ok).toBe(c.ok);
+      if (r.ok) expect([...r.columns]).toEqual(c.columns);
+    }
+    const sel = parseSelect(V.mask_rows_select.sql);
+    expect(maskRows(V.mask_rows_select.rows, V.salt, V.mask_rows_select.extra, { ddic: V.ddic, columns: sel.columns, star: sel.star }).masked).toEqual(V.mask_rows_select.expected_masked);
+    expect(maskRows(V.mask_rows_plain.rows, V.salt, [], { ddic: V.ddic }).masked).toEqual(V.mask_rows_plain.expected_masked);
+    // tokens are the server's (HMAC with its own key): not in the shared vectors
+    expect(Object.keys(V)).not.toContain('mask_value');
+  });
+
+  function run(name: string, source = 'dev', extra: string[] = []) {
+    const root = join(tmp, name);
+    const runDir = join(root, '.sc4sap', 'program', 'ZP', 'test', 'R1');
+    mkdirSync(runDir, { recursive: true });
+    writeFileSync(join(runDir, 'state.json'), JSON.stringify({ program: 'ZP', source, destination: source === 'dev' ? null : 'PRD100', salt: SALT, mask_extra: extra }));
+    mkdirSync(join(root, '.sc4sap', 'program-test'), { recursive: true });
+    writeFileSync(activePath(root), JSON.stringify({ run_dir: runDir }));
+    return { root, runDir };
+  }
+  const SALT = '0123456789abcdef0123456789abcdef';
+  const sap = (tool: string, input: unknown, cwd: string) => ({ tool_name: `mcp__plugin_sc4sap_sap__${tool}`, tool_input: input, cwd });
+  const masked = (rows: Record<string, string>[], cols: string[], version = 'hmac-v1') => JSON.stringify({ table: 'X', rows, masking: { version, default_deny: true, masked_columns: cols, ddic_fields: 3 } });
+
+  it('the read gate: no run → allow; run → the run\'s mask is required', () => {
+    expect(gate(sap('GetSqlQuery', { sql_query: 'SELECT kunnr FROM kna1' }, join(tmp, 'nothing-here')))).toBeNull();
+    const { root } = run('gate-dev', 'dev', ['ZZNOTE']);
+    expect(gate(sap('GetSqlQuery', { sql_query: 'SELECT kunnr FROM kna1' }, root))).toMatch(/must be masked by the MCP server/);
+    expect(gate(sap('GetTableContents', { table_name: 'KNA1', mask: { salt: 'ffff' } }, root))).toMatch(/pass mask/);
+    expect(gate(sap('GetTableContents', { table_name: 'KNA1', mask: { salt: SALT } }, root))).toMatch(/lacks ZZNOTE/);
+    expect(gate(sap('GetTableContents', { table_name: 'KNA1', mask: { salt: SALT, extra_fields: ['zznote'] } }, root))).toBeNull();
+    expect(gate(sap('GetProgram', { program_name: 'ZP' }, root))).toBeNull();
+    expect(gate({ tool_name: 'Bash', tool_input: {}, cwd: root })).toBeNull();
+  });
+
+  it('the gate fails closed inside a run', () => {
+    const { root, runDir } = run('gate-closed', 'dev');
+    const read = sap('GetTableContents', { table_name: 'KNA1', mask: { salt: SALT } }, root);
+    expect(gate(read)).toBeNull();
+    writeFileSync(join(runDir, 'state.json'), '{ broken');
+    expect(gate(read)).toMatch(/state unreadable/);
+    writeFileSync(activePath(root), 'not json');
+    expect(gate(read)).toMatch(/marker unreadable/);
+    // the hook process: a payload it cannot decide on inside a run is denied, not allowed
+    const r = spawnSync(process.execPath, [join(ROOT, 'scripts/program-test/pt-gate.mjs')], { input: JSON.stringify(read), encoding: 'utf-8' });
+    expect(JSON.parse(r.stdout).hookSpecificOutput?.permissionDecision).toBe('deny');
+  });
+
+  it('production reads wait for proof that the server masks', () => {
+    const { root, runDir } = run('gate-prd', 'prd');
+    const read = sap('GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRD100', mask: { salt: SALT } }, root);
+    expect(gate(read)).toMatch(/need proof that the MCP server masks/);
+    // an old server ignores `mask`: the probe comes back unmasked → still no proof
+    capture(root, 'GetSqlQuery', { sql_query: 'SELECT mandt FROM t000', mask: { salt: SALT } }, JSON.stringify({ rows: [{ MANDT: '100' }] }), false);
+    expect(serverMaskingProven(runDir)).toBe(false);
+    expect(gate(read)).toMatch(/need proof/);
+    // a masked probe proves it
+    capture(root, 'GetSqlQuery', { sql_query: 'SELECT mandt FROM t000', mask: { salt: SALT } }, masked([{ MANDT: '100' }], []), false);
+    expect(serverMaskingProven(runDir)).toBe(true);
+    expect(gate(read)).toBeNull();
+  });
+
+  it('capture keeps server-masked rows as they came, for this salt only; production rows must be server-masked', () => {
+    const { root, runDir } = run('cap-prd', 'prd');
+    expect(capture(root, 'GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRD100' }, JSON.stringify({ rows: [{ EBELN: '45', ERNAM: 'REALUSER' }] }), false)).toMatchObject({ error: expect.stringMatching(/without server masking/) });
+    expect(existsSync(join(runDir, 'rows', 'EKPO.json'))).toBe(false);
+    expect(capture(root, 'GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRD100' }, masked([{ EBELN: '45', ERNAM: 'MAB12' }], ['ERNAM'], 'sha-v0'), false)).toMatchObject({ error: expect.stringMatching(/without server masking/) });
+    const ok = capture(root, 'GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRD100' }, masked([{ EBELN: '45', ERNAM: 'MAB12' }], ['ERNAM']), false);
+    expect(ok).toMatchObject({ kind: 'data', table: 'EKPO', source: 'prd', count: 1, masked: ['ERNAM'], server_masked: true, mask_version: 'hmac-v1' });
+    const saved = JSON.parse(readFileSync(join(runDir, 'rows', 'EKPO.json'), 'utf-8'));
+    expect(saved.rows).toEqual([{ EBELN: '45', ERNAM: 'MAB12' }]);
+    expect(existsSync(join(runDir, 'fingerprints.json'))).toBe(false);
+    // the strict SELECT grammar still applies to server-masked answers
+    expect(capture(root, 'GetSqlQuery', { sql_query: 'SELECT ebeln FROM ekpo UNION SELECT ernam FROM ekpo' }, masked([{ EBELN: 'x' }], []), false)).toMatchObject({ error: expect.stringMatching(/SELECT not saved/) });
   });
 });

@@ -35,7 +35,7 @@ The tool never guesses a destination. Called without one, it returns this list s
 
 ## Test data sources
 
-`config.json` → `testDataSources` names which SM59 destination `/sc4sap:program-test` uses for QA rows: `{ "qa": "<DEST>", "prd": "<DEST>" }`. `prd` may be stored but is not used yet — program-test refuses production rows until the MCP read tools mask personal values themselves. It is separate from `remoteDestinations` because that list has no role.
+`config.json` → `testDataSources` names which SM59 destination `/sc4sap:program-test` uses for QA rows and for production rows: `{ "qa": "<DEST>", "prd": "<DEST>" }`. Production reads stay locked in program-test until the MCP release that masks with its own key is pinned and installed; program-test checks that itself. It is separate from `remoteDestinations` because that list has no role.
 
 1. Show both values (`-` when unset).
 2. Offer, via `AskUserQuestion`: set QA, set PRD, clear one. Offer the saved `remoteDestinations` as picks plus free entry.

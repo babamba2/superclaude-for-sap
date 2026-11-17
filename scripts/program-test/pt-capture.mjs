@@ -3,20 +3,20 @@
  *
  * While a program-test run is active (`.sc4sap/program-test/active.json`), the rows of every
  * table read (GetTableContents / GetSqlQuery on DEV, GetRemoteTableContents on QA / PRD) are
- * masked here and saved under the run folder, and the source of GetProgram / GetInclude is
- * saved as read. So test data and source come from the MCP response, never from agent text,
- * and unmasked personal values never reach disk (only salted fingerprints, to find leaks).
+ * saved under the run folder — only when the MCP server masked them (`mask` argument, its
+ * `masking` block for this run's salt); an unmasked answer is never saved, whatever the source.
+ * The source of GetProgram / GetInclude is saved as read, and GetTable's field list under ddic/
+ * (for spotting custom personal fields). So test data and source come from the MCP response,
+ * never from agent text, and personal values never reach disk.
  *
- * Masking is default-deny: rows are saved only for a table whose DDIC (GetTable during the run)
- * is captured; a column is kept only when it maps to a non-personal field of that table (by name,
- * data element or domain — aliases resolved from the SELECT list), everything else is masked.
  * Personal / credential tables (FROM or JOIN, sub-queries included) are discarded at capture, and a
  * GetSqlQuery is saved only when it parses under the strict SELECT grammar of parseSelect (allow-list).
+ * The read gate (pt-gate.mjs) denies an unmasked read before it runs.
  */
 
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
-import { ddicFromGetTable, extractRows, isRefusedTable, maskRows, parseSelect, sha, tablesInSql } from './pt-lib.mjs';
+import { ddicFromGetTable, extractRows, isRefusedTable, MASK_VERSIONS, parseSelect, sha, tablesInSql } from './pt-lib.mjs';
 
 const DATA_TOOLS = new Set(['GetTableContents', 'GetSqlQuery', 'GetRemoteTableContents']);
 const SRC_TOOLS = new Set(['GetProgram', 'GetInclude']);
@@ -92,11 +92,24 @@ export function capture(root, handler, input, text, isError, now = new Date()) {
   // allow-list: rows of a SELECT are saved only when it parses under the strict grammar
   if (sql && !sql.ok) return log({ ...base, kind: 'data', table, source, error: `SELECT not saved — ${sql.why}; use one table, plain fields, a simple WHERE` });
   if (!table) return log({ ...base, kind: 'data', source, error: 'no table — nothing saved' });
-  const ddic = readJson(join(active.run_dir, 'ddic', `${table.replace(/\//g, '#')}.json`), null)?.fields;
-  if (!ddic) return log({ ...base, kind: 'data', table, source, error: `no DDIC for ${table} — call GetTable ${table} first (masking needs it); nothing saved` });
   const parsed = extractRows(text);
   if (!parsed) return log({ ...base, kind: 'data', table, source, error: 'rows not parsed — nothing saved' });
-  const { rows, masked, fingerprints } = maskRows(parsed.rows, state.salt, state.mask_extra || [], { ddic, columns: sql ? sql.columns : null, star: sql ? sql.star : false });
+  // Masked by the MCP server (`mask` argument, HMAC tokens under its own key): stored as they
+  // came. The gate made sure the call carried this run's salt; the plugin never makes tokens.
+  let top = null;
+  try {
+    top = JSON.parse(text);
+  } catch {
+    top = null;
+  }
+  const masking = top && typeof top === 'object' && top.masking && typeof top.masking === 'object' ? top.masking : null;
+  if (!masking || !MASK_VERSIONS.includes(masking.version) || masking.default_deny !== true || !Array.isArray(masking.masked_columns)) {
+    // An answer the server did not mask (an older MCP server ignores `mask`) is never saved,
+    // whatever the source — the run ends INCOMPLETE.
+    return log({ ...base, kind: 'data', table, source, error: 'rows without server masking — nothing saved (the MCP server must support `mask`)' });
+  }
+  const rows = parsed.rows;
+  const masked = masking.masked_columns.map(String);
   const dir = join(active.run_dir, 'rows');
   mkdirSync(dir, { recursive: true });
   const file = join(dir, `${table.replace(/\//g, '#')}.json`);
@@ -110,11 +123,5 @@ export function capture(root, handler, input, text, isError, now = new Date()) {
   prev.masked = [...new Set([...prev.masked, ...masked])].sort();
   prev.reads.push({ t: base.t, tool: handler, destination: input.destination || null, where: input.where || input.sql_query || null, count: rows.length, sha256: base.sha256 });
   writeFileSync(file, JSON.stringify(prev, null, 2) + '\n', 'utf-8');
-  if (fingerprints.length) {
-    const fpFile = join(active.run_dir, 'fingerprints.json');
-    const fp = new Set(readJson(fpFile, []));
-    for (const f of fingerprints) fp.add(f);
-    writeFileSync(fpFile, JSON.stringify([...fp].slice(-20000)) + '\n', 'utf-8');
-  }
-  return log({ ...base, kind: 'data', table, source, count: rows.length, masked });
+  return log({ ...base, kind: 'data', table, source, count: rows.length, masked, server_masked: true, mask_version: masking.version });
 }

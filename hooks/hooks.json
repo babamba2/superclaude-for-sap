@@ -67,6 +67,16 @@
         ]
       },
       {
+        "matcher": "mcp__(plugin_sc4sap_sap|mcp-abap-adt)__(GetTableContents|GetRemoteTableContents|GetSqlQuery)",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PLUGIN_ROOT\"/scripts/program-test/pt-gate.mjs",
+            "timeout": 5
+          }
+        ]
+      },
+      {
         "matcher": "Write|Edit|MultiEdit|NotebookEdit|Bash|PowerShell",
         "hooks": [
           {

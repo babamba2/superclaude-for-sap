@@ -10,11 +10,6 @@
 import { createHash } from 'node:crypto';
 
 export const SOURCES = ['dev', 'qa', 'prd'];
-/**
- * Production is refused until the table-read tools mask personal values inside the MCP server:
- * today the raw response reaches the model once before the capture hook masks it.
- */
-export const PRD_REFUSED = 'Production rows are not used yet: until the MCP read tools mask personal values themselves, the raw rows would pass through the model — use QA or DEV data.';
 export const MAX_ROUNDS = 5;
 export const ROW_CAP_DEFAULT = 20;
 export const ROW_CAP_MAX = 200;
@@ -27,7 +22,7 @@ export const srcSha = (s) => sha(String(s ?? '').replace(/\r/g, '').split('\n').
 // ── personal data ───────────────────────────────────────────────────────
 
 /** Field names holding personal data: names, address, contact, bank, tax / ID numbers, birth data, user IDs. */
-const PERSONAL_EXACT = new Set([
+export const PERSONAL_EXACT = new Set([
   'NAME1', 'NAME2', 'NAME3', 'NAME4', 'NAME_CO', 'NAMEV', 'NAME_FIRST', 'NAME_LAST', 'NAME_LST2', 'NAME_TEXT', 'NAMEMIDDLE',
   'NAME_ORG1', 'NAME_ORG2', 'NAME_ORG3', 'NAME_ORG4', 'MC_NAME1', 'MC_NAME2', 'MCOD1', 'MCOD2', 'SORTL', 'SORT1', 'SORT2', 'ENAME', 'VORNA', 'NACHN', 'RUFNM',
   'STRAS', 'STREET', 'STR_SUPPL1', 'STR_SUPPL2', 'STR_SUPPL3', 'HOUSE_NUM1', 'HOUSE_NUM2', 'PFACH', 'PSTL2', 'PO_BOX', 'ORT01', 'ORT02', 'CITY1', 'CITY2', 'MC_STREET', 'MC_CITY1',
@@ -43,7 +38,7 @@ const DATE_FIELDS = new Set(['GBDAT', 'BIRTHDT']);
 const REFUSED_TABLES = [/^PA\d{4}$/, /^PB\d{4}$/, /^HRP\d{4}$/, /^PCL\d$/, /^USR\d\d$/, /^USH\d\d$/, /^UST\d\d$/, /^AGR_/, /^RSECTAB$/, /^RSECSTORE/, /^SSF_PSE/, /^ADR[2-6]$/, /^ADRP$/, /^BUT0ID$/, /^KNBK$/, /^LFBK$/, /^BUT0BK$/, /^TIBAN$/, /^PCA_/];
 
 /** Data elements / domains of personal data (checked on the source field's DDIC, so renamed or custom fields are caught). */
-const PERSONAL_DTEL = new Set([
+export const PERSONAL_DTEL = new Set([
   'NAME1_GP', 'NAME2_GP', 'NAME3_GP', 'NAME4_GP', 'NAME1', 'NAME2', 'AD_NAME1', 'AD_NAME2', 'AD_NAME3', 'AD_NAME4', 'AD_NAMEFIR', 'AD_NAMELAS', 'AD_NAMEMID', 'AD_NAME_CO', 'AD_NAMTEXT',
   'BU_NAMEP_F', 'BU_NAMEP_L', 'BU_NAMEOR1', 'BU_NAMEOR2', 'BU_NAMEOR3', 'BU_NAMEOR4', 'BU_NAMEPL2', 'BU_MCNAME1', 'BU_MCNAME2', 'NAMEV_VP', 'NAME1_VP', 'EMNAM', 'PAD_VORNA', 'PAD_NACHN', 'VORNA', 'NACHN',
   'STRAS_GP', 'AD_STREET', 'AD_STRSPP1', 'AD_STRSPP2', 'AD_STRSPP3', 'AD_HSNM1', 'AD_HSNM2', 'ORT01_GP', 'ORT02_GP', 'AD_CITY1', 'AD_CITY2', 'PFACH', 'AD_POBX', 'AD_MC_STRT', 'AD_MC_CITY',
@@ -52,7 +47,7 @@ const PERSONAL_DTEL = new Set([
   'GBDAT', 'GBDAT_GP', 'BU_BIRTHDT', 'BU_BIRTHPL', 'GBORT', 'PERID', 'ICNUM', 'PRDNI', 'PERNR_D', 'P_PERNR', 'PERSNO', 'GESCH', 'BU_SEXID',
   'ERNAM', 'AENAM', 'USNAM', 'UNAME', 'XUBNAME', 'SYUNAME', 'BNAME', 'CRUSR', 'CHUSR', 'ABP_CREATION_USER', 'ABP_LASTCHANGE_USER', 'VDM_CREATEDBYUSERID', 'VDM_LASTCHANGEDBYUSERID',
 ]);
-const PERSONAL_DOMAIN = new Set(['AD_SMTPADR', 'AD_TLNMBR', 'AD_FXNMBR', 'XUBNAME', 'USNAM', 'PERNR', 'BANKN', 'IBAN', 'STCD1', 'STCD2', 'STCD3', 'STCEG', 'GBDAT', 'BU_BIRTHDT', 'TELF1', 'AD_STREET', 'AD_NAME', 'NAME', 'ORT01', 'STRAS']);
+export const PERSONAL_DOMAIN = new Set(['AD_SMTPADR', 'AD_TLNMBR', 'AD_FXNMBR', 'XUBNAME', 'USNAM', 'PERNR', 'BANKN', 'IBAN', 'STCD1', 'STCD2', 'STCD3', 'STCEG', 'GBDAT', 'BU_BIRTHDT', 'TELF1', 'AD_STREET', 'AD_NAME', 'NAME', 'ORT01', 'STRAS']);
 
 export function isPersonalField(name, extra = [], ddic = null) {
   const n = up(name);
@@ -199,6 +194,17 @@ export function maskValue(value, field, salt) {
 /** Salted fingerprint of a raw personal value — kept so a leak into harness source can be found without keeping the value. */
 export const fingerprint = (value, salt) => sha(`fp|${salt}|${String(value).trim()}`);
 
+/** Token schemes of the MCP server's `mask` (`masking.version`) this plugin accepts. */
+export const MASK_VERSIONS = ['hmac-v1'];
+
+/**
+ * Production test data stays locked until the MCP release with HMAC masking is pinned and
+ * installed (flipped only in that release commit, after the user's OK). The read gate's
+ * masked-probe proof applies on top at run time.
+ */
+export const MASKING_RELEASE_PINNED = false;
+export const PRD_LOCKED = 'Production rows are locked until the MCP release that masks with its own key is pinned and installed — use QA or DEV data.';
+
 /**
  * Mask every personal column of the rows. Default-deny when `opts.ddic` is given: a column is kept
  * only if it maps (through `opts.columns`, alias → source field, or by its own name) to a DDIC field
@@ -281,7 +287,7 @@ function safeJson(s) {
 export function checkPlan(plan, caseIds = []) {
   const p = [];
   if (!SOURCES.includes(plan?.source)) p.push(`source must be one of ${SOURCES.join(' / ')}`);
-  if (plan?.source === 'prd') p.push(PRD_REFUSED);
+  if (plan?.source === 'prd' && !MASKING_RELEASE_PINNED) p.push(PRD_LOCKED);
   if (plan?.source !== 'dev' && !String(plan?.destination || '').trim()) p.push(`source ${plan?.source} needs the SM59 destination from config.json → testDataSources.${plan?.source}`);
   if (plan?.source === 'dev' && plan?.destination) p.push('source dev reads the connected system — no destination');
   const tables = Array.isArray(plan?.tables) ? plan.tables : [];
