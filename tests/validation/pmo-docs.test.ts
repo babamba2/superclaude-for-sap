@@ -193,6 +193,9 @@ describe('manual document', () => {
     const back = manualDocFromPage(html)!;
     expect(back.manual.program).toBe(example.program);
     expect(back.version).toBe('1.2');
+    // the stored revisions ride in the page, so a save through the page contract keeps them
+    expect(back.history.map((h) => h.version)).toEqual(['1.0']);
+    expect(html.match(/id="manual-source"/g)?.length).toBe(1);
     expect(manualDocFromPage('<html></html>')).toBeNull();
     expect(manualDocId(example)).toBe(`${example.program}-${example.lang || 'ko'}`);
     expect(checkManualDoc(doc).errors).toEqual([]);

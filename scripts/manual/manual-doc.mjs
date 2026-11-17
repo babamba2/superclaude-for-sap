@@ -70,8 +70,15 @@ export function checkManualDoc(doc) {
 export function manualDocPage(doc, { date = '' } = {}) {
   const d = normalizeManualDoc(doc);
   const last = d.history.at(-1);
-  return renderManualHtml(d.manual, { version: d.version, date: date || last?.date || today(), config: { ...(d.manual.meta || {}) }, history: d.history });
+  const html = renderManualHtml(d.manual, { version: d.version, date: date || last?.date || today(), config: { ...(d.manual.meta || {}) }, history: d.history });
+  // The page's source carries the stored revisions too, so the page contract (SC4SAP_PAGE.model) hands the whole
+  // history back on every save instead of dropping it (the CLI page carries { manual, version } only).
+  const SRC = /(<script type="application\/json" id="manual-source">)[\s\S]*?(<\/script>)/;
+  return html.replace(SRC, (_, open, close) => `${open}${embed({ manual: d.manual, version: d.version, history: d.history })}${close}`);
 }
+
+/** JSON inside <script>: every < escaped, as build-manual's embedJson. */
+const embed = (v) => JSON.stringify(v).replace(/</g, '\\u003c');
 
 // ── AI proposals ────────────────────────────────────────────────────────────────────────────────────────────
 /** Paths of the manual's prose. A proposal may set exactly these, on rows that already exist. */
