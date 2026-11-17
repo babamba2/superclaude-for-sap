@@ -376,3 +376,29 @@ describe('smartform-preview: a table printed in a sort event takes its own group
     expect([...flat.matchAll(/Sub (\d+) ([A-Z]{3})/g)].length).toBe(2);
   });
 });
+
+describe('smartform-preview: values.unvalued "blank" (comparing with a print of real data)', () => {
+  it('prints a symbol without a value as nothing; by default as its &NAME& placeholder', () => {
+    const c = { ...CONTENT, pages: [{ ...CONTENT.pages[0], windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 10, topMm: 30, widthMm: 190, heightMm: 200, content: [
+      text('%T1', 'AA', 'Doc &GS_HD-BIL_NUMBER& for &GS_HD-PAYER&'),
+    ] }] }] };
+    const vals = { 'GS_HD-BIL_NUMBER': 'ZZ1' };
+    const def = new Renderer(c, { values: vals }).page().html as string;
+    expect(def).toContain('&amp;GS_HD-PAYER&amp;');
+    const r = new Renderer(c, { values: vals, unvalued: 'blank' });
+    const blank = r.page().html as string;
+    expect(blank).toContain('Doc ZZ1 for ');
+    expect(blank).not.toContain('GS_HD-PAYER&amp;');
+    expect([...r.unfilled]).toContain('GS_HD-PAYER');
+  });
+});
+
+describe('smartform-preview: an address with no address number in compare mode', () => {
+  it('prints nothing with values.unvalued "blank" and the placeholder box otherwise', () => {
+    const addr = { kind: 'address', name: 'CUSTADDRESS', caption: 'Customer Address', children: [], attrs: { NUMB: '&ADRNR&' } };
+    const c = { ...CONTENT, pages: [{ ...CONTENT.pages[0], windows: [{ name: 'W', type: 'SECONDARY', leftMm: 10, topMm: 30, widthMm: 90, heightMm: 40, content: [addr] }] }] };
+    expect(new Renderer(c, { values: {} }).page().html as string).toContain('address Customer Address');
+    expect(new Renderer(c, { values: {}, unvalued: 'blank' }).page().html as string).not.toContain('address Customer Address');
+    expect(new Renderer(c, { values: { ADRNR: '0000012345' }, unvalued: 'blank' }).page().html as string).toContain('address Customer Address');
+  });
+});

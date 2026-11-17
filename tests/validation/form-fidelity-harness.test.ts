@@ -83,3 +83,15 @@ describe('form fidelity harness: arguments and summaries', () => {
     expect(r.summary.passed98).toEqual(['A', 'B']);
   });
 });
+
+describe('form fidelity harness: program-line globals and statements the runner skips', () => {
+  it('passes the globals the code filled into the values (not loop work areas) and counts what it skipped', () => {
+    const x = `<x>${code('READ_HD', ['CLEAR GS_HD.', 'GS_HD = IS_X-HD.', 'SELECT * FROM NAST INTO TABLE LT.'])}</x>`;
+    const c = { pages: [{ windows: [{ name: 'MAIN', type: 'MAIN', content: [{ kind: 'code', name: 'READ_HD', children: [] },
+      { kind: 'loop', name: 'L', dataTable: 'IS_X-IT', attrs: { TABHEADER: 'GS_IT' }, children: [] }] }] }] };
+    const r = sampleValues(c, x, { IS_X: { HD: { NUMBER: 'ZZ1' }, IT: [{ ITM: '10' }] } }, {}, '');
+    expect(r.values['GS_HD-NUMBER']).toBe('ZZ1');
+    expect(r.values['GS_IT-ITM']).toEqual(['10']);
+    expect(r.notes.join(' ')).toMatch(/1 program-line statement\(s\) not run/);
+  });
+});

@@ -35,8 +35,12 @@ statements only, `runInitCoding`):
 - a loop with sort events runs per group (sort-begin code, the group's rows, sort-end code), and a table printed in a
   sort-end event is kept per group (values as one array per group);
 - rows are sorted as `build-preview.mjs` sorts them (new table / loop by the sort field, an old 4.6 table as given);
+- statements the runner cannot run (SELECT, CALL FUNCTION …) are skipped and counted; the globals the code filled join
+  the values;
 - a node whose condition is decided false runs no code. EQ / NE against a scalar interface value is decided; anything
-  else (OP2 `INITIAL`, an OP1 that is no interface value) is undecidable and runs.
+  else (OP2 `INITIAL`, an OP1 that is no interface value) is undecidable and runs;
+- the values file asks for `unvalued: 'blank'`: a field the data leaves out prints as nothing, as SAP prints an
+  initial field.
 
 ## Examples
 

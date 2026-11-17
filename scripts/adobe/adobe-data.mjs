@@ -122,10 +122,37 @@ function abapStatements(lines) {
  *  Anything else stops it: { ok: false, reason }, nothing of this run is kept. On success: { ok: true, tables, vars }
  *  (the tables it filled, its work areas). COLLECT sums the numeric fields (numbers in the data, or numeric DDIC types)
  *  over equal values of all other fields. values: the sample values; state: { tables, vars } of an earlier run (program
- *  lines of one form share their globals). */
-export function runInitCoding(lines, values = {}, ddic = {}, state = {}) {
+ *  lines of one form share their globals). Deep names (A-B-C) walk structures and tables of structures: a whole
+ *  structure is assigned or MOVE-CORRESPONDING'd, a table component is LOOP'd (WHERE f = x [AND …]) or READ (WITH KEY
+ *  f = x … INTO wa; BINARY SEARCH ignored) — SAP's billing form LB_BIL_INVOICE copies IS_BIL_INVOICE-HD_GEN into
+ *  GS_HD_GEN that way. opts.lenient: an unsupported statement is skipped (a block statement with its block) and listed
+ *  in skipped instead of stopping the run — for comparison harnesses; the preview itself stays strict. */
+export function runInitCoding(lines, values = {}, ddic = {}, state = {}, opts = {}) {
   const stmts = abapStatements(lines);
+  const skipped = [];
   const get = (name) => { const k = Object.keys(values).find((x) => up(x) === up(name)); return k === undefined ? undefined : values[k]; };
+  const field = (o, k) => { if (o === null || o === undefined || typeof o !== 'object') return undefined; const kk = Object.keys(o).find((x) => up(x) === up(k)); return kk === undefined ? undefined : o[kk]; };
+  // a name or path: work areas and filled tables first, then the values; "A-B-C" walks structures
+  const read = (path) => {
+    const [head, ...rest] = String(path).split('-');
+    let v = vars[up(head)] ?? tables[up(head)] ?? get(head);
+    for (const r of rest) v = field(v, r);
+    return v;
+  };
+  const clone = (v) => (v === undefined ? undefined : JSON.parse(JSON.stringify(v)));
+  const upKeys = (o) => Object.fromEntries(Object.entries(o || {}).map(([a, c]) => [up(a), c]));
+  const value = (src) => {
+    const lit = /^'([^']*)'$/.exec(src);
+    if (lit) return lit[1];
+    if (/^-?\d+(?:\.\d+)?$/.test(src)) return Number(src);
+    return clone(read(src));
+  };
+  // "f = x AND g = y" (also "f = x g = y" as READ TABLE writes it) → a row test; x / y a literal, number or name / path
+  const keyTest = (expr) => {
+    const parts = [...String(expr).replace(/ AND /gi, ' ').matchAll(/(\w+) ?(?:=|EQ) ?('[^']*'|-?\d+(?:\.\d+)?|[\w-]+)/gi)];
+    if (!parts.length) return null;
+    return (row) => parts.every((p) => String(field(row, p[1]) ?? '') === String(value(p[2]) ?? ''));
+  };
   const tables = JSON.parse(JSON.stringify(state.tables || {}));
   const vars = JSON.parse(JSON.stringify(state.vars || {}));
   const NUM = /^(CURR|QUAN|DEC|INT1|INT2|INT4|INT8|FLTP|P|I|F)$/;
@@ -154,12 +181,16 @@ export function runInitCoding(lines, values = {}, ddic = {}, state = {}) {
       let m;
       if (/^(DATA|TYPES|CONSTANTS|FIELD-SYMBOLS)\b/i.test(s)) continue;
       // INTO a work area or ASSIGNING a field symbol (the G5 initSumByKey template of ZMCP_FP_MIGRATE): the row either way
-      if ((m = /^LOOP AT (\w+) (?:INTO (\w+)|ASSIGNING (<\w+>))$/i.exec(s))) {
+      if ((m = /^LOOP AT ((?:\w+)(?:-\w+)*) (?:INTO (\w+)|ASSIGNING (<\w+>))(?: WHERE (.+))?$/i.exec(s))) {
         const b = close(k, to, /^LOOP AT /i, /^ENDLOOP$/i);
         if (!b) return fail('LOOP without ENDLOOP');
-        const rows = tables[up(m[1])] ?? get(m[1]);
-        if (!Array.isArray(rows)) return fail(`LOOP AT ${up(m[1])}: no table in the values`);
-        for (const row of rows.slice()) {
+        const rows = m[1].includes('-') ? read(m[1]) : tables[up(m[1])] ?? get(m[1]);
+        const where = m[4] ? keyTest(m[4]) : () => true;
+        if (!Array.isArray(rows) || !where) {
+          if (opts.lenient) { skipped.push(s); k = b.e; continue; }
+          return fail(`LOOP AT ${up(m[1])}: ${where ? 'no table in the values' : 'WHERE not supported'}`);
+        }
+        for (const row of rows.slice().filter(where)) {
           vars[up(m[2] || m[3])] = Object.fromEntries(Object.entries(row || {}).map(([a, c]) => [up(a), c]));
           const r = exec(k + 1, b.e);
           if (r) return r;
@@ -189,6 +220,27 @@ export function runInitCoding(lines, values = {}, ddic = {}, state = {}) {
         tgt[up(m[2])] = m[3] ? (vars[up(m[3])] || get(m[3]) || {})[up(m[4])] : m[5] !== undefined ? m[5] : Number(m[6]);
         continue;
       }
+      // deeper paths and whole names: x = A-B-C, x-f = A-B-C, x = A (a structure copied whole, a table as a table)
+      if ((m = /^(\w+)(?:-(\w+))? = ((?:\w+)(?:-\w+)*|'[^']*'|-?\d+(?:\.\d+)?)$/i.exec(s))) {
+        const v = value(m[3]);
+        if (m[2]) (vars[up(m[1])] ||= {})[up(m[2])] = v;
+        else if (Array.isArray(v)) tables[up(m[1])] = v.map(upKeys);
+        else vars[up(m[1])] = v !== null && typeof v === 'object' ? upKeys(v) : v;
+        continue;
+      }
+      if ((m = /^MOVE-CORRESPONDING ((?:\w+)(?:-\w+)*) TO (\w+)$/i.exec(s))) {
+        const v = read(m[1]);
+        if (v && typeof v === 'object' && !Array.isArray(v)) Object.assign((vars[up(m[2])] ||= {}), upKeys(clone(v)));
+        continue;
+      }
+      if ((m = /^READ TABLE ((?:\w+)(?:-\w+)*) INTO (\w+) WITH KEY (.+?)(?: BINARY SEARCH)?$/i.exec(s))) {
+        const rows = read(m[1]);
+        const t = keyTest(m[3]);
+        if (!Array.isArray(rows) || !t) { if (opts.lenient) { skipped.push(s); continue; } return fail(`statement not supported: READ TABLE ${up(m[1])}`); }
+        const hit = rows.find(t);
+        if (hit) vars[up(m[2])] = upKeys(clone(hit));
+        continue;
+      }
       if ((m = /^(APPEND|COLLECT) (\w+) (?:TO|INTO) (\w+)$/i.exec(s))) {
         const t = (tables[up(m[3])] ||= []);
         const row = { ...(vars[up(m[2])] || {}) };
@@ -200,12 +252,21 @@ export function runInitCoding(lines, values = {}, ddic = {}, state = {}) {
         continue;
       }
       if (/^(ENDLOOP|ENDIF)$/i.test(s)) continue;
+      if (opts.lenient) {
+        // a block statement is skipped with its block: IF / CASE / DO / a SELECT loop up to its end
+        const blk = /^IF /i.test(s) ? close(k, to, /^IF /i, /^ENDIF$/i) : /^CASE /i.test(s) ? close(k, to, /^CASE /i, /^ENDCASE$/i)
+          : /^DO\b/i.test(s) ? close(k, to, /^DO\b/i, /^ENDDO$/i)
+            : /^SELECT /i.test(s) && !/ SINGLE | INTO TABLE | APPENDING TABLE /i.test(` ${s} `) ? close(k, to, /^SELECT /i, /^ENDSELECT$/i) : null;
+        skipped.push(s);
+        if (blk) k = blk.e;
+        continue;
+      }
       return fail(`statement not supported: ${s.split(' ').slice(0, 2).join(' ')}`);
     }
     return null;
   };
   const r = exec(0, stmts.length);
-  return r || { ok: true, tables, vars };
+  return r || { ok: true, tables, vars, ...(opts.lenient ? { skipped } : {}) };
 }
 
 /** Scope: names → values; loops push their work area. Lookup "A-B-C" walks structures. */

@@ -507,6 +507,9 @@ class Renderer {
     this.rows = Number(values.rows ?? 3);
     this.defaultPara = values.defaultParagraph || null;
     this.mark = Boolean(values.mark);
+    // values.unvalued 'blank': a symbol without a value prints as SAP prints an initial field — nothing (comparing with
+    // a print of real data, where every field the data leaves out is initial); default: the &NAME& placeholder
+    this.unvaluedBlank = values.unvalued === 'blank';
     this.row = 0;
     this.filled = new Set();
     this.unfilled = new Set();
@@ -604,6 +607,7 @@ class Renderer {
     if (v === undefined && SYS_DEFAULTS[up] !== undefined) v = SYS_DEFAULTS[up];
     if (v === undefined || v === null) {
       this.unfilled.add(name);
+      if (this.unvaluedBlank) return '';
       return `<span class="sym"${this.inspect ? ` data-sym="${esc(name)}"` : ''} title="${esc(name)}">&amp;${esc(name)}&amp;</span>`;
     }
     this.filled.add(name);
@@ -1260,9 +1264,14 @@ class Renderer {
         const ev = (n.children || []).find((c) => c.attrs?.EVTYPE === want);
         return ev ? this.nodes(ev.children) : '';
       }
-      case 'address':
+      case 'address': {
+        // comparing with a print of real data (values.unvalued 'blank'): an address whose number field has no value is
+        // initial, and SAP prints no address for it (LB_BIL_INVOICE CUSTADDRESS &ADRNR&)
+        const num = /^&([^&]+)&$/.exec(String(n.attrs?.NUMB || '').trim());
+        if (this.unvaluedBlank && num && this.condOperand(num[1]) === '') return '';
         this.approx.push(`${n.name}: address node — drawn as a box`);
         return `<div class="missing"${this.nodeAttr(n)}>address ${esc(n.caption || n.name)}</div>`;
+      }
       case 'code': return '';
       // a command with NEWPAGE (its condition already held) starts the next page: what follows
       // in MAIN is not on page 1 (ZSF_DEMO_57: one invoice per row)
@@ -1677,6 +1686,13 @@ function paginate(r, page, browser, size, profile) {
     if (!m) return null;
     blocks = JSON.parse(m[1]);
   }
+  return pagesFromBlocks(r, blocks);
+}
+
+/** Every page of a form from the MAIN blocks (sfBlocks' shape: { t, b, brk, page, tbl, head } in mm), measured in a
+ *  browser (paginate) or estimated without one (the web preview): the page plan, the pages, the sheet script. null when
+ *  it all fits on one page. */
+export function pagesFromBlocks(r, blocks) {
   const plan = pagePlan(r.c.pages, blocks, (p) => r.nextPageOf(p), 50, (cond) => r.fieldsHold(cond));
   if (plan.sheets.length < 2) return null;
   const doc = r.pages(plan);

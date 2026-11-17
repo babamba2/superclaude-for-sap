@@ -629,3 +629,31 @@ describe('adobe-preview / smartform: program lines the runner understands', () =
     expect(runInitCoding(['clear t_x[].', 'append l_y to t_x.'], {}, {}, { tables: { T_X: [{ A: 1 }] } }).tables.T_X).toEqual([{}]);
   });
 });
+
+describe('adobe-preview: runInitCoding — deep names, structure copies, READ TABLE, LOOP WHERE, lenient mode', () => {
+  const raw = { IS_INV: { HD_GEN: { NUMBER: 'ZZ1', WAERK: 'EUR' }, HD_ADR: [{ NUMBER: 'ZZ1', ROLE: 'RE', ADDR_NO: 'A1' }, { NUMBER: 'ZZ1', ROLE: 'WE', ADDR_NO: 'A2' }],
+    IT_KOND: [{ ITM: '10', KBETR: 3 }, { ITM: '20', KBETR: 4 }] }, IS_NAST: { PARVW: 'WE' } };
+  it('copies a structure whole, field by field (MOVE-CORRESPONDING) and from deep paths', () => {
+    const r = runInitCoding(['CLEAR GS_HD.', 'GS_HD = IS_INV-HD_GEN.', 'MOVE-CORRESPONDING IS_INV-HD_GEN TO GS_B.', 'GS_C-W = IS_INV-HD_GEN-WAERK.', 'X = IS_INV-HD_GEN-NUMBER.'], raw);
+    expect(r.ok).toBe(true);
+    expect(r.vars.GS_HD).toEqual({ NUMBER: 'ZZ1', WAERK: 'EUR' });
+    expect(r.vars.GS_B).toEqual({ NUMBER: 'ZZ1', WAERK: 'EUR' });
+    expect(r.vars.GS_C).toEqual({ W: 'EUR' });
+    expect(r.vars.X).toBe('ZZ1');
+  });
+  it('reads a table component by key and loops one with WHERE', () => {
+    const r = runInitCoding(['READ TABLE IS_INV-HD_ADR INTO GS_ADR WITH KEY NUMBER = IS_INV-HD_GEN-NUMBER', 'ROLE = IS_NAST-PARVW BINARY SEARCH.',
+      "LOOP AT IS_INV-IT_KOND INTO W WHERE ITM = '20'.", 'APPEND W TO GT.', 'ENDLOOP.'], raw);
+    expect(r.ok).toBe(true);
+    expect(r.vars.GS_ADR.ADDR_NO).toBe('A2');
+    expect(r.tables.GT).toEqual([{ ITM: '20', KBETR: 4 }]);
+  });
+  it('stays strict by default; lenient skips an unsupported statement (with its block) and lists it', () => {
+    const lines = ['SELECT * FROM NAST INTO TABLE LT.', "IF A = 'B'.", 'G = 2.', 'ENDIF.', 'G = 1.'];
+    expect(runInitCoding(lines, raw).ok).toBe(false);
+    const r = runInitCoding(lines, raw, {}, {}, { lenient: true });
+    expect(r.ok).toBe(true);
+    expect(r.vars.G).toBe(1);
+    expect(r.skipped).toEqual(['SELECT * FROM NAST INTO TABLE LT', "IF A = 'B'"]);
+  });
+});

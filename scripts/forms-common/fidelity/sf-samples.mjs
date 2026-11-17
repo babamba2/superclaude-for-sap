@@ -46,6 +46,8 @@ export function condOk(n, raw) {
  *  events runs per group — sort-begin code at the group start, the body over the group's rows, sort-end code at its end
  *  — and a table printed in the sort-end event is kept per group. Rows are sorted as build-preview sorts them (a new
  *  table / loop by the sort field, an old 4.6 table in the given order). Nodes whose decided condition fails run no code.
+ *  Statements the runner cannot run (SELECT, CALL FUNCTION …) are skipped (runInitCoding lenient) and counted in notes;
+ *  the globals the code filled (not loop work areas) join the values.
  *  → { raw (with the computed tables), ddic (+ types of the computed tables' fields), perGroup, notes } */
 export function programValues(content, xml, raw0, ddic0) {
   const raw = { ...raw0 }, ddic = { ...ddic0 };
@@ -54,9 +56,10 @@ export function programValues(content, xml, raw0, ddic0) {
   const code = codeOf(xml);
   if (!Object.keys(code).length) return { raw, ddic, perGroup, notes };
   let state = { tables: {}, vars: {} };
+  let skipped = 0;
   const run = (n) => {
-    const r = runInitCoding([...code[n.name]], { ...raw, ...state.tables }, ddic, state);
-    if (r.ok) state = { tables: r.tables, vars: r.vars }; else notes.push(`${n.name}: ${r.reason}`);
+    const r = runInitCoding([...code[n.name]], { ...raw, ...state.tables }, ddic, state, { lenient: true });
+    if (r.ok) { state = { tables: r.tables, vars: r.vars }; skipped += r.skipped.length; } else notes.push(`${n.name}: ${r.reason}`);
   };
   const codes = (list) => { const o = []; const w = (l) => { for (const n of l || []) { if (n.kind === 'code' && code[n.name]) o.push(n); w(n.children); } }; w(list); return o; };
   const asWa = (r) => Object.fromEntries(Object.entries(r).map(([a, b]) => [a.toUpperCase(), b]));
@@ -90,7 +93,7 @@ export function programValues(content, xml, raw0, ddic0) {
           if (bodyCodes.length) {
             const tmp = '__GROUP_ROWS';
             const lines = [`loop at ${tmp} into ${n.attrs.TABHEADER}.`, ...bodyCodes.flatMap((c) => code[c.name]), 'endloop.'];
-            const r = runInitCoding(lines, { ...raw, ...state.tables, [tmp]: g }, ddic, state);
+            const r = runInitCoding(lines, { ...raw, ...state.tables, [tmp]: g }, ddic, state, { lenient: true });
             if (r.ok) { delete r.tables[tmp]; delete r.tables[tmp.toUpperCase()]; state = { tables: r.tables, vars: r.vars }; } else notes.push(`${bodyCodes.map((c) => c.name).join('+')}: ${r.reason}`);
           }
           state.vars[wa] = asWa(g[g.length - 1]);
@@ -103,7 +106,7 @@ export function programValues(content, xml, raw0, ddic0) {
       const rows = rowsOf(n.dataTable);
       if (bodyCodes.length) {
         const lines = [`loop at ${n.dataTable} into ${n.attrs.TABHEADER}.`, ...bodyCodes.flatMap((c) => code[c.name]), 'endloop.'];
-        const r = runInitCoding(lines, { ...raw, ...state.tables }, ddic, state);
+        const r = runInitCoding(lines, { ...raw, ...state.tables }, ddic, state, { lenient: true });
         if (r.ok) state = { tables: r.tables, vars: r.vars }; else notes.push(`${bodyCodes.map((c) => c.name).join('+')}: ${r.reason}`);
       }
       const last = rows[rows.length - 1];
@@ -112,6 +115,13 @@ export function programValues(content, xml, raw0, ddic0) {
     }
   };
   for (const p of content.pages || []) for (const w of p.windows || []) walk(w.content);
+  // globals the program lines filled (LB_BIL_INVOICE: GS_HD_GEN = IS_BIL_INVOICE-HD_GEN) print as structures / fields; a
+  // loop's work area takes its values from the loop's rows instead
+  const loopWa = new Set();
+  const wl = (l) => { for (const x of l || []) { if (x.attrs?.TABHEADER) loopWa.add(String(x.attrs.TABHEADER).toUpperCase()); wl(x.children); } };
+  for (const p of content.pages || []) for (const w of p.windows || []) wl(w.content);
+  for (const [k, v] of Object.entries(state.vars)) if (!loopWa.has(k) && raw[k] === undefined) raw[k] = v;
+  if (skipped) notes.push(`${skipped} program-line statement(s) not run`);
   for (const [t, rows] of Object.entries(state.tables)) {
     raw[t] = rows;
     for (const fld of Object.keys(rows[0] || {})) {
@@ -157,7 +167,8 @@ async function main() {
     // the content with its graphics next to it
     for (const g of content.graphics || []) if (g.file) { const b = g.file.split(/[\\/]/).pop(); if (existsSync(join(cdir, b))) { writeFileSync(join(cd, b), readFileSync(join(cdir, b))); g.file = resolve(cd, b); } }
     writeFileSync(join(cd, `${f}.content.json`), JSON.stringify(content));
-    writeFileSync(join(od, 'values.json'), JSON.stringify({ values, rows }, null, 1));
+    // unvalued 'blank': a field the data leaves out is initial and prints as nothing, as in SAP's print
+    writeFileSync(join(od, 'values.json'), JSON.stringify({ values, rows, unvalued: 'blank' }, null, 1));
     try {
       const lay = buildLayout('smartform/build-preview.mjs', ['build', join(cd, `${f}.content.json`), '--values', join(od, 'values.json'), '--out-dir', od, '--no-jpg', '--layout-json'], od);
       scoreOne(id, readFileSync(join(a.set, e.files.pdf.file)), lay, od, results, (...x) => console.log(...x, notes.join('; ')));
