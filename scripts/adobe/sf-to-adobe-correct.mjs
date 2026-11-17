@@ -16,7 +16,12 @@
 //      window subform; a shift down moves the window up by dy (its box moves along — reported in notes when it has a
 //      border). Offsets under 0.25 mm are left alone.
 //   R3 Dates: a date the SmartForm prints with a 4-digit year where the migrated form prints a 2-digit one → the field's
-//      format picture date{MM/DD/YYYY} (the order follows the SmartForm print: DD.MM.YYYY, YYYY.MM.DD, MM/DD/YYYY).
+//      format picture date{MM/DD/YYYY} (the order follows the SmartForm print: DD.MM.YYYY, YYYY.MM.DD, MM/DD/YYYY);
+//      a field whose initialize script sets the picture with DateFmt gets datePicture (the script would override it).
+//   R6 / R7 hidden-field holders hidden; their embedded fields get the embedding span's font (see the code).
+//   R8 A right / center paragraph of embedded values only → embedLead (ADS aligns it only with a blank before it).
+//   R9 Row pitch (calibration on a print that has the structural rules): SmartForm pitch − migrated pitch as bottom
+//      inset on every table row subform (layout row).
 //
 // Targets: { protoId, path? } for page-area windows (their content lives in <proto>), { path } from the root subform
 // otherwise; path = names joined by '.', name[n] for the n-th same-name sibling (0-based), as the spec v1 defines.
@@ -27,6 +32,7 @@ import { resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { readXdp, kids, unit } from './read-adobe.mjs';
 import { scoreFidelity } from '../forms-common/score-fidelity.mjs';
+import { readPdf } from '../smartform/read-pdf.mjs';
 
 const CONTAINER = new Set(['subform', 'subformSet', 'field', 'draw', 'exclGroup', 'area', 'pageSet', 'pageArea', 'contentArea']);
 const mm = (v) => `${Math.round(v * 100) / 100}mm`;
@@ -137,6 +143,60 @@ function embedFont(draw, ref) {
   return hit;
 }
 
+/** A draw with a right / center paragraph whose only content is embedded values (no text, not even a blank). */
+function embedOnlyAligned(draw) {
+  let hit = false;
+  const hasEmbed = (el) => (el.children || []).some((c) => c.attrs?.['xfa:embed'] || hasEmbed(c));
+  const walk = (el) => {
+    for (const c of el.children || []) {
+      if (hit || !c.tag || c.tag === '#text') continue;
+      if (/(^|:)(p|div)$/.test(c.tag)) {
+        const own = (c.children || []).some((k) => /(^|:)(p|div)$/.test(k.tag));
+        const style = String(c.attrs?.style || '');
+        if (!own && /text-align\s*:\s*(right|center)/.test(style) && hasEmbed(c) && !allText(c)) { hit = true; return; }
+      }
+      walk(c);
+    }
+  };
+  const allText = (el) => (el.children || []).map((c) => (c.tag === '#text' ? c.text || '' : allText(c))).join('');
+  walk(draw);
+  return hit;
+}
+
+/** Row pitch of the repeated table rows: per column (same x within 0.5 mm), the median step between texts that come
+ *  at least three times one under the other; the SmartForm print against the migrated print over the columns both
+ *  have. null when no column repeats. */
+function rowPitchDelta(sfPdf, afPdf) {
+  const pitch = (src) => {
+    // a PDF, or (tests) a layout JSON { pages: [{ texts: [{ x, y, text }] }] }
+    const runs = Buffer.isBuffer(src) || src instanceof Uint8Array ? readPdf(src).page?.runs : src?.pages?.[0]?.texts;
+    const cols = new Map();
+    for (const r of runs || []) {
+      const k = Math.round(r.x * 2) / 2;
+      (cols.get(k) || cols.set(k, []).get(k)).push(r.y);
+    }
+    const out = [];
+    for (const ys of cols.values()) {
+      if (ys.length < 3) continue;
+      const s = [...new Set(ys.map((y) => Math.round(y * 100) / 100))].sort((a, b) => a - b);
+      const steps = s.slice(1).map((y, i) => y - s[i]).filter((d) => d > 2 && d < 15);
+      if (steps.length >= 2) out.push(median(steps));
+    }
+    return out;
+  };
+  const a = pitch(sfPdf), b = pitch(afPdf);
+  if (!a.length || !b.length) return null;
+  const sf = Math.round(median(a) * 100) / 100, af = Math.round(median(b) * 100) / 100;
+  return { sf, af, delta: Math.round((sf - af) * 100) / 100, n: Math.min(a.length, b.length) };
+}
+
+/** R3 op: an initialize script that sets the picture with DateFmt overrides a template picture — then datePicture (the
+ *  one script edit ZMCP_FP_MIGRATE allows), else picture. */
+function dateOp(target, script, pic, text) {
+  const evidence = `SmartForm prints ${text.replace(/\d/g, '9')}`;
+  return /DateFmt/.test(script) ? { op: 'datePicture', target, picture: pic, rule: 'R3', evidence } : { op: 'picture', target, format: pic, rule: 'R3', evidence };
+}
+
 /** The correction spec v1 for one migrated form. */
 export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, afPdf = null }) {
   const t = xdpTargets(layoutXdp);
@@ -167,6 +227,24 @@ export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, 
       ops.push({ op: 'font', target: { ...target, path: `${target.path ? `${target.path}.` : ''}${f.attrs.name}` },
         ...(css['font-family'] ? { typeface: css['font-family'] } : {}), ...(css['font-size'] ? { size: css['font-size'] } : {}),
         ...(css['font-weight'] === 'bold' ? { weight: 'bold' } : {}), rule: 'R7', evidence: `embedded as ${ref} in a span of ${css['font-family'] || ''} ${css['font-size'] || ''}`.trim() });
+    }
+  }
+  // R8 — a paragraph aligned right / center that holds embedded values only prints at the content's left edge in ADS
+  // (CSS text-align and margins ignored, calibration 4 / 5): op embedLead puts one blank before the value
+  for (const { node, target } of allTargets(t)) {
+    if (node.tag !== 'draw' || !embedOnlyAligned(node)) continue;
+    ops.push({ op: 'embedLead', target, rule: 'R8' });
+  }
+  // R9 — table row pitch (calibration, measured on a print that already has the structural rules): the SmartForm's row
+  // pitch minus the migrated one becomes extra bottom inset on every table row subform
+  if (sfPdf && afPdf) {
+    const d = rowPitchDelta(sfPdf, afPdf);
+    if (d && Math.abs(d.delta) >= 0.25) {
+      for (const { node, target } of allTargets(t)) {
+        if (node.tag !== 'subform' || node.attrs?.layout !== 'row') continue;
+        const bottom = unit(kids(node, 'margin')[0]?.attrs?.bottomInset, 0);
+        ops.push({ op: 'margin', target, bottomInset: mm(Math.max(0, bottom + d.delta)), rule: 'R9', evidence: `row pitch SmartForm ${d.sf} mm, migrated ${d.af} mm (${d.n} columns)` });
+      }
     }
   }
   if (sfPdf && afPdf) {
@@ -207,7 +285,7 @@ export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, 
         const script = JSON.stringify(node.children || []);
         if (!/DateFmt|date\{/.test(script)) continue;
         used.add(p);
-        ops.push({ op: 'picture', target: { path: p }, format: pic, rule: 'R3', evidence: `SmartForm prints ${m.text.replace(/\d/g, '9')}` });
+        ops.push(dateOp({ path: p }, script, pic, m.text));
       }
       for (const [id, node] of t.protos) {
         const walk = (el, path) => {
@@ -218,7 +296,7 @@ export function correctionSpec({ content, layoutXdp, source = '', sfPdf = null, 
             const key = `${id}:${pp}`;
             if (c.tag === 'field' && name && /DAT|DATE|DATUM/i.test(name) && !used.has(key) && /DateFmt|date\{/.test(JSON.stringify(c.children || []))) {
               used.add(key);
-              ops.push({ op: 'picture', target: { protoId: id, path: pp }, format: pic, rule: 'R3', evidence: `SmartForm prints ${m.text.replace(/\d/g, '9')}` });
+              ops.push(dateOp({ protoId: id, path: pp }, JSON.stringify(c.children || []), pic, m.text));
             }
             walk(c, pp);
           }

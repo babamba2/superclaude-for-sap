@@ -41,7 +41,8 @@ describe('smartform-to-adobe: correction spec v1', () => {
     const s = correctionSpec({ content, layoutXdp: XDP, sfPdf: sf, afPdf: af });
     expect(s.ops).toContainEqual(expect.objectContaining({ op: 'margin', target: { protoId: 'FIRST_INFO' }, topInset: '2.4mm', rule: 'R2' }));
     expect(s.ops).toContainEqual(expect.objectContaining({ op: 'geometry', target: { protoId: 'FIRST_ADDR' }, y: '43.5mm', rule: 'R2' }));
-    expect(s.ops).toContainEqual(expect.objectContaining({ op: 'picture', target: { protoId: 'FIRST_INFO', path: 'DATUM' }, format: 'date{MM/DD/YYYY}', rule: 'R3' }));
+    // DATUM sets its picture in an initialize script (DateFmt), which would override a template picture: datePicture
+    expect(s.ops).toContainEqual(expect.objectContaining({ op: 'datePicture', target: { protoId: 'FIRST_INFO', path: 'DATUM' }, picture: 'date{MM/DD/YYYY}', rule: 'R3' }));
     // an evidence line carries no printed value
     expect(JSON.stringify(s.ops)).not.toMatch(/11\/17/);
   });
@@ -68,5 +69,26 @@ describe('smartform-to-adobe: hidden-field holders (R6) and the font of embedded
   });
   it('leaves a subform with a visible field alone', () => {
     expect(ops.some((o: any) => JSON.stringify(o.target).includes('KEEP'))).toBe(false);
+  });
+});
+
+describe('smartform-to-adobe: embedLead (R8), row pitch (R9), date ops (R3)', () => {
+  const xdp = `<?xml version="1.0" encoding="utf-8"?><xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.8/">
+<subform name="ZDEMO" layout="tb"><pageSet><pageArea name="P1"><contentArea x="2cm" y="2cm" w="16cm" h="20cm"/></pageArea></pageSet>
+<subform name="MAIN" layout="tb"><subform name="TAB" layout="table"><subform name="layout_row" layout="row"><margin bottomInset="0.5mm"/>
+<draw name="AMT"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml"><div style="text-align : right ;"><span style="font-size:10pt"><span xfa:embed="WA.AMT"/></span></div></div></exData></value></draw>
+<draw name="KEY"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml"><div style="text-align : left ;"><span xfa:embed="WA.KEY"/></div></div></exData></value></draw>
+<draw name="LBL"><value><exData contentType="text/html"><div xmlns="http://www.w3.org/1999/xhtml"><div style="text-align : center ;">Total <span xfa:embed="WA.SUM"/></div></div></exData></value></draw>
+</subform></subform></subform></subform></template></xdp:xdp>`;
+  // rows at 5.12 mm in the SmartForm, 3.53 mm in the migrated print (three columns)
+  const rows = (pitch: number) => ({ pages: [{ w: 210, h: 297, lines: [], texts: [0, 1, 2, 3].flatMap((i) => [[30, `K${i}`], [60, `A${i}`], [90, `S${i}`]].map(([x, text]) => ({ x, y: 30 + i * pitch, text }))) }] });
+  const ops = correctionSpec({ content: { pages: [] }, layoutXdp: xdp, sfPdf: rows(5.12), afPdf: rows(3.53) }).ops;
+  it('R8: embedLead only on a right / center paragraph holding embedded values only', () => {
+    expect(ops.filter((o: any) => o.rule === 'R8')).toEqual([{ op: 'embedLead', target: { path: 'ZDEMO.MAIN.TAB.layout_row.AMT' }, rule: 'R8' }]);
+  });
+  it('R9: the pitch difference adds to the row bottom inset', () => {
+    expect(ops.filter((o: any) => o.rule === 'R9')).toEqual([expect.objectContaining({ op: 'margin', target: { path: 'ZDEMO.MAIN.TAB.layout_row' }, bottomInset: '2.09mm' })]);
+    // equal pitch: nothing
+    expect(correctionSpec({ content: { pages: [] }, layoutXdp: xdp, sfPdf: rows(5), afPdf: rows(5) }).ops.some((o: any) => o.rule === 'R9')).toBe(false);
   });
 });
