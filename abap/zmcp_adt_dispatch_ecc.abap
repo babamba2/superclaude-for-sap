@@ -580,6 +580,8 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
           field_list TYPE ty_names,
           condition  TYPE string,
           max_rows   TYPE i,
+          " 'X' when the MCP blocklist profile is off: skip the delivery-class rule
+          all_tables TYPE string,
         END OF ls_input.
   DATA: lv_tab    TYPE tabname,
         lv_where  TYPE string,
@@ -652,8 +654,24 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
     IF sy-subrc <> 0 OR ( lv_class <> 'C' AND lv_class <> 'G'
                           AND lv_class <> 'E' AND lv_class <> 'S'
                           AND lv_class <> 'W' ).
-      ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
-      RETURN.
+      " Blocklist profile off (all_tables = 'X'): business tables are readable
+      " too, but only with the caller's own SE16 table authority
+      " (S_TABU_DIS / S_TABU_NAM). The credential guard above stays in force.
+      IF ls_input-all_tables <> 'X'.
+        ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
+        RETURN.
+      ENDIF.
+      CALL FUNCTION 'VIEW_AUTHORITY_CHECK'
+        EXPORTING
+          view_action                = 'S'
+          view_name                  = lv_tab
+          no_warning_for_clientindep = 'X'
+        EXCEPTIONS
+          OTHERS                     = 1.
+      IF sy-subrc <> 0.
+        ev_subrc = 4. ev_message = |TABLE_READ: no display authorization for table { lv_tab }|. ev_result = '{}'.
+        RETURN.
+      ENDIF.
     ENDIF.
   ENDIF.
 
