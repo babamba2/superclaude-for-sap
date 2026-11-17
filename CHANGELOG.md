@@ -5,6 +5,18 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [0.6.71] — 2026-11-18
+
+### Added
+- **Migration schedule (WBS)** in the data-migration document: objects carry category, owner side, load tool and predecessors; rounds are an editable list (default Mock 1, Mock 2, Dress rehearsal, Cutover) with extract → cleanse → load → validate → sign-off dates and status per object and round; a dependency check (errors for loops and bad dates, warnings for order, round window and unknown references); an add-only `/wbs` write-back (`migration-wbs.mjs`) that also feeds the plan's open issues and drops self / loop dependencies.
+- **Issue log** in the project model (`project.issues`): priority, four statuses, affected WBS rows, resolution; issues table / sheet in the project page and xlsx; AI patches may add an issue and edit its text, note or resolution only. Open-issue counts in the weekly status (new / resolved, top open) and the portfolio.
+
+### Changed
+- `program-test`: production data is the user's choice per run (`MASKING_RELEASE_PINNED` → true; the masked probe, the per-table yes and every other guard stay). During a run a remote read may only use the run's own destination; dev runs get no remote reads. The harness lint refuses `DESTINATION` / `RFC_READ_TABLE` in the test class.
+- SmartForm preview: DECIMAL tab stops, the ink-end tab stop, a trailing blank paragraph line, and per-sort-group values for loops inside sort events.
+- Adobe preview: an overflowing widthless `lr-tb` line breaks over pages the way ADS does (table first at the line start, the rest on the next page); a line that does not break is laid out whole.
+- Korean meeting page labels: "액션 아이템" → "할 일".
+
 ## [0.6.70] — 2026-11-17
 
 ### Added
