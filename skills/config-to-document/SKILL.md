@@ -84,8 +84,9 @@ It prints progress (`tables n/N`) on stderr and one JSON line at the end: `{ ok,
 
 **Step 5 — Build.**
 ```
-node scripts/config/build-config-doc.mjs --module <M> [--lang <lang>] [--import <edited.html>]
+node scripts/config/build-config-doc.mjs --module <M> [--lang <lang>] [--import <edited.html>] [--kb-notes]
 ```
+`--kb-notes` (scope `none` only, e.g. the web's cost-saving template mode): every activity without a written note gets the reviewed general part the knowledge base holds (own KB, then `SC4SAP_KB_SEED`) — no agent, no review, no web research, no tokens. The page labels them "Reviewed template · general description only" (with the KB entry's release when it differs from the system's); activities the KB does not hold get no note; KB entries a review flagged are left out.
 Output: `<artifactBase>/config-docs/<M>/<M>-config-v<n>-<lang>.html` (`status` counts, checks with findings and `edited` notes in the JSON line). When the user hands back a page saved from edit mode, build with `--import <file>`: its edits merge into `notes/edits.json` (per activity or view the newer edit wins; a page from another system or module is refused) and every later build keeps them — edited views replace their values, card title and history and are drawn again. Edits never enter the knowledge base.
 
 **Step 6 — Close.** Report in the user's language:

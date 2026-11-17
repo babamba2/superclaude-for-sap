@@ -2,7 +2,10 @@
 // config-to-document — build the HTML document from a snapshot.
 //
 // Usage:
-//   node scripts/config/build-config-doc.mjs --module MM [--snapshot <file>] [--lang ko] [--out <file>] [--import <edited.html>]
+//   node scripts/config/build-config-doc.mjs --module MM [--snapshot <file>] [--lang ko] [--out <file>] [--import <edited.html>] [--kb-notes]
+//
+// --kb-notes: activities without a written note get the reviewed general part the knowledge base holds
+// (notes.mjs kbOnlyNotes) — no writer, no review, no tokens; marked "general description only".
 //
 // Reads <artifactBase>/config-docs/<MODULE>/snapshot.json (extract-config.mjs),
 // runs the module's check rules, draws an SM30-style overview (and a detail
@@ -22,7 +25,7 @@ import { resolveArtifactBase, readScreenTheme, readActiveSapEnv } from '../lib/p
 import { atomicWriteFileSync, ensureDirSync } from '../lib/atomic-write.mjs';
 import { loadRules, runChecks, attachActivities } from './config-checks.mjs';
 import { pageHtml } from './config-doc-page.mjs';
-import { loadNotes, loadTerms, hashLang, activityHashes } from './notes.mjs';
+import { loadNotes, loadTerms, hashLang, activityHashes, kbOnlyNotes } from './notes.mjs';
 import { loadFieldMeanings } from './fields.mjs';
 import { loadValueMeanings } from './values.mjs';
 import { loadBadiNotes, methodKey } from './badi-notes.mjs';
@@ -36,7 +39,7 @@ const TABLE_COLS = 30;
 const FLAG_DOMAINS = /^(XFELD|FLAG|XFLAG|BOOLE|BOOLEAN|BOOLE_D|CHAR1_X)$/;
 
 function args(argv) {
-  const o = { module: '', snapshot: '', lang: '', out: '', import: '' };
+  const o = { module: '', snapshot: '', lang: '', out: '', import: '', kbNotes: false };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--module') o.module = String(argv[++i]).toUpperCase();
@@ -44,6 +47,7 @@ function args(argv) {
     else if (a === '--lang') o.lang = argv[++i];
     else if (a === '--out') o.out = argv[++i];
     else if (a === '--import') o.import = argv[++i];
+    else if (a === '--kb-notes') o.kbNotes = true;
   }
   if (!o.module && !o.snapshot) throw new Error('--module or --snapshot is required');
   return o;
@@ -547,18 +551,25 @@ async function main() {
     const vm = v && deInfo[c.de]?.dom && valueMeanings[deInfo[c.de].dom];
     if (m || f1 || v) fields[c.de] = { m, f1, ...(v ? { v } : {}), ...(vm ? { vm } : {}) };
   }
+  // Written notes and edits first; with --kb-notes every other activity the knowledge base holds gets its
+  // reviewed general part (kbOnlyNotes: no writer, no tokens) — the web's cost-saving notes mode.
+  const notesFor = () => {
+    const written = { ...loadNotes(dir, { module, lang }), ...structuredClone(edits.edits) };
+    if (!o.kbNotes) return written;
+    return { ...kbOnlyNotes(Object.keys(acts), { module, lang, sapVersion: snap.meta.sapVersion, have: written }), ...written };
+  };
   const data = {
     fields,
     meta: snap.meta, lang, tree: snap.tree, acts, views, checks,
     transports: snap.transports, domains: snap.domains, docs: snap.docs, badiImpls: snap.badiImpls || {}, badiErrors: snap.badiErrors || {}, badiSrc: badiSrcOf(snap.badiSources || {}), badiNotes: loadBadiNotes(dir), ggbReports: snap.ggb ? loadGgbReports(dir) : [], ...(snap.cmod ? cmodData(snap.cmod, dir) : {}),
-    notes: markStale(withCaseDiagrams({ ...loadNotes(dir, { module, lang }), ...structuredClone(edits.edits) }, lang), sysHash),
+    notes: markStale(withCaseDiagrams(notesFor(), lang), sysHash),
     edits,
   };
   const ver = nextVersion(dir, `${module}-config`);
   const out = o.out || join(dir, `${module}-config-v${ver}-${lang}.html`);
   atomicWriteFileSync(out, pageHtml(data, svgs));
   const counts = Object.values(acts).reduce((m, a) => ((m[a.status] = (m[a.status] || 0) + 1), m), {});
-  const notes = Object.values(data.notes).reduce((m, n) => ((m[n.review] = (m[n.review] || 0) + 1), m), {});
+  const notes = Object.values(data.notes).reduce((m, n) => { const k = n.kbOnly ? 'kb' : n.review; m[k] = (m[k] || 0) + 1; return m; }, {});
   process.stdout.write(JSON.stringify({ ok: true, file: out, activities: Object.keys(acts).length, status: counts, checks: checks.filter((c) => c.items.length).length, notes, edited: Object.keys(edits.edits).length, editedViews: Object.keys(edits.views).length, ...(imported != null ? { imported } : {}) }) + '\n');
 }
 
