@@ -779,7 +779,10 @@ ENDFORM.
 * names the text replaced), bind (a subform or field: match "dataRef" with
 * a ref on the $record allow-list - names, [0] or [*] - or "none"; needs a
 * basis; replaces the node's own <bind> or adds one after <occur>; binds
-* below the target outside the new ref's [*] prefix are warned).
+* below the target outside the new ref's [*] prefix are warned), embedlead
+* (a draw: one blank before the first embedded value of each right / center
+* paragraph that has no text of its own - ADS applies text-align and margins
+* only then; no paragraph like that -> not_found).
 * contextdeactivate / initsumbykey are model ops: FORM fpc_model runs them
 * earlier; here IT_PRE ("<i>|<status>|<detail>") gives their result.
 * Every value is checked (allow-lists, measurement mm / pt / cm / in).
@@ -887,7 +890,7 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
   FIELD-SYMBOLS: <ls_op> TYPE ty_op,
                  <ls_kv> TYPE ty_kv.
   " (?-x) in patterns with a space or #: ABAP runs PCRE in extended mode by default
-  CONSTANTS: c_ops   TYPE string VALUE ` layout geometry margin font para xhtml picture border presence datepicture bind contextdeactivate initsumbykey `,
+  CONSTANTS: c_ops   TYPE string VALUE ` layout geometry margin font para xhtml picture border presence datepicture bind embedlead contextdeactivate initsumbykey `,
              " model ops (FORM fpc_model): run on the interface / context, not on the XDP
              c_model TYPE string VALUE ` contextdeactivate initsumbykey `,
              c_bref  TYPE string VALUE `(?-x)\$record(\.[A-Za-z_][A-Za-z0-9_]{0,29}(\[(0|\*)\])?){1,12}`,
@@ -1274,6 +1277,43 @@ FORM fpc_apply USING iv_xdp   TYPE xstring
               lv_s = |{ substring( val = lv_s len = lv_off2 ) }"{ <ls_op>-picture }"{ substring( val = lv_s off = lv_off2 + lv_len2 ) }|.
               lv_ref = lo_c2->set_value( lv_s ).
               lv_detail = |initialize script: { lv_v } replaced by the string literal "{ <ls_op>-picture }"|.
+            ENDIF.
+          ENDIF.
+        WHEN 'embedlead'.
+          " A rich-text paragraph that holds embedded field values only (no text of its own, not
+          " even a blank) prints at the content's left edge in ADS: its CSS text-align and margins
+          " are not applied (calibration 4 / 5). One blank before the first embed brings them back
+          " (calibration 5 X1 / X2). Only for paragraphs aligned right or center; the blank is a
+          " text node in the embed's parent, nothing else changes.
+          IF lv_tag <> 'draw'.
+            lv_status = 'refused'. lv_detail = |target is a { lv_tag }, not a draw|.
+          ELSE.
+            CLEAR: lt_hits, lv_n.
+            PERFORM fpc_desc USING lo_t 'p' CHANGING lt_hits.    " p and div
+            LOOP AT lt_hits INTO lo_c.
+              lv_s = lo_c->get_attribute( name = 'style' ).
+              CHECK matches( val = lv_s pcre = `(?-x)(?s).*text-align\s*:\s*(right|center).*` ).
+              " own text: none at all (a blank already does what this op does)
+              CHECK lo_c->get_value( ) IS INITIAL.
+              CLEAR lt_edges.
+              PERFORM fpc_embeds USING lo_c CHANGING lt_edges.
+              READ TABLE lt_edges INTO lo_x INDEX 1.
+              CHECK sy-subrc = 0.
+              " a blank right before it already (a nested paragraph, or the op twice): nothing to do
+              lo_n = lo_x->get_prev( ).
+              IF lo_n IS BOUND.
+                CHECK NOT ( lo_n->get_type( ) = if_ixml_node=>co_node_text AND lo_n->get_value( ) = ` ` ).
+              ENDIF.
+              lo_n = lo_x->get_parent( ).
+              CHECK lo_n IS BOUND.
+              lo_c2 ?= lo_n.
+              lv_ref = lo_c2->insert_child( new_child = lo_doc->create_text( text = ` ` ) ref_child = lo_x ).
+              lv_n = lv_n + 1.
+            ENDLOOP.
+            IF lv_n = 0.
+              lv_status = 'not_found'. lv_detail = `no right / center paragraph with embedded values only`.
+            ELSE.
+              lv_detail = |a blank before the value in { lv_n } paragraph(s)|.
             ENDIF.
           ENDIF.
         WHEN 'bind'.
@@ -2007,6 +2047,36 @@ FORM fpc_xliff USING io_el TYPE REF TO if_ixml_element
         lv_i = lv_i + 1.
       ENDWHILE.
       PERFORM fpc_xliff USING lo_e iv_id CHANGING ct_hits.
+    ENDIF.
+    lo_n = lo_n->get_next( ).
+  ENDWHILE.
+ENDFORM.
+
+*&---------------------------------------------------------------------*
+*& Form FPC_EMBEDS - descendant elements with an xfa:embed attribute
+*&---------------------------------------------------------------------*
+FORM fpc_embeds USING io_el TYPE REF TO if_ixml_element
+                CHANGING ct_hits TYPE STANDARD TABLE.
+  DATA: lo_n   TYPE REF TO if_ixml_node,
+        lo_e   TYPE REF TO if_ixml_element,
+        lo_map TYPE REF TO if_ixml_named_node_map,
+        lo_a   TYPE REF TO if_ixml_node,
+        lv_i   TYPE i.
+  lo_n = io_el->get_first_child( ).
+  WHILE lo_n IS BOUND.
+    IF lo_n->get_type( ) = if_ixml_node=>co_node_element.
+      lo_e ?= lo_n.
+      lo_map = lo_e->get_attributes( ).
+      lv_i = 0.
+      WHILE lv_i < lo_map->get_length( ).
+        lo_a = lo_map->get_item( lv_i ).
+        IF lo_a->get_name( ) = 'embed' AND lo_a->get_namespace_prefix( ) = 'xfa'.
+          APPEND lo_e TO ct_hits.
+          EXIT.
+        ENDIF.
+        lv_i = lv_i + 1.
+      ENDWHILE.
+      PERFORM fpc_embeds USING lo_e CHANGING ct_hits.
     ENDIF.
     lo_n = lo_n->get_next( ).
   ENDWHILE.
