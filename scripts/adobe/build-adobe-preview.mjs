@@ -7,13 +7,14 @@
 //          "texts": { TEXT_MODULE: […] | { itf, formats } }, "ddic": { "PARAM-FIELD": { type, length, decimals } },
 //          "locale": "en_US" }
 // OUTPUT <FORM>-preview.html, <FORM>-preview.model.json (items per page with roles for score-forms.mjs), and with a
-//        local Chrome / Edge: <FORM>-preview.pdf (--pdf) and <FORM>-preview.jpg (--jpg); a JSON report on stdout.
+//        local Chrome / Edge: <FORM>-preview.pdf (--pdf), <FORM>-preview.jpg (--jpg) and <FORM>-preview.layout.json
+//        (--layout-json, implies --pdf: the printed PDF's texts and rules in mm for score-fidelity.mjs); a JSON report on stdout.
 //
 //   buildModel({ formXml, interfaceXml, layoutXdp }, sample)  → { form, pages, report, missingTexts }
 //   renderHtml(model, { inspect })                             → HTML (one <section class="page"> per page)
 //
 // CLI
-//   node build-adobe-preview.mjs build <form-dir> --values <values.json> --out-dir <dir> [--pdf] [--jpg] [--inspect]
+//   node build-adobe-preview.mjs build <form-dir> --values <values.json> --out-dir <dir> [--pdf] [--jpg] [--layout-json] [--inspect]
 //   node build-adobe-preview.mjs fields <form-dir>   → the printed context leaves (for the sample values)
 //
 // inspect: data-som (SOM path), data-bind (context field), data-role on every text, and a
@@ -27,6 +28,7 @@ import { readContext, readInterface, readXdp } from './read-adobe.mjs';
 import { buildRecord, contextFields } from './adobe-data.mjs';
 import { layoutForm } from './adobe-layout.mjs';
 import { findBrowser, runBrowser } from '../forms-common/browser.mjs';
+import { layoutOf } from '../forms-common/score-fidelity.mjs';
 
 const PT = 25.4 / 72;
 const esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -113,7 +115,7 @@ function arg(argv, name, dflt) { const i = argv.indexOf(name); return i >= 0 ? a
 function main(argv) {
   const [cmd, dir] = argv;
   if (!cmd || !dir || !existsSync(dir)) {
-    console.error('usage: node build-adobe-preview.mjs build <form-dir> --values <values.json> --out-dir <dir> [--pdf] [--jpg] [--inspect]\n       node build-adobe-preview.mjs fields <form-dir>');
+    console.error('usage: node build-adobe-preview.mjs build <form-dir> --values <values.json> --out-dir <dir> [--pdf] [--jpg] [--layout-json] [--inspect]\n       node build-adobe-preview.mjs fields <form-dir>');
     process.exit(2);
   }
   const f = filesOf(dir);
@@ -133,15 +135,20 @@ function main(argv) {
     approximations: [...new Set(model.report.approximations)], unbound: [...new Set(model.report.unbound)], overflow: model.report.overflow,
     system: model.system };
   if (model.system['SFPSY-DATE']) report.notes = [`SFPSY-DATE = ${model.system['SFPSY-DATE'].value} (${model.system['SFPSY-DATE'].source}): the date is your input — SAP prints its own server date; give the same date in values.json "system" to compare with SAP's PDF`];
-  if (argv.includes('--pdf') || argv.includes('--jpg')) {
+  const wantPdf = argv.includes('--pdf') || argv.includes('--layout-json');
+  if (wantPdf || argv.includes('--jpg')) {
     const browser = findBrowser();
     if (!browser) report.browser = 'no Chrome / Edge / Chromium found (set SC4SAP_CHROME): HTML only';
     else {
       const profile = join(tmpdir(), `sc4sap-adobe-preview-chrome-${process.pid}`);
       const url = pathToFileURL(`${base}.html`).href;
-      if (argv.includes('--pdf')) {
+      if (wantPdf) {
         runBrowser(browser, ['--no-pdf-header-footer', `--print-to-pdf=${base}.pdf`, url], profile);
         if (existsSync(`${base}.pdf`)) report.pdf = `${base}.pdf`;
+        if (report.pdf && argv.includes('--layout-json')) {
+          writeFileSync(`${base}.layout.json`, `${JSON.stringify(layoutOf(readFileSync(report.pdf)), null, 1)}\n`);
+          report.layout = `${base}.layout.json`;
+        }
       }
       if (argv.includes('--jpg')) {
         const p = model.pages[0] || { w: 210, h: 297 };

@@ -87,9 +87,9 @@ node scripts/smartform/build-preview.mjs fields "<content>" --ddic "<out>/ddic.j
 
 **Step 6 — Build.**
 ```
-node scripts/smartform/build-preview.mjs build "<content>" --values "<out>/values.json" --out-dir "<out>" --fields "<out>/fields.json" [--rows N] [--mark]
+node scripts/smartform/build-preview.mjs build "<content>" --values "<out>/values.json" --out-dir "<out>" --fields "<out>/fields.json" [--rows N] [--mark] [--layout-json]
 ```
-`--fields` gives the DDIC types SAPscript needs for `&'pre'F'post'&` (a zero of a numeric / date / time field is initial: no pre / post text). `--mark` tints the sample values yellow (for review); unfilled symbols always show as blue `&NAME&` placeholders. The JSON report lists `filled`, `unfilled`, `overflow` (cells / windows whose content does not fit), `approximations` and the `defaultParagraph` used.
+`--fields` gives the DDIC types SAPscript needs for `&'pre'F'post'&` (a zero of a numeric / date / time field is initial: no pre / post text). `--layout-json` also writes `<FORM>-preview.layout.json`: the printed texts and lines in mm. With SAP's PDF of the same values, `node scripts/forms-common/score-fidelity.mjs "<sap.pdf>" "<out>/<FORM>-preview.layout.json"` gives the fidelity score (target ≥ 98 %) with its missing / moved / extra list. `--mark` tints the sample values yellow (for review); unfilled symbols always show as blue `&NAME&` placeholders. The JSON report lists `filled`, `unfilled`, `overflow` (cells / windows whose content does not fit), `approximations` and the `defaultParagraph` used.
 
 **Step 7 — Check and show.** `Read` the JPG and look at it before answering: overlapping windows, empty windows, missing graphics, symbols left blue. Fix `values.json` and rebuild for value problems; report layout findings — never "fix" the form's layout in the drawing.
 </Workflow>

@@ -15,8 +15,10 @@
 //     → fields.json: per symbol its DDIC type, length, decimals, text, loop and windows
 //       (preview-workbench.mjs fieldsFrom; ddic.json = the Step 4 answers per type name)
 //   node build-preview.mjs build <content.json> --values <values.json>
-//        --out-dir <dir> [--rows N] [--no-jpg] [--mark] [--fields <fields.json>]
-//     → { html, jpg, rows, filled, unfilled, overflow, approximations, defaultParagraph }
+//        --out-dir <dir> [--rows N] [--no-jpg] [--mark] [--fields <fields.json>] [--layout-json]
+//     → { html, jpg, layout, rows, filled, unfilled, overflow, approximations, defaultParagraph }
+//     --layout-json: <FORM>-preview.layout.json, the texts and rules of the page as the browser prints it,
+//       in mm (score-fidelity.mjs input). The page is printed at its 4x layout size and scaled back.
 //
 // values.json
 //   { "defaultParagraph": "AA",        // paragraph for '*' lines (the style's
@@ -34,6 +36,7 @@ import { pathToFileURL } from 'node:url';
 import { barcodeSize, barcodeSvg } from '../forms-common/barcode.mjs';
 import { blankWidths, glyphWidths } from '../forms-common/fonts.mjs';
 import { findBrowser, runBrowser } from '../forms-common/browser.mjs';
+import { layoutOf, scaleLayout } from '../forms-common/score-fidelity.mjs';
 
 const PT_MM = 0.3528;
 // The page is laid out 4x and scaled back for the picture: at print sizes (10-20 px)
@@ -1391,7 +1394,7 @@ function arg(argv, name, dflt) {
 async function main(argv) {
   const [cmd, contentFile] = argv;
   if (!cmd || !contentFile || !existsSync(contentFile)) {
-    console.error('usage: build-preview.mjs symbols <content.json> | fields <content.json> --ddic <ddic.json> --out <fields.json> | build <content.json> --values <values.json> --out-dir <dir> [--rows N] [--no-jpg] [--mark] [--fields <fields.json>]');
+    console.error('usage: build-preview.mjs symbols <content.json> | fields <content.json> --ddic <ddic.json> --out <fields.json> | build <content.json> --values <values.json> --out-dir <dir> [--rows N] [--no-jpg] [--mark] [--fields <fields.json>] [--layout-json]');
     process.exit(2);
   }
   const content = JSON.parse(readFileSync(contentFile, 'utf8'));
@@ -1452,6 +1455,18 @@ async function main(argv) {
       runBrowser(browser, [size, `--force-device-scale-factor=${2 / ZOOM}`, `--screenshot=${base}.jpg`, url], profile);
       if (existsSync(`${base}.jpg`)) report.jpg = `${base}.jpg`;
       else report.approximations.push('the browser wrote no JPG');
+    }
+    if (argv.includes('--layout-json')) {
+      // print the page at its 4x layout size (same advances as the picture), then scale back to mm
+      const work = join(profile, 'print');
+      mkdirSync(work, { recursive: true });
+      const printHtml = join(work, 'page.html'), printPdf = join(work, 'page.pdf');
+      writeFileSync(printHtml, page.html.replace(`@page{size:${page.w}mm ${page.h}mm;`, `@page{size:${page.w * ZOOM}mm ${page.h * ZOOM}mm;`));
+      runBrowser(browser, ['--no-pdf-header-footer', `--print-to-pdf=${printPdf}`, pathToFileURL(printHtml).href], profile);
+      if (existsSync(printPdf)) {
+        writeFileSync(`${base}.layout.json`, `${JSON.stringify(scaleLayout(layoutOf(readFileSync(printPdf)), ZOOM), null, 1)}\n`);
+        report.layout = `${base}.layout.json`;
+      } else report.approximations.push('the browser wrote no PDF — no layout.json');
     }
     try { rmSync(profile, { recursive: true, force: true }); } catch { /* still locked */ }
   }
