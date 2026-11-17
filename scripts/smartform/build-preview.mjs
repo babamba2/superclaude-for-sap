@@ -181,6 +181,39 @@ function sapLenMm(v, style) {
 /** The family the printer prints: one its device type has no font for comes out
  *  in COURIER — the TFO01 substitutes are not used (ZSF_DEMO_09 on KPPDF:
  *  KPGULIM → COURIER although its substitute KPSAMMUL exists). */
+// Tab stop math for SAPscript ",," tabs, kept as source text: the page script embeds it as written and the module builds
+// the same functions from it (tests run them; Function.toString would differ between Node and the test transform).
+//   tabNextStop(stops, dist, x, inkEnd) → { next, ji }: the next stop in mm from the cell / window edge; trailing blanks
+//     do not pass a stop — the search starts at the ink end of the tab's line when known (SF_EXAMPLE_01 "250.00 " ends
+//     0.17 mm past the 5 cm stop, SAP prints the currency on it); past the last stop the style's default distance,
+//     else 2 mm (ji -1)
+//   tabDecimalWidth(next, glyphs) → the room a DECIMAL tab makes: the last '.' / ',' before a digit of the text up to the
+//     next tab goes on the stop (SF_EXAMPLE_01 TB: the '.' of "94.60" at 4 cm); without one the text ends there; text
+//     already past the stop stays (0); glyphs [{ ch, after, left, right }] in mm, measured while the tab is empty; null
+//     without ink
+const TAB_JS = String.raw`function tabNextStop(stops, dist, x, inkEnd) {
+  var xi = inkEnd !== null && inkEnd !== undefined ? Math.min(x, inkEnd) : x;
+  var next;
+  var i;
+  for (i = 0; i < stops.length; i++) if (stops[i] > xi + 0.05) { next = stops[i]; break; }
+  var ji = next === undefined ? -1 : i;
+  if (next === undefined && dist > 0) next = dist*(Math.floor((x + 0.05) / dist) + 1);
+  if (next === undefined) next = x + 2;
+  return { next: next, ji: ji };
+}
+function tabDecimalWidth(next, glyphs) {
+  var dec = null, last = null;
+  for (var i = 0; i < glyphs.length; i++) {
+    var g = glyphs[i];
+    if (/[.,]/.test(g.ch) && /[0-9]/.test(g.after || '')) dec = g.left;
+    last = g.right;
+  }
+  var anc = dec !== null ? dec : last;
+  return anc === null ? null : Math.max(0, next - anc);
+}`;
+export const { tabNextStop, tabDecimalWidth } = new Function(`${TAB_JS}
+return { tabNextStop: tabNextStop, tabDecimalWidth: tabDecimalWidth };`)();
+
 function printedFamily(family, printer, size10) {
   const f = String(family || '').trim().toUpperCase();
   // fonts not read: keep the family. Read but empty: the device type has none of the form's families (S4-DEV
@@ -697,7 +730,10 @@ class Renderer {
       // font prints the symbol (ZSF_DEMO_33 ■ in KPDODUM; ZSF_DEMO_26 □ in <A1> HELVE → '#')
       const fam = (stR?.paragraphs || []).find((x) => x.tag === p.f)?.family || stR?.font?.family || '';
       this.parFam = printedFamily(String(fam).trim(), this.c.printer); // the family the device prints (reviewer I)
-      p.html = this.inline(p.raw, resolved);
+      // an empty '/' line that ends a paragraph is a printed blank line in SAP (SF_EXAMPLE_01 INTRODUCTION: "Dear Sir
+      // or Madam," + '/' "" → the next paragraph two lines lower); pre-wrap drops a trailing line break, so it gets
+      // a zero-width character to stand on
+      p.html = this.inline(/\n$/.test(p.raw) ? `${p.raw}​` : p.raw, resolved);
     }
     this.parFam = '';
     // SAP breaks lines at blanks only, never after a hyphen (ZSF_DEMO_34 ": DR-SAMPLE-0001"
@@ -1409,15 +1445,32 @@ return cont;};</script>
 document.querySelectorAll('.row.autoh').forEach(function(r){var mx=0;r.querySelectorAll('.par, .par *').forEach(function(e){var own=[].some.call(e.childNodes,function(n){return n.nodeType===3&&n.nodeValue.trim();});if(own){var s=parseFloat(getComputedStyle(e).fontSize);if(s>mx)mx=s;}});
 if(mx)r.querySelectorAll(':scope>.cell').forEach(function(c){c.style.paddingBottom=(mx*0.25)+'px';});});})();</script>
 <script>(function(){var Z=${ZOOM},PXMM=96/25.4;
+${TAB_JS}
 // ,, tabs: up to the next tab stop of the paragraph, else the next multiple of the
 // style's default distance, measured from the left edge of the cell / window
 document.querySelectorAll('.tab').forEach(function(t){var p=t.closest('.par');var box=t.closest('.cell')||t.closest('.win');if(!p||!box)return;
 var x=(t.getBoundingClientRect().left-box.getBoundingClientRect().left)/Z/PXMM;
 var stops=(p.dataset.tabs||'').split(',').filter(Boolean).map(Number);var d=Number(p.dataset.tabdist)||0;
-var next=stops.find(function(s){return s>x+0.05;});var ji=stops.indexOf(next);if(next===undefined&&d>0)next=(Math.floor((x+0.05)/d)+1)*d;if(next===undefined)next=x+2;
+// trailing blanks before the tab do not pass a stop (SF_EXAMPLE_01: "250.00 " with its sign blank ends 0.17 mm past the
+// 5 cm stop, SAP still prints the currency on it): the next stop is found from the ink end of the same line
+var pwI=document.createTreeWalker(p,NodeFilter.SHOW_TEXT),pnI,prI=document.createRange(),trI=t.getBoundingClientRect(),inkR=null;
+while((pnI=pwI.nextNode())){if(!(t.compareDocumentPosition(pnI)&Node.DOCUMENT_POSITION_PRECEDING))break;
+ for(var ki=0;ki<pnI.nodeValue.length;ki++){if(/\\s/.test(pnI.nodeValue[ki]))continue;prI.setStart(pnI,ki);prI.setEnd(pnI,ki+1);var qi=prI.getClientRects()[0];if(qi&&Math.abs((qi.top+qi.bottom)/2-(trI.top+trI.bottom)/2)<(qi.bottom-qi.top)/2)inkR=qi.right;}}
+var pt0=Array.prototype.slice.call(p.querySelectorAll('.tab'));var ptb=pt0[pt0.indexOf(t)-1];
+var inkMm=inkR!==null&&!(ptb&&ptb.getBoundingClientRect().right>inkR)?(inkR-box.getBoundingClientRect().left)/Z/PXMM:null;
+var ns=tabNextStop(stops,d,x,inkMm);var next=ns.next,ji=ns.ji;
 // a RIGHT / CENTER stop aligns the text up to the next tab on the stop, trailing blanks not
 // counted (ZSF_DEMO_52 "HQ   " ends at 17.7 cm); text wider than the room starts where it is
 var j=ji>=0?((p.dataset.tabj||'').split(',')[ji]||'L'):'L';var w=next-x;
+// a DECIMAL stop puts the decimal sign of the text up to the next tab on the stop (SF_EXAMPLE_01 TB ",,&FORCURAM(10CR)&,,":
+// the '.' of "94.60" at 4 cm from the cell edge, the currency at the 5 cm stop — one line, where an L stop wrapped it);
+// the last '.' / ',' before a digit counts, none → the text ends on the stop; text already past the stop stays
+if(j==='D'){var tabsD=Array.prototype.slice.call(p.querySelectorAll('.tab'));var ntD=tabsD[tabsD.indexOf(t)+1];
+ var twD=document.createTreeWalker(p,NodeFilter.SHOW_TEXT),tnD,gl=[],top1=null,crD=document.createRange(),bl=box.getBoundingClientRect().left;
+ while((tnD=twD.nextNode())){if(t.compareDocumentPosition(tnD)&Node.DOCUMENT_POSITION_PRECEDING)continue;if(ntD&&(ntD.compareDocumentPosition(tnD)&Node.DOCUMENT_POSITION_FOLLOWING))break;
+  for(var kd=0;kd<tnD.nodeValue.length;kd++){var chD=tnD.nodeValue[kd];if(/\\s/.test(chD))continue;crD.setStart(tnD,kd);crD.setEnd(tnD,kd+1);var qd=crD.getClientRects()[0];if(!qd)continue;
+   if(top1===null)top1=qd.top;if(Math.abs(qd.top-top1)>2)continue;gl.push({ch:chD,after:tnD.nodeValue.charAt(kd+1),left:(qd.left-bl)/Z/PXMM,right:(qd.right-bl)/Z/PXMM});}}
+ var wd=tabDecimalWidth(next,gl);if(wd!==null)w=wd;}
 if(j==='R'||j==='C'){var tabs=Array.prototype.slice.call(p.querySelectorAll('.tab'));var nt=tabs[tabs.indexOf(t)+1];
  var tw=document.createTreeWalker(p,NodeFilter.SHOW_TEXT),tn,l=Infinity,r=-Infinity,top0=null,cr=document.createRange();
  while((tn=tw.nextNode())){if(t.compareDocumentPosition(tn)&Node.DOCUMENT_POSITION_PRECEDING)continue;if(nt&&(nt.compareDocumentPosition(tn)&Node.DOCUMENT_POSITION_FOLLOWING))break;

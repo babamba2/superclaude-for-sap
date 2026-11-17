@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { listSymbols, Renderer, paragraphFonts, barcodeSvg, code128Codes, barcodeSize, legacyDbcs, printedFamily } from '../../scripts/smartform/build-preview.mjs';
+import { listSymbols, Renderer, paragraphFonts, barcodeSvg, code128Codes, barcodeSize, legacyDbcs, printedFamily, tabNextStop, tabDecimalWidth } from '../../scripts/smartform/build-preview.mjs';
 import { compare } from '../../scripts/smartform/compare-otf.mjs';
 
 // Shape of GetSmartFormContent's content.json; names and values are invented.
@@ -309,5 +309,46 @@ describe('smartform-preview: a loop with sort events runs over its rows sorted (
     expect(at('Row 3')).toBeLessThan(at('Row 4'));
     expect(at('Row 4')).toBeLessThan(at('Row 1'));
     expect(r.approx.join(' ')).toMatch(/rows sorted by CARRID/);
+  });
+});
+
+describe('smartform-preview: an empty "/" line that ends a paragraph prints as a blank line (SF_EXAMPLE_01 intro)', () => {
+  it('keeps the trailing line break with a zero-width character to stand on', () => {
+    const c = {
+      ...CONTENT,
+      pages: [{ ...CONTENT.pages[0], windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 10, topMm: 30, widthMm: 190, heightMm: 200, content: [
+        { kind: 'text', name: '%T1', caption: 'T1', children: [], style: 'ZTEST_STYLE', lines: [{ format: 'AA', text: 'Dear Sir or Madam,' }, { format: '/', text: '' }, { format: 'AA', text: 'Next' }] },
+      ] }] }],
+    };
+    const html = new Renderer(c, { values: {} }).page().html as string;
+    expect(html).toMatch(/Dear Sir or Madam,\n\u200b/);
+    expect(html).not.toMatch(/Next\n/);
+  });
+});
+
+describe('smartform-preview: tab stop math the page script runs (SF_EXAMPLE_01 TB: DECIMAL 4 cm, LEFT 5 cm)', () => {
+  const glyphs = (text: string, left: number, w = 2.54) => [...text].map((ch, i) => ({ ch, after: text.charAt(i + 1), left: left + i * w, right: left + (i + 1) * w })).filter((g) => g.ch.trim());
+  it('a DECIMAL stop puts the last decimal sign before a digit on the stop', () => {
+    // "250.00" measured from the tab at 0: its '.' is at 3 × 2.54 = 7.62 → room 40 - 7.62
+    expect(tabDecimalWidth(40, glyphs('250.00', 0))).toBeCloseTo(32.38, 2);
+    // "1,230.50": the '.' counts, not the grouping comma
+    expect(tabDecimalWidth(40, glyphs('1,230.50', 0))).toBeCloseTo(40 - 5 * 2.54, 2);
+    // no decimal sign: the text ends on the stop; past the stop: no room; no ink: null
+    expect(tabDecimalWidth(40, glyphs('EUR', 0))).toBeCloseTo(40 - 3 * 2.54, 2);
+    expect(tabDecimalWidth(5, glyphs('250.00', 0))).toBe(0);
+    expect(tabDecimalWidth(40, [])).toBeNull();
+  });
+  it('trailing blanks do not pass a stop: the next stop is found from the ink end', () => {
+    // "250.00 " ends 50.17 mm with its sign blank, its ink at 47.63: the currency goes to the 5 cm stop
+    expect(tabNextStop([40, 50], 10, 50.17, 47.63)).toEqual({ next: 50, ji: 1 });
+    // without the ink end the 5 cm stop is passed: the default distance gives 60
+    expect(tabNextStop([40, 50], 10, 50.17, null)).toEqual({ next: 60, ji: -1 });
+    // no default distance: 2 mm on
+    expect(tabNextStop([], 0, 12, null)).toEqual({ next: 14, ji: -1 });
+  });
+  it('the page script carries both functions as written', () => {
+    const html = new Renderer(CONTENT, { values: {} }).page().html as string;
+    expect(html).toContain(String(tabNextStop));
+    expect(html).toContain(String(tabDecimalWidth));
   });
 });
