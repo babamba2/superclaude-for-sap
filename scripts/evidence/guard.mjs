@@ -65,7 +65,9 @@ const PROFILES_REF = /(?:\.sc4sap|SC4SAP_HOME_DIR)[^\s"']*?\/+profiles\b/i;
 const EXACT_PROFILE_FILE = /(?:\.sc4sap|SC4SAP_HOME_DIR)[^\s"']*?\/+profiles\/+[\w.-]+\/+(?:sap\.env|config\.json)(?![\w.])/gi;
 const INTERPRETER = /\b(?:node|nodejs|deno|bun)(?:\.exe)?\b[^|;&]*\s(?:-e|--eval|-p|--print|eval)\b|\bpython[0-9.]*(?:\.exe)?\b[^|;&]*\s-c\b|\b(?:perl|ruby|php)(?:\.exe)?\b[^|;&]*\s-[er]\b|\b(?:powershell|pwsh)(?:\.exe)?\b[^|;&]*\s-(?:c|command|e|ec|encodedcommand)\b|\b(?:bash|sh|zsh|dash)(?:\.exe)?\b[^|;&]*\s-c\b|\bcmd(?:\.exe)?\b[^|;&]*\s\/[ck]\b|\b(?:Invoke-Expression|iex)\b/i;
 const HOME_REF = /\.sc4sap|sc4sap_home|homedir|USERPROFILE|\$HOME\b|\$env:HOME\b|%HOMEPATH%|~\//i;
-const ENCODED_PS = /\b(?:powershell|pwsh)(?:\.exe)?\b[^|;&]*\s-(?:e|ec|encodedcommand)\b/i;
+// Decoding inside a command hides the path it reads (`cat $(echo <base64> | base64 -d)`).
+const DECODE = /\bbase64\b[^|;&]*\s(?:-d|-D|--decode)\b|\bcertutil(?:\.exe)?\b[^|;&]*\s[-/]decode(?:hex)?\b|FromBase64String|\bopenssl\b[^|;&]*\b(?:base64|enc)\b[^|;&]*\s-d\b|\bxxd\b[^|;&]*\s-r\b/i;
+const ENCODED_PS =/\b(?:powershell|pwsh)(?:\.exe)?\b[^|;&]*\s-(?:e|ec|encodedcommand)\b/i;
 const sc4sapHome = () => resolve(process.env.SC4SAP_HOME_DIR || join(homedir(), '.sc4sap'));
 const within = (child, parent) => {
   const c = normPath(child);
@@ -102,6 +104,7 @@ export function maskKeyRefusal(payload) {
     const namesProfiles = (s) => PROFILES_REF.test(s) || s.toLowerCase().includes(`${homeN}/profiles`);
     const exactFiles = new RegExp(`${homeN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/profiles/+[\\w.-]+/+(?:sap\\.env|config\\.json)(?![\\w.])`, 'gi');
     if (ENCODED_PS.test(raw)) return `${reason}; encoded PowerShell cannot be checked`;
+    if (DECODE.test(raw) || DECODE.test(cmd)) return `${reason}; a decoded command or path cannot be checked — write it out in plain text`;
     if (INTERPRETER.test(cmd) && (HOME_REF.test(cmd) || lower.includes(homeN))) return `${reason}; no interpreter one-liner on the sc4sap / home folder`;
     if (namesProfiles(cmd)) {
       const moveOnly = MOVE_ONLY.test(cmd) && !CHAINED.test(raw) && !CD_LIKE.test(cmd);

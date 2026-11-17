@@ -516,6 +516,23 @@ describe('guard and CLI', () => {
     }
   });
 
+  it('guard refuses commands that decode a hidden path or command', () => {
+    const sh = (command: string, tool = 'Bash') => guard({ tool_name: tool, tool_input: { command }, cwd: 'C:/p' });
+    for (const [command, tool] of [
+      ['cat $(echo L2hvbWUveC8uc2M0c2FwL3Byb2ZpbGVzL1MvbWFzay5rZXk= | base64 -d)', 'Bash'],
+      ['cat $(echo aGk= | base64 --decode)', 'Bash'],
+      ['echo aGk= | base64 -D', 'Bash'],
+      ['certutil -decode in.b64 out.txt', 'PowerShell'],
+      ['certutil.exe /decodehex in.hex out.bin', 'Bash'],
+      ['Get-Content ([Text.Encoding]::UTF8.GetString([Convert]::FromBase64String("aGk=")))', 'PowerShell'],
+      ['openssl base64 -d -in x.b64', 'Bash'],
+      ['openssl enc -base64 -d -in x', 'Bash'],
+      ['echo 6869 | xxd -r -p', 'Bash'],
+    ] as const) expect(sh(command, tool), command).toMatch(/decoded command or path/);
+    for (const command of ['base64 file.bin > file.b64', 'npm run build', 'git log --oneline -1'])
+      expect(sh(command), command).toBeNull();
+  });
+
   it('guard lets only the plugin\'s own pt.mjs write run files', () => {
     // the commands name a protected file, so only the pt.mjs exception can let them through
     const base = 'C:/p/.sc4sap/program/ZP/test/20261117-0900/state.json';
