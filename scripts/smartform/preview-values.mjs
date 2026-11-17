@@ -5,7 +5,8 @@
 //   valuesFromRaw(content, raw, { ddic, dateFormat, decimal, group }) → { values, rows }
 //     content  GetSmartFormContent's content.json (loops / tables: data table and work area)
 //     raw      interface values: { PARAM: scalar | { FIELD } | [ { FIELD } ] } (globals too, e.g. sums)
-//     ddic     { "PARAM-FIELD": { type, length, decimals } } (types decide the printed form)
+//     ddic     { "PARAM-FIELD": { type, length, decimals, signed? } } (types decide the printed form; signed = the
+//              domain sign flag, DD01L SIGNFLAG, where it was read: false → no sign place)
 //     dateFormat  the print user's date format: 'MM/DD/YYYY' (default), 'DD.MM.YYYY', 'YYYY/MM/DD', 'YYYY.MM.DD' …
 //
 // Output: structures as "PARAM-FIELD", table rows as "WA-FIELD": [row values] for the work area the form loops into
@@ -28,13 +29,15 @@ function fmtTime(v) {
   return /^\d{6}$/.test(s) ? `${s.slice(0, 2)}:${s.slice(2, 4)}:${s.slice(4, 6)}` : String(v ?? '');
 }
 
-function fmtNum(v, dec, { decimal = '.', group = ',' } = {}) {
+function fmtNum(v, dec, { decimal = '.', group = ',', signed } = {}) {
   const n = Number(v);
   if (!Number.isFinite(n)) return String(v ?? '');
   const [ip, fp] = Math.abs(n).toFixed(dec).split('.');
   const g = ip.replace(/\B(?=(\d{3})+(?!\d))/g, group);
   // SAP writes the minus sign after the number, a positive number keeps that place as a blank (a right-aligned
-  // amount ends one character short of the cell: SF_SUBTOTALS / SF_TOTALS on S4-DEV, build-preview R60)
+  // amount ends one character short of the cell: SF_SUBTOTALS / SF_TOTALS on S4-DEV, build-preview R60) — only for a
+  // signed type: a domain without the sign flag (signed: false) has no sign place; unknown → the place is kept
+  if (signed === false) return `${g}${fp ? decimal + fp : ''}`;
   return `${g}${fp ? decimal + fp : ''}${n < 0 ? '-' : ' '}`;
 }
 
@@ -71,7 +74,7 @@ export function valuesFromRaw(content, raw = {}, { ddic = {}, dateFormat = 'MM/D
         const key = Object.entries(rec || {}).find(([f]) => up(dd[`${param}-${up(f)}`]?.type) === 'CUKY')?.[1];
         if (key !== undefined && CUR_DEC[up(key)] !== undefined) dec = CUR_DEC[up(key)];
       }
-      return fmtNum(v, dec, { decimal, group });
+      return fmtNum(v, dec, { decimal, group, signed: t?.signed });
     }
     if (/^(INT1|INT2|INT4|INT8)$/.test(type)) return String(Math.round(Number(v)));
     return String(v);

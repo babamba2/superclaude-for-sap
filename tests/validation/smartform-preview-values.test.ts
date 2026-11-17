@@ -30,4 +30,11 @@ describe('smartform-preview: values from interface values', () => {
     expect(values['ITEMS-AMOUNT']).toEqual(['1,230.50 ', '1,500 ']);
     expect(values['WA_ITEM-QTY']).toEqual(['2.000 ', '1.500-']);
   });
+  it('keeps the sign place only for a signed type when the domain sign flag is known', () => {
+    const dd = { 'H-A': { type: 'CURR', decimals: 2 }, 'H-B': { type: 'CURR', decimals: 2, signed: false }, 'H-C': { type: 'QUAN', decimals: 3, signed: true } };
+    const { values } = valuesFromRaw(content, { H: { A: 5, B: 5, C: -2 } }, { ddic: dd });
+    expect(values['H-A']).toBe('5.00 ');   // unknown: the place is kept (today's rule)
+    expect(values['H-B']).toBe('5.00');    // no sign flag: no sign place
+    expect(values['H-C']).toBe('2.000-');
+  });
 });
