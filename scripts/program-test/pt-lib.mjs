@@ -252,11 +252,14 @@ export const fingerprint = (value, salt) => sha(`fp|${salt}|${String(value).trim
 export const MASK_VERSIONS = ['hmac-v2'];
 
 /**
- * Production test data stays locked until the MCP release with HMAC masking is pinned and
- * installed (flipped only in that release commit, after the user's OK). The read gate's
- * masked-probe proof applies on top at run time.
+ * Production test data: open since the MCP release that masks with its own key (4.14.0,
+ * hmac-v2) is pinned (sc4sap 0.6.70) — the user's choice per run (user 2026-11-18). Every
+ * runtime guard stays: the masked-probe proof before the first PRD read (pt-gate), the run's
+ * own destination only (pt-gate), one explicit yes per table, fields / WHERE / max 200 rows /
+ * refused tables (checkPlan), unmasked answers never saved (pt-capture). Set back to false to
+ * lock production again: `init --source prd` then exits 7 and `check` refuses a prd plan.
  */
-export const MASKING_RELEASE_PINNED = false;
+export const MASKING_RELEASE_PINNED = true;
 export const PRD_LOCKED = 'Production rows are locked until the MCP release that masks with its own key is pinned and installed — use QA or DEV data.';
 
 /**
@@ -452,6 +455,8 @@ export function lintHarness(testClass, cases, expected, plan, fingerprints = [],
   if (!/RISK\s+LEVEL\s+HARMLESS/i.test(src)) p.push('test class must be RISK LEVEL HARMLESS');
   if (/\bCOMMIT\s+WORK\b/i.test(src)) p.push('COMMIT WORK in the test class');
   if (/\bIN\s+UPDATE\s+TASK\b/i.test(src)) p.push('update-task call in the test class');
+  // The rows come from the masked capture as doubles; the test itself never reads another system.
+  if (/\bDESTINATION\b|\bRFC_READ_TABLE\b|\bRFC_GET_TABLE_ENTRIES\b/i.test(src)) p.push('remote call (DESTINATION / RFC_READ_TABLE) in the test class — test data comes only from the masked rows (pt.mjs abap-rows)');
   if (/\b(INSERT\s+(INTO\s+)?[a-z]\w*\s+(VALUES|FROM\s+TABLE)|UPDATE\s+[a-z]\w*\s+SET|DELETE\s+FROM\s+[a-z]\w*)\b/i.test(src) && !/cl_osql_test_environment/i.test(src))
     p.push('database write statement in the test class');
   if (/cl_abap_unit_assert=>skip/i.test(src)) p.push('skipped test (assert=>skip)');

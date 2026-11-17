@@ -2,7 +2,7 @@
 /**
  * program-test CLI — run state, checks, harness / mutant / tamper generation, verdict.
  *
- *   pt.mjs init <PROG> | --program <PROG>  --source dev|qa [--base <dir>] [--root <dir>]
+ *   pt.mjs init <PROG> | --program <PROG>  --source dev|qa|prd [--base <dir>] [--root <dir>]
  *                                                            new run (+ active capture marker); --base replaces the
  *                                                            profile artifact base (a web run's own output folder)
  *   pt.mjs mask-extra --run <dir> --fields F1,F2              more personal fields to mask (before reads)
@@ -15,7 +15,7 @@
  *   pt.mjs close --run <dir>                                  stop capturing
  *
  * Exit: 0 ok / PASS · 1 problems / FAIL verdicts · 2 INCOMPLETE · 3 usage / I/O · 4 PARTIAL / NOT_TESTABLE ·
- *       5 destination missing (QA / PRD) · 6 connected system is not DEV · 7 production locked (MASKING_RELEASE_PINNED).
+ *       5 destination missing (QA / PRD) · 6 connected system is not DEV · 7 production locked (only while MASKING_RELEASE_PINNED is false).
  */
 
 import { randomBytes } from 'node:crypto';
@@ -83,7 +83,7 @@ switch (cmd) {
   case 'init': {
     const prog = up(arg('--program') || (argv[1] && !argv[1].startsWith('--') ? argv[1] : ''));
     const source = arg('--source') || 'dev';
-    if (!prog || !/^(?:[ZY][A-Z0-9_]{0,39}|\/[A-Z0-9_]{1,10}\/[A-Z0-9_]{1,30})$/.test(prog)) die('usage: pt.mjs init <PROG> | --program <PROG> --source dev|qa [--base <dir>]');
+    if (!prog || !/^(?:[ZY][A-Z0-9_]{0,39}|\/[A-Z0-9_]{1,10}\/[A-Z0-9_]{1,30})$/.test(prog)) die('usage: pt.mjs init <PROG> | --program <PROG> --source dev|qa|prd [--base <dir>]');
     if (!SOURCES.includes(source)) die(`--source must be ${SOURCES.join(' / ')}`);
     if (source === 'prd' && !MASKING_RELEASE_PINNED) die(PRD_LOCKED, 7);
     const root = projectRoot(arg('--root'));

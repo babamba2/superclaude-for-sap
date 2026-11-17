@@ -79,6 +79,14 @@ export function gate(payload) {
   const given = new Set((Array.isArray(mask.extra_fields) ? mask.extra_fields : []).map(up));
   const missing = (state.mask_extra || []).map(up).filter((f) => !given.has(f));
   if (missing.length) return `mask.extra_fields lacks ${missing.join(', ')} — ${how}`;
+  // Remote rows come only through this run's own destination: a dev run reads the connected
+  // system only, and a QA run cannot reach production (or any other system) by naming another
+  // destination — that would skip the production rules (probe, per-table yes).
+  if (tool === 'GetRemoteTableContents') {
+    const dest = String(input.destination || '').trim();
+    if (state.source === 'dev' || !state.destination) return `program-test run ${state.program} reads ${String(state.source).toUpperCase()} rows of the connected system — no remote reads in this run`;
+    if (dest !== state.destination) return `program-test run ${state.program} reads ${String(state.source).toUpperCase()} rows through ${state.destination} only — not ${dest || '(no destination)'}`;
+  }
   if (state.source === 'prd' && !serverMaskingProven(active.run_dir)) {
     return 'production reads need proof that the MCP server masks: first one masked probe read on DEV (e.g. GetSqlQuery "SELECT mandt FROM t000 UP TO 1 ROWS" with the same mask). An MCP server older than the masking release cannot run production tests.';
   }

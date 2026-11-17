@@ -554,14 +554,23 @@ describe('guard and CLI', () => {
     const r = spawnSync(process.execPath, [join(ROOT, 'scripts/program-test/pt.mjs'), 'init', 'ZP', '--source', 'qa', '--root', root], { encoding: 'utf-8', env: { ...process.env, SC4SAP_HOME_DIR: join(tmp, 'home') } });
     expect(r.status).toBe(5);
     expect(r.stderr).toMatch(/SM59/);
-    // production: locked until the masking MCP release is pinned and installed (MASKING_RELEASE_PINNED)
+    // production: the user's choice per run since the masking MCP release is pinned (0.6.70, user
+    // 2026-11-18) — with its destination from the profile, and every plan rule still applied
+    expect(MASKING_RELEASE_PINNED).toBe(true);
+    const noPrdDest = spawnSync(process.execPath, [join(ROOT, 'scripts/program-test/pt.mjs'), 'init', 'ZP', '--source', 'prd', '--root', root], { encoding: 'utf-8', env: { ...process.env, SC4SAP_HOME_DIR: join(tmp, 'home') } });
+    expect(noPrdDest.status).toBe(5);
+    expect(noPrdDest.stderr).toMatch(/testDataSources\.prd/);
     writeFileSync(join(root, '.sc4sap', 'config.json'), JSON.stringify({ sapVersion: 'ECC', testDataSources: { prd: 'PRD100' } }));
     const prd = spawnSync(process.execPath, [join(ROOT, 'scripts/program-test/pt.mjs'), 'init', 'ZP', '--source', 'prd', '--root', root], { encoding: 'utf-8', env: { ...process.env, SC4SAP_HOME_DIR: join(tmp, 'home') } });
-    expect(MASKING_RELEASE_PINNED).toBe(false);
-    expect(prd.status).toBe(7);
-    expect(prd.stderr.trim()).toBe(PRD_LOCKED);
-    expect(checkPlan({ source: 'prd', destination: 'PRD100', tables: [{ table: 'EKPO', fields: ['EBELN'], where: "EBELN = '1'", cases: ['C01'] }] })).toEqual([PRD_LOCKED]);
+    expect(prd.status).toBe(0);
+    expect(JSON.parse(prd.stdout)).toMatchObject({ source: 'prd', destination: 'PRD100' });
+    expect(checkPlan({ source: 'prd', destination: 'PRD100', tables: [{ table: 'EKPO', fields: ['EBELN'], where: "EBELN = '1'", cases: ['C01'] }] })).toEqual([]);
     expect(checkPlan({ source: 'prd', destination: 'PRD100', tables: [{ table: 'EKPO', fields: ['EBELN'], cases: ['C01'] }] }).join()).toMatch(/WHERE on key/);
+    expect(checkPlan({ source: 'prd', tables: [{ table: 'EKPO', fields: ['EBELN'], where: "EBELN = '1'", cases: ['C01'] }] }).join()).toMatch(/needs the SM59 destination/);
+    expect(checkPlan({ source: 'prd', destination: 'PRD100', tables: [{ table: 'EKPO', fields: ['EBELN'], where: "EBELN = '1'", max_rows: 201, cases: ['C01'] }] }).join()).toMatch(/max_rows 201 outside 1\.\.200/);
+    expect(checkPlan({ source: 'prd', destination: 'PRD100', tables: [{ table: 'PA0002', fields: ['PERNR'], where: "PERNR = '1'", cases: ['C01'] }] }).join()).toMatch(/personal \/ credential table/);
+    // the lock still works when switched back: PRD_LOCKED is the message then
+    expect(PRD_LOCKED).toMatch(/locked/);
     const ok = spawnSync(process.execPath, [join(ROOT, 'scripts/program-test/pt.mjs'), 'init', 'ZP', '--source', 'dev', '--root', root], { encoding: 'utf-8', env: { ...process.env, SC4SAP_HOME_DIR: join(tmp, 'home') } });
     expect(ok.status).toBe(0);
     expect(existsSync(activePath(root))).toBe(true);
@@ -666,6 +675,34 @@ describe('server-side masking (MCP mask argument)', () => {
     capture(root, 'GetSqlQuery', { sql_query: 'SELECT mandt FROM t000', mask: { salt: SALT } }, masked([{ MANDT: '100' }], []), false);
     expect(serverMaskingProven(runDir)).toBe(true);
     expect(gate(read)).toBeNull();
+  });
+
+  it('remote rows come only through the run\'s own destination (no production by the back door)', () => {
+    const masks = { mask: { salt: SALT } };
+    // a dev run reads the connected system only
+    const dev = run('gate-dest-dev', 'dev');
+    expect(gate(sap('GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRD100', ...masks }, dev.root))).toMatch(/no remote reads in this run/);
+    expect(gate(sap('GetSqlQuery', { sql_query: 'SELECT ebeln FROM ekpo', ...masks }, dev.root))).toBeNull();
+    // a QA run (destination PRD100 in this fixture) cannot name another destination
+    const qa = run('gate-dest-qa', 'qa');
+    expect(gate(sap('GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRDCLNT100', ...masks }, qa.root))).toMatch(/through PRD100 only — not PRDCLNT100/);
+    expect(gate(sap('GetRemoteTableContents', { table_name: 'EKPO', ...masks }, qa.root))).toMatch(/not \(no destination\)/);
+    expect(gate(sap('GetRemoteTableContents', { table_name: 'EKPO', destination: 'prd100', ...masks }, qa.root))).toMatch(/through PRD100 only/);
+    expect(gate(sap('GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRD100', ...masks }, qa.root))).toBeNull();
+    // a production run: its own destination, and only after the masked probe
+    const prd = run('gate-dest-prd', 'prd');
+    expect(gate(sap('GetRemoteTableContents', { table_name: 'EKPO', destination: 'OTHER', ...masks }, prd.root))).toMatch(/through PRD100 only/);
+    expect(gate(sap('GetRemoteTableContents', { table_name: 'EKPO', destination: 'PRD100', ...masks }, prd.root))).toMatch(/need proof/);
+  });
+
+  it('the test class never reads another system', () => {
+    const tc = (body: string) =>
+      `CLASS ltc DEFINITION FOR TESTING RISK LEVEL HARMLESS DURATION SHORT.\n  PRIVATE SECTION.\n    METHODS c01_x FOR TESTING.\nENDCLASS.\nCLASS ltc IMPLEMENTATION.\n  METHOD c01_x.\n${body}\n    cl_abap_unit_assert=>assert_equals( act = lv exp = 2 ).\n  ENDMETHOD.\nENDCLASS.`;
+    const cases = { cases: [{ id: 'C01', method: 'C01_X', double: 'param' }] };
+    const expected = { cases: { C01: { values: [{ what: 'lv', value: 2 }] } } };
+    expect(lintHarness(tc("    CALL FUNCTION 'RFC_READ_TABLE' DESTINATION 'PRD100' EXPORTING query_table = 'EKPO'."), cases, expected, null).join()).toMatch(/remote call/);
+    expect(lintHarness(tc("    CALL FUNCTION 'Z_GET' DESTINATION lv_dest."), cases, expected, null).join()).toMatch(/remote call/);
+    expect(lintHarness(tc('    " a comment that says DESTINATION is fine'), cases, expected, null).join()).not.toMatch(/remote call/);
   });
 
   it('capture keeps server-masked rows as they came, for this salt only; production rows must be server-masked', () => {
