@@ -101,6 +101,12 @@ Abbreviations: ctx = context node, sf = XFT subform. "Flatten" = the children ar
   - initialization code and form routines, with the init input / output parameters
 - Code nodes do **not** go to the interface; they become context program lines (§2).
 
+## 5a. Languages
+
+- MIGRATE creates the form and the interface with `sy-langu` and converts the texts the SmartForm loaded in the logon language.
+- The SmartForm's translations (T_TEXT) are not carried over, so other output languages print the logon language's texts (dates and numbers still follow the output language).
+- The plan adds one form-wide silent gap when the texts exist in more than one language. Manual step: translate the Adobe form (SE63 / XLIFF), or migrate once per language.
+
 ## 6. Names
 
 - `ENCODE_SF_NAME`: upper case. Characters other than A–Z / 0–9 become `X<hex>_` (a first character also when it is `_` or `-`). Example: `%EVENT2` → `X25_EVENT2`.

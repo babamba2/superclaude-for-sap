@@ -120,7 +120,9 @@ export function loadSmartForm(xmlText) {
   };
   const vh = kid(kid(sf, 'sf:VARHEADER'), 'sf:item') || kid(sf, 'sf:VARHEADER');
   const model = { form: val(head, 'FORMNAME'), formType, caption: val(head, 'CAPTION'), interface: iface, globals,
-    pageFormat: val(vh, 'PAGEFORMAT'), cpi: val(vh, 'CPI'), lpi: val(vh, 'LPI'), style: val(vh, 'STDSTYLE'), pages: [], root: null, nodes: [], byId: new Map() };
+    pageFormat: val(vh, 'PAGEFORMAT'), cpi: val(vh, 'CPI'), lpi: val(vh, 'LPI'), style: val(vh, 'STDSTYLE'), pages: [], root: null, nodes: [], byId: new Map(),
+    // the master language and the languages the texts are translated into (T_TEXT items, 1-character SAP keys)
+    masterLanguage: val(head, 'MASTERLANG'), languages: [...new Set([...String(xmlText).matchAll(/<T_TEXT>([\s\S]*?)<\/T_TEXT>/g)].flatMap((m) => [...m[1].matchAll(/<SPRAS>([^<]*)<\/SPRAS>/g)].map((x) => x[1])))].sort() };
 
   // text modules (FORMTYPE T) keep their one text node outside a page tree
   const objById = new Map();
@@ -241,6 +243,7 @@ export function inventory(model) {
   const symbols = [...new Set(model.nodes.flatMap((n) => n.attrs?.fields || []))].sort();
   const pick = (l) => l.map((p) => ({ name: p.name, type: p.type, standard: p.standard }));
   return { form: model.form, formType: model.formType, caption: model.caption, pageFormat: model.pageFormat, style: model.style,
+    masterLanguage: model.masterLanguage, languages: model.languages,
     pages: model.pages.map((p) => ({ name: p.name, next: p.next, orientation: p.orientation })),
     interface: { import: pick(model.interface.import), export: pick(model.interface.export), tables: pick(model.interface.tables), exceptions: pick(model.interface.exceptions) },
     globals: { data: model.globals.data.length, typesLines: model.globals.typesLines, fieldSymbols: model.globals.fieldSymbols, initLines: model.globals.initLines, formRoutineLines: model.globals.formRoutineLines },

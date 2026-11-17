@@ -565,6 +565,12 @@ export function planMigration(model, { options = 'full', formName = '', interfac
   for (const r of windowRefs) { const first = entries.get(r.of); if (first) { first.layout.push(...r.layout); first.context.push(...r.context); first.messages.push(...r.messages); first.gaps.push(...r.gaps); first.infos.push(...r.infos); if (r.status === 'gap' || (r.status === 'warning' && first.status === 'mapped')) first.status = r.status; } }
   const gaps = nodes.flatMap((e) => [...e.messages.filter((m) => m.type === 'E').map((m) => ({ node: e.name || e.kind, path: e.path, kind: e.kind, reason: m.text, action: ACTION[m.code] || 'rework in the Adobe form', logged: true, code: m.code })),
     ...e.gaps.map((g) => ({ node: e.name || e.kind, path: e.path, kind: e.kind, ...g }))]);
+  // form-wide: MIGRATE builds the layout in the logon language only (CL_FP_FORM=>CREATE( sy-langu ), texts converted from
+  // the text of the logon language) — the SmartForm's translations are not carried over
+  const langs = [...new Set([model.masterLanguage, ...(model.languages || [])].filter(Boolean))].sort();
+  if (model.formType === 'form' && langs.length > 1) gaps.push({ node: model.form, path: model.form, kind: 'form', logged: false,
+    reason: `layout translations not migrated: MIGRATE builds the Adobe layout in the logon language only; the SmartForm has texts in ${langs.length} languages (SAP keys ${langs.join(', ')}; master ${model.masterLanguage || '?'}); every other language then prints the logon language's texts (dates and numbers still follow the output language)`,
+    action: 'translate the Adobe form (SE63 / XLIFF), or migrate once per language' });
   const infos = nodes.flatMap((e) => [...new Set(e.infos)].map((note) => ({ node: e.name || e.kind, path: e.path, kind: e.kind, note })));
   const count = (s) => nodes.filter((e) => e.status === s).length;
   return {

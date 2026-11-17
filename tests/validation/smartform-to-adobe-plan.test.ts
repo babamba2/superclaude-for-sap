@@ -187,6 +187,18 @@ ${LOOP('L2', '', EV('%F2', 'F', T('T_STALE', 'never printed')))}
     expect(p.gaps.find((g: any) => g.node === '%EV_X').reason).toMatch(/FALSE branch dropped/);
   });
 
+  it('translations: texts in more than one language → one form-wide silent gap (MIGRATE builds the logon language only)', () => {
+    expect(planMigration(model()).gaps.some((g: any) => g.kind === 'form')).toBe(false); // the fixture has no translations
+    const xml = XML.replace('<MASTERLANG>E</MASTERLANG>', '<MASTERLANG>D</MASTERLANG>')
+      .replace('<STYLE_NAME>ZDEMO_STYLE</STYLE_NAME></sf:TEXT>', '<STYLE_NAME>ZDEMO_STYLE</STYLE_NAME><T_TEXT><item><SPRAS>E</SPRAS><TDLINE>Order</TDLINE></item><item><SPRAS>F</SPRAS><TDLINE>Commande</TDLINE></item></T_TEXT></sf:TEXT>');
+    const m = loadSmartForm(xml);
+    expect([m.masterLanguage, m.languages]).toEqual(['D', ['E', 'F']]);
+    const g = planMigration(m).gaps.find((x: any) => x.kind === 'form');
+    expect(g.logged).toBe(false);
+    expect(g.reason).toMatch(/3 languages \(SAP keys D, E, F; master D\)/);
+    expect(g.action).toMatch(/SE63 \/ XLIFF/);
+  });
+
   it('a text module (FORMTYPE T) is not a form: one gap, no walk', () => {
     const xml = '<?xml version="1.0"?><sf:SMARTFORM xmlns:sf="x"><HEADER><FORMNAME>ZDEMO_TM</FORMNAME><FORMTYPE>T</FORMTYPE></HEADER><sf:TEXT><NAME><INAME>%TEXT1</INAME></NAME><TTYPE>R</TTYPE></sf:TEXT></sf:SMARTFORM>';
     const p = planMigration(loadSmartForm(xml));
