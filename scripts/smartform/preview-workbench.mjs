@@ -1,6 +1,7 @@
 // sc4sap:smartform-preview — pure functions for the preview workbench (web) and the skill. No I/O, no SAP.
 //
-//   renderPreview(content, sample, { inspect, page, fields, graphics }) → { html, filled, unfilled, approximations, rows, w, h }
+//   renderPreview(content, sample, { inspect, page, fields, graphics, paginate }) → { html, pages, filled, unfilled, approximations, rows, w, h }
+//       pages: MAIN running over its page draws every page, cut without a browser (preview-paginate.mjs);
 //       graphics = { NAME: { mime, base64 } }; no file path is ever read here (a graphic without data = a labelled box).
 //       the Renderer of build-preview.mjs without a browser (no JPG, no overflow measure — that needs Chrome).
 //       Without `inspect` the html is byte for byte the CLI's `build` HTML for the same values.json. With it:
@@ -12,21 +13,41 @@
 //
 // sample = values.json: { defaultParagraph?, rows, values: { SYM: value | [value per row] }, mark? }
 
-import { listSymbols, Renderer } from './build-preview.mjs';
+import * as BP from './build-preview.mjs';
+import { paginatePreview } from './preview-paginate.mjs';
+
+const { listSymbols, Renderer } = BP;
 
 const arr = (v) => (Array.isArray(v) ? v : []), up = (s) => String(s ?? '').trim().toUpperCase();
 const own = (o, k) => o !== null && typeof o === 'object' && Object.prototype.hasOwnProperty.call(o, k);
 export const MAX_ROWS = 50;
 
-export function renderPreview(content, sample = {}, { inspect = false, page = 1, fields = {}, graphics = {} } = {}) {
-  const r = new Renderer(content, sample || {}, { inspect, graphics: graphics && typeof graphics === 'object' ? graphics : {}, fields: fields && typeof fields === 'object' ? fields : {} });
-  const pg = r.page(Math.max(0, (Number(page) || 1) - 1));
+export function renderPreview(content, sample = {}, { inspect = false, page = 1, fields = {}, graphics = {}, paginate = true } = {}) {
+  const opts = { inspect, graphics: graphics && typeof graphics === 'object' ? graphics : {}, fields: fields && typeof fields === 'object' ? fields : {} };
+  let r = new Renderer(content, sample || {}, opts);
+  // MAIN running over its page: every page drawn, cut without a browser (preview-paginate.mjs) — the CLI measures
+  // the same cut in Chrome. Needs build-preview's pagesFromBlocks; without it (older renderer) one page as before.
+  // A failure while cutting never costs the preview: the page is drawn on its own as before, on a fresh renderer
+  // (the failed attempt may have advanced the first one's state), with a note.
+  let multi = null, failed = '';
+  if (paginate && typeof BP.pagesFromBlocks === 'function') {
+    try {
+      multi = paginatePreview(r, { pagesFromBlocks: BP.pagesFromBlocks, measure: () => new Renderer(content, sample || {}, opts) });
+    } catch (err) {
+      multi = null;
+      failed = `page breaks not estimated (${String(err?.message || err).slice(0, 120)}): one page drawn`;
+      r = new Renderer(content, sample || {}, opts);
+    }
+  }
+  const pg = multi || r.page(Math.max(0, (Number(page) || 1) - 1));
   let { html } = pg;
+  if (multi) for (const a of multi.approx) r.approx.push(a);
+  if (failed) r.approx.push(failed);
   if (inspect) {
     const index = JSON.stringify(buildIndex(content, fields, Math.max(0, (Number(page) || 1) - 1))).replace(/</g, '\\u003c');
     html = html.replace(/<\/body>(?![\s\S]*<\/body>)/, `<script type="application/json" id="sf-index">${index}</script></body>`);
   }
-  return { html, w: pg.w, h: pg.h, rows: r.rows, filled: [...r.filled].sort(), unfilled: [...r.unfilled].sort(), approximations: [...new Set(r.approx)] };
+  return { html, w: pg.w, h: pg.h, pages: multi ? multi.pages : 1, rows: r.rows, filled: [...r.filled].sort(), unfilled: [...r.unfilled].sort(), approximations: [...new Set(r.approx)] };
 }
 
 const condText = (c) => arr(c?.COND).map((x) => `${x.OP1 ?? ''} ${x.COP ?? ''} ${x.OP2 ?? ''}`.trim()).filter(Boolean).join(' AND ')
