@@ -3,6 +3,7 @@
  *   spec image zoom: a real viewer (pinch / − + / fit, 44 px buttons on touch, focus kept and restored);
  *   configuration document: a closed drawer (reference panel, IMG menu) is hidden, so its controls are out of reach;
  *   IMG tree rows: a 44 px tap area on a touch screen, the desktop look unchanged;
+ *   configuration document zoom viewer (#lb): the spec viewer's treatment (pinch, 44 px bar, modal, keyboard);
  *   process / gap pages: every fold toggle has aria-expanded and a label that says what it does.
  * The interaction itself was checked on touch emulation (tools outside this repo); these hold the contract.
  */
@@ -60,6 +61,19 @@ describe('configuration document', () => {
   it('the drawer buttons say whether their drawer is open', () => {
     expect(html).toContain("$('#refbtn').setAttribute('aria-controls','ref')");
     expect(html).toMatch(/const drawerState=\(\)=>\{\$\('#refbtn'\)\.setAttribute\('aria-expanded'/);
+  });
+  it('zoom viewer: a modal with labelled buttons, 44 px on touch and phones, pinch and double tap on pointers', () => {
+    expect(html).toContain('<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="크게 보기">');
+    expect(html.match(/<button type="button" data-z="[-+x]" title="[^"]+" aria-label="[^"]+">/g)?.length).toBe(3);
+    expect(html).toContain('@media (pointer:coarse),(max-width:600px){.lbbar{');
+    expect(html).toContain('.lbbar button{min-width:44px;height:44px;font-size:16px}');
+    for (const s of ['lbPinch={d:Math.hypot(', "$('#lbv').addEventListener('pointercancel',lbUp)", 'if(now-lbTap<320)', "$('#lb [data-z=\"x\"]').focus()", 'lbBack.focus()', "k==='Tab'"]) expect(html, s).toContain(s);
+    // the old mouse-only double click is gone (a double tap would have toggled twice)
+    expect(html).not.toContain("$('#lbc').addEventListener('dblclick'");
+  });
+  it('zoom viewer: a drawing is a button (Tab, Enter / Space)', () => {
+    expect(html).toContain('tabindex="0" role="button" aria-label="\'+esc(T.zoom)+\'">\'');
+    expect(html).toContain(".closest('.mock[data-svg],#ref .case .flow');if(z&&(e.key==='Enter'||e.key===' ')){e.preventDefault();z.click()}");
   });
   it('IMG tree rows: 44 px on a touch screen; the desktop rule is unchanged', () => {
     expect(html).toContain('@media (pointer:coarse){.row,.leaf{min-height:44px;align-items:center}}');
