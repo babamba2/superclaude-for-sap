@@ -541,6 +541,7 @@ CLASS ltcl_logflags DEFINITION FINAL FOR TESTING DURATION SHORT RISK LEVEL HARML
     METHODS used_row_with_hash FOR TESTING.
     METHODS old_row_with_values FOR TESTING.
     METHODS extra_parameter_key FOR TESTING.
+    METHODS real_serializer FOR TESTING.
 ENDCLASS.
 
 
@@ -600,6 +601,44 @@ CLASS ltcl_logflags IMPLEMENTATION.
       act = mo_cut->log_flags( iv_params_json = `{"fm_name":"BAPI_COMPANYCODE_GETDETAIL","fm_params":"{}"}`
                                iv_result_json = `{}` iv_hash = `` iv_status = `F` )
       exp = `Y|N|N|N|N|N|N` ).
+  ENDMETHOD.
+
+
+  METHOD real_serializer.
+    " The flags read the text the executor stores: build a result, serialize it exactly as
+    " ZCL_MCP_BIZ_EXEC=>to_json does (compress, low_case), and judge that — before and after the log filter.
+    DATA: ls_res TYPE zif_mcp_biz_action=>ty_result,
+          ls_kv  TYPE zif_mcp_biz_action=>ty_kv,
+          ls_msg TYPE zif_mcp_biz_action=>ty_message,
+          lv_raw TYPE string,
+          lv_log TYPE string.
+    FIELD-SYMBOLS <ls_msg> TYPE zif_mcp_biz_action=>ty_message.
+
+    ls_res-action = 'IF.TEST.CALL'.
+    ls_kv-row = 1. ls_kv-name = 'sig.I.COMPANYCODEID'. ls_kv-value = 'BAPI0002_2-COMP_CODE'. APPEND ls_kv TO ls_res-rows.
+    ls_kv-row = 2. ls_kv-name = 'fm_result'. ls_kv-value = '{"COMPANYCODEID":"0001"}'. APPEND ls_kv TO ls_res-rows.
+    ls_kv-row = 3. ls_kv-name = 'doc_no.EV_DOC'. ls_kv-value = '4711'. APPEND ls_kv TO ls_res-rows.
+    ls_kv-row = 4. ls_kv-name = 'committed'. ls_kv-value = 'false (rolled back)'. APPEND ls_kv TO ls_res-rows.
+    ls_msg-type = 'W'. ls_msg-id = 'FN'. ls_msg-number = '021'. ls_msg-message = 'Address data not found'.
+    APPEND ls_msg TO ls_res-messages.
+
+    lv_raw = /ui2/cl_json=>serialize( data = ls_res compress = abap_true pretty_name = /ui2/cl_json=>pretty_mode-low_case ).
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_cut->log_flags( iv_params_json = `{"fm_name":"BAPI_COMPANYCODE_GETDETAIL"}` iv_result_json = lv_raw
+                               iv_hash = `` iv_status = `E` )
+      exp = `N|N|Y|Y|Y|Y|N` ).
+
+    " What the value-free log keeps of the same result.
+    DELETE ls_res-rows WHERE name = 'fm_result' OR name CP 'sig.*' OR name CP 'doc_no.*'.
+    ls_kv-row = 5. ls_kv-name = 'log.doc_count'. ls_kv-value = '1'. APPEND ls_kv TO ls_res-rows.
+    LOOP AT ls_res-messages ASSIGNING <ls_msg>.
+      CLEAR <ls_msg>-message.
+    ENDLOOP.
+    lv_log = /ui2/cl_json=>serialize( data = ls_res compress = abap_true pretty_name = /ui2/cl_json=>pretty_mode-low_case ).
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_cut->log_flags( iv_params_json = `{"fm_name":"BAPI_COMPANYCODE_GETDETAIL"}` iv_result_json = lv_log
+                               iv_hash = `` iv_status = `E` )
+      exp = `N|N|N|N|N|N|Y` ).
   ENDMETHOD.
 
 ENDCLASS.

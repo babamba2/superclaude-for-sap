@@ -419,5 +419,16 @@ describe('ZCL_MCP_BIZ_IF — IF.LOG.CHECK', () => {
     expect(tsrc).toContain('CLASS zcl_mcp_biz_if DEFINITION LOCAL FRIENDS ltcl_keys ltcl_fence ltcl_describe ltcl_logflags.');
     for (const m of ['clean_executed_row', 'fresh_preview_keeps_hash', 'used_row_with_hash', 'old_row_with_values', 'extra_parameter_key'])
       expect(tsrc).toContain(`METHODS ${m} FOR TESTING.`);
+    // the flags are tied to the real serializer, with the executor's own settings (verifier N1)
+    expect(tsrc).toContain('METHODS real_serializer FOR TESTING.');
+    const rs = tsrc.slice(tsrc.indexOf('  METHOD real_serializer.'));
+    expect(rs.match(/\/ui2\/cl_json=>serialize\( data = ls_res compress = abap_true pretty_name = \/ui2\/cl_json=>pretty_mode-low_case \)/g)?.length).toBe(2);
+    for (const f of ['zcl_mcp_biz_exec.clas.abap', '731/zcl_mcp_biz_exec.clas.abap']) {
+      const e = readFileSync(join(ROOT, 'abap', 'biz', f), 'utf8').replace(/\r\n/g, '\n');
+      const tj = e.slice(e.indexOf('  METHOD to_json.'), e.indexOf('  ENDMETHOD.', e.indexOf('  METHOD to_json.')));
+      if (f.startsWith('731')) continue; // the 7.31 executor serializes with ZCL_MCP_JSON; IF is 7.40+ only
+      expect(tj, f).toContain('compress    = abap_true');
+      expect(tj, f).toContain('pretty_name = /ui2/cl_json=>pretty_mode-low_case');
+    }
   });
 });
