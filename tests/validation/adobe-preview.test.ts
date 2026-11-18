@@ -520,6 +520,16 @@ describe('adobe-preview: ADS rules measured on the calibration form and on migra
     const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(cour12, 'Mig'))}</subform>`, '2.2');
     close(by(t, 'Mig').y, 20 + 0.629 * 12 * PT);
   });
+
+  it('measures text after a decimal stop where it is placed: "1480.50" on decimal 4cm, then left 5cm + EUR stays one line (EX10 / EX14)', () => {
+    const css = "font-family : 'Courier New' ; font-size : 12pt ; line-height : 4.23mm ; margin-left : 1.99mm ; tab-stops : decimal 4cm left 5cm ;";
+    const tab = '<span style="xfa-tab-count : 1 ;"/>';
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(css, `${tab}<span style="font-family : 'Arial' ; font-size : 10pt ;">1480.50</span>${tab}<span style="font-family : 'Arial' ; font-size : 10pt ;">EUR</span>`), '62.5mm')}</subform>`);
+    const amount = t.find((x: any) => x.text.includes('1480.50')), cur = t.find((x: any) => x.text.includes('EUR'));
+    close(cur.y, amount.y);
+    // EUR starts on the 5 cm stop: 10 mm right of the 4 cm decimal stop, where the radix sits after "1480" (4 Arial digits)
+    close(cur.x - amount.x, 10 + 4 * 0.556 * 10 * 25.4 / 72);
+  });
 });
 
 describe('adobe-preview: off-page content in the layout JSON', () => {
@@ -655,5 +665,17 @@ describe('adobe-preview: runInitCoding — deep names, structure copies, READ TA
     expect(r.ok).toBe(true);
     expect(r.vars.G).toBe(1);
     expect(r.skipped).toEqual(['SELECT * FROM NAST INTO TABLE LT', "IF A = 'B'"]);
+  });
+});
+
+describe('adobe-preview: DDIC of a work area field from its table (migrated SmartForm loops: GS_SFLIGHT-PRICE → T_SFLIGHT-PRICE)', () => {
+  const node = (name: string, field: string) => ({ kind: 'data', name, field, active: true, conditions: [], children: [] });
+  const ctx = { kind: 'context', active: true, conditions: [], children: [node('PRICE', 'GS_X-PRICE'), node('SEATS', 'GS_X-SEATS')] };
+  it('takes the one entry with the same component (CURR 2 → 250.00, as ADS prints it); entries that disagree leave it untyped', () => {
+    const { record } = buildRecord(ctx, { values: { GS_X: { PRICE: 250, SEATS: 3 } }, ddic: { 'T_X-PRICE': { type: 'CURR', length: 15, decimals: 2 }, 'T_X-SEATS': { type: 'INT4', length: 10, decimals: 0 }, 'T_Y-SEATS': { type: 'DEC', length: 5, decimals: 1 } } });
+    expect(record.children.map((c: any) => c.value)).toEqual(['250.00', '3']);
+    // an exact entry always wins
+    const exact = buildRecord(ctx, { values: { GS_X: { PRICE: 250, SEATS: 3 } }, ddic: { 'GS_X-PRICE': { type: 'DEC', length: 5, decimals: 1 }, 'T_X-PRICE': { type: 'CURR', length: 15, decimals: 2 } } });
+    expect(exact.record.children[0].value).toBe('250.0');
   });
 });

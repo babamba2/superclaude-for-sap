@@ -573,7 +573,19 @@ export function buildRecord(context, sample = {}, { references = [] } = {}) {
   // DDIC per context field expression ("DATATYPES-NUMC", "MYNUM"); a work area falls back to its table's entries
   const ddicMap = {};
   for (const [k, v] of Object.entries(sample?.ddic || {})) ddicMap[up(k)] = v;
-  const ddicOf = (field) => ddicMap[up(field)];
+  // a work area's field (GS_SFLIGHT-PRICE, a migrated SmartForm's loop) has no DDIC row of its own: the one entry with
+  // the same component name (T_SFLIGHT-PRICE, the table it loops over) stands in — two entries that disagree on
+  // type or decimals leave it untyped (EX10 / EX11 old: PRICE CURR 2 printed '250.00', the preview printed '250')
+  const byComp = {};
+  for (const [k, v] of Object.entries(ddicMap)) { const c = k.includes('-') ? k.slice(k.lastIndexOf('-') + 1) : null; if (c) (byComp[c] = byComp[c] || []).push(v); }
+  const sameType = (l) => l.every((d) => d.type === l[0].type && Number(d.decimals || 0) === Number(l[0].decimals || 0) && Number(d.length || 0) === Number(l[0].length || 0));
+  const ddicOf = (field) => {
+    const k = up(field);
+    if (ddicMap[k]) return ddicMap[k];
+    const c = k.includes('-') ? k.slice(k.lastIndexOf('-') + 1) : null;
+    const l = c ? byComp[c] : null;
+    return l && l.length && sameType(l) ? l[0] : undefined;
+  };
   const missingTexts = new Set();
   const root = { name: 'data', children: [] };
   const walk = (n, parent) => {

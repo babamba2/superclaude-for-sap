@@ -440,6 +440,23 @@ function trimTail(line) {
   }
 }
 
+/** Where the text after a right / centre / decimal tab stop ends once placed as the line placement does: right / centre
+ *  end / centre on the stop, decimal puts the radix there; never left of where the tab began (base). */
+function alignedEnd(seg, add, font) {
+  seg.text += add;
+  const f = seg.font = seg.font || font;
+  const wOf = (t) => textWidthMm(t, f.pt, { bold: f.bold, face: f.face });
+  const segW = wOf(seg.text);
+  let start = seg.stop.pos;
+  if (seg.stop.align === 'right') start -= segW;
+  else if (seg.stop.align === 'center') start -= segW / 2;
+  else if (seg.stop.align === 'decimal') {
+    const ri = seg.text.search(/[.,](?=\d+\D*$)/);
+    start -= wOf(ri < 0 ? seg.text.replace(/\s+$/, '') : seg.text.slice(0, ri));
+  }
+  return Math.max(seg.base, start) + segW;
+}
+
 /** Break paragraphs into lines for a width: [{ runs: [{ text, font }], w, para }] */
 function wrapParagraphs(paras, width0, wrap) {
   const lines = [];
@@ -454,10 +471,14 @@ function wrapParagraphs(paras, width0, wrap) {
       if (r.tab) {
         // the tab takes the room up to the next stop (exact alignment of right / centre / decimal stops is done
         // when the line is placed); past the last stop the default distance
+        line.seg = null;
         const stop = (p.tabs || []).find((t) => t.pos > line.w + 0.01);
         const pos = stop ? stop.pos : (Math.floor(line.w / DEFAULT_TAB) + 1) * DEFAULT_TAB;
         const tw = Math.max(0, pos - line.w);
         line.runs.push({ tab: true, text: '', font: r.font, stop: stop || { align: 'left', pos, dflt: true } });
+        // the text after a right / centre / decimal stop ends where it is placed (see the line placement below), not at
+        // stop + its width: EX14 '250.00' on 'decimal 4cm' then 'left 5cm' + 'EUR' stays one line, as in ADS
+        if (stop && stop.align !== 'left') line.seg = { stop, base: line.w, text: '', font: r.font };
         line.w += tw;
         continue;
       }
@@ -485,7 +506,8 @@ function wrapParagraphs(paras, width0, wrap) {
         const prev = line.runs[line.runs.length - 1];
         if (prev && !prev.tab && prev.font === r.font && !!prev.embed === !!r.embed && !!prev.datePic === !!r.datePic) prev.text += w;
         else line.runs.push({ text: w, font: r.font, ...(r.embed ? { embed: true } : {}), ...(r.datePic ? { datePic: true } : {}) });
-        line.w += ww;
+        if (line.seg) line.w = alignedEnd(line.seg, w, r.font);
+        else line.w += ww;
       }
     }
     trimTail(line);
