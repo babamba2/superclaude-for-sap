@@ -106,6 +106,12 @@ INTERFACE zif_mcp_biz_action
       stlan              TYPE string,
       " Output (ZCL_MCP_BIZ_OUT): output type; document via doc_category + ebeln / vbeln.
       kschl              TYPE string,
+      " Interface test call (ZCL_MCP_BIZ_IF, 7.40 / S/4 only): the remote-enabled module, its parameters as
+      " one JSON object in text (names upper case), ack_posting / commit "true" or empty.
+      fm_name            TYPE string,
+      fm_params          TYPE string,
+      ack_posting        TYPE string,
+      commit             TYPE string,
       " Shipping / transportation (ZCL_MCP_BIZ_LE, ECC only): shipment, shipment cost, handling unit.
       " dlv_list = delivery numbers; items (shared) = "POSNR:QTY" rows; vbeln / posnr / quantity shared.
       tknum              TYPE string,

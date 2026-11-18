@@ -84,4 +84,15 @@ describe('permission-approver business-action tools', () => {
       expect(runHook(`mcp__plugin_sc4sap_sap__${t}`, { action: 'MM.PO.LIST_OPEN' }).hookSpecificOutput?.permissionDecision).toBe('allow');
     }
   });
+
+  it('denies IF.* (interface test calls) in an agent session: the web button is their only caller', () => {
+    for (const t of ['PreviewBusinessAction', 'ExecuteBusinessAction']) {
+      for (const action of ['IF.TEST.CALL', 'if.test.call']) {
+        const out = runHook(`mcp__plugin_sc4sap_sap__${t}`, { action, params: { fm_name: 'Z_IF_ORDER' } });
+        expect(out.hookSpecificOutput?.permissionDecision, `${t} ${action}`).toBe('deny');
+      }
+    }
+    // other writes keep the normal per-call prompt
+    expect(runHook('mcp__plugin_sc4sap_sap__ExecuteBusinessAction', { action: 'MM.PO.X' }).hookSpecificOutput).toBeUndefined();
+  });
 });

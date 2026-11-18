@@ -251,7 +251,7 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
     ELSEIF iv_action CP 'OUT.*'.
       CREATE OBJECT ro_handler TYPE zcl_mcp_biz_out.
     ELSEIF iv_action CP 'LE.*' OR iv_action CP 'WM.*' OR iv_action CP 'PM.*' OR iv_action CP 'EWM.*'
-        OR iv_action CP 'QM.*'.
+        OR iv_action CP 'QM.*' OR iv_action CP 'IF.*'.
       " Family-specific modules (LE / WM / PM on ECC, QM and EWM on S/4HANA): created by name so that
       " EXEC also activates where they are not installed.
       ro_handler = optional_handler( segment( val = iv_action index = 1 sep = '.' ) ).
@@ -296,6 +296,11 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
       APPEND LINES OF lt_actions TO rs_result-actions.
     ENDIF.
     lo_handler = optional_handler( 'QM' ).
+    IF lo_handler IS BOUND.
+      lt_actions = lo_handler->get_actions( ).
+      APPEND LINES OF lt_actions TO rs_result-actions.
+    ENDIF.
+    lo_handler = optional_handler( 'IF' ).
     IF lo_handler IS BOUND.
       lt_actions = lo_handler->get_actions( ).
       APPEND LINES OF lt_actions TO rs_result-actions.
@@ -359,7 +364,12 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
     ls_log-uname       = sy-uname.
     ls_log-params_hash = params_hash( is_params ).
     ls_log-created_at  = lv_ts.
-    ls_log-params_json = iv_params.
+    " IF.* (interface test call, 2026-11-18): the module name only — its parameter values never reach the log.
+    IF iv_action CP 'IF.*'.
+      ls_log-params_json = |{ '{' }"fm_name":"{ replace( val = is_params-fm_name sub = '"' with = '' occ = 0 ) }"{ '}' }|.
+    ELSE.
+      ls_log-params_json = iv_params.
+    ENDIF.
     INSERT zmcp_biz_log FROM ls_log.
     COMMIT WORK.
 
@@ -375,7 +385,8 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
           lv_now    TYPE timestampl,
           lv_secs   TYPE tzntstmpl,
           lv_status TYPE zmcp_biz_log-status,
-          lv_json   TYPE string.
+          lv_json   TYPE string,
+          ls_logres TYPE zif_mcp_biz_action=>ty_result.
 
     CLEAR: es_result, ev_result, ev_message, ev_done.
     lv_token = iv_token.
@@ -440,7 +451,14 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
     es_result = io_handler->execute( iv_action = iv_action is_params = is_params ).
     es_result-action = iv_action.
     es_result-mode   = 'EXECUTE'.
-    lv_json = to_json( es_result ).
+    IF iv_action CP 'IF.*'.
+      " The outcome only: no output values (fm_result) and no signature in the log; the caller still gets them.
+      ls_logres = es_result.
+      DELETE ls_logres-rows WHERE name = 'fm_result' OR name CP 'sig.*'.
+      lv_json = to_json( ls_logres ).
+    ELSE.
+      lv_json = to_json( es_result ).
+    ENDIF.
 
     IF es_result-failed = abap_true.
       lv_status = 'F'.
@@ -720,6 +738,8 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
         lv_list = 'doc_category ebeln vbeln'.
       WHEN 'OUT.DOC.REISSUE'.
         lv_list = 'doc_category ebeln vbeln kschl'.
+      WHEN 'IF.TEST.CALL'.
+        lv_list = 'fm_name fm_params ack_posting commit'.
       WHEN 'LE.SHP.LIST'.
         lv_list = 'tplst shtyp status date_basis max_rows'.
       WHEN 'LE.SHP.GET_DETAIL'.
