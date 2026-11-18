@@ -34,7 +34,9 @@ FUNCTION zmcp_adt_dispatch
 *   TABLE_READ     — read-only SELECT on a customizing / system table
 *                    (delivery class C, G, E, S, W) or a listed repository
 *                    table (CMOD, TSTC, DDIC metadata, transport keys, job /
-*                    update / IDoc headers for ops-health-check); the
+*                    update / IDoc headers for ops-health-check), or a
+*                    customer table (Z*, Y*, own namespace) of any class with
+*                    the caller's SE16 authority, personal data excepted; the
 *                    MCP server's GetSqlQuery / GetTableContents fallback, as
 *                    ECC has no ADT data preview
 
@@ -601,6 +603,9 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
         lv_field  TYPE string,
         lv_rows   TYPE string,
         lv_class  TYPE dd02l-contflag,
+        lv_dd_subrc TYPE sy-subrc,
+        lv_cust   TYPE c LENGTH 1,
+        lv_why    TYPE string,
         lt_view   TYPE abap_component_view_tab,
         ls_view   TYPE abap_simple_componentdescr.
   FIELD-SYMBOLS: <lt_data> TYPE STANDARD TABLE.
@@ -651,15 +656,30 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
     SELECT SINGLE contflag FROM dd02l INTO lv_class
       WHERE tabname = lv_tab AND as4local = 'A' AND as4vers = '0000'
         AND tabclass IN ('TRANSP','POOL','CLUSTER').
-    IF sy-subrc <> 0 OR ( lv_class <> 'C' AND lv_class <> 'G'
-                          AND lv_class <> 'E' AND lv_class <> 'S'
-                          AND lv_class <> 'W' ).
+    lv_dd_subrc = sy-subrc.
+    IF lv_dd_subrc <> 0 OR ( lv_class <> 'C' AND lv_class <> 'G'
+                             AND lv_class <> 'E' AND lv_class <> 'S'
+                             AND lv_class <> 'W' ).
       " Blocklist profile off (all_tables = 'X'): business tables are readable
       " too, but only with the caller's own SE16 table authority
       " (S_TABU_DIS / S_TABU_NAM). The credential guard above stays in force.
+      " Otherwise customer tables (Z*, Y*, this system's own namespaces) of any
+      " delivery class are readable with the same SE16 authority, except
+      " personal data (HR / payroll names, an employee-number field); SAP's
+      " business tables stay closed.
       IF ls_input-all_tables <> 'X'.
-        ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
-        RETURN.
+        CLEAR: lv_cust, lv_why.
+        IF lv_dd_subrc = 0.
+          PERFORM table_read_customer USING lv_tab CHANGING lv_cust lv_why.
+        ENDIF.
+        IF lv_cust <> 'X'.
+          ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } is not allowed|. ev_result = '{}'.
+          RETURN.
+        ENDIF.
+        IF lv_why IS NOT INITIAL.
+          ev_subrc = 4. ev_message = |TABLE_READ: table { lv_tab } { lv_why } and is not readable|. ev_result = '{}'.
+          RETURN.
+        ENDIF.
       ENDIF.
       CALL FUNCTION 'VIEW_AUTHORITY_CHECK'
         EXPORTING
@@ -740,6 +760,55 @@ FORM table_read USING iv_params TYPE string CHANGING ev_subrc TYPE i ev_message 
   CONCATENATE '{"rows":' lv_rows ',"count":' lv_cnt '}' INTO ev_result.
   ev_subrc = 0.
   ev_message = 'OK'.
+ENDFORM.
+
+
+*----------------------------------------------------------------------*
+* TABLE_READ helper: is the table a customer table, and does it hold
+* personal data? cv_cust = 'X' for Z*, Y* and namespaces this system
+* develops (TRNSPACE role P, not an SAP namespace). cv_why is set when a
+* customer table holds HR / payroll data or an employee number.
+*----------------------------------------------------------------------*
+FORM table_read_customer USING iv_tab TYPE tabname
+                         CHANGING cv_cust TYPE c
+                                  cv_why  TYPE string.
+  DATA: lv_ns   TYPE string,
+        lv_name TYPE trnspace-namespace,
+        lv_role TYPE trnspace-role,
+        lv_sap  TYPE trnspace-sapflag,
+        lv_fld  TYPE dd03l-fieldname.
+
+  CLEAR: cv_cust, cv_why.
+  IF iv_tab CP 'Z*' OR iv_tab CP 'Y*'.
+    cv_cust = 'X'.
+  ELSEIF iv_tab CP '/*'.
+    FIND REGEX '^(/[^/]+/)' IN iv_tab SUBMATCHES lv_ns.
+    IF sy-subrc = 0.
+      lv_name = lv_ns.
+      SELECT SINGLE role sapflag FROM trnspace INTO (lv_role, lv_sap) WHERE namespace = lv_name.
+      IF sy-subrc = 0 AND lv_role = 'P' AND lv_sap IS INITIAL.
+        cv_cust = 'X'.
+      ENDIF.
+    ENDIF.
+  ENDIF.
+  IF cv_cust <> 'X'.
+    RETURN.
+  ENDIF.
+
+  " Personal data: HR / payroll by name (PCL1..PCL4 are the HR clusters) ...
+  IF iv_tab CP 'ZHR*' OR iv_tab CP 'YHR*' OR iv_tab CP 'Z_HR*' OR iv_tab CP 'Y_HR*'
+     OR iv_tab CP '*PAYROLL*' OR iv_tab CP '*PAYSLIP*' OR iv_tab CP '*SALARY*' OR iv_tab CP '*WAGE*'
+     OR iv_tab CP '*PCL1*' OR iv_tab CP '*PCL2*' OR iv_tab CP '*PCL3*' OR iv_tab CP '*PCL4*'.
+    cv_why = 'holds HR / payroll data (personal data)'.
+    RETURN.
+  ENDIF.
+  " ... or by an employee-number field.
+  SELECT SINGLE fieldname FROM dd03l INTO lv_fld
+    WHERE tabname = iv_tab AND as4local = 'A' AND as4vers = '0000'
+      AND ( fieldname = 'PERNR' OR rollname = 'PERNR_D' OR rollname = 'P_PERNR' OR rollname = 'PERSNO' ).
+  IF sy-subrc = 0.
+    cv_why = |holds employee numbers (field { lv_fld }, personal data)|.
+  ENDIF.
 ENDFORM.
 
 *&---------------------------------------------------------------------*
