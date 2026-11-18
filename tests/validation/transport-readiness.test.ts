@@ -57,6 +57,27 @@ describe('transport-readiness model', () => {
     expect(renderSummary(m, 'en')).toMatch(/^Transport check \(CTS\) · DEV → QAS · Ready 1 · Check 0 · Blocked 1/);
   });
 
+  it('writes the finding sentences, request type and status in the page language; en keeps the model text', () => {
+    const m = buildModel(base());
+    const ko = renderHtml(m, 'ko'), ja = renderHtml(m, 'ja'), en = renderHtml(m, 'en');
+    expect(ko).toContain('릴리스하지 않은 작업이 1개 있어요.');
+    expect(ko).toContain('오브젝트 1개가 다른 열린 요청에도 있어요. 이관 순서를 맞춰 주세요.');
+    expect(ko).toContain('유형 워크벤치 · 상태 미릴리스');
+    expect(ko).not.toContain('task(s) not released');
+    expect(ja).toContain('未リリースのタスクが 1 件あります。');
+    expect(ja).toContain('種別 ワークベンチ · ステータス 未リリース');
+    expect(en).toContain('1 task(s) not released');
+    expect(en).toContain('Type workbench · Status open');
+    // an older model without `n` keeps its own text
+    const old = { ...m, requests: m.requests.map((r) => ({ ...r, findings: r.findings.map((f) => ({ ...f, n: undefined })) })) };
+    expect(renderHtml(old, 'ko')).toContain('1 task(s) not released');
+    // a stored target-unread finding without target / dest keeps its text too (never "undefined")
+    const tu = { ...m, requests: [{ ...m.requests[1], findings: [{ level: 'warn', kind: 'target-unread', text: 'target PRD could not be read through PRDCLNT100', objects: [] }] }] };
+    const tuKo = renderHtml(tu, 'ko');
+    expect(tuKo).toContain('target PRD could not be read through PRDCLNT100');
+    expect(tuKo).not.toContain('undefined');
+  });
+
   it('reads reference names from a where-used answer', () => {
     expect(referenceNames({ references: [{ name: 'zsd_pricing' }, { objectName: 'ZCL_X' }] })).toEqual(['ZSD_PRICING', 'ZCL_X']);
     expect(referenceNames({})).toEqual([]);

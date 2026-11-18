@@ -47,6 +47,10 @@ const T = {
     reasons: { blocked: 'CTS 이관 불가', ddic: 'DDIC 테이블·데이터 요소·도메인 변경', 'tcodes-many': (x) => `영향 TCode ${x.n}개`, 'direct-tcode': (x) => `사용 중인 TCode 영향 (${x.names.join(', ')})`,
       job: (x) => `예약 잡 ${x.n}개 영향`, 'jobs-truncated': '잡 목록이 잘림 — 영향 잡이 빠졌을 수 있어요', check: 'CTS 경고', customizing: '커스터마이징 요청', 'tcodes-some': (x) => `영향 TCode ${x.n}개`, 'no-evidence': '테스트 증빙 없음' },
     decision: 'CAB 결정', comment: '의견', dec: { '': '—', approve: '승인', conditional: '조건부 승인', hold: '보류' },
+    kindName: { workbench: '워크벤치', customizing: '커스터마이징', 'transport of copies': '사본 이관' },
+    res: { wricef: { req: '요건', fs: 'FS', ts: 'TS', build: '개발', ut: '단위 테스트', fut: 'FUT', sit: 'SIT', done: '완료' },
+      issue: { pass: '통과', fail: '실패', blocked: '차단', 'n/a': '해당 없음', open: '열림', waiting: '대기', done: '완료' },
+      uat: { pass: '통과', fail: '실패', blocked: '차단', 'n/a': '해당 없음', open: '미실행' } },
     uatUnread: '읽지 못한 UAT 세트', why: { 'invalid-id': '잘못된 ID', missing: '파일 없음' },
     edit: '편집', done: '편집 끝', save: '저장', print: '인쇄', dark: '다크', light: '라이트', unsaved: '저장 안 됨', saved: '저장됨',
     note: '조회 전용 노트예요. 영향·잡·증빙·되돌리기는 시스템과 받은 파일에서 읽었고, 업무 설명은 사람이 고치기 전까지 AI 초안이에요. CAB 결정은 사람이 해요.',
@@ -56,6 +60,8 @@ export const labelsOf = (lang) => T[lang] || T.en;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const say = (v, x) => (typeof v === 'function' ? v(x) : v ?? '');
+/** An evidence result in the page language, word by word (cycle names pass through): "SIT1 fail" → "SIT1 실패". */
+const resultOf = (t, e) => String(e.result ?? '').split(' ').map((w) => t.res?.[e.source]?.[w] || w).join(' ');
 const json = (v) => JSON.stringify(v).replace(/</g, '\\u003c');
 
 function impactBlock(r, t) {
@@ -80,11 +86,11 @@ function card(r, t) {
   const k = esc(r.trkorr);
   const badge = r.note.source === 'human' ? `<span class="b ed-b">${esc(t.edited)}</span>` : r.note.text ? `<span class="b ai">${esc(t.aiDraft)}</span>` : '';
   const objs = r.objects.slice(0, 20).map((o) => `<li><code>${esc(o.type)} ${esc(o.name)}</code>${o.text ? ` ${esc(o.text)}` : ''}</li>`).join('');
-  const ev = r.evidence.length ? `<ul>${r.evidence.slice(0, 12).map((e) => `<li><b>${esc(t.src[e.source])}</b> <code>${esc(e.ref)}</code> ${esc(e.text)} — ${esc(e.result)} <small>(${esc(t.how[e.how])})</small></li>`).join('')}</ul>` : `<p class="warn">${esc(t.noEvidence)}</p>`;
+  const ev = r.evidence.length ? `<ul>${r.evidence.slice(0, 12).map((e) => `<li><b>${esc(t.src[e.source])}</b> <code>${esc(e.ref)}</code> ${esc(e.text)} — ${esc(resultOf(t, e))} <small>(${esc(t.how[e.how])})</small></li>`).join('')}</ul>` : `<p class="warn">${esc(t.noEvidence)}</p>`;
   const dec = Object.entries(t.dec).map(([v, l]) => `<option value="${esc(v)}"${r.decision === v ? ' selected' : ''}>${esc(l)}</option>`).join('');
   return `<section class="card r${r.risk.level}">
 <h2><code>${k}</code> <span class="risk r${r.risk.level}">${esc(t.risk[r.risk.level])}</span> <span class="v ${r.verdict}">${esc(t.verdict[r.verdict])}</span></h2>
-<p class="meta">${esc(r.text)} · ${esc(r.kind)} · ${esc(r.owner)}${r.risk.reasons.length ? ` · ${r.risk.reasons.map((x) => esc(say(t.reasons[x.code], x))).join(' · ')}` : ''}</p>
+<p class="meta">${esc(r.text)} · ${esc(t.kindName?.[r.kind] || r.kind)} · ${esc(r.owner)}${r.risk.reasons.length ? ` · ${r.risk.reasons.map((x) => esc(say(t.reasons[x.code], x))).join(' · ')}` : ''}</p>
 <div class="grid"><div><h3>${esc(t.what)} ${badge}</h3><div class="txt" data-e="note-${k}">${esc(r.note.text)}</div>${r.note.text ? '' : `<p class="muted hint">${esc(t.noNote)}</p>`}
 <h3>${esc(t.objects)} (${r.objects.length})</h3><ul class="objs">${objs}</ul>${r.objects.length > 20 ? `<p class="muted">+${r.objects.length - 20} ${esc(t.more)}</p>` : ''}</div>
 <div><h3>${esc(t.impact)}</h3>${impactBlock(r, t)}<h3>${esc(t.evidence)}</h3>${ev}
