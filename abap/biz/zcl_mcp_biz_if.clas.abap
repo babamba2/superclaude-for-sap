@@ -26,6 +26,20 @@ CLASS zcl_mcp_biz_if DEFINITION
 *   - the log (ZMCP_BIZ_LOG, ZCL_MCP_BIZ_EXEC) keeps fm_name, the parameter hash, the user and the outcome —
 *     never the parameter or output values
 *   - posting signs need ack_posting = 'true'; a module that commits by itself is reported irreversible
+*   - dangerous modules are refused whatever the specification says (ack_posting does not unlock them):
+*     names: *DYNSQL*, *TRUNCATE*, *READ_TABLE*, *DATA_COPY*, *PASSWORD*, *USER_UNLOCK*; HR / payroll
+*       (personal data): ZHR*, YHR*, Z_HR*, Y_HR*, *PAYROLL*, *PAYSLIP*, *SALARY*, *WAGE*, *PCL1*..*PCL4*
+*     signature: an importing / changing / tables parameter that takes a table name (TABNAME*, *-TABNAME),
+*       a WHERE condition (RFC_DB_OPT, *WHERE* types or names) or source code (ABAPSOURCE*), is named
+*       *SQL* / *TABNAME* / *TAB_NAME* / *TABLE_NAME*; or a required importing scalar employee number
+*       (*PERNR*, *PERSNO*: a module run for one person) — not one inside a structure or selection table
+*     source: the module's include plus the group's own and customer includes, other modules' left out
+*       (main program, TOP, FORMs, nested; not SAP's shared LSVIM* / FBGENMAC), at most 60, string
+*       literals included, comments left out — EXEC SQL,
+*       TRUNCATE, ADBC (CL_SQL_*), GENERATE SUBROUTINE POOL, INSERT / DELETE REPORT, SUBMIT, OPEN / DELETE
+*       DATASET, DESTINATION, STARTING NEW TASK, CALL 'SYSTEM', CALL FUNCTION with a non-literal name,
+*       DML or FROM on a table name in parentheses. A source that
+*       cannot be read is refused. Not seen: modules it calls, statements split over lines, INCLUDE: chains
 *
 * Parameters: fm_name; fm_params = one JSON object as text, keys = the module's parameter names (upper
 * case), values in /UI2/CL_JSON form (structures as objects, tables as arrays); ack_posting; commit.
@@ -42,6 +56,7 @@ CLASS zcl_mcp_biz_if DEFINITION
     CONSTANTS c_action TYPE string VALUE 'IF.TEST.CALL'.
     CONSTANTS c_max_result TYPE i VALUE 200000.
     CONSTANTS c_max_params TYPE i VALUE 100000.
+    CONSTANTS c_max_includes TYPE i VALUE 60.
 
     TYPES:
       BEGIN OF ty_par,
@@ -64,6 +79,53 @@ CLASS zcl_mcp_biz_if DEFINITION
     METHODS signature
       IMPORTING iv_fm          TYPE rs38l_fnam
       RETURNING VALUE(rt_pars) TYPE ty_pars.
+
+    " Dangerous-module rules (refused in PREVIEW and EXECUTE; ack_posting does not unlock them).
+    METHODS danger
+      IMPORTING iv_fm           TYPE rs38l_fnam
+                iv_pname        TYPE tfdir-pname
+                iv_incno        TYPE tfdir-include
+      RETURNING VALUE(rv_error) TYPE string.
+
+    METHODS risky_name
+      IMPORTING iv_fm            TYPE rs38l_fnam
+      RETURNING VALUE(rv_reason) TYPE string.
+
+    METHODS risky_param
+      IMPORTING is_par           TYPE ty_par
+      RETURNING VALUE(rv_reason) TYPE string.
+
+    METHODS person_key
+      IMPORTING is_par           TYPE ty_par
+                iv_elementary    TYPE abap_bool
+      RETURNING VALUE(rv_reason) TYPE string.
+
+    METHODS code_part
+      IMPORTING iv_line        TYPE string
+      RETURNING VALUE(rv_code) TYPE string.
+
+    METHODS risky_line
+      IMPORTING iv_code          TYPE string
+      RETURNING VALUE(rv_reason) TYPE string.
+
+    METHODS risky_source
+      IMPORTING it_src           TYPE string_table
+      RETURNING VALUE(rv_reason) TYPE string.
+
+    METHODS include_names
+      IMPORTING it_src          TYPE string_table
+      RETURNING VALUE(rt_names) TYPE string_table.
+
+    " SAPL<group> / /NS/SAPL<group> → namespace and group, from a string copy (no trailing blanks).
+    METHODS group_of
+      IMPORTING iv_pname TYPE tfdir-pname
+      EXPORTING ev_ns    TYPE string
+                ev_group TYPE string.
+
+    " A posting verb anywhere in the name, except inside EXCHANGERATE (CHANGE there is not a verb).
+    METHODS posting_name
+      IMPORTING iv_fm          TYPE rs38l_fnam
+      RETURNING VALUE(rv_hit) TYPE abap_bool.
 
     METHODS posting_signs
       IMPORTING iv_fm          TYPE rs38l_fnam
@@ -292,9 +354,11 @@ CLASS zcl_mcp_biz_if IMPLEMENTATION.
 
 
   METHOD fence.
-    DATA: lv_cat   TYPE t000-cccategory,
-          lv_fmode TYPE tfdir-fmode,
-          lv_pname TYPE tfdir-pname.
+    DATA: lv_cat    TYPE t000-cccategory,
+          lv_fmode  TYPE tfdir-fmode,
+          lv_pname  TYPE tfdir-pname,
+          lv_incno  TYPE tfdir-include,
+          lv_reason TYPE string.
 
     IF iv_fm IS INITIAL.
       rv_error = 'fm_name is required'.
@@ -314,7 +378,12 @@ CLASS zcl_mcp_biz_if IMPLEMENTATION.
       rv_error = |{ iv_fm } is not a module interface tests may call (Z*, Y* or BAPI_*, never user, role, job, transaction or sc4sap modules)|.
       RETURN.
     ENDIF.
-    SELECT SINGLE fmode pname FROM tfdir INTO (lv_fmode, lv_pname) WHERE funcname = iv_fm.
+    lv_reason = risky_name( iv_fm ).
+    IF lv_reason IS NOT INITIAL.
+      rv_error = |{ iv_fm } is refused: { lv_reason }|.
+      RETURN.
+    ENDIF.
+    SELECT SINGLE fmode pname include FROM tfdir INTO (lv_fmode, lv_pname, lv_incno) WHERE funcname = iv_fm.
     IF sy-subrc <> 0.
       rv_error = |Function module { iv_fm } does not exist|.
       RETURN.
@@ -329,6 +398,11 @@ CLASS zcl_mcp_biz_if IMPLEMENTATION.
     ENDIF.
     IF lv_fmode <> 'R'.
       rv_error = |{ iv_fm } is not remote-enabled|.
+      RETURN.
+    ENDIF.
+    " Table names, WHERE / SQL, employee numbers, dangerous statements: refused, never acknowledged.
+    rv_error = danger( iv_fm = iv_fm iv_pname = lv_pname iv_incno = lv_incno ).
+    IF rv_error IS NOT INITIAL.
       RETURN.
     ENDIF.
     " The caller must be allowed to call it over RFC, as the interface partner would be.
@@ -359,6 +433,331 @@ CLASS zcl_mcp_biz_if IMPLEMENTATION.
   ENDMETHOD.
 
 
+  METHOD danger.
+    " Refusals that ack_posting never unlocks: signature, then the source of the module and its group.
+    DATA: lt_pars   TYPE ty_pars,
+          ls_par    TYPE ty_par,
+          lv_reason TYPE string,
+          lv_ns     TYPE string,
+          lv_group  TYPE string,
+          lv_own    TYPE string,
+          lv_others TYPE string,
+          lv_mine   TYPE string,
+          lv_name   TYPE string,
+          lv_prog   TYPE progname,
+          lv_idx    TYPE i,
+          lt_queue  TYPE string_table,
+          lt_seen   TYPE string_table,
+          lt_src    TYPE string_table,
+          lt_inc    TYPE string_table,
+          lo_type   TYPE REF TO cl_abap_datadescr,
+          lv_elem   TYPE abap_bool.
+
+    lt_pars = signature( iv_fm ).
+    LOOP AT lt_pars INTO ls_par.
+      lv_reason = risky_param( ls_par ).
+      IF lv_reason IS INITIAL.
+        CLEAR lv_elem.
+        lo_type = type_of( ls_par ).
+        IF lo_type IS BOUND AND lo_type->kind = cl_abap_typedescr=>kind_elem.
+          lv_elem = abap_true.
+        ENDIF.
+        lv_reason = person_key( is_par = ls_par iv_elementary = lv_elem ).
+      ENDIF.
+      IF lv_reason IS NOT INITIAL.
+        rv_error = |{ iv_fm } is refused: parameter { ls_par-name } { lv_reason }|.
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+
+    " SAPL<group> → L<group>U<nn>; /NS/SAPL<group> → /NS/L<group>U<nn> (as in posting_signs).
+    group_of( EXPORTING iv_pname = iv_pname IMPORTING ev_ns = lv_ns ev_group = lv_group ).
+    IF lv_group IS INITIAL OR iv_incno IS INITIAL.
+      rv_error = |{ iv_fm } is refused: its source could not be located, so dangerous statements are not ruled out|.
+      RETURN.
+    ENDIF.
+    lv_own    = |{ lv_ns }L{ lv_group }U{ iv_incno }|.
+    lv_others = |{ lv_ns }L{ lv_group }U*|.
+    lv_mine   = |{ lv_ns }L{ lv_group }*|.
+
+    " The main program lists the group's includes (TOP, UXX, FORMs …); nested INCLUDEs join the queue.
+    lv_prog = iv_pname.
+    READ REPORT lv_prog INTO lt_src.
+    IF sy-subrc <> 0.
+      rv_error = |{ iv_fm } is refused: { iv_pname } could not be read, so dangerous statements are not ruled out|.
+      RETURN.
+    ENDIF.
+    lv_reason = risky_source( lt_src ).
+    IF lv_reason IS NOT INITIAL.
+      rv_error = |{ iv_fm } is refused: { lv_reason } (in { iv_pname })|.
+      RETURN.
+    ENDIF.
+    APPEND lv_own TO lt_queue.
+    lt_inc = include_names( lt_src ).
+    APPEND LINES OF lt_inc TO lt_queue.
+
+    WHILE lv_idx < lines( lt_queue ).
+      lv_idx = lv_idx + 1.
+      READ TABLE lt_queue INDEX lv_idx INTO lv_name.
+      READ TABLE lt_seen TRANSPORTING NO FIELDS WITH KEY table_line = lv_name.
+      IF sy-subrc = 0.
+        CONTINUE.
+      ENDIF.
+      " The group's other modules are not this module's code (UXX lists them).
+      IF lv_name <> lv_own AND lv_name CP lv_others.
+        CONTINUE.
+      ENDIF.
+      " SAP's shared includes (view maintenance LSVIM*, FBGENMAC, <ICON> …) are not the group's code: only
+      " the group's own includes (<ns>L<group>*) and customer includes (Z*, Y*, LZ*, LY*) are read.
+      IF NOT ( lv_name CP lv_mine OR lv_name CP 'Z*' OR lv_name CP 'Y*' OR lv_name CP 'LZ*' OR lv_name CP 'LY*' ).
+        CONTINUE.
+      ENDIF.
+      APPEND lv_name TO lt_seen.
+      IF lines( lt_seen ) > c_max_includes.
+        rv_error = |{ iv_fm } is refused: its function group has more than { c_max_includes } includes to check|.
+        RETURN.
+      ENDIF.
+      lv_prog = lv_name.
+      CLEAR lt_src.
+      READ REPORT lv_prog INTO lt_src.
+      IF sy-subrc <> 0.
+        rv_error = |{ iv_fm } is refused: include { lv_name } could not be read, so dangerous statements are not ruled out|.
+        RETURN.
+      ENDIF.
+      lv_reason = risky_source( lt_src ).
+      IF lv_reason IS NOT INITIAL.
+        rv_error = |{ iv_fm } is refused: { lv_reason } (in { lv_name })|.
+        RETURN.
+      ENDIF.
+      lt_inc = include_names( lt_src ).
+      APPEND LINES OF lt_inc TO lt_queue.
+    ENDWHILE.
+  ENDMETHOD.
+
+
+  METHOD risky_name.
+    IF iv_fm CP '*DYNSQL*' OR iv_fm CP '*TRUNCATE*' OR iv_fm CP '*READ_TABLE*' OR iv_fm CP '*DATA_COPY*'
+        OR iv_fm CP '*PASSWORD*' OR iv_fm CP '*USER_UNLOCK*'.
+      rv_reason = 'generic SQL, table read, copy or truncate, password or user unlock module'.
+    ELSEIF iv_fm CP 'ZHR*' OR iv_fm CP 'YHR*' OR iv_fm CP 'Z_HR*' OR iv_fm CP 'Y_HR*'
+        OR iv_fm CP '*PAYROLL*' OR iv_fm CP '*PAYSLIP*' OR iv_fm CP '*SALARY*' OR iv_fm CP '*WAGE*'
+        OR iv_fm CP '*PCL1*' OR iv_fm CP '*PCL2*' OR iv_fm CP '*PCL3*' OR iv_fm CP '*PCL4*'.
+      " Customer HR prefixes and payroll words; PCL1..PCL4 are the HR / payroll cluster tables.
+      rv_reason = 'HR or payroll module (personal data)'.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD risky_param.
+    " What the caller sends: importing, changing, tables. Exporting parameters only come back.
+    IF is_par-kind <> 'I' AND is_par-kind <> 'C' AND is_par-kind <> 'T'.
+      RETURN.
+    ENDIF.
+    IF is_par-typ CP 'TABNAME*' OR is_par-typ CP '*-TABNAME' OR is_par-typ = 'RFC_DB_OPT'
+        OR is_par-typ CP '*WHERE*' OR is_par-typ CP 'ABAPSOURCE*'.
+      rv_reason = |takes a table name, a WHERE condition or source code ({ is_par-typ })|.
+    ELSEIF is_par-name CP '*SQL*' OR is_par-name CP '*TABNAME*' OR is_par-name CP '*TAB_NAME*'
+        OR is_par-name CP '*TABLE_NAME*' OR ( is_par-name CP '*WHERE*' AND NOT is_par-name CP '*WHEREUSED*' ).
+      rv_reason = 'is named like SQL, a table name or a WHERE condition'.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD person_key.
+    " A module run for one person: a required importing scalar that is an employee number. An employee
+    " number inside a structure or a selection table (an optional filter of a business module) is not.
+    IF is_par-kind <> 'I' OR is_par-optional = abap_true OR iv_elementary = abap_false.
+      RETURN.
+    ENDIF.
+    IF is_par-typ CP '*PERNR*' OR is_par-typ CP '*PERSNO*' OR is_par-name CP '*PERNR*'.
+      rv_reason = 'is a required employee number (a module run for one person: personal data)'.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD code_part.
+    " The statement part of a line, upper case: string literals ('…', `…`, |…|) kept, the " comment cut.
+    DATA: lv_len TYPE i,
+          lv_pos TYPE i,
+          lv_c   TYPE c LENGTH 1,
+          lv_q   TYPE c LENGTH 1.
+
+    lv_len = strlen( iv_line ).
+    WHILE lv_pos < lv_len.
+      lv_c = iv_line+lv_pos(1).
+      IF lv_q IS INITIAL.
+        IF lv_c = '"'.
+          EXIT.
+        ELSEIF lv_c = '''' OR lv_c = '`' OR lv_c = '|'.
+          lv_q = lv_c.
+        ENDIF.
+      ELSEIF lv_c = lv_q.
+        CLEAR lv_q.
+      ENDIF.
+      lv_pos = lv_pos + 1.
+    ENDWHILE.
+    rv_code = to_upper( substring( val = iv_line len = lv_pos ) ).
+  ENDMETHOD.
+
+
+  METHOD risky_line.
+    " iv_code: one code_part( ) line. Literals count: generated code hides its statements in strings.
+    FIND REGEX `EXEC\s+SQL` IN iv_code.
+    IF sy-subrc = 0.
+      rv_reason = 'native SQL (EXEC SQL)'.
+      RETURN.
+    ENDIF.
+    IF iv_code CS 'TRUNCATE'.
+      rv_reason = 'TRUNCATE'.
+      RETURN.
+    ENDIF.
+    IF iv_code CS 'CL_SQL_'.
+      rv_reason = 'ADBC (CL_SQL_*)'.
+      RETURN.
+    ENDIF.
+    FIND REGEX `GENERATE\s+SUBROUTINE\s+POOL` IN iv_code.
+    IF sy-subrc = 0.
+      rv_reason = 'generated code (GENERATE SUBROUTINE POOL)'.
+      RETURN.
+    ENDIF.
+    FIND REGEX `(INSERT|DELETE)\s+REPORT` IN iv_code.
+    IF sy-subrc = 0.
+      rv_reason = 'program source written (INSERT / DELETE REPORT)'.
+      RETURN.
+    ENDIF.
+    FIND REGEX `(^|[^A-Z0-9_-])SUBMIT([^A-Z0-9_-]|$)` IN iv_code.
+    IF sy-subrc = 0.
+      rv_reason = 'SUBMIT of a program'.
+      RETURN.
+    ENDIF.
+    FIND REGEX `(OPEN|DELETE)\s+DATASET` IN iv_code.
+    IF sy-subrc = 0.
+      rv_reason = 'server files (OPEN / DELETE DATASET)'.
+      RETURN.
+    ENDIF.
+    FIND REGEX `(^|[^A-Z0-9_-])DESTINATION([^A-Z0-9_-]|$)` IN iv_code.
+    IF sy-subrc = 0.
+      rv_reason = 'a call to another system (DESTINATION)'.
+      RETURN.
+    ENDIF.
+    FIND REGEX `STARTING\s+NEW\s+TASK` IN iv_code.
+    IF sy-subrc = 0.
+      rv_reason = 'a parallel task that commits on its own (STARTING NEW TASK)'.
+      RETURN.
+    ENDIF.
+    FIND REGEX `CALL\s+'SYSTEM'` IN iv_code.
+    IF sy-subrc = 0.
+      rv_reason = `a kernel call that can run operating system commands (CALL 'SYSTEM')`.
+      RETURN.
+    ENDIF.
+    " The module name is not a literal: what it calls cannot be known before the call.
+    FIND REGEX `CALL\s+FUNCTION\s+[^'``\s]` IN iv_code.
+    IF sy-subrc = 0.
+      rv_reason = 'a function module named at runtime (CALL FUNCTION <variable>)'.
+      RETURN.
+    ENDIF.
+    FIND REGEX `(^|[^A-Z0-9_-])(INSERT|UPDATE|MODIFY|DELETE)\s+(FROM\s+|INTO\s+)?\(\s*[A-Z_<][A-Z0-9_<>/-]*\s*\)` IN iv_code.
+    IF sy-subrc = 0.
+      rv_reason = 'a database change on a table named at runtime'.
+      RETURN.
+    ENDIF.
+    " One name in parentheses; a join in parentheses has more than one word and stays allowed.
+    FIND REGEX `(^|[^A-Z0-9_-])FROM\s+\(\s*[A-Z_<][A-Z0-9_<>/-]*\s*\)` IN iv_code.
+    IF sy-subrc = 0.
+      rv_reason = 'a table named at runtime'.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD risky_source.
+    DATA: lv_raw    TYPE string,
+          lv_code   TYPE string,
+          lv_reason TYPE string.
+
+    LOOP AT it_src INTO lv_raw.
+      IF lv_raw IS INITIAL OR lv_raw(1) = '*'.
+        CONTINUE.
+      ENDIF.
+      lv_code = code_part( lv_raw ).
+      lv_reason = risky_line( lv_code ).
+      IF lv_reason IS NOT INITIAL.
+        lv_code = condense( lv_code ).
+        IF strlen( lv_code ) > 120.
+          lv_code = lv_code(120).
+        ENDIF.
+        rv_reason = |{ lv_reason }: { lv_code }|.
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD include_names.
+    " INCLUDE <name>. and INCLUDE <name> IF FOUND. (one per line); INCLUDE STRUCTURE / TYPE are not programs.
+    DATA: lv_raw  TYPE string,
+          lv_code TYPE string,
+          lv_name TYPE string.
+
+    LOOP AT it_src INTO lv_raw.
+      IF lv_raw IS INITIAL OR lv_raw(1) = '*'.
+        CONTINUE.
+      ENDIF.
+      lv_code = code_part( lv_raw ).
+      CLEAR lv_name.
+      FIND REGEX `^\s*INCLUDE\s+([A-Z0-9_/<>$]+)(\s+IF\s+FOUND)?\s*\.` IN lv_code SUBMATCHES lv_name.
+      IF sy-subrc = 0 AND lv_name <> 'STRUCTURE' AND lv_name <> 'TYPE'.
+        APPEND lv_name TO rt_names.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD group_of.
+    " FIND on the CHAR40 field kept its trailing blanks in the group (live preview 2026-11-18: every
+    " module read as "source not read"). A string copy has none.
+    DATA lv_pname TYPE string.
+
+    CLEAR: ev_ns, ev_group.
+    lv_pname = condense( iv_pname ).
+    IF NOT lv_pname CP '*SAPL*'.
+      RETURN.
+    ENDIF.
+    " \S+: a blank can never reach the group, whatever the field length.
+    IF lv_pname(1) = '/'.
+      FIND REGEX `^(/[^/]+/)SAPL(\S+)` IN lv_pname SUBMATCHES ev_ns ev_group.
+    ELSE.
+      FIND REGEX `^SAPL(\S+)` IN lv_pname SUBMATCHES ev_group.
+    ENDIF.
+  ENDMETHOD.
+
+
+  METHOD posting_name.
+    " A posting verb anywhere in the name, so *CREATESUCCESSOR, *MASSDELETE*, *RECREATE* stay posting
+    " (splitting the name at '_' would drop such real writers). Words that only contain a verb are
+    " masked first: EXCHANGERATE (exchange rate) is not CHANGE. EXCHANGE alone stays a posting sign.
+    DATA: lv_fm    TYPE string,
+          lt_verbs TYPE string_table,
+          lv_verb  TYPE string.
+
+    lv_fm = to_upper( iv_fm ).
+    REPLACE ALL OCCURRENCES OF 'EXCHANGERATE' IN lv_fm WITH '#'.
+    APPEND `CREATE` TO lt_verbs.
+    APPEND `CHANGE` TO lt_verbs.
+    APPEND `POST` TO lt_verbs.
+    APPEND `SAVE` TO lt_verbs.
+    APPEND `DELETE` TO lt_verbs.
+    APPEND `CANCEL` TO lt_verbs.
+    APPEND `REVERSE` TO lt_verbs.
+    APPEND `UPDATE` TO lt_verbs.
+    LOOP AT lt_verbs INTO lv_verb.
+      IF lv_fm CS lv_verb.
+        rv_hit = abap_true.
+        RETURN.
+      ENDIF.
+    ENDLOOP.
+  ENDMETHOD.
+
+
   METHOD posting_signs.
     DATA: lv_pname   TYPE tfdir-pname,
           lv_incno   TYPE tfdir-include,
@@ -371,20 +770,15 @@ CLASS zcl_mcp_biz_if IMPLEMENTATION.
           lv_comment TYPE string.
 
     CLEAR: et_signs, ev_self_commit.
-    IF iv_fm CP '*CREATE*' OR iv_fm CP '*CHANGE*' OR iv_fm CP '*POST*' OR iv_fm CP '*SAVE*'
-        OR iv_fm CP '*DELETE*' OR iv_fm CP '*CANCEL*' OR iv_fm CP '*REVERSE*' OR iv_fm CP '*UPDATE*'.
+    IF posting_name( iv_fm ) = abap_true.
       APPEND |name: { iv_fm }| TO et_signs.
     ENDIF.
 
     " The module's own include from TFDIR (no FUNCTION_INCLUDE_INFO: a static call with a wrong parameter
     " kind would dump on every preview). SAPL<group> → L<group>U<nn>; /NS/SAPL<group> → /NS/L<group>U<nn>.
     SELECT SINGLE pname include FROM tfdir INTO (lv_pname, lv_incno) WHERE funcname = iv_fm.
-    IF sy-subrc = 0 AND lv_pname CP '*SAPL*' AND lv_incno IS NOT INITIAL.
-      IF lv_pname(1) = '/'.
-        FIND REGEX `^(/[^/]+/)SAPL(.+)$` IN lv_pname SUBMATCHES lv_ns lv_group.
-      ELSE.
-        FIND REGEX `^SAPL(.+)$` IN lv_pname SUBMATCHES lv_group.
-      ENDIF.
+    IF sy-subrc = 0 AND lv_incno IS NOT INITIAL.
+      group_of( EXPORTING iv_pname = lv_pname IMPORTING ev_ns = lv_ns ev_group = lv_group ).
       IF lv_group IS NOT INITIAL.
         lv_include = |{ lv_ns }L{ lv_group }U{ lv_incno }|.
       ENDIF.
