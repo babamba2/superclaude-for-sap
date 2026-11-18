@@ -121,10 +121,10 @@ export function reportHtml({ model, system = '', user = '', at = new Date().toIS
   ${r.specVersion != null || r.fm ? `<p class="runof${r.stale ? ' stale' : ''}">${t.runOf}: ${r.specVersion != null && r.specVersion !== '' ? `v${esc(r.specVersion)}` : '—'} · ${esc(r.fm || '—')}</p>` : ''}
   ${r.v.reasons.length ? `<ul class="why">${r.v.reasons.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
   <h3>${t.input}</h3><pre>${json(r.input)}</pre>
-  <h3>${t.messages}</h3>${r.call.messages.length ? `<table><tr><th>Type</th><th>ID</th><th>No</th><th>Message</th></tr>${r.call.messages.map((m) => `<tr><td>${esc(m.type)}</td><td>${esc(m.id)}</td><td>${esc(m.number)}</td><td>${esc(m.message)}</td></tr>`).join('')}</table>` : `<p>${t.none}</p>`}
+  <h3>${t.messages}</h3>${r.call.messages.length ? `<table class="cards"><tr><th>Type</th><th>ID</th><th>No</th><th>Message</th></tr>${r.call.messages.map((m) => `<tr><td data-l="Type">${esc(m.type)}</td><td data-l="ID">${esc(m.id)}</td><td data-l="No">${esc(m.number)}</td><td data-l="Message">${esc(m.message)}</td></tr>`).join('')}</table>` : `<p>${t.none}</p>`}
   <h3>${t.docs}</h3>${r.call.docNos.length ? `<ul>${r.call.docNos.map((d) => `<li>${esc(d.name)}: <b>${esc(d.value)}</b></li>`).join('')}</ul>` : `<p>${t.none}</p>`}
   <p>${t.committed}: ${esc(r.call.committed || '—')}</p>
-  <h3>${t.check}</h3>${r.check.length ? `<table><tr><th>No</th><th>Param</th><th>Field</th><th>Spec</th><th>Value</th><th>${t.verdict}</th></tr>${r.check.map((x) => `<tr class="${x.status}"><td>${esc(x.no)}</td><td>${esc(x.param)}</td><td>${esc(x.field)}</td><td>${esc(x.spec)}</td><td>${esc(x.value)}</td><td>${esc(t.status[x.status])}</td></tr>`).join('')}</table>` : `<p>${t.none}</p>`}
+  <h3>${t.check}</h3>${r.check.length ? `<table class="cards"><tr><th>No</th><th>Param</th><th>Field</th><th>Spec</th><th>Value</th><th>${t.verdict}</th></tr>${r.check.map((x) => `<tr class="${x.status}"><td data-l="No">${esc(x.no)}</td><td data-l="Param">${esc(x.param)}</td><td data-l="Field">${esc(x.field)}</td><td data-l="Spec">${esc(x.spec)}</td><td data-l="Value">${esc(x.value)}</td><td data-l="${t.verdict}">${esc(t.status[x.status])}</td></tr>`).join('')}</table>` : `<p>${t.none}</p>`}
   <h3>${t.output}</h3>${r.call.truncated ? `<p class="note">${t.truncated}</p>` : ''}<pre>${json(r.call.output)}</pre>
 </section>`).join('\n');
   return withResponsive(`<!doctype html>
@@ -140,6 +140,8 @@ dl { display:grid; grid-template-columns:max-content 1fr; gap:4px 14px; margin:0
 .chip { font-size:.75rem; border:1px solid currentColor; border-radius:999px; padding:1px 8px; } .pass .chip { color:var(--ok); } .fail .chip { color:var(--bad); }
 .why { color:var(--bad); } table { border-collapse:collapse; width:100%; display:block; overflow-x:auto; } th, td { border:1px solid var(--line); padding:4px 8px; text-align:left; vertical-align:top; }
 tr.missing td, tr.long td, tr.type td { color:var(--bad); } pre { background:color-mix(in srgb, var(--line) 35%, transparent); padding:10px; border-radius:8px; overflow-x:auto; white-space:pre-wrap; word-break:break-word; } .note { color:var(--muted); } .runof { color:var(--muted); margin:0 0 6px; } .chip.stale, .runof.stale { color:var(--warn); } .warn { border:1px solid var(--warn); border-left-width:4px; border-radius:8px; padding:8px 12px; margin:0 0 14px; }
+/* Phones: each table row becomes a labelled card, so the verdict and the value are never scrolled off the right edge. */
+@media (max-width:600px) { body { padding:16px; } .case { padding:4px 12px 12px; } table.cards, table.cards tbody, table.cards tr, table.cards td { display:block; } table.cards { overflow:visible; } table.cards tr:first-child { display:none; } table.cards tr { border:1px solid var(--line); border-radius:8px; padding:6px 10px; margin:0 0 8px; } table.cards td { border:0; padding:2px 0; display:grid; grid-template-columns:5.5em minmax(0,1fr); gap:8px; overflow-wrap:anywhere; } table.cards td::before { content:attr(data-l); color:var(--muted); } }
 </style></head><body><main>
 <h1>${esc(t.title)}</h1>
 <dl><dt>${t.spec}</dt><dd>${esc(model?.ifId || '')} v${esc(model?.version || '')} — ${esc(model?.header?.name || '')}</dd>
