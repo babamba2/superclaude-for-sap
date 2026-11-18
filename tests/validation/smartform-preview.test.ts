@@ -427,3 +427,60 @@ describe('smartform-preview: the overflow check of a drawn multi-page print look
     expect(one).toContain('w.scrollHeight>w.clientHeight+2');
   });
 });
+
+describe('smartform-preview: old-table cells — T_CELLNR and a loop in a sort event (S4-DEV SF_SUBTOTALS old table)', () => {
+  const cell = (column: number) => ({ line: 'LINE', column, widthMm: 20, borders: { left: 0, top: 0, right: 0, bottom: 0 } });
+  const t = (name: string, txt: string, output: any, tc?: any) => ({ ...text(name, 'AA', txt), output, ...(tc ? { tableCell: tc } : {}) });
+  const table = {
+    kind: 'table46', name: 'TAB', caption: 'Tab', dataTable: 'T_FL', attrs: { TABHEADER: 'GS_FL' },
+    lineTypes: [{ name: 'LINE', heightMm: 5 }], cells: [1, 2, 3, 4, 5].map(cell),
+    children: [
+      t('C1', 'Row &GS_FL-CARRID&', { T_NEWLINE: 'X', T_LINETYPE: 'LINE' }),
+      t('C2', 'Next', { T_NEWCELL: 'X' }, { line: null, cell: 1 }),
+      { kind: 'event', name: '%E', attrs: { EVTYPE: 'E', SFIELD: 'CARRID' }, children: [
+        { kind: 'loop', name: 'SUB', caption: 'Sub', dataTable: 'GT_SUB', attrs: { TABHEADER: 'GS_SUB' }, children: [
+          t('P', 'Sum &GS_SUB-PRICE&', { T_NEWLINE: 'X', T_LINETYPE: 'LINE', T_NEWCELL: 'X' }, { line: null, cell: 3 }),
+          t('K', 'Cur &GS_SUB-CURR&', { T_NEWCELL: 'X' }),
+        ] },
+      ] },
+    ],
+  };
+  const c = { ...CONTENT, pages: [{ ...CONTENT.pages[0], windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 10, topMm: 30, widthMm: 190, heightMm: 200, content: [table] }] }] };
+  const vals = { rows: 1, values: { 'GS_FL-CARRID': ['ZZ'], 'GS_SUB-PRICE': ['10'], 'GS_SUB-CURR': ['EUR'] } };
+  const cellsOfRows = (html: string) => html.split('<div class="row').slice(1)
+    .map((r) => r.split('<div class="cell"').slice(1).map((x) => (/Row [A-Z0-9]+|Next|Sum [0-9]+|Cur [A-Z]+/.exec(x) || [''])[0]));
+  it('T_CELLNR moves that many cells on (1 = the next cell); a loop in the end event flows into the table cells', () => {
+    const html = new Renderer(c, vals).page().html as string;
+    const rows = cellsOfRows(html);
+    expect(rows[0].slice(0, 2)).toEqual(['Row ZZ', 'Next']);
+    expect(rows[1]).toEqual(['', '', '', 'Sum 10', 'Cur EUR']);
+  });
+});
+
+describe('smartform-preview: per-group values outside a loop start again in each group (r17 note)', () => {
+  it('a value given per sort group is read from the group array, one value per appearance, from its first in each group', () => {
+    const r = new Renderer(CONTENT, { values: { G_X: [['a', 'b'], ['c', 'd']] } });
+    const read = () => r.symbol('G_X').replace(/<[^>]*>/g, '');
+    r.curGroup = 0;
+    const g0 = [read(), read()];
+    r.curGroup = 1;
+    const g1 = [read(), read()];
+    expect([g0, g1]).toEqual([['a', 'b'], ['c', 'd']]);
+  });
+});
+
+describe('smartform-preview: page scripts read the zoom their rects carry (WebKit applies no CSS zoom to rects)', () => {
+  it('no script divides rects by a constant zoom; the runtime factor is the sheet zoom or 1', () => {
+    const r = new Renderer({ ...CONTENT, pages: [CONTENT.pages[0]] }, { values: {} });
+    r.markHeads = true;
+    const html = (pagesFromBlocks(r, Array.from({ length: 80 }, (_, i) => ({ t: i * 5, b: (i + 1) * 5, brk: false })))?.html || r.page().html) as string;
+    expect(html).not.toMatch(/var Z=4[,;]/);
+    expect(html).not.toMatch(/\)\*4;|lineHeight\)\*4/);
+    const rt = /var Z=(\(function\(\)\{[\s\S]*?\}\)\(\))/.exec(html)?.[1];
+    expect(rt).toBeTruthy();
+    // the factor in a Chromium-like and a WebKit-like document
+    const run = (rectW: number) => new Function('document', `return ${rt};`)({ querySelector: () => ({ offsetWidth: 794, dataset: { zoom: '4' }, getBoundingClientRect: () => ({ width: rectW }) }) });
+    expect(run(3175)).toBe(4);
+    expect(run(794)).toBe(1);
+  });
+});

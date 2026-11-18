@@ -214,6 +214,13 @@ function tabDecimalWidth(next, glyphs) {
 export const { tabNextStop, tabDecimalWidth } = new Function(`${TAB_JS}
 return { tabNextStop: tabNextStop, tabDecimalWidth: tabDecimalWidth };`)();
 
+// The zoom the page's rects carry, read at run time: Chromium's getBoundingClientRect includes the sheet's CSS zoom
+// (4 × the CSS px), WebKit's does not (Safari / iOS: 1 ×) — dividing a rect by the constant ZOOM placed sheets 2 and
+// 3 of a paginated print a quarter of the way on WebKit (iPhone check). offsetWidth is the unzoomed width in both.
+// The engine either applies the sheet's zoom to rects or not: the measured ratio picks the sheet's own zoom (exactly
+// ZOOM, so Chromium output stays as before) or 1.
+const ZOOM_RT = "(function(){var s=document.querySelector('.sheet');if(!s||!s.offsetWidth)return 1;var q=s.getBoundingClientRect().width/s.offsetWidth;return q>1.5?(+s.dataset.zoom||q):1;})()";
+
 // How full one sheet's MAIN is, kept as source text like TAB_JS (the page script embeds it, tests run it):
 //   mainUse(top, height, bottoms) → the share of the window height the sheet's own MAIN blocks use (the bottom of the
 //     lowest block, from the window top, / the window height); null without blocks or height. On a drawn sheet the
@@ -616,7 +623,8 @@ class Renderer {
       // an array outside any loop: one value per appearance
       const idx = this.rowIndexFor(up);
       if (idx !== null) v = v.length ? v[idx % v.length] : undefined;
-      else { const i = this.seq[up] ?? 0; this.seq[up] = i + 1; v = v.length ? v[Math.min(i, v.length - 1)] : undefined; }
+      // per sort group (curGroup) the counter starts again: a group's own array is read from its first value
+      else { const sk = this.curGroup !== null ? `${up}#${this.curGroup}` : up; const i = this.seq[sk] ?? 0; this.seq[sk] = i + 1; v = v.length ? v[Math.min(i, v.length - 1)] : undefined; }
     }
     if (v === undefined && SYS_DEFAULTS[up] !== undefined) v = SYS_DEFAULTS[up];
     if (v === undefined || v === null) {
@@ -919,6 +927,10 @@ class Renderer {
    *  T_LINETYPE in its first cell, T_NEWCELL moves to the next cell, otherwise the node
    *  joins the current cell (ZSF_DEMO_19 %TABLE1). */
   tableFlow(n, list) {
+    // a new cell with a cell number (T_CELLNR, a tableCell without a line) moves that many cells on — 1 is the next cell:
+    // S4-DEV SF_SUBTOTALS (old table) prints its subtotal (new line + new cell, T_CELLNR 003) in cell 4 and the currency
+    // after it in cell 5; LB_BIL_INVOICE's header (new cell, T_CELLNR 001) goes on cell by cell
+    const cellNr = (ch) => (ch.tableCell && !ch.tableCell.line && Number(ch.tableCell.cell) > 0 ? Number(ch.tableCell.cell) : 0);
     const rows = [];
     let row = null;
     let ci = 1;
@@ -934,7 +946,8 @@ class Renderer {
         while (k < list.length && list[k].output?.T_NEWLINE !== 'X') k++;
         const nCells = (n.cells || []).filter((c) => c.line === row.lt).length;
         ci = o.T_NEWLINE === 'X' && o.T_NEWCELL === 'X' && nCells > k - idx ? 2 : 1;
-      } else if (o.T_NEWCELL === 'X') ci++;
+        if (o.T_NEWCELL === 'X' && cellNr(ch)) ci = 1 + cellNr(ch);
+      } else if (o.T_NEWCELL === 'X') ci += cellNr(ch) || 1;
       (row.cells[ci] = row.cells[ci] || []).push(ch);
     });
     return rows.map((r) => {
@@ -964,19 +977,25 @@ class Renderer {
     const kids = n.children || [];
     const ev = (t) => kids.filter((c) => c.kind === 'event' && c.attrs?.EVTYPE === t);
     const body = kids.filter((c) => c.kind !== 'event');
-    const part = (list) => {
+    const part = (list, inEvent = false) => {
       // a loop inside a table's event prints its rows (section R) as rows of that table
       // (ZSF_DEMO_24 %EVENT3 F → %LOOP1 → %ROW3 %LTYPE3)
       if (n.kind !== 'table46' && this.curTable && list.some((c) => c.kind === 'section-R'))
         return list.map((r) => this.tableRow(this.curTable, r)).join('');
+      // a loop inside an old table's event (header, sort, footer — not the body) whose texts carry the table's output options (new line / new cell) prints
+      // them as rows of that table (S4-DEV SF_SUBTOTALS old table: the subtotal loop in the CARRID end event)
+      if (n.kind !== 'table46' && this.flowTable && list.some((c) => c.output?.T_LINETYPE || c.output?.T_NEWLINE)) return this.tableFlow(this.flowTable, list);
       if (n.kind !== 'table46') return this.nodes(list);
       // (a cell number without a line — T_CELLNR alone — is not a placed cell: ZSF_DEMO_49 %TABLE1
       // texts flow by T_NEWLINE / T_NEWCELL)
       if (list.some((c) => c.tableCell?.line)) return this.tableBody(n, list);
       if (list.some((c) => c.output?.T_LINETYPE || c.output?.T_NEWLINE)) return this.tableFlow(n, list);
-      return this.nodes(list);
+      if (!inEvent) return this.nodes(list);
+      const was = this.flowTable;
+      this.flowTable = n;
+      try { return this.nodes(list); } finally { this.flowTable = was; }
     };
-    let html = ev('H').map((e) => part(e.children || [])).join('');
+    let html = ev('H').map((e) => part(e.children || [], true)).join('');
     if (this.markHeads && html && n.kind === 'table46') html = `<div class="sfhead">${html}</div>`;
     const pat = n.kind === 'table46' ? patternOf(n, this) : {};
     if (pat.header && html) html = `<div style="position:relative">${html}<div class="frame" style="border-bottom:${pat.th}mm solid #000"></div></div>`;
@@ -1015,7 +1034,7 @@ class Renderer {
       const prevRow = rowsHere[k - 1];
       const nextRow = rowsHere[k + 1];
       for (const f of new Set(sortEv('S').concat(sortEv('E')).map((e) => e.attrs.SFIELD))) if (k === 0 || key(i, f) !== key(prevRow, f)) grp[f] = (grp[f] ?? -1) + 1;
-      const inGroup = (e) => { const b = this.curGroup; this.curGroup = grp[e.attrs.SFIELD] ?? 0; try { return part(e.children || []); } finally { this.curGroup = b; } };
+      const inGroup = (e) => { const b = this.curGroup; this.curGroup = grp[e.attrs.SFIELD] ?? 0; try { return part(e.children || [], true); } finally { this.curGroup = b; } };
       for (const e of sortEv('S')) if (k === 0 || key(i, e.attrs.SFIELD) !== key(prevRow, e.attrs.SFIELD)) html += inGroup(e);
       html += part(body);
       for (const e of sortEv('E')) if (k === rowsHere.length - 1 || key(i, e.attrs.SFIELD) !== key(nextRow, e.attrs.SFIELD)) html += inGroup(e);
@@ -1023,7 +1042,7 @@ class Renderer {
     if (before === undefined) delete this.waRow[wa]; else this.waRow[wa] = before;
     this.loopDepth--;
     this.row = 0;
-    html += ev('F').map((e) => part(e.children || [])).join('');
+    html += ev('F').map((e) => part(e.children || [], true)).join('');
     if (n.kind !== 'table46') return html;
     return `<div class="tpl" data-node="${esc(n.name)}" style="width:${n.width?.mm ?? 0}mm;${tplPlace(n)}">${html}${pat.outer ? `<div class="frame" style="border:${pat.th}mm solid #000"></div>` : ''}</div>`;
   }
@@ -1472,11 +1491,11 @@ document.querySelectorAll('.par .nb').forEach(function(s){var par=s.closest('.pa
 // rest of MAIN belongs to page 2 and is not drawn on page 1 (ZSF_DEMO_25 closing text)
 var cont=false;document.querySelectorAll('.win.main').forEach(function(w){var wb=w.getBoundingClientRect().bottom+0.5,gone=false,first=true;
 w.querySelectorAll('.tmpl, .row, .par, img, .sfbreak').forEach(function(e){if(e.classList.contains('sfbreak')){if(!gone){gone=true;cont=true;}return;}if(!e.classList.contains('tmpl')&&e.parentElement.closest('.tmpl'))return;if(!e.classList.contains('row')&&!e.classList.contains('tmpl')&&e.closest('.row'))return;
-var eb=e.getBoundingClientRect().bottom-(parseFloat(e.style.top)||0)*${ZOOM};if(!gone&&eb>wb&&!first){gone=true;cont=true;}first=false;if(gone)e.style.visibility='hidden';});});
+var eb=e.getBoundingClientRect().bottom-(parseFloat(e.style.top)||0)*${ZOOM_RT};if(!gone&&eb>wb&&!first){gone=true;cont=true;}first=false;if(gone)e.style.visibility='hidden';});});
 // a cell or window cuts whole lines, never half a line (SAP prints the lines that fit);
 // the first line of a window always prints (ZSF_DEMO_08 %WINDOW4: 6.35 mm line in a 6 mm window)
-document.querySelectorAll('.cell .par, .win:not(.main) > div > .par').forEach(function(p){var box=p.closest('.cell')||p.closest('.win');var bb=box.getBoundingClientRect().bottom+0.5;var r=p.getBoundingClientRect();var sh=(parseFloat(p.style.top)||0)*${ZOOM};var top=r.top-sh,bot=r.bottom-sh;
-if(bot<=bb)return;var lh=parseFloat(getComputedStyle(p).lineHeight)*${ZOOM};if(!(lh>0))return;var fit=Math.floor((bb-top)/lh+0.01);if(box.classList.contains('win')&&box.querySelector('.par')===p)fit=Math.max(fit,1);p.style.maxHeight=Math.max(0,fit*lh/${ZOOM})+'px';p.style.overflow='hidden';});
+document.querySelectorAll('.cell .par, .win:not(.main) > div > .par').forEach(function(p){var box=p.closest('.cell')||p.closest('.win');var bb=box.getBoundingClientRect().bottom+0.5;var r=p.getBoundingClientRect();var sh=(parseFloat(p.style.top)||0)*${ZOOM_RT};var top=r.top-sh,bot=r.bottom-sh;
+if(bot<=bb)return;var lh=parseFloat(getComputedStyle(p).lineHeight)*${ZOOM_RT};if(!(lh>0))return;var fit=Math.floor((bb-top)/lh+0.01);if(box.classList.contains('win')&&box.querySelector('.par')===p)fit=Math.max(fit,1);p.style.maxHeight=Math.max(0,fit*lh/${ZOOM_RT})+'px';p.style.overflow='hidden';});
 // windows printed only after the end of MAIN wait for the page where MAIN ends (ZSF_DEMO_25 %WINDOW3)
 if(cont)document.querySelectorAll('.win.aftermain').forEach(function(w){w.style.visibility='hidden';});
 return cont;};</script>
@@ -1485,7 +1504,7 @@ return cont;};</script>
 // (5 twips per point: KPDODUM 8 pt +40 tw in ZSF_DEMO_69, TIMES 9 pt +45 tw in ZSF_DEMO_25)
 document.querySelectorAll('.row.autoh').forEach(function(r){var mx=0;r.querySelectorAll('.par, .par *').forEach(function(e){var own=[].some.call(e.childNodes,function(n){return n.nodeType===3&&n.nodeValue.trim();});if(own){var s=parseFloat(getComputedStyle(e).fontSize);if(s>mx)mx=s;}});
 if(mx)r.querySelectorAll(':scope>.cell').forEach(function(c){c.style.paddingBottom=(mx*0.25)+'px';});});})();</script>
-<script>(function(){var Z=${ZOOM},PXMM=96/25.4;
+<script>(function(){var Z=${ZOOM_RT},PXMM=96/25.4;
 ${TAB_JS}
 // ,, tabs: up to the next tab stop of the paragraph, else the next multiple of the
 // style's default distance, measured from the left edge of the cell / window
@@ -1556,14 +1575,14 @@ const LAST_SCRIPT = '<script>(function(){var o=[];if(window.__sfPaginate';
 // NEWPAGE commands — the same selection on the measuring pass and on the drawn pages
 const BLOCKS_JS = `function sfBlocks(w){var out=[];w.querySelectorAll('.tmpl, .row, .par, img, .sfbreak').forEach(function(e){if(e.classList.contains('sfbreak')){out.push(e);return;}if(!e.classList.contains('tmpl')&&e.parentElement.closest('.tmpl'))return;if(!e.classList.contains('row')&&!e.classList.contains('tmpl')&&e.closest('.row'))return;out.push(e);});return out;}`;
 // measuring pass: every MAIN block's top / bottom in mm from the top of MAIN (the paragraph baseline shift taken out)
-const MEASURE_JS = `<script>(function(){${BLOCKS_JS}var Z=${ZOOM},PXMM=96/25.4,w=document.querySelector('.sheet .win.main');if(!w)return;var wt=w.getBoundingClientRect().top;
+const MEASURE_JS = `<script>(function(){${BLOCKS_JS}var Z=${ZOOM_RT},PXMM=96/25.4,w=document.querySelector('.sheet .win.main');if(!w)return;var wt=w.getBoundingClientRect().top;
 var tp=[].slice.call(w.querySelectorAll('.tpl'));
 var o=sfBlocks(w).map(function(e){var r=e.getBoundingClientRect(),sh=(parseFloat(e.style.top)||0)*Z,t=e.closest('.tpl');return{t:(r.top-sh-wt)/Z/PXMM,b:(r.bottom-sh-wt)/Z/PXMM,brk:e.classList.contains('sfbreak'),page:e.dataset.page||'',tbl:t?tp.indexOf(t):-1,head:!!(e.closest('.sfhead')&&t&&t.contains(e.closest('.sfhead')))};});
 var s=document.createElement('script');s.type='application/json';s.id='sf-mainblocks';s.textContent=JSON.stringify(o);document.body.appendChild(s);})();</script>`;
 // drawn pages: each sheet's MAIN shows its blocks [from, to), moved up to the top of MAIN; the others are hidden
 // (no text of another page reaches the print); windows after the end of MAIN only on the sheet where MAIN ends
 const SHEETS_JS = `<script>window.__sfPaginate=function(){${BLOCKS_JS}${MAINUSE_JS}
-var Z=${ZOOM},cont=false;
+var Z=${ZOOM_RT},cont=false;
 document.querySelectorAll('.sheet').forEach(function(sh){var w=sh.querySelector('.win.main');if(!w)return;var f=w.querySelector('.mainflow');if(!f)return;var bl=sfBlocks(w),from=+f.dataset.from,to=+f.dataset.to;
 var wt=w.getBoundingClientRect().top;var first=bl[from];if(first){var r=first.getBoundingClientRect(),s0=(parseFloat(first.style.top)||0)*Z;f.style.position='relative';f.style.top=(-(r.top-s0-wt)/Z)+'px';}
 var hf=f.dataset.hfrom!==undefined?+f.dataset.hfrom:-1,ht=f.dataset.hto!==undefined?+f.dataset.hto:-1;

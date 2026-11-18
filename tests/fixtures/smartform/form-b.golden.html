@@ -95,11 +95,11 @@ document.querySelectorAll('.par .nb').forEach(function(s){var par=s.closest('.pa
 // rest of MAIN belongs to page 2 and is not drawn on page 1 (ZSF_DEMO_25 closing text)
 var cont=false;document.querySelectorAll('.win.main').forEach(function(w){var wb=w.getBoundingClientRect().bottom+0.5,gone=false,first=true;
 w.querySelectorAll('.tmpl, .row, .par, img, .sfbreak').forEach(function(e){if(e.classList.contains('sfbreak')){if(!gone){gone=true;cont=true;}return;}if(!e.classList.contains('tmpl')&&e.parentElement.closest('.tmpl'))return;if(!e.classList.contains('row')&&!e.classList.contains('tmpl')&&e.closest('.row'))return;
-var eb=e.getBoundingClientRect().bottom-(parseFloat(e.style.top)||0)*4;if(!gone&&eb>wb&&!first){gone=true;cont=true;}first=false;if(gone)e.style.visibility='hidden';});});
+var eb=e.getBoundingClientRect().bottom-(parseFloat(e.style.top)||0)*(function(){var s=document.querySelector('.sheet');if(!s||!s.offsetWidth)return 1;var q=s.getBoundingClientRect().width/s.offsetWidth;return q>1.5?(+s.dataset.zoom||q):1;})();if(!gone&&eb>wb&&!first){gone=true;cont=true;}first=false;if(gone)e.style.visibility='hidden';});});
 // a cell or window cuts whole lines, never half a line (SAP prints the lines that fit);
 // the first line of a window always prints (ZSF_DEMO_08 %WINDOW4: 6.35 mm line in a 6 mm window)
-document.querySelectorAll('.cell .par, .win:not(.main) > div > .par').forEach(function(p){var box=p.closest('.cell')||p.closest('.win');var bb=box.getBoundingClientRect().bottom+0.5;var r=p.getBoundingClientRect();var sh=(parseFloat(p.style.top)||0)*4;var top=r.top-sh,bot=r.bottom-sh;
-if(bot<=bb)return;var lh=parseFloat(getComputedStyle(p).lineHeight)*4;if(!(lh>0))return;var fit=Math.floor((bb-top)/lh+0.01);if(box.classList.contains('win')&&box.querySelector('.par')===p)fit=Math.max(fit,1);p.style.maxHeight=Math.max(0,fit*lh/4)+'px';p.style.overflow='hidden';});
+document.querySelectorAll('.cell .par, .win:not(.main) > div > .par').forEach(function(p){var box=p.closest('.cell')||p.closest('.win');var bb=box.getBoundingClientRect().bottom+0.5;var r=p.getBoundingClientRect();var sh=(parseFloat(p.style.top)||0)*(function(){var s=document.querySelector('.sheet');if(!s||!s.offsetWidth)return 1;var q=s.getBoundingClientRect().width/s.offsetWidth;return q>1.5?(+s.dataset.zoom||q):1;})();var top=r.top-sh,bot=r.bottom-sh;
+if(bot<=bb)return;var lh=parseFloat(getComputedStyle(p).lineHeight)*(function(){var s=document.querySelector('.sheet');if(!s||!s.offsetWidth)return 1;var q=s.getBoundingClientRect().width/s.offsetWidth;return q>1.5?(+s.dataset.zoom||q):1;})();if(!(lh>0))return;var fit=Math.floor((bb-top)/lh+0.01);if(box.classList.contains('win')&&box.querySelector('.par')===p)fit=Math.max(fit,1);p.style.maxHeight=Math.max(0,fit*lh/(function(){var s=document.querySelector('.sheet');if(!s||!s.offsetWidth)return 1;var q=s.getBoundingClientRect().width/s.offsetWidth;return q>1.5?(+s.dataset.zoom||q):1;})())+'px';p.style.overflow='hidden';});
 // windows printed only after the end of MAIN wait for the page where MAIN ends (ZSF_DEMO_25 %WINDOW3)
 if(cont)document.querySelectorAll('.win.aftermain').forEach(function(w){w.style.visibility='hidden';});
 return cont;};</script>
@@ -108,7 +108,7 @@ return cont;};</script>
 // (5 twips per point: KPDODUM 8 pt +40 tw in ZSF_DEMO_69, TIMES 9 pt +45 tw in ZSF_DEMO_25)
 document.querySelectorAll('.row.autoh').forEach(function(r){var mx=0;r.querySelectorAll('.par, .par *').forEach(function(e){var own=[].some.call(e.childNodes,function(n){return n.nodeType===3&&n.nodeValue.trim();});if(own){var s=parseFloat(getComputedStyle(e).fontSize);if(s>mx)mx=s;}});
 if(mx)r.querySelectorAll(':scope>.cell').forEach(function(c){c.style.paddingBottom=(mx*0.25)+'px';});});})();</script>
-<script>(function(){var Z=4,PXMM=96/25.4;
+<script>(function(){var Z=(function(){var s=document.querySelector('.sheet');if(!s||!s.offsetWidth)return 1;var q=s.getBoundingClientRect().width/s.offsetWidth;return q>1.5?(+s.dataset.zoom||q):1;})(),PXMM=96/25.4;
 function tabNextStop(stops, dist, x, inkEnd) {
   var xi = inkEnd !== null && inkEnd !== undefined ? Math.min(x, inkEnd) : x;
   var next;
