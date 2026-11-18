@@ -574,7 +574,7 @@ CLASS zcl_mcp_biz_if IMPLEMENTATION.
           lv_instr = abap_false.
           " A string at depth 1 followed by ':' is a member name.
           IF lv_depth = 1.
-            lv_str = iv_json+lv_start(lv_pos - lv_start).
+            lv_str = substring( val = iv_json off = lv_start len = lv_pos - lv_start ).
             lv_next = lv_pos + 1.
             WHILE lv_next < lv_len.
               lv_k = iv_json+lv_next(1).
