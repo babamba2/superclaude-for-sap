@@ -213,3 +213,53 @@ describe('uat-check: CLI check-save', () => {
     }
   });
 });
+
+describe('uat-check: a master table the system refuses by delivery class (ECC TABLE_READ)', () => {
+  const REFUSED = 'MCP error -32603: ADT error: Error: ZMCP_ADT_DISPATCH error (action=TABLE_READ, subrc=4): TABLE_READ: table MARA is not allowed — table reads on this SAP release (BASIS < 7.50) go through ZMCP_ADT_DISPATCH TABLE_READ, which reads customizing / system tables only (delivery class C, G, E, S, W)';
+  const reader = (refuse: Record<string, string>) => {
+    const base = fakeReader(DB);
+    return {
+      ...base,
+      async readIn(table: string, field: string, values: string[], o: any) {
+        if (refuse[table]) return { ok: false, rows: [], errors: [refuse[table]] };
+        return base.readIn(table, field, values, o);
+      },
+      async readTable(table: string, o: any) {
+        if (refuse[table]) return { ok: false, rows: [], error: refuse[table] };
+        return base.readTable(table, o);
+      },
+    };
+  };
+  const matPlan = () => validatePlan({
+    steps: [{ scenario: 'SD01', step: 'STEP-001', targets: [
+      { kind: 'matnr', key: { MATNR: '4711' } }, { kind: 'matnrPlant', key: { MATNR: 'AB-1', WERKS: '1100' } }, { kind: 'werks', key: { WERKS: '1100' } },
+    ], vague: [] }],
+  }, set());
+
+  it('material kinds: "no-material-read", never "unread" or "not-found"; the step stays "check"', async () => {
+    const ev = await runChecks(matPlan(), reader({ MARA: REFUSED, MARC: REFUSED.replace('MARA', 'MARC') }));
+    const rows = ruleRows(matPlan(), ev);
+    expect(rows[0].rule).toBe('check');
+    const codes = rows[0].reasons.map((r: any) => `${r.code} ${r.target}`);
+    expect(codes).toContain('no-material-read matnr:MATNR=4711');
+    expect(codes).toContain('no-material-read matnrPlant:MATNR=AB-1,WERKS=1100');
+    expect(codes.some((c: string) => c.startsWith('unread') || c.startsWith('not-found'))).toBe(false);
+    expect(ev['matnr:MATNR=4711'].note).toBe('class');
+  });
+
+  it('any other read error stays "unread" with its text; a refusal of a non-material table is "unread" too', async () => {
+    const ev = await runChecks(matPlan(), reader({ MARA: 'ADT error: Request failed with status code 500', T001W: REFUSED.replace('MARA', 'T001W') }));
+    const rows = ruleRows(matPlan(), ev);
+    const codes = rows[0].reasons.map((r: any) => `${r.code} ${r.target}`);
+    expect(codes).toContain('unread matnr:MATNR=4711');
+    expect(codes).toContain('unread werks:WERKS=1100');
+    expect(ev['matnr:MATNR=4711'].note).toMatch(/^read failed: ADT error/);
+  });
+
+  it('the page and the judge say it in words', () => {
+    const page = readFileSync(new URL('../../scripts/uat/uat-page.mjs', import.meta.url), 'utf8');
+    expect(page).toContain("'no-material-read': '이 시스템에서는 자재 마스터를 읽을 수 없어요'");
+    expect(page).toContain("'no-material-read': 'this system cannot read material masters'");
+    expect(judgePrompt(set(), [], { lang: 'ko' })).toContain('note class =');
+  });
+});

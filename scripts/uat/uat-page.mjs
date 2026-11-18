@@ -33,7 +33,7 @@ const LABELS = {
     nothing: '확인할 점이 없어요.', noIssues: '등록된 이슈가 없어요.', notLinked: '연결 안 된 값', notLinkedWhy: '(요청 번호 형식이 아니에요)', failedText: (a) => `${a} 실패`,
     chkCol: 'AI 점검', chkV: { ok: 'OK', check: '확인 필요', mismatch: '불일치' }, chkStale: '바뀜 · 다시 점검',
     chkLine: 'AI 시나리오 점검 {at} · {sys} — OK {ok} · 확인 필요 {check} · 불일치 {mismatch}',
-    chkR: { 'not-found': '시스템에 없음', pii: '개인정보 보호 대상이라 확인하지 않음', unread: '읽지 못함', 'no-number-range': '번호 범위 없음', 'no-condition-record': '오늘 유효한 조건 레코드 없음', unused: '최근 사용 실적 없음', vague: '구체적인 값 없음', 'nothing-to-check': '확인할 값 없음' },
+    chkR: { 'not-found': '시스템에 없음', pii: '개인정보 보호 대상이라 확인하지 않음', unread: '읽지 못함', 'no-material-read': '이 시스템에서는 자재 마스터를 읽을 수 없어요', 'no-number-range': '번호 범위 없음', 'no-condition-record': '오늘 유효한 조건 레코드 없음', unused: '최근 사용 실적 없음', vague: '구체적인 값 없음', 'nothing-to-check': '확인할 값 없음' },
   },
   en: {
     dash: 'Dashboard', scen: 'Scenarios', issues: 'Issues', checks: 'Checks', edit: 'Edit', done: 'Done', save: 'Save', print: 'Print', undo: 'Undo', dark: 'Dark mode', light: 'Light mode',
@@ -50,7 +50,7 @@ const LABELS = {
     nothing: 'Nothing to check.', noIssues: 'No issue logged.', notLinked: 'Not linked', notLinkedWhy: '(not a request number)', failedText: (a) => `${a} failed`,
     chkCol: 'AI check', chkV: { ok: 'OK', check: 'Check', mismatch: 'Mismatch' }, chkStale: 'Changed · check again',
     chkLine: 'AI scenario check {at} · {sys} — OK {ok} · check {check} · mismatch {mismatch}',
-    chkR: { 'not-found': 'not in the system', pii: 'protected personal data, not looked up', unread: 'could not be read', 'no-number-range': 'no number range', 'no-condition-record': 'no condition record valid today', unused: 'not used recently', vague: 'no concrete value', 'nothing-to-check': 'nothing to look up' },
+    chkR: { 'not-found': 'not in the system', pii: 'protected personal data, not looked up', unread: 'could not be read', 'no-material-read': 'this system cannot read material masters', 'no-number-range': 'no number range', 'no-condition-record': 'no condition record valid today', unused: 'not used recently', vague: 'no concrete value', 'nothing-to-check': 'nothing to look up' },
   },
 };
 

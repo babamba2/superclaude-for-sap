@@ -68,6 +68,16 @@ export const CHECK_KINDS = {
 };
 
 export const MAX_TARGETS = 300;
+
+/**
+ * The system's table read refuses the table by its delivery class: on ECC (BASIS < 7.50) reads go through the
+ * dispatcher's TABLE_READ, which reads customizing / system tables only — application tables such as MARA / MARC
+ * are never readable there. Said as its own reason ("class"), not as a broken read.
+ */
+const CLASS_REFUSED = /not allowed[\s\S]{0,300}delivery class/i;
+const refusalNote = (err) => (CLASS_REFUSED.test(str(err)) ? 'class' : `read failed: ${str(err).slice(0, 120)}`);
+/** Kinds read from the material master: a delivery-class refusal there is "the system cannot read material masters". */
+const MATERIAL_KINDS = new Set(['matnr', 'matnrPlant']);
 export const VERDICTS = ['ok', 'check', 'mismatch'];
 const RANK = { ok: 0, check: 1, mismatch: 2 };
 const worst = (a, b) => (RANK[b] > RANK[a] ? b : a);
@@ -157,7 +167,7 @@ export async function runChecks(plan, reader, { months = 3, today = new Date().t
       const r = await reader.readIn(def.table, f, values, { fields });
       for (const t of targets) {
         const e = ev[targetId(t)];
-        if (!r.ok && !arr(r.rows).length) { e.note = def.pii ? 'pii' : `read failed: ${str(arr(r.errors)[0] || r.error).slice(0, 120)}`; continue; }
+        if (!r.ok && !arr(r.rows).length) { e.note = def.pii ? 'pii' : refusalNote(arr(r.errors)[0] || r.error); continue; }
         const forms = keyForms(kind, t.key[f]);
         const row = arr(r.rows).find((x) => forms.includes(str(x[f])));
         e.found = !!row;
@@ -172,11 +182,11 @@ export async function runChecks(plan, reader, { months = 3, today = new Date().t
         let failed = '';
         for (const c of conds) {
           const r = await reader.readTable(def.table, { where: c, fields: def.keys, maxRows: 1 });
-          if (!r.ok) { failed = str(r.error).slice(0, 120); continue; }
+          if (!r.ok) { failed = str(r.error); continue; }
           if (arr(r.rows).length) { found = true; break; }
         }
         if (found || !failed) e.found = found;
-        else e.note = `read failed: ${failed}`;
+        else e.note = refusalNote(failed);
       }
     }
   }
@@ -212,7 +222,7 @@ export function ruleVerdict(planStep, ev) {
     if (!e) continue;
     const id = targetId(t);
     if (e.found === false) { verdict = 'mismatch'; reasons.push({ code: 'not-found', target: id }); continue; }
-    if (e.found === null) { verdict = worst(verdict, 'check'); reasons.push({ code: e.note === 'pii' ? 'pii' : 'unread', target: id }); continue; }
+    if (e.found === null) { verdict = worst(verdict, 'check'); reasons.push({ code: e.note === 'pii' ? 'pii' : e.note === 'class' && MATERIAL_KINDS.has(e.kind) ? 'no-material-read' : 'unread', target: id }); continue; }
     if (e.extra.numberRange === false) { verdict = 'mismatch'; reasons.push({ code: 'no-number-range', target: id }); }
     if (e.extra.conditionRecord === false) { verdict = worst(verdict, 'check'); reasons.push({ code: 'no-condition-record', target: id }); }
     if (e.extra.usage && e.extra.usage.used === false) { verdict = worst(verdict, 'check'); reasons.push({ code: 'unused', target: id, months: e.extra.usage.months }); }
