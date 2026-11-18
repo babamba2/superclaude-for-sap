@@ -729,6 +729,16 @@ class Layout {
     // word earlier)
     this.edgePt = !this.legacy && templateVersion({ attrs: { xmlns: (template?.pi || []).find((p) => /^originalXFAVersion/.test(p)) || '' } }) < 2.2
       && (template?.pi || []).some((p) => /^originalXFAVersion/.test(p));
+    // … and one that keeps XFA 2.1 positioning (<?originalXFAVersion …/2.1/ LegacyPositioning:1 …?>) lays its field values
+    // out as 2.1 did: whole 1.15 em lines plus 1/32 inch above and below, baseline as in 2.1 (FP_TEST_03: grown rows
+    // of minH 5 mm fields are 7.64 mm in ADS — 4.06 + 1.59 + 2 mm insets — not 5.31 mm). Draws keep the 2.4+ rules;
+    // forms upgraded without the flag (FP_TEST_00 / 01, nested table) are unchanged.
+    this.legacyPos = !this.legacy && (template?.pi || []).some((p) => /^originalXFAVersion/.test(p) && /LegacyPositioning:1/.test(p));
+  }
+
+  /** XFA 2.1 text rules for this node: a 2.1 template, or a field of a template that keeps 2.1 positioning. */
+  legacyText(n) {
+    return this.legacy || (this.legacyPos && n?.kind === 'field');
   }
 
   embed(ref, n) {
@@ -817,7 +827,7 @@ class Layout {
       if (h === null) {
         // grown height: the text block (last line to its descent), plus the line gap a plain multi-line field starts with
         const lead = n.kind === 'field' && ui.multiLine && !content.rich && n.shape?.lines.length ? VMETRICS.gap * n.shape.lines[0].pt * PT : 0;
-        const textH = content.image ? 0 : this.legacy ? n.shape.h + (n.kind === 'field' ? 2 * LEGACY_VINSET : 0) : blockHeight(n.shape) + lead + (n.shape?.after || 0);
+        const textH = content.image ? 0 : this.legacyText(n) ? n.shape.h + (n.kind === 'field' ? 2 * LEGACY_VINSET : 0) : blockHeight(n.shape) + lead + (n.shape?.after || 0);
         h = Math.min(maxH, Math.max(minH, textH + m.t + m.b + capH + um.t + um.b));
       }
       n.w = w; n.h = h;
@@ -1031,7 +1041,7 @@ class Layout {
     const em = first.pt * PT;
     let asc = VMETRICS.ascent * em;
     let top;
-    if (this.legacy) {
+    if (this.legacyText(n)) {
       // XFA 2.1 (Designer 6 forms): whole 1.15 em line boxes, baseline a line gap plus the ascent below the box
       // top; a field's value and caption sit 1/8 em lower still (measured on SAP's PDFs)
       const blockH = shape.h - (shape.after || 0);
@@ -1062,7 +1072,7 @@ class Layout {
       const role = (n?.kind === 'field' && !caption) || l.runs.some((r) => r.embed) ? 'field' : 'fixed';
       const text = l.runs.map((r) => r.text).join('');
       if (!text.trim()) continue;
-      const baseline = top + l.top + (this.legacy ? (l === first ? asc : asc / em * l.pt * PT) : this.lineAscent(l, l === first ? asc : VMETRICS.ascent * l.pt * PT, l === lines[lines.length - 1]));
+      const baseline = top + l.top + (this.legacyText(n) ? (l === first ? asc : asc / em * l.pt * PT) : this.lineAscent(l, l === first ? asc : VMETRICS.ascent * l.pt * PT, l === lines[lines.length - 1]));
       // a rich line of embedded values only (no typed text, not even a blank) starts at the content's left edge:
       // ADS leaves out the paragraph's CSS margins and text-align (calibration 4 / 5: EX10 FLDATE centred, PRICE
       // right-aligned, CURRENCY margin-left 0.71 mm all print at the cell edge; one typed blank or letter before the
