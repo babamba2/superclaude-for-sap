@@ -119,27 +119,33 @@ small,.muted{color:var(--muted)}table{border-collapse:collapse;width:100%;margin
 .v-A{background:var(--A-bg);color:var(--A)}.v-B{background:var(--B-bg);color:var(--B)}.v-C{background:var(--C-bg);color:var(--C)}.v-D{background:var(--D-bg);color:var(--D)}
 .verdict p{margin:6px 0 0;color:var(--fg)}.tag{display:inline-block;padding:0 8px;border-radius:10px;font-weight:600;font-size:12px;white-space:nowrap}
 ul{margin:6px 0;padding-left:20px}pre{white-space:pre-wrap;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px;font-size:13px}
-@media print{main{max-width:none}h2{break-after:avoid}}`;
+@media print{main{max-width:none}h2{break-after:avoid}}
+/* Phones: each row of a check / candidate / role table is a card, every cell labelled from data-l (a label column beside the cell's own flow — the cell's <b> / <br> / <small> stay in line), so the verdict and
+   the evidence never sit off-screen in a sideways-scrolling table. The header row (the first, there is no thead) hides. */
+@media (max-width:600px){table.cards,table.cards>tbody,table.cards>tbody>tr,table.cards td{display:block}table.cards{margin:6px 0 10px}
+table.cards>tbody>tr:first-child{display:none}table.cards>tbody>tr{border:1px solid var(--line);border-radius:8px;padding:6px 10px;margin:0 0 8px;background:var(--bg)}
+table.cards td{position:relative;border:0;padding:3px 0 3px 7em;min-width:0;min-height:1.9em;overflow-wrap:anywhere}
+table.cards td::before{content:attr(data-l);position:absolute;left:0;top:3px;width:6.5em;color:var(--muted);font-size:12px;line-height:1.9;overflow-wrap:anywhere}}`;
 
 /** The page. */
 export function renderTriagePage(m) {
   const t = labels(m.lang);
   const tag = (v) => `<span class="tag v-${v}">${esc(t.verdicts[v])}</span>`;
-  const checkRows = (list) => list.map((r) => `<tr><td><b>${esc(r.check.object)}</b><br><small>${esc(m.texts.objects?.[r.check.object] || '')}</small></td><td>${Object.entries(r.check.fields).map(([k, v]) => `${esc(k)} = ${esc(v)}${m.texts.fields?.[k] ? ` <small>${esc(m.texts.fields[k])}</small>` : ''}`).join('<br>')}</td><td>${tag(r.verdict)}</td><td>${evidence(r, t, m)}</td></tr>`).join('');
+  const checkRows = (list) => list.map((r) => `<tr><td data-l="${esc(t.object)}"><b>${esc(r.check.object)}</b><br><small>${esc(m.texts.objects?.[r.check.object] || '')}</small></td><td data-l="${esc(t.field)}">${Object.entries(r.check.fields).map(([k, v]) => `${esc(k)} = ${esc(v)}${m.texts.fields?.[k] ? ` <small>${esc(m.texts.fields[k])}</small>` : ''}`).join('<br>')}</td><td data-l="${esc(t.verdict)}">${tag(r.verdict)}</td><td data-l="${esc(t.evidence)}">${evidence(r, t, m)}</td></tr>`).join('');
   const head = `<tr><th>${t.object}</th><th>${t.field}</th><th>${t.verdict}</th><th>${t.evidence}</th></tr>`;
-  const roles = m.assignments.map((a) => `<tr><td>${esc(a.role)}</td><td>${a.valid ? t.yes : `<b>${t.no}</b>`}</td><td>${esc(d8(a.from))}</td><td>${esc(d8(a.to))}</td><td>${esc(a.via)}</td><td>${esc(a.objects.join(', '))}</td></tr>`).join('');
+  const roles = m.assignments.map((a) => `<tr><td data-l="${esc(t.role)}">${esc(a.role)}</td><td data-l="${esc(t.valid)}">${a.valid ? t.yes : `<b>${t.no}</b>`}</td><td data-l="${esc(t.from)}">${esc(d8(a.from))}</td><td data-l="${esc(t.to)}">${esc(d8(a.to))}</td><td data-l="${esc(t.via)}">${esc(a.via)}</td><td data-l="${esc(t.relObjects)}">${esc(a.objects.join(', '))}</td></tr>`).join('');
   const sodList = (list) => (list.length ? list.map((s) => `${esc(s.kind)} <span class="tag v-${s.level === 'H' ? 'A' : s.level === 'M' ? 'B' : 'D'}">${esc(s.level)}</span> <small>${esc(s.a.join(', '))} / ${esc(s.b.join(', '))}</small>`).join('<br>') : esc(t.none));
-  const cands = m.candidates.map((c, i) => `<tr><td>${i + 1}</td><td><b>${esc(c.role)}</b></td><td>${esc(c.covers.join(', '))}</td><td>${c.givesTcode ? t.yes : t.no}</td><td>${nT(c, t)}</td><td>${c.sod ? sodList(c.sod.added) : esc(t.unknown)}</td></tr>`).join('');
+  const cands = m.candidates.map((c, i) => `<tr><td data-l="#">${i + 1}</td><td data-l="${esc(t.role)}"><b>${esc(c.role)}</b></td><td data-l="${esc(t.covers)}">${esc(c.covers.join(', '))}</td><td data-l="${esc(t.givesT)}">${c.givesTcode ? t.yes : t.no}</td><td data-l="${esc(t.nT)}">${nT(c, t)}</td><td data-l="${esc(t.sodNew)}">${c.sod ? sodList(c.sod.added) : esc(t.unknown)}</td></tr>`).join('');
   const showCands = m.results.some((r) => r.verdict === 'A' || r.verdict === 'C');
   const body = `<main>
 <h1>${esc(t.title)} · ${esc(m.tcode)}</h1>
 <div class="meta"><span>${t.user} <b>${esc(m.user)}</b></span><span>${t.tcode} <b>${esc(m.tcode)}</b> ${esc(m.tcodeText)}</span><span>${t.system} <b>${esc(m.system || '—')}</b></span><span>${t.date} <b>${esc(m.date)}</b></span><span>${t.mode} <b>${esc(t.modes[m.mode])}</b></span></div>
 <div class="verdict v-${m.verdict}"><div class="v">${esc(t.verdict)}: ${esc(t.verdicts[m.verdict])}</div><p>${esc(t.say[m.verdict])}${reasonOf(m) ? ` ${esc(t[reasonOf(m)])}` : ''}</p></div>
-${m.results.length ? `<h2>${t.checks}</h2><table>${head}${checkRows(m.results)}</table>` : ''}
-${m.estimates.length ? `<h2>${t.estimates}</h2><table>${head}${checkRows(m.estimates)}</table>` : ''}
-${showCands ? `<h2>${t.cands}</h2><p class="muted">${esc(t.candNote(m.patterns.join(', '), m.candidateTotal))}</p>${m.candidates.length ? `<table><tr><th>#</th><th>${t.role}</th><th>${t.covers}</th><th>${t.givesT}</th><th>${t.nT}</th><th>${t.sodNew}</th></tr>${cands}</table>` : `<p>${esc(t.noCand)}</p>`}${m.candidateTruncated.map((o) => `<p class="muted">${esc(t.candTrunc(o))}</p>`).join('')}<p class="muted">${esc(t.sodApprox)}</p>` : ''}
+${m.results.length ? `<h2>${t.checks}</h2><table class="cards">${head}${checkRows(m.results)}</table>` : ''}
+${m.estimates.length ? `<h2>${t.estimates}</h2><table class="cards">${head}${checkRows(m.estimates)}</table>` : ''}
+${showCands ? `<h2>${t.cands}</h2><p class="muted">${esc(t.candNote(m.patterns.join(', '), m.candidateTotal))}</p>${m.candidates.length ? `<table class="cards"><tr><th>#</th><th>${t.role}</th><th>${t.covers}</th><th>${t.givesT}</th><th>${t.nT}</th><th>${t.sodNew}</th></tr>${cands}</table>` : `<p>${esc(t.noCand)}</p>`}${m.candidateTruncated.map((o) => `<p class="muted">${esc(t.candTrunc(o))}</p>`).join('')}<p class="muted">${esc(t.sodApprox)}</p>` : ''}
 ${m.sodExisting.length ? `<h2>${t.sodExisting}</h2><p>${sodList(m.sodExisting)}</p>` : ''}
-<h2>${t.roles}</h2>${m.assignments.length ? `<table><tr><th>${t.role}</th><th>${t.valid}</th><th>${t.from}</th><th>${t.to}</th><th>${t.via}</th><th>${t.relObjects}</th></tr>${roles}</table>` : `<p>${esc(t.none)}</p>`}
+<h2>${t.roles}</h2>${m.assignments.length ? `<table class="cards"><tr><th>${t.role}</th><th>${t.valid}</th><th>${t.from}</th><th>${t.to}</th><th>${t.via}</th><th>${t.relObjects}</th></tr>${roles}</table>` : `<p>${esc(t.none)}</p>`}
 <h2>${t.next}</h2><ul>${nextSteps(m, t)}</ul>
 <h2>${t.limits}</h2><ul><li>${esc(t.limitProfiles)}</li><li>${esc(t.limitReadOnly)}</li><li>${esc(t.dateNote)}</li>${m.notRead.length ? `<li>${t.notRead}: ${esc(m.notRead.join(', '))}</li>` : ''}${m.truncated.length ? `<li>${t.truncated}: ${esc(m.truncated.join(', '))}</li>` : ''}${m.readErrors.map((e) => `<li><small>${esc(e)}</small></li>`).join('')}</ul>
 <h2>${t.ticket}</h2><pre>${esc(renderTriageMd(m))}</pre>
