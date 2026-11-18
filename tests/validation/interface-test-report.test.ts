@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { fromResult, outputCheck, caseVerdict, reportHtml } from '../../scripts/interface/if-test-report.mjs';
+import { fromResult, outputCheck, caseVerdict, reportHtml, runIsStale } from '../../scripts/interface/if-test-report.mjs';
 
 // "인터페이스 테스트" report (2026-11-18): an IF.TEST.CALL answer → output, messages, document numbers; the output
 // against the spec's response mapping; pass / fail; one HTML page. Pure functions, no SAP.
@@ -81,5 +81,25 @@ describe('interface test report', () => {
     expect(html).not.toContain('<script>');
     expect(html).toContain('Order &lt;in&gt;');
     expect(reportHtml({ model: m, cases: [], lang: 'en' })).toContain('Interface test report');
+  });
+  it('marks runs made against another spec version or function module', () => {
+    const m = spec([{ no: 'B001', g: 'g1', s: cell('EV_ORDER', 'CHAR', '10'), t: cell('ORDER_NO', 'VARCHAR2', '10') }]);
+    expect(runIsStale({ specVersion: '1.0', fm: 'z_if_order' }, m, 'Z_IF_ORDER')).toBe(false);
+    expect(runIsStale({ specVersion: '0.9', fm: 'Z_IF_ORDER' }, m, 'Z_IF_ORDER')).toBe(true);
+    expect(runIsStale({ specVersion: '1.0', fm: 'Z_IF_OLD' }, m, 'Z_IF_ORDER')).toBe(true);
+    expect(runIsStale({}, m, 'Z_IF_ORDER')).toBe(false);
+    expect(runIsStale({ specVersion: '0.9' }, { ...m, version: '' }, '')).toBe(false);
+    const html = reportHtml({ model: m, fm: 'Z_IF_ORDER', lang: 'ko', cases: [
+      { name: 'now', input: {}, result: result(), specVersion: '1.0', fm: 'Z_IF_ORDER' },
+      { name: 'old', input: {}, result: result(), specVersion: '0.9', fm: 'Z_IF_ORDER' },
+    ] });
+    expect(html).toContain('실행 기준: v1.0 · Z_IF_ORDER');
+    expect(html).toContain('<p class="runof stale">실행 기준: v0.9 · Z_IF_ORDER</p>');
+    expect(html).toContain('실행 1건은 지금 정의서와 다른 버전이나 함수 모듈로 실행했어요.');
+    expect(html.match(/chip stale/g)?.length).toBe(1);
+    const en = reportHtml({ model: m, fm: 'Z_IF_ORDER', lang: 'en', cases: [{ name: 'a', input: {}, result: result(), specVersion: '1.0', fm: 'Z_IF_ORDER' }] });
+    expect(en).toContain('Run against: v1.0 · Z_IF_ORDER');
+    expect(en).not.toContain('<p class="warn"');
+    expect(reportHtml({ model: m, cases: [{ name: 'a', input: {}, result: result() }] })).not.toContain('<p class="runof');
   });
 });
