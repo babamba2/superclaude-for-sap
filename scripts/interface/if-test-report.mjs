@@ -18,6 +18,22 @@ const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '
 const UP = (v) => String(v ?? '').trim().toUpperCase();
 const NUMERIC = new Set(['NUMBER', 'INTEGER', 'FLOAT', 'DEC', 'CURR', 'QUAN', 'INT1', 'INT2', 'INT4', 'INT8', 'FLTP', 'NUMC']);
 
+/**
+ * Older BAPIs return BAPIRETURN, whose message class and number sit in one CODE field (e.g. "FN021"), so the
+ * message the handler reports has no id / number. Take them from the output's RETURN line with the same text:
+ * CODE = 2-character class + 3-digit number when it has that shape, else the whole CODE as the id.
+ */
+function withCode(m, output) {
+  if (m.id || m.number) return m;
+  const ret = pick(output, 'RETURN');
+  const lines = Array.isArray(ret) ? ret : ret ? [ret] : [];
+  const hit = lines.find((l) => l && typeof l === 'object' && String(pick(l, 'MESSAGE') ?? '') === m.message && pick(l, 'CODE'));
+  if (!hit) return m;
+  const code = String(pick(hit, 'CODE')).trim();
+  const parts = /^(\S{2})(\d{3})$/.exec(code);
+  return parts ? { ...m, id: parts[1], number: parts[2] } : { ...m, id: code };
+}
+
 /** The business-action result of IF.TEST.CALL → the parts a report shows. */
 export function fromResult(result) {
   const rows = Array.isArray(result?.rows) ? result.rows : [];
@@ -33,10 +49,11 @@ export function fromResult(result) {
   }
   return {
     output,
-    messages: (Array.isArray(result?.messages) ? result.messages : []).map((m) => ({ type: String(m.type ?? ''), id: String(m.id ?? ''), number: String(m.number ?? ''), message: String(m.message ?? '') })),
+    messages: (Array.isArray(result?.messages) ? result.messages : []).map((m) => withCode({ type: String(m.type ?? ''), id: String(m.id ?? ''), number: String(m.number ?? ''), message: String(m.message ?? '') }, output)),
     docNos: rows.filter((r) => String(r.name).startsWith('doc_no.')).map((r) => ({ name: String(r.name).slice(7), value: String(r.value ?? '') })),
     committed: String(val('committed') ?? ''),
-    failed: result?.failed === true,
+    // no handler result at all (SAP refused before the module ran, or an old stored refusal) is a failed call
+    failed: result?.failed === true || !result || typeof result !== 'object',
     truncated: result?.truncated === true,
     posting: rows.filter((r) => String(r.name).startsWith('posting.')).map((r) => ({ name: String(r.name).slice(8), value: String(r.value ?? '') })),
   };
@@ -137,8 +154,8 @@ export function formatAt(at, lang = 'ko') {
 }
 
 const T = {
-  ko: { title: '인터페이스 테스트 보고서', spec: '정의서', system: '시스템', user: '실행자', at: '실행 시각', fm: '함수 모듈', cases: '케이스', input: '입력', output: '출력', messages: '반환 메시지', docs: '전표 번호', check: '매핑 대조', verdict: '판정', pass: '통과', review: '확인 필요', reviewWhy: '출력의 상태 필드가 오류를 알려요. 메시지가 없어도 실패일 수 있어요', fail: '실패', committed: '커밋', none: '없음', truncated: '출력이 길어 일부만 실었어요.', runOf: '실행 기준', stale: (n) => `실행 ${n}건은 지금 정의서와 다른 버전이나 함수 모듈로 실행했어요. 다시 실행해서 확인해 주세요.`, staleChip: '이전 정의서', status: { ok: 'OK', missing: '없음', long: '길이 초과', type: '형식 불일치' }, col: { type: '유형', id: 'ID', no: '번호', message: '메시지', param: '파라미터', field: '필드', spec: '정의서 형식', value: '값' } },
-  en: { title: 'Interface test report', spec: 'Specification', system: 'System', user: 'Run by', at: 'Run at', fm: 'Function module', cases: 'Cases', input: 'Input', output: 'Output', messages: 'Return messages', docs: 'Document numbers', check: 'Mapping check', verdict: 'Verdict', pass: 'Pass', review: 'Check', reviewWhy: 'A status field of the output reports an error. The call may have failed even without messages', fail: 'Fail', committed: 'Committed', none: 'none', truncated: 'The output was long: only part of it is shown.', runOf: 'Run against', stale: (n) => `${n} run(s) used a different specification version or function module than the current one. Run them again to confirm.`, staleChip: 'older spec', status: { ok: 'OK', missing: 'missing', long: 'too long', type: 'wrong type' }, col: { type: 'Type', id: 'ID', no: 'No', message: 'Message', param: 'Param', field: 'Field', spec: 'Spec', value: 'Value' } },
+  ko: { title: '인터페이스 테스트 보고서', spec: '정의서', system: '시스템', user: '실행자', at: '보고서 저장 시각', ranAt: '실행 시각', fm: '함수 모듈', cases: '케이스', input: '입력', output: '출력', messages: '반환 메시지', docs: '전표 번호', check: '매핑 대조', verdict: '판정', pass: '통과', review: '확인 필요', reviewWhy: '출력의 상태 필드가 오류를 알려요. 메시지가 없어도 실패일 수 있어요', fail: '실패', committed: '커밋', none: '없음', truncated: '출력이 길어 일부만 실었어요.', runOf: '실행 기준', stale: (n) => `실행 ${n}건은 지금 정의서와 다른 버전이나 함수 모듈로 실행했어요. 다시 실행해서 확인해 주세요.`, staleChip: '이전 정의서', status: { ok: 'OK', missing: '없음', long: '길이 초과', type: '형식 불일치' }, col: { type: '유형', id: 'ID', no: '번호', message: '메시지', param: '파라미터', field: '필드', spec: '정의서 형식', value: '값' } },
+  en: { title: 'Interface test report', spec: 'Specification', system: 'System', user: 'Run by', at: 'Report saved', ranAt: 'Run at', fm: 'Function module', cases: 'Cases', input: 'Input', output: 'Output', messages: 'Return messages', docs: 'Document numbers', check: 'Mapping check', verdict: 'Verdict', pass: 'Pass', review: 'Check', reviewWhy: 'A status field of the output reports an error. The call may have failed even without messages', fail: 'Fail', committed: 'Committed', none: 'none', truncated: 'The output was long: only part of it is shown.', runOf: 'Run against', stale: (n) => `${n} run(s) used a different specification version or function module than the current one. Run them again to confirm.`, staleChip: 'older spec', status: { ok: 'OK', missing: 'missing', long: 'too long', type: 'wrong type' }, col: { type: 'Type', id: 'ID', no: 'No', message: 'Message', param: 'Param', field: 'Field', spec: 'Spec', value: 'Value' } },
 };
 
 const json = (v) => esc(JSON.stringify(v ?? null, null, 2));
@@ -151,7 +168,7 @@ export function runIsStale(run, model, fm = '') {
   return vDiff || fDiff;
 }
 
-/** One self-contained HTML report of a test run. cases: [{ name, input, result, specVersion?, fm? }] (result = the EXECUTE answer; specVersion / fm = what that run was made against). */
+/** One self-contained HTML report of a test run. cases: [{ name, input, result, specVersion?, fm?, at? }] (result = the EXECUTE answer; specVersion / fm = what that run was made against; at = when that call ran). `at` of the report = when it was saved. */
 export function reportHtml({ model, system = '', user = '', at = new Date().toISOString(), fm = '', cases = [], lang = 'ko' }) {
   const t = T[lang === 'en' ? 'en' : 'ko'];
   const col = t.col;
@@ -159,7 +176,7 @@ export function reportHtml({ model, system = '', user = '', at = new Date().toIS
     const call = fromResult(c.result);
     const check = outputCheck(model, call.output);
     const v = caseVerdict(call, check);
-    return { i: i + 1, name: c.name || `#${i + 1}`, input: c.input, call, check, v, specVersion: c.specVersion, fm: c.fm, stale: runIsStale(c, model, fm) };
+    return { i: i + 1, name: c.name || `#${i + 1}`, input: c.input, call, check, v, specVersion: c.specVersion, fm: c.fm, at: c.at, stale: runIsStale(c, model, fm) };
   });
   const passed = rows.filter((r) => r.v.outcome === 'pass').length;
   const toCheck = rows.filter((r) => r.v.outcome === 'review').length;
@@ -168,6 +185,7 @@ export function reportHtml({ model, system = '', user = '', at = new Date().toIS
 <section class="case ${r.v.outcome}">
   <h2>${r.i}. ${esc(r.name)} <span class="chip">${t[r.v.outcome]}</span>${r.stale ? ` <span class="chip stale">${t.staleChip}</span>` : ''}</h2>
   ${r.specVersion != null || r.fm ? `<p class="runof${r.stale ? ' stale' : ''}">${t.runOf}: ${r.specVersion != null && r.specVersion !== '' ? `v${esc(r.specVersion)}` : '—'} · ${esc(r.fm || '—')}</p>` : ''}
+  ${r.at ? `<p class="runof">${t.ranAt}: <time datetime="${esc(r.at)}">${esc(formatAt(r.at, lang))}</time></p>` : ''}
   ${r.v.reasons.length ? `<ul class="why">${r.v.reasons.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
   ${r.v.review.length ? `<p class="warn" role="note">${esc(t.reviewWhy)}: ${r.v.review.map(esc).join(' · ')}</p>` : ''}
   <h3>${t.input}</h3><pre>${json(r.input)}</pre>

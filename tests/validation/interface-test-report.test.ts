@@ -146,4 +146,34 @@ describe('interface test report', () => {
     expect(formatAt('yesterday', 'ko')).toBe('yesterday');
     expect(reportHtml({ model: spec([]), at: 'x<y', cases: [] })).toContain('<time datetime="x&lt;y">x&lt;y</time>');
   });
+
+  it('each case shows the time its call ran; the header time is when the report was saved', () => {
+    const html = reportHtml({ model: spec([]), at: '2026-11-18T03:37:40Z', lang: 'ko', cases: [{ name: 'a', input: {}, result: result(), at: '2026-11-18T03:35:04Z' }] });
+    expect(html).toContain('<dt>보고서 저장 시각</dt><dd><time datetime="2026-11-18T03:37:40Z">2026-11-18 12:37 KST</time></dd>');
+    expect(html).toContain('<p class="runof">실행 시각: <time datetime="2026-11-18T03:35:04Z">2026-11-18 12:35 KST</time></p>');
+    const en = reportHtml({ model: spec([]), at: '2026-11-18T03:37:40Z', lang: 'en', cases: [{ name: 'a', input: {}, result: result(), at: '2026-11-18T03:35:04Z' }] });
+    expect(en).toContain('<dt>Report saved</dt>');
+    expect(en).toContain('Run at: <time datetime="2026-11-18T03:35:04Z">2026-11-18 03:35 UTC</time>');
+    expect(reportHtml({ model: spec([]), cases: [{ name: 'a', input: {}, result: result() }] })).not.toContain('실행 시각:');
+  });
+
+  it('a run with no handler result (SAP refused before the module ran) is a failed case, never a pass', () => {
+    expect(fromResult(null).failed).toBe(true);
+    expect(caseOutcome(spec([]), null)).toBe('fail');
+    expect(caseOutcome(spec([]), { failed: true, rows: [], messages: [{ type: 'E', message: 'The parameters differ from the preview: run PREVIEW again' }] })).toBe('fail');
+    const html = reportHtml({ model: spec([]), lang: 'ko', cases: [{ name: 'tamper', input: {}, result: null }] });
+    expect(html).toContain('<section class="case fail">');
+    expect(html).toContain('0 / 1 통과');
+  });
+
+  it('a BAPIRETURN message (class and number in CODE) gets its id and number from the output (live C2b, 2026-11-18)', () => {
+    const r = { failed: false, messages: [{ type: 'W', message: 'Address data not found for company code 0001' }],
+      rows: [{ row: 1, name: 'fm_result', value: JSON.stringify({ RETURN: { TYPE: 'W', CODE: 'FN021', MESSAGE: 'Address data not found for company code 0001', MESSAGE_V1: '0001' } }) }] };
+    expect(fromResult(r).messages[0]).toEqual({ type: 'W', id: 'FN', number: '021', message: 'Address data not found for company code 0001' });
+    // a table RETURN, an odd CODE, a message without a RETURN line, and ids SAP sent stay as they are
+    const t = (ret: unknown, msg: Args) => fromResult({ messages: [msg], rows: [{ name: 'fm_result', value: JSON.stringify({ RETURN: ret }) }] }).messages[0];
+    expect(t([{ CODE: 'X1', MESSAGE: 'm' }], { type: 'E', message: 'm' })).toMatchObject({ id: 'X1', number: '' });
+    expect(t([{ CODE: 'FN021', MESSAGE: 'other' }], { type: 'E', message: 'm' })).toMatchObject({ id: '', number: '' });
+    expect(t({ CODE: 'FN021', MESSAGE: 'm' }, { type: 'E', id: 'ZZ', number: '001', message: 'm' })).toMatchObject({ id: 'ZZ', number: '001' });
+  });
 });
