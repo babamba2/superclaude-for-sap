@@ -33,7 +33,7 @@ const LABELS = {
     nothing: '확인할 점이 없어요.', noIssues: '등록된 이슈가 없어요.', notLinked: '연결 안 된 값', notLinkedWhy: '(요청 번호 형식이 아니에요)', failedText: (a) => `${a} 실패`,
     chkCol: 'AI 점검', chkV: { ok: 'OK', check: '확인 필요', mismatch: '불일치' }, chkStale: '바뀜 · 다시 점검',
     chkLine: 'AI 시나리오 점검 {at} · {sys} — OK {ok} · 확인 필요 {check} · 불일치 {mismatch}',
-    chkR: { 'not-found': '시스템에 없음', pii: '개인정보 보호 대상이라 확인하지 않음', unread: '읽지 못함', 'no-number-range': '번호 범위 없음', 'no-condition-record': '오늘 유효한 조건 레코드 없음', unused: '최근 사용 실적 없음', vague: '구체값 없음', 'nothing-to-check': '확인할 값 없음' },
+    chkR: { 'not-found': '시스템에 없음', pii: '개인정보 보호 대상이라 확인하지 않음', unread: '읽지 못함', 'no-number-range': '번호 범위 없음', 'no-condition-record': '오늘 유효한 조건 레코드 없음', unused: '최근 사용 실적 없음', vague: '구체적인 값 없음', 'nothing-to-check': '확인할 값 없음' },
   },
   en: {
     dash: 'Dashboard', scen: 'Scenarios', issues: 'Issues', checks: 'Checks', edit: 'Edit', done: 'Done', save: 'Save', print: 'Print', undo: 'Undo', dark: 'Dark mode', light: 'Light mode',
