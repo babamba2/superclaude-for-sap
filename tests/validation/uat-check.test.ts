@@ -258,8 +258,8 @@ describe('uat-check: a master table the system refuses by delivery class (ECC TA
 
   it('the page and the judge say it in words', () => {
     const page = readFileSync(new URL('../../scripts/uat/uat-page.mjs', import.meta.url), 'utf8');
-    expect(page).toContain("'no-material-read': '이 시스템에서는 자재 마스터를 읽을 수 없어요'");
-    expect(page).toContain("'no-material-read': 'this system cannot read material masters'");
+    expect(page).toContain("'no-material-read': '자재 마스터는 이 시스템에서 읽을 수 없음'");
+    expect(page).toContain("'no-material-read': 'material master not readable on this system'");
     expect(judgePrompt(set(), [], { lang: 'ko' })).toContain('note class =');
   });
 });
