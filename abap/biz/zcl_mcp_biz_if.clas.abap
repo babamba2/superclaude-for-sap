@@ -47,7 +47,9 @@ CLASS zcl_mcp_biz_if DEFINITION
 * Result rows: signature (sig.*), posting signs (posting.*), output (fm_result = JSON text of every
 * typed parameter except exceptions, initial values left out: the importing values sent come back as they were, beside the exporting /
 * changing / tables values — build( ) fills the output structure with the sent values first so changing
-* and tables parameters return in place), document numbers (doc_no.*). Messages: RETURN-type
+* and tables parameters return in place), document numbers (doc_no.*). PREVIEW only, for the input form:
+* pdesc.<PARAM> (shape|ddic|inttype|leng|dec|text) and fld.<PARAM>.<FIELD> (inttype|leng|dec|text, one
+* level, at most c_max_fields, then fld.limit). Messages: RETURN-type
 * parameters (BAPIRET*), exceptions, ERROR_MESSAGE.
 *
 * 7.40 / S/4HANA only (/UI2/CL_JSON). Not installed on 7.31.
@@ -60,6 +62,7 @@ CLASS zcl_mcp_biz_if DEFINITION
     CONSTANTS c_max_result TYPE i VALUE 200000.
     CONSTANTS c_max_params TYPE i VALUE 100000.
     CONSTANTS c_max_includes TYPE i VALUE 60.
+    CONSTANTS c_max_fields TYPE i VALUE 600.
 
     TYPES:
       BEGIN OF ty_par,
@@ -129,6 +132,17 @@ CLASS zcl_mcp_biz_if DEFINITION
     METHODS posting_name
       IMPORTING iv_fm          TYPE rs38l_fnam
       RETURNING VALUE(rv_hit) TYPE abap_bool.
+
+    " PREVIEW rows for the web input form: pdesc.<PARAM> per parameter, fld.<PARAM>.<FIELD> per field of a
+    " structure / table parameter (one level), at most iv_max field rows, then fld.limit.
+    METHODS describe_params
+      IMPORTING it_pars TYPE ty_pars
+                iv_max  TYPE i
+      CHANGING  ct_rows TYPE zif_mcp_biz_action=>ty_kvs.
+
+    METHODS short_text
+      IMPORTING iv_text        TYPE csequence
+      RETURNING VALUE(rv_text) TYPE string.
 
     METHODS posting_signs
       IMPORTING iv_fm          TYPE rs38l_fnam
@@ -249,6 +263,10 @@ CLASS zcl_mcp_biz_if IMPLEMENTATION.
                         iv_value = |{ ls_par-typ }{ COND string( WHEN ls_par-optional = abap_true THEN ' (optional)' ) }|
               CHANGING ct_rows = rs_result-rows ).
     ENDLOOP.
+    " PREVIEW only (EXECUTE results stay small): what each parameter is and its fields, for the input form.
+    IF iv_execute = abap_false.
+      describe_params( EXPORTING it_pars = lt_pars iv_max = c_max_fields CHANGING ct_rows = rs_result-rows ).
+    ENDIF.
 
     posting_signs( EXPORTING iv_fm = lv_fm IMPORTING et_signs = lt_signs ev_self_commit = lv_self_commit ).
     " What the scan cannot see — shown beside the posting tick.
@@ -758,6 +776,149 @@ CLASS zcl_mcp_biz_if IMPLEMENTATION.
         RETURN.
       ENDIF.
     ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD describe_params.
+    " pdesc.<PARAM> = <shape>|<ddic>|<inttype>|<leng>|<dec>|<text>   shape S scalar, R structure, T table
+    " fld.<PARAM>.<FIELD> = <inttype>|<leng>|<dec>|<text>             DDIC order, includes resolved, one level
+    DATA: ls_par   TYPE ty_par,
+          lo_type  TYPE REF TO cl_abap_datadescr,
+          lo_elem  TYPE REF TO cl_abap_elemdescr,
+          lo_tab   TYPE REF TO cl_abap_tabledescr,
+          lo_line  TYPE REF TO cl_abap_datadescr,
+          ls_dfies TYPE dfies,
+          lt_dfies TYPE STANDARD TABLE OF dfies,
+          lv_shape TYPE string,
+          lv_ddic  TYPE string,
+          lv_int   TYPE string,
+          lv_leng  TYPE string,
+          lv_dec   TYPE string,
+          lv_text  TYPE string,
+          lv_tab   TYPE ddobjname,
+          lv_n     TYPE i,
+          lv_count TYPE i,
+          lv_stop  TYPE abap_bool,
+          lv_ddtxt TYPE dd02t-ddtext.
+
+    LOOP AT it_pars INTO ls_par WHERE kind <> 'X'.
+      CLEAR: lv_shape, lv_ddic, lv_int, lv_leng, lv_dec, lv_text, lv_tab, lo_line.
+      lv_ddic = ls_par-typ.
+      lo_type = type_of( ls_par ).
+      IF lo_type IS BOUND.
+        CASE lo_type->kind.
+          WHEN cl_abap_typedescr=>kind_elem.
+            lv_shape = 'S'.
+            lo_elem ?= lo_type.
+            CLEAR ls_dfies.
+            lo_elem->get_ddic_field( EXPORTING  p_langu      = sy-langu
+                                     RECEIVING  p_flddescr   = ls_dfies
+                                     EXCEPTIONS not_found    = 1
+                                                no_ddic_type = 2
+                                                OTHERS       = 3 ).
+            IF sy-subrc = 0.
+              lv_int  = ls_dfies-inttype.
+              lv_n    = ls_dfies-leng.
+              lv_leng = |{ lv_n }|.
+              lv_n    = ls_dfies-decimals.
+              lv_dec  = |{ lv_n }|.
+              lv_text = ls_dfies-scrtext_m.
+              IF lv_text IS INITIAL.
+                lv_text = ls_dfies-fieldtext.
+              ENDIF.
+            ELSE.
+              " A built-in type (STRING, I …): its internal type only, no DDIC length.
+              lv_int = lo_elem->type_kind.
+            ENDIF.
+          WHEN cl_abap_typedescr=>kind_struct.
+            lv_shape = 'R'.
+            IF lo_type->get_relative_name( ) IS NOT INITIAL.
+              lv_ddic = lo_type->get_relative_name( ).
+              lv_tab = lv_ddic.
+            ENDIF.
+          WHEN cl_abap_typedescr=>kind_table.
+            lv_shape = 'T'.
+            lo_tab ?= lo_type.
+            lo_line = lo_tab->get_table_line_type( ).
+            IF lo_line->get_relative_name( ) IS NOT INITIAL.
+              lv_ddic = lo_line->get_relative_name( ).
+            ENDIF.
+            IF lo_line->kind = cl_abap_typedescr=>kind_struct AND lo_line->get_relative_name( ) IS NOT INITIAL.
+              lv_tab = lv_ddic.
+            ENDIF.
+        ENDCASE.
+      ELSEIF ls_par-kind = 'T'.
+        lv_shape = 'T'.
+      ENDIF.
+      IF lv_tab IS NOT INITIAL.
+        CLEAR lv_ddtxt.
+        SELECT SINGLE ddtext FROM dd02t INTO lv_ddtxt
+          WHERE tabname = lv_tab AND ddlanguage = sy-langu AND as4local = 'A' AND as4vers = '0000'.
+        lv_text = lv_ddtxt.
+      ENDIF.
+      add_kv( EXPORTING iv_name  = |pdesc.{ ls_par-name }|
+                        iv_value = |{ lv_shape }\|{ lv_ddic }\|{ lv_int }\|{ lv_leng }\|{ lv_dec }\|{ short_text( lv_text ) }|
+              CHANGING ct_rows = ct_rows ).
+
+      " The fields of a structure or of a table's line: the top level only. DFIES has no depth on 7.40: a field
+      " inside a nested structure carries its path in LFIELDNAME (COMP-SUB) and is skipped.
+      IF lv_tab IS INITIAL OR lv_stop = abap_true.
+        CONTINUE.
+      ENDIF.
+      CLEAR lt_dfies.
+      CALL FUNCTION 'DDIF_FIELDINFO_GET'
+        EXPORTING
+          tabname        = lv_tab
+          langu          = sy-langu
+        TABLES
+          dfies_tab      = lt_dfies
+        EXCEPTIONS
+          not_found      = 1
+          internal_error = 2
+          OTHERS         = 3.
+      IF sy-subrc <> 0.
+        CONTINUE.
+      ENDIF.
+      LOOP AT lt_dfies INTO ls_dfies.
+        IF ls_dfies-lfieldname CS '-' OR ls_dfies-fieldname CP '.*'.
+          CONTINUE.
+        ENDIF.
+        IF lv_count >= iv_max.
+          lv_stop = abap_true.
+          add_kv( EXPORTING iv_name = 'fld.limit' iv_value = |{ iv_max }| CHANGING ct_rows = ct_rows ).
+          EXIT.
+        ENDIF.
+        lv_count = lv_count + 1.
+        lv_text = ls_dfies-fieldtext.
+        IF lv_text IS INITIAL.
+          lv_text = ls_dfies-scrtext_m.
+        ENDIF.
+        IF ls_dfies-inttype = 'h' OR ls_dfies-inttype = 'u' OR ls_dfies-inttype = 'v'.
+          " A table or a nested structure: named, not opened.
+          add_kv( EXPORTING iv_name  = |fld.{ ls_par-name }.{ ls_dfies-fieldname }|
+                            iv_value = |{ ls_dfies-inttype }\|\|\|{ short_text( lv_text ) }|
+                  CHANGING ct_rows = ct_rows ).
+        ELSE.
+          lv_n    = ls_dfies-leng.
+          lv_leng = |{ lv_n }|.
+          lv_n    = ls_dfies-decimals.
+          lv_dec  = |{ lv_n }|.
+          add_kv( EXPORTING iv_name  = |fld.{ ls_par-name }.{ ls_dfies-fieldname }|
+                            iv_value = |{ ls_dfies-inttype }\|{ lv_leng }\|{ lv_dec }\|{ short_text( lv_text ) }|
+                  CHANGING ct_rows = ct_rows ).
+        ENDIF.
+      ENDLOOP.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD short_text.
+    " Row text: '|' is the separator, so it becomes '/'; at most 60 characters.
+    rv_text = iv_text.
+    REPLACE ALL OCCURRENCES OF '|' IN rv_text WITH '/'.
+    IF strlen( rv_text ) > 60.
+      rv_text = rv_text(60).
+    ENDIF.
   ENDMETHOD.
 
 

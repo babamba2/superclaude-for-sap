@@ -13,6 +13,9 @@ CLASS zcl_mcp_biz_exec DEFINITION
 *   - production block: no PREVIEW / EXECUTE when T000-CCCATEGORY = 'P'
 *   - preview token: EXECUTE needs an unused token of the same user, the
 *     same action and the same parameters, younger than c_token_ttl
+*   - parameter hash (SHA1, binds PREVIEW to EXECUTE): kept only while the token can be used — cleared
+*     when the token is claimed, refused (other parameters) or expired, and for the user's unused
+*     tokens older than c_token_ttl at the next PREVIEW; no hash = no token (never the raw parameters)
 *   - idempotency key: a repeated EXECUTE returns the stored result
 *   - log: every PREVIEW and EXECUTE in ZMCP_BIZ_LOG (IF.*: no parameter, output or message values,
 *     document numbers only as a count; an idempotent repeat of IF.* returns that reduced result)
@@ -342,7 +345,8 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
   METHOD do_preview.
     DATA: ls_log  TYPE zmcp_biz_log,
           lv_uuid TYPE sysuuid_c32,
-          lv_ts   TYPE timestampl.
+          lv_ts   TYPE timestampl,
+          lv_old  TYPE timestampl.
 
     CLEAR: es_result, ev_token, ev_message.
     es_result = io_handler->preview( iv_action = iv_action is_params = is_params ).
@@ -359,12 +363,24 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
     ENDTRY.
     GET TIME STAMP FIELD lv_ts.
 
+    " My unused previews past the token life can never be executed: their hashes go (committed below).
+    lv_old = cl_abap_tstmp=>subtractsecs( tstmp = lv_ts secs = c_token_ttl ).
+    UPDATE zmcp_biz_log SET params_hash = space
+      WHERE uname = sy-uname AND status = 'P' AND created_at < lv_old AND params_hash <> space.
+
     ls_log-token       = lv_uuid.
     ls_log-action_id   = iv_action.
     ls_log-status      = 'P'.
     ls_log-uname       = sy-uname.
     ls_log-params_hash = params_hash( is_params ).
     ls_log-created_at  = lv_ts.
+    " No hash, no token: an EXECUTE could not be bound to these parameters.
+    IF ls_log-params_hash IS INITIAL.
+      COMMIT WORK.
+      es_result-failed = abap_true.
+      ev_message = 'Could not bind the parameters to a preview token: run PREVIEW again'.
+      RETURN.
+    ENDIF.
     " IF.* (interface test call, 2026-11-18): the module name only — its parameter values never reach the log.
     IF iv_action CP 'IF.*'.
       ls_log-params_json = |{ '{' }"fm_name":"{ replace( val = is_params-fm_name sub = '"' with = '' occ = 0 ) }"{ '}' }|.
@@ -431,19 +447,24 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
       ev_message = 'The preview token was already used'.
       RETURN.
     ENDIF.
-    IF ls_log-params_hash <> params_hash( is_params ).
+    " A refused token is spent: its hash goes, so it can never match again.
+    IF ls_log-params_hash IS INITIAL OR ls_log-params_hash <> params_hash( is_params ).
+      UPDATE zmcp_biz_log SET params_hash = space WHERE token = lv_token.
+      COMMIT WORK.
       ev_message = 'The parameters differ from the preview: run PREVIEW again'.
       RETURN.
     ENDIF.
     GET TIME STAMP FIELD lv_now.
     lv_secs = cl_abap_tstmp=>subtract( tstmp1 = lv_now tstmp2 = ls_log-created_at ).
     IF lv_secs > c_token_ttl.
+      UPDATE zmcp_biz_log SET params_hash = space WHERE token = lv_token.
+      COMMIT WORK.
       ev_message = 'The preview token expired: run PREVIEW again'.
       RETURN.
     ENDIF.
 
     " Claim the token before the BAPI runs (one execution per token).
-    UPDATE zmcp_biz_log SET status = 'X' idem_key = lv_idem
+    UPDATE zmcp_biz_log SET status = 'X' idem_key = lv_idem params_hash = space
       WHERE token = lv_token AND status = 'P'.
     IF sy-dbcnt <> 1.
       ev_message = 'The preview token was already used'.
@@ -463,7 +484,8 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
       LOOP AT ls_logres-rows TRANSPORTING NO FIELDS WHERE name CP 'doc_no.*'.
         lv_docs = lv_docs + 1.
       ENDLOOP.
-      DELETE ls_logres-rows WHERE name = 'fm_result' OR name CP 'sig.*' OR name CP 'doc_no.*'.
+      DELETE ls_logres-rows WHERE name = 'fm_result' OR name CP 'sig.*' OR name CP 'doc_no.*'
+                              OR name CP 'fld.*' OR name CP 'pdesc.*'.
       IF lv_docs > 0.
         ls_kv-row   = lines( ls_logres-rows ) + 1.
         ls_kv-name  = 'log.doc_count'.
@@ -503,7 +525,8 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
                     if_data       = lv_data
           IMPORTING ef_hashstring = rv_hash ).
       CATCH cx_abap_message_digest.
-        rv_hash = lv_data.
+        " Never the raw parameters: an empty hash refuses the PREVIEW.
+        CLEAR rv_hash.
     ENDTRY.
   ENDMETHOD.
 

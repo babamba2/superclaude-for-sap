@@ -8,7 +8,8 @@
 
 CLASS ltcl_keys DEFINITION DEFERRED.
 CLASS ltcl_fence DEFINITION DEFERRED.
-CLASS zcl_mcp_biz_if DEFINITION LOCAL FRIENDS ltcl_keys ltcl_fence.
+CLASS ltcl_describe DEFINITION DEFERRED.
+CLASS zcl_mcp_biz_if DEFINITION LOCAL FRIENDS ltcl_keys ltcl_fence ltcl_describe.
 
 CLASS ltcl_keys DEFINITION FINAL FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
   PRIVATE SECTION.
@@ -412,6 +413,118 @@ CLASS ltcl_fence IMPLEMENTATION.
       cl_abap_unit_assert=>assert_initial( act = mo_cut->person_key( is_par = ls_par iv_elementary = abap_true )
                                            msg = |{ ls_par-name }| ).
     ENDLOOP.
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+*"* ltcl_describe: the PREVIEW form rows (pdesc.* / fld.*) on SAP's own BAPI types — DDIC reads only.
+CLASS ltcl_describe DEFINITION FINAL FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
+  PRIVATE SECTION.
+    DATA mo_cut TYPE REF TO zcl_mcp_biz_if.
+    METHODS setup.
+    METHODS rows_of
+      IMPORTING iv_fm          TYPE rs38l_fnam
+                iv_max         TYPE i
+      RETURNING VALUE(rt_rows) TYPE zif_mcp_biz_action=>ty_kvs.
+    METHODS value_of
+      IMPORTING it_rows         TYPE zif_mcp_biz_action=>ty_kvs
+                iv_name         TYPE string
+      RETURNING VALUE(rv_value) TYPE string.
+    METHODS count_of
+      IMPORTING it_rows         TYPE zif_mcp_biz_action=>ty_kvs
+                iv_pattern      TYPE string
+      RETURNING VALUE(rv_count) TYPE i.
+    METHODS exchange_rate FOR TESTING.
+    METHODS company_list FOR TESTING.
+    METHODS field_limit FOR TESTING.
+    METHODS text_cleanup FOR TESTING.
+ENDCLASS.
+
+
+CLASS ltcl_describe IMPLEMENTATION.
+
+  METHOD setup.
+    CREATE OBJECT mo_cut.
+  ENDMETHOD.
+
+
+  METHOD rows_of.
+    DATA lt_pars TYPE zcl_mcp_biz_if=>ty_pars.
+
+    lt_pars = mo_cut->signature( iv_fm ).
+    mo_cut->describe_params( EXPORTING it_pars = lt_pars iv_max = iv_max CHANGING ct_rows = rt_rows ).
+  ENDMETHOD.
+
+
+  METHOD value_of.
+    DATA ls_row TYPE zif_mcp_biz_action=>ty_kv.
+
+    READ TABLE it_rows INTO ls_row WITH KEY name = iv_name.
+    cl_abap_unit_assert=>assert_subrc( exp = 0 msg = |row { iv_name } missing| ).
+    rv_value = ls_row-value.
+  ENDMETHOD.
+
+
+  METHOD count_of.
+    DATA ls_row TYPE zif_mcp_biz_action=>ty_kv.
+
+    LOOP AT it_rows INTO ls_row WHERE name CP iv_pattern.
+      rv_count = rv_count + 1.
+    ENDLOOP.
+  ENDMETHOD.
+
+
+  METHOD exchange_rate.
+    " 4 scalars (RATE_TYPE, FROM_CURR, TO_CURRNCY, DATE) and 2 structures (EXCH_RATE, RETURN).
+    DATA lt_rows TYPE zif_mcp_biz_action=>ty_kvs.
+
+    lt_rows = rows_of( iv_fm = 'BAPI_EXCHANGERATE_GETDETAIL' iv_max = 600 ).
+    cl_abap_unit_assert=>assert_equals( act = count_of( it_rows = lt_rows iv_pattern = `pdesc.*` ) exp = 6 ).
+    cl_abap_unit_assert=>assert_char_cp( act = value_of( it_rows = lt_rows iv_name = `pdesc.DATE` )
+                                         exp = `S|BAPI1093_2-TRANS_DATE|D|8|0|*` ).
+    cl_abap_unit_assert=>assert_char_cp( act = value_of( it_rows = lt_rows iv_name = `pdesc.RATE_TYPE` ) exp = `S|*` ).
+    cl_abap_unit_assert=>assert_char_cp( act = value_of( it_rows = lt_rows iv_name = `pdesc.EXCH_RATE` )
+                                         exp = `R|BAPI1093_0||||*` ).
+    cl_abap_unit_assert=>assert_char_cp( act = value_of( it_rows = lt_rows iv_name = `pdesc.RETURN` )
+                                         exp = `R|BAPIRET1||||*` ).
+    cl_abap_unit_assert=>assert_char_cp( act = value_of( it_rows = lt_rows iv_name = `fld.EXCH_RATE.VALID_FROM` )
+                                         exp = `D|8|0|*` ).
+    " scalars carry no field rows
+    cl_abap_unit_assert=>assert_equals( act = count_of( it_rows = lt_rows iv_pattern = `fld.DATE.*` ) exp = 0 ).
+    cl_abap_unit_assert=>assert_equals( act = count_of( it_rows = lt_rows iv_pattern = `fld.limit` ) exp = 0 ).
+  ENDMETHOD.
+
+
+  METHOD company_list.
+    DATA lt_rows TYPE zif_mcp_biz_action=>ty_kvs.
+
+    lt_rows = rows_of( iv_fm = 'BAPI_COMPANYCODE_GETLIST' iv_max = 600 ).
+    cl_abap_unit_assert=>assert_char_cp( act = value_of( it_rows = lt_rows iv_name = `pdesc.COMPANYCODE_LIST` )
+                                         exp = `T|BAPI0002_1||||*` ).
+    cl_abap_unit_assert=>assert_char_cp( act = value_of( it_rows = lt_rows iv_name = `fld.COMPANYCODE_LIST.COMP_CODE` )
+                                         exp = `C|4|0|*` ).
+  ENDMETHOD.
+
+
+  METHOD field_limit.
+    " A small limit stops the field rows where it is reached and says so once.
+    DATA lt_rows TYPE zif_mcp_biz_action=>ty_kvs.
+
+    lt_rows = rows_of( iv_fm = 'BAPI_EXCHANGERATE_GETDETAIL' iv_max = 3 ).
+    cl_abap_unit_assert=>assert_equals( act = count_of( it_rows = lt_rows iv_pattern = `fld.*` ) exp = 4 ). " 3 + fld.limit
+    cl_abap_unit_assert=>assert_equals( act = value_of( it_rows = lt_rows iv_name = `fld.limit` ) exp = `3` ).
+    " every parameter still has its pdesc row
+    cl_abap_unit_assert=>assert_equals( act = count_of( it_rows = lt_rows iv_pattern = `pdesc.*` ) exp = 6 ).
+  ENDMETHOD.
+
+
+  METHOD text_cleanup.
+    DATA lv_long TYPE string.
+
+    cl_abap_unit_assert=>assert_equals( act = mo_cut->short_text( `a|b` ) exp = `a/b` ).
+    lv_long = repeat( val = `x` occ = 70 ).
+    cl_abap_unit_assert=>assert_equals( act = strlen( mo_cut->short_text( lv_long ) ) exp = 60 ).
   ENDMETHOD.
 
 ENDCLASS.

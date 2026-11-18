@@ -106,7 +106,7 @@ describe('IF catalog and executor wiring', () => {
       // the result log: no output, signature or document numbers (only a count), messages without text
       const b = e.slice(e.indexOf("    IF iv_action CP 'IF.*'.\n      \" The outcome only"), e.indexOf('    IF es_result-failed = abap_true.', e.indexOf('The outcome only, never a value')));
       expect(b.length, f).toBeGreaterThan(100);
-      expect(b).toContain("DELETE ls_logres-rows WHERE name = 'fm_result' OR name CP 'sig.*' OR name CP 'doc_no.*'.");
+      expect(b).toMatch(/DELETE ls_logres-rows WHERE name = 'fm_result' OR name CP 'sig\.\*' OR name CP 'doc_no\.\*'\n\s+OR name CP 'fld\.\*' OR name CP 'pdesc\.\*'\./);
       expect(b).toMatch(/LOOP AT ls_logres-rows TRANSPORTING NO FIELDS WHERE name CP 'doc_no\.\*'\.\n\s+lv_docs = lv_docs \+ 1\./);
       expect(b).toContain("ls_kv-name  = 'log.doc_count'.");
       expect(b).toMatch(/LOOP AT ls_logres-messages ASSIGNING <ls_msg>\.\n\s+CLEAR <ls_msg>-message\./);
@@ -123,7 +123,8 @@ describe('IF catalog and executor wiring', () => {
     const names = [...src.matchAll(/add_kv\( EXPORTING iv_name = (?:'([^']+)'|\|([^|]+)\|)/g)].map((m) => m[1] ?? m[2]);
     expect(names.length).toBeGreaterThan(5);
     const known = [/^sig\.\{ ls_par-kind \}\.\{ ls_par-name \}$/, /^posting\.limit$/, /^posting\.sign$/, /^posting\.self_commit$/,
-      /^fm_result$/, /^committed$/, /^doc_no\.\{ ls_par-name \}$/, /^doc_no\.message$/];
+      /^fm_result$/, /^committed$/, /^doc_no\.\{ ls_par-name \}$/, /^doc_no\.message$/,
+      /^pdesc\.\{ ls_par-name \}$/, /^fld\.\{ ls_par-name \}\.\{ ls_dfies-fieldname \}$/, /^fld\.limit$/];
     for (const n of names) expect(known.some((k) => k.test(n)), n).toBe(true);
   });
 
@@ -252,7 +253,7 @@ describe('ZCL_MCP_BIZ_IF — dangerous modules refused', () => {
   });
 
   it('ABAP Unit covers names, parameters, literals, statements, the first hit and the include list', () => {
-    expect(tsrc).toContain('CLASS zcl_mcp_biz_if DEFINITION LOCAL FRIENDS ltcl_keys ltcl_fence.');
+    expect(tsrc).toMatch(/CLASS zcl_mcp_biz_if DEFINITION LOCAL FRIENDS ltcl_keys ltcl_fence[ .]/);
     for (const m of ['names_refused', 'names_allowed', 'params_refused', 'params_allowed', 'comments_and_literals',
       'statements_refused', 'statements_allowed', 'source_first_hit', 'include_list']) expect(tsrc).toContain(`METHODS ${m} FOR TESTING.`);
     // the three read-only BAPIs of the first live test stay allowed
@@ -289,4 +290,82 @@ describe('ZCL_MCP_BIZ_IF — dangerous modules refused', () => {
     expect(names.length).toBeGreaterThan(10);
     for (const n of names) expect(n).toMatch(/^(ZTEST_|YTEST_|ZHR_ANY_|YHR_ANY_|Z_HR_ANY_)/);
   });
+});
+
+// PREVIEW form rows (web contract, 2026-11-18): pdesc.<PARAM> and fld.<PARAM>.<FIELD>, PREVIEW only.
+describe('ZCL_MCP_BIZ_IF — parameter description rows for the input form', () => {
+  const tsrc = readFileSync(join(ROOT, 'abap', 'biz', 'zcl_mcp_biz_if.clas.testclasses.abap'), 'utf8').replace(/\r\n/g, '\n');
+
+  it('only in PREVIEW, right after the signature rows, capped at 600 field rows', () => {
+    const r = body('run');
+    expect(r).toMatch(/IF iv_execute = abap_false\.\n\s+describe_params\( EXPORTING it_pars = lt_pars iv_max = c_max_fields CHANGING ct_rows = rs_result-rows \)\./);
+    expect(r.indexOf('describe_params(')).toBeGreaterThan(r.indexOf('add_kv( EXPORTING iv_name = |sig.'));
+    // before the posting / ack / build checks, so a refused or empty-parameter preview still describes the form
+    expect(r.indexOf('describe_params(')).toBeLessThan(r.indexOf('posting_signs( EXPORTING'));
+    expect(r.indexOf('describe_params(')).toBeLessThan(r.indexOf('build( EXPORTING'));
+    expect(src).toContain('CONSTANTS c_max_fields TYPE i VALUE 600.');
+  });
+
+  it('row formats: pdesc six fields, fld four, deep fields named but not opened, one level, fld.limit once', () => {
+    const d = body('describe_params');
+    expect(d).toContain('iv_value = |{ lv_shape }\\|{ lv_ddic }\\|{ lv_int }\\|{ lv_leng }\\|{ lv_dec }\\|{ short_text( lv_text ) }|');
+    expect(d).toContain('iv_value = |{ ls_dfies-inttype }\\|{ lv_leng }\\|{ lv_dec }\\|{ short_text( lv_text ) }|');
+    expect(d).toContain('iv_value = |{ ls_dfies-inttype }\\|\\|\\|{ short_text( lv_text ) }|');
+    expect(d).toContain("IF ls_dfies-inttype = 'h' OR ls_dfies-inttype = 'u' OR ls_dfies-inttype = 'v'.");
+    expect(d).toContain("IF ls_dfies-lfieldname CS '-' OR ls_dfies-fieldname CP '.*'.");
+    expect(d).toMatch(/IF lv_count >= iv_max\.\n\s+lv_stop = abap_true\.\n\s+add_kv\( EXPORTING iv_name = 'fld\.limit' iv_value = \|\{ iv_max \}\|/);
+    expect(d).toContain("LOOP AT it_pars INTO ls_par WHERE kind <> 'X'.");
+    expect(d).toMatch(/CALL FUNCTION 'DDIF_FIELDINFO_GET'\n\s+EXPORTING\n\s+tabname\s+= lv_tab\n\s+langu\s+= sy-langu\n\s+TABLES\n\s+dfies_tab\s+= lt_dfies/);
+    // DFIES has no DEPTH component on 7.40: never rely on it
+    expect(d).not.toMatch(/ls_dfies-depth|WHERE depth/i);
+    const t = body('short_text');
+    expect(t).toContain("REPLACE ALL OCCURRENCES OF '|' IN rv_text WITH '/'.");
+    expect(t).toContain('rv_text = rv_text(60).');
+  });
+
+  it('ABAP Unit covers both BAPIs of the contract, the limit and the text cleanup', () => {
+    expect(tsrc).toContain('CLASS zcl_mcp_biz_if DEFINITION LOCAL FRIENDS ltcl_keys ltcl_fence ltcl_describe.');
+    for (const m of ['exchange_rate', 'company_list', 'field_limit', 'text_cleanup']) expect(tsrc).toContain(`METHODS ${m} FOR TESTING.`);
+    expect(tsrc).toContain('exp = `S|BAPI1093_2-TRANS_DATE|D|8|0|*`');
+    expect(tsrc).toContain('exp = `T|BAPI0002_1||||*`');
+    expect(tsrc).toContain('exp = `D|8|0|*`');
+  });
+});
+
+// N2 (2026-11-18): the parameter hash (SHA1, CHAR 40) lives only while a preview token can be used.
+describe('ZCL_MCP_BIZ_EXEC — parameter hash kept only while the token is usable', () => {
+  for (const f of ['zcl_mcp_biz_exec.clas.abap', '731/zcl_mcp_biz_exec.clas.abap']) {
+    const e = readFileSync(join(ROOT, 'abap', 'biz', f), 'utf8').replace(/\r\n/g, '\n');
+    const m = (name: string) => {
+      const a = e.indexOf(`  METHOD ${name}.`);
+      expect(a, `${f} ${name}`).toBeGreaterThan(0);
+      return e.slice(a, e.indexOf('  ENDMETHOD.', a));
+    };
+
+    it(`${f}: a failed hash is empty, never the raw parameters, and refuses the PREVIEW`, () => {
+      const h = m('params_hash');
+      expect(h).toMatch(/CATCH cx_abap_message_digest\.\n(\s+".*\n)?\s+CLEAR rv_hash\./);
+      expect(h).not.toContain('rv_hash = lv_data.');
+      expect(h).toContain("if_algorithm  = 'SHA1'");
+      const p = m('do_preview');
+      expect(p).toMatch(/IF ls_log-params_hash IS INITIAL\.\n\s+COMMIT WORK\.\n\s+es_result-failed = abap_true\.\n\s+ev_message = 'Could not bind the parameters to a preview token: run PREVIEW again'\.\n\s+RETURN\./);
+      // the token row is written only after that check
+      expect(p.indexOf('IF ls_log-params_hash IS INITIAL.')).toBeLessThan(p.indexOf('INSERT zmcp_biz_log FROM ls_log.'));
+    });
+
+    it(`${f}: the next PREVIEW clears my unused hashes older than the token life`, () => {
+      const p = m('do_preview');
+      expect(p).toContain('lv_old = cl_abap_tstmp=>subtractsecs( tstmp = lv_ts secs = c_token_ttl ).');
+      expect(p).toMatch(/UPDATE zmcp_biz_log SET params_hash = space\n\s+WHERE uname = sy-uname AND status = 'P' AND created_at < lv_old AND params_hash <> space\./);
+    });
+
+    it(`${f}: EXECUTE clears the hash when it claims, refuses (other parameters) or finds the token expired`, () => {
+      const x = m('do_execute');
+      expect(x).toMatch(/IF ls_log-params_hash IS INITIAL OR ls_log-params_hash <> params_hash\( is_params \)\.\n\s+UPDATE zmcp_biz_log SET params_hash = space WHERE token = lv_token\.\n\s+COMMIT WORK\.\n\s+ev_message = 'The parameters differ from the preview: run PREVIEW again'\./);
+      expect(x).toMatch(/IF lv_secs > c_token_ttl\.\n\s+UPDATE zmcp_biz_log SET params_hash = space WHERE token = lv_token\.\n\s+COMMIT WORK\.\n\s+ev_message = 'The preview token expired: run PREVIEW again'\./);
+      expect(x).toContain("UPDATE zmcp_biz_log SET status = 'X' idem_key = lv_idem params_hash = space");
+      // the claim (which clears the hash) comes before the handler runs
+      expect(x.indexOf("params_hash = space\n      WHERE token = lv_token AND status = 'P'.")).toBeLessThan(x.indexOf('io_handler->execute('));
+    });
+  }
 });
