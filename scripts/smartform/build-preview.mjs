@@ -214,6 +214,20 @@ function tabDecimalWidth(next, glyphs) {
 export const { tabNextStop, tabDecimalWidth } = new Function(`${TAB_JS}
 return { tabNextStop: tabNextStop, tabDecimalWidth: tabDecimalWidth };`)();
 
+// How full one sheet's MAIN is, kept as source text like TAB_JS (the page script embeds it, tests run it):
+//   mainUse(top, height, bottoms) → the share of the window height the sheet's own MAIN blocks use (the bottom of the
+//     lowest block, from the window top, / the window height); null without blocks or height. On a drawn sheet the
+//     window holds the whole MAIN flow, shifted, with the other sheets' blocks hidden — its scrollHeight is not this
+//     sheet's content (it read 209% on a 3-page form that fits).
+const MAINUSE_JS = String.raw`function mainUse(top, height, bottoms) {
+  if (!(height > 0) || !bottoms.length) return null;
+  var b = bottoms[0];
+  for (var i = 1; i < bottoms.length; i++) if (bottoms[i] > b) b = bottoms[i];
+  return (b - top) / height;
+}`;
+export const { mainUse } = new Function(`${MAINUSE_JS}
+return { mainUse: mainUse };`)();
+
 function printedFamily(family, printer, size10) {
   const f = String(family || '').trim().toUpperCase();
   // fonts not read: keep the family. Read but empty: the device type has none of the form's families (S4-DEV
@@ -1525,7 +1539,7 @@ c.font=cs.fontStyle+' '+cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;var m=c.
 p.style.position='relative';p.style.top=((L-m.fontBoundingBoxAscent+m.fontBoundingBoxDescent)/2)+'px';});})();</script>
 <script>(function(){var o=[];if(window.__sfPaginate&&window.__sfPaginate())o.push({kind:'page',node:'MAIN',text:'MAIN continues on the next page — the rest is not drawn'});
 document.querySelectorAll('.cell').forEach(function(c){var cr=c.getBoundingClientRect();c.querySelectorAll('.par').forEach(function(p){var r=p.getBoundingClientRect();if(r.bottom>cr.bottom+1||p.scrollWidth>p.clientWidth+1)o.push({kind:'cell',node:p.dataset.node,text:p.textContent.trim()});});});
-document.querySelectorAll('.win').forEach(function(w){if(w.scrollHeight>w.clientHeight+2)o.push({kind:'window',node:w.dataset.win,text:'content '+Math.round(w.scrollHeight/w.clientHeight*100)+'% of the window height'});});
+document.querySelectorAll('.win').forEach(function(w){if(w.dataset.mainuse!==undefined){var u=+w.dataset.mainuse;if(u*w.getBoundingClientRect().height>w.getBoundingClientRect().height+2)o.push({kind:'window',node:w.dataset.win,text:'content '+Math.round(u*100)+'% of the window height'});return;}if(w.scrollHeight>w.clientHeight+2)o.push({kind:'window',node:w.dataset.win,text:'content '+Math.round(w.scrollHeight/w.clientHeight*100)+'% of the window height'});});
 // fonts the page asks for that this PC does not have: widths will differ from the print
 var asked={};document.querySelectorAll('.par, .char').forEach(function(el){var f=getComputedStyle(el).fontFamily.split(',')[0].replace(/["']/g,'').trim();if(f)asked[f]=1;});
 var cv=document.createElement('canvas').getContext('2d'),probe='abcdefghijklmnopqrstuvwxyz0123456789 ';function wd(f){cv.font='40px '+f;return cv.measureText(probe).width;}
@@ -1548,7 +1562,8 @@ var o=sfBlocks(w).map(function(e){var r=e.getBoundingClientRect(),sh=(parseFloat
 var s=document.createElement('script');s.type='application/json';s.id='sf-mainblocks';s.textContent=JSON.stringify(o);document.body.appendChild(s);})();</script>`;
 // drawn pages: each sheet's MAIN shows its blocks [from, to), moved up to the top of MAIN; the others are hidden
 // (no text of another page reaches the print); windows after the end of MAIN only on the sheet where MAIN ends
-const SHEETS_JS = `<script>window.__sfPaginate=function(){${BLOCKS_JS}var Z=${ZOOM},cont=false;
+const SHEETS_JS = `<script>window.__sfPaginate=function(){${BLOCKS_JS}${MAINUSE_JS}
+var Z=${ZOOM},cont=false;
 document.querySelectorAll('.sheet').forEach(function(sh){var w=sh.querySelector('.win.main');if(!w)return;var f=w.querySelector('.mainflow');if(!f)return;var bl=sfBlocks(w),from=+f.dataset.from,to=+f.dataset.to;
 var wt=w.getBoundingClientRect().top;var first=bl[from];if(first){var r=first.getBoundingClientRect(),s0=(parseFloat(first.style.top)||0)*Z;f.style.position='relative';f.style.top=(-(r.top-s0-wt)/Z)+'px';}
 var hf=f.dataset.hfrom!==undefined?+f.dataset.hfrom:-1,ht=f.dataset.hto!==undefined?+f.dataset.hto:-1;
@@ -1556,6 +1571,9 @@ var hf=f.dataset.hfrom!==undefined?+f.dataset.hfrom:-1,ht=f.dataset.hto!==undefi
 if(hf>=0&&first&&bl[hf]){var hw=bl[hf].closest('.sfhead');var hr0=bl[hf].getBoundingClientRect(),hr1=bl[ht-1].getBoundingClientRect(),hh=hr1.bottom-hr0.top;
  f.style.top=(parseFloat(f.style.top)+hh/Z)+'px';if(hw){var h0=hw.getBoundingClientRect().top;hw.style.position='relative';hw.style.top=((wt-h0)/Z)+'px';}}
 bl.forEach(function(e,i){if((i<from||i>=to)&&!(i>=hf&&i<ht))e.style.visibility='hidden';});
+// this sheet's own MAIN use, for the overflow check (the window's scrollHeight holds every sheet's flow)
+var wr=w.getBoundingClientRect(),bots=[];bl.forEach(function(e,i){if((i>=from&&i<to)||(i>=hf&&i<ht))bots.push(e.getBoundingClientRect().bottom);});
+var u=mainUse(wr.top,wr.height,bots);w.dataset.mainuse=u===null?'0':String(u);
 var more=to<bl.length;if(more){cont=true;sh.querySelectorAll('.win.aftermain').forEach(function(a){a.style.visibility='hidden';});}});
 return false;};</script>`;
 

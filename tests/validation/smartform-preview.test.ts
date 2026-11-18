@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { listSymbols, Renderer, paragraphFonts, barcodeSvg, code128Codes, barcodeSize, legacyDbcs, printedFamily, tabNextStop, tabDecimalWidth } from '../../scripts/smartform/build-preview.mjs';
+import { listSymbols, Renderer, paragraphFonts, barcodeSvg, code128Codes, barcodeSize, legacyDbcs, printedFamily, tabNextStop, tabDecimalWidth, mainUse, pagesFromBlocks } from '../../scripts/smartform/build-preview.mjs';
 import { compare } from '../../scripts/smartform/compare-otf.mjs';
 
 // Shape of GetSmartFormContent's content.json; names and values are invented.
@@ -400,5 +400,30 @@ describe('smartform-preview: an address with no address number in compare mode',
     expect(new Renderer(c, { values: {} }).page().html as string).toContain('address Customer Address');
     expect(new Renderer(c, { values: {}, unvalued: 'blank' }).page().html as string).not.toContain('address Customer Address');
     expect(new Renderer(c, { values: { ADRNR: '0000012345' }, unvalued: 'blank' }).page().html as string).toContain('address Customer Address');
+  });
+});
+
+describe('smartform-preview: the overflow check of a drawn multi-page print looks at each sheet’s own MAIN', () => {
+  it('mainUse: the lowest of the sheet’s blocks over the window height', () => {
+    expect(mainUse(100, 200, [150, 280])).toBeCloseTo(0.9, 5);   // fits
+    expect(mainUse(100, 200, [150, 320])).toBeCloseTo(1.1, 5);   // a block runs past the window
+    expect(mainUse(100, 200, [])).toBeNull();
+    expect(mainUse(100, 0, [150])).toBeNull();
+  });
+  it('a paginated print measures per sheet; a one-page print keeps the window check', () => {
+    const page = (name: string) => ({ name, nextPage: name, orientation: 'portrait', windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 20, topMm: 30, widthMm: 170, heightMm: 50, content: [
+      { kind: 'text', name: 'T', caption: 'T', children: [], style: 'ZTEST_STYLE', lines: [{ format: 'AA', text: 'Row' }] }] }] });
+    const c = { ...CONTENT, pages: [page('P1')] };
+    const r = new Renderer(c, { values: {} });
+    r.markHeads = true;
+    const blocks = Array.from({ length: 12 }, (_, i) => ({ t: i * 10, b: (i + 1) * 10, brk: false }));
+    const doc = pagesFromBlocks(r, blocks);
+    expect(doc).not.toBeNull();
+    expect(doc.html).toContain(String(mainUse));
+    expect(doc.html).toContain('w.dataset.mainuse=');
+    expect(doc.html).toContain("if(w.dataset.mainuse!==undefined)");
+    const one = new Renderer(c, { values: {} }).page().html as string;
+    expect(one).not.toContain('w.dataset.mainuse=');
+    expect(one).toContain('w.scrollHeight>w.clientHeight+2');
   });
 });
