@@ -145,3 +145,16 @@ describe('phone layer for HTML deliverables', () => {
     expect(html).toMatch(/\.tw>table\{min-width:1100px\}/);
   });
 });
+
+describe('Korean line breaks are not undone by a page', () => {
+  it('prose and table cells of the document pages keep keep-all (no word-break override), long IDs still wrap', () => {
+    // doc-kit (cutover / weekly / meeting / migration), the interface spec and the process map's filter labels
+    for (const rel of ['project/doc-kit.mjs', 'interface/if-spec-page.mjs', 'process/process-page.mjs']) {
+      const src = readFileSync(join(SCRIPTS, rel), 'utf8');
+      expect(src, rel).not.toMatch(/word-break:\s*break-(word|all)/);
+      expect(src, rel).toMatch(/overflow-wrap:(anywhere|break-word)/);
+    }
+    // the layer's own key-value cells reset word-break on phones: Korean pages get keep-all back there
+    expect(RESPONSIVE_CSS).toContain('html[lang=ko] table.m-kv th,html[lang=ko] table.m-kv td{word-break:keep-all}');
+  });
+});

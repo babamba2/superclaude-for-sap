@@ -129,7 +129,7 @@ table.bph th .xf-btn.on{background:var(--accent);color:var(--accent-ink);border-
 .xf-pop{position:absolute;z-index:50;width:260px;max-width:calc(100vw - 24px);background:var(--bg);color:var(--fg);border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px rgba(0,0,0,.18);padding:10px;font-size:13.5px;font-weight:400}
 .xf-pop input[type=search]{width:100%;box-sizing:border-box;font:inherit;padding:4px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--fg)}
 .xf-pop .xf-list{max-height:260px;overflow:auto;margin:8px 0;border:1px solid var(--line);border-radius:6px;padding:4px 6px}
-.xf-pop label{display:flex;gap:6px;align-items:baseline;padding:2px 0;cursor:pointer;white-space:normal;word-break:break-all}
+.xf-pop label{display:flex;gap:6px;align-items:baseline;padding:2px 0;cursor:pointer;white-space:normal;overflow-wrap:anywhere}
 .xf-pop label .n{margin-left:auto;color:var(--muted);font-variant-numeric:tabular-nums;padding-left:6px}
 .xf-pop .xf-row{display:flex;gap:6px;justify-content:flex-end;flex-wrap:wrap}
 .xf-pop .xf-row button{font:inherit;font-size:13px;padding:3px 10px;border:1px solid var(--line);border-radius:6px;background:var(--card);color:var(--fg);cursor:pointer}

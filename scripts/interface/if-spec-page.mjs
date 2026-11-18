@@ -62,7 +62,7 @@ section.pg>h2{font-size:16px;margin:0 0 14px;padding-bottom:6px;border-bottom:2p
 .cover .docno{font-size:14px}.cover .ifname{font-size:14px;margin-top:4px}.cover .cv{font-size:14px;margin-top:4px;font-weight:600}
 .cover .copy{margin-top:auto;font-size:11.5px;color:var(--ink2)}
 table{border-collapse:collapse;width:100%}th,td{border:1px solid var(--line);padding:4px 6px;vertical-align:top;text-align:left}
-th{background:var(--head);font-weight:600;white-space:nowrap}td{word-break:break-word}
+th{background:var(--head);font-weight:600;white-space:nowrap}td{overflow-wrap:break-word}
 .hdr th{width:15%}.hdr td{width:35%}
 .sides th{width:15%}.sides td{width:31%}.sides .arrow{width:8%;text-align:center;font-size:22px;color:var(--ink2);vertical-align:middle;background:var(--soft)}
 .blk{margin-top:18px}.blk>h3{font-size:13.5px;margin:0 0 8px;color:var(--ink2)}

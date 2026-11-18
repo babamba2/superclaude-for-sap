@@ -27,6 +27,7 @@ table.m-kv{display:block;width:100%!important;max-width:100%;table-layout:auto!i
 table.m-kv>tbody,table.m-kv>thead,table.m-kv>tfoot{display:grid;grid-template-columns:minmax(6.5em,36%) minmax(0,1fr)}
 table.m-kv>tbody>tr,table.m-kv>thead>tr,table.m-kv>tfoot>tr{display:contents}
 table.m-kv th,table.m-kv td{width:auto!important;min-width:0!important;max-width:none!important;white-space:normal!important;overflow-wrap:anywhere;word-break:normal}
+html[lang=ko] table.m-kv th,html[lang=ko] table.m-kv td{word-break:keep-all}
 table.m-kv th[colspan]:not([colspan="1"]),table.m-kv .m-full{grid-column:1/-1}
 table.m-kv .m-hide{display:none!important}
 .m-scroll{overflow-x:auto;max-width:100%;box-sizing:border-box;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
