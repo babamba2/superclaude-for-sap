@@ -14,7 +14,8 @@ CLASS zcl_mcp_biz_exec DEFINITION
 *   - preview token: EXECUTE needs an unused token of the same user, the
 *     same action and the same parameters, younger than c_token_ttl
 *   - idempotency key: a repeated EXECUTE returns the stored result
-*   - log: every PREVIEW and EXECUTE in ZMCP_BIZ_LOG
+*   - log: every PREVIEW and EXECUTE in ZMCP_BIZ_LOG (IF.*: no parameter, output or message values,
+*     document numbers only as a count; an idempotent repeat of IF.* returns that reduced result)
 *   - PRECHECK (read only, any client, not logged): document field values and
 *     true / false answers for the customer check rules, see ZCL_MCP_BIZ_PRECHECK
 *     (SD.* actions: facts by ZCL_MCP_BIZ_PRECHECK=>RUN_SD)
@@ -386,7 +387,10 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
           lv_secs   TYPE tzntstmpl,
           lv_status TYPE zmcp_biz_log-status,
           lv_json   TYPE string,
-          ls_logres TYPE zif_mcp_biz_action=>ty_result.
+          ls_logres TYPE zif_mcp_biz_action=>ty_result,
+          ls_kv     TYPE zif_mcp_biz_action=>ty_kv,
+          lv_docs   TYPE i.
+    FIELD-SYMBOLS <ls_msg> TYPE zif_mcp_biz_action=>ty_message.
 
     CLEAR: es_result, ev_result, ev_message, ev_done.
     lv_token = iv_token.
@@ -452,9 +456,26 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
     es_result-action = iv_action.
     es_result-mode   = 'EXECUTE'.
     IF iv_action CP 'IF.*'.
-      " The outcome only: no output values (fm_result) and no signature in the log; the caller still gets them.
+      " The outcome only, never a value: no output (fm_result), no signature, no document numbers (only how
+      " many), and messages as type / id / number — BAPI texts and their variables carry document numbers,
+      " amounts and names. The caller still gets the full result.
       ls_logres = es_result.
-      DELETE ls_logres-rows WHERE name = 'fm_result' OR name CP 'sig.*'.
+      LOOP AT ls_logres-rows TRANSPORTING NO FIELDS WHERE name CP 'doc_no.*'.
+        lv_docs = lv_docs + 1.
+      ENDLOOP.
+      DELETE ls_logres-rows WHERE name = 'fm_result' OR name CP 'sig.*' OR name CP 'doc_no.*'.
+      IF lv_docs > 0.
+        ls_kv-row   = lines( ls_logres-rows ) + 1.
+        ls_kv-name  = 'log.doc_count'.
+        ls_kv-value = |{ lv_docs }|.
+        APPEND ls_kv TO ls_logres-rows.
+      ENDIF.
+      LOOP AT ls_logres-messages ASSIGNING <ls_msg>.
+        CLEAR <ls_msg>-message.
+      ENDLOOP.
+      LOOP AT ls_logres-suppressed ASSIGNING <ls_msg>.
+        CLEAR <ls_msg>-message.
+      ENDLOOP.
       lv_json = to_json( ls_logres ).
     ELSE.
       lv_json = to_json( es_result ).

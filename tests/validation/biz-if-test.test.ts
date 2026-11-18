@@ -103,9 +103,36 @@ describe('IF catalog and executor wiring', () => {
     it(`${f} logs IF.* by module name only, never parameter or output values`, () => {
       const e = readFileSync(join(ROOT, 'abap', 'biz', f), 'utf8').replace(/\r\n/g, '\n');
       expect(e).toMatch(/IF iv_action CP 'IF\.\*'\.\n\s+ls_log-params_json = \|\{ '\{' \}"fm_name":/);
-      expect(e).toMatch(/DELETE ls_logres-rows WHERE name = 'fm_result' OR name CP 'sig\.\*'\.\n\s+lv_json = to_json\( ls_logres \)\./);
+      // the result log: no output, signature or document numbers (only a count), messages without text
+      const b = e.slice(e.indexOf("    IF iv_action CP 'IF.*'.\n      \" The outcome only"), e.indexOf('    IF es_result-failed = abap_true.', e.indexOf('The outcome only, never a value')));
+      expect(b.length, f).toBeGreaterThan(100);
+      expect(b).toContain("DELETE ls_logres-rows WHERE name = 'fm_result' OR name CP 'sig.*' OR name CP 'doc_no.*'.");
+      expect(b).toMatch(/LOOP AT ls_logres-rows TRANSPORTING NO FIELDS WHERE name CP 'doc_no\.\*'\.\n\s+lv_docs = lv_docs \+ 1\./);
+      expect(b).toContain("ls_kv-name  = 'log.doc_count'.");
+      expect(b).toMatch(/LOOP AT ls_logres-messages ASSIGNING <ls_msg>\.\n\s+CLEAR <ls_msg>-message\./);
+      expect(b).toMatch(/LOOP AT ls_logres-suppressed ASSIGNING <ls_msg>\.\n\s+CLEAR <ls_msg>-message\./);
+      // the filtering happens before the JSON is built, and the caller's es_result is never touched
+      expect(b.indexOf('lv_json = to_json( ls_logres ).')).toBeGreaterThan(b.indexOf('CLEAR <ls_msg>-message.'));
+      expect(b).not.toMatch(/(DELETE|CLEAR|MODIFY)\s+es_result/);
     });
   }
+
+  it('every result row the IF handler writes is known to the log filter (a new value row must be reviewed)', () => {
+    // Rows that carry values (fm_result, doc_no.*, sig.*) are dropped from the log; the rest are fixed texts
+    // or module source excerpts, never caller data. A new row name fails here until the filter is checked.
+    const names = [...src.matchAll(/add_kv\( EXPORTING iv_name = (?:'([^']+)'|\|([^|]+)\|)/g)].map((m) => m[1] ?? m[2]);
+    expect(names.length).toBeGreaterThan(5);
+    const known = [/^sig\.\{ ls_par-kind \}\.\{ ls_par-name \}$/, /^posting\.limit$/, /^posting\.sign$/, /^posting\.self_commit$/,
+      /^fm_result$/, /^committed$/, /^doc_no\.\{ ls_par-name \}$/, /^doc_no\.message$/];
+    for (const n of names) expect(known.some((k) => k.test(n)), n).toBe(true);
+  });
+
+  it('the header says fm_result echoes the importing values and the log keeps no message text', () => {
+    const head = src.slice(0, src.indexOf('  PUBLIC SECTION.'));
+    expect(head).toContain('the importing values sent come back as they were');
+    expect(head).toContain('messages as type /');
+    expect(head).not.toContain('output (fm_result = JSON text of the\n* exporting / changing / tables parameters)');
+  });
   it('the params type carries the four fields, in both interface copies', () => {
     for (const f of ['zif_mcp_biz_action.intf.abap', '731/zif_mcp_biz_action.intf.abap']) {
       const i = readFileSync(join(ROOT, 'abap', 'biz', f), 'utf8');

@@ -24,7 +24,8 @@ CLASS zcl_mcp_biz_if DEFINITION
 *     ZMCP*) or the function groups SRFC / SUTL / SDTX
 *   - one call per EXECUTE; fm_params at most 100 000 characters
 *   - the log (ZMCP_BIZ_LOG, ZCL_MCP_BIZ_EXEC) keeps fm_name, the parameter hash, the user and the outcome —
-*     never the parameter or output values
+*     never a value: no parameters, no output, no document numbers (only how many), messages as type /
+*     id / number without text
 *   - posting signs need ack_posting = 'true'; a module that commits by itself is reported irreversible
 *   - dangerous modules are refused whatever the specification says (ack_posting does not unlock them):
 *     names: *DYNSQL*, *TRUNCATE*, *READ_TABLE*, *DATA_COPY*, *PASSWORD*, *USER_UNLOCK*; HR / payroll
@@ -43,8 +44,10 @@ CLASS zcl_mcp_biz_if DEFINITION
 *
 * Parameters: fm_name; fm_params = one JSON object as text, keys = the module's parameter names (upper
 * case), values in /UI2/CL_JSON form (structures as objects, tables as arrays); ack_posting; commit.
-* Result rows: signature (sig.*), posting signs (posting.*), output (fm_result = JSON text of the
-* exporting / changing / tables parameters), document numbers (doc_no.*). Messages: RETURN-type
+* Result rows: signature (sig.*), posting signs (posting.*), output (fm_result = JSON text of every
+* typed parameter except exceptions, initial values left out: the importing values sent come back as they were, beside the exporting /
+* changing / tables values — build( ) fills the output structure with the sent values first so changing
+* and tables parameters return in place), document numbers (doc_no.*). Messages: RETURN-type
 * parameters (BAPIRET*), exceptions, ERROR_MESSAGE.
 *
 * 7.40 / S/4HANA only (/UI2/CL_JSON). Not installed on 7.31.
