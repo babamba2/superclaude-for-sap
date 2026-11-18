@@ -1489,13 +1489,13 @@ document.querySelectorAll('.par .nb').forEach(function(s){var par=s.closest('.pa
 <script>window.__sfPaginate=function(){
 // MAIN overflows onto the next page: from the first row / paragraph that does not fit, the
 // rest of MAIN belongs to page 2 and is not drawn on page 1 (ZSF_DEMO_25 closing text)
-var cont=false;document.querySelectorAll('.win.main').forEach(function(w){var wb=w.getBoundingClientRect().bottom+0.5,gone=false,first=true;
+var Zr=${ZOOM_RT},cont=false;document.querySelectorAll('.win.main').forEach(function(w){var wb=w.getBoundingClientRect().bottom+0.5,gone=false,first=true;
 w.querySelectorAll('.tmpl, .row, .par, img, .sfbreak').forEach(function(e){if(e.classList.contains('sfbreak')){if(!gone){gone=true;cont=true;}return;}if(!e.classList.contains('tmpl')&&e.parentElement.closest('.tmpl'))return;if(!e.classList.contains('row')&&!e.classList.contains('tmpl')&&e.closest('.row'))return;
-var eb=e.getBoundingClientRect().bottom-(parseFloat(e.style.top)||0)*${ZOOM_RT};if(!gone&&eb>wb&&!first){gone=true;cont=true;}first=false;if(gone)e.style.visibility='hidden';});});
+var eb=e.getBoundingClientRect().bottom-(parseFloat(e.style.top)||0)*Zr;if(!gone&&eb>wb&&!first){gone=true;cont=true;}first=false;if(gone)e.style.visibility='hidden';});});
 // a cell or window cuts whole lines, never half a line (SAP prints the lines that fit);
 // the first line of a window always prints (ZSF_DEMO_08 %WINDOW4: 6.35 mm line in a 6 mm window)
-document.querySelectorAll('.cell .par, .win:not(.main) > div > .par').forEach(function(p){var box=p.closest('.cell')||p.closest('.win');var bb=box.getBoundingClientRect().bottom+0.5;var r=p.getBoundingClientRect();var sh=(parseFloat(p.style.top)||0)*${ZOOM_RT};var top=r.top-sh,bot=r.bottom-sh;
-if(bot<=bb)return;var lh=parseFloat(getComputedStyle(p).lineHeight)*${ZOOM_RT};if(!(lh>0))return;var fit=Math.floor((bb-top)/lh+0.01);if(box.classList.contains('win')&&box.querySelector('.par')===p)fit=Math.max(fit,1);p.style.maxHeight=Math.max(0,fit*lh/${ZOOM_RT})+'px';p.style.overflow='hidden';});
+document.querySelectorAll('.cell .par, .win:not(.main) > div > .par').forEach(function(p){var box=p.closest('.cell')||p.closest('.win');var bb=box.getBoundingClientRect().bottom+0.5;var r=p.getBoundingClientRect();var sh=(parseFloat(p.style.top)||0)*Zr;var top=r.top-sh,bot=r.bottom-sh;
+if(bot<=bb)return;var lh=parseFloat(getComputedStyle(p).lineHeight)*Zr;if(!(lh>0))return;var fit=Math.floor((bb-top)/lh+0.01);if(box.classList.contains('win')&&box.querySelector('.par')===p)fit=Math.max(fit,1);p.style.maxHeight=Math.max(0,fit*lh/Zr)+'px';p.style.overflow='hidden';});
 // windows printed only after the end of MAIN wait for the page where MAIN ends (ZSF_DEMO_25 %WINDOW3)
 if(cont)document.querySelectorAll('.win.aftermain').forEach(function(w){w.style.visibility='hidden';});
 return cont;};</script>
@@ -1732,6 +1732,10 @@ function paginate(r, page, browser, size, profile) {
 export function pagesFromBlocks(r, blocks) {
   const plan = pagePlan(r.c.pages, blocks, (p) => r.nextPageOf(p), 50, (cond) => r.fieldsHold(cond));
   if (plan.sheets.length < 2) return null;
+  // the drawn pages mark their table header rows too (.sfhead): the sheet script moves that wrapper to the top of MAIN on
+  // the pages a table goes on to — without it the web path (paginatePreview, whose drawing Renderer was never marked)
+  // left page 1's header above the sheet and a blank band in its place
+  r.markHeads = true;
   const doc = r.pages(plan);
   return { ...doc, html: doc.html.replace(LAST_SCRIPT, SHEETS_JS + LAST_SCRIPT) };
 }

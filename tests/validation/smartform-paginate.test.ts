@@ -178,3 +178,34 @@ describe('tabs (SAPscript ",,") in the wrap estimate', () => {
     expect(lines(tabPar(' data-tabs="10"', body, 12.5))).toBe(1);
   });
 });
+
+describe('renderPreview — a table that goes on to the next page repeats its header there (web path, no browser)', () => {
+  const hasSplit = typeof (BP as Record<string, unknown>).pagesFromBlocks === 'function';
+  /** longForm with its loop as a new-style table (section C, like the web samples): header row (event H) + body rows. */
+  function tableForm(rows: number) {
+    const { content, values } = longForm(rows);
+    const main = content.pages[0]!.windows[1]!;
+    const txt = (name: string, t: string) => ({ kind: 'text', name, caption: name, children: [], style: 'ZX_STYLE', lines: [{ format: 'AA', text: t }] });
+    const row = (name: string, line: string, t: string) => ({ kind: 'section-R', name, caption: name, output: { T_LINETYPE: line }, children: [{ kind: 'section-E', name: name + '_C', caption: name + '_C', children: [txt(name + '_T', t)] }] });
+    (main as { content: unknown[] }).content = [{
+      kind: 'section-C', name: '%TAB', caption: 't', dataTable: 'GT', attrs: { TABHEADER: 'GS' }, width: { mm: 100 },
+      lineTypes: [{ name: 'HEAD', heightMm: 6 }, { name: 'ITEM', heightMm: 6 }],
+      cells: ['HEAD', 'ITEM'].map((line) => ({ line, column: 1, widthMm: 100, borders: {} })),
+      children: [
+        { kind: 'event', name: '%H', attrs: { EVTYPE: 'H' }, children: [row('%RH', 'HEAD', 'Header')] },
+        { kind: 'event', name: '%B', attrs: { EVTYPE: 'B' }, children: [row('%RB', 'ITEM', '&GS-A&')] },
+      ],
+    }];
+    return { content, values };
+  }
+  it.runIf(hasSplit)('every sheet whose flow starts inside the table carries the header wrapper the sheet script moves to the top of MAIN', () => {
+    const { content, values } = tableForm(25);
+    const out = renderPreview(content, values, {});
+    expect(out.pages).toBeGreaterThan(1);
+    const sheets = out.html.split('class="sheet"').slice(1);
+    const goesOn = sheets.filter((s) => /class="mainflow"[^>]*data-hfrom="\d+"/.test(s));
+    expect(goesOn.length).toBe(sheets.length - 1);
+    // without the .sfhead wrapper the script left page 1's header above the sheet and a blank band below it
+    for (const s of sheets) expect(s).toContain('class="sfhead"');
+  });
+});

@@ -476,6 +476,8 @@ describe('smartform-preview: page scripts read the zoom their rects carry (WebKi
     const html = (pagesFromBlocks(r, Array.from({ length: 80 }, (_, i) => ({ t: i * 5, b: (i + 1) * 5, brk: false })))?.html || r.page().html) as string;
     expect(html).not.toMatch(/var Z=4[,;]/);
     expect(html).not.toMatch(/\)\*4;|lineHeight\)\*4/);
+    // read once per script into a variable, never re-read per element inside a loop (verifier-3 r21 N2)
+    expect(html).not.toMatch(/[*/]\(function\(\)\{var s=document\.querySelector\('\.sheet'\)/);
     const rt = /var Z=(\(function\(\)\{[\s\S]*?\}\)\(\))/.exec(html)?.[1];
     expect(rt).toBeTruthy();
     // the factor in a Chromium-like and a WebKit-like document
