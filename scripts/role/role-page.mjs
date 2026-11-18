@@ -122,7 +122,8 @@ const EDIT = {
 };
 
 function clientScript(E) {
-  return `(function(){\n${inline('role-model.mjs')}\n${inline('role-labels-ja.mjs')}\n${inline('role-render.mjs')}\nvar E=${JSON.stringify(E)};\n${readFileSync(join(here, 'role-client.js'), 'utf8')}\n})();`;
+  // lib/csv-safe.mjs first: role-model.mjs imports its csvSafe (imports are stripped when inlined).
+  return `(function(){\n${inline('../lib/csv-safe.mjs')}\n${inline('role-model.mjs')}\n${inline('role-labels-ja.mjs')}\n${inline('role-render.mjs')}\nvar E=${JSON.stringify(E)};\n${readFileSync(join(here, 'role-client.js'), 'utf8')}\n})();`;
 }
 
 const tools = (s, E, L) => `<div class="stools"><input type="search" data-s="${s}" placeholder="${esc(E.search)}">

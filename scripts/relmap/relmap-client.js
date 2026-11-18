@@ -243,9 +243,11 @@
     });
     S_FX.field = -1; fxDetail(t, -1);
   }
+  // Every cell quoted; none read as a formula: the rule of scripts/lib/csv-safe.mjs (CSV_FORMULA_START), copied — this script cannot import.
+  function csvCell(s) { s = String(s); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return `"${s.replace(/"/g, '""')}"`; }
   function fxCsv() {
     if (S_FX.tab < 0) return;
-    const q = (s) => `"${String(s).replace(/"/g, '""')}"`, [name, , , fields] = FX.tabs[S_FX.tab];
+    const q = csvCell, [name, , , fields] = FX.tabs[S_FX.tab];
     const rows = [['table', 'field', 'key', 'structure', 'op', 'object', 'row_level', 'count', 'confidence', 'evidence'].join(',')];
     const per = fxFieldOps(S_FX.tab);
     fields.forEach(([f, key, s], i) => FX_OPS.forEach((op, oi) => per[i][oi].forEach((k) => {
@@ -582,7 +584,7 @@
     download(fileBase() + '.png', new Blob([bytes], { type: 'image/png' }));
   }
   function exportCsv() {
-    const q = (s) => `"${String(s).replace(/"/g, '""')}"`;
+    const q = csvCell;
     const rows = [['from_type', 'from', 'kind', 'to_type', 'to', 'count', 'basis', 'ops', 'evidence'].join(',')];
     for (const k of G.links) {
       const e = M.edges[k];

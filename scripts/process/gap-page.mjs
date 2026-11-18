@@ -217,7 +217,8 @@ export const GAP_SCRIPT = String.raw`
   }
   function csv(){
     var m = model();
-    var cell = function(x){ x = String(x == null ? '' : x); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+    // no cell is read as a formula: the rule of scripts/lib/csv-safe.mjs (CSV_FORMULA_START), copied — this script cannot import
+    var cell = function(x){ x = String(x == null ? '' : x); if (/^[=+\-@\t\r]/.test(x)) x = "'" + x; return /[",\n\r]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
     var head = [L.code, L.process, L.fit, L.usage, L.stdTcodes, L.coverage, L.disposition, L.include, L.wkind, L.note];
     var lines = [head.map(cell).join(',')];
     (m.rows || []).forEach(function(r){

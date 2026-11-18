@@ -667,7 +667,8 @@ function setBaseline() {
 }
 function exportCsv() {
   var name = function (id) { var t = model.team.filter(function (x) { return x.id === id; })[0]; return t ? t.name : ''; };
-  var q = function (s) { s = String(s == null ? '' : s); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  // no cell is read as a formula: the rule of scripts/lib/csv-safe.mjs (CSV_FORMULA_START), copied — this script cannot import
+  var q = function (s) { s = String(s == null ? '' : s); if (/^[=+\-@\t\r]/.test(s)) s = "'" + s; return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
   var head = ['#', L.cols.label, L.cols.type, L.cols.ws, L.cols.owner, L.side.F, L.side.D, L.cols.start, L.cols.finish, L.cols.base + ' ' + L.cols.start, L.cols.base + ' ' + L.cols.finish, L.cols.pct, L.cols.status, L.cols.stage, L.cols.deps, 'RAG', 'id'];
   var rows = view.rows.map(function (r) { return [r.num, r.label, L.type[r.type], r.ws, name(r.owner), name(r.fnOwner), name(r.devOwner), r.start, r.finish, r.baseStart, r.baseFinish, r.pct, L.status[r.status], r.wricef ? L.stage[r.wricef.stage || 'req'] : '', (r.deps || []).map(function (d) { return nums[d] || d; }).join(' '), L.rag[r.rag], r.id]; });
   var csv = '\uFEFF' + [head].concat(rows).map(function (r) { return r.map(q).join(','); }).join('\r\n');

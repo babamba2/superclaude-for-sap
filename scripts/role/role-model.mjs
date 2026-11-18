@@ -9,6 +9,10 @@
 //   auths   5. authorization objects per technical role (object / field / value)
 //   sod     6. segregation-of-duties rules + the users and roles that break them
 //   revisions 7. change history
+//
+// One import: lib/csv-safe.mjs (role-page.mjs inlines it in front of this file for the browser).
+
+import { csvSafe } from '../lib/csv-safe.mjs';
 
 export const arr = (v) => (Array.isArray(v) ? v : []);
 export const LEVELS = ['F', 'C', 'D'];
@@ -186,8 +190,8 @@ export function addRevision(model, { author = '', note = '', major = false, vers
   return { model: m, version: nv };
 }
 
-/** RFC 4180 CSV with a BOM so Excel opens Korean text correctly. */
+/** RFC 4180 CSV with a BOM so Excel opens Korean text correctly; no cell is read as a formula (lib/csv-safe.mjs). */
 export function toCsv(head, rows) {
-  const q = (v) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const q = (v) => { const s = csvSafe(v == null ? '' : String(v)); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   return `﻿${[head, ...rows].map((r) => r.map(q).join(',')).join('\r\n')}\r\n`;
 }
