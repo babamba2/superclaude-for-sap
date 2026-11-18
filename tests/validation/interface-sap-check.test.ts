@@ -168,6 +168,15 @@ describe('interface spec — SAP object check', () => {
     expect(target.items.map((x: Args) => x.args.field).sort()).toEqual(['KEYF', 'REQFLD']);
   });
 
+  it('the Korean lines never carry the reader\'s English reason; English keeps it', () => {
+    const miss = { code: 'OBJ_MISSING', args: { object: 'ZNOPE', error: 'ZNOPE is no table, view, structure or function module this system can read' } };
+    expect(checkText(miss, 'ko')).toBe('ZNOPE: SAP에서 찾을 수 없어요 — 테이블·뷰·구조·함수 모듈로 읽히지 않아요');
+    expect(checkText(miss, 'en')).toContain('is no table, view, structure');
+    const par = { code: 'PARAM_UNREAD', args: { param: 'IT_X', why: 'type not readable — pass --line IT_X=<structure>' } };
+    expect(checkText(par, 'ko')).not.toMatch(/[A-Za-z]{4,}.*readable|--line/);
+    expect(checkText(par, 'en')).toContain('--line');
+  });
+
   it('texts in both languages', () => {
     expect(checkText({ code: 'FIXED_VALUES', args: { field: 'STATUS', domain: 'ZSTAT', values: ['A', 'B'], more: 0 } }, 'ko')).toBe('STATUS: 도메인 ZSTAT 고정값만 받아요 — A, B');
     expect(checkText({ code: 'TRUNC', args: { field: 'X', from: 12, to: 10 } }, 'en')).toBe('X: length 12 → 10 — may be cut');

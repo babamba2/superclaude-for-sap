@@ -232,11 +232,12 @@ export async function sapCheck(client, m) {
 
 // ── texts (the CLI summary and the web panel) ───────────────────────────────────────────────────────────────
 const TEXT = {
-  OBJ_MISSING: ['{object}: SAP에서 찾을 수 없어요 ({error})', '{object}: not found in SAP ({error})'],
+  // The reader's own reason ({error}, {why}) is English: the Korean lines say it in Korean instead (verifier-mobile, 2026-11-18).
+  OBJ_MISSING: ['{object}: SAP에서 찾을 수 없어요 — 테이블·뷰·구조·함수 모듈로 읽히지 않아요', '{object}: not found in SAP ({error})'],
   FM_NOT_RFC: ['{object}: RFC 가능 FM이 아니에요 (TFDIR FMODE "{fmode}")', '{object}: not RFC-enabled (TFDIR FMODE "{fmode}")'],
   FM_RFC_UNREAD: ['{object}: RFC 여부를 읽지 못했어요 (TFDIR)', '{object}: could not read whether it is RFC-enabled (TFDIR)'],
   FM_RFC: ['{object}: RFC 가능 FM이에요', '{object}: RFC-enabled'],
-  PARAM_UNREAD: ['파라미터 {param}의 타입을 읽지 못했어요 ({why})', 'parameter {param}: type not read ({why})'],
+  PARAM_UNREAD: ['파라미터 {param}의 타입을 읽지 못했어요 — 라인 구조를 알 수 없어요', 'parameter {param}: type not read ({why})'],
   MANDATORY_NO_ROW: ['필수 필드 {field}({group})가 명세에 없어요', 'mandatory field {field} ({group}) has no row in the spec'],
   FIELD_MISSING: ['{field}: {object}에 없는 필드예요', '{field}: no such field in {object}'],
   TYPE_CHANGED: ['{field}: 명세 {spec} ≠ SAP {sap}', '{field}: spec {spec} ≠ SAP {sap}'],
