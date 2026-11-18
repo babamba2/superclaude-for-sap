@@ -11,7 +11,9 @@
 // object URI) names the customer include ZX…; the include's source is read. A table component
 // counts as implemented when the customer include (CI_…) exists.
 
-import { readIn, readTable, tableDefinition } from './sap-reader.mjs';
+// sap-reader.mjs pulls the MCP SDK at its top: it is loaded only by the functions here that read SAP, so the pure
+// helpers of this file load where the plugin has no node_modules (the web image, 2026-11-18).
+const sapReader = () => import('./sap-reader.mjs');
 
 const SRC_CAP = 2000;
 const s = (v) => String(v ?? '').trim();
@@ -113,6 +115,7 @@ async function readSubIncludes(c, names, out, seen, depth = 0) {
  * Returns { byActivity: { id: [ENH] }, enh: { ENH: { text, projects, comps } }, errors }.
  */
 export async function readCmod(c, activities, docs, langs = ['3', 'E'], module = '', projects = '') {
+  const { readIn, readTable } = await sapReader();
   const errors = {};
   // Customer projects of the module (by project name): every enhancement they hold is shown on one
   // extra activity, also those no IMG documentation names (SD: V54B0001, V56…, ATP00001).
@@ -251,6 +254,7 @@ const exitSources = (comp) => [comp.source, ...Object.values(comp.subIncludes ||
 
 /** Finds the dispatch tables of the exits in cmod: [{ table, prog, org, orgText, fname, text }]. */
 export async function detectDispatchTables(c, cmod) {
+  const { tableDefinition } = await sapReader();
   const cand = new Set();
   for (const e of Object.values(cmod.enh)) {
     for (const comp of e.comps) {
@@ -287,6 +291,7 @@ export function parseDispatchSpec(v) {
  * registered) and reads the function modules they name. specs: given ones, else detected ones.
  */
 export async function addCmodDispatch(c, cmod, specs = null) {
+  const { readTable } = await sapReader();
   const list = specs?.length ? specs : await detectDispatchTables(c, cmod);
   cmod.dispatch = [];
   const byKey = {};
