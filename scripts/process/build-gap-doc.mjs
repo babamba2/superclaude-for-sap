@@ -73,7 +73,7 @@ const rowTools = (W, r) => `<span class="ed-only wbt">${r.level < 4 ? `<button t
 
 function groupRowHtml(g, T, r, { wb = false, W = null, tools = false } = {}) {
   const kids = g.rows.some(x => x.code !== r.code && (x.code.startsWith(`${r.code}.`) || x.parent === r.code));
-  const tg = kids ? `<span class="tg" role="button" tabindex="0" data-code="${esc(r.code)}" data-level="${r.level}" aria-label="toggle">▾</span>` : '';
+  const tg = kids ? `<span class="tg" role="button" tabindex="0" data-code="${esc(r.code)}" data-level="${r.level}" aria-expanded="true" aria-label="${esc(`${T.collapse} ${r.code}`)}">▾</span>` : '';
   return `<tr class="lv${r.level}" data-code="${esc(r.code)}" data-level="${r.level}"><td><code>${esc(r.code)}</code></td>`
     + `<td class="p" colspan="${wb ? 11 : 8}"><span style="padding-left:${(r.level - 1) * 16}px">${tg}${ed(P(r.code, 'label'), r.label)}</span>${tools ? rowTools(W, r) : ''}</td></tr>`;
 }

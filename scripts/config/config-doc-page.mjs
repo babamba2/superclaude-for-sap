@@ -77,6 +77,7 @@ li.open>.row .tw{transform:rotate(90deg)}li:not(.open)>ul{display:none}
 .row .cnt{margin-left:auto;font-size:11px;color:var(--mute);background:#eef2f6;border-radius:999px;padding:0 7px;flex:none}
 .leaf{display:flex;align-items:baseline;gap:7px;padding:4px 8px;border-radius:6px;font-size:13px;color:var(--ink);cursor:pointer}
 .leaf:hover{background:#eef2f6}.leaf.active{background:var(--sel);font-weight:600}.leaf .nb{margin-left:auto;font-size:11px}
+@media (pointer:coarse){.row,.leaf{min-height:44px;align-items:center}}
 .dot{width:7px;height:7px;border-radius:50%;flex:none;align-self:center}
 .s-custom{background:var(--custom)}.s-standard{background:var(--std)}.s-empty{background:var(--empty)}.s-none{background:var(--none)}.s-blocked{background:var(--blocked)}
 .hidden{display:none!important}mark{background:var(--hl);padding:0}
@@ -162,8 +163,8 @@ details.card summary{cursor:pointer;font-size:13px;color:var(--ink2);font-weight
 .lbc{margin:auto;flex:none;background:#fff;border-radius:6px;line-height:0}.lbc svg,.lbc img{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
 #ref .case .flow{cursor:zoom-in}
 .mock.shot img{display:block;max-width:100%;height:auto}
-@media (max-width:1300px){#ref{position:fixed;top:52px;right:0;bottom:0;z-index:10;transform:translateX(100%);transition:transform .2s;width:min(440px,92vw)}body.ref-open #ref{transform:none;box-shadow:0 0 0 100vw rgba(22,50,79,.35)}}
-@media (max-width:860px){aside{position:fixed;top:52px;bottom:0;left:0;z-index:11;transform:translateX(-100%);transition:transform .2s;width:min(340px,90vw)}body.menu-open aside{transform:none}#menubtn{display:block}main{padding:18px 16px 40px}}
+@media (max-width:1300px){#ref{position:fixed;top:52px;right:0;bottom:0;z-index:10;transform:translateX(100%);visibility:hidden;transition:transform .2s,visibility 0s .2s;width:min(440px,92vw)}body.ref-open #ref{transform:none;visibility:visible;transition:transform .2s;box-shadow:0 0 0 100vw rgba(22,50,79,.35)}}
+@media (max-width:860px){aside{position:fixed;top:52px;bottom:0;left:0;z-index:11;transform:translateX(-100%);visibility:hidden;transition:transform .2s,visibility 0s .2s;width:min(340px,90vw)}body.menu-open aside{transform:none;visibility:visible;transition:transform .2s}#menubtn{display:block}main{padding:18px 16px 40px}}
 @media (max-width:600px){header{gap:8px;padding:0 10px}header h1{font-size:14px;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}header .sub{display:none}header button{white-space:nowrap;padding:4px 7px;flex:none}#refbtn{margin-left:0}}
 @media print{header,aside,#ref,.navbtns,.tblbar{display:none!important}body{height:auto;overflow:visible;display:block}main{overflow:visible;padding:0}.tblwrap,.mock{max-height:none;overflow:visible}}
 `;
@@ -277,6 +278,9 @@ document.addEventListener('keydown',e=>{if(!$('#lb').classList.contains('on'))re
 let refTab='ref';
 $('#ref').addEventListener('click',e=>{const t=e.target.closest('[data-tab]');if(t){refTab=t.dataset.tab;return renderRef()}const c=e.target.closest('.chk');if(c&&c.dataset.act){go(c.dataset.act);document.body.classList.remove('ref-open')}const f=e.target.closest('.flow');if(f)openLb(f.innerHTML)});
 $('#refbtn').onclick=()=>document.body.classList.toggle('ref-open');$('#menubtn').onclick=()=>document.body.classList.toggle('menu-open');
+// The two drawer buttons say whether their drawer is open (a closed drawer is hidden by the stylesheet, so its controls are out of reach).
+const drawerState=()=>{$('#refbtn').setAttribute('aria-expanded',String(!matchMedia('(max-width:1300px)').matches||document.body.classList.contains('ref-open')));$('#menubtn').setAttribute('aria-expanded',String(document.body.classList.contains('menu-open')))};
+$('#refbtn').setAttribute('aria-controls','ref');new MutationObserver(drawerState).observe(document.body,{attributes:true,attributeFilter:['class']});matchMedia('(max-width:1300px)').addEventListener('change',drawerState);drawerState();
 const found=D.checks.filter(c=>c.items.length).sort((a,b)=>['error','warn','info'].indexOf(a.severity)-['error','warn','info'].indexOf(b.severity));
 function checklistHtml(){return '<div class="legend">'+STATUS.map(s=>'<span><i class="dot s-'+s+'"></i>'+esc(T[s])+'</span>').join('')+'</div>'+(found.length?found.map(checkHtml).join(''):'<p class="note">'+esc(T.checkNone)+'</p>')+D.checks.filter(c=>c.skipped).map(c=>'<p class="note">'+esc(c.id)+' '+esc(T.skipped)+': '+esc(c.skipped)+'</p>').join('')}
 function refHtml(id){const n=(D.notes||{})[id];if(!n||!EDIT&&!(n.sapdoc||n.cases||n.sources&&n.sources.length))return '<p class="note">'+esc(T.noRef)+'</p>';let h='';

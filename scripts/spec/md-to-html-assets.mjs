@@ -21,7 +21,7 @@ export const LABELS = {
     fold: 'Fold section', filter: 'Filter rows…', copyTsv: 'Copy TSV', copy: 'Copy',
     copied: 'Copied', copyFailed: 'Copy failed', rows: 'rows', viewAll: 'All',
     viewFunctional: 'Functional', view: 'View', theme: 'Theme', print: 'Print',
-    close: 'Close', code: 'Show code ({n} lines)', link: 'Link to this section', diffOnly: 'Differences only',
+    close: 'Close', zoom: 'Zoom', zoomIn: 'Zoom in', zoomOut: 'Zoom out', fit: 'Fit', code: 'Show code ({n} lines)', link: 'Link to this section', diffOnly: 'Differences only',
     callout: { NOTE: 'Note', TIP: 'Tip', IMPORTANT: 'Important', WARNING: 'Warning', CAUTION: 'Caution' },
   },
   ko: {
@@ -29,7 +29,7 @@ export const LABELS = {
     fold: '섹션 접기', filter: '행 필터…', copyTsv: 'TSV 복사', copy: '복사',
     copied: '복사됨', copyFailed: '복사 실패', rows: '행', viewAll: '전체',
     viewFunctional: '기능 관점', view: '보기', theme: '테마', print: '인쇄',
-    close: '닫기', code: '코드 보기 ({n}줄)', link: '이 섹션 링크', diffOnly: '차이만 보기',
+    close: '닫기', zoom: '크게 보기', zoomIn: '확대', zoomOut: '축소', fit: '화면 맞춤', code: '코드 보기 ({n}줄)', link: '이 섹션 링크', diffOnly: '차이만 보기',
     callout: { NOTE: '참고', TIP: '팁', IMPORTANT: '중요', WARNING: '경고', CAUTION: '주의' },
   },
   ja: {
@@ -37,7 +37,7 @@ export const LABELS = {
     fold: 'セクションを折りたたむ', filter: '行を絞り込み…', copyTsv: 'TSVコピー', copy: 'コピー',
     copied: 'コピーしました', copyFailed: 'コピー失敗', rows: '行', viewAll: 'すべて',
     viewFunctional: '機能観点', view: '表示', theme: 'テーマ', print: '印刷',
-    close: '閉じる', code: 'コードを表示 ({n}行)', link: 'このセクションへのリンク', diffOnly: '差分のみ',
+    close: '閉じる', zoom: '拡大表示', zoomIn: '拡大', zoomOut: '縮小', fit: '画面に合わせる', code: 'コードを表示 ({n}行)', link: 'このセクションへのリンク', diffOnly: '差分のみ',
     callout: { NOTE: '注記', TIP: 'ヒント', IMPORTANT: '重要', WARNING: '警告', CAUTION: '注意' },
   },
 };
@@ -84,6 +84,7 @@ table.meta th{width:1%;white-space:nowrap}
 img{max-width:100%;height:auto;background:#fff;border-radius:4px}
 figure{margin-left:0;margin-right:0;text-align:center}
 figure img{border:1px solid var(--line);cursor:zoom-in}
+main img.zoomable:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 figcaption{color:var(--muted);font-size:.9em;margin-top:.4em}
 details{border:1px solid var(--line);border-radius:6px;padding:.4em .8em}
 details>summary{cursor:pointer;color:var(--muted)}
@@ -141,8 +142,15 @@ button.fold{position:absolute;left:-1.6em;top:.15em;border:0;background:none;col
 .sec.collapsed>:not(h2){display:none}
 pre>button.copy{position:absolute;top:6px;right:6px;opacity:0;font-size:.75em;border:1px solid var(--line);border-radius:4px;background:var(--bg);color:var(--fg);cursor:pointer}
 pre:hover>button.copy{opacity:1}
-.lightbox{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.8);display:flex;align-items:center;justify-content:center;cursor:zoom-out;padding:24px}
-.lightbox img{max-width:100%;max-height:100%;object-fit:contain}
+.lightbox{position:fixed;inset:0;z-index:10;background:rgba(0,0,0,.86);display:flex;flex-direction:column}
+.lightbox .lb-bar{display:flex;gap:6px;justify-content:flex-end;align-items:center;padding:10px 14px;padding-top:max(10px,env(safe-area-inset-top));padding-right:max(14px,env(safe-area-inset-right))}
+.lightbox .lb-bar span{color:#fff;font-size:12px;min-width:48px;text-align:center}
+.lightbox .lb-bar button{background:#fff;color:#1f2328;border:0;border-radius:6px;min-width:34px;height:32px;padding:0 10px;font:inherit;font-size:14px;cursor:pointer}
+.lightbox .lb-view{flex:1;overflow:auto;display:flex;padding:0 24px 24px;cursor:grab;touch-action:none;overscroll-behavior:contain}
+.lightbox .lb-view.drag{cursor:grabbing}
+.lightbox .lb-canvas{margin:auto;flex:none;line-height:0}
+.lightbox .lb-canvas img{display:block;width:100%;height:100%;border:0;cursor:inherit;user-select:none;-webkit-user-select:none;-webkit-user-drag:none}
+@media (pointer:coarse),(max-width:600px){.lightbox .lb-bar button{min-width:44px;height:44px;font-size:16px}.lightbox .lb-view{padding:0 8px 8px;padding-bottom:max(8px,env(safe-area-inset-bottom))}}
 body.view-functional .tech,body.view-functional [data-audience=technical]{display:none}
 td.v{font-weight:600;white-space:nowrap}
 td.v-same{background:color-mix(in srgb,var(--tip) 13%,transparent)}
@@ -459,23 +467,162 @@ export const SCRIPT = `
     code.parentNode.appendChild(b);
   });
 
-  // Image zoom.
+  // Image zoom, the way the configuration document's viewer works: the picture opens fitted to the window
+  // (never enlarged past its own size); pinch, the wheel, the − + buttons and + - 0 zoom around the fingers or
+  // the pointer, one finger or the mouse pans, a double tap toggles fit and 2x; × (44 px on touch), Esc or a
+  // tap on the backdrop closes, and focus goes back where it was.
   main.addEventListener('click', function (event) {
     var img = event.target;
     if (img.tagName !== 'IMG' || img.closest('a')) return;
+    openZoom(img);
+  });
+  // Keyboard too: every zoomable picture is a button (Tab to it, Enter or Space opens the viewer; focus comes back on close).
+  Array.prototype.forEach.call(main.querySelectorAll('img'), function (img) {
+    if (img.closest('a')) return;
+    img.classList.add('zoomable');
+    img.tabIndex = 0;
+    img.setAttribute('role', 'button');
+    img.setAttribute('aria-label', img.alt ? L.zoom + ': ' + img.alt : L.zoom);
+  });
+  main.addEventListener('keydown', function (event) {
+    var img = event.target;
+    if (img.tagName !== 'IMG' || !img.classList.contains('zoomable')) return;
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    openZoom(img);
+  });
+  function openZoom(img) {
+    var back = document.activeElement;
     var box = el('div', 'lightbox');
     box.setAttribute('role', 'dialog');
-    box.title = L.close;
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', img.alt ? L.zoom + ': ' + img.alt : L.zoom);
+    var bar = el('div', 'lb-bar');
+    var view = el('div', 'lb-view');
+    var canvas = el('div', 'lb-canvas');
     var big = el('img');
-    big.src = img.src;
     big.alt = img.alt;
-    box.appendChild(big);
-    function close() { box.remove(); removeEventListener('keydown', onKey); }
-    function onKey(e) { if (e.key === 'Escape') close(); }
-    box.addEventListener('click', close);
+    big.draggable = false;
+    canvas.appendChild(big);
+    view.appendChild(canvas);
+    var pct = el('span');
+    var W = 1, H = 1, z = 1, fit = 1;
+    function zoom(next, cx, cy) {
+      var vr = view.getBoundingClientRect(), r = canvas.getBoundingClientRect();
+      if (cx == null) { cx = vr.left + vr.width / 2; cy = vr.top + vr.height / 2; }
+      var px = r.width ? (cx - r.left) / r.width : 0.5, py = r.height ? (cy - r.top) / r.height : 0.5;
+      z = Math.min(Math.max(fit * 8, 4), Math.max(fit / 4, next));
+      canvas.style.width = W * z + 'px';
+      canvas.style.height = H * z + 'px';
+      var r2 = canvas.getBoundingClientRect();
+      view.scrollLeft += r2.left + px * r2.width - cx;
+      view.scrollTop += r2.top + py * r2.height - cy;
+      pct.textContent = Math.round(z * 100) + '%';
+    }
+    function button(text, label, run) {
+      var b = el('button', null, text);
+      b.type = 'button';
+      b.title = label;
+      b.setAttribute('aria-label', label);
+      b.addEventListener('click', function (e) { e.stopPropagation(); run(); });
+      bar.appendChild(b);
+      return b;
+    }
+    button('\u2212', L.zoomOut, function () { zoom(z * 0.8); });
+    bar.appendChild(pct);
+    button('+', L.zoomIn, function () { zoom(z * 1.25); });
+    button(L.fit, L.fit, function () { zoom(fit); });
+    var closer = button('\u00d7', L.close, close);
+    box.appendChild(bar);
+    box.appendChild(view);
+    // Pointers: one pans, two pinch; a tap that did not move closes on the backdrop, two quick taps toggle 2x.
+    var pts = {}, drag = null, pinch = null, moved = false, lastTap = 0;
+    function count() { return Object.keys(pts).length; }
+    function two() { var k = Object.keys(pts); return [pts[k[0]], pts[k[1]]]; }
+    function startDrag(p) { drag = { x: p.x, y: p.y, l: view.scrollLeft, t: view.scrollTop }; }
+    view.addEventListener('pointerdown', function (e) {
+      if (e.button) return;
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      try { view.setPointerCapture(e.pointerId); } catch (err) {}
+      if (count() === 1) { moved = false; startDrag(pts[e.pointerId]); }
+      else if (count() === 2) {
+        var p = two();
+        pinch = { d: Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) || 1, z: z };
+        drag = null;
+        moved = true;
+      }
+    });
+    view.addEventListener('pointermove', function (e) {
+      if (!pts[e.pointerId]) return;
+      pts[e.pointerId] = { x: e.clientX, y: e.clientY };
+      if (pinch && count() >= 2) {
+        var p = two();
+        zoom(pinch.z * Math.hypot(p[0].x - p[1].x, p[0].y - p[1].y) / pinch.d, (p[0].x + p[1].x) / 2, (p[0].y + p[1].y) / 2);
+      } else if (drag) {
+        var dx = e.clientX - drag.x, dy = e.clientY - drag.y;
+        if (Math.abs(dx) + Math.abs(dy) > 4) { moved = true; view.classList.add('drag'); }
+        view.scrollLeft = drag.l - dx;
+        view.scrollTop = drag.t - dy;
+      }
+    });
+    function up(e) {
+      if (!pts[e.pointerId]) return;
+      delete pts[e.pointerId];
+      if (count() < 2) pinch = null;
+      if (count() === 1) { var k = Object.keys(pts)[0]; startDrag(pts[k]); return; }
+      if (count() > 0) return;
+      drag = null;
+      view.classList.remove('drag');
+      if (moved || e.type === 'pointercancel') return;
+      var now = Date.now();
+      if (now - lastTap < 320) { lastTap = 0; zoom(Math.abs(z - fit) < 0.01 ? fit * 2 : fit, e.clientX, e.clientY); return; }
+      lastTap = now;
+      var tapped = e.target;
+      // A single tap on the backdrop closes (after the double-tap window, so a double tap there zooms).
+      if (tapped === view) setTimeout(function () { if (lastTap === now) close(); }, 330);
+    }
+    view.addEventListener('pointerup', up);
+    view.addEventListener('pointercancel', up);
+    view.addEventListener('wheel', function (e) { e.preventDefault(); zoom(z * Math.exp(-e.deltaY * 0.0015), e.clientX, e.clientY); }, { passive: false });
+    function close() {
+      box.remove();
+      removeEventListener('keydown', onKey);
+      body.style.overflow = '';
+      if (back && back.focus) back.focus();
+    }
+    function onKey(e) {
+      var k = e.key;
+      if (k === 'Escape') close();
+      else if (k === '+' || k === '=') zoom(z * 1.25);
+      else if (k === '-') zoom(z * 0.8);
+      else if (k === '0') zoom(fit);
+      else if (k === 'Tab') {
+        // Focus stays in the viewer.
+        var all = bar.querySelectorAll('button'), first = all[0], last = all[all.length - 1];
+        if (e.shiftKey && document.activeElement === first) last.focus();
+        else if (!e.shiftKey && document.activeElement === last) first.focus();
+        else if (!box.contains(document.activeElement)) first.focus();
+        else return;
+      } else return;
+      e.preventDefault();
+    }
     addEventListener('keydown', onKey);
+    body.style.overflow = 'hidden';
     body.appendChild(box);
-  });
+    closer.focus();
+    function ready() {
+      W = big.naturalWidth || 1;
+      H = big.naturalHeight || 1;
+      var cs = getComputedStyle(view);
+      var w = view.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      var h = view.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      fit = Math.min(w / W, h / H, 1);
+      zoom(fit);
+    }
+    big.addEventListener('load', ready);
+    big.src = img.currentSrc || img.src;
+    if (big.complete && big.naturalWidth) ready();
+  }
 
   // Print: everything open, then put it back.
   var restore = [];
