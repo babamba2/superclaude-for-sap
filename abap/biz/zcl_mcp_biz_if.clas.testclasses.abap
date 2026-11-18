@@ -9,7 +9,8 @@
 CLASS ltcl_keys DEFINITION DEFERRED.
 CLASS ltcl_fence DEFINITION DEFERRED.
 CLASS ltcl_describe DEFINITION DEFERRED.
-CLASS zcl_mcp_biz_if DEFINITION LOCAL FRIENDS ltcl_keys ltcl_fence ltcl_describe.
+CLASS ltcl_logflags DEFINITION DEFERRED.
+CLASS zcl_mcp_biz_if DEFINITION LOCAL FRIENDS ltcl_keys ltcl_fence ltcl_describe ltcl_logflags.
 
 CLASS ltcl_keys DEFINITION FINAL FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
   PRIVATE SECTION.
@@ -525,6 +526,80 @@ CLASS ltcl_describe IMPLEMENTATION.
     cl_abap_unit_assert=>assert_equals( act = mo_cut->short_text( `a|b` ) exp = `a/b` ).
     lv_long = repeat( val = `x` occ = 70 ).
     cl_abap_unit_assert=>assert_equals( act = strlen( mo_cut->short_text( lv_long ) ) exp = 60 ).
+  ENDMETHOD.
+
+ENDCLASS.
+
+
+*"* ltcl_logflags: IF.LOG.CHECK verdicts on log row texts — no database, no values returned.
+CLASS ltcl_logflags DEFINITION FINAL FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.
+  PRIVATE SECTION.
+    DATA mo_cut TYPE REF TO zcl_mcp_biz_if.
+    METHODS setup.
+    METHODS clean_executed_row FOR TESTING.
+    METHODS fresh_preview_keeps_hash FOR TESTING.
+    METHODS used_row_with_hash FOR TESTING.
+    METHODS old_row_with_values FOR TESTING.
+    METHODS extra_parameter_key FOR TESTING.
+ENDCLASS.
+
+
+CLASS ltcl_logflags IMPLEMENTATION.
+
+  METHOD setup.
+    CREATE OBJECT mo_cut.
+  ENDMETHOD.
+
+
+  METHOD clean_executed_row.
+    " What the value-free log writes: fixed rows, a document count, a message without text.
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_cut->log_flags(
+              iv_params_json = `{"fm_name":"BAPI_COMPANYCODE_GETDETAIL"}`
+              iv_result_json = `{"action":"IF.TEST.CALL","rows":[{"row":1,"name":"posting.limit","value":"x"},`
+                            && `{"row":2,"name":"committed","value":"false (rolled back)"},{"row":3,"name":"log.doc_count","value":"1"}],`
+                            && `"messages":[{"type":"W","id":"FN","number":"021","message":""}]}`
+              iv_hash        = ``
+              iv_status      = `E` )
+      exp = `N|N|N|N|N|N|Y` ).
+  ENDMETHOD.
+
+
+  METHOD fresh_preview_keeps_hash.
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_cut->log_flags( iv_params_json = `{"fm_name":"BAPI_COMPANYCODE_GETLIST"}` iv_result_json = ``
+                               iv_hash = `0123456789ABCDEF0123456789ABCDEF01234567` iv_status = `P` )
+      exp = `N|Y|N|N|N|N|Y` ).
+  ENDMETHOD.
+
+
+  METHOD used_row_with_hash.
+    " A used token must not keep its hash.
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_cut->log_flags( iv_params_json = `{"fm_name":"BAPI_COMPANYCODE_GETLIST"}` iv_result_json = `{}`
+                               iv_hash = `0123456789ABCDEF0123456789ABCDEF01234567` iv_status = `E` )
+      exp = `N|Y|N|N|N|N|N` ).
+  ENDMETHOD.
+
+
+  METHOD old_row_with_values.
+    " A row from before the value-free log: output, signature, document number and message text.
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_cut->log_flags(
+              iv_params_json = `{"fm_name":"BAPI_COMPANYCODE_GETDETAIL"}`
+              iv_result_json = `{"rows":[{"row":1,"name":"sig.I.COMPANYCODEID","value":"x"},{"row":2,"name":"fm_result","value":"{}"},`
+                            && `{"row":3,"name":"doc_no.EV_DOC","value":"4711"}],"messages":[{"type":"W","message":"Address data not found"}]}`
+              iv_hash        = ``
+              iv_status      = `E` )
+      exp = `N|N|Y|Y|Y|Y|N` ).
+  ENDMETHOD.
+
+
+  METHOD extra_parameter_key.
+    cl_abap_unit_assert=>assert_equals(
+      act = mo_cut->log_flags( iv_params_json = `{"fm_name":"BAPI_COMPANYCODE_GETDETAIL","fm_params":"{}"}`
+                               iv_result_json = `{}` iv_hash = `` iv_status = `F` )
+      exp = `Y|N|N|N|N|N|N` ).
   ENDMETHOD.
 
 ENDCLASS.

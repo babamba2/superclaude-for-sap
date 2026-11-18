@@ -875,6 +875,8 @@ CLASS zcl_mcp_biz_exec IMPLEMENTATION.
         lv_list = 'doc_category ebeln vbeln kschl'.
       WHEN 'IF.TEST.CALL'.
         lv_list = 'fm_name fm_params ack_posting commit'.
+      WHEN 'IF.LOG.CHECK'.
+        lv_list = 'date_from max_rows'.
       WHEN 'LE.SHP.LIST'.
         lv_list = 'tplst shtyp status date_basis max_rows'.
       WHEN 'LE.SHP.GET_DETAIL'.

@@ -95,6 +95,66 @@
         }
       ],
       "verified_on": []
+    },
+    {
+      "id": "IF.LOG.CHECK",
+      "object": "InterfaceLog",
+      "kind": "query",
+      "risk": "none",
+      "chat": false,
+      "title": "Check that my interface test log rows hold no values",
+      "intents": {
+        "en": [
+          "check the interface test log",
+          "are there values in the interface test log"
+        ],
+        "ko": [
+          "인터페이스 테스트 로그 점검",
+          "인터페이스 테스트 로그에 값이 남았는지"
+        ]
+      },
+      "params": [
+        {
+          "name": "date_from",
+          "type": "date",
+          "required": false,
+          "note": "first day to check (YYYY-MM-DD); default today"
+        },
+        {
+          "name": "max_rows",
+          "type": "integer",
+          "required": false,
+          "note": "newest rows first; default 50, at most 200"
+        }
+      ],
+      "rules": [
+        "only the caller's own IF.* rows of ZMCP_BIZ_LOG, in the logon client",
+        "returns no value: token (first 8 characters), action, status, creation time and Y / N flags (extra keys, hash set, fm_result, sig, doc_no, message text, ok)",
+        "a QUERY: not written to the log itself"
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "ZMCP_BIZ_LOG"
+          ],
+          "method": "select (own user, this client), flags computed in ABAP",
+          "note": "7.40 and later only, like IF.TEST.CALL"
+        },
+        "S4": {
+          "source": [
+            "ZMCP_BIZ_LOG"
+          ],
+          "method": "select (own user, this client), flags computed in ABAP"
+        }
+      },
+      "auth": [
+        {
+          "object": "none",
+          "fields": {},
+          "note": "the caller's own log rows; no business data"
+        }
+      ],
+      "verified_on": []
     }
   ]
 }

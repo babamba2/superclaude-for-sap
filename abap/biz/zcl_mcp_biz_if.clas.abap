@@ -52,6 +52,16 @@ CLASS zcl_mcp_biz_if DEFINITION
 * level, at most c_max_fields, then fld.limit). Messages: RETURN-type
 * parameters (BAPIRET*), exceptions, ERROR_MESSAGE.
 *
+* IF.LOG.CHECK (query, read only, not logged): the caller's own IF.* rows of ZMCP_BIZ_LOG in this client since
+* date_from (default today, local time zone), newest first, at most max_rows (default 50, at most 200). Never a
+* value: per row the token's first 8 characters, the action, status, creation time and Y / N flags —
+*   extra     params_json has a key other than fm_name
+*   hash      params_hash is set (expected only while a P token can still be used)
+*   fm_result / sig / doc_no   result_json holds such a row
+*   msg_text  result_json holds a message with text
+*   ok        none of the value flags, and no hash left on a used row (status <> P)
+* Rows written before the value-free log (6375408) and the hash lifetime (d1a8e72) show their old content.
+*
 * 7.40 / S/4HANA only (/UI2/CL_JSON). Not installed on 7.31.
 
   PUBLIC SECTION.
@@ -59,6 +69,7 @@ CLASS zcl_mcp_biz_if DEFINITION
 
   PRIVATE SECTION.
     CONSTANTS c_action TYPE string VALUE 'IF.TEST.CALL'.
+    CONSTANTS c_action_log TYPE string VALUE 'IF.LOG.CHECK'.
     CONSTANTS c_max_result TYPE i VALUE 200000.
     CONSTANTS c_max_params TYPE i VALUE 100000.
     CONSTANTS c_max_includes TYPE i VALUE 60.
@@ -133,6 +144,18 @@ CLASS zcl_mcp_biz_if DEFINITION
       IMPORTING iv_fm          TYPE rs38l_fnam
       RETURNING VALUE(rv_hit) TYPE abap_bool.
 
+    " IF.LOG.CHECK: read the caller's own IF.* log rows; log_flags judges one row without returning values.
+    METHODS log_check
+      IMPORTING is_params        TYPE zif_mcp_biz_action=>ty_params
+      RETURNING VALUE(rs_result) TYPE zif_mcp_biz_action=>ty_result.
+
+    METHODS log_flags
+      IMPORTING iv_params_json  TYPE string
+                iv_result_json  TYPE string
+                iv_hash         TYPE csequence
+                iv_status       TYPE csequence
+      RETURNING VALUE(rv_flags) TYPE string.
+
     " PREVIEW rows for the web input form: pdesc.<PARAM> per parameter, fld.<PARAM>.<FIELD> per field of a
     " structure / table parameter (one level), at most iv_max field rows, then fld.limit.
     METHODS describe_params
@@ -193,13 +216,133 @@ CLASS zcl_mcp_biz_if IMPLEMENTATION.
     " Must match configs/IF/actions.json.
     ls_def-id = c_action. ls_def-kind = 'write'. ls_def-risk = 'high'.
     APPEND ls_def TO rt_actions.
+    ls_def-id = c_action_log. ls_def-kind = 'query'. ls_def-risk = 'none'.
+    APPEND ls_def TO rt_actions.
   ENDMETHOD.
 
 
   METHOD zif_mcp_biz_action~query.
+    IF iv_action = c_action_log.
+      rs_result = log_check( is_params ).
+      rs_result-action = iv_action.
+      rs_result-mode   = 'QUERY'.
+      RETURN.
+    ENDIF.
     rs_result-action = iv_action.
     add_msg( EXPORTING iv_type = 'E' iv_text = |{ iv_action } is not a query action|
              CHANGING cs_result = rs_result ).
+  ENDMETHOD.
+
+
+  METHOD log_check.
+    DATA: lt_log   TYPE STANDARD TABLE OF zmcp_biz_log,
+          ls_log   TYPE zmcp_biz_log,
+          lv_s     TYPE string,
+          lv_date  TYPE d,
+          lv_from  TYPE timestampl,
+          lv_zone  TYPE tznzone,
+          lv_max   TYPE i,
+          lv_bad   TYPE i,
+          lv_flags TYPE string,
+          lv_tok   TYPE c LENGTH 8,
+          lv_time  TYPE t,
+          lv_n     TYPE i.
+
+    " date_from: YYYY-MM-DD or YYYYMMDD; default today.
+    lv_date = sy-datum.
+    IF is_params-date_from IS NOT INITIAL.
+      lv_s = is_params-date_from.
+      REPLACE ALL OCCURRENCES OF '-' IN lv_s WITH ''.
+      IF strlen( lv_s ) <> 8 OR lv_s CN '0123456789'.
+        add_msg( EXPORTING iv_type = 'E' iv_text = 'date_from must be a date (YYYY-MM-DD)' CHANGING cs_result = rs_result ).
+        RETURN.
+      ENDIF.
+      lv_date = lv_s.
+    ENDIF.
+    lv_max = 50.
+    IF is_params-max_rows IS NOT INITIAL.
+      IF is_params-max_rows CN '0123456789'.
+        add_msg( EXPORTING iv_type = 'E' iv_text = 'max_rows must be a number' CHANGING cs_result = rs_result ).
+        RETURN.
+      ENDIF.
+      lv_max = is_params-max_rows.
+      IF lv_max < 1 OR lv_max > 200.
+        lv_max = 200.
+      ENDIF.
+    ENDIF.
+    lv_zone = sy-zonlo.
+    IF lv_zone IS INITIAL.
+      lv_zone = 'UTC'.
+    ENDIF.
+    CONVERT DATE lv_date TIME lv_time INTO TIME STAMP lv_from TIME ZONE lv_zone.
+
+    " The caller's own rows, in the logon client only.
+    SELECT * FROM zmcp_biz_log INTO TABLE lt_log UP TO lv_max ROWS
+      WHERE uname = sy-uname AND action_id LIKE 'IF.%' AND created_at >= lv_from
+      ORDER BY created_at DESCENDING.
+
+    add_kv( EXPORTING iv_name = 'log.columns'
+                      iv_value = 'token8|action|status|created_utc|extra|hash|fm_result|sig|doc_no|msg_text|ok'
+            CHANGING ct_rows = rs_result-rows ).
+    LOOP AT lt_log INTO ls_log.
+      lv_n = lv_n + 1.
+      lv_tok = ls_log-token(8).
+      lv_flags = log_flags( iv_params_json = ls_log-params_json iv_result_json = ls_log-result_json
+                            iv_hash = ls_log-params_hash iv_status = ls_log-status ).
+      IF lv_flags NP '*|Y'.
+        lv_bad = lv_bad + 1.
+      ENDIF.
+      add_kv( EXPORTING iv_name  = |log.{ lv_n }|
+                        iv_value = |{ lv_tok }\|{ ls_log-action_id }\|{ ls_log-status }\|{ ls_log-created_at TIMESTAMP = ISO }\|{ lv_flags }|
+              CHANGING ct_rows = rs_result-rows ).
+    ENDLOOP.
+    IF lines( lt_log ) >= lv_max.
+      rs_result-truncated = abap_true.
+    ENDIF.
+    rs_result-summary = |{ lv_n } IF log rows of { sy-uname } since { lv_date DATE = ISO }: { lv_bad } not ok|.
+  ENDMETHOD.
+
+
+  METHOD log_flags.
+    " Y / N: extra|hash|fm_result|sig|doc_no|msg_text|ok — the row's values never leave this method.
+    DATA: lt_keys  TYPE string_table,
+          lv_key   TYPE string,
+          lv_extra TYPE c LENGTH 1 VALUE 'N',
+          lv_hash  TYPE c LENGTH 1 VALUE 'N',
+          lv_fm    TYPE c LENGTH 1 VALUE 'N',
+          lv_sig   TYPE c LENGTH 1 VALUE 'N',
+          lv_doc   TYPE c LENGTH 1 VALUE 'N',
+          lv_msg   TYPE c LENGTH 1 VALUE 'N',
+          lv_ok    TYPE c LENGTH 1 VALUE 'Y'.
+
+    lt_keys = json_top_keys( iv_params_json ).
+    LOOP AT lt_keys INTO lv_key.
+      IF lv_key <> 'FM_NAME'.
+        lv_extra = 'Y'.
+        EXIT.
+      ENDIF.
+    ENDLOOP.
+    IF iv_hash IS NOT INITIAL.
+      lv_hash = 'Y'.
+    ENDIF.
+    IF iv_result_json CS '"name":"fm_result"'.
+      lv_fm = 'Y'.
+    ENDIF.
+    IF iv_result_json CS '"name":"sig.'.
+      lv_sig = 'Y'.
+    ENDIF.
+    IF iv_result_json CS '"name":"doc_no.'.
+      lv_doc = 'Y'.
+    ENDIF.
+    FIND REGEX `"message":"[^"]` IN iv_result_json.
+    IF sy-subrc = 0.
+      lv_msg = 'Y'.
+    ENDIF.
+    IF lv_extra = 'Y' OR lv_fm = 'Y' OR lv_sig = 'Y' OR lv_doc = 'Y' OR lv_msg = 'Y'
+        OR ( lv_hash = 'Y' AND iv_status <> 'P' ).
+      lv_ok = 'N'.
+    ENDIF.
+    rv_flags = |{ lv_extra }\|{ lv_hash }\|{ lv_fm }\|{ lv_sig }\|{ lv_doc }\|{ lv_msg }\|{ lv_ok }|.
   ENDMETHOD.
 
 

@@ -84,13 +84,13 @@ describe('IF catalog and executor wiring', () => {
     expect(cat.channel).toBe('web');
     expect(loadCatalogs().some((c: { module: string }) => c.module === 'IF')).toBe(false);
   });
-  it('"chat": false on the action: kept out of the chat even once verified', () => {
-    expect(cat.actions[0].chat).toBe(false);
+  it('"chat": false on every IF action: kept out of the chat even once verified', () => {
+    for (const a of cat.actions) expect(a.chat, a.id).toBe(false);
     expect(readFileSync(join(ROOT, 'scripts', 'assist', 'catalog.mjs'), 'utf8')).toContain('.filter((a) => a.chat !== false)');
   });
-  it('the handler lists exactly the catalog\'s action', () => {
+  it('the handler lists exactly the catalog\'s actions', () => {
     expect(src).toContain("CONSTANTS c_action TYPE string VALUE 'IF.TEST.CALL'.");
-    expect(cat.actions.map((a: { id: string }) => a.id)).toEqual(['IF.TEST.CALL']);
+    expect(cat.actions.map((a: { id: string }) => a.id)).toEqual(['IF.TEST.CALL', 'IF.LOG.CHECK']);
   });
   for (const f of ['zcl_mcp_biz_exec.clas.abap', '731/zcl_mcp_biz_exec.clas.abap']) {
     it(`${f} reaches IF through optional_handler and lists it`, () => {
@@ -124,7 +124,8 @@ describe('IF catalog and executor wiring', () => {
     expect(names.length).toBeGreaterThan(5);
     const known = [/^sig\.\{ ls_par-kind \}\.\{ ls_par-name \}$/, /^posting\.limit$/, /^posting\.sign$/, /^posting\.self_commit$/,
       /^fm_result$/, /^committed$/, /^doc_no\.\{ ls_par-name \}$/, /^doc_no\.message$/,
-      /^pdesc\.\{ ls_par-name \}$/, /^fld\.\{ ls_par-name \}\.\{ ls_dfies-fieldname \}$/, /^fld\.limit$/];
+      /^pdesc\.\{ ls_par-name \}$/, /^fld\.\{ ls_par-name \}\.\{ ls_dfies-fieldname \}$/, /^fld\.limit$/,
+      /^log\.columns$/, /^log\.\{ lv_n \}$/];
     for (const n of names) expect(known.some((k) => k.test(n)), n).toBe(true);
   });
 
@@ -324,7 +325,7 @@ describe('ZCL_MCP_BIZ_IF — parameter description rows for the input form', () 
   });
 
   it('ABAP Unit covers both BAPIs of the contract, the limit and the text cleanup', () => {
-    expect(tsrc).toContain('CLASS zcl_mcp_biz_if DEFINITION LOCAL FRIENDS ltcl_keys ltcl_fence ltcl_describe.');
+    expect(tsrc).toMatch(/CLASS zcl_mcp_biz_if DEFINITION LOCAL FRIENDS ltcl_keys ltcl_fence ltcl_describe[ .]/);
     for (const m of ['exchange_rate', 'company_list', 'field_limit', 'text_cleanup']) expect(tsrc).toContain(`METHODS ${m} FOR TESTING.`);
     expect(tsrc).toContain('exp = `S|BAPI1093_2-TRANS_DATE|D|8|0|*`');
     expect(tsrc).toContain('exp = `T|BAPI0002_1||||*`');
@@ -368,4 +369,55 @@ describe('ZCL_MCP_BIZ_EXEC — parameter hash kept only while the token is usabl
       expect(x.indexOf("params_hash = space\n      WHERE token = lv_token AND status = 'P'.")).toBeLessThan(x.indexOf('io_handler->execute('));
     });
   }
+});
+
+// IF.LOG.CHECK (2026-11-18): a read-only check of the caller's own IF.* log rows — verdicts, never values.
+describe('ZCL_MCP_BIZ_IF — IF.LOG.CHECK', () => {
+  const cat = JSON.parse(readFileSync(join(ROOT, 'configs', 'IF', 'actions.json'), 'utf8'));
+  const tsrc = readFileSync(join(ROOT, 'abap', 'biz', 'zcl_mcp_biz_if.clas.testclasses.abap'), 'utf8').replace(/\r\n/g, '\n');
+
+  it('catalog: a web-only query with date_from / max_rows, out of the chat', () => {
+    const a = cat.actions.find((x: { id: string }) => x.id === 'IF.LOG.CHECK');
+    expect(a.kind).toBe('query');
+    expect(a.risk).toBe('none');
+    expect(a.chat).toBe(false);
+    expect(a.params.map((p: { name: string }) => p.name)).toEqual(['date_from', 'max_rows']);
+    for (const f of ['zcl_mcp_biz_exec.clas.abap', '731/zcl_mcp_biz_exec.clas.abap']) {
+      const e = readFileSync(join(ROOT, 'abap', 'biz', f), 'utf8').replace(/\r\n/g, '\n');
+      expect(e, f).toMatch(/WHEN 'IF\.LOG\.CHECK'\.\n\s+lv_list = 'date_from max_rows'\./);
+    }
+  });
+
+  it('the handler lists it as a query and routes QUERY to log_check', () => {
+    expect(src).toContain("CONSTANTS c_action_log TYPE string VALUE 'IF.LOG.CHECK'.");
+    expect(body('zif_mcp_biz_action~get_actions')).toContain("ls_def-id = c_action_log. ls_def-kind = 'query'. ls_def-risk = 'none'.");
+    expect(body('zif_mcp_biz_action~query')).toMatch(/IF iv_action = c_action_log\.\n\s+rs_result = log_check\( is_params \)\./);
+  });
+
+  it("reads only the caller's own IF.* rows in this client, and returns flags, never the stored texts", () => {
+    const l = body('log_check');
+    expect(l).toMatch(/SELECT \* FROM zmcp_biz_log INTO TABLE lt_log UP TO lv_max ROWS\n\s+WHERE uname = sy-uname AND action_id LIKE 'IF\.%' AND created_at >= lv_from/);
+    expect(l).not.toMatch(/CLIENT SPECIFIED|USING CLIENT/i);
+    expect(l).not.toMatch(/UPDATE|INSERT|DELETE|MODIFY|COMMIT/);
+    // the only per-row output: the token's first 8 characters, action, status, time and the flags
+    expect(l).toContain('lv_tok = ls_log-token(8).');
+    expect(l).toContain('iv_value = |{ lv_tok }\\|{ ls_log-action_id }\\|{ ls_log-status }\\|{ ls_log-created_at TIMESTAMP = ISO }\\|{ lv_flags }|');
+    const outputs = [...l.matchAll(/iv_value\s*=\s*([^\n]+)/g)].map((m) => m[1]);
+    for (const o of outputs) expect(o, o).not.toMatch(/params_json|result_json|params_hash|idem_key/);
+    expect(l).toContain('lv_max = 50.');
+    expect(l).toMatch(/IF lv_max < 1 OR lv_max > 200\.\n\s+lv_max = 200\./);
+  });
+
+  it('flags: extra key, hash set, fm_result / sig / doc_no rows, message text, ok', () => {
+    const g = body('log_flags');
+    expect(g).toContain("IF lv_key <> 'FM_NAME'.");
+    expect(g).toContain(`IF iv_result_json CS '"name":"fm_result"'.`);
+    expect(g).toContain(`IF iv_result_json CS '"name":"sig.'.`);
+    expect(g).toContain(`IF iv_result_json CS '"name":"doc_no.'.`);
+    expect(g).toContain('FIND REGEX `"message":"[^"]` IN iv_result_json.');
+    expect(g).toMatch(/OR \( lv_hash = 'Y' AND iv_status <> 'P' \)\.\n\s+lv_ok = 'N'\./);
+    expect(tsrc).toContain('CLASS zcl_mcp_biz_if DEFINITION LOCAL FRIENDS ltcl_keys ltcl_fence ltcl_describe ltcl_logflags.');
+    for (const m of ['clean_executed_row', 'fresh_preview_keeps_hash', 'used_row_with_hash', 'old_row_with_values', 'extra_parameter_key'])
+      expect(tsrc).toContain(`METHODS ${m} FOR TESTING.`);
+  });
 });
