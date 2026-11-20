@@ -1,0 +1,312 @@
+<!doctype html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>sc4sap 플러그인 핵심기능</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#f5f6f8;--card:#fff;--ink:#1c2029;--sub:#5b6474;--line:#e3e6ee;--brand:#5b3fd6;--soft:#efebff}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#111317;--card:#171a1f;--ink:#e6e9ee;--sub:#a0a8b6;--line:#2a2f38;--soft:#1f2433}}
+:root[data-theme="dark"]{--bg:#111317;--card:#171a1f;--ink:#e6e9ee;--sub:#a0a8b6;--line:#2a2f38;--soft:#1f2433}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif;line-height:1.6;word-break:keep-all}
+.wrap{max-width:1120px;margin:0 auto;padding:0 16px}
+.tag{display:inline-block;background:var(--soft);color:var(--brand);font-weight:700;font-size:13px;padding:4px 12px;border-radius:99px}
+.hero{display:grid;grid-template-columns:1fr 1.15fr;gap:36px;align-items:center;padding:56px 0 24px}
+h1{font-size:clamp(30px,4.6vw,48px);line-height:1.2;margin:14px 0 12px;font-weight:900;letter-spacing:-.02em}
+h1 em{font-style:normal;color:var(--brand)}
+.lead{font-size:18px;color:var(--sub);margin:0 0 18px}
+.bl{background:var(--card);border:2px solid var(--brand);border-radius:14px;padding:16px 20px}
+.bl b.k{color:var(--brand)}.bl ul{margin:6px 0 0;padding-left:20px}
+h2{font-size:clamp(22px,3vw,30px);margin:64px 0 6px;font-weight:900;letter-spacing:-.01em}
+.h2s{color:var(--sub);margin:0 0 22px;font-size:16px}
+.map{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}
+.map .col{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;border-top:5px solid var(--c)}
+.map h4{margin:0 0 8px;font-size:15px}
+.map a{display:block;color:var(--ink);text-decoration:none;font-size:14px;padding:5px 8px;border-radius:8px;margin:2px -8px}
+.map a:hover{background:var(--soft)}
+.grp{display:flex;align-items:center;gap:10px;margin:56px 0 16px}
+.grp span{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;font-size:18px;background:var(--c)}
+.grp h3{margin:0;font-size:22px}
+.feat{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:24px;margin-bottom:18px;scroll-margin-top:16px}
+.fh{display:flex;justify-content:space-between;gap:12px;flex-wrap:wrap;align-items:baseline}
+.fn{font-weight:800;font-size:14px;color:var(--c)}
+.sk{font-family:Consolas,monospace;font-size:12.5px;background:var(--soft);padding:2px 8px;border-radius:6px;color:var(--sub)}
+.feat h3.t{font-size:clamp(19px,2.4vw,24px);margin:4px 0 6px;line-height:1.35}
+.feat p.d{margin:0 0 12px;color:var(--sub)}
+.ba{display:inline-flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:14px;margin-bottom:16px}
+.ba .b{background:#fdf2e3;color:#92400e;border-radius:8px;padding:3px 10px}
+.ba .a{background:#e5f6ef;color:#0f6b4a;border-radius:8px;padding:3px 10px;font-weight:700}
+.vis{display:grid;grid-template-columns:1fr 1fr;gap:18px;align-items:start}
+.vis>div,.hero>div{min-width:0}
+.term .ln{overflow-wrap:anywhere}
+.cap{font-size:12.5px;color:var(--sub);margin:0 0 6px;font-weight:700}
+.term{background:#15161e;color:#c9d1e0;border-radius:12px;font-family:Consolas,"D2Coding",monospace;font-size:12.5px;overflow:hidden;box-shadow:0 10px 30px rgba(0,0,0,.25);min-height:260px}
+.term .tb{background:#22242f;padding:8px 12px;display:flex;gap:6px;align-items:center;color:#7f8799;font-size:11px}
+.term .tb i{width:10px;height:10px;border-radius:50%;background:#ff5f57}.term .tb i:nth-child(2){background:#febc2e}.term .tb i:nth-child(3){background:#28c840}
+.term .tb b{margin-left:8px;font-weight:400}
+.term .bd{padding:12px 14px}
+.term .ln{white-space:pre-wrap;margin:2px 0}
+.ln.u{color:#fff;background:#2a2d3a;border-radius:6px;padding:4px 8px;margin:4px 0 8px}
+.ln.u::before{content:"> ";color:#d97757}
+.ln.s::before{content:"● ";color:#d97757}.ln.s{color:#e8b48f;font-weight:700}
+.ln.c{color:#8b93a7;padding-left:14px}.ln.c::before{content:"⎿  ";color:#555b6b}
+.ln.r{color:#e2e8f0;padding-left:0}.ln.r::before{content:"● ";color:#fff}
+.ln.d{color:#4ade80}.ln.d::before{content:"✓ "}
+.cur{display:inline-block;width:7px;height:14px;background:#d97757;vertical-align:-2px;animation:bk 1s steps(1) infinite}
+@keyframes bk{50%{opacity:0}}
+.more{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.more div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px 14px;font-size:14px}
+.more code{display:block;color:var(--brand);font-size:12.5px;margin-bottom:2px}
+.safe{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px}
+.safe div{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.safe b{display:block;margin-bottom:2px}
+.cmp{width:100%;border-collapse:collapse;background:var(--card);border-radius:12px;overflow:hidden;font-size:15px}
+.cmp th,.cmp td{padding:12px 14px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+.cmp th{background:var(--soft)}
+.steps{counter-reset:s;list-style:none;padding:0;margin:0;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+.steps li{counter-increment:s;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:44px 14px 14px;position:relative;font-size:14.5px}
+.steps li::before{content:counter(s);position:absolute;left:14px;top:12px;width:26px;height:26px;border-radius:50%;background:var(--brand);color:#fff;font-weight:700;display:grid;place-items:center;font-size:13px}
+footer{color:var(--sub);font-size:13.5px;padding:48px 0 60px}
+/* web app shell */
+.app{display:grid;grid-template-columns:118px 1fr;min-height:300px;background:#f5f6f8}
+.rail{background:#eceef2;padding:10px 6px;font-size:11px;color:#4b5563;border-right:1px solid #dde1e7}
+.rail .lg{font-weight:900;color:#2f3540;font-size:13px;padding:2px 6px 10px}
+.rail div.it{padding:4px 7px;border-radius:6px;margin:1px 0;white-space:nowrap}
+.rail div.on{background:#2f3540;color:#fff;font-weight:700}
+.main{padding:12px;min-width:0}
+.topb{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;font-size:11px;color:#6b7280}
+.topb b{color:#1f2430;font-size:13px}
+.sys{background:#dcfce7;color:#15803d;border-radius:99px;padding:1px 8px;font-weight:700}
+.shot .main .shot-in{background:#fff;border:1px solid #e3e6ee;border-radius:8px;padding:12px}
+.phones{display:flex;gap:28px;justify-content:center;flex-wrap:wrap}
+.phone{width:250px;background:#111;border-radius:34px;padding:10px;box-shadow:0 18px 40px rgba(0,0,0,.25)}
+.phone .scr{background:#fff;border-radius:26px;overflow:hidden;min-height:470px;font-size:12px;color:#1f2430}
+.phone .nt{height:22px;display:flex;justify-content:center;align-items:center}.phone .nt i{width:70px;height:6px;background:#111;border-radius:6px}
+.phone .ph{display:flex;justify-content:space-between;padding:6px 14px;border-bottom:1px solid #eceef2;font-weight:800}
+.phone .pb{padding:10px}
+.inp{display:flex;gap:6px;margin-top:10px}.inp span{flex:1;background:#f0f2f5;border-radius:99px;padding:6px 12px;color:#9ca3af;font-size:11px}
+.inp b{background:#2f3540;color:#fff;border-radius:99px;padding:6px 12px;font-size:11px}
+.cost{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin:10px 0}
+.cost div{border:1.5px solid #dde1e7;border-radius:8px;padding:8px}.cost div.on{border-color:#2f3540;background:#f8f9fb}
+.cost b{display:block;font-size:13px}
+.fld{margin:6px 0}.fld small{display:block;color:#6b7280}.fld span{display:block;border:1px solid #d6dbe2;border-radius:6px;padding:4px 8px;background:#fff}
+.prog div{display:flex;gap:6px;align-items:center;padding:3px 0;font-size:11px}.prog .ok{color:#15803d}.prog .run{color:#2563eb;font-weight:700}
+@media (max-width:900px){.hero,.vis{grid-template-columns:1fr}.map{grid-template-columns:repeat(2,1fr)}.steps{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.map,.steps{grid-template-columns:1fr}.feat{padding:16px}.app{grid-template-columns:76px 1fr}.rail{font-size:10px}.hero{padding-top:32px}}
+@media (prefers-reduced-motion:reduce){.cur{animation:none}}
+@media print{.feat{break-inside:avoid}}
+
+.shot{background:#fff;color:#1f2430;border-radius:10px;overflow:hidden;border:1px solid #d8dce4;box-shadow:0 10px 30px rgba(20,30,60,.12);font-size:12px;line-height:1.45;text-align:left}
+.shot-bar{display:flex;align-items:center;gap:6px;background:#eceff4;padding:8px 10px;border-bottom:1px solid #d8dce4}
+.shot-bar i{width:10px;height:10px;border-radius:50%;background:#ff5f57;display:inline-block}
+.shot-bar i:nth-child(2){background:#febc2e}.shot-bar i:nth-child(3){background:#28c840}
+.shot-bar span{flex:1;margin-left:8px;background:#fff;border-radius:6px;padding:3px 10px;color:#6b7280;font-size:11px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.shot-body{padding:14px}
+.m-h{font-weight:800;font-size:14px;margin:0 0 2px}.m-s{color:#6b7280;font-size:11px;margin:0 0 10px}
+.m-row{display:flex;gap:8px;flex-wrap:wrap}
+.m-kpi{flex:1;min-width:80px;background:#f5f6f8;border-radius:8px;padding:8px 10px}
+.m-kpi b{display:block;font-size:20px;line-height:1.1}.m-kpi small{color:#6b7280}
+.up{color:#b91c1c}.dn{color:#15803d}
+.m-t{width:100%;border-collapse:collapse;font-size:11px;margin-top:8px}
+.m-t th{background:#f0f2f5;text-align:left;padding:5px 6px;font-weight:700}
+.m-t td{padding:5px 6px;border-bottom:1px solid #eceef2}
+.pill{display:inline-block;padding:1px 8px;border-radius:99px;font-size:10px;font-weight:700}
+.p-ok{background:#dcfce7;color:#15803d}.p-warn{background:#fef3c7;color:#b45309}.p-bad{background:#fee2e2;color:#b91c1c}.p-info{background:#e0ecff;color:#1d4ed8}
+.m-box{border-radius:8px;padding:8px 10px;margin:8px 0}
+.b-bad{background:#fef2f2;border-left:4px solid #dc2626}.b-ok{background:#f0fdf4;border-left:4px solid #16a34a}.b-info{background:#eff6ff;border-left:4px solid #2563eb}
+.m-code{background:#1e2230;color:#d6deeb;font-family:Consolas,monospace;font-size:11px;border-radius:8px;padding:8px 0;margin:8px 0;overflow:hidden}
+.m-code div{padding:0 10px;white-space:pre}.m-code .hl{background:rgba(248,113,113,.25);border-left:3px solid #f87171}
+.m-code em{color:#6b7280;font-style:normal;display:inline-block;width:30px}
+.chip{display:inline-block;background:#eef1f6;border-radius:6px;padding:2px 7px;margin:2px;font-size:10.5px}
+.gui{background:#dfe6ee;border:1px solid #b7c3d0;border-radius:6px;overflow:hidden}
+.gui-t{background:#2c4a6e;color:#fff;padding:4px 8px;font-weight:700;font-size:11px}
+.gui-tb{background:#edf1f5;padding:4px 8px;border-bottom:1px solid #c4ced9;font-size:10px;color:#334}
+.gui-tb b{display:inline-block;background:#fff;border:1px solid #b7c3d0;border-radius:3px;padding:0 5px;margin-right:3px;font-weight:400}
+.alv{width:100%;border-collapse:collapse;background:#fff;font-size:10.5px}
+.alv th{background:#c9d6e3;padding:3px 5px;text-align:left;border-right:1px solid #fff}
+.alv td{padding:3px 5px;border-bottom:1px solid #e3e8ee}
+.alv tr:nth-child(even) td{background:#f4f7fa}
+.steps-m{display:flex;gap:4px;margin:8px 0;flex-wrap:wrap}
+.steps-m span{flex:1;min-width:58px;text-align:center;background:#dcfce7;color:#15803d;border-radius:6px;padding:4px 2px;font-weight:700;font-size:10.5px}
+.split{display:grid;grid-template-columns:110px 1fr;gap:10px}
+.tree div{padding:2px 0;color:#374151;font-size:11px}.tree .on{background:#e0ecff;border-radius:4px;font-weight:700;padding-left:4px}
+.chg td{background:#fff7d6 !important}
+.a4{background:#fff;width:72%;margin:0 auto;aspect-ratio:1/1.3;box-shadow:0 2px 10px rgba(0,0,0,.18);padding:14px;font-size:9px;position:relative}
+.bubble{border-radius:12px;padding:8px 11px;margin:6px 0;max-width:88%}
+.b-me{background:#2f3540;color:#fff;margin-left:auto;border-bottom-right-radius:3px}
+.b-ai{background:#f0f2f5;border-bottom-left-radius:3px}
+.btn-m{display:inline-block;border-radius:6px;padding:4px 12px;font-weight:700;font-size:11px;margin-right:4px}
+.bk{background:#2f3540;color:#fff}.bl{background:#fff;border:1px solid #cfd4db}
+.gantt div{display:flex;align-items:center;gap:6px;margin:4px 0;font-size:10.5px}
+.gantt span.l{width:72px;color:#374151}.gantt .tr{flex:1;background:#f0f2f5;height:12px;border-radius:4px;position:relative}
+.gantt .bar{position:absolute;top:0;height:12px;border-radius:4px}
+.hm{display:grid;gap:2px;font-size:9.5px}
+.hm div{padding:4px 2px;text-align:center;border-radius:3px}
+</style></head><body><div class="wrap"><section class="hero"><div><span class="tag">sc4sap 플러그인 · Claude Code</span>
+<h1>SAP 일을<br><em>말 한마디로</em> 끝내요.</h1>
+<p class="lead">sc4sap은 AI(Claude)를 우리 SAP에 직접 연결해요. AI가 시스템을 읽고, 원인을 찾고, 프로그램과 문서를 만들어요.</p>
+<div class="bl"><b class="k">결론부터</b><ul><li>장애 분석 · 개발 · 문서 · 테스트 · 프로젝트 관리를 <b>AI 팀이</b> 해요.</li><li>결과는 <b>바로 쓰는 HTML 문서</b>로 나와요.</li><li>운영(PRD)은 읽기만, 변경은 <b>승인 후에만</b>. ECC · S/4HANA 모두 지원.</li></ul></div></div>
+<div><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">어젯밤 청구 배치가 왜 덤프 났어?</div><div class="ln s">sc4sap:analyze-symptom</div><div class="ln c">RuntimeListDumps  · 어제 덤프 3건</div><div class="ln c">RuntimeGetDumpById · CONVT_NO_NUMBER</div><div class="ln c">GetProgram ZDEMO_BILLING_RUN · 214행</div><div class="ln c">GetTransport DEVK900812 · 11/18 변경</div><div class="ln r">원인: 결제조건 빈 값을 숫자로 변환하다 중단</div><div class="ln d">symptom-ZDEMO_BILLING_RUN.html</div></div></div></div></section><h2>한눈에 보기</h2><p class="h2s">역할별 핵심 기능 16가지예요. 누르면 해당 설명으로 가요.</p><div class="map"><div class="col" style="--c:#dc2626"><h4>🛠 운영 (SM · AMS)</h4><a href="#f-symptom">장애 원인 분석</a><a href="#f-ops">운영 보고서</a><a href="#f-transport">이관 전 점검</a></div><div class="col" style="--c:#2563eb"><h4>⌨ 개발</h4><a href="#f-create">프로그램 개발</a><a href="#f-test">이관 전 프로그램 테스트</a><a href="#f-review">코드 리뷰</a><a href="#f-form">출력 양식</a></div><div class="col" style="--c:#0f8a5f"><h4>💬 현업 · 컨설팅</h4><a href="#f-assist">업무 문서 조회·처리</a><a href="#f-consultant">모듈 컨설턴트 Q&A</a></div><div class="col" style="--c:#7c3aed"><h4>📄 문서 · 분석</h4><a href="#f-spec">설계서 · 매뉴얼</a><a href="#f-config">설정 문서화</a><a href="#f-relmap">CBO 관계 지도 · 영향도</a><a href="#f-process">프로세스 지도</a></div><div class="col" style="--c:#d97706"><h4>📊 PM · PMO</h4><a href="#f-dashboard">프로젝트 대시보드</a><a href="#f-roles">권한 · SoD</a><a href="#f-uat">UAT · 통합 테스트</a></div></div><div class="grp" style="--c:#dc2626"><span>🛠</span><h3>운영 (SM · AMS)</h3></div><section class="feat" id="f-symptom" style="--c:#dc2626"><div class="fh"><span class="fn">장애 원인 분석</span><span class="sk">/sc4sap:analyze-symptom</span></div>
+<h3 class="t">덤프가 나면, 원인과 고칠 줄을 바로 짚어줘요.</h3><p class="d">덤프와 실패한 소스를 직접 읽어요. 필요하면 최근 이관과 연관 객체까지 따라가요. 시스템은 아무것도 바꾸지 않아요.</p>
+<div class="ba"><span class="b">지금: ST22 → 소스 → 이관 이력, 반나절</span>→<span class="a">sc4sap: 원인 · 근거 줄 · 조치를 한 장으로</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">어젯밤 청구 배치가 왜 덤프 났어?</div><div class="ln s">sc4sap:analyze-symptom</div><div class="ln c">RuntimeListDumps  · 어제 덤프 3건</div><div class="ln c">RuntimeGetDumpById · CONVT_NO_NUMBER</div><div class="ln c">GetProgram ZDEMO_BILLING_RUN · 214행</div><div class="ln c">GetTransport DEVK900812 · 11/18 변경</div><div class="ln r">원인: 결제조건 빈 값을 숫자로 변환하다 중단</div><div class="ln d">symptom-ZDEMO_BILLING_RUN.html</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/symptom-ZDEMO_BILLING_RUN.html</span></div><div class="shot-body"><p class="m-h">덤프 원인 분석 · ZDEMO_BILLING_RUN</p><p class="m-s">CONVT_NO_NUMBER · 어제 23:41 · 배치 사용자</p>
+<div class="m-box b-bad"><b>원인</b> — 고객 마스터의 결제조건이 비어 있어요. 빈 값을 숫자로 바꾸다가 덤프가 났어요.</div>
+<div class="m-code"><div><em>212</em>LOOP AT lt_items INTO ls_item.</div><div><em>213</em>  ls_out-kunnr = ls_item-kunnr.</div><div class="hl"><em>214</em>  ls_out-days  = ls_item-zterm+1(3).  " ← 여기서 중단</div><div><em>215</em>  APPEND ls_out TO lt_out.</div></div>
+<div class="m-box b-ok"><b>조치</b> — 214행 앞에 빈 값 체크 추가. 고객 3건 결제조건 보완.</div>
+<span class="chip">SAP Note 검색어: CONVT_NO_NUMBER ZTERM</span><span class="chip">관련 이관: DEVK900812 (11/18)</span></div></div></div></div></section><section class="feat" id="f-ops" style="--c:#dc2626"><div class="fh"><span class="fn">운영 보고서</span><span class="sk">/sc4sap:ops-health-check</span></div>
+<h3 class="t">주간·월간 운영 보고서가 그대로 나와요.</h3><p class="d">덤프, 배치 잡 실패, 업데이트 오류, IDoc 오류를 모아 지난 기간과 비교해요. 조치·담당·기한 표까지 있어 고객과 PMO에 바로 내요.</p>
+<div class="ba"><span class="b">지금: 화면 캡처 + 엑셀 정리</span>→<span class="a">sc4sap: 지표 · 추이 · 조치표 자동 작성</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">지난주 운영 보고서 만들어줘</div><div class="ln s">sc4sap:ops-health-check</div><div class="ln c">RuntimeListDumps · 128건 (지난주 166건)</div><div class="ln c">배치 잡 · 중단 7건</div><div class="ln c">업데이트 오류 3건 · IDoc 오류 41건</div><div class="ln r">IDoc 오류 ▲12 — 거래처 마스터 쪽 집중</div><div class="ln d">ops-report-2026-W47.html</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/ops-report-2026-W47.html</span></div><div class="shot-body"><p class="m-h">주간 운영 보고서</p><p class="m-s">11/13 – 11/19 · 지난주와 비교</p>
+<div class="m-row"><div class="m-kpi"><small>덤프</small><b>128</b><small class="dn">▼ 23%</small></div><div class="m-kpi"><small>잡 실패</small><b>7</b><small class="up">▲ 2</small></div><div class="m-kpi"><small>업데이트 오류</small><b>3</b><small class="dn">▼ 1</small></div><div class="m-kpi"><small>IDoc 오류</small><b>41</b><small class="up">▲ 12</small></div></div>
+<svg viewBox="0 0 300 84" width="100%" role="img" aria-label="일별 덤프 추이"><rect x="2" y="18.66666666666667" width="17.428571428571427" height="51.33333333333333" rx="2" fill="#c7cdd8"/><rect x="23.428571428571427" y="28" width="17.428571428571427" height="42" rx="2" fill="#c7cdd8"/><rect x="44.857142857142854" y="11.666666666666664" width="17.428571428571427" height="58.333333333333336" rx="2" fill="#c7cdd8"/><rect x="66.28571428571428" y="0" width="17.428571428571427" height="70" rx="2" fill="#c7cdd8"/><rect x="87.71428571428571" y="21" width="17.428571428571427" height="49" rx="2" fill="#c7cdd8"/><rect x="109.14285714285714" y="49" width="17.428571428571427" height="21" rx="2" fill="#c7cdd8"/><rect x="130.57142857142856" y="56" width="17.428571428571427" height="14" rx="2" fill="#c7cdd8"/><rect x="152" y="25.66666666666667" width="17.428571428571427" height="44.33333333333333" rx="2" fill="#2563eb"/><rect x="173.42857142857142" y="37.333333333333336" width="17.428571428571427" height="32.666666666666664" rx="2" fill="#2563eb"/><rect x="194.85714285714283" y="14" width="17.428571428571427" height="56" rx="2" fill="#2563eb"/><rect x="216.28571428571428" y="30.333333333333336" width="17.428571428571427" height="39.666666666666664" rx="2" fill="#2563eb"/><rect x="237.7142857142857" y="42" width="17.428571428571427" height="28" rx="2" fill="#2563eb"/><rect x="259.1428571428571" y="58.333333333333336" width="17.428571428571427" height="11.666666666666666" rx="2" fill="#2563eb"/><rect x="280.57142857142856" y="60.666666666666664" width="17.428571428571427" height="9.333333333333334" rx="2" fill="#2563eb"/><text x="0" y="82" font-size="9" fill="#6b7280">지난주</text><text x="300" y="82" font-size="9" fill="#6b7280" text-anchor="end">이번 주</text></svg>
+<table class="m-t"><tr><th>이슈</th><th>담당</th><th>기한</th><th>상태</th></tr>
+<tr><td>IDoc 51 상태 급증 (거래처 마스터)</td><td>SD팀</td><td>11/22</td><td><span class="pill p-bad">조치 필요</span></td></tr>
+<tr><td>야간 정산 잡 2회 중단</td><td>FI팀</td><td>11/21</td><td><span class="pill p-warn">진행 중</span></td></tr>
+<tr><td>TIME_OUT 덤프 감소</td><td>Basis</td><td>—</td><td><span class="pill p-ok">완료</span></td></tr></table></div></div></div></div></section><section class="feat" id="f-transport" style="--c:#dc2626"><div class="fh"><span class="fn">이관 전 점검</span><span class="sk">/sc4sap:transport-readiness</span></div>
+<h3 class="t">이관 요청마다 "가도 됨 · 확인 · 막힘"을 판정해요.</h3><p class="d">열린 태스크, 비활성 객체, 겹치는 객체와 순서, 빠진 DDIC를 봐요. 대상 시스템과 비교해 덮어쓸 변경도 찾아요. CAB 변경 노트도 써요.</p>
+<div class="ba"><span class="b">지금: 운영에서 터지고 나서 발견</span>→<span class="a">sc4sap: 이관 전에 사유와 함께 판정</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">오늘 밤 PRD 이관 목록 점검해줘</div><div class="ln s">sc4sap:transport-readiness</div><div class="ln c">ListTransports · 요청 5건</div><div class="ln c">GetInactiveObjects · 0건</div><div class="ln c">겹치는 객체 · 900812 ↔ 900820</div><div class="ln r">가도 됨 3 · 확인 1 · 막힘 1</div><div class="ln d">transport-readiness-PRD.html</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/transport-readiness-PRD.html</span></div><div class="shot-body"><p class="m-h">이관 전 점검 · 대상 PRD</p><p class="m-s">요청 5건 · 가도 됨 3 · 확인 1 · 막힘 1</p>
+<table class="m-t"><tr><th>요청</th><th>내용</th><th>판정</th><th>사유</th></tr>
+<tr><td>DEVK900812</td><td>청구 배치 수정</td><td><span class="pill p-ok">가도 됨</span></td><td>—</td></tr>
+<tr><td>DEVK900815</td><td>구매 리포트 필드 추가</td><td><span class="pill p-ok">가도 됨</span></td><td>—</td></tr>
+<tr><td>DEVK900820</td><td>출하 인터페이스</td><td><span class="pill p-warn">확인</span></td><td>900812와 같은 객체 → 순서 지킬 것</td></tr>
+<tr><td>DEVK900823</td><td>신규 테이블 ZDEMO_LOG</td><td><span class="pill p-bad">막힘</span></td><td>쓰는 데이터 요소가 미릴리스 요청에 있음</td></tr>
+<tr><td>DEVK900826</td><td>메시지 텍스트</td><td><span class="pill p-ok">가도 됨</span></td><td>—</td></tr></table>
+<div class="m-box b-info"><b>CAB 변경 노트</b> 자동 작성 · 영향 범위 · 롤백 방법 포함</div></div></div></div></div></section><div class="grp" style="--c:#2563eb"><span>⌨</span><h3>개발</h3></div><section class="feat" id="f-create" style="--c:#2563eb"><div class="fh"><span class="fn">프로그램 개발</span><span class="sk">/sc4sap:create-program</span></div>
+<h3 class="t">말로 요청하면 ABAP 프로그램이 완성돼요.</h3><p class="d">리포트·ALV·배치를 설계 → 코딩 → 리뷰 → 활성화까지 해요. 기존 Z 객체를 먼저 찾아 재사용하고, 모든 변경은 이관 요청에 담아요.</p>
+<div class="ba"><span class="b">지금: 외주 대기, 수주일</span>→<span class="a">sc4sap: 요청 당일 DEV에서 실행</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">미결 판매오더를 ALV로 보여주는 리포트 만들어줘</div><div class="ln s">sc4sap:create-program</div><div class="ln c">기존 CBO 검색 · 재사용 2개</div><div class="ln c">CreateProgram ZDEMO_SO_OPEN + 인클루드 4개</div><div class="ln c">문법 점검 OK · 코드 리뷰 OK</div><div class="ln c">ActivateObjects · DEVK900830</div><div class="ln d">ZDEMO_SO_OPEN 활성화 완료</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>SAP GUI · ZDEMO_SO_OPEN</span></div><div class="shot-body"><div class="steps-m"><span>요구사항 ✓</span><span>설계 ✓</span><span>코딩 ✓</span><span>리뷰 ✓</span><span>활성화 ✓</span></div>
+<div class="gui"><div class="gui-t">미결 판매오더 현황 (ZDEMO_SO_OPEN)</div><div class="gui-tb"><b>⟳</b><b>▼ 필터</b><b>Σ 합계</b><b>⬇ 엑셀</b></div>
+<table class="alv"><tr><th>판매오더</th><th>고객</th><th>품목</th><th style="text-align:right">미결 수량</th><th>납기</th></tr>
+<tr><td>10004512</td><td>한빛상사</td><td>모터 A</td><td style="text-align:right">120</td><td>11/25</td></tr>
+<tr><td>10004519</td><td>대한유통</td><td>브래킷</td><td style="text-align:right">40</td><td>11/26</td></tr>
+<tr><td>10004533</td><td>한빛상사</td><td>커버</td><td style="text-align:right">300</td><td>11/29</td></tr>
+<tr><td>10004540</td><td>서울기계</td><td>모터 B</td><td style="text-align:right">15</td><td>12/02</td></tr></table></div>
+<p class="m-s" style="margin:8px 0 0">메인 + 인클루드 4개 · 이관 DEVK900830 · 문법 점검·활성화 완료</p></div></div></div></div></section><section class="feat" id="f-test" style="--c:#2563eb"><div class="fh"><span class="fn">이관 전 프로그램 테스트</span><span class="sk">/sc4sap:program-test</span></div>
+<h3 class="t">QA에 보내기 전에, 실제 데이터로 먼저 테스트해요.</h3><p class="d">스펙과 소스로 기대 결과를 먼저 정하고, 실제 데이터로 ABAP Unit을 돌려요. 일부러 오류를 심어 테스트 자체도 검증해요.</p>
+<div class="ba"><span class="b">지금: QA에서 처음 발견</span>→<span class="a">sc4sap: DEV에서 미리 실패 케이스 확인</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">청구 배치 이관 전에 테스트해줘</div><div class="ln s">sc4sap:program-test</div><div class="ln c">테스트 케이스 4개 · 기대 결과 고정</div><div class="ln c">DEV 데이터 읽기 · 민감 정보 마스킹</div><div class="ln c">RunUnitTest · 통과 3 · 실패 1</div><div class="ln d">실패: 통화 USD 환율 미적용</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/program-test-ZDEMO_BILLING_RUN.html</span></div><div class="shot-body"><p class="m-h">프로그램 테스트 · ZDEMO_BILLING_RUN</p><p class="m-s">DEV · 실제 데이터 기반 · ABAP Unit</p>
+<table class="m-t"><tr><th>케이스</th><th>기대 결과</th><th>결과</th></tr>
+<tr><td>정상 청구 3건</td><td>합계 1,250,000</td><td><span class="pill p-ok">통과</span></td></tr>
+<tr><td>결제조건 빈 값</td><td>오류 메시지, 덤프 없음</td><td><span class="pill p-ok">통과</span></td></tr>
+<tr><td>통화 USD</td><td>환율 적용</td><td><span class="pill p-bad">실패</span></td></tr>
+<tr><td>취소된 오더</td><td>제외</td><td><span class="pill p-ok">통과</span></td></tr></table>
+<div class="m-box b-ok"><b>테스트 자체 검증</b> — 일부러 심은 오류 5개 중 5개를 잡았어요.</div></div></div></div></div></section><section class="feat" id="f-review" style="--c:#2563eb"><div class="fh"><span class="fn">코드 리뷰</span><span class="sk">/sc4sap:analyze-code</span></div>
+<h3 class="t">코드 리뷰를 근거 줄과 함께 받아요.</h3><p class="d">성능, 보안(권한 점검), 오류 처리, Clean ABAP을 봐요. 발견마다 실제 줄을 다시 확인해 헛짚은 지적을 걸러요.</p>
+<div class="ba"><span class="b">지금: 시니어 리뷰 대기</span>→<span class="a">sc4sap: 심각도 순 목록 + 고칠 방법</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">ZDEMO_MM_REPORT 코드 리뷰해줘</div><div class="ln s">sc4sap:analyze-code</div><div class="ln c">GetProgFullCode · 1,240행</div><div class="ln c">성능 · 보안 · 오류 처리 점검</div><div class="ln c">근거 줄 재확인 · 6건 유효</div><div class="ln d">높음 2 · 중간 1 · 낮음 3</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/review-ZDEMO_MM_REPORT.html</span></div><div class="shot-body"><p class="m-h">코드 리뷰 · ZDEMO_MM_REPORT</p><p class="m-s">발견 6건 · 근거 줄 확인 완료</p>
+<table class="m-t"><tr><th>심각도</th><th>내용</th><th>위치</th></tr>
+<tr><td><span class="pill p-bad">높음</span></td><td>루프 안 SELECT → 성능 저하</td><td>148행</td></tr>
+<tr><td><span class="pill p-bad">높음</span></td><td>권한 점검 없음 (AUTHORITY-CHECK)</td><td>32행</td></tr>
+<tr><td><span class="pill p-warn">중간</span></td><td>SY-SUBRC 확인 누락</td><td>201행</td></tr>
+<tr><td><span class="pill p-info">낮음</span></td><td>사용하지 않는 변수 3개</td><td>여러 곳</td></tr></table>
+<div class="m-code"><div class="hl"><em>148</em>  SELECT SINGLE * FROM mara ...  " 루프 안</div><div><em> → </em>  FOR ALL ENTRIES 로 한 번에 읽기</div></div></div></div></div></div></section><section class="feat" id="f-form" style="--c:#2563eb"><div class="fh"><span class="fn">출력 양식</span><span class="sk">/sc4sap:smartform-preview · smartform-from-pdf</span></div>
+<h3 class="t">출력 프로그램 없이 SmartForm 출력 모양을 미리 봐요.</h3><p class="d">창 위치, 폰트, 표, 로고까지 실제 크기로 그려요. 잘리는 칸을 알려줘요. 종이 양식 PDF에서 SmartForm을 만들 수도 있어요.</p>
+<div class="ba"><span class="b">지금: 테스트 데이터 만들어 인쇄</span>→<span class="a">sc4sap: 바로 미리보기 이미지</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">ZDEMO_INVOICE 출력 미리보기 보여줘</div><div class="ln s">sc4sap:smartform-preview</div><div class="ln c">창 · 스타일 · 그래픽 읽기</div><div class="ln c">샘플 값 채우기</div><div class="ln d">preview-ZDEMO_INVOICE.jpg · 잘림 0</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/preview-ZDEMO_INVOICE.jpg</span></div><div class="shot-body"><div class="a4"><div style="display:flex;justify-content:space-between"><div style="background:#1e3a8a;color:#fff;font-weight:800;padding:4px 8px;border-radius:3px">DEMO CORP</div><div style="text-align:right"><b style="font-size:12px">거래명세서</b><br>No. 90001234</div></div>
+<div style="margin:10px 0;border:1px solid #333;padding:4px">공급받는 자: 한빛상사 귀하<br>일자: 2026-11-20</div>
+<table style="width:100%;border-collapse:collapse;font-size:8.5px"><tr><td style="border:1px solid #333;padding:2px 4px;background:#e5e7eb;font-weight:700">품목</td><td style="border:1px solid #333;padding:2px 4px;background:#e5e7eb;font-weight:700">수량</td><td style="border:1px solid #333;padding:2px 4px;background:#e5e7eb;font-weight:700">금액</td></tr><tr><td style="border:1px solid #333;padding:2px 4px;">모터 A</td><td style="border:1px solid #333;padding:2px 4px;">120</td><td style="border:1px solid #333;padding:2px 4px;">3,600,000</td></tr><tr><td style="border:1px solid #333;padding:2px 4px;">브래킷</td><td style="border:1px solid #333;padding:2px 4px;">40</td><td style="border:1px solid #333;padding:2px 4px;">320,000</td></tr><tr><td style="border:1px solid #333;padding:2px 4px;">커버</td><td style="border:1px solid #333;padding:2px 4px;">300</td><td style="border:1px solid #333;padding:2px 4px;">900,000</td></tr></table>
+<div style="position:absolute;bottom:14px;right:14px;text-align:right"><b>합계 4,820,000</b><br><span style="color:#b91c1c;border:1.5px solid #b91c1c;border-radius:50%;padding:4px;display:inline-block;margin-top:4px">인</span></div></div>
+<p class="m-s" style="margin:8px 0 0;text-align:center">출력 프로그램 없이 미리보기 · 잘리는 칸 0개</p></div></div></div></div></section><div class="grp" style="--c:#0f8a5f"><span>💬</span><h3>현업 · 컨설팅</h3></div><section class="feat" id="f-assist" style="--c:#0f8a5f"><div class="fh"><span class="fn">업무 문서 조회·처리</span><span class="sk">/sc4sap:assist</span></div>
+<h3 class="t">"이 PO 납기 바꿔줘" — 말하면 처리해요. 단, 승인 후에만.</h3><p class="d">미결 PO, 입고, 출하·청구 보류, 전표, 생산오더, 보전오더까지 조회하고 처리해요. 변경은 항상 미리보기 → "예" → 다시 읽어 확인해요.</p>
+<div class="ba"><span class="b">지금: T-code 여러 개 오가며 처리</span>→<span class="a">sc4sap: 한 문장 → 미리보기 → 승인</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">PO 4500001234 납기를 12월 5일로 바꿔줘</div><div class="ln s">sc4sap:assist</div><div class="ln c">PO 조회 · 품목 2개</div><div class="ln r">미리보기: 11/28 → 12/05 (품목 10, 20)</div><div class="ln u">예</div><div class="ln c">변경 실행 · 다시 읽어 확인</div><div class="ln d">변경 완료 · 두 품목 모두 12/05</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>Claude Code 대화 화면</span></div><div class="shot-body"><div class="bubble b-me">PO 4500001234 납기를 12월 5일로 바꿔줘</div>
+<div class="bubble b-ai"><b>바꾸기 전에 확인해 주세요.</b>
+<table class="m-t"><tr><th>품목</th><th>지금</th><th>변경</th></tr><tr><td>10 · 모터 A</td><td>2026-11-28</td><td><b>2026-12-05</b></td></tr><tr><td>20 · 브래킷</td><td>2026-11-28</td><td><b>2026-12-05</b></td></tr></table>
+<div style="margin-top:8px"><span class="btn-m bk">예, 바꿔요</span><span class="btn-m bl">취소</span></div></div>
+<div class="bubble b-ai">✓ 변경 완료 · 다시 읽어서 두 품목 모두 12/05 확인했어요.</div></div></div></div></div></section><section class="feat" id="f-consultant" style="--c:#0f8a5f"><div class="fh"><span class="fn">모듈 컨설턴트 Q&A</span><span class="sk">/sc4sap:ask-consultant</span></div>
+<h3 class="t">모듈 컨설턴트가 우리 시스템 설정을 보고 답해요.</h3><p class="d">SD·MM·FI·CO·PP 등 모듈별 AI 컨설턴트가 일반론이 아니라 우리 시스템의 실제 설정값을 근거로 답해요.</p>
+<div class="ba"><span class="b">지금: 컨설턴트 일정 잡고 대기</span>→<span class="a">sc4sap: 바로 묻고, 설정 경로까지 받기</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">출하 보류가 자동으로 걸리는 이유가 뭐야?</div><div class="ln s">sc4sap:ask-consultant → SD 컨설턴트</div><div class="ln c">오더 유형 ZOR 설정 읽기</div><div class="ln c">신용 관리 위험 범주 읽기</div><div class="ln d">원인: 자동 신용 점검 (위험 범주 Z01)</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>Claude Code 대화 화면</span></div><div class="shot-body"><div class="bubble b-me">출하 보류가 자동으로 걸리는 이유가 뭐야?</div>
+<div class="bubble b-ai"><b>신용 한도 초과 때문이에요.</b> 이 시스템은 판매오더 유형 ZOR에 자동 신용 점검이 켜져 있어요.
+<div class="m-box b-info" style="font-size:10.5px">SPRO › 판매 › 신용 관리 › 자동 신용 점검 › 위험 범주 Z01</div>
+<b>해결 방법</b><br>① 신용 담당자가 VKM3에서 해제<br>② 한도 상향은 FD32</div></div></div></div></div></section><div class="grp" style="--c:#7c3aed"><span>📄</span><h3>문서 · 분석</h3></div><section class="feat" id="f-spec" style="--c:#7c3aed"><div class="fh"><span class="fn">설계서 · 매뉴얼</span><span class="sk">/sc4sap:program-to-spec · program-to-manual</span></div>
+<h3 class="t">문서 없는 프로그램, 코드에서 설계서와 매뉴얼을 뽑아요.</h3><p class="d">처리 흐름, 화면, 테이블 CRUD, 메시지를 정리한 기능·기술 명세서를 써요. 화면 그림이 들어간 사용자 매뉴얼도 만들어요.</p>
+<div class="ba"><span class="b">지금: 인수인계 문서 없음</span>→<span class="a">sc4sap: HTML · 엑셀 명세서 즉시</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">ZDEMO_BILLING_RUN 설계서 만들어줘</div><div class="ln s">sc4sap:program-to-spec</div><div class="ln c">소스 · 화면 · 테이블 읽기</div><div class="ln c">처리 흐름 · CRUD 정리</div><div class="ln d">spec-ZDEMO_BILLING_RUN.html</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/spec-ZDEMO_BILLING_RUN.html</span></div><div class="shot-body"><div class="split"><div class="tree"><div class="on">1. 개요</div><div>2. 화면</div><div>3. 처리 흐름</div><div>4. 데이터</div><div>5. 메시지</div><div>6. 기술 사양</div></div>
+<div><p class="m-h">기능 명세서 · ZDEMO_BILLING_RUN</p><p class="m-s">코드에서 역으로 작성 · v1.0</p>
+<svg viewBox="0 0 260 70" width="100%"><g font-size="9" text-anchor="middle"><rect x="2" y="20" width="56" height="28" rx="5" fill="#e0ecff"/><text x="30" y="37">조건 입력</text><rect x="70" y="20" width="56" height="28" rx="5" fill="#e0ecff"/><text x="98" y="37">오더 읽기</text><rect x="138" y="20" width="56" height="28" rx="5" fill="#fef3c7"/><text x="166" y="37">금액 계산</text><rect x="206" y="20" width="52" height="28" rx="5" fill="#dcfce7"/><text x="232" y="37">청구 생성</text></g><g stroke="#94a3b8" stroke-width="1.5"><line x1="58" y1="34" x2="70" y2="34"/><line x1="126" y1="34" x2="138" y2="34"/><line x1="194" y1="34" x2="206" y2="34"/></g></svg>
+<table class="m-t"><tr><th>테이블</th><th>용도</th><th>CRUD</th></tr><tr><td>VBAK</td><td>판매오더 헤더</td><td>R</td></tr><tr><td>ZDEMO_LOG</td><td>처리 이력</td><td>C</td></tr></table></div></div></div></div></div></div></section><section class="feat" id="f-config" style="--c:#7c3aed"><div class="fh"><span class="fn">설정 문서화</span><span class="sk">/sc4sap:config-to-document</span></div>
+<h3 class="t">모듈 설정을 실제 값 그대로 문서로 만들어요.</h3><p class="d">IMG 트리 순서로 모든 설정 화면과 실제 값을 보여줘요. 고객이 바꾼 값과 이관 이력을 표시하고 설정 점검도 해요.</p>
+<div class="ba"><span class="b">지금: SPRO 화면 하나씩 캡처</span>→<span class="a">sc4sap: IMG 전체가 문서 한 장</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">SD 설정 문서 만들어줘</div><div class="ln s">sc4sap:config-to-document</div><div class="ln c">IMG 활동 312개 읽기</div><div class="ln c">고객 변경 행 · 이관 이력 표시</div><div class="ln d">config-SD.html · 점검 경고 1건</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/config-SD.html</span></div><div class="shot-body"><div class="split"><div class="tree"><div>▾ 판매</div><div>&nbsp;▾ 판매 문서</div><div class="on">&nbsp;&nbsp;오더 유형</div><div>&nbsp;&nbsp;품목 범주</div><div>&nbsp;&nbsp;일정 범주</div><div>&nbsp;▸ 가격 결정</div><div>&nbsp;▸ 신용 관리</div></div>
+<div><p class="m-h">판매 오더 유형 (TVAK)</p><p class="m-s">실제 시스템 값 · 노란 줄 = 고객이 바꾼 값</p>
+<table class="m-t"><tr><th>유형</th><th>내역</th><th>번호 범위</th><th>신용 점검</th></tr>
+<tr><td>OR</td><td>표준 오더</td><td>01</td><td>D</td></tr>
+<tr class="chg"><td>ZOR</td><td>국내 오더</td><td>Z1</td><td>D</td></tr>
+<tr class="chg"><td>ZRE</td><td>반품</td><td>Z2</td><td>—</td></tr>
+<tr><td>CR</td><td>대변 요청</td><td>05</td><td>—</td></tr></table>
+<span class="chip">변경 이력: DEVK900401 · 2026-03-12</span><span class="chip">점검: 경고 1건</span></div></div></div></div></div></div></section><section class="feat" id="f-relmap" style="--c:#7c3aed"><div class="fh"><span class="fn">CBO 관계 지도 · 영향도</span><span class="sk">/sc4sap:cbo-relation-map · stock-cbo</span></div>
+<h3 class="t">이 테이블을 바꾸면 어디가 깨지는지, 그림으로 봐요.</h3><p class="d">Z 객체끼리의 관계를 그래프로 그려요. 필드 하나를 바꿀 때 영향 받는 프로그램과 T-code까지 따라가요.</p>
+<div class="ba"><span class="b">지금: Where-used 수십 번</span>→<span class="a">sc4sap: 영향 범위를 한 그림으로</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">ZDEMO_LOG 바꾸면 영향 받는 곳 보여줘</div><div class="ln s">sc4sap:cbo-relation-map</div><div class="ln c">참조 그래프 · 객체 1,820개</div><div class="ln c">ZDEMO_LOG 이웃 탐색</div><div class="ln d">영향: 프로그램 2 · FM 1 · T-code 2</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/cbo-relation-map.html</span></div><div class="shot-body"><p class="m-h">CBO 관계 지도</p><p class="m-s">ZDEMO_LOG 를 바꾸면 영향 받는 곳</p>
+<svg viewBox="0 0 300 150" width="100%" style="max-height:230px"><g stroke="#cbd5e1" stroke-width="1.4">
+<line x1="150" y1="75" x2="60" y2="30"/><line x1="150" y1="75" x2="60" y2="120"/><line x1="150" y1="75" x2="240" y2="30"/><line x1="150" y1="75" x2="245" y2="115"/><line x1="60" y1="30" x2="20" y2="80"/><line x1="240" y1="30" x2="285" y2="70"/><line x1="245" y1="115" x2="200" y2="145"/></g>
+<g font-size="8.5" text-anchor="middle"><circle cx="150" cy="75" r="15" fill="#dc2626"/><text x="150" y="103" font-weight="800" fill="#b91c1c">ZDEMO_LOG</text>
+<circle cx="60" cy="30" r="12" fill="#f59e0b"/><text x="60" y="15">ZDEMO_BILLING</text><circle cx="60" cy="120" r="12" fill="#f59e0b"/><text x="60" y="144">ZDEMO_SO_OPEN</text>
+<circle cx="240" cy="30" r="12" fill="#f59e0b"/><text x="240" y="15">Z_LOG_WRITE (FM)</text><circle cx="245" cy="115" r="12" fill="#3b82f6"/><text x="262" y="137">ZDEMO_DE_STAT</text>
+<circle cx="20" cy="80" r="8" fill="#8b5cf6"/><text x="20" y="98">ZBILL</text><circle cx="285" cy="70" r="8" fill="#8b5cf6"/><text x="282" y="90">ZLOG</text><circle cx="200" cy="145" r="6" fill="#94a3b8"/></g></svg>
+<span class="chip">● 테이블</span><span class="chip" style="color:#b45309">● 프로그램·FM</span><span class="chip" style="color:#7c3aed">● T-code</span><span class="chip">영향 T-code 2개</span></div></div></div></div></section><section class="feat" id="f-process" style="--c:#7c3aed"><div class="fh"><span class="fn">프로세스 지도</span><span class="sk">/sc4sap:module-to-process</span></div>
+<h3 class="t">우리 회사 SAP가 실제로 어떻게 돌아가는지 지도로 그려요.</h3><p class="d">실제로 쓰는 T-code와 CBO 프로그램을 표준 프로세스 위에 올려요. 운영 인수인계, S/4 전환 Gap 분석의 출발점이에요.</p>
+<div class="ba"><span class="b">지금: 인터뷰로 몇 주</span>→<span class="a">sc4sap: 사용 기록 기반 지도</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">SD 프로세스 지도 그려줘</div><div class="ln s">sc4sap:module-to-process</div><div class="ln c">T-code 사용량 읽기 (ST03N)</div><div class="ln c">CBO 프로그램 → 프로세스 배치</div><div class="ln d">process-SD.html · L4 작업 46개</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/process-SD.html</span></div><div class="shot-body"><p class="m-h">판매 프로세스 지도 (O2C)</p><p class="m-s">실제 사용 T-code 기준 · CBO 표시</p>
+<div style="display:flex;gap:4px;align-items:stretch;font-size:10.5px">
+<div style="flex:1;background:#eff6ff;border-radius:6px;padding:6px 4px;text-align:center"><b>견적</b><br><span style="color:#6b7280">VA21</span></div><div style="align-self:center;color:#94a3b8">›</div><div style="flex:1;background:#eff6ff;border-radius:6px;padding:6px 4px;text-align:center"><b>판매오더</b><br><span style="color:#6b7280">VA01</span><br><span class="pill p-warn" style="margin-top:3px">CBO 3</span></div><div style="align-self:center;color:#94a3b8">›</div><div style="flex:1;background:#eff6ff;border-radius:6px;padding:6px 4px;text-align:center"><b>출하</b><br><span style="color:#6b7280">VL01N</span><br><span class="pill p-warn" style="margin-top:3px">CBO 1</span></div><div style="align-self:center;color:#94a3b8">›</div><div style="flex:1;background:#eff6ff;border-radius:6px;padding:6px 4px;text-align:center"><b>출고</b><br><span style="color:#6b7280">VL02N</span></div><div style="align-self:center;color:#94a3b8">›</div><div style="flex:1;background:#eff6ff;border-radius:6px;padding:6px 4px;text-align:center"><b>청구</b><br><span style="color:#6b7280">VF01</span><br><span class="pill p-warn" style="margin-top:3px">CBO 4</span></div><div style="align-self:center;color:#94a3b8">›</div><div style="flex:1;background:#eff6ff;border-radius:6px;padding:6px 4px;text-align:center"><b>수금</b><br><span style="color:#6b7280">F-28</span></div>
+</div>
+<table class="m-t"><tr><th>L4 작업</th><th>담당</th><th>관련 CBO</th><th>사용량</th></tr><tr><td>청구 일괄 생성</td><td>영업관리</td><td>ZDEMO_BILLING_RUN</td><td>월 2,140회</td></tr><tr><td>여신 해제</td><td>재무</td><td>—</td><td>월 310회</td></tr></table></div></div></div></div></section><div class="grp" style="--c:#d97706"><span>📊</span><h3>PM · PMO</h3></div><section class="feat" id="f-dashboard" style="--c:#d97706"><div class="fh"><span class="fn">프로젝트 대시보드</span><span class="sk">/sc4sap:project-dashboard</span></div>
+<h3 class="t">프로젝트 현황을 SAP 실제 숫자로 보여줘요.</h3><p class="d">마일스톤, WBS 간트, Q-gate, WRICEF 진척을 한 페이지에 모아요. 이관 요청과 개발 객체 수는 SAP에서 직접 읽어요.</p>
+<div class="ba"><span class="b">지금: 매주 담당자에게 취합</span>→<span class="a">sc4sap: 실적 자동 반영</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">이번 주 프로젝트 현황 업데이트해줘</div><div class="ln s">sc4sap:project-dashboard</div><div class="ln c">ListTransports · 설정 94 · 개발 118</div><div class="ln c">WRICEF 상태 반영 · 38/54</div><div class="ln d">dashboard-PROJECT.html</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/dashboard-PROJECT.html</span></div><div class="shot-body"><div class="m-row"><div class="m-kpi"><small>진척</small><b>62%</b><small class="dn">계획 60%</small></div><div class="m-kpi"><small>WRICEF</small><b>38/54</b><small>개발 완료</small></div><div class="m-kpi"><small>이관 요청</small><b>212</b><small>설정 94 · 개발 118</small></div><div class="m-kpi"><small>Q-gate</small><b>3/5</b><small class="up">다음 12/10</small></div></div>
+<div class="gantt" style="margin-top:10px">
+<div><span class="l">설계</span><span class="tr"><span class="bar" style="left:0;width:30%;background:#16a34a"></span></span></div>
+<div><span class="l">개발</span><span class="tr"><span class="bar" style="left:22%;width:40%;background:#2563eb"></span></span></div>
+<div><span class="l">통합 테스트</span><span class="tr"><span class="bar" style="left:55%;width:22%;background:#f59e0b"></span></span></div>
+<div><span class="l">이행·오픈</span><span class="tr"><span class="bar" style="left:76%;width:20%;background:#cbd5e1"></span></span></div></div></div></div></div></div></section><section class="feat" id="f-roles" style="--c:#d97706"><div class="fh"><span class="fn">권한 · SoD</span><span class="sk">/sc4sap:role-matrix</span></div>
+<h3 class="t">권한 구성과 직무분리 충돌을 한눈에 봐요.</h3><p class="d">실제 역할과 권한을 읽어 매트릭스로 만들고 SoD 충돌을 표시해요. SU53 권한 오류는 사용자와 T-code만 주면 원인을 찾아요.</p>
+<div class="ba"><span class="b">지금: SUIM 결과 엑셀 정리</span>→<span class="a">sc4sap: 매트릭스 + 충돌 목록</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">구매 역할 SoD 점검해줘</div><div class="ln s">sc4sap:role-matrix</div><div class="ln c">역할 5개 · 권한 객체 읽기</div><div class="ln c">SoD 규칙 대조</div><div class="ln d">충돌 2건 · role-matrix-MM.html</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/role-matrix-MM.html</span></div><div class="shot-body"><p class="m-h">역할 × 권한 매트릭스</p><p class="m-s">빨간 칸 = 직무분리(SoD) 충돌</p>
+<div class="hm" style="grid-template-columns:62px repeat(5,1fr)"><div></div><div style="font-weight:700">ME21N</div><div style="font-weight:700">ME29N</div><div style="font-weight:700">MIGO</div><div style="font-weight:700">MIRO</div><div style="font-weight:700">F110</div>
+<div style="text-align:left">구매 담당</div><div style="background:#bfdbfe;">✓</div><div style="background:#60a5fa;">✓</div><div style="background:#f0f2f5;"></div><div style="background:#f0f2f5;"></div><div style="background:#bfdbfe;">✓</div><div style="text-align:left">구매 승인</div><div style="background:#60a5fa;">✓</div><div style="background:#bfdbfe;">✓</div><div style="background:#fecaca;color:#b91c1c;font-weight:800">SoD</div><div style="background:#f0f2f5;"></div><div style="background:#f0f2f5;"></div><div style="text-align:left">입고 담당</div><div style="background:#f0f2f5;"></div><div style="background:#f0f2f5;"></div><div style="background:#60a5fa;">✓</div><div style="background:#bfdbfe;">✓</div><div style="background:#f0f2f5;"></div><div style="text-align:left">송장 검증</div><div style="background:#bfdbfe;">✓</div><div style="background:#f0f2f5;"></div><div style="background:#f0f2f5;"></div><div style="background:#60a5fa;">✓</div><div style="background:#fecaca;color:#b91c1c;font-weight:800">SoD</div><div style="text-align:left">지급 담당</div><div style="background:#f0f2f5;"></div><div style="background:#bfdbfe;">✓</div><div style="background:#bfdbfe;">✓</div><div style="background:#f0f2f5;"></div><div style="background:#60a5fa;">✓</div></div>
+<div class="m-box b-bad" style="font-size:11px">충돌 2건 · 구매 승인+입고 · 송장 검증+지급</div></div></div></div></div></section><section class="feat" id="f-uat" style="--c:#d97706"><div class="fh"><span class="fn">UAT · 통합 테스트</span><span class="sk">/sc4sap:uat-scenarios</span></div>
+<h3 class="t">통합 테스트 시나리오를 만들고 결과까지 추적해요.</h3><p class="d">컨설턴트 AI가 시나리오와 단계를 제안하면 항목별로 채택해요. T-code는 시스템에서 확인하고, 차수별 결과와 결함 수정 요청을 이어요.</p>
+<div class="ba"><span class="b">지금: 엑셀 시나리오 수작업</span>→<span class="a">sc4sap: 제안 → 채택 → 차수 추적</span></div>
+<div class="vis"><div><p class="cap">① 이렇게 말해요</p><div class="term" aria-label="터미널 사용 예시"><div class="tb"><i></i><i></i><i></i><b>Claude Code · sc4sap</b></div><div class="bd"><div class="ln u">구매-지급 통합 테스트 시나리오 만들어줘</div><div class="ln s">sc4sap:uat-scenarios</div><div class="ln c">MM 컨설턴트 · 시나리오 12개 제안</div><div class="ln c">T-code 존재 확인</div><div class="ln d">uat-P2P.html · 엑셀 내보내기</div></div></div></div><div><p class="cap">② 이런 결과가 나와요</p><div class="shot"><div class="shot-bar"><i></i><i></i><i></i><span>.sc4sap/output/uat-P2P.html</span></div><div class="shot-body"><p class="m-h">통합 테스트 시나리오 · 구매-지급</p><p class="m-s">1차 · 2차 테스트 결과 추적</p>
+<table class="m-t"><tr><th>#</th><th>단계</th><th>T-code</th><th>1차</th><th>2차</th></tr>
+<tr><td>1</td><td>구매요청 생성</td><td>ME51N</td><td><span class="pill p-ok">OK</span></td><td><span class="pill p-ok">OK</span></td></tr>
+<tr><td>2</td><td>구매오더 생성·승인</td><td>ME21N</td><td><span class="pill p-bad">결함</span></td><td><span class="pill p-ok">OK</span></td></tr>
+<tr><td>3</td><td>입고</td><td>MIGO</td><td><span class="pill p-ok">OK</span></td><td><span class="pill p-ok">OK</span></td></tr>
+<tr><td>4</td><td>송장 검증</td><td>MIRO</td><td><span class="pill p-warn">대기</span></td><td><span class="pill p-ok">OK</span></td></tr></table>
+<span class="chip">결함 #2 → DEVK900835 수정 → 재테스트 완료</span><span class="chip">⬇ 엑셀 내보내기</span></div></div></div></div></section><h2>이 밖에도 있어요</h2><p class="h2s">필요할 때 꺼내 쓰는 도구들이에요.</p><div class="more"><div><code>/sc4sap:create-object</code>테이블·클래스·FM 하나 생성</div><div><code>/sc4sap:compare-programs</code>비슷한 프로그램 2~5개 비교</div><div><code>/sc4sap:interface-mapping-spec</code>인터페이스 필드 매핑서</div><div><code>/sc4sap:smartform-to-adobe</code>SmartForm → Adobe 전환 계획</div><div><code>/sc4sap:adobe-preview</code>Adobe 양식 미리보기</div><div><code>/sc4sap:stock-cbo</code>CBO 재고 조사</div><div><code>/sc4sap:sap-doctor</code>연결 상태 진단</div></div><h2>걱정하실 부분, 먼저 막아뒀어요</h2><p class="h2s">AI가 운영 시스템을 망칠 수 없게 설계했어요.</p>
+<div class="safe">
+<div><b>🔒 QA·PRD는 읽기 전용</b>훅과 MCP 서버, 두 겹으로 변경을 막아요.</div>
+<div><b>✋ 바꾸기 전엔 항상 승인</b>업무 문서는 미리보기를 보고 "예"를 해야 바뀌어요.</div>
+<div><b>🧱 SAP 표준은 안 건드려요</b>고객 객체(Z·Y)만 바꿔요. 모든 변경은 이관 요청에 담겨요.</div>
+<div><b>🙈 민감 데이터 보호</b>차단 목록으로 먼저 걸러요. 테스트 데이터는 마스킹해요.</div>
+<div><b>🔑 비밀번호는 OS 보관함에</b>프로젝트 파일에 남기지 않아요.</div>
+</div><h2>플러그인과 웹, 무엇을 쓸까요?</h2><p class="h2s">한 줄 요약: 개발까지 직접 하면 플러그인, 어디서든 보고·조회하면 웹이에요. 결과물은 같아요.</p>
+<table class="cmp"><tr><th></th><th>플러그인 (이 문서)</th><th>웹 · sc4sap.dev</th></tr>
+<tr><td><b>설치</b></td><td>PC에 Claude Code + 플러그인</td><td>없음 · 브라우저와 휴대폰</td></tr>
+<tr><td><b>잘 맞는 사람</b></td><td>개발자, 모듈 컨설턴트, 운영 담당</td><td>운영팀장, PM·PMO, 현업 리더</td></tr>
+<tr><td><b>쓰는 방식</b></td><td>터미널에서 말로 요청</td><td>채팅 + 메뉴 화면</td></tr>
+<tr><td><b>강점</b></td><td>개발 · 테스트 · 이관을 한 흐름으로</td><td>외근·야간에도 장애와 보고서 확인</td></tr></table><h2>시작은 이렇게 해요</h2><p class="h2s">처음 한 번, 30~40분이면 돼요.</p><ol class="steps">
+<li>Basis가 SAP 웹 포트와 ADT 권한을 열어줘요.</li><li>PC에 Claude Code를 설치해요.</li><li>sc4sap 플러그인을 추가하고 <b>/sc4sap:setup</b> 실행.</li><li>평소 말투로 물어보면 끝. 명령어를 외울 필요 없어요.</li></ol>
+<footer>화면 예시는 모두 샘플 데이터예요. · 설치 안내: sc4sap.dev/install-guide.html · SAP ECC / S/4HANA 온프레미스</footer></div><script>
+(function(){
+ if(matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+ const wait=ms=>new Promise(r=>setTimeout(r,ms));
+ async function play(t){
+  const lines=[...t.querySelectorAll('.ln')];
+  const texts=lines.map(l=>l.textContent);
+  for(;;){
+   lines.forEach(l=>{l.style.display='none';});
+   for(let i=0;i<lines.length;i++){
+    const l=lines[i]; l.style.display='';
+    if(l.classList.contains('u')){
+     l.textContent='';const cur=document.createElement('span');cur.className='cur';l.appendChild(cur);
+     for(const ch of texts[i]){cur.before(ch);await wait(45);}
+     await wait(350);cur.remove();
+    } else { await wait(l.classList.contains('c')?420:650); }
+   }
+   await wait(4200);
+  }
+ }
+ const io=new IntersectionObserver(es=>es.forEach(e=>{if(e.isIntersecting&&!e.target.dataset.on){e.target.dataset.on=1;play(e.target);}}),{threshold:.35});
+ document.querySelectorAll('.term').forEach(t=>io.observe(t));
+})();</script></body></html>

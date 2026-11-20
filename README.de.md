@@ -133,6 +133,7 @@ Sie müssen keine Slash-Befehle kennen. Normale Anfragen werden an den passenden
 - 🚀 **[Erste Schritte →](docs/GETTING-STARTED.de.md)** — von den Basis-Voraussetzungen über die Windows-Einrichtung bis zum Funktionstest
 - 📦 **[Installation & Einrichtung →](docs/INSTALLATION.de.md)** — Voraussetzungen, Optionen, Blocklist-Konfiguration
 - 🎯 **[Funktionen im Detail →](docs/FEATURES.de.md)** — Agenten, Skills, MCP-Tools, Hooks, Richtlinie zur Datenextraktion
+- 🖼 **Überblick (Koreanisch, HTML)** — [Plugin](docs/overview/sc4sap-plugin-overview.ko.html) mit Terminal-Demos, [Web](docs/overview/sc4sap-web-overview.ko.html) mit echten Bildschirmen. Herunterladen und im Browser öffnen.
 - 📜 **[Änderungsprotokoll →](docs/CHANGELOG.de.md)** — Versionsverlauf und Breaking Changes
 
 ## Unleashed
