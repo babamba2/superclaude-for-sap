@@ -1,3 +1,7 @@
+<h2 align="center"><a href="https://sc4sap.dev/install-guide.html">📘 はじめての方はインストールガイドから →</a></h2>
+
+<p align="center">Windows 向けの手順書です。所要時間は 30〜40 分です（韓国語）。</p>
+
 <p align="center">
   <img src="sc4sap.png" alt="SuperClaude for SAP" width="720"/>
 </p>

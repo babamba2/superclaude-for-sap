@@ -1,3 +1,7 @@
+<h2 align="center"><a href="https://sc4sap.dev/install-guide.html">📘 New here? Start with the install guide →</a></h2>
+
+<p align="center">Step by step on Windows, about 30–40 minutes (Korean)</p>
+
 <p align="center">
   <img src="sc4sap.png" alt="SuperClaude for SAP" width="720"/>
 </p>
