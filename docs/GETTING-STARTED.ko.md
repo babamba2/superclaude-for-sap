@@ -9,6 +9,12 @@ Claude Code를 처음 쓰는 분을 위한 단계별 안내예요. 위에서부�
 ## 순서
 
 - [ ] [0. 시작 전 준비물](#0-시작-전-준비물)
+- **SAP 서버 준비 (Basis 담당자)**
+  - [ ] [B1. 웹 포트 열기 (가장 먼저)](#b1-웹-포트-열기-가장-먼저)
+  - [ ] [B2. ICF 서비스 활성화](#b2-icf-서비스-활성화)
+  - [ ] [B3. 계정 권한](#b3-계정-권한)
+  - [ ] [B4. 시스템·계정 설정](#b4-시스템계정-설정)
+- **내 PC 설치**
 - [ ] [1. PowerShell 실행 권한](#1-powershell-실행-권한-열기)
 - [ ] [2. Git 설치](#2-git-설치)
 - [ ] [3. Node.js 설치](#3-nodejs-설치)
@@ -17,7 +23,10 @@ Claude Code를 처음 쓰는 분을 위한 단계별 안내예요. 위에서부�
 - [ ] [6. 작업 폴더 만들기](#6-작업-폴더-만들기)
 - [ ] [7. sc4sap 플러그인 설치](#7-sc4sap-플러그인-설치)
 - [ ] [8. SAP 연결 설정](#8-sap-연결-설정)
+- [ ] [B5. Gateway 서비스 등록](#b5-gateway-서비스-등록)
+- [ ] [B6. 프로필 내용 확인](#b6-프로필-내용-확인)
 - [ ] [9. 동작 확인](#9-동작-확인)
+- [ ] [B7. 연결 검증 (자세히)](#b7-연결-검증-자세히)
 - [문제 해결](#문제-해결) · [업데이트하는 법](#업데이트하는-법)
 
 ---
@@ -30,7 +39,7 @@ Claude Code를 처음 쓰는 분을 위한 단계별 안내예요. 위에서부�
 |---|---|
 | PC | Windows 10 / 11. 관리자 권한이 있으면 편해요. |
 | Claude 구독 | Claude Pro 또는 Max 요금제예요. 회사에서 Team / Enterprise를 쓰면 그 계정도 돼요. API 키로도 쓸 수 있어요. |
-| SAP 시스템 | ECC 6.0, S/4HANA On-Premise, S/4HANA Cloud 중 하나예요. ADT가 켜져 있어야 해요. |
+| SAP 시스템 | ECC 6.0 또는 S/4HANA On-Premise예요. ADT가 켜져 있어야 해요. |
 | SAP 접속 정보 | 서버 주소(URL), 클라이언트 번호, 사용자 ID, 비밀번호, 언어예요. |
 | 인터넷 | github.com, npmjs.org, claude.ai에 접속돼야 해요. 회사망에서 막히면 IT 부서에 확인하세요. |
 
@@ -46,7 +55,125 @@ Eclipse ADT에서 쓰는 주소와 같아요. 보통 `https://서버이름:44300
 SAP GUI에서 `SICF`를 실행해요. `/sap/bc/adt` 서비스가 활성 상태면 돼요. 권한이 없으면 Basis 담당자에게 요청하세요.
 </details>
 
+> **회사 SAP 서버에 처음 연결한다면** 아래 [B1~B4](#b1-웹-포트-열기-가장-먼저)를 Basis 담당자에게 먼저 요청하세요. 특히 **B1 웹 포트**가 열려야 나머지를 시험할 수 있어요. 설치(DEV 서버)는 한 번만 하고, QA·PRD 서버에는 트랜스포트로 반영해요.
+
 ✅ 준비물을 모두 챙겼어요.
+
+---
+
+## B1. 웹 포트 열기 (가장 먼저)
+
+**[BC]** sc4sap은 SAP 서버의 **웹(HTTP/HTTPS) 포트**로 접속해요. SAP GUI 포트(32xx)나 RFC 포트(33xx)는 쓰지 않아요. 이 포트가 막혀 있으면 B2 이후를 다 해 둬도 접속 시험을 할 수 없어요.
+
+### 포트 번호 규칙
+
+SAP 포트는 보통 **앞자리 + 인스턴스 번호**예요. 아래 예시는 인스턴스 번호가 `00`인 서버예요.
+
+| 용도 | 규칙 | 예시 (인스턴스 00) |
+|---|---|---|
+| SAP GUI | 32 + 번호 | 3200 |
+| RFC | 33 + 번호 | 3300 |
+| **웹 HTTP (sc4sap이 씀)** | **80 + 번호** | **8000** |
+| 웹 HTTPS (sc4sap이 씀) | 443 + 번호 | 44300 |
+
+규칙과 다른 번호를 쓰는 서버도 있어요. 실제 번호는 아래 1단계에서 확인해요.
+
+### 여는 순서
+
+| 단계 | 누가 | 할 일 | 확인 방법 |
+|---|---|---|---|
+| 1 | BC | 서버에 웹 포트가 있는지 확인해요. `SMICM` → 이동 → 서비스 | HTTP(또는 HTTPS) 행에 포트 번호가 있고 활성 상태예요. |
+| 2 | BC | 없으면 포트를 추가해요. `RZ10`에서 `icm/server_port_<n>` = `PROT=HTTP,PORT=8000` → ICM 재시작 | 1단계 화면에 새 행이 보여요. |
+| 3 | BC · 네트워크 담당 | 방화벽에서 개발자 PC → 서버 IP·웹 포트를 허용해요. | — |
+| 4 | 개발자 | PC에서 접속을 확인해요. (아래 명령) | `TcpTestSucceeded : True` |
+
+```powershell
+Test-NetConnection sapdev.example.com -Port 8000
+```
+
+> **Basis 담당자에게 이렇게 요청하세요** "SAP 서버의 웹 포트(80 + 인스턴스 번호, 또는 HTTPS 443 + 인스턴스 번호)를 개발자 PC에서 접속할 수 있게 해 주세요."
+
+### 웹 포트를 열 수 없을 때: RFC(NCo) 방식
+
+웹 포트 대신 **RFC 포트(33 + 인스턴스 번호)**로 접속하는 방식이에요. 개발자 PC의 SAP .NET Connector(NCo)를 써요.
+
+| 항목 | 웹 포트 방식 | NCo 방식 |
+|---|---|---|
+| 포트 | 웹 80NN / 443NN | RFC 33NN |
+| ICF 노드 (B2) | 필요 | 필요 없음 |
+| Gateway 서비스 등록 (B5) | 필요 | 필요 없음 |
+| `S_SERVICE` | 필요 | 필요 없음 |
+| `S_ADT_RES` | 필요 | **똑같이 필요** (RFC로 들어와도 ADT가 검사해요) |
+| `S_RFC` | ADT용 + Z 함수 | 같음 + `SADT_REST` (RFC로 ADT 호출) |
+| Z 함수 설치·이송 | DEV 설치 → QA 이송 | 같음 |
+| 개발자 PC | 제한 없음 | Windows + NCo 설치 |
+
+> **NCo는 사용자마다 직접 설치해야 해요.** NCo(SAP Connector for Microsoft .NET 3.1)는 SAP 라이선스 프로그램이라 sc4sap이 대신 배포할 수 없어요. SAP Support Portal(Software Downloads)에서 받고, 다운로드 권한이 있는 S-user 계정이 필요해요. S-user가 없으면 회사 Basis 담당자에게 설치 파일이나 설치를 요청하세요. SAP GUI와 함께 이미 설치된 PC도 있어요.
+
+| 그 밖의 제약 | 내용 |
+|---|---|
+| Windows PC만 | Mac·Linux에서는 쓸 수 없어요. 이런 PC는 웹 포트 방식만 돼요. |
+| 서버 직접 접속만 | 앱 서버 주소 + 인스턴스 번호로만 접속해요. 메시지 서버(로그온 그룹), SAProuter, SNC는 지원하지 않아요. |
+| 암호화 | SNC를 쓰지 않아서 RFC 통신이 암호화되지 않아요. 사내망에서만 쓰세요. Basis 담당자와 확인하세요. |
+| Z 함수 버전 | `ZMCP_ADT_DISPATCH`에 NCo용 기능(`FM_PROXY`)이 있어야 해요. 최신 소스로 설치하면 들어 있어요. |
+| 권한은 줄지 않음 | `S_ADT_RES`와 조회·개발 권한은 웹 포트 방식과 같아요. 줄어드는 건 ICF·Gateway·`S_SERVICE`뿐이에요. |
+
+---
+
+## B2. ICF 서비스 활성화
+
+**[BC]** 트랜잭션 `SICF`에서 아래 노드를 활성화해요. 상위 노드가 꺼져 있으면 하위 노드도 동작하지 않아요.
+
+| 노드 | 필요 | 용도 |
+|---|---|---|
+| `/default_host/sap`, `/default_host/sap/bc` | 필수 | 상위 노드 |
+| `/default_host/sap/bc/adt` | 필수 | ADT 경로 (모든 읽기·쓰기). CSRF 토큰은 `/sap/bc/adt/core/discovery`에서 받아요. |
+| `/default_host/sap/opu/odata` | 필수 | OData 경로 (화면·GUI 상태·텍스트 풀·덤프) |
+
+---
+
+## B3. 계정 권한
+
+**[BC]** SAP 표준 역할 `SAP_BC_DWB_ABAPDEVELOPER`를 복사해서 시작하고, 아래 권한을 보강해요. 서버마다 다를 수 있으니 Basis 담당자가 확인하세요.
+
+### 기본 권한 (모든 사용자)
+
+| 권한 객체 | 필드와 값 | 용도 | 쓰기 계정 | 읽기 전용 계정 |
+|---|---|---|---|---|
+| `S_ADT_RES` | `URI` = `/sap/bc/adt/*` | ADT 접근 | 필요 | 필요 |
+| `S_RFC` | `RFC_TYPE` = FUGR, `RFC_NAME` = `SADT*`, `SDTX`, `SYST`, `RFC1`, `ACTVT` = 16 | ADT 내부 RFC | 필요 | 필요 |
+| `S_RFC` (추가) | `RFC_NAME` = `ZMCP_ADT_UTILS` | 디스패처·텍스트 풀·DDIC 함수 호출 | 필요 | 필요 |
+| `S_SERVICE` | `ZMCP_ADT_SRV` 서비스 | OData 경로 호출 | 필요 | 필요 |
+| `S_DEVELOP` | `DEVCLASS` = `$TMP`, `Z*`, `Y*` · `OBJTYPE` = PROG, CLAS, INTF, FUGR, DEVC 등 · `OBJNAME` = `Z*`, `Y*` · `ACTVT` = 01, 02, 03, 06, 07, 16 | 01 생성 · 02 변경 · 03 조회 · 06 삭제 · 07 활성화 · 16 실행 | 전체 | 03만 |
+| `S_TRANSPRT` | `TTYPE` = DTRA, TASK · `ACTVT` = 01, 02, 03 | 트랜스포트 조회·생성·지정 | 전체 | 03만 |
+| `S_TABU_DIS`, `S_TABU_NAM` | 조회할 테이블 그룹·이름, `ACTVT` = 03 | 테이블 조회 | 필요 | 필요 |
+| ST22 조회 권한 | — | 덤프 조회 | 선택 | 선택 |
+
+### Gateway 등록 권한 (등록 담당 개발자 1명)
+
+B5의 Gateway 등록을 개발자가 직접 하려면 필요해요. 표준 개발자 역할에는 없어요. 등록은 서버당 한 번이라 담당자 한 명에게만 주면 돼요.
+
+| 권한 객체 | 필드와 값 | 용도 |
+|---|---|---|
+| `S_TCODE` | `/IWBEP/REG_SERVICE`, `/IWFND/MAINT_SERVICE`, `/IWFND/CACHE_CLEANUP`, `/IWFND/ERROR_LOG`, `SEGW`, `SICF` | 등록·캐시 정리·오류 로그 |
+| `/IWBEP/SB` | 프로젝트 `ZMCP_ADT` (또는 `Z*`), 활동 전체 | SEGW로 등록하는 대안 경로 |
+| `S_DEVELOP` (추가) | `OBJTYPE` = Gateway 저장소 객체(서비스·모델·서비스 그룹 등) · `OBJNAME` = `ZMCP_ADT*` · `ACTVT` = 01, 02, 03 | Gateway 카탈로그 항목 생성 |
+| `S_ICF_ADM` | `ZMCP_ADT_SRV` 노드 | ICF 노드 활성화 |
+| `S_TRANSPRT` | `ACTVT` = 01, 02 | 이송 가능한 패키지에 등록할 때만 |
+
+---
+
+## B4. 시스템·계정 설정
+
+**[BC]**
+
+| 항목 | 필요한 상태 | 안 되어 있으면 |
+|---|---|---|
+| 개발자 키 | 사용자에게 개발자 키가 등록돼 있음 | Z 객체 쓰기 실패 |
+| 시스템 변경 옵션 | 고객 네임스페이스(Z/Y)와 로컬 객체 수정 가능 | 쓰기 실패 |
+| 클라이언트 설정 | 리포지토리·크로스 클라이언트 객체 변경 허용 | 쓰기 실패 |
+| 사용자 유형 | 대화 사용자 또는 서비스 사용자 | 로그인 실패 |
+| 비밀번호 상태 | 초기 비밀번호가 아님 (SAP GUI로 한 번 로그인해서 바꿔요) | HTTP 로그인 실패 |
 
 ---
 
@@ -296,6 +423,92 @@ Claude가 파일을 쓰거나 명령을 실행할 때 허락을 구해요. 설�
 
 ---
 
+## B5. Gateway 서비스 등록
+
+**[개발자]** OData 경로를 쓰려면 `ZMCP_ADT_SRV` 서비스를 등록해야 해요. 백엔드(`/IWBEP`)와 프런트엔드(`/IWFND`) **두 곳 모두** 등록해야 동작해요. 웹 포트 대신 NCo 방식(B1)을 쓰면 이 단계는 필요 없어요.
+
+### 시작 전 확인
+
+- `/sc4sap:setup`(8단계)으로 아래 객체가 준비돼 있어야 해요.
+  - SEGW 프로젝트 `ZMCP_ADT` — 유형 "Service with SAP Annotations". setup 중에 SAP GUI에서 직접 만들어요.
+  - 클래스 `ZCL_ZMCP_ADT_MPC_EXT`, `ZCL_ZMCP_ADT_DPC_EXT` — setup이 소스를 넣고 활성화해요.
+  - 함수 `ZMCP_ADT_DISPATCH`, `ZMCP_ADT_TEXTPOOL` — RFC 가능 상태여야 해요. setup이 안내하면 SE37에서 "원격 호출 가능"을 체크해요.
+- B2의 `/default_host/sap/opu/odata` 노드가 켜져 있어야 해요.
+- B3의 Gateway 등록 권한이 있어야 해요.
+
+### 입력할 값
+
+| 필드 | 값 |
+|---|---|
+| 서비스 이름 · 외부 서비스 이름 | `ZMCP_ADT_SRV` |
+| 모델 이름 | `ZMCP_ADT_MDL` |
+| 버전 | `0001` |
+| 네임스페이스 | 비워 둠 |
+| 모델 제공 클래스 | `ZCL_ZMCP_ADT_MPC_EXT` |
+| 데이터 제공 클래스 | `ZCL_ZMCP_ADT_DPC_EXT` |
+| 시스템 별칭 | `LOCAL` (같은 서버 안에서 호출, RFC 대상 `NONE`) |
+| 패키지 | 클래스와 같은 패키지 또는 `$TMP` |
+
+### 등록 순서
+
+1. **백엔드 등록** — `/IWBEP/REG_SERVICE` → 등록 → 위 값 입력 → 저장
+2. **프런트엔드 등록** — `/IWFND/MAINT_SERVICE` → 서비스 추가 → 시스템 별칭 `LOCAL`, 외부 서비스 이름 `ZMCP_ADT_SRV` → 서비스 가져오기 → 선택한 서비스 추가 → 패키지 지정
+3. **ICF 노드 활성화** — `SICF` → `/default_host/sap/opu/odata/sap/ZMCP_ADT_SRV` → 서비스 활성화
+4. **캐시 정리** — `/IWFND/CACHE_CLEANUP` → 모델 캐시 정리 → 실행
+
+> **대안 경로** `/IWBEP/SB` 권한이 있으면 1단계 대신 SEGW를 써도 돼요. SEGW에서 `ZMCP_ADT` 열기 → 런타임 객체 생성(F6) → 활성화 → 서비스 등록(시스템 별칭 `LOCAL`). 그다음 2~4단계는 똑같이 해요.
+
+### 등록 확인
+
+브라우저에서 아래 주소를 열어요.
+
+```
+https://sapdev.example.com:44300/sap/opu/odata/sap/ZMCP_ADT_SRV/$metadata?sap-client=100
+```
+
+- `<edmx:Edmx>`로 시작하는 XML이 나오면 정상이에요.
+- XML 안에 `FunctionImport Name="Dispatch"`와 `ComplexType Name="DispatchResult"`가 있어야 해요.
+
+### 문제 해결
+
+| 증상 | 원인 | 조치 |
+|---|---|---|
+| `$metadata`가 404 | ICF 노드가 꺼져 있거나 프런트엔드 등록이 빠짐 | 등록 순서 3단계(SICF), 2단계(서비스 추가) |
+| `$metadata`는 200인데 호출하면 500 | 백엔드(`/IWBEP`) 등록이 빠짐 (`/IWFND/MAINT_SERVICE`의 백엔드 서비스 탭이 비어 있음) | 1단계 실행 → 프런트엔드 서비스 삭제 후 다시 추가 |
+| 등록 후에도 500 | 예전 모델 캐시가 남아 있음 | `/IWFND/CACHE_CLEANUP` 실행, `ZMCP_ADT_FLUSH_CACHE`를 `P_FLUSH`로 실행 |
+| 원인을 모르는 500 | ABAP 예외가 OData 오류에 가려짐 | 응답의 트랜잭션 ID로 `/IWFND/ERROR_LOG` 확인, `ZMCP_ADT_FLUSH_CACHE`를 `P_DIAG`로 실행 |
+| 401 | 인증 실패 | 계정·비밀번호 확인, 초기 비밀번호 상태인지 확인 |
+
+> **비상용 옵션** `ZMCP_ADT_FLUSH_CACHE`의 `P_REG`는 백엔드 테이블에 직접 값을 넣어요. 일부 값이 빠질 수 있으니, 위 순서로 등록할 수 있으면 쓰지 마세요.
+
+---
+
+## B6. 프로필 내용 확인
+
+**[개발자]** 접속 정보는 `~/.sc4sap/profiles/<별칭>/sap.env`에 저장돼요. `/sc4sap:setup`이 대신 만들어 줘요. 비밀번호는 파일이 아니라 Windows 자격 증명 관리자에 저장돼요. 값을 고칠 때는 `/sc4sap:sap-option`을 써요.
+
+| 키 | 예시 값 | 설명 |
+|---|---|---|
+| `SAP_URL` | `https://sapdev.example.com:44300` | 서버 주소 |
+| `SAP_CLIENT` | `100` | 로그인 클라이언트 |
+| `SAP_AUTH_TYPE` | `basic` | Basic 인증 |
+| `SAP_USERNAME` | `SC4SAP_DEV01` | 로그인 계정 (예시) |
+| `SAP_PASSWORD` | (자격 증명 관리자) | 파일에 쓰지 않아요 |
+| `SAP_LANGUAGE` | `KO` | 로그온 언어 |
+| `SAP_SYSTEM_TYPE` | `onprem` | 온프레미스 서버 |
+| `SAP_VERSION` | `ECC` 또는 `S4` | ECC면 ECC 전용 처리 방식을 써요 |
+| `ABAP_RELEASE` | `740` | BASIS 릴리스 숫자 |
+| `SAP_TIER` | `DEV` | QA·PRD로 두면 쓰기가 막혀요 |
+| `SAP_RFC_BACKEND` | `odata` | OData 경로 사용 (NCo 방식이면 `nco`) |
+| `SAP_RFC_ODATA_SERVICE_URL` | `https://sapdev.example.com:44300/sap/opu/odata/sap/zmcp_adt_srv` | OData 서비스 주소 |
+| `SAP_RFC_ODATA_CSRF_TTL_SEC` | `600` | CSRF 토큰 재사용 시간(초) |
+| `MCP_BLOCKLIST_PROFILE` | `minimal` | 보호 테이블 차단 수준 |
+| `MCP_BLOCKLIST_EXTEND` | `ZHR*` | 추가로 막을 테이블 |
+
+> **보호 테이블은 sc4sap이 따로 막아요.** BKPF, KNA1 같은 테이블은 조회 전에 사용자 승인을 받아요. SAP 권한이 있어도 sc4sap의 차단이 먼저 적용돼요.
+
+---
+
 ## 9. 동작 확인
 
 마지막으로 상태를 점검해요.
@@ -320,6 +533,21 @@ Claude가 파일을 쓰거나 명령을 실행할 때 허락을 구해요. 설�
 > 명령 없이 그냥 한국어로 물어봐도 돼요. 예: "ZMY_REPORT 소스 읽고 무슨 프로그램인지 설명해줘"
 
 ✅ `sap-doctor` 점검을 통과했어요.
+
+---
+
+## B7. 연결 검증 (자세히)
+
+sap-doctor가 실패하거나 어느 경로가 막혔는지 알고 싶을 때 이 순서로 확인해요. Claude Code 입력창에 그대로 말하면 돼요.
+
+| 순서 | Claude에게 이렇게 요청 | 확인하는 것 |
+|---|---|---|
+| 1 | "MARA 테이블 검색해 줘" | ADT 경로 (B1·B2·B3) |
+| 2 | "SAPLSPO1 프로그램의 GUI 상태 보여 줘" | OData → `ZMCP_ADT_DISPATCH` 경로 (B5) |
+| 3 | `/sc4sap:sap-doctor` | ADT·OData 종합 점검 |
+| 4 | "$TMP에 테스트 프로그램 만들고, 고치고, 활성화한 뒤 지워 줘" | 쓰기 권한 (쓰기 계정만, DEV에서만) |
+
+> **1번만 되고 2번이 안 되면** ADT는 열렸고 OData 경로가 막힌 거예요. B5의 등록 확인과 문제 해결을 보세요.
 
 ---
 

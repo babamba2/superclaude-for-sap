@@ -88,7 +88,7 @@ ECC와 S/4HANA On-Premise에서 써요. 현재 버전은 1.0.0이에요.
 
 ## 시작하기 (5단계)
 
-1. **준비물** — Claude Code, Node.js 20 이상, ADT를 쓸 수 있는 SAP 사용자가 필요해요.
+1. **준비물** — Claude Code, Node.js 20 이상, ADT를 쓸 수 있는 SAP 사용자가 필요해요. 회사 SAP 서버에 처음 연결하면 Basis 담당자가 웹 포트, ICF, 권한을 먼저 준비해야 해요(가이드 B1~B4).
 2. **플러그인 설치** — Claude Code 입력창에 아래 두 줄을 입력해요. 그리고 Claude Code를 다시 시작해요.
    ```
    /plugin marketplace add https://github.com/babamba2/superclaude-for-sap.git
@@ -98,7 +98,7 @@ ECC와 S/4HANA On-Premise에서 써요. 현재 버전은 1.0.0이에요.
 4. **첫 요청** — "구매오더 승인 절차는 어떻게 설정돼 있어요?"처럼 편하게 물어봐요.
 5. **결과물 위치** — 문서와 보고서는 프로젝트 폴더의 `.sc4sap/work/<프로필>/` 아래에 저장돼요.
 
-자세한 설치 과정은 [처음 설치 가이드](docs/GETTING-STARTED.ko.md)에 있어요.
+자세한 설치 과정은 [처음 설치 가이드](https://sc4sap.dev/install-guide.html)에 있어요.
 
 ## 그냥 말로 하세요
 
@@ -134,7 +134,7 @@ ECC와 S/4HANA On-Premise에서 써요. 현재 버전은 1.0.0이에요.
 
 ## 문서
 
-- 🚀 **[처음 설치 가이드 →](docs/GETTING-STARTED.ko.md)** — Windows 기준으로 설치부터 SAP 연결까지 단계별로 안내해요.
+- 🚀 **[처음 설치 가이드 →](https://sc4sap.dev/install-guide.html)** — Windows 기준으로 Basis 준비부터 설치, SAP 연결까지 단계별로 안내해요. ([Markdown 판](docs/GETTING-STARTED.ko.md))
 - 📦 **[설치 및 설정 →](docs/INSTALLATION.ko.md)** — 요구 사항, 설정 마법사 단계, 블록리스트 설정이 있어요.
 - 🎯 **[기능 상세 →](docs/FEATURES.ko.md)** — 에이전트, 스킬, MCP 도구, 훅을 자세히 설명해요.
 - 📜 **[변경 이력 →](docs/CHANGELOG.ko.md)** — 버전별 변경 사항이에요.
