@@ -12,7 +12,7 @@
 
 # SuperClaude for SAP (sc4sap)
 
-> SAP ABAP 개발을 위한 Claude Code 플러그인 — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private) 지원
+> SAP ABAP 개발을 위한 Claude Code 플러그인 — SAP ECC / S/4HANA On-Premise 지원
 
 <p align="center">
   <a href="https://sc4sap.dev"><img src="sc4sap-bear.gif" alt="sc4sap mascot" width="480"/></a>
@@ -38,7 +38,7 @@ Claude Code를 우리 SAP 시스템에 연결해요. 그러면 ABAP 개발, 문�
 - **문서** — 설정 문서, 프로세스 맵, 스펙, 매뉴얼을 시스템에서 읽어 만들어요.
 - **운영** — 덤프 원인을 찾고, 트랜스포트를 점검하고, 운영 보고서를 써요.
 
-ECC, S/4HANA On-Premise, S/4HANA Cloud (Public / Private)에서 써요. 현재 버전은 1.0.0이에요.
+ECC와 S/4HANA On-Premise에서 써요. 현재 버전은 1.0.0이에요.
 
 ## 역할별로 할 수 있는 일
 

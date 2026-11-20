@@ -12,7 +12,7 @@
 
 # SuperClaude for SAP (sc4sap)
 
-> Claude-Code-Plugin für die SAP-ABAP-Entwicklung — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private)
+> Claude-Code-Plugin für die SAP-ABAP-Entwicklung — SAP ECC / S/4HANA On-Premise
 
 <p align="center">
   <a href="https://sc4sap.dev"><img src="sc4sap-bear.gif" alt="sc4sap mascot" width="480"/></a>
@@ -34,7 +34,7 @@
 
 **Claude Code, verbunden mit Ihrem SAP-System, übernimmt ABAP-Entwicklung, Dokumentation und Betriebsaufgaben für Sie.**
 
-- Unterstützt werden SAP ECC, S/4HANA On-Premise und S/4HANA Cloud (Public / Private).
+- Unterstützt werden SAP ECC und S/4HANA On-Premise.
 - Es hilft Entwicklern, Fachberatern, PM / PMO und dem Betrieb (SM / AMS / Basis).
 - Sie bitten einfach in normalen Sätzen darum. Version 1.0.0.
 

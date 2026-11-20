@@ -34,7 +34,7 @@
 
 sc4sap is a plugin for Claude Code. It connects Claude to your SAP system.
 
-- It works with SAP ECC, S/4HANA On-Premise and S/4HANA Cloud (Public and Private).
+- It works with SAP ECC and S/4HANA On-Premise.
 - It helps developers, functional consultants, project managers and operations teams.
 - You ask in plain words. Claude reads the system, does the work and shows you the result.
 
