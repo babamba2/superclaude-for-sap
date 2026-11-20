@@ -20,11 +20,9 @@
 
 <h1 align="center"><a href="https://sc4sap.dev">🌐 sc4sap.dev</a></h1>
 
-<h3 align="center">SAP 운영, 이제 웹에서 하세요.</h3>
+<h3 align="center">SAP 운영, 이제 웹에서 하세요. (베타)</h3>
 
 <p align="center">설치 없이 브라우저에서 sc4sap을 써요. 덤프 분석, 운영 보고서, 프로젝트 대시보드, 권한 설계까지 휴대폰에서도 돼요.</p>
-
-<p align="center"><a href="https://workspace.sc4sap.dev"><b>웹에서 바로 시작하기 →</b></a></p>
 
 [![Website](https://img.shields.io/badge/website-sc4sap.dev-0A66C2)](https://sc4sap.dev)
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)

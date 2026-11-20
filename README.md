@@ -20,11 +20,9 @@
 
 <h1 align="center"><a href="https://sc4sap.dev">🌐 sc4sap.dev</a></h1>
 
-<h3 align="center">SAP operations, now on the web.</h3>
+<h3 align="center">SAP operations, now on the web. (Beta)</h3>
 
 <p align="center">No install — use sc4sap in your browser: dump analysis, operations reports, project dashboards and role design, on your phone too.</p>
-
-<p align="center"><a href="https://workspace.sc4sap.dev"><b>Start on the web →</b></a></p>
 
 [![Website](https://img.shields.io/badge/website-sc4sap.dev-0A66C2)](https://sc4sap.dev)
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)
