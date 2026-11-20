@@ -8,7 +8,7 @@ Companion of [`SKILL.md`](SKILL.md). Business-readable change notes per transpor
 
 ## Inputs (ask once for what is missing)
 
-ARGUMENTS may carry them as lines (the web form sends these labels; "Mode: cab" means this file):
+Ask only what is still open: the requests as a plain-text ask with an example; the target is PRD unless the user names QAS; the language comes from the table below (never asked); packages and evidence are optional — offer them in one line, do not wait for them. ARGUMENTS may carry them as lines (the web form sends these labels; "Mode: cab" means this file):
 
 | Line | Use |
 |---|---|
@@ -30,6 +30,7 @@ Evidence comes only from what is named: the attached files, `--uat <set file>`, 
    <B> collect --requests K1,K2 | --owner <USER> | --text "<pattern>" --out-dir "<out>" --system <SID> --target <PRD> [--target-dest <DEST>] --cab
    ```
    `ok:false` → show the error and stop. `jobs: "not read"` → continue; cards say *jobs not read*.
+   Then build the CTS report from this collect (SKILL.md Step 3, `--in "<out>/collect.json" --out-dir "<out>"`), so the run gives the CTS page and the CAB notes page together.
 2. **Prepare** (offline):
    ```
    <C> prepare --in "<out>/collect.json" --out-dir "<out>" --graph-base "<base>/cbo" [--packages "<list>"] [--evidence <file>]… [--uat <file>]… [--uat-base "<base>/uat"] --cab-date <YYYY-MM-DD>
@@ -38,7 +39,7 @@ Evidence comes only from what is named: the attached files, `--uat <set file>`, 
 3. **Business text** — dispatch `"sc4sap:sap-writer"` with `model: "sonnet"`, one dispatch per `cab-writer-<n>.json` batch, at most 4 in parallel, with the prompt below. Write each answer to `<out>/cab-writer-<n>.txt`.
 4. **Save** each answer: `<C> save --in "<out>/cab-input.json" --file "<out>/cab-writer-<n>.txt"`. `refused` lists the requests whose text named something not in its input. Send only those back to the same writer once, with the refused tokens; save again. Still refused → leave the text empty (the card says so). Never edit a refused text yourself to make it pass.
 5. **Build**: `<C> build --in "<out>/cab-input.json" --out-dir "<out>" --lang <lang>`.
-6. **Report** in the user's language: the summary line (H / M / L counts), one line per request (risk, CTS verdict, reasons), the HTML path. Say that the business text is an AI draft to review and that the CAB decision is entered on the page by people.
+6. **Report** in the user's language: the summary line (H / M / L counts), one line per request (risk, CTS verdict, reasons), both HTML paths (CAB notes, CTS report). Say that the business text is an AI draft to review, that the CAB decision is entered on the page by people (Edit → Save downloads the edited page), and that sending the edited file back puts the edits in (Step 7). A request with *impact not collected* → offer `/sc4sap:stock-cbo` for its packages (not started unasked).
 7. **Edited page comes back**: `<C> import <edited.html> --out-dir "<out>"` — the edits (business text, decision, comment) go into `cab-input.json` and the page is rebuilt. A later `save` never overwrites a text a person edited. To revise further: change `requests[].note` / `decision` / `comment` in `cab-input.json`, then `build`.
 
 `prepare`, `save`, `build` and `import` never call SAP or MCP and write only under `--out-dir`.

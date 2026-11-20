@@ -54,7 +54,7 @@
 | `/sc4sap:interface-mapping-spec` | インターフェースのマッピング仕様書(HTML)を作成します。 |
 | `/sc4sap:smartform-preview` | SmartForm の印刷イメージを JPG で描きます。 |
 | `/sc4sap:smartform-from-pdf` | 帳票の PDF から SmartForm を作成し、印刷結果を元と比べてスコアを出します。 |
-| `/sc4sap:smartform-to-adobe`、`adobe-preview` | SmartForm から Adobe フォームへの変換を計画し、Adobe フォームの印刷イメージを描きます。`adobe-from-pdf` は準備中です。 |
+| `/sc4sap:smartform-to-adobe`、`adobe-preview` | SmartForm から Adobe フォームへの変換を計画し、Adobe フォームの印刷イメージを描きます。`smartform-to-adobe` はベータ版で、品質はまだ低いです。`adobe-from-pdf` は準備中です。 |
 
 ### 機能コンサルタント
 

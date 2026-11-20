@@ -51,7 +51,7 @@ Consultants need to see an Adobe form before test documents exist, to review a l
 <Workflow>
 Paths: `<base>` = artifact base, `<out>` = `<base>/adobe/<FORM>`, `<dir>` = the folder of the files `GetAdobeFormContent` returns.
 
-**Step 1 — Target.** Form name from ARGUMENTS; if missing ask once. Uppercase it.
+**Step 1 — Target.** `config.json` `sapVersion` is ECC → stop in one line: the Adobe form helper (`ZMCP_FP_CONTENT`) runs on S/4HANA only; for a SmartForm use `/sc4sap:smartform-preview`. Form name from ARGUMENTS; if missing ask once in plain text with an example ("Which Adobe form (SFP)? e.g. ZSD_INVOICE_AF"). Uppercase it. Then say in one line what comes: read the form and its DDIC types → invented sample values → HTML / PDF / JPG, read-only.
 
 **Step 2 — Read the form.** `GetAdobeFormContent(form_name)` → header (interface, layout type), summary (page areas, subforms, fields, draws, bindings, scripts) and `files`. Never load the XML / XDP files into the conversation.
 - `layoutType` blank or a fragment / output-management template (SFTE / SFLO) → say "not supported" and stop.
@@ -65,7 +65,7 @@ node scripts/adobe/build-adobe-preview.mjs fields "<dir>"
 **Step 4 — Field types.** For every interface parameter and global (`readInterface`): `GetStructure` (DDL: `abap.char(20)` inline or a data element per field), `GetDataElement` for data-element fields, `GetTypeInfo` for a table type's row type. Built-in parameter types (`C`, `N`, `P`, `D`, `T`, `I`, `STRING`) need no read. Keep `{ type, length, decimals }` per field, keyed like the context field: `"BOOKINGS-FORCURAM": { "type": "CURR", "length": 15, "decimals": 2 }`. `scripts/adobe/read-adobe-sap.mjs` `readFormDdic` does the same for the web.
 
 **Step 5 — Text modules and include texts** (context nodes of kind text-module / text). Language: the node's own `text.language` when set (SAP prints that one), else the logon language.
-- Text modules: their lines from `GetSqlQuery` on `STXFTXT` (`formname IN (…) AND spras = '<language>'` — Smart Forms repository text, not business data) and the paragraph formats of their SmartStyle from `STXSPARA` (style name: ask, or from the text module where known).
+- Text modules: their lines from `GetSqlQuery` on `STXFTXT` (`formname IN (…) AND spras = '<language>'` — Smart Forms repository text, not business data) and the paragraph formats of their SmartStyle from `STXSPARA` (style name: from the text module where known, else ask in plain text with the SmartStyle names the form's text modules use).
 - SO10 include texts (fixed `text.name` / `object` / `id`): `GetStandardText` (DEV systems only); a name held in a field (`nameField`) comes from the sample values.
 Without them the node prints empty and is listed in `missingTexts`.
 

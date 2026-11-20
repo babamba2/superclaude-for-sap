@@ -529,6 +529,12 @@ When everything passes, the installation is complete.
 | Find the cause of a dump | `/sc4sap:analyze-symptom look at yesterday's ST22 dumps` |
 | Build a new program | `/sc4sap:create-program` |
 | View or change settings | `/sc4sap:sap-option` |
+| Test a program on DEV before it moves | `/sc4sap:program-test ZMY_REPORT` |
+| Can these transport requests go to QA? | `/sc4sap:transport-readiness DEVK900123, DEVK900124` |
+| Operations report since yesterday | `/sc4sap:ops-health-check` |
+| UAT scenarios for a module | `/sc4sap:uat-scenarios MM purchasing` |
+| Look up or change documents (open POs, blocks …) | `/sc4sap:assist open purchase orders of vendor 100023` |
+| Plan a SmartForm → Adobe form conversion (beta, low quality) | `/sc4sap:smartform-to-adobe ZSD_INVOICE` |
 
 > You can also just ask in plain words, e.g. "Read the source of ZMY_REPORT and explain what it does".
 

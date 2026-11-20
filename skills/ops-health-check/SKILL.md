@@ -54,7 +54,7 @@ Only operations metadata is read: dump headers (error, program, include, time), 
 <Workflow>
 Paths: `<base>` = artifact base, `<out>` = `<base>/ops-check/<to>`. Read `<base>`'s `config.json` for `sapVersion`, the SID and the language (`language`, default `ko`).
 
-**Step 1 — Period and language.** From ARGUMENTS: "today" (today → today), "since yesterday" (default), "this week" (Monday → today), "last 7 days", "last 30 days" / "last N days", or two dates (`2027-03-01 – 2027-03-15`, `from … to …`, `--from` / `--to`). **Given dates override the period choice**: a `Dates: <from> – <to>` line (en dash or hyphen) wins over a `Period:` line sent with it and maps to `--from` / `--to`. Dates as `YYYY-MM-DD`; a reversed pair is swapped. More than 31 days → ask once to narrow it. Language named in ARGUMENTS (Korean / English / Japanese → `ko` / `en` / `ja`) overrides the profile's.
+**Step 1 — Period and language.** From ARGUMENTS: "today" (today → today), "since yesterday" (default), "this week" (Monday → today), "last 7 days", "last 30 days" / "last N days", or two dates (`2027-03-01 – 2027-03-15`, "from March 1 to March 15", `--from` / `--to`). Given dates override a named period (web lines: § Web intake). Dates as `YYYY-MM-DD`; a reversed pair is swapped. More than 31 days → ask once to narrow it. Language named in ARGUMENTS (Korean / English / Japanese → `ko` / `en` / `ja`) overrides the profile's. Do not ask when nothing is named — run the default, but print the period first in one line: `Period <from> – <to>, compared with <prev-from> – <prev-to> · other periods: "this week", "last 30 days", or two dates`.
 
 **Step 2 — Collect** (read-only; one call, through the plugin's MCP server):
 ```
@@ -68,8 +68,12 @@ node "<PLUGIN_ROOT>/scripts/ops/build-ops-check.mjs" build --in "<out>/collect.j
 ```
 It prints the verdict and a short summary (the same text as the `.md` file); the report is `ops-report-<to>-<lang>.html`.
 
-**Step 4 — Report.** Relay the summary in the user's language and give the report path; say that author, owners, due dates and comments can be filled in the page (Edit → Save) before it is sent. Then offer the next steps the report lists, one line each — for a dump group: run `/sc4sap:analyze-symptom` with its error, program and time (Recommended for red); for an aborted job: `/sc4sap:analyze-symptom job <name>` (or SM37); for IDocs in error: `/sc4sap:analyze-symptom idoc <message type>` with the partner when there is one (or WE02 / BD87); for updates: SM13. Do not start them unasked.
+**Step 4 — Report.** Relay the summary in the user's language and give the report path; say that author, owners, due dates and comments can be filled in the page (Edit → Save downloads `<file>-edited.html` with the edits — that file is the one to send). Then offer the next steps the report lists, one line each — for a dump group: run `/sc4sap:analyze-symptom` with its error, program and time (Recommended for red); for an aborted job: `/sc4sap:analyze-symptom job <name>` (or SM37); for IDocs in error: `/sc4sap:analyze-symptom idoc <message type>` with the partner when there is one (or WE02 / BD87); for updates: SM13. Do not start them unasked.
 </Workflow>
+
+<Web_Intake>
+The web form sends `Period: <choice>` and, optionally, `Dates: <from> – <to>` (en dash or hyphen) and `Language:`. A `Dates:` line wins over the `Period:` line sent with it and maps to `--from` / `--to`.
+</Web_Intake>
 
 <Output_Format>
 ```

@@ -56,7 +56,7 @@ Current plugin version: 1.0.0.
 | `/sc4sap:interface-mapping-spec` | An interface mapping spec: source field to target field, with rules |
 | `/sc4sap:smartform-preview` | A picture of the expected SmartForm print, without a print program |
 | `/sc4sap:smartform-from-pdf` | A SmartForm built from a PDF of the printed form |
-| `/sc4sap:smartform-to-adobe`, `adobe-preview`, `adobe-from-pdf` | Adobe form work: conversion plan, print preview, build from PDF. `adobe-from-pdf` is not runnable yet |
+| `/sc4sap:smartform-to-adobe`, `adobe-preview`, `adobe-from-pdf` | Adobe form work: conversion plan, print preview, build from PDF. `smartform-to-adobe` is a beta with low output quality; `adobe-from-pdf` is not runnable yet |
 
 ### Functional consultants
 

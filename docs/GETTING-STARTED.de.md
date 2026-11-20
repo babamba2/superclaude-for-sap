@@ -529,6 +529,12 @@ Wenn alles besteht, ist die Installation abgeschlossen.
 | Die Ursache eines Dumps finden | `/sc4sap:analyze-symptom look at yesterday's ST22 dumps` |
 | Ein neues Programm erstellen | `/sc4sap:create-program` |
 | Einstellungen ansehen oder ändern | `/sc4sap:sap-option` |
+| Programm vor dem Transport auf DEV testen | `/sc4sap:program-test ZMY_REPORT` |
+| Dürfen diese Transportaufträge nach QA? | `/sc4sap:transport-readiness DEVK900123, DEVK900124` |
+| Betriebsbericht seit gestern | `/sc4sap:ops-health-check` |
+| UAT-Szenarien für ein Modul | `/sc4sap:uat-scenarios MM Einkauf` |
+| Belege anzeigen oder ändern (offene Bestellungen, Sperren …) | `/sc4sap:assist offene Bestellungen des Lieferanten 100023` |
+| Umstellung SmartForm → Adobe-Formular planen (Beta, Qualität noch niedrig) | `/sc4sap:smartform-to-adobe ZSD_INVOICE` |
 
 > Sie können auch einfach in normalen Worten fragen, z. B. „Read the source of ZMY_REPORT and explain what it does".
 
