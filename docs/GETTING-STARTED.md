@@ -1,6 +1,6 @@
 # sc4sap Getting Started (first-time users)
 
-← [Back to README](../README.md) · [한국어](GETTING-STARTED.ko.md) · all setup options: [Installation & Setup](INSTALLATION.md)
+← [Back to README](../README.md) · [한국어](GETTING-STARTED.ko.md) · [日本語](GETTING-STARTED.ja.md) · [Deutsch](GETTING-STARTED.de.md) · all setup options: [Installation & Setup](INSTALLATION.md)
 
 A step-by-step guide for people who have never used Claude Code. Follow it from top to bottom.
 

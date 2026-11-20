@@ -1,6 +1,6 @@
 # sc4sap 설치 가이드 (처음 쓰는 분용)
 
-← [README로 돌아가기](../README.ko.md) · [English](GETTING-STARTED.md) · 자세한 설정 옵션은 [설치 및 설정](INSTALLATION.ko.md)
+← [README로 돌아가기](../README.ko.md) · [English](GETTING-STARTED.md) · [日本語](GETTING-STARTED.ja.md) · [Deutsch](GETTING-STARTED.de.md) · 자세한 설정 옵션은 [설치 및 설정](INSTALLATION.ko.md)
 
 Claude Code를 처음 쓰는 분을 위한 단계별 안내예요. 위에서부터 순서대로 따라 하면 돼요.
 
