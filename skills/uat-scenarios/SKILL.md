@@ -49,13 +49,17 @@ Test teams keep UAT scenarios in large workbooks that drift: steps without T-cod
 <Workflow>
 Paths: `<base>` = artifact base ([`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md)), `<dir>` = `<base>/uat`, `<B>` = `node "<PLUGIN_ROOT>/scripts/uat/build-uat.mjs"`.
 
-**Step 1 — Which set.** An existing set named or found under `<dir>` → Step 5. New set: one message asking for what is missing of: kind (UAT or integration test), module (for an integration test the leading module and the modules it crosses), process scope (process chains or processes), set ID (≤ 30 letters, digits, `_` `-`), cycles, language (from `config.json`, default `ko`). If a process map exists (`processes/<MODULE>/`, module-to-process) offer it as the scope.
+**Step 1 — Which set.** An existing set named with an action already stated (results to record, steps to fill, a check, defects) → straight to that step (5, 9 or 8); named without an action → Step 4. A new set asked for → new set, no chooser. Otherwise, sets found under `<dir>` → `AskUserQuestion` with the sets (newest first, at most 3) and `New set`. New set — **one `AskUserQuestion`** with only what ARGUMENTS left open:
+- *Kind* — `UAT (Recommended)`: user acceptance of one module or process area · `Integration test (SIT)`: end to end across modules, every hand-off checked.
+- *Module (leading module for SIT)* — the profile's active modules (`config.json`), at most 4 options. When SIT was chosen, ask the crossed modules afterwards in plain text.
+- *Cycles* — `1st / 2nd / 3rd (Recommended)` · `1st / 2nd` · `1st only`.
+Then in plain text the process scope, with an example ("purchase requisition to invoice", "order to cash for domestic sales"); a process map under `processes/<MODULE>/` (module-to-process) → offer it as the scope first. Propose the set ID yourself (`<MODULE>-<scope>`, e.g. `MM-PTP`, ≤ 30 letters, digits, `_` `-`) and the language from `config.json` (default `ko`) in the same message — the user changes them only if they want.
 
-**Step 2 — Draft.** Dispatch `sc4sap:sap-<module>-consultant` with [`proposal-prompt.md`](proposal-prompt.md) § Draft. It returns the set as JSON (scenarios with steps). Write it to `<dir>/_answers/<ID>.json` and run `<B> init --answers <that file> --dir <dir>` — it writes the set, the editable page `<ID>-uat.html` (dashboard, scenarios by phase, results per cycle, issues, checks — edit mode, Save downloads the edited page) and both workbooks (`<ID>-uat-A.xlsx`, `<ID>-uat-B.xlsx`) next to it; give the page first, then the workbooks, in the first report.
+**Step 2 — Draft.** Dispatch `sc4sap:sap-<module>-consultant` with [`proposal-prompt.md`](proposal-prompt.md) § Draft. It returns the set as JSON (scenarios with steps). Write it to `<dir>/_answers/<ID>.json` and run `<B> init --answers <that file> --dir <dir>` — it writes the set, the editable page `<ID>-uat.html` (dashboard, scenarios by phase, results per cycle, issues, checks — edit mode, Save downloads the edited page) and both workbooks (`<ID>-uat-A.xlsx`, `<ID>-uat-B.xlsx`) next to it; give the page first, then the workbooks, in the first report. Say in the same report how the page comes back: Edit → change scenarios, steps, results → Save downloads `<ID>-uat-edited.html`; send that file's path and it goes into the set (Step 6).
 
 **Step 3 — T-codes.** For each distinct T-code of an SAP step: `GetTransaction`. Unknown → collect. Report the unknown ones in one line and offer: replace (the consultant proposes the system's one), keep (marked), or remove the step. Offline: skip, and say the T-codes are unchecked.
 
-**Step 4 — Review.** `<B> check --dir <dir> --id <ID>` → show the progress line and the issues (≤ 15, grouped by scenario). Offer: fix with a proposal (Step 5), edit by hand, or export (Step 6).
+**Step 4 — Review.** `<B> check --dir <dir> --id <ID>` → show the progress line and the issues (≤ 15, grouped by scenario). Then **one `AskUserQuestion`** for what next: `Fill the gaps with a proposal` (Step 5) · `Record test results` (Step 5, the user states them) · `Check the steps against the system` (Step 9) · `Link defects to their fixing requests` (Step 8, when issues exist). Editing by hand on the page and the Excel files are always available — say so in one line instead of an option.
 
 **Step 5 — Proposal round.** The user names what to improve ("suggest the missing steps of MM02", "fill expected outputs", "record 1st cycle results: STEP-003 failed — release strategy not triggered"). Results and edits the user states are written as operations directly; anything to invent goes to the consultant with [`proposal-prompt.md`](proposal-prompt.md) § Patch and `<B> show` as context. Show the operations as a numbered list (one line each: scenario · step · field · new value), ask which to apply, write the accepted ones to `<dir>/_patch/<ID>-<n>.json`, run `<B> patch` (it rewrites the page and both workbooks). Report applied / skipped, the new issue count and that the Excel files are up to date.
 
@@ -67,6 +71,10 @@ Paths: `<base>` = artifact base ([`../../common/multi-profile-artifact-resolutio
 
 **Step 9 — Scenario check** ([`check.md`](check.md)): every SAP step against the connected system, read-only — OK / check / mismatch per step with its evidence, kept on the set (`lastCheck`, a badge column on the page); proposed fixes go through Step 5.
 </Workflow>
+
+<Web_Intake>
+The web's UAT workbench (`/uat`) sends `Mode: draft|patch`, `Kind:`, `Module:`, `Request:` and the set as JSON in `Set:`, and parses a JSON answer — no questions there; the defects run sends `Mode: defects and fixes` ([`defects.md`](defects.md)).
+</Web_Intake>
 
 <Output_Format>
 ```

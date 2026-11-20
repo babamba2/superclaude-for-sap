@@ -5,6 +5,20 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [1.0.1] — 2026-11-20
+
+CLI flow of the newer skills made as easy to follow as the web app. No breaking change; the MCP pin stays.
+
+### Changed
+- **Choice questions instead of free text**: `program-test` (data source, cost mode, spec), `uat-scenarios` (kind, module, cycles; set ID proposed; a stated action goes straight to its step), `transport-readiness` (target; CAB notes only for PRD, never re-asked when requested) ask with `AskUserQuestion` and a recommended first option. Web runs keep answering through their form lines (`<Web_Intake>` sections).
+- `program-test`: run plan before anything runs (steps, approvals, what is never written), `Step n of 0–11` progress lines, next step by verdict (e.g. `transport-readiness` after a green run), `sap-option` hint when the QA / PRD destination is missing; the cost-mode question follows `common/cost-mode.md`.
+- `transport-readiness`: a CAB run gives the CTS report and the CAB notes together, as on the web; the report offers the merge check and CAB notes when they apply.
+- `ops-health-check` prints the period before collecting; `adobe-preview` stops on ECC with the reason; edited pages (UAT, CAB, operations report) say how they come back.
+- Docs: GETTING-STARTED (four languages) lists first commands for the newer skills. FEATURES brought up to date — 27 agents (with the Haiku checker), 31 skills with examples, plain-chat routing, cost modes, offline profile, the full shared-rule list, the registered hooks, and the NCo connection — and the Korean, German and Japanese editions retranslated from it.
+
+### Added
+- `smartform-to-adobe` writes an HTML report (`scripts/adobe/sf-to-adobe-page.mjs` → `adobe-plan-<lang>.html` + Markdown): gap nodes and manual steps counted apart, silent gaps first, critic corrections marked *reviewed* (SAP's own message text never rewritten). **Marked beta — output quality is still low**: the skill, the report page and the docs say so on every run.
+
 ## [1.0.0] — 2026-11-20
 
 First stable release. No breaking change from 0.6.71: skills, agents, profiles and the MCP pin stay as they are.

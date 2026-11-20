@@ -4,9 +4,12 @@
 
 ## Table of Contents
 
-- [26 SAP-Specialized Agents](#26-sap-specialized-agents)
-- [14 Skills](#14-skills)
+- [27 SAP-Specialized Agents](#27-sap-specialized-agents)
+- [31 Skills](#31-skills)
 - [Skills — Examples & Workflow](#skills--examples--workflow)
+- [Plain-Chat Routing](#plain-chat-routing)
+- [Cost Modes (standard / eco)](#cost-modes-standard--eco)
+- [Offline Profile](#offline-profile)
 - [Multi-Environment Profiles (Dev / QA / Prod)](#-multi-environment-profiles-dev--qa--prod)
 - [MCP ABAP ADT Server Capabilities](#mcp-abap-adt-server--unique-capabilities)
 - [Shared Conventions](#shared-conventions-common)
@@ -20,13 +23,14 @@
 - [SAP-Specific Hooks](#sap-specific-hooks)
 - [Data Extraction Blocklist](#-data-extraction-blocklist)
 - [acknowledge_risk HARD RULE](#-acknowledge_risk--hard-rule)
-- [RFC Backend Selection](#-rfc-backend-selection)
+- [SAP Connection: Web Port, RFC Backend, NCo](#-sap-connection-web-port-rfc-backend-nco)
 
-## 26 SAP-Specialized Agents
+## 27 SAP-Specialized Agents
 
 | Category | Agents |
 |----------|--------|
 | **Core (10)** | Analyst, Architect, Code Reviewer, Critic, Debugger, Doc Specialist, Executor, Planner, QA Tester, Writer |
+| **Checker (1)** | `sap-checker` (Haiku) — read-only fan-out worker for scout / verify / detect jobs on one narrow scope; returns structured lines, never judges or fixes. Used by `create-program`, `analyze-code`, `compare-programs`, `stock-cbo`, `cbo-relation-map`, `module-to-process` |
 | **Basis (1)** | BC Consultant — system admin, transport management, diagnostics |
 | **Discovery (1)** | CBO Stocker — CBO package inventory, where-used graph, reusable-object catalog |
 | **Modules (14)** | SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, Ariba, BW |
@@ -37,7 +41,7 @@
 - `sap-analyst` / `sap-critic` / `sap-planner` additionally have mandatory **Country Context** block (loads `country/<iso>.md`)
 - **Direct MCP read access** for Core agents — package / DDIC / class / program / where-used / runtime-dump tools carry read-only access; write CRUD stays on `sap-executor` / `sap-planner` / `sap-writer` / `sap-qa-tester` / `sap-debugger`
 
-## 14 Skills
+## 31 Skills
 
 | Skill | Description |
 |-------|-------------|
@@ -62,10 +66,15 @@
 | `sc4sap:analyze-symptom` | Step-by-step SAP operational error/symptom analysis (dumps, logs, SAP Note candidates) |
 | `sc4sap:ops-health-check` | Operations report (HTML for the customer or PMO: summary, KPIs vs the previous period, dump trend, issues & actions) — dumps grouped and compared with the previous period, the transports that changed a dumping program, aborted jobs, update errors, IDocs in error; verdict + next steps (read-only) |
 | `sc4sap:transport-readiness` | CTS check of transport requests before QA / PRD — open tasks, inactive objects, local packages, shared objects (import order), unreleased DDIC dependencies, optional target merge check over an SM59 destination; verdict per request (read-only) |
-| `sc4sap:program-test` | Test a program on DEV with DEV / QA rows as test doubles (masked inside the MCP server; production after the masking MCP release) — expected values frozen first, masked data, ABAP Unit verdict per case, mutants + tamper check, NOT_TESTABLE share (no transport, program untouched) |
+| `sc4sap:program-test` | Test a program on DEV with DEV, QA or (on request) production rows as test doubles (masked inside the MCP server, each production table confirmed) — expected values frozen first, masked data, ABAP Unit verdict per case, mutants + tamper check, NOT_TESTABLE share (no transport, program untouched) |
 | `sc4sap:uat-scenarios` | UAT or integration test (SIT) scenario set — consultant draft, item-by-item proposals, T-code check, per-cycle progress, Excel export in two layouts (read-only on SAP) |
+| `sc4sap:assist` | Business assistant — looks up and changes specific documents through the installed business actions: lookup → preview → your yes → execute → document numbers (production: lookups only) |
+| `sc4sap:smartform-to-adobe` | **Beta — output quality is still low.** Conversion plan of a SmartForm into an Adobe form the way SAP's migration (CL_SSF_MIGRATION) does it — node inventory, interface / context / layout, SAP's predicted log, silent gaps with the manual step; HTML report (read-only; optional run on DEV for SAP example forms) |
+| `sc4sap:adobe-preview` | Expected print of an Adobe form (SFP, S/4HANA) as HTML / PDF / JPG with invented sample values sized to the interface's DDIC types; on DEV, SAP example forms can be scored against SAP's own print (read-only) |
+| `sc4sap:adobe-from-pdf` | Adobe form built from a PDF of the printed form — awaiting approval of the DEV write helper, not runnable yet |
 | `sc4sap:ask-consultant` | Direct user-facing Q&A with a module consultant agent (SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC). Read-only — honors the configured SAP environment. |
 | `sc4sap:module-to-process` | One editable HTML process map per module from the TCodes users actually run (productive ST03N): standard L1–L4 backbone with CBO tasks, variants, owners, systems; L3 scenario swimlanes; PDD-style task sheet per L4 with sourced business rules, steps, interfaces and S/4 conversion notes; optional consultant review, BPH reconciliation, English companion |
+| `sc4sap:eco` | Run one skill in eco cost mode without changing preferences — `/sc4sap:eco <skill> <args>` (cheaper sub-agent models and effort, same deliverable) |
 | `sc4sap:trust-session` | INTERNAL-ONLY — session-wide MCP permission bootstrap |
 
 ## Skills — Examples & Workflow
@@ -140,6 +149,38 @@ Answers "can these requests go tonight, and in which order?" before anyone opens
 ### `/sc4sap:ops-health-check`
 The morning check of SM / AMS operations. `scripts/ops/build-ops-check.mjs collect` reads, for a period (default since yesterday) and the period of the same length before it: the short dumps (`RuntimeListDumps` — the ADT feed and, on ECC, the ST22 list), the transport requests from a week before the period on with their texts and code objects (E070 / E07T / E071), aborted jobs (TBTCO status A with the first step's program), update requests with an error (VBHDR) and IDocs in an error status (EDIDC). `build` groups the dumps by runtime error and program, marks the groups that are new against the previous period, lists next to a group the requests that changed its program, include, function group or class before its last dump, and gives a verdict (red / amber / green) with the next step for each finding — `/sc4sap:analyze-symptom` for a dump group, SM37 / SM13 / BD87 for the rest. On BASIS < 7.50 the reads go through the `ZMCP_ADT_DISPATCH` action `TABLE_READ`, which lists the job, update and IDoc header tables by name (job logs, update data and IDoc data stay closed); an older dispatcher refuses them, and they show as *not readable — check in SM37 / SM13 / WE02*, never as empty. No business document contents are read; user names are counted, never listed. One self-contained HTML page (ko / en / ja, light and dark, A4 landscape print) under `ops-check/<to>/` of the profile artifact base.
 
+### `/sc4sap:program-test`
+Tests a program on DEV before its transport moves. You name the program; the skill asks for the data source (DEV rows by default, a masked sample of QA or production rows over the SM59 destination saved with `/sc4sap:sap-option` → *Test data sources*) and the cost mode, and prints a run plan — the steps, the `$TMP` test programs it creates, what you will be asked — before anything runs. Test cases and expected values are fixed from the spec and the source and frozen first; the rows become test doubles in a `$TMP` harness that runs the program's own code with ABAP Unit; planted mutants and a tampered expected value must fail. The verdict per case comes from the ABAP Unit result; the report starts with the share of cases that cannot be tested and offers `/sc4sap:transport-readiness` after a green run.
+
+### `/sc4sap:assist`
+Turns a sentence about concrete documents ("open POs of vendor 100023", "set a billing block on order 4711") into one business action of the connected system: it asks what is still open one question at a time, shows the lookup as a table, previews a change before → after with SAP's messages, and executes only after your yes for exactly that preview. Needs `SAP_TOOL_PROFILE=biz` or `all` and the SAP-side business handlers; production profiles get lookups only.
+
+### `/sc4sap:smartform-to-adobe`
+> **Beta — output quality is still low.** Check every result in SFP before relying on it.
+
+Before anyone runs SAP's SmartForm migration (it saves at once and has no test mode), the skill works out node by node what the migration makes of the form — interface, context, layout, SAP's predicted messages, and what SAP drops without a message — and writes one HTML report (`adobe-plan-<lang>.html`) with the gap list, silent gaps first, and the manual step for each. For SAP example SmartForms on DEV it can run the migration into new `$TMP` objects; the migrated form is then drawn with `/sc4sap:adobe-preview`.
+
+### `/sc4sap:adobe-preview`
+Draws what an Adobe form (S/4HANA) prints without a print program: master pages, flowed tables with repeated headers, page breaks, picture clauses, rich text, images — filled with invented values sized to the interface's DDIC types. HTML always, PDF and JPG with Chrome / Edge. On DEV, SAP's example forms can be printed through ADS and scored against the preview.
+
+### `/sc4sap:ask-consultant`
+A direct question to a module consultant agent ("Where is the credit check on delivery creation configured?"). The question is routed by keywords to `sap-{module}-consultant` (SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, BW, Ariba, BC) and answered against the profile's SAP version, industry, country and active modules, with the local SPRO cache first. Read-only — no writes, no row extraction. A question about concrete documents ("which POs are open?") is handed to `/sc4sap:assist` in the same turn.
+
+### `/sc4sap:compare-programs`
+Compares 2–5 programs that run the same business scenario but split by module, country, persona or time horizon. Sonnet / Haiku extract the facts of each program; one Opus pass writes the comparison for a functional consultant: a verdict matrix with *Differences only*, field differences, the selection and output screens side by side, and a decision guide. One editable, versioned HTML report with an English companion.
+
+### `/sc4sap:config-to-document`
+Documents one module's configuration as it is in the system (MM first; other modules through the same pipeline). The page follows the module's IMG tree; every IMG activity shows its real table values drawn on an SM30-style screen, rows changed by customer transports are marked with their transport history, configuration checks run over the values, and SAP's own IMG documentation is attached. Consultant notes are written by the module consultant agent and reviewed by `sap-critic`. The scope (areas, note batches) is chosen up front with its measured cost.
+
+### `/sc4sap:interface-mapping-spec`
+Writes an interface mapping specification as one editable HTML page in the classic template layout: cover, revision history, header, the Source → Target grid with conversion rules and MAPPING, an optional synchronous response block, the extraction condition and a field guide. The SAP side is read from DDIC (table, structure, view) or a function module signature; for a new interface it comes from a field list or the module consultant's proposal. The counterpart side is proposed; in-page checks flag gaps; versioned with an English companion.
+
+### `/sc4sap:module-to-process`
+Maps how one module runs in the system, from the T-codes users actually run (productive ST03N over `SAP_USAGE_RFCDEST`, or a saved usage list): used T-codes → programs → sources → reference graph → the standard L1–L4 process backbone with variants. Output: one editable HTML page with the BPH table, L3 scenario swimlanes, a variant matrix and one task sheet per L4 task (owner, system, business rules with source lines, steps, related objects, interfaces, conversion notes). Gap mode turns an existing map into a fit / partial / gap analysis with WRICEF candidates for the project dashboard.
+
+### `/sc4sap:eco`
+`/sc4sap:eco <skill> <args>` runs one skill in eco cost mode for this run only — see [Cost Modes](#cost-modes-standard--eco).
+
 ### `/sc4sap:smartform-preview`
 Draws the expected print of a SmartForm without running its print program: `GetSmartFormContent` reads the form, its SmartStyles and its SE78 graphics; the windows are drawn at their mm positions with template grids (borders, shading), loops with sample rows and the graphics at their printed size, then saved as JPG by headless Chrome / Edge. Every `&field&` gets an invented sample value sized to its DDIC type (no business data), so the picture shows the real cut-offs — the report lists the cells and windows whose content does not fit.
 
@@ -161,6 +202,29 @@ Plugin + MCP + SAP connectivity diagnostics. First thing to run when something's
 
 ### `/sc4sap:sap-option`
 View and edit `.sc4sap/sap.env` — credentials, RFC backend, blocklist policy, active modules. Secrets masked.
+
+## Plain-Chat Routing
+
+Most users describe what they want instead of typing a slash command. A digest of [`common/skill-router.md`](../common/skill-router.md) is injected at session start:
+
+- **Run directly**: how / why / configuration questions → `ask-consultant`; concrete documents (open POs, post GI, release, block, reverse) → `assist` (it confirms before any write); a dump or error of a run → `analyze-symptom`; daily check / failed jobs / operations report → `ops-health-check`; can these requests go to QA / PRD → `transport-readiness`; connection problems → `sap-doctor`.
+- **Propose in one line, run on yes**: deliverable and write skills (create-program, program-to-spec, config-to-document, uat-scenarios, …).
+- **Not routed**: a slash command the user typed, a skill already running, questions about the plugin itself.
+
+[`common/intent-router.md`](../common/intent-router.md) splits one sentence into knowledge (`ask-consultant`), lookup or action (`assist`) without asking the user to retype it.
+
+## Cost Modes (standard / eco)
+
+| Mode | What changes |
+|---|---|
+| `standard` (default) | The skills as written — Opus for judgment, Sonnet for template and bulk writes, Haiku checkers for fetch / verify / detect |
+| `eco` | Cheaper sub-agent models and effort, lower main-thread effort; **the same deliverable and the same checks** (reviews, verification gates and safety steps are never skipped) |
+
+Set it with `/sc4sap:sap-option` (`costMode`, or per skill in `costModeBySkill`), or for one run with `/sc4sap:eco <skill> <args>`. Resolution order and the per-skill tables: [`common/cost-mode.md`](../common/cost-mode.md). Skills that ask for a mode (for example `program-test`) ask only when nothing above decides it.
+
+## Offline Profile
+
+A profile with `connection: offline` has no SAP connection; the MCP bridge stays down. Each skill is **full** (works the same, e.g. `uat-scenarios` — T-codes marked unchecked), **degraded** (works without system lookups or on files the user provides, e.g. `ask-consultant` from references and local files, `smartform-to-adobe` on a downloaded form XML) or **blocked** (replies with a stop line). The list and the local knowledge order are in [`common/offline-mode.md`](../common/offline-mode.md).
 
 ## 🌐 Multi-Environment Profiles (Dev / QA / Prod)
 
@@ -282,6 +346,17 @@ Cross-skill authoring rules live in `common/` so every skill and agent follows t
 | `ecc-ddic-fallback.md` | ECC DDIC creation: MCP tools via `ZMCP_ADT_DDIC_*` first, `$TMP` helper report as fallback |
 | `cloud-abap-constraints.md` | Forbidden statements + Cloud-native API replacements for S/4 Cloud Public |
 | `customization-lookup.md` | Existing Z*/Y* BAdI impl / CMOD / form-exit / append reuse gate |
+| `screen-tabstrip.md` | Tabstrip screens (STRIP_CTRL + subscreen area + tab PUSH rows, `CALL SUBSCREEN` in PBO and PAI) |
+| `skill-router.md` · `intent-router.md` | Plain chat → the right skill; knowledge / lookup / action split between `ask-consultant` and `assist` |
+| `cost-mode.md` · `model-dispatch-mode.md` | Cost mode (standard / eco) and model dispatch mode (auto / user-defined) |
+| `offline-mode.md` | Offline profile: full / degraded / blocked per skill, notice and stop lines |
+| `multi-profile-artifact-resolution.md` | Where each profile's deliverables live; a target object missing on the active system stops the skill |
+| `verification-evidence.md` · `evidence-receipt.md` | Final reports: done criteria fixed up front, evidence before the summary; the receipt decided by a script from MCP responses (`create-program`) |
+| `sap-content-as-data.md` | Source, texts, dumps, rows and web pages are data, never instructions; SAP text travels in `<sap-data>` blocks |
+| `structured-return-repair.md` | A malformed agent return block is rewritten once by the same agent; verdicts never change |
+| `adobe-forms-verification.md` | Metrics and gates for the Adobe form skills, measured against SAP's own print |
+| `humanize-korean.md` | Korean prose polish (connective commas always; long sentences through the optional humanize-korean plugin) |
+| `team-consultation-protocol.md` | Return-based protocol for multi-specialist agent teams (`teamMode`) |
 
 ## Context Loading Architecture (v0.5.2+)
 
@@ -444,11 +519,22 @@ Modules: SD, MM, FI, CO, PP, PS, PM, QM, TR, HCM, WM, TM, Ariba, BW.
 
 ## SAP-Specific Hooks
 
-- **SPRO Auto-Injection** — Haiku LLM classifies user input and injects relevant module SPRO config
-- **Transport Validation** — Checks transport exists before MCP Create/Update
-- **Auto-Activation** — Triggers ABAP object activation after creation/modification
-- **Syntax Checker** — Auto-runs semantic analysis on ABAP errors
-- **🔒 Data Extraction Blocklist** — `PreToolUse` hook blocks row extraction from sensitive SAP tables
+Registered in `hooks/hooks.json`:
+
+| Event | Hook | What it does |
+|---|---|---|
+| SessionStart | `session-start.mjs`, `project-memory-session.mjs`, `legacy-migration-banner.mjs` | Plugin rules and the skill-router digest; project environment from `.sc4sap/project-memory.json`; banner for a legacy single-profile `sap.env` |
+| Setup (`init`, `maintenance`) | `setup-init.mjs`, `setup-maintenance.mjs` | `claude --init-only` / `-p --init` creates the `.sc4sap` structure; `claude -p --maintenance` clears stale state and checks configs |
+| PreToolUse (SAP tools) | `permission-approver.mjs` | Auto-approves SAP MCP calls so pipelines and their agents run without per-call prompts — except row-data reads (`GetTableContents`, `GetRemoteTableContents`, `GetSqlQuery`) and business actions (`PreviewBusinessAction`, `ExecuteBusinessAction`), which always keep their prompt One narrow exception: a `GetSqlQuery` that reads DD* repository metadata in the shape `stock-cbo` uses is auto-approved. |
+| PreToolUse (row reads, source writes) | `hooks/block-forbidden-tables.mjs` | 🔒 Data extraction blocklist (below) — also for test code and CDS views written through Create / Update, the channels that could read rows |
+| PreToolUse (row reads) | `program-test/pt-gate.mjs` | During a program-test run: denies a read without the run's `mask`, and production reads outside the run's own destination |
+| PreToolUse (file tools) | `evidence/guard.mjs` | Agents cannot write the evidence files a script owns (receipts, masked rows, harness) |
+| PostToolUse (SAP tools) | `evidence/record.mjs` | Records MCP responses into the run's evidence ledger |
+| PostToolUseFailure | `post-tool-use-failure.mjs` | Records the failure and retry count for retry guidance |
+| SubagentStart / SubagentStop | `subagent-tracker.mjs`, `verify-deliverables.mjs` | Tracks dispatched agents; warns (non-blocking) when an agent left its expected deliverables missing |
+| Stop / SessionEnd | `context-guard-stop.mjs`, `session-end.mjs` | Suggests a session refresh when the context grows large; session summary log |
+
+The tier guard (`scripts/hooks/tier-readonly-guard.mjs`, QA / PRD read-only) is installed into the project settings by `/sc4sap:setup` (see Multi-Environment Profiles).
 
 ## 🔒 Data Extraction Blocklist
 
@@ -507,9 +593,11 @@ Full protocol: `common/data-extraction-policy.md`.
 ### ⚠️ "Always allow" pitfall
 When a `GetTableContents` / `GetSqlQuery` permission prompt appears, choose **"Allow once"**, never **"Always allow"**. Claude Code appends the tool ID to `permissions.allow` on "Always allow", permanently disabling the safeguard. Recovery: re-run any parent skill — `trust-session` Step 2 scans and strips `GetTableContents`/`GetSqlQuery` entries on every invocation.
 
-## 🔀 RFC Backend Selection
+## 🔀 SAP Connection: Web Port, RFC Backend, NCo
 
-Screen / GUI Status / Text Element operations dispatch through RFC-enabled FMs on SAP. 2 transport backends:
+sc4sap talks to SAP over ADT on the web port (HTTP 80NN / HTTPS 443NN). Where the web port cannot be opened, it can connect through the **RFC port (33NN) with the SAP .NET Connector (NCo)** on a Windows developer PC — no ICF nodes, no Gateway service and no `S_SERVICE`; `S_ADT_RES` and the development authorizations stay the same. NCo is licensed SAP software that each user installs; application server + instance only (no logon groups, SAProuter or SNC). Details: [Getting Started → RFC (NCo)](GETTING-STARTED.md#if-the-web-port-cannot-be-opened-rfc-nco).
+
+Screen / GUI Status / Text Element operations dispatch through RFC-enabled FMs on SAP. 2 transport backends on the web port:
 
 | `SAP_RFC_BACKEND` | How | When to use |
 |---|---|---|

@@ -529,6 +529,12 @@ https://sapdev.example.com:44300/sap/opu/odata/sap/ZMCP_ADT_SRV/$metadata?sap-cl
 | ダンプの原因を調べる | `/sc4sap:analyze-symptom look at yesterday's ST22 dumps` |
 | 新しいプログラムを作る | `/sc4sap:create-program` |
 | 設定を表示・変更する | `/sc4sap:sap-option` |
+| 移送前に DEV でプログラムをテストする | `/sc4sap:program-test ZMY_REPORT` |
+| この移送依頼を QA に送ってよいか | `/sc4sap:transport-readiness DEVK900123, DEVK900124` |
+| 昨日からの運用レポート | `/sc4sap:ops-health-check` |
+| モジュールの UAT シナリオ | `/sc4sap:uat-scenarios MM 購買` |
+| 伝票の照会・変更 (未完了の発注、保留など) | `/sc4sap:assist 仕入先 100023 の未完了発注` |
+| スマートフォーム → Adobe フォーム移行計画 (ベータ、品質はまだ低い) | `/sc4sap:smartform-to-adobe ZSD_INVOICE` |
 
 > 普通の言葉で頼むこともできます。例: 「ZMY_REPORT のソースを読んで、何をするプログラムか説明して」
 

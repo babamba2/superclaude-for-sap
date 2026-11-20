@@ -56,7 +56,7 @@ ECC와 S/4HANA On-Premise에서 써요. 현재 버전은 1.0.0이에요.
 | `/sc4sap:interface-mapping-spec` | 인터페이스 매핑 정의서예요. Source → Target 필드와 변환 규칙이 들어가요. |
 | `/sc4sap:smartform-preview` | SmartForm 예상 출력물 JPG예요. 잘리는 칸도 알려 줘요. |
 | `/sc4sap:smartform-from-pdf` | 출력물 PDF로 SmartForm을 만들어 DEV에 올리고, 원본과 비교해 점수를 매겨요. |
-| `/sc4sap:smartform-to-adobe` · `adobe-preview` · `adobe-from-pdf` | Adobe 폼 작업이에요. SmartForm 전환 계획, 출력 미리보기, PDF로 만들기를 해요. `adobe-from-pdf`는 아직 승인 대기예요. |
+| `/sc4sap:smartform-to-adobe` · `adobe-preview` · `adobe-from-pdf` | Adobe 폼 작업이에요. SmartForm 전환 계획, 출력 미리보기, PDF로 만들기를 해요. `smartform-to-adobe`는 베타라 품질이 아직 낮아요. `adobe-from-pdf`는 아직 승인 대기예요. |
 
 ### 현업 컨설턴트
 

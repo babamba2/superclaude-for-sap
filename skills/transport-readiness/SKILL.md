@@ -46,7 +46,11 @@ Imports fail, or break QA, for a handful of repeat reasons: a task still open, a
 <Workflow>
 `<B>` = `node "<PLUGIN_ROOT>/scripts/transport/build-tr-check.mjs"`, `<out>` = `<base>/transport/<today>`.
 
-**Step 1 — Which requests.** CAB change notes asked for (Use_When) → the steps of [`cab-notes.md`](cab-notes.md) replace Steps 2–4. From ARGUMENTS: request numbers, "my requests" (owner = the profile's user), or a project tag / text pattern. Target system (QAS / PRD) if named. Target destination if named (`Target destination: <DEST>` line, `--target-dest <DEST>`, "destination QASCLNT100", "대상 RFC QASCLNT100") → pass it as `--target-dest`; a blank line counts as not named. Report language if named (Korean / English / Japanese → `ko` / `en` / `ja`), else the profile `config.json` `language`, else `ko`. Requests missing → ask once.
+**Step 1 — Which requests.** From ARGUMENTS: request numbers, "my requests" (owner = the profile's user), or a project tag / text pattern. Requests missing → ask in plain text with the three forms as examples ("DEVK900123, DEVK900124 · my requests · text [SD]%"). Target system (QAS / PRD) if named. Target destination if named ("destination QASCLNT100", "대상 RFC QASCLNT100", `--target-dest <DEST>`) → pass it as `--target-dest`. Report language if named (Korean / English / Japanese → `ko` / `en` / `ja`), else the profile `config.json` `language`, else `ko`. Web form lines: § Web intake.
+Then ask only what is still open, each question at most once:
+- *Target* not named and CAB notes asked for → PRD, no question. Not named otherwise → `AskUserQuestion`: `QAS` · `PRD` · `Not decided` (CTS check without a target).
+- *CAB change notes*: the user asked for them (Use_When) → Yes, no question. Otherwise ask only when the target is PRD (named, or just answered — then as a second question): `No (Recommended)`: CTS check only · `Yes`: also the board's notes from the same check (one card per request: what changed in business words as an AI draft, impact up to the TCodes and jobs, test evidence, risk, rollback facts).
+CAB notes chosen → follow [`cab-notes.md`](cab-notes.md): its collect (`--cab`) replaces Step 2, then Step 3 builds the CTS report from that same collect, then cab-notes.md Steps 2–7 — **one run gives both pages**, as on the web.
 
 **Step 1b — Target destination** (when a target system is named or the user asks whether the requests can go into it, e.g. "QAS에 들어가도 되나"; skip when ARGUMENTS already name the destination). Ask for it clearly in one line — the SM59 destination of the target, so the run also finds changes made only there that the import would overwrite. Call `GetRemoteTableContents` with `table_name: "TADIR"` and **no** destination: the error lists the SM59 destinations saved for the profile. Show them and let the user pick one or name another; never guess. Nothing saved and none given → run without the merge check and say so.
 
@@ -61,8 +65,12 @@ Prints the counts (requests, objects, objects in other requests, inactive with i
 <B> build --in "<out>/collect.json" --out-dir "<out>" --lang <lang>
 ```
 
-**Step 4 — Report.** Relay the summary in the user's language (one line per request: verdict and reasons) and give the HTML path. For blocked requests name the first fix (release task X / activate Y / move Z out of `$TMP` / import request W first / retrofit the target-only change of request V into the source first). Do not release or import anything.
+**Step 4 — Report.** Relay the summary in the user's language (one line per request: verdict and reasons) and give the HTML path. For blocked requests name the first fix (release task X / activate Y / move Z out of `$TMP` / import request W first / retrofit the target-only change of request V into the source first). Do not release or import anything. Then offer, one line each and only when they apply: the target merge check when it was skipped ("name the SM59 destination of <target> and I re-run with the merge check") · CAB change notes when the target is PRD and they were not made · a re-run after the fixes.
 </Workflow>
+
+<Web_Intake>
+The web form sends lines: `Requests:`, `Target: QAS|PRD`, `Target destination: <DEST>` (blank = not named), `Language:`, `CAB notes: Yes|No` with `CAB date:`, `Packages:`, `Evidence and note:`. They answer Step 1's questions — do not ask them again; `CAB notes: Yes` = the CAB path of Step 1.
+</Web_Intake>
 
 <Data_Rules>
 Only transport and repository metadata is read, on the source and (with a destination) the target: request headers and texts, object lists, packages, version directory, table usage of programs, activation state, where-used lists. No table contents of any application object.

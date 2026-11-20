@@ -529,6 +529,12 @@ https://sapdev.example.com:44300/sap/opu/odata/sap/ZMCP_ADT_SRV/$metadata?sap-cl
 | 덤프 원인 분석 | `/sc4sap:analyze-symptom 어제 ST22 덤프 봐줘` |
 | 새 프로그램 만들기 | `/sc4sap:create-program` |
 | 설정 보기·변경 | `/sc4sap:sap-option` |
+| 이관 전에 DEV에서 프로그램 테스트 | `/sc4sap:program-test ZMY_REPORT` |
+| 이 TR을 QA로 보내도 되는지 확인 | `/sc4sap:transport-readiness DEVK900123, DEVK900124` |
+| 어제 이후 운영 보고서 | `/sc4sap:ops-health-check` |
+| 모듈 UAT 시나리오 | `/sc4sap:uat-scenarios MM 구매` |
+| 전표 조회·변경 (미결 PO, 보류 등) | `/sc4sap:assist 업체 100023 미결 PO 보여줘` |
+| 스마트폼 → 어도비 폼 전환 계획 (베타, 품질 낮음) | `/sc4sap:smartform-to-adobe ZSD_INVOICE` |
 
 > 명령 없이 그냥 한국어로 물어봐도 돼요. 예: "ZMY_REPORT 소스 읽고 무슨 프로그램인지 설명해줘"
 

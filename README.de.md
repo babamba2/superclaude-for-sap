@@ -54,7 +54,7 @@
 | `/sc4sap:interface-mapping-spec` | Mapping-Spezifikation für eine Schnittstelle als HTML. |
 | `/sc4sap:smartform-preview` | Das erwartete Druckbild eines SmartForms als JPG. |
 | `/sc4sap:smartform-from-pdf` | Ein SmartForm aus einer PDF-Vorlage. Das Druckbild wird mit dem Original verglichen und bewertet. |
-| `/sc4sap:smartform-to-adobe`, `adobe-preview` | Umstellung SmartForm auf Adobe-Formular planen. Druckbild eines Adobe-Formulars zeichnen. `adobe-from-pdf` ist in Vorbereitung. |
+| `/sc4sap:smartform-to-adobe`, `adobe-preview` | Umstellung SmartForm auf Adobe-Formular planen. Druckbild eines Adobe-Formulars zeichnen. `smartform-to-adobe` ist eine Beta mit noch niedriger Qualität. `adobe-from-pdf` ist in Vorbereitung. |
 
 ### Fachberater
 
