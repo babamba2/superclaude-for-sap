@@ -138,6 +138,7 @@ Questions and lookups run at once. For documents and code, Claude proposes the s
 - [Getting Started](docs/GETTING-STARTED.md): step by step for first-time users (English)
 - [Installation and Setup](docs/INSTALLATION.md): requirements, options, blocklist
 - [Features](docs/FEATURES.md): all skills, agents, hooks and policies
+- Visual overview (Korean, HTML): [plugin](docs/overview/sc4sap-plugin-overview.ko.html) with terminal demos and sample results, and [web](docs/overview/sc4sap-web-overview.ko.html) with real screens. Download and open in a browser.
 - [Skill Model Architecture](docs/skill-model-architecture.md): which model does which step
 - [Changelog](docs/CHANGELOG.md): version history
 

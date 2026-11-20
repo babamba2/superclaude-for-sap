@@ -137,6 +137,7 @@ ECC와 S/4HANA On-Premise에서 써요. 현재 버전은 1.0.0이에요.
 - 🚀 **[처음 설치 가이드 →](https://sc4sap.dev/install-guide.html)** — Windows 기준으로 Basis 준비부터 설치, SAP 연결까지 단계별로 안내해요. ([Markdown 판](docs/GETTING-STARTED.ko.md))
 - 📦 **[설치 및 설정 →](docs/INSTALLATION.ko.md)** — 요구 사항, 설정 마법사 단계, 블록리스트 설정이 있어요.
 - 🎯 **[기능 상세 →](docs/FEATURES.ko.md)** — 에이전트, 스킬, MCP 도구, 훅을 자세히 설명해요.
+- 🖼 **핵심 기능 한눈에 (HTML)** — [플러그인판](docs/overview/sc4sap-plugin-overview.ko.html)은 터미널 사용 예시와 결과물 샘플, [웹판](docs/overview/sc4sap-web-overview.ko.html)은 실제 웹 화면으로 보여줘요. 내려받아 브라우저로 열어 보세요.
 - 📜 **[변경 이력 →](docs/CHANGELOG.ko.md)** — 버전별 변경 사항이에요.
 
 ## Unleashed

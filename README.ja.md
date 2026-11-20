@@ -133,6 +133,7 @@
 - 🚀 **[はじめての方へ →](docs/GETTING-STARTED.ja.md)** — Basis の準備から Windows での手順、動作確認まで
 - 📦 **[インストール & セットアップ →](docs/INSTALLATION.ja.md)** — 要件、インストールオプション、ブロックリスト設定
 - 🎯 **[機能詳細 →](docs/FEATURES.ja.md)** — エージェント、スキル、MCP ツール、フック、データ抽出ポリシー
+- 🖼 **概要（韓国語・HTML）** — [プラグイン版](docs/overview/sc4sap-plugin-overview.ko.html)はターミナルの使用例、[Web 版](docs/overview/sc4sap-web-overview.ko.html)は実際の画面です。ダウンロードしてブラウザで開いてください。
 - 📜 **[変更履歴 →](docs/CHANGELOG.ja.md)** — バージョン履歴と破壊的変更
 
 ## Unleashed
