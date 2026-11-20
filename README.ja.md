@@ -10,7 +10,13 @@
 
 > SAP ABAP 開発向け Claude Code プラグイン — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private) 対応
 
-**公式サイト:** [sc4sap.dev](https://sc4sap.dev)
+<p align="center">
+  <a href="https://sc4sap.dev"><img src="sc4sap-bear.gif" alt="sc4sap mascot" width="480"/></a>
+</p>
+
+<h1 align="center"><a href="https://sc4sap.dev">🌐 sc4sap.dev</a></h1>
+
+<p align="center"><b>公式サイト — ブラウザですぐに試せます</b></p>
 
 [![Website](https://img.shields.io/badge/website-sc4sap.dev-0A66C2)](https://sc4sap.dev)
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)
@@ -20,40 +26,106 @@
 
 ## sc4sap とは
 
-SuperClaude for SAP は Claude Code をフルスタック SAP 開発アシスタントに変換します。[MCP ABAP ADT サーバー](https://github.com/babamba2/abap-mcp-adt-powerup)(150+ ツール)経由で SAP システムに接続し、クラス・関数モジュール・レポート・CDS ビュー・Dynpro・GUI ステータスなどの ABAP オブジェクトを直接作成・読み取り・更新・削除します。
+**SAP システムにつないだ Claude Code が、ABAP 開発・ドキュメント作成・運用の仕事を代わりに進めます。**
 
-## 主要機能
+- SAP ECC、S/4HANA On-Premise、S/4HANA Cloud (Public / Private) に対応しています。
+- 開発者、機能コンサルタント、PM / PMO、運用担当(SM / AMS / Basis)の仕事を支えます。
+- 日本語や英語で普通に頼むだけで使えます。バージョンは 1.0.0 です。
 
-| 機能 | 説明 |
+## できること(役割別)
+
+### 開発者
+
+| 頼むこと | 得られるもの |
 |------|------|
-| 🔌 **MCP 自動インストール** | `/sc4sap:setup` 中に `abap-mcp-adt-powerup` を自動インストール・設定・接続テスト。手動 MCP 配線不要。 |
-| 🌐 **マルチ環境プロファイル (Dev / QA / Prod)** | 会社・ティア別に複数の SAP システム(`KR-DEV`、`KR-QA`、`KR-PRD`、`US-DEV` など)を登録し、`/sc4sap:sap-option` でセッション中に即時切り替え。**QA / Prod プロファイルは自動で読み取り専用保護**:PreToolUse フックと MCP サーバーガードの 2 層防御が `Create*/Update*/Delete*`、`CreateTransport`、コード実行ツールをブロック — フックを回避してもサーバー側で依然として拒否。パスワードは **OS 資格情報ストア** (`@napi-rs/keyring` — Windows Credential Manager / macOS Keychain / libsecret) に保管され、`.sc4sap/` が git にシークレットを漏洩させるリスクなし。成果物(仕様書、CBO カタログ、監査)はプロファイル別に分離され、読み取り専用のクロスビューを提供 — QA セッションが Dev 生成の仕様を汚染せずに参照可能。 |
-| 🏗️ **自動プログラムメーカー** | ABAP プログラムのエンドツーエンド生成:Main + 条件付き Include、OOP/Procedural、フル ALV + Docking、Dynpro + GUI ステータス、必須 Text Elements、ABAP Unit — プラットフォーム対応(ECC / S4 On-Prem / Cloud)。 |
-| 🔍 **プログラム解析** | MCP で ABAP オブジェクトを読み取り → Clean ABAP / パフォーマンス / セキュリティレビュー、または機能/技術仕様へのリバースエンジニアリング(Markdown/Excel)。 |
-| 🧪 **コード解析** | `/sc4sap:analyze-code` — `sap-code-reviewer` 専用の静的レビュー:Clean ABAP / パフォーマンス / セキュリティ / SAP 標準準拠。重大度順の指摘と具体的な修正提案。 |
-| 🔀 **プログラム比較** | `/sc4sap:compare-programs` — 同一の業務シナリオを共有しつつモジュール(MM/CO)・国(KR/EU)・ペルソナ(コントローラー/倉庫)で分岐した 2〜5 本の ABAP プログラムをコンサルタント視点で 10 次元比較 → 編集可能な HTML レポート(色分けした判定マトリクス・差分のみ表示、項目差分表、画面の並列比較、判断ガイド、バージョン管理 + 英語版)。 |
-| ⚙️ **設定 → ドキュメント** | `/sc4sap:config-to-document` — 接続先システムに実際に設定されているモジュールのカスタマイジングを文書化(MM から)。IMG ツリーに沿ったオフライン HTML ファイル 1 本:IMG アクティビティごとに実テーブル値を SM30 風の画面に描画、顧客トランスポートで変更された行とトランスポート履歴、設定チェック、SAP の IMG ドキュメント、モジュールコンサルタントエージェントが書き `sap-critic` がレビューしたコンサルタントノート。SAP には読み取り専用。ページ内の編集モードでコンサルタントがノート・設定値の表・変更履歴を直し、次のバージョンに引き継げる。 |
-| 🖨️ **スマートフォーム プレビュー** | `/sc4sap:smartform-preview` — 印刷プログラムやテストデータなしで SmartForm の出力イメージを JPG で描きます。ウィンドウは実際の mm 位置、SmartStyle のフォント、罫線・網掛け付きのテンプレート、SE78 グラフィック（ロゴ、署名）、サンプル行入りのループ。`&フィールド&` には DDIC の型に合わせた架空のサンプル値が入り、内容が切れるセルとウィンドウをレポートします。読み取り専用。→ `smartforms/<FORM>/<FORM>-preview.{jpg,html}` |
-| 🩺 **運用ヘルスチェック** | `/sc4sap:ops-health-check` — SM / AMS 運用チームの朝の点検を1つのレポートにまとめます。ショートダンプをランタイムエラーとプログラムごとにまとめて前期間と比較し、ダンプしたプログラムを変更した移送依頼、中断したジョブ、更新エラー、エラー IDoc を示します。判定と項目ごとの次の一手(分析するダンプ、開く TCode)付き。システムが読ませないテーブルは「なし」ではなく「読めない」と表示します。照会のみ、ユーザー名は数だけ数えます。 |
-| 🚚 **CTS チェック** | `/sc4sap:transport-readiness` — 移送依頼を QA や本番へ送る前に、未リリースのタスク、非有効オブジェクト、ローカルパッケージのオブジェクト、他の未リリース依頼にもあるオブジェクト(移送順序)、他の未リリース依頼の DDIC オブジェクトを使うコードを確認します。必要に応じて SM59 接続先で移送先システムも読み、正しくマージできるか(移送先だけの変更の上書き、使用 DDIC の欠落、より新しいバージョンの巻き戻し)を確認します。依頼ごとの判定(移送可 / 確認が必要 / 移送不可)を1つのレポートに。照会のみです。 |
-| 🧪 **UAT シナリオ** | `/sc4sap:uat-scenarios` — モジュールごとの UAT テストシナリオを編集し続けるセット1つで管理します。シナリオごとの STEP 行(活動、システム、T-code、確認項目、入力データ、期待結果、テストユーザー、回次別結果、フォローアップ)。モジュールコンサルタントが下書きし、修正は項目ごとに提案して採否を選べます。T-code はシステムで確認し、抜けと回次別の進捗を示します。Excel は統合テスト形式か一覧形式で出力します。 |
-| 📄 **PDF からスマートフォーム** | `/sc4sap:smartform-from-pdf` — 印刷された帳票の PDF（またはスクリーンショット）から SmartForm を作成します。罫線の領域はテンプレートに、すべてのテキストは既存 SmartStyle の最も近い書式で元と同じ位置に置かれます。続いて値を `&フィールド&` に、明細行を内部テーブルのループにし、インターフェースを追加します（ユーザーと一緒に決定）。DEV システムにアップロードして印刷し、元のページと比較してスコアを出します。→ `smartforms/<FORM>/` |
-| 📊 **プロジェクトダッシュボード** | `/sc4sap:project-dashboard` — SAP プロジェクトごとに PM と PMO が編集する HTML ページ（サマリー、KPI、Q ゲート付きマイルストーン、ガント付き WBS、チーム、履歴）と、全プロジェクトのポートフォリオページを作成します。新規導入（SAP Activate）、S/4 コンバージョン、ロールアウト、AMS リリース、小規模プロジェクトのテンプレート付き。モジュールコンサルタントと開発コンサルタントを分けて追跡します（WRICEF ステージ、引き継ぎキュー）。実績は接続中のシステムから読み取ります（カスタマイズ／ワークベンチ移送、パッケージオブジェクト、非有効オブジェクト、稼働後のダンプ）。メンバーは日付で参加・離脱し、離脱者の未完了項目を表示します。モバイルでも編集できます。→ `projects/<CODE>/` |
-| 🔐 **ロールマトリクス** | `/sc4sap:role-matrix` — プロジェクトの権限設計書を編集可能な HTML ワークブック 1 つで作成します：チェック付き表紙、業務ロール、PFCG ロール、業務ロール × T-code マトリクス（F/C/D）、ユーザー × ロール割当、権限オブジェクト、SoD ルールと自動競合チェック、変更履歴。新規設計はモジュールコンサルタントの提案から（ST03N 利用実績があれば実際に使う T-code に絞り込み）、または SAP から読み取り（ロール、T-code、権限値、組織レベル、ユーザー割当はユーザー ID のみ — ユーザーマスタは読みません）。大きなシステムはページ分割し、検索・CSV・貼り付けはシート全体に適用されます。SAP には書き込みません。→ `roles/<CODE>/` |
-| 🩺 **運用診断** | 運用トリアージ:ST22 ダンプ、SM02、/IWFND/ERROR_LOG、プロファイラトレース、ログ、where-used — すべて Claude から。 |
-| 🕸️ **CBO 関連図** | `/sc4sap:cbo-relation-map` — パッケージの顧客オブジェクトのつながりを HTML 1 枚で表示。`stock-cbo` のグラフを使い、SAP は呼び出さない:テーブル → データエレメント → ドメイン、チェックテーブル、検索ヘルプ、ビューの基底テーブル、テーブルを読み書きするプログラム / 汎用モジュール。接続の多いオブジェクト、関連グループ、フィルタ付き周辺ビュー、2 オブジェクト間の最短経路、各関連の DDIC 行・ソース行。標準オブジェクトは除外。→ `cbo/<MODULE>/<PACKAGE>/<PACKAGE>-relation-map-{ko,en}.html` |
-| ♻️ **CBO 再利用** | Z パッケージを一度棚卸し → `create-program` / `program-to-spec` が既存 CBO 資産を優先再利用。ブラウンフィールドに必須。 |
-| 🧷 **CBO 拡張認識 (CMOD / GGB0·1 / BTE / VOFM / BAdI / APPEND)** | ユーザーエグジット (CMOD)、検証/置換 (GGB0/GGB1)、BTE ファンクションモジュール、VOFM ルーチン (要件 / 計算式 / データ転送)、BAdI 実装、APPEND ストラクチャを棚卸し。`create-program` / BAPI 呼び出しでは既存の拡張フィールド(例:BAPI `EXTENSIONIN` / テーブル append)を新規 CBO より優先;ダンプ・障害対応では拡張ポイントを第一容疑者として検査。 |
-| 🏭 **業界コンテキスト** | 14 業界リファレンス (retail, fashion, cosmetics, tire, automotive, pharma, F&B, chemical, electronics, construction, steel, utilities, banking, public-sector)。 |
-| 🌏 **国別ローカライゼーション** | 15 カ国 + EU 共通 (KR/JP/CN/US/DE/GB/FR/IT/ES/NL/BR/MX/IN/AU/SG)。適格請求書、銀行、給与、税制。 |
-| 🧩 **アクティブモジュール認識** | クロスモジュール統合ヒント:MM + PS 有効 → MM CBO に WBS フィールド自動提案;SD + CO 有効 → CO-PA 派生。[詳細 →](common/active-modules.md) |
-| 🤝 **モジュールコンサルテーション** | `sap-analyst` / `sap-critic` / `sap-planner` / `sap-architect` がビジネス判断が必要な場合、14 モジュールコンサルタント + 1 BC コンサルタントに委任。ユーザーが直接質問する場合は `/sc4sap:ask-consultant` — キーワードで SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC を自動ルーティングし、プロジェクトに設定された SAP 環境(バージョン・業界・国・アクティブモジュール)に沿って回答、読み取り専用。 |
+| `/sc4sap:create-program` | Report / ALV / CRUD / バッチを Main + Include で作成。設計、実装、確認までまとめて実行します。 |
+| `/sc4sap:create-object` | クラス、テーブル、関数モジュールなどを 1 つ作成。移送とパッケージを確認し、有効化します。 |
+| `/sc4sap:program-test` | 既存プログラムを DEV でテスト。期待結果を先に決め、実データを読み、個人情報をマスクした値で実行します。 |
+| `/sc4sap:analyze-code` | Clean ABAP、性能、セキュリティのレビュー結果を重大度順に出します。 |
+| `/sc4sap:program-to-spec` | プログラムから機能 / 技術仕様書(Markdown、HTML、Excel)を作成します。 |
+| `/sc4sap:program-to-manual` | 1 本のプログラムのエンドユーザーマニュアル(HTML)を作成します。 |
+| `/sc4sap:compare-programs` | 2〜5 本のプログラムを業務の観点で比べる HTML レポートを作成します。 |
+| `/sc4sap:interface-mapping-spec` | インターフェースのマッピング仕様書(HTML)を作成します。 |
+| `/sc4sap:smartform-preview` | SmartForm の印刷イメージを JPG で描きます。 |
+| `/sc4sap:smartform-from-pdf` | 帳票の PDF から SmartForm を作成し、印刷結果を元と比べてスコアを出します。 |
+| `/sc4sap:smartform-to-adobe`、`adobe-preview` | SmartForm から Adobe フォームへの変換を計画し、Adobe フォームの印刷イメージを描きます。`adobe-from-pdf` は準備中です。 |
+
+### 機能コンサルタント
+
+| 頼むこと | 得られるもの |
+|------|------|
+| `/sc4sap:ask-consultant` | モジュールコンサルタントが、お使いの SAP 環境に合わせて質問に答えます。 |
+| `/sc4sap:assist` | 未決の PO、入庫、請求などの伝票を照会・変更します。変更の前に必ず確認します。 |
+| `/sc4sap:config-to-document` | モジュールの設定内容を IMG ツリーに沿った HTML にまとめます。 |
+| `/sc4sap:module-to-process` | モジュールの業務プロセスを 1 つの HTML にまとめます。 |
+| `/sc4sap:uat-scenarios` | UAT / 結合テストのシナリオを、編集し続けられる形で作成します。 |
+| `/sc4sap:cbo-relation-map` | 自社開発 (Z / Y) オブジェクトのつながりを図にします。 |
+| `/sc4sap:stock-cbo` | 自社開発パッケージを棚卸しします。以後の開発で既存資産を優先して使います。 |
+
+### PM / PMO
+
+| 頼むこと | 得られるもの |
+|------|------|
+| `/sc4sap:project-dashboard` | プロジェクトごとの HTML ダッシュボードと、全体のポートフォリオ。 |
+| `/sc4sap:role-matrix` | ロールと権限の設計書(編集できる HTML ワークブック)。 |
+
+### 運用(SM / AMS / Basis)
+
+| 頼むこと | 得られるもの |
+|------|------|
+| `/sc4sap:analyze-symptom` | エラーの原因を順番に調べます。参照のみで、何も変更しません。 |
+| `/sc4sap:ops-health-check` | ダンプ、中断ジョブ、更新エラーなどの朝の点検レポート。 |
+| `/sc4sap:transport-readiness` | 移送依頼を QA / 本番へ送る前の確認と判定。 |
+| `/sc4sap:sap-doctor` | プラグイン、MCP サーバー、SAP 接続の健全性を診断します。 |
+
+## はじめかた(5 ステップ)
+
+1. 準備するもの: Claude Code、Node.js、ADT へのアクセス権がある SAP ユーザー。
+2. プラグインを入れます。Claude Code で次を実行します。
+   ```
+   /plugin marketplace add https://github.com/babamba2/superclaude-for-sap.git
+   /plugin install sc4sap
+   ```
+3. `/sc4sap:setup` を実行します。SAP 接続の登録、MCP サーバーのインストール、接続テストまで進みます。
+4. 試しに 1 つ頼みます。例: 「ZMMR00040 の内容を説明して」
+5. 成果物はプロジェクトのフォルダに保存されます(例: `projects/<CODE>/`、`smartforms/<FORM>/`)。
+
+詳しい手順は [はじめての方へ](docs/GETTING-STARTED.md) と [インストール & セットアップ](docs/INSTALLATION.ja.md) をご覧ください。
+
+## 話しかけるだけで使えます
+
+スラッシュコマンドを覚える必要はありません。普通に頼めば、ふさわしいスキルに振り分けられます(ルールは `common/skill-router.md`)。
+
+- 「購買発注 4500001234 の状況を見せて」
+- 「ZMMR00040 のレビューをして」
+- 「この PDF の帳票から SmartForm を作って」
+
+## 安全のしくみ
+
+- QA / PRD プロファイルは読み取り専用です。フックと MCP サーバーの 2 か所で書き込みを止めます。
+- データの取り出しは、テーブルごとに確認します。読ませないテーブルはブロックリストで指定できます。
+- パスワードは OS の資格情報ストア(Windows Credential Manager / macOS Keychain / libsecret)に保管します。
+- 対象は自社開発 (Z / Y) オブジェクトだけです。SAP 標準オブジェクトには触れません。
+- すべての変更は移送依頼に載せ、有効化と構文チェックを行います。
+
+## コストモード
+
+- `standard`: 品質を優先します。
+- `eco`: より安価なモデルを使います。成果物は同じです。
+- `/sc4sap:sap-option` で常時の設定を変えます。1 回だけ使うときは `/sc4sap:eco <スキル名>` と入力します。
+
+## 内部のしくみ(かんたんに)
+
+- [MCP ABAP ADT サーバー](https://github.com/babamba2/abap-mcp-adt-powerup)(150+ ツール)で SAP とつながります。
+- 27 の専門エージェントが働きます(モジュール別コンサルタント、実装、レビュー、チェックなど)。
+- SAP 接続は複数のプロファイル(DEV / QA / PRD)を登録し、切り替えられます。
+- 14 業界と 15 か国 + EU の知識を持っています。
 
 ## ドキュメント
 
-- 🚀 **[はじめての方へ (英語 / 韓国語) →](docs/GETTING-STARTED.md)** — Windows での手順:PowerShell 実行ポリシー、Git、Node.js、Claude Code、サインイン、プラグイン導入、SAP 接続、動作確認、トラブルシューティング
-- 📦 **[インストール & セットアップ →](docs/INSTALLATION.ja.md)** — 要件、インストールオプション、ウィザードステップ、ブロックリスト設定
-- 🎯 **[機能詳細 →](docs/FEATURES.ja.md)** — 26 エージェント、14 スキル、MCP ツール、RFC バックエンド、フック、データ抽出ポリシー
+- 🚀 **[はじめての方へ (英語 / 韓国語) →](docs/GETTING-STARTED.md)** — Windows での手順から動作確認まで
+- 📦 **[インストール & セットアップ →](docs/INSTALLATION.ja.md)** — 要件、インストールオプション、ブロックリスト設定
+- 🎯 **[機能詳細 →](docs/FEATURES.ja.md)** — エージェント、スキル、MCP ツール、フック、データ抽出ポリシー
 - 📜 **[変更履歴 →](docs/CHANGELOG.ja.md)** — バージョン履歴と破壊的変更
 
 ## Unleashed

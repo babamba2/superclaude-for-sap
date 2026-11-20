@@ -10,7 +10,13 @@
 
 > SAP ABAP 개발을 위한 Claude Code 플러그인 — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private) 지원
 
-**공식 사이트:** [sc4sap.dev](https://sc4sap.dev)
+<p align="center">
+  <a href="https://sc4sap.dev"><img src="sc4sap-bear.gif" alt="sc4sap mascot" width="480"/></a>
+</p>
+
+<h1 align="center"><a href="https://sc4sap.dev">🌐 sc4sap.dev</a></h1>
+
+<p align="center"><b>공식 사이트 — 브라우저에서 바로 써 보세요</b></p>
 
 [![Website](https://img.shields.io/badge/website-sc4sap.dev-0A66C2)](https://sc4sap.dev)
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)
@@ -18,44 +24,114 @@
 [![GitHub stars](https://img.shields.io/github/stars/babamba2/superclaude-for-sap?style=flat&color=yellow)](https://github.com/babamba2/superclaude-for-sap)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
 
-## sc4sap이란?
+## sc4sap이 하는 일
 
-SuperClaude for SAP은 Claude Code를 풀스택 SAP 개발 어시스턴트로 바꿔 줘요. [MCP ABAP ADT 서버](https://github.com/babamba2/abap-mcp-adt-powerup) (150+ 툴)로 SAP 시스템에 연결해요. 그리고 클래스/함수모듈/리포트/CDS 뷰/Dynpro/GUI 스테이터스 등 ABAP 객체를 직접 생성·조회·수정·삭제해요.
+Claude Code를 우리 SAP 시스템에 연결해요. 그러면 ABAP 개발, 문서 작업, 운영 업무를 대신 해 줘요.
 
-## 핵심 기능
+- **개발** — 프로그램을 만들고, 리뷰하고, DEV에서 테스트해요.
+- **문서** — 설정 문서, 프로세스 맵, 스펙, 매뉴얼을 시스템에서 읽어 만들어요.
+- **운영** — 덤프 원인을 찾고, 트랜스포트를 점검하고, 운영 보고서를 써요.
 
-| 기능 | 설명 |
-|------|------|
-| 🔌 **자동 MCP 설치** | `/sc4sap:setup` 중에 `abap-mcp-adt-powerup`을 자동 설치/설정/연결테스트해요. 수동 MCP 배선은 필요 없어요. |
-| 🌐 **다중 환경 프로파일 (Dev / QA / Prod)** | 회사별·티어별로 여러 SAP 시스템(`KR-DEV`, `KR-QA`, `KR-PRD`, `US-DEV` 등)을 등록해요. `/sc4sap:sap-option` 으로 세션 중에 즉시 전환해요. **QA / Prod 프로파일은 자동 읽기전용 보호**: PreToolUse 훅과 MCP 서버 가드 2계층이 `Create*/Update*/Delete*`, `CreateTransport`, 코드 실행 도구를 차단해요. 훅을 우회해도 서버 단에서 여전히 거부돼요. 비밀번호는 **OS 자격 증명 저장소** (`@napi-rs/keyring` — Windows Credential Manager / macOS Keychain / libsecret) 에 보관돼요. 그래서 `.sc4sap/` 가 git 에 시크릿을 누출할 위험이 없어요. 산출물(스펙, CBO 카탈로그, 감사)은 프로파일별로 격리돼요. 읽기전용 크로스뷰도 지원해서 QA 세션이 Dev 에서 만든 스펙을 오염시키지 않고 참조할 수 있어요. |
-| 🏗️ **자동 프로그램 생성기** | ABAP 프로그램을 엔드-투-엔드로 생성해요. Main + Include 컨벤션, OOP/Procedural, 풀 ALV + Docking, Dynpro + GUI 스테이터스, Text Elements, ABAP Unit. 플랫폼 인식(ECC / S4 On-Prem / Cloud). |
-| 🔍 **프로그램 분석** | MCP로 ABAP 객체를 읽은 뒤 Clean ABAP / 성능 / 보안 리뷰를 하거나 Functional/Technical Spec을 역공학해요 (Markdown/Excel). |
-| 🧪 **코드 분석** | `/sc4sap:analyze-code` — `sap-code-reviewer` 전용 정적 리뷰예요. Clean ABAP / 성능 / 보안 / SAP 표준 준수를 검토해요. 이슈를 심각도별로 정리하고 구체적인 수정을 제안해요. |
-| 🔀 **프로그램 비교** | `/sc4sap:compare-programs` — 2~5개 ABAP 프로그램을 컨설턴트 관점에서 10개 차원으로 비교해요. 대상은 같은 비즈니스 시나리오를 공유하지만 모듈(MM/CO)·국가(KR/EU)·Persona(컨트롤러/창고)로 분화된 프로그램이에요. 결과는 편집 가능한 HTML 리포트(색상 판정 매트릭스·차이만 보기, 필드 차이표, 화면 나란히 비교, 의사결정 가이드, 버전 관리 + 영어판)로 나와요. |
-| ⚙️ **설정 → 문서** | `/sc4sap:config-to-document` — 연결된 시스템에 실제로 설정된 모듈 구성을 문서화해요(MM 우선). 결과물은 IMG 트리를 따르는 오프라인 HTML 파일 하나예요. IMG 액티비티별 실제 테이블 값을 SM30 스타일 화면으로 그려요. 고객 트랜스포트로 변경된 행과 트랜스포트 이력, 설정 점검, SAP IMG 문서도 담아요. 모듈 컨설턴트 에이전트가 쓰고 `sap-critic`이 검토한 컨설턴트 노트도 들어가요. SAP에는 읽기 전용이에요. 페이지 안 편집 모드로 컨설턴트가 노트 · 설정값 표 · 변경 이력을 고쳐 다음 버전에 반영할 수 있어요. |
-| 🖨️ **스마트폼 미리보기** | `/sc4sap:smartform-preview` — 출력 프로그램이나 테스트 데이터 없이 SmartForm의 예상 출력물을 JPG로 그려요. 윈도우는 실제 mm 위치에 표시해요. SmartStyle 글꼴, 테두리·음영이 있는 템플릿, SE78 그래픽(로고 서명), 예시 행이 들어간 루프까지 보여 줘요. `&필드&`에는 DDIC 타입 길이에 맞춘 가상의 예시 값이 들어가요. 내용이 잘리는 셀과 윈도우는 보고서로 알려 줘요. 읽기 전용이에요. → `smartforms/<FORM>/<FORM>-preview.{jpg,html}` |
-| 🩺 **운영 보고서 작성** | `/sc4sap:ops-health-check` — 고객·PMO에 낼 운영 보고서(요약, 이전 기간 대비 KPI, 덤프 추이, 이슈·조치, 편집, A4 인쇄)를 HTML로 만들어요. 숏 덤프를 런타임 오류와 프로그램별로 묶어 이전 기간과 비교해요. 덤프가 난 프로그램을 바꾼 전송 요청, 중단된 배치 잡, 업데이트 오류, 오류 IDoc도 보여줘요. 판정과 항목별 다음 할 일(분석할 덤프, 열어 볼 TCode)을 함께 적어요. 시스템이 읽게 해 주지 않는 테이블은 '없음'이 아니라 '읽을 수 없음'으로 표시해요. 조회 전용이고, 사용자 이름은 수만 세요. |
-| 🚚 **CTS 점검** | `/sc4sap:transport-readiness` — 전송 요청을 QA나 운영으로 보내기 전에 열린 작업, 비활성 오브젝트, 로컬 패키지 오브젝트, 다른 열린 요청에도 있는 오브젝트(이관 순서), 다른 미릴리스 요청의 DDIC 오브젝트를 쓰는 코드를 확인해요. 필요하면 SM59 연결로 대상 시스템도 읽어서 정상 병합되는지 봐요. 대상에서만 바뀐 변경을 덮어쓰는지, 쓰는 DDIC가 대상에 없는지, 더 최신 버전을 되돌리는지 확인해요. 요청마다 판정(이관 가능 / 확인 필요 / 이관 불가)을 보고서 한 장에 담아요. 조회 전용이에요. |
-| 🧪 **UAT 시나리오** | `/sc4sap:uat-scenarios` — 모듈별 UAT 테스트 시나리오를 고쳐 가며 쓰는 묶음 하나로 관리해요. 시나리오마다 STEP 행(활동, 시스템, T-code, 확인 항목, 입력 데이터, 기대 결과, 테스트 사용자, 회차별 결과, 후속 조치)이 있어요. 모듈 컨설턴트가 초안을 쓰고, 고칠 점은 항목별로 제안해서 받거나 버릴 수 있어요. T-code는 시스템에서 확인하고, 빠진 점과 회차별 진행률을 보여줘요. 엑셀은 통합 테스트형이나 목록형으로 내보내요. |
-| 📄 **PDF로 스마트폼 만들기** | `/sc4sap:smartform-from-pdf` — 출력된 서식의 PDF(또는 스크린샷)로 SmartForm을 만들어요. 괘선 영역은 템플릿이 돼요. 모든 글자는 원본과 같은 위치에 기존 SmartStyle의 가장 가까운 서식으로 배치돼요. 이어서 값은 `&필드&`로, 품목 줄은 내부 테이블 루프로 바꾸고 인터페이스를 추가해요(사용자와 함께 결정). DEV 시스템에 올려 실제로 출력한 뒤 원본 페이지와 점수로 비교해요. → `smartforms/<FORM>/` |
-| 📊 **프로젝트 대시보드** | `/sc4sap:project-dashboard` — SAP 프로젝트마다 PM과 PMO가 편집하는 HTML 페이지 하나를 만들어요(요약, KPI, Q-gate 마일스톤, 간트 WBS, 팀, 이력). 모든 프로젝트를 모은 포트폴리오 페이지도 있어요. 신규 구축(SAP Activate), S/4 전환, 롤아웃, AMS 릴리스, 소규모 프로젝트 템플릿을 제공해요. 모듈 컨설턴트와 개발 컨설턴트를 따로 추적해요(WRICEF 단계, 인계 대기열). 실적은 연결된 시스템에서 읽어요(커스터마이징/워크벤치 이관, 패키지 오브젝트, 비활성 오브젝트, 오픈 후 덤프). 인원은 날짜로 투입·철수하고, 철수자의 미결 항목을 표시해요. 모바일에서도 편집돼요. → `projects/<CODE>/` |
-| 🔐 **권한 매트릭스** | `/sc4sap:role-matrix` — 프로젝트 권한 설계서를 편집 가능한 HTML 워크북 하나로 만들어요. 점검 결과가 있는 표지, 업무 역할, PFCG 역할, 업무 역할 × T-code 매트릭스(F/C/D), 사용자 × 역할 배정, 권한 오브젝트, SoD 규칙과 자동 충돌 점검, 변경 이력이 들어가요. 새로 설계할 때는 모듈 컨설턴트가 제안해요(ST03N 사용 실적이 있으면 실제 쓰는 T-code로 좁혀요). SAP에서 읽을 때는 역할, T-code, 권한 값, 조직 레벨, 사용자 배정을 가져와요. 사용자는 ID만 읽고 사용자 마스터는 읽지 않아요. 큰 시스템은 페이지로 나눠 보여 줘요. 검색·CSV·붙여넣기는 시트 전체에 적용돼요. SAP에는 쓰지 않아요. → `roles/<CODE>/` |
-| 🗺️ **모듈 → 프로세스** | `/sc4sap:module-to-process` — 모듈마다 **편집 가능한 HTML 프로세스 맵** 하나를 만들어요. 운영 시스템(ST03N)에서 실제로 쓰는 TCode만 분석하고, 모듈의 여러 패키지 CBO 프로그램을 표준 L1~L4 프로세스에 배치해요(Variant·담당·시스템 포함). L3마다 시나리오 swimlane, L4마다 PDD 형식 Task 시트(소스 근거가 붙은 Business Rule, Step, 관련 객체, 인터페이스, S/4 conversion 메모)를 넣어요. 모듈 컨설턴트 검토, 기존 BPH 대조, 영문판은 선택이에요. |
-| 🩺 **운영 진단** | 운영 트리아지 루프: ST22 덤프, SM02, /IWFND/ERROR_LOG, 프로파일러 트레이스, 로그, where-used — 모두 Claude에서 처리해요. |
-| 🕸️ **CBO 관계도** | `/sc4sap:cbo-relation-map` — 패키지의 고객 객체가 어떻게 이어지는지 HTML 한 장으로 보여 줘요. `stock-cbo`가 만든 그래프를 쓰고 SAP는 호출하지 않아요. 테이블 → 데이터 요소 → 도메인, 검사 테이블, 서치헬프, 뷰 기준 테이블, 그리고 테이블을 읽고 쓰는 프로그램·함수를 그려요. 연결이 가장 많은 객체, 서로 묶이는 그룹, 거르기가 되는 주변 보기, 두 객체 사이 최단 경로를 볼 수 있어요. 연결마다 DDIC 행이나 소스 줄을 근거로 붙여요. 표준 객체는 빼요. → `cbo/<MODULE>/<PACKAGE>/<PACKAGE>-relation-map-{ko,en}.html` |
-| ♻️ **CBO 재사용** | Z-패키지 1회 인벤토리 → `create-program` / `program-to-spec`이 기존 CBO 자산을 우선 재사용해요. 브라운필드에서는 필수예요. |
-| 🧷 **CBO Extension 인식 (CMOD / GGB0·1 / BTE / VOFM / BAdI / APPEND)** | 사용자 익스짓(CMOD), 검증·치환(GGB0/GGB1), BTE 펑션 모듈, VOFM 루틴(조건 / 공식 / 데이터 전송), BAdI 구현, APPEND Structure를 인벤토리해요. `create-program` / BAPI 호출 시에는 기존 Extension 필드(예: BAPI `EXTENSIONIN` / 테이블 append)를 우선 재사용해요. 덤프·장애 대응 시에는 Extension 포인트를 1순위 용의자로 검토해요. |
-| 🏭 **산업 컨텍스트** | 14개 산업 레퍼런스 (retail, fashion, cosmetics, tire, automotive, pharma, F&B, chemical, electronics, construction, steel, utilities, banking, public-sector). |
-| 🌏 **국가/로컬라이제이션** | 15개 국가 + EU-common (KR/JP/CN/US/DE/GB/FR/IT/ES/NL/BR/MX/IN/AU/SG). e-인보이스, 뱅킹, 페이롤, 세제. |
-| 🧩 **활성 모듈 인식** | 교차 모듈 통합 힌트를 줘요. MM + PS가 활성이면 MM CBO에 WBS 필드를 자동 제안해요. SD + CO가 활성이면 CO-PA를 파생해요. [상세 →](common/active-modules.md) |
-| 🤝 **모듈 컨설테이션** | `sap-analyst` / `sap-critic` / `sap-planner` / `sap-architect`가 업무 판단이 필요할 때 14개 모듈 컨설턴트 + 1개 BC 컨설턴트에 위임해요. 사용자가 직접 질의할 때는 `/sc4sap:ask-consultant`를 써요. 키워드로 SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC에 자동 라우팅해요. 답변은 프로젝트에 설정된 SAP 환경(버전·산업·국가·활성 모듈)에 맞춰요. 읽기 전용이에요. |
+ECC, S/4HANA On-Premise, S/4HANA Cloud (Public / Private)에서 써요. 현재 버전은 1.0.0이에요.
+
+## 역할별로 할 수 있는 일
+
+### 개발자
+
+| 이렇게 말해요 | 이렇게 받아요 |
+|---|---|
+| `/sc4sap:create-program` "자재별 재고 ALV 만들어 줘" | Main + Include 구조의 프로그램이에요. 코딩부터 리뷰까지 에이전트가 해요. |
+| `/sc4sap:create-object` | 테이블, 클래스, 함수모듈 같은 객체 하나를 만들고 활성화해요. |
+| `/sc4sap:program-test` | QA로 옮기기 전에 DEV에서 프로그램을 테스트해요. 기대 결과를 먼저 정하고 케이스별로 판정해요. |
+| `/sc4sap:analyze-code` | 코드 리뷰 결과예요. Clean ABAP, 성능, 보안 문제를 근거와 함께 보여 줘요. |
+| `/sc4sap:program-to-spec` | 기존 프로그램의 기능·기술 스펙이에요. Markdown, HTML, Excel로 받아요. |
+| `/sc4sap:program-to-manual` | 사용자 매뉴얼 HTML이에요. 화면 그림에 번호를 달아 단계별로 설명해요. |
+| `/sc4sap:compare-programs` | 비슷한 프로그램 2~5개를 업무 관점으로 비교한 보고서예요. |
+| `/sc4sap:interface-mapping-spec` | 인터페이스 매핑 정의서예요. Source → Target 필드와 변환 규칙이 들어가요. |
+| `/sc4sap:smartform-preview` | SmartForm 예상 출력물 JPG예요. 잘리는 칸도 알려 줘요. |
+| `/sc4sap:smartform-from-pdf` | 출력물 PDF로 SmartForm을 만들어 DEV에 올리고, 원본과 비교해 점수를 매겨요. |
+| `/sc4sap:smartform-to-adobe` · `adobe-preview` · `adobe-from-pdf` | Adobe 폼 작업이에요. SmartForm 전환 계획, 출력 미리보기, PDF로 만들기를 해요. `adobe-from-pdf`는 아직 승인 대기예요. |
+
+### 현업 컨설턴트
+
+| 이렇게 말해요 | 이렇게 받아요 |
+|---|---|
+| `/sc4sap:ask-consultant` "이 이동유형은 왜 회계전표가 안 생겨요?" | 모듈 컨설턴트 에이전트의 답이에요. 우리 시스템 버전, 산업, 국가에 맞춰 답해요. |
+| `/sc4sap:assist` "미결 PO 보여 줘" | 미결 PO, 입고, 청구 같은 실제 전표를 조회하고 바꿔요. 바꾸기 전에 항상 미리 보여 주고 확인을 받아요. |
+| `/sc4sap:config-to-document` | 모듈 설정 문서 HTML이에요. IMG 순서대로 실제 설정값과 변경 이력을 담아요. |
+| `/sc4sap:module-to-process` | 모듈 프로세스 맵이에요. 실제로 쓰는 TCode만 보고 L1~L4로 정리해요. |
+| `/sc4sap:uat-scenarios` | UAT·통합 테스트 시나리오예요. 회차별 결과를 관리하고 Excel로 내보내요. |
+| `/sc4sap:cbo-relation-map` | CBO 객체가 어떻게 이어지는지 그린 관계도예요. 테이블을 바꾸면 어디에 영향이 가는지도 봐요. |
+| `/sc4sap:stock-cbo` | CBO 패키지 목록이에요. 새 프로그램을 만들 때 이미 있는 Z 객체를 먼저 쓰게 해요. |
+
+### PM / PMO
+
+| 이렇게 말해요 | 이렇게 받아요 |
+|---|---|
+| `/sc4sap:project-dashboard` | 프로젝트 대시보드예요. 마일스톤, WBS, WRICEF 진행, SAP 실적을 한 페이지에 담아요. |
+| `/sc4sap:role-matrix` | 권한 설계서예요. 역할 × TCode 매트릭스와 SoD 충돌 점검이 들어가요. |
+
+### 운영 (SM / AMS / Basis)
+
+| 이렇게 말해요 | 이렇게 받아요 |
+|---|---|
+| `/sc4sap:analyze-symptom` "ZMMR00040 덤프 원인 찾아 줘" | 덤프 원인 분석이에요. 단계별로 좁혀 가고 SAP Note 검색어도 알려 줘요. 코드는 바꾸지 않아요. |
+| `/sc4sap:ops-health-check` | 운영 보고서예요. 덤프 추이, 중단된 잡, 오류 IDoc을 이전 기간과 비교해요. |
+| `/sc4sap:transport-readiness` | 트랜스포트를 QA·PRD로 보내도 되는지 판정해요. 열린 작업, 비활성 객체, 이관 순서를 봐요. |
+| `/sc4sap:sap-doctor` | 플러그인, MCP 서버, SAP 연결 상태를 점검해요. |
+
+## 시작하기 (5단계)
+
+1. **준비물** — Claude Code, Node.js 20 이상, ADT를 쓸 수 있는 SAP 사용자가 필요해요.
+2. **플러그인 설치** — Claude Code 입력창에 아래 두 줄을 입력해요. 그리고 Claude Code를 다시 시작해요.
+   ```
+   /plugin marketplace add https://github.com/babamba2/superclaude-for-sap.git
+   /plugin install sc4sap
+   ```
+3. **SAP 연결** — `/sc4sap:setup`을 실행해요. 질문에 하나씩 답하면 돼요. MCP 서버도 이때 설치하고 연결을 테스트해요.
+4. **첫 요청** — "구매오더 승인 절차는 어떻게 설정돼 있어요?"처럼 편하게 물어봐요.
+5. **결과물 위치** — 문서와 보고서는 프로젝트 폴더의 `.sc4sap/work/<프로필>/` 아래에 저장돼요.
+
+자세한 설치 과정은 [처음 설치 가이드](docs/GETTING-STARTED.ko.md)에 있어요.
+
+## 그냥 말로 하세요
+
+슬래시 명령을 외울 필요가 없어요. 평소처럼 말하면 맞는 스킬로 연결해 줘요.
+
+- "어제부터 뭐가 깨졌는지 봐 줘" → 운영 점검을 바로 해요.
+- "이 트랜스포트 오늘 밤 PRD로 보내도 돼?" → 트랜스포트 점검을 바로 해요.
+- "구매오더 목록 ALV 프로그램 만들어 줘" → `create-program`을 한 줄로 제안하고, 좋다고 하면 시작해요.
+
+문서를 만들거나 SAP에 쓰는 일은 먼저 제안하고 확인을 받아요.
+
+## 안전 장치
+
+- **QA / PRD 프로필은 읽기 전용이에요.** 훅과 MCP 서버가 두 번 막아요. 훅을 우회해도 서버에서 거부돼요.
+- **테이블 데이터는 테이블마다 물어봐요.** 매번 명확하게 승인해야 읽어요.
+- **민감한 테이블은 블록리스트로 막아요.**
+- **비밀번호는 OS 자격 증명 저장소에 보관해요.** Windows Credential Manager, macOS Keychain 같은 곳이에요.
+- **고객 객체(Z / Y)만 다뤄요.** SAP 표준 객체는 건드리지 않아요.
+- **모든 변경은 트랜스포트에 담아요.** 활성화하고 문법 검사까지 해요.
+
+## 비용 모드
+
+- `standard` — 품질이 먼저예요. 기본값이에요.
+- `eco` — 더 저렴한 모델을 써요. 결과물 종류는 같아요.
+- `/sc4sap:sap-option`에서 바꿔요. 한 번만 쓰려면 `/sc4sap:eco <스킬>`로 실행해요.
+
+## 동작 방식
+
+- **MCP 서버** — [abap-mcp-adt-powerup](https://github.com/babamba2/abap-mcp-adt-powerup)으로 SAP에 연결해요. 도구가 150개가 넘어요.
+- **전문 에이전트 27개** — 모듈별 컨설턴트, 코드 작성, 리뷰, 점검 담당이 나눠서 일해요.
+- **여러 SAP 프로필** — DEV / QA / PRD를 등록하고 바꿔 가며 써요.
+- **업무 맥락** — 14개 산업과 15개 국가 + EU 공통 자료를 참고해서 답해요.
 
 ## 문서
 
-- 🚀 **[처음 설치 가이드 →](docs/GETTING-STARTED.ko.md)** — Windows 기준 단계별 안내: PowerShell 실행 권한, Git, Node.js, Claude Code, 로그인, 플러그인 설치, SAP 연결, 동작 확인, 문제 해결
-- 📦 **[설치 및 설정 →](docs/INSTALLATION.ko.md)** — 요구사항, 설치 옵션, 위저드 단계, 블록리스트 설정
-- 🎯 **[기능 상세 →](docs/FEATURES.ko.md)** — 26개 에이전트, 14개 스킬, MCP 툴, RFC 백엔드, 훅, 데이터 추출 정책
-- 📜 **[변경 이력 →](docs/CHANGELOG.ko.md)** — 버전 히스토리와 breaking changes
+- 🚀 **[처음 설치 가이드 →](docs/GETTING-STARTED.ko.md)** — Windows 기준으로 설치부터 SAP 연결까지 단계별로 안내해요.
+- 📦 **[설치 및 설정 →](docs/INSTALLATION.ko.md)** — 요구 사항, 설정 마법사 단계, 블록리스트 설정이 있어요.
+- 🎯 **[기능 상세 →](docs/FEATURES.ko.md)** — 에이전트, 스킬, MCP 도구, 훅을 자세히 설명해요.
+- 📜 **[변경 이력 →](docs/CHANGELOG.ko.md)** — 버전별 변경 사항이에요.
 
 ## Unleashed
 
@@ -75,9 +151,9 @@ SuperClaude for SAP은 Claude Code를 풀스택 SAP 개발 어시스턴트로 �
 
 ## 감사의 말
 
-이 프로젝트는 **허예찬**님의 [**oh-my-claudecode**](https://github.com/huryechan/oh-my-claudecode)에서 영감을 받았어요. 멀티 에이전트 오케스트레이션 패턴, Socratic 딥 인터뷰 게이팅, 지속적 루프 개념, 전체적인 플러그인 철학이 모두 그 작업에서 유래해요.
+이 프로젝트는 **허예찬**님의 [**oh-my-claudecode**](https://github.com/huryechan/oh-my-claudecode)에서 영감을 받았어요. 멀티 에이전트 오케스트레이션, Socratic 딥 인터뷰, 지속 루프, 전체 플러그인 철학이 모두 그 작업에서 왔어요.
 
-**fr0ster**님의 [**mcp-abap-adt**](https://github.com/fr0ster/mcp-abap-adt)는 저희 커스터마이즈된 MCP 서버(`abap-mcp-adt-powerup`)를 구축하는 데 크게 기여했어요. 선구적인 ADT-over-MCP 작업 — 요청 쉐이핑, 엔드포인트 커버리지, 객체 I/O — 이 개념적 토대가 됐어요. 저희는 자체 서버를 설계·확장할 때 이 토대에 의존했어요.
+**fr0ster**님의 [**mcp-abap-adt**](https://github.com/fr0ster/mcp-abap-adt)는 저희 MCP 서버(`abap-mcp-adt-powerup`)를 만드는 데 큰 도움이 됐어요. 요청 구성, 엔드포인트 범위, 객체 입출력 같은 ADT-over-MCP 선행 작업이 개념의 토대가 됐어요. 저희 서버를 설계하고 넓힐 때 이 토대에 기댔어요.
 
 ## 라이선스
 
