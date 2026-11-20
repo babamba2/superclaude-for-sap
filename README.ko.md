@@ -12,7 +12,7 @@
 
 # SuperClaude for SAP (sc4sap)
 
-> SAP ABAP 개발을 위한 Claude Code 플러그인 — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private) 지원
+> SAP ABAP 개발을 위한 Claude Code 플러그인 — SAP ECC / S/4HANA On-Premise 지원
 
 <p align="center">
   <a href="https://sc4sap.dev"><img src="sc4sap-bear.gif" alt="sc4sap mascot" width="480"/></a>
@@ -20,11 +20,9 @@
 
 <h1 align="center"><a href="https://sc4sap.dev">🌐 sc4sap.dev</a></h1>
 
-<h3 align="center">SAP 운영, 이제 웹에서 하세요.</h3>
+<h3 align="center">SAP 운영, 이제 웹에서 하세요. (베타)</h3>
 
 <p align="center">설치 없이 브라우저에서 sc4sap을 써요. 덤프 분석, 운영 보고서, 프로젝트 대시보드, 권한 설계까지 휴대폰에서도 돼요.</p>
-
-<p align="center"><a href="https://workspace.sc4sap.dev"><b>웹에서 바로 시작하기 →</b></a></p>
 
 [![Website](https://img.shields.io/badge/website-sc4sap.dev-0A66C2)](https://sc4sap.dev)
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)
@@ -40,7 +38,7 @@ Claude Code를 우리 SAP 시스템에 연결해요. 그러면 ABAP 개발, 문�
 - **문서** — 설정 문서, 프로세스 맵, 스펙, 매뉴얼을 시스템에서 읽어 만들어요.
 - **운영** — 덤프 원인을 찾고, 트랜스포트를 점검하고, 운영 보고서를 써요.
 
-ECC, S/4HANA On-Premise, S/4HANA Cloud (Public / Private)에서 써요. 현재 버전은 1.0.0이에요.
+ECC와 S/4HANA On-Premise에서 써요. 현재 버전은 1.0.0이에요.
 
 ## 역할별로 할 수 있는 일
 
