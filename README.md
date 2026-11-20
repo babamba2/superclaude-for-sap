@@ -88,7 +88,7 @@ Current plugin version: 1.0.0.
 
 ## Get started
 
-1. Install Claude Code and Node.js 20 or newer. You also need an SAP user with ADT access.
+1. Install Claude Code and Node.js 20 or newer. You also need an SAP user with ADT access. On a company SAP server, Basis first opens the web port and prepares ICF and authorizations (guide B1–B4).
 2. In Claude Code, add the marketplace and install the plugin:
    ```
    /plugin marketplace add https://github.com/babamba2/superclaude-for-sap.git
@@ -98,7 +98,7 @@ Current plugin version: 1.0.0.
 4. Try one request, for example: `Show me the open purchase orders of vendor 1000.`
 5. Files that a skill writes (HTML pages, specs) go to the `.sc4sap/` folder of your project, under your profile.
 
-New to the tools? Follow the step-by-step guide: [Getting Started](docs/GETTING-STARTED.md).
+New to the tools? Follow the step-by-step guide: [install guide](https://sc4sap.dev/install-guide.html) (Korean, with the Basis prerequisites) or [Getting Started](docs/GETTING-STARTED.md) (English).
 
 ## Just talk to it
 
@@ -134,7 +134,8 @@ Questions and lookups run at once. For documents and code, Claude proposes the s
 
 ## Documentation
 
-- [Getting Started](docs/GETTING-STARTED.md): step by step for first-time users
+- [Install guide](https://sc4sap.dev/install-guide.html) (Korean): Basis prerequisites, install and SAP connection, step by step
+- [Getting Started](docs/GETTING-STARTED.md): step by step for first-time users (English)
 - [Installation and Setup](docs/INSTALLATION.md): requirements, options, blocklist
 - [Features](docs/FEATURES.md): all skills, agents, hooks and policies
 - [Skill Model Architecture](docs/skill-model-architecture.md): which model does which step

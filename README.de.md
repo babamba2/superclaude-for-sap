@@ -86,7 +86,7 @@
 
 ## Erste Schritte (5 Schritte)
 
-1. Voraussetzungen: Claude Code, Node.js und ein SAP-Benutzer mit ADT-Zugriff.
+1. Voraussetzungen: Claude Code, Node.js und ein SAP-Benutzer mit ADT-Zugriff. Bei einem Firmen-SAP-System öffnet Basis zuerst den Web-Port und richtet ICF und Berechtigungen ein (Anleitung B1–B4).
 2. Plugin installieren. Geben Sie in Claude Code ein:
    ```
    /plugin marketplace add https://github.com/babamba2/superclaude-for-sap.git
@@ -96,7 +96,7 @@
 4. Probieren Sie eine Anfrage aus. Zum Beispiel: „Erkläre mir das Programm ZMMR00040."
 5. Ergebnisse landen in Ordnern Ihres Projekts, z. B. `projects/<CODE>/` oder `smartforms/<FORM>/`.
 
-Die ganze Anleitung finden Sie hier: [Erste Schritte](docs/GETTING-STARTED.md) und [Installation & Einrichtung](docs/INSTALLATION.de.md).
+Die ganze Anleitung finden Sie hier: [Installationsanleitung](https://sc4sap.dev/install-guide.html) (Koreanisch, mit den Basis-Voraussetzungen), [Erste Schritte](docs/GETTING-STARTED.md) und [Installation & Einrichtung](docs/INSTALLATION.de.md).
 
 ## Einfach sprechen
 
@@ -129,6 +129,7 @@ Sie müssen keine Slash-Befehle kennen. Normale Anfragen werden an den passenden
 
 ## Dokumentation
 
+- 🚀 **[Installationsanleitung (Koreanisch) →](https://sc4sap.dev/install-guide.html)** — von den Basis-Voraussetzungen bis zur SAP-Verbindung
 - 🚀 **[Erste Schritte (Englisch / Koreanisch) →](docs/GETTING-STARTED.md)** — von der Windows-Einrichtung bis zum Funktionstest
 - 📦 **[Installation & Einrichtung →](docs/INSTALLATION.de.md)** — Voraussetzungen, Optionen, Blocklist-Konfiguration
 - 🎯 **[Funktionen im Detail →](docs/FEATURES.de.md)** — Agenten, Skills, MCP-Tools, Hooks, Richtlinie zur Datenextraktion
