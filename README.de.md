@@ -143,6 +143,7 @@ Sie müssen keine Slash-Befehle kennen. Normale Anfragen werden an den passenden
 ## Mitwirkende
 
 - **김시훈 (Kim Sihun)** &nbsp; [![LinkedIn](https://img.shields.io/badge/-LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/sihun-kim-27737132b/)
+- **Jan Bloudicek** &nbsp; [![GitHub](https://img.shields.io/badge/-GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/JanBloudicek) — Modell-Aliasse für die Agenten ([#47](https://github.com/babamba2/superclaude-for-sap/pull/47))
 
 ## Danksagung
 

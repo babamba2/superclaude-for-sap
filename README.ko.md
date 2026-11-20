@@ -148,6 +148,7 @@ ECC, S/4HANA On-Premise, S/4HANA Cloud (Public / Private)에서 써요. 현재 �
 ## 기여자
 
 - **김시훈 (Kim Sihun)** &nbsp; [![LinkedIn](https://img.shields.io/badge/-LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/sihun-kim-27737132b/)
+- **Jan Bloudicek** &nbsp; [![GitHub](https://img.shields.io/badge/-GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/JanBloudicek) — 에이전트 모델 별칭 제안 ([#47](https://github.com/babamba2/superclaude-for-sap/pull/47))
 
 ## 감사의 말
 
