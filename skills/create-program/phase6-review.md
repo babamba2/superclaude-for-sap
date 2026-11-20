@@ -23,7 +23,7 @@ Delegate to `sap-code-reviewer`. Pass:
 - A reminder that it returns text only — the main thread writes `.sc4sap/program/{PROG}/review.md`
 - The path to `verify-phase4.md` (Phase 4 Haiku verify results; a created screen / GUI status with no block there is a MAJOR finding under §1)
 
-**Execution strategy** — chosen by `~/.sc4sap/preferences.json` → `phase6Strategy`: `buckets` (default — 4-bucket parallel Sonnet + Opus escalation, [`phase6-buckets.md`](./phase6-buckets.md)) or `detect-judge` (opt-in — Haiku detectors × N + one Opus judge, [`phase6-detect-judge.md`](./phase6-detect-judge.md)). Both share the PASS / MINOR / MAJOR classification in `phase6-buckets.md`; in both the reviewer is read-only and fixes go to `sap-executor`. The checklist below remains the source of truth for WHAT is checked; buckets only govern HOW the checks are distributed.
+**Execution strategy** — chosen by `~/.sc4sap/preferences.json` → `phase6Strategy`: `buckets` (default — 4-bucket parallel Sonnet + Opus escalation, [`phase6-buckets.md`](./phase6-buckets.md)) or `detect-judge` (opt-in — Haiku detectors × N + one Opus judge, [`phase6-detect-judge.md`](./phase6-detect-judge.md)). Both share the PASS / MINOR / MAJOR classification in `phase6-buckets.md`; in both the reviewer is read-only and fixes follow [`cost-rules.md`](cost-rules.md) § 1a (main-thread Edit or a fresh `sap-executor`; diff-only re-review). The checklist below remains the source of truth for WHAT is checked; buckets only govern HOW the checks are distributed.
 
 ## Convention Checklist
 

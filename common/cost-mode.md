@@ -41,7 +41,7 @@ Pass both `model` and `effort` explicitly on every `Agent(...)` call — **never
 | Role (agent) | standard (frontmatter / skill MD) | eco |
 |---|---|---|
 | `sap-planner` | Opus · xhigh | Opus · medium |
-| `sap-executor` — novel code | Opus · high | Opus · medium |
+| `sap-executor` — novel code | Opus · high | Opus · medium (`create-program`: Sonnet · medium, Opus · medium on escalation — its `cost-rules.md` § 2) |
 | `sap-executor` — template / bulk | Sonnet · high | Sonnet · low |
 | `sap-writer` | Haiku, no effort (skill MDs override to Sonnet / Opus) | Haiku, no effort; an Opus override becomes Sonnet · low |
 | `sap-code-reviewer` (reviewer or judge) | Opus · high | Sonnet · medium — MAJOR/CRITICAL findings re-judged on Opus · medium |
@@ -52,7 +52,7 @@ Pass both `model` and `effort` explicitly on every `Agent(...)` call — **never
 | `sap-stocker`, `sap-doc-specialist` | Sonnet · medium | Sonnet · low |
 | `sap-checker` | Haiku | Haiku (unchanged; no `effort`) |
 
-- `BLOCKED` from an eco-lowered agent → re-dispatch the same scope as standard would (the skill MD override, else the agent frontmatter), findings attached; from there the Opus escalation in `model-routing-rule.md` § Escalation pattern applies. Emit the escalation banner.
+- `BLOCKED` from an eco-lowered agent → re-dispatch the same scope as standard would (the skill MD override, else the agent frontmatter), findings attached; from there the Opus escalation in `model-routing-rule.md` § Escalation pattern applies. Emit the escalation banner. Exception: `create-program` executors escalate per its `cost-rules.md` § 2 (Opus · medium).
 - `modelDispatch=user-defined` still asks the model; the eco row is the recommendation, and the eco `effort` is passed with whatever model the user picks.
 - Prefer at most two model axes per run (Sonnet + Haiku) where the table allows — caches are per model. The novel-code Opus rows and MAJOR re-judges are allowed exceptions.
 
@@ -71,7 +71,7 @@ The main thread's model cannot be changed by a skill (SKILL.md `model:` is ignor
 
 | Skill | Status |
 |---|---|
-| `program-to-manual`, `compare-programs`, `config-to-document`, `create-program` | eco variant (levers A, B, D). `create-program`: novel business-logic code stays on Opus (medium). |
+| `program-to-manual`, `compare-programs`, `config-to-document`, `create-program` | eco variant (levers A, B, D). `create-program`: executors on Sonnet · medium from the approved spec, Opus · medium only on escalation (repeated syntax failure, `BLOCKED`, novel algorithm) — `skills/create-program/cost-rules.md` § 2. |
 | `program-test` | eco variant (levers A, B): analyst / critic on Sonnet medium, harness repair rounds on Haiku low; coverage review, freeze, mutants, tamper, independent check and masking never skipped (`skills/program-test/SKILL.md` § Eco). |
 | `cbo-relation-map` | eco variant for graph collection only (`collect.md`): whole package → map-only collection (stocker walk on Haiku + Step G, no scouts, no finalize, so no inventory) instead of a full `stock-cbo`; the page build dispatches nothing. |
 | `setup`, `sap-option`, `sap-doctor`, `mcp-setup`, `trust-session` | No eco variant — run as standard. |

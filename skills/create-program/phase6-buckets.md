@@ -61,7 +61,7 @@ Wait for all 4 buckets. Merge into consolidated `review.md`.
 ## Finding Classification
 
 - **PASS** — no violation found
-- **MINOR** — violation exists but non-blocking (e.g., a TEXT-Txx missing an optional tooltip). Main dispatches `sap-executor` (`model: "opus"`) with the `FIX` lines; once applied the item is recorded `FIX-APPLIED`.
+- **MINOR** — violation exists but non-blocking (e.g., a TEXT-Txx missing an optional tooltip). Main applies the `FIX` lines per [`cost-rules.md`](cost-rules.md) § 1a (main-thread Edit, or a fresh executor); once applied the item is recorded `FIX-APPLIED`.
 - **MAJOR** — violation blocks Phase 8 (e.g., manual LVC_T_FCAT build, Docking replaced by Custom Control, ECC-deprecated pattern on S/4). Escalate per below.
 
 ## Model Escalation (6-3)
@@ -71,7 +71,7 @@ After all 4 buckets finish, count MAJOR findings:
 | MAJOR count | Action |
 |-------------|--------|
 | **0** | Skip Opus. Merge bucket outputs into `review.md`, final verdict `✅ ALL PASS`. Proceed to Phase 8. |
-| **1–2** | Dispatch `Agent({subagent_type: "sc4sap:sap-code-reviewer", model: "opus", ...})` **scoped only to the MAJOR findings** — pass finding list + affected object names. Opus re-reviews and returns a confirmed fix list; main dispatches `sap-executor` (`model: "opus"`) to apply it, then re-runs the Opus review scoped to those findings (up to 3 iterations per finding). Main writes the final verdict to `review.md`. |
+| **1–2** | Dispatch `Agent({subagent_type: "sc4sap:sap-code-reviewer", model: "opus", ...})` **scoped only to the MAJOR findings** — pass finding list + affected object names. Opus re-reviews and returns a confirmed fix list; main applies it per [`cost-rules.md`](cost-rules.md) § 1a, then re-runs a fresh Opus review on the diff of those findings only (up to 3 iterations per finding; never resume the earlier reviewer). Main writes the final verdict to `review.md`. |
 | **3+** | Dispatch Opus with full context (all 4 bucket reports + source). Opus decides whether to fix (fix list → `sap-executor` as above) or BLOCK. If BLOCK, write `review.md` with `❌ BLOCKED` and surface to user. |
 
 Rationale: Sonnet is accurate enough to *detect* convention violations; Opus is reserved for *synthesizing fixes across multiple related findings* where reasoning depth matters.
