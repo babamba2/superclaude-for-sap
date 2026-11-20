@@ -96,7 +96,7 @@
 4. 試しに 1 つ頼みます。例: 「ZMMR00040 の内容を説明して」
 5. 成果物はプロジェクトのフォルダに保存されます(例: `projects/<CODE>/`、`smartforms/<FORM>/`)。
 
-詳しい手順は [インストールガイド](https://sc4sap.dev/install-guide.html)(韓国語、Basis の準備を含む)、[はじめての方へ](docs/GETTING-STARTED.md) と [インストール & セットアップ](docs/INSTALLATION.ja.md) をご覧ください。
+詳しい手順は [インストールガイド](https://sc4sap.dev/install-guide.html)(韓国語、Basis の準備を含む)、[はじめての方へ](docs/GETTING-STARTED.ja.md) と [インストール & セットアップ](docs/INSTALLATION.ja.md) をご覧ください。
 
 ## 話しかけるだけで使えます
 
@@ -130,7 +130,7 @@
 ## ドキュメント
 
 - 🚀 **[インストールガイド (韓国語) →](https://sc4sap.dev/install-guide.html)** — Basis の準備からインストール、SAP 接続まで
-- 🚀 **[はじめての方へ (英語 / 韓国語) →](docs/GETTING-STARTED.md)** — Windows での手順から動作確認まで
+- 🚀 **[はじめての方へ →](docs/GETTING-STARTED.ja.md)** — Basis の準備から Windows での手順、動作確認まで
 - 📦 **[インストール & セットアップ →](docs/INSTALLATION.ja.md)** — 要件、インストールオプション、ブロックリスト設定
 - 🎯 **[機能詳細 →](docs/FEATURES.ja.md)** — エージェント、スキル、MCP ツール、フック、データ抽出ポリシー
 - 📜 **[変更履歴 →](docs/CHANGELOG.ja.md)** — バージョン履歴と破壊的変更
