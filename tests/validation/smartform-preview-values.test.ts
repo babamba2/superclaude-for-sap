@@ -38,3 +38,15 @@ describe('smartform-preview: values from interface values', () => {
     expect(values['H-C']).toBe('2.000-');
   });
 });
+
+describe('smartform-preview: values from a deep interface structure', () => {
+  it('walks structures and tables inside a structure; a loop over the table component fills its work area', () => {
+    const c = { pages: [{ windows: [{ name: 'MAIN', type: 'MAIN', content: [{ kind: 'table46', name: 'T', dataTable: 'IS_INV-IT_GEN', attrs: { TABHEADER: 'GS_IT' }, children: [] }] }] }] };
+    const raw = { IS_INV: { HD_GEN: { NUMBER: 'ZZ1', DATE: '2026-11-17' }, IT_GEN: [{ ITM: '10' }, { ITM: '20' }] } };
+    const { values, rows } = valuesFromRaw(c, raw, { ddic: { 'IS_INV-HD_GEN-DATE': { type: 'DATS' } } });
+    expect(values['IS_INV-HD_GEN-NUMBER']).toBe('ZZ1');
+    expect(values['IS_INV-HD_GEN-DATE']).toBe('11/17/2026');
+    expect(values['GS_IT-ITM']).toEqual(['10', '20']);
+    expect(rows).toBe(2);
+  });
+});

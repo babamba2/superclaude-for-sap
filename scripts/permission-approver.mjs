@@ -101,6 +101,23 @@ async function main() {
       return;
     }
     if (BUSINESS_WRITE_TOOLS.includes(handler)) {
+      // IF.* (the interface test call, 2026-11-18) is the web app's /interfaces button only: an agent
+      // session never runs it, whatever the user answers (the web reaches it without an agent hook).
+      const action = String(extractToolInput(input)?.action ?? '');
+      if (/^IF\./i.test(action)) {
+        console.log(
+          JSON.stringify({
+            continue: true,
+            hookSpecificOutput: {
+              hookEventName: 'PreToolUse',
+              permissionDecision: 'deny',
+              permissionDecisionReason:
+                'sc4sap: IF.* actions (interface test calls) run only from the web app\'s interface test button.',
+            },
+          })
+        );
+        return;
+      }
       // Never auto-approve a business preview or execution.
       passthrough();
       return;

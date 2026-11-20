@@ -17,10 +17,10 @@ export const CUT_T = {
     path: '임계 경로', runbook: 'T-minus 런북', phase: { pre: '사전', freeze: '동결', window: '작업 시간대', post: '오픈 후' }, when: '일시', task: '작업', ws: '워크스트림', owner: '담당', dur: '시간', actual: '리허설 실측', check: '점검', status: '상태',
     tst: { planned: '예정', done: '완료', skipped: '건너뜀', failed: '실패' }, late: '늦음', lateN: '늦은 작업', jobs: '작업 시간대 동안 정지할 후보 잡', job: '잡', jst: { released: '릴리스', scheduled: '예약' }, next: '다음 실행', prog: '프로그램', period: '주기',
     event: '이벤트', progNotRead: '첫 스텝 프로그램은 읽지 못함 (TBTCP)',
-    notRead: '읽지 못함 (SM37에서 확인)', jobsOff: '잡은 읽지 않았어요 (--jobs)', jobsNote: '읽기만 했어요. 잡을 정지하거나 바꾸지 않습니다.', imports: '이관 요청 목록', req: '요청', date: '릴리스일', side: '구분', verdict: 'CTS 판정', warn: '경고',
+    notRead: '읽지 못함 (SM37에서 확인)', jobsOff: '잡은 읽지 않았어요 (--jobs)', jobsNote: '읽기만 했어요. 잡을 정지하거나 바꾸지 않아요.', imports: '이관 요청 목록', req: '요청', date: '릴리스일', side: '구분', verdict: 'CTS 판정', ctsV: { ready: '이관 가능', check: '확인 필요', blocked: '이관 불가' }, warn: '경고',
     fk: { 'other-request': '다른 열린 요청에도 있음', dependency: '미릴리스 요청에 의존', 'dependency-unread': '의존성 조회 못 함' }, open: '미릴리스', ctsOnly: 'CTS 근거에만 있음',
     src: { manual: '사람 판단', 'no evidence': '근거 없음', cts: 'CTS 점검', uat: 'UAT', 'uat defect feed': 'UAT 결함 피드', ops: '운영 보고서', 'sap actuals': 'SAP 실적', wbs: 'WBS', runbook: '런북', 'jobs (TBTCO)': '잡 (TBTCO)', 'jobs not read': '잡 읽지 않음', 'no rehearsal measured': '리허설 실측 없음' },
-    risks: '열린 리스크', decisions: '결정 필요', none: '없음', readOnly: '읽기 전용 문서입니다. 런북은 대시보드의 컷오버 탭에서 고쳐요.' },
+    risks: '열린 리스크', decisions: '결정 필요', none: '없음', readOnly: '읽기 전용 문서예요. 런북은 대시보드의 컷오버 탭에서 고쳐요.' },
   en: { title: 'Cutover readiness', window: 'Window', freeze: 'Freeze', code: 'code', config: 'configuration', gng: 'Go / no-go', suggest: 'Suggested', item: 'Item', value: 'Value', source: 'Evidence', person: 'Decision',
     sugg: { go: 'Go', conditional: 'Conditional', nogo: 'No-go', open: 'no items' }, st: { open: 'open', go: 'Go', nogo: 'No-go', waived: 'waived' }, yes: 'met', no: 'not met', unknown: 'cannot tell',
     suggestNote: 'A suggestion only. People decide go / no-go in the meeting.',
@@ -28,7 +28,7 @@ export const CUT_T = {
     path: 'Critical path', runbook: 'T-minus runbook', phase: { pre: 'Before', freeze: 'Freeze', window: 'Window', post: 'After go-live' }, when: 'When', task: 'Task', ws: 'Workstream', owner: 'Owner', dur: 'Hours', actual: 'Rehearsal', check: 'Check', status: 'Status',
     tst: { planned: 'planned', done: 'done', skipped: 'skipped', failed: 'failed' }, late: 'late', lateN: 'Late tasks', jobs: 'Jobs to suspend during the window', job: 'Job', jst: { released: 'released', scheduled: 'scheduled' }, next: 'Next run', prog: 'Program', period: 'Period',
     event: 'event', progNotRead: 'first-step programs not read (TBTCP)',
-    notRead: 'not read (check in SM37)', jobsOff: 'Jobs were not read (--jobs)', jobsNote: 'Read only. No job is suspended or changed.', imports: 'Transport request list', req: 'Request', date: 'Released', side: 'Side', verdict: 'CTS verdict', warn: 'Warnings',
+    notRead: 'not read (check in SM37)', jobsOff: 'Jobs were not read (--jobs)', jobsNote: 'Read only. No job is suspended or changed.', imports: 'Transport request list', req: 'Request', date: 'Released', side: 'Side', verdict: 'CTS verdict', ctsV: { ready: 'ready', check: 'check', blocked: 'blocked' }, warn: 'Warnings',
     fk: { 'other-request': 'also in another open request', dependency: 'needs an unreleased request', 'dependency-unread': 'dependencies not read' }, open: 'not released', ctsOnly: 'only in the CTS evidence',
     src: { manual: 'people judge', 'no evidence': 'no evidence', cts: 'CTS check', uat: 'UAT', 'uat defect feed': 'UAT defect feed', ops: 'operations report', 'sap actuals': 'SAP actuals', wbs: 'WBS', runbook: 'runbook', 'jobs (TBTCO)': 'jobs (TBTCO)', 'jobs not read': 'jobs not read', 'no rehearsal measured': 'no rehearsal measured' },
     risks: 'Open risks', decisions: 'Decisions needed', none: 'none', readOnly: 'Read-only document. Change the runbook in the dashboard\'s Cutover tab.' },
@@ -101,7 +101,7 @@ export function renderCutoverPage({ view: v, cutover: c, gng, fit, tm, jobs = nu
       `<tr><td>${esc(j.job)}</td><td>${esc(t.jst[j.status] || j.status)}</td><td>${esc(j.next || (j.event ? `${t.event} ${j.event}` : ''))}</td><td>${esc(j.program)}</td><td>${esc(j.period)}</td></tr>`).join('')}</tbody></table></div>` : `<p>${t.none}</p>`);
   const impHtml = `<p class="note">${esc(imports?.warning || '')}</p>` + (imports?.rows.length ? `<div class="tw"><table><thead><tr><th class="num">#</th><th>${t.req}</th><th>${t.date}</th><th>${t.side}</th><th>${t.ws}</th><th>${t.task}</th><th>${t.verdict}</th><th>${t.warn}</th></tr></thead><tbody>${imports.rows.map((r) =>
     `<tr><td class="num">${r.seq}</td><td>${esc(r.trkorr)}</td><td>${esc(r.status === 'released' ? r.date : r.ctsOnly ? t.ctsOnly : t.open)}</td><td>${esc(L.side?.[r.side] || r.side)}</td><td>${esc(r.ws)}</td><td>${esc(r.text)}</td>`
-    + `<td class="${r.verdict === 'blocked' ? 'nogo' : r.verdict === 'check' ? 'cond' : ''}">${esc(r.verdict || '—')}</td><td>${r.findings.map((f) => esc(t.fk[f] || f)).join(', ')}</td></tr>`).join('')}</tbody></table></div>` : `<p class="muted">${t.none}</p>`);
+    + `<td class="${r.verdict === 'blocked' ? 'nogo' : r.verdict === 'check' ? 'cond' : ''}">${esc(t.ctsV[r.verdict] || r.verdict || '—')}</td><td>${r.findings.map((f) => esc(t.fk[f] || f)).join(', ')}</td></tr>`).join('')}</tbody></table></div>` : `<p class="muted">${t.none}</p>`);
 
   const summary = { project: p.code, dDay: tm.dDay, suggest: gng.suggest, nogo: gng.nogo, open: gng.open, fit: fit.verdict, windowH: fit.windowH, criticalH: (fit.rehearsal || fit.plan).totalH, late: tm.late.length };
   const html = `<!doctype html><html lang="${esc(lang)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">

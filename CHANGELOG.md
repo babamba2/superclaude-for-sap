@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-11-20
+
+First stable release. No breaking change from 0.6.71: skills, agents, profiles and the MCP pin stay as they are.
+
+### Added
+- **create-program cost rules** (`skills/create-program/cost-rules.md`): fix rounds by main-thread Edit or a fresh agent (never a resumed one), diff-only re-review that is skipped when only MINOR findings were fixed, a post-delivery `--fix` mode that starts a new session from `handoff.md` (system proved by profile + `SearchObject` before any write), and reference sources read by Haiku scouts instead of the main thread. In eco, executors run on Sonnet · medium with Opus · medium on escalation. Measured basis: one run spent 40% on the main thread (context 87k → 580k), 35% on Opus executors, 18% on Opus reviewers.
+- **Interface testing**: `IF.TEST.CALL` fenced interface test call (ABAP handler + catalog, not installed by default), `IF.LOG.CHECK` read-only self-check of the caller's test log rows, and an interface test report (per-case run time, BAPIRETURN codes, refused runs fail, stale runs flagged, phone cards).
+- **AI checks against SAP**: `uat-scenarios` scenario check (each step compared with SAP, privacy reason when a read is refused), `role-matrix` "SAP 반영 확인" (document roles compared with SAP), `interface-mapping-spec` DDIC object check.
+- Form fidelity scoring harnesses in the repo (`scripts/forms-common/fidelity`).
+
+### Changed
+- README in four languages rewritten for first-time readers: what you get by role, five-step start, plain-chat routing, safety, cost modes; animated mascot and a larger site link.
+- SmartForm preview r21–r22 (multi-page zoom, browser-less pagination, header repeated on later pages); Adobe preview r24–r25 (XFA 2.1 field layout, wraps after decimal / right / center tabs).
+- Korean pages break lines between words; transport check, CAB notes and cutover pages show Korean / Japanese labels; accessibility and touch fixes in spec, config, process and gap pages.
+- `config-to-document`: zoom viewer for screen and flow drawings.
+
+### Fixed
+- `role-matrix`: T-code texts read only for real T-codes (400 on S/4).
+- Dispatcher `TABLE_READ`: customer tables readable under the SE16 check on ECC.
+- Every plugin CSV export guards against formula injection.
+- Blocklist hook tests no longer read the real user profile.
+
 ## [0.6.71] — 2026-11-18
 
 ### Added

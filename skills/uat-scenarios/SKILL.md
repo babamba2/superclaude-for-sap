@@ -22,6 +22,7 @@ Test teams keep UAT scenarios in large workbooks that drift: steps without T-cod
 - "UAT scenarios for MM purchasing", "integration test scenarios", "test cases for order to cash", "UAT 시나리오 만들어줘", "통합 테스트 시나리오", "테스트 결과 정리", "2차 테스트 결과 반영"
 - Before a test cycle (draft), during it (results, follow-ups), after it (export, open items)
 - Defects and their fixes: which request fixes ISS-0003, is the fix CTS-ready, what to retest ("결함 수정 요청 연결", "재테스트 대상") → [`defects.md`](defects.md)
+- Check the steps against the system — T-codes, org units, materials, document types, pricing as named in the steps ("AI 시나리오 점검", "시나리오가 시스템과 맞는지 확인") → [`check.md`](check.md)
 </Use_When>
 
 <Do_Not_Use_When>
@@ -63,6 +64,8 @@ Paths: `<base>` = artifact base ([`../../common/multi-profile-artifact-resolutio
 **Step 7 — Export elsewhere.** The workbooks are already next to the set (Step 2 / 5). Into another folder: `<B> export --dir <dir> --id <ID> --layout A|B|both --out-dir <folder>`. Give the paths.
 
 **Step 8 — Defects and fixes** ([`defects.md`](defects.md)): fixing request, its CTS verdict and the retest per defect, plus the dashboard feed.
+
+**Step 9 — Scenario check** ([`check.md`](check.md)): every SAP step against the connected system, read-only — OK / check / mismatch per step with its evidence, kept on the set (`lastCheck`, a badge column on the page); proposed fixes go through Step 5.
 </Workflow>
 
 <Output_Format>
@@ -78,7 +81,7 @@ Reply in the user's language.
 </Output_Format>
 
 <MCP_Tools_Used>
-`GetTransaction`, `SearchObject` (T-code and program checks). No table reads, no writes.
+`GetTransaction`, `SearchObject` (T-code and program checks). Scenario check (Step 9): `GetSqlQuery` key reads of the tables in [`check.md`](check.md) and `GetTcodeUsage` — through `build-uat.mjs check-sap`, one row per key. No writes.
 </MCP_Tools_Used>
 
 <Files>
@@ -87,6 +90,7 @@ Reply in the user's language.
 - `scripts/uat/uat-page.mjs` — the editable page (model inlined, edit mode, Save)
 - `scripts/uat/build-uat.mjs` — `init`, `check`, `patch`, `import`, `page`, `export`, `show`, `defects`
 - `scripts/uat/uat-defects.mjs`, `uat-defects-page.mjs` — defect ↔ request ↔ retest rows, proposed links, KPI feed, the page
+- `scripts/uat/uat-check.mjs`, `uat-check-ai.mjs` — scenario check: catalog, reads, rule verdicts, the plan / judge prompts, `lastCheck`
 </Files>
 
 <Related_Skills>

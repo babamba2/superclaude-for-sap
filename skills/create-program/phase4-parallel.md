@@ -59,7 +59,7 @@ Each Wave declares a **Context kit** (files agent MUST read — per `../../commo
 ### Wave 1 — G1 (DDIC + CDS)
 
 - **Context kit**: `../../common/naming-conventions.md`, `../../common/field-typing-rule.md`, `../../common/ecc-ddic-fallback.md` (ECC only)
-- **Model**: Opus — `sap-executor` dispatched with `model: "opus"` (frontmatter is Sonnet); novel DDIC writes, cross-type refs
+- **Model**: Opus — `sap-executor` dispatched with `model: "opus"` (frontmatter is Sonnet); novel DDIC writes, cross-type refs. eco: Sonnet · medium per [`cost-rules.md`](cost-rules.md) § 2
 - **Mandatory first.** Everything else references these types.
 
 Sub-order within G1 (DDIC has internal dependencies):
@@ -77,9 +77,9 @@ Between steps, NO activation call — SAP can create inactive chains. Activation
 > **teamMode variant (Type B, opt-in)** — only when `state.json` → `consultant_live_review: true` (Phase 3.5 Step 1b). Then within G2 (Classes) and G3 (Function Modules), if the drafted code touches tables/FMs in 2+ modules AND is novel business logic, activate Type B teamMode per [`team-mode-b.md`](team-mode-b.md) BEFORE `ActivateObjects`. Consultants live-review; findings annotated `peer-validated` propagate to Phase 6 (avoids double-review). Skip for template-fill / boilerplate.
 
 - **Context kit**: `../../common/oop-pattern.md` (OOP), `../../common/function-module-rule.md`, `../../common/text-element-rule.md` (G4-prep)
-- **Model**: Opus for G2/G3 (`model: "opus"` override — novel classes/FMs); **Sonnet for G4-prep** (bulk repetitive CreateTextElement); **Haiku `sap-checker`** for the G4-prep count check
+- **Model**: Opus for G2/G3 (`model: "opus"` override — novel classes/FMs; eco: Sonnet · medium with Opus escalation per [`cost-rules.md`](cost-rules.md) § 2); **Sonnet for G4-prep** (bulk repetitive CreateTextElement); **Haiku `sap-checker`** for the G4-prep count check
 
-All three groups launch in a single multi-tool-use message as **two** `Agent(...)` calls — one `sap-executor` with `model: "opus"` for G2 + G3, one with `model: "sonnet"` for G4-prep (one model per dispatch). Within each group, members launch in parallel too:
+All three groups launch in a single multi-tool-use message as **two** `Agent(...)` calls — one `sap-executor` with `model: "opus"` (eco: `"sonnet"`, `cost-rules.md` § 2) for G2 + G3, one with `model: "sonnet"` for G4-prep (one model per dispatch). Within each group, members launch in parallel too:
 
 - **G2**: parallel `CreateInterface` + `CreateClass` calls. If a class `IMPLEMENTS` an interface, SAP tolerates inactive interface refs during creation — activation resolves them in the final batch.
 - **G3**: `CreateFunctionGroup` first (small-serial), then parallel `CreateFunctionModule` within the group. Each `UpdateFunctionModule` body **MUST follow [`../../common/function-module-rule.md`](../../common/function-module-rule.md)** — inline `IMPORTING / EXPORTING / CHANGING / TABLES / EXCEPTIONS` clauses directly in the `FUNCTION` statement (not as `*"` comments, not as shadow locals). Empty signature placeholder `" You can use the template 'functionModuleParameter' ...` is a failure marker.

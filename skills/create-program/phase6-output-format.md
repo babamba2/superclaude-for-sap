@@ -45,8 +45,8 @@ or
 
 ## Failure Handling
 
-- On any violation: the reviewer (read-only) returns a `FIX` line per finding and the main thread dispatches `sap-executor` (`model: "opus"`) to apply it via `Update*` and re-activate. Documentation-only flagging is NOT acceptable — every confirmed finding is fixed or the run ends `❌ BLOCKED`.
-- After all fixes, re-fetch sources and re-verify. Loop until ALL PASS or 3 iterations exhausted.
+- On any violation: the reviewer (read-only) returns a `FIX` line per finding and the fix is applied per [`cost-rules.md`](cost-rules.md) § 1a (small fix: main-thread Edit; larger: a fresh `sap-executor` with the `FIX` lines only; never a resumed agent) via `Update*` and re-activated. Documentation-only flagging is NOT acceptable — every confirmed finding is fixed or the run ends `❌ BLOCKED`.
+- After all fixes, re-verify the diff only (changed lines + enclosing FORM / method, scoped to the fixed findings); skip it when every fixed finding was MINOR (none touched a MAJOR-class item) and syntax check + activation + inactive check pass. Loop until ALL PASS or 3 iterations exhausted.
 - If 3 iterations exhausted with residual violations: STOP, write `review.md` with `❌ BLOCKED`, surface to user with the specific violation list. Phase 8 is blocked.
 
 ## False-Positive Patterns That Reviewer MUST Reject

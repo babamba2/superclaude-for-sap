@@ -26,7 +26,12 @@ export function loadCatalogs(dir = CONFIGS) {
     const f = join(dir, m, 'actions.json');
     if (!existsSync(f)) continue;
     const cat = JSON.parse(readFileSync(f, 'utf-8'));
-    out.push({ module: cat.module ?? m, notes: cat.notes ?? [], actions: cat.actions ?? [] });
+    // "channel": "web" — actions only the web app's own screens call (IF.TEST.CALL, the interface test
+    // button, 2026-11-18): never listed or matched by the assist chat. The executor's catalog sync still
+    // reads every configs/*/actions.json.
+    if (cat.channel === 'web') continue;
+    // An action marked "chat": false is never the chat's either, verified or not (team-lead, 2026-11-18).
+    out.push({ module: cat.module ?? m, notes: cat.notes ?? [], actions: (cat.actions ?? []).filter((a) => a.chat !== false) });
   }
   return out;
 }

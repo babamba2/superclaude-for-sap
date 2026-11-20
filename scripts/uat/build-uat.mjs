@@ -9,6 +9,8 @@
 //   node scripts/uat/build-uat.mjs page   --dir <dir> --id <ID> [--out-dir <dir>]
 //   node scripts/uat/build-uat.mjs import <edited.html> --dir <dir> [--no-xlsx]
 //   node scripts/uat/build-uat.mjs defects --dir <dir> --id <ID> [--tr <transport-readiness model.json>] [--lang ko|en] [--at YYYY-MM-DD]
+//   node scripts/uat/build-uat.mjs check-sap  --dir <dir> --id <ID> --plan <plan.json> [--months 3]
+//   node scripts/uat/build-uat.mjs check-save --dir <dir> --id <ID> --judge <answer.json> [--system <SID>]
 //
 // The set lives in <dir>/<ID>/<ID>-uat.json (model: uat-model.mjs). `patch` applies a proposal — the
 // module consultant's, or edits made elsewhere — and reports what it applied and what it skipped.
@@ -18,6 +20,9 @@
 // transport-readiness run, e.g. `collect --text "%ISS-%"`) and the retest cycle: <ID>-defects-<lang>.html, the
 // dashboard feed <ID>-defects.json, and _patch/<ID>-links.json (links found in request texts — a proposal only).
 // Excel in the folder is never older than the set; `export` writes them elsewhere (uat-xlsx.mjs). Every command prints one JSON line. Offline: no SAP.
+// `check-sap` / `check-save` are the scenario check (uat-check.mjs, skills/uat-scenarios/check.md): the plan's values read
+// from the connected system (key columns, one row each, no write) into <dir>/<ID>/_check/evidence.json; then the judge's
+// answer merged on the reads' verdicts into the set's `lastCheck` (page badges) and its proposals into _patch/<ID>-check.json.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -26,6 +31,8 @@ import { layoutA, layoutB } from './uat-xlsx.mjs';
 import { pageHtml, setFromPage } from './uat-page.mjs';
 import { defectRows, kpiFeed, proposeLinks } from './uat-defects.mjs';
 import { renderDefects, renderDefectSummary } from './uat-defects-page.mjs';
+import { readerOver, runChecks, validatePlan } from './uat-check.mjs';
+import { applyCheck, jsonOf, mergeJudge, ruleRows } from './uat-check-ai.mjs';
 
 const ID = /^[A-Za-z0-9_-]{1,30}$/;
 
@@ -157,16 +164,64 @@ const commands = {
     const set = load(o);
     return { set, issues: validate(set), progress: progress(set) };
   },
+  /** The scenario check, reads: the plan's values looked up in the connected system. No model, no write. */
+  async 'check-sap'(o) {
+    const set = load(o);
+    if (!o.plan) throw new Error('--plan <plan.json> is required');
+    const plan = validatePlan(jsonOf(readFileSync(o.plan, 'utf8')) ?? {}, set);
+    const months = Math.min(12, Math.max(1, Number(o.months) || 3));
+    const { connect, readIn, readTable } = await import('../config/sap-reader.mjs');
+    const client = await connect('uat-check');
+    let ev;
+    try {
+      ev = await runChecks(plan, readerOver(client, { readIn, readTable }), { months });
+    } finally {
+      await client.close().catch(() => {});
+    }
+    const rows = ruleRows(plan, ev);
+    const out = join(o.dir, set.id, '_check');
+    mkdirSync(out, { recursive: true });
+    const file = join(out, 'evidence.json');
+    writeFileSync(file, `${JSON.stringify({ months, dropped: plan.dropped, rows }, null, 1)}\n`);
+    const counts = { ok: 0, check: 0, mismatch: 0 };
+    for (const r of rows) counts[r.rule] += 1;
+    return { file, steps: rows.length, targets: Object.keys(ev).length, dropped: plan.dropped.length, rule: counts };
+  },
+  /** The scenario check, result: the judge's answer on the reads; lastCheck on the set; proposals as a patch file. */
+  'check-save'(o) {
+    const set = load(o);
+    if (!o.judge) throw new Error('--judge <answer.json> is required');
+    const evidence = JSON.parse(readFileSync(join(o.dir, set.id, '_check', 'evidence.json'), 'utf8'));
+    const rows = mergeJudge(evidence.rows, jsonOf(readFileSync(o.judge, 'utf8')) ?? {});
+    const next = applyCheck(set, rows, { system: o.system && o.system !== true ? String(o.system) : '', months: evidence.months, models: { plan: 'cli', judge: 'cli' } });
+    const file = save(o.dir, next);
+    const proposals = rows.flatMap((r) => r.proposals);
+    let patch = null;
+    if (proposals.length) {
+      mkdirSync(join(o.dir, '_patch'), { recursive: true });
+      patch = join(o.dir, '_patch', `${set.id}-check.json`);
+      writeFileSync(patch, `${JSON.stringify(proposals, null, 1)}\n`);
+    }
+    return { file, ...outputs(o, next), counts: next.lastCheck.counts, proposals: proposals.length, patch };
+  },
 };
 
-const USAGE = 'usage: build-uat.mjs init|check|patch|export|show|page|import|defects — see the header of this file';
+const USAGE = 'usage: build-uat.mjs init|check|patch|export|show|page|import|defects|check-sap|check-save — see the header of this file';
 
 if (process.argv[1] && /build-uat\.mjs$/.test(process.argv[1])) {
   try {
     const o = args(process.argv.slice(2));
     const run = commands[o._[0]];
     if (!run || o.help) process.stdout.write(`${USAGE}\n`);
-    else process.stdout.write(`${JSON.stringify({ ok: true, ...run(o) })}\n`);
+    else {
+      // check-sap reads SAP and is async; every other command is plain.
+      Promise.resolve(run(o))
+        .then((r) => process.stdout.write(`${JSON.stringify({ ok: true, ...r })}\n`))
+        .catch((e) => {
+          process.stdout.write(`${JSON.stringify({ ok: false, error: String(e?.message ?? e) })}\n`);
+          process.exitCode = 1;
+        });
+    }
   } catch (e) {
     process.stdout.write(`${JSON.stringify({ ok: false, error: String(e?.message ?? e) })}\n`);
     process.exit(1);

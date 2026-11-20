@@ -256,6 +256,21 @@ describe('auth-triage verdict B facts (phase 2)', () => {
   });
 });
 
+describe('auth-triage page on phones', () => {
+  it('every table is a card table and every body cell carries its column label', () => {
+    const html = renderTriagePage(triage(fixture({ checks: [CHECK] })));
+    const tables = html.match(/<table[^>]*>/g) ?? [];
+    expect(tables.length).toBeGreaterThan(1);
+    for (const t of tables) expect(t).toBe('<table class="cards">');
+    const tds = html.match(/<td[^>]*>/g) ?? [];
+    expect(tds.length).toBeGreaterThan(0);
+    for (const td of tds) expect(td).toMatch(/^<td data-l="[^"]*">$/);
+    // the verdict keeps its label, so it never sits off-screen
+    expect(html).toContain('<td data-l="Verdict"><span class="tag v-A">');
+    expect(html).toContain('@media (max-width:600px){table.cards,');
+  });
+});
+
 describe('auth-triage PRD guard', () => {
   it('stops collect on PRD unless confirmed; DEV / QA run', () => {
     expect(prdGuard({ tier: 'PRD', confirmed: false })).toContain(PRD_CONFIRM.en);

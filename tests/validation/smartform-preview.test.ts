@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { listSymbols, Renderer, paragraphFonts, barcodeSvg, code128Codes, barcodeSize, legacyDbcs, printedFamily, tabNextStop, tabDecimalWidth } from '../../scripts/smartform/build-preview.mjs';
+import { listSymbols, Renderer, paragraphFonts, barcodeSvg, code128Codes, barcodeSize, legacyDbcs, printedFamily, tabNextStop, tabDecimalWidth, mainUse, pagesFromBlocks } from '../../scripts/smartform/build-preview.mjs';
 import { compare } from '../../scripts/smartform/compare-otf.mjs';
 
 // Shape of GetSmartFormContent's content.json; names and values are invented.
@@ -374,5 +374,115 @@ describe('smartform-preview: a table printed in a sort event takes its own group
     expect(html.indexOf('Sub 10')).toBeLessThan(html.indexOf('Row 2'));
     const flat = new Renderer(c, { rows: 3, values: { ...values.values, 'GS_SUB-PRICE': ['5'], 'GS_SUB-CURR': ['USD'] } }).page().html as string;
     expect([...flat.matchAll(/Sub (\d+) ([A-Z]{3})/g)].length).toBe(2);
+  });
+});
+
+describe('smartform-preview: values.unvalued "blank" (comparing with a print of real data)', () => {
+  it('prints a symbol without a value as nothing; by default as its &NAME& placeholder', () => {
+    const c = { ...CONTENT, pages: [{ ...CONTENT.pages[0], windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 10, topMm: 30, widthMm: 190, heightMm: 200, content: [
+      text('%T1', 'AA', 'Doc &GS_HD-BIL_NUMBER& for &GS_HD-PAYER&'),
+    ] }] }] };
+    const vals = { 'GS_HD-BIL_NUMBER': 'ZZ1' };
+    const def = new Renderer(c, { values: vals }).page().html as string;
+    expect(def).toContain('&amp;GS_HD-PAYER&amp;');
+    const r = new Renderer(c, { values: vals, unvalued: 'blank' });
+    const blank = r.page().html as string;
+    expect(blank).toContain('Doc ZZ1 for ');
+    expect(blank).not.toContain('GS_HD-PAYER&amp;');
+    expect([...r.unfilled]).toContain('GS_HD-PAYER');
+  });
+});
+
+describe('smartform-preview: an address with no address number in compare mode', () => {
+  it('prints nothing with values.unvalued "blank" and the placeholder box otherwise', () => {
+    const addr = { kind: 'address', name: 'CUSTADDRESS', caption: 'Customer Address', children: [], attrs: { NUMB: '&ADRNR&' } };
+    const c = { ...CONTENT, pages: [{ ...CONTENT.pages[0], windows: [{ name: 'W', type: 'SECONDARY', leftMm: 10, topMm: 30, widthMm: 90, heightMm: 40, content: [addr] }] }] };
+    expect(new Renderer(c, { values: {} }).page().html as string).toContain('address Customer Address');
+    expect(new Renderer(c, { values: {}, unvalued: 'blank' }).page().html as string).not.toContain('address Customer Address');
+    expect(new Renderer(c, { values: { ADRNR: '0000012345' }, unvalued: 'blank' }).page().html as string).toContain('address Customer Address');
+  });
+});
+
+describe('smartform-preview: the overflow check of a drawn multi-page print looks at each sheet’s own MAIN', () => {
+  it('mainUse: the lowest of the sheet’s blocks over the window height', () => {
+    expect(mainUse(100, 200, [150, 280])).toBeCloseTo(0.9, 5);   // fits
+    expect(mainUse(100, 200, [150, 320])).toBeCloseTo(1.1, 5);   // a block runs past the window
+    expect(mainUse(100, 200, [])).toBeNull();
+    expect(mainUse(100, 0, [150])).toBeNull();
+  });
+  it('a paginated print measures per sheet; a one-page print keeps the window check', () => {
+    const page = (name: string) => ({ name, nextPage: name, orientation: 'portrait', windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 20, topMm: 30, widthMm: 170, heightMm: 50, content: [
+      { kind: 'text', name: 'T', caption: 'T', children: [], style: 'ZTEST_STYLE', lines: [{ format: 'AA', text: 'Row' }] }] }] });
+    const c = { ...CONTENT, pages: [page('P1')] };
+    const r = new Renderer(c, { values: {} });
+    r.markHeads = true;
+    const blocks = Array.from({ length: 12 }, (_, i) => ({ t: i * 10, b: (i + 1) * 10, brk: false }));
+    const doc = pagesFromBlocks(r, blocks);
+    expect(doc).not.toBeNull();
+    expect(doc.html).toContain(String(mainUse));
+    expect(doc.html).toContain('w.dataset.mainuse=');
+    expect(doc.html).toContain("if(w.dataset.mainuse!==undefined)");
+    const one = new Renderer(c, { values: {} }).page().html as string;
+    expect(one).not.toContain('w.dataset.mainuse=');
+    expect(one).toContain('w.scrollHeight>w.clientHeight+2');
+  });
+});
+
+describe('smartform-preview: old-table cells — T_CELLNR and a loop in a sort event (S4-DEV SF_SUBTOTALS old table)', () => {
+  const cell = (column: number) => ({ line: 'LINE', column, widthMm: 20, borders: { left: 0, top: 0, right: 0, bottom: 0 } });
+  const t = (name: string, txt: string, output: any, tc?: any) => ({ ...text(name, 'AA', txt), output, ...(tc ? { tableCell: tc } : {}) });
+  const table = {
+    kind: 'table46', name: 'TAB', caption: 'Tab', dataTable: 'T_FL', attrs: { TABHEADER: 'GS_FL' },
+    lineTypes: [{ name: 'LINE', heightMm: 5 }], cells: [1, 2, 3, 4, 5].map(cell),
+    children: [
+      t('C1', 'Row &GS_FL-CARRID&', { T_NEWLINE: 'X', T_LINETYPE: 'LINE' }),
+      t('C2', 'Next', { T_NEWCELL: 'X' }, { line: null, cell: 1 }),
+      { kind: 'event', name: '%E', attrs: { EVTYPE: 'E', SFIELD: 'CARRID' }, children: [
+        { kind: 'loop', name: 'SUB', caption: 'Sub', dataTable: 'GT_SUB', attrs: { TABHEADER: 'GS_SUB' }, children: [
+          t('P', 'Sum &GS_SUB-PRICE&', { T_NEWLINE: 'X', T_LINETYPE: 'LINE', T_NEWCELL: 'X' }, { line: null, cell: 3 }),
+          t('K', 'Cur &GS_SUB-CURR&', { T_NEWCELL: 'X' }),
+        ] },
+      ] },
+    ],
+  };
+  const c = { ...CONTENT, pages: [{ ...CONTENT.pages[0], windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 10, topMm: 30, widthMm: 190, heightMm: 200, content: [table] }] }] };
+  const vals = { rows: 1, values: { 'GS_FL-CARRID': ['ZZ'], 'GS_SUB-PRICE': ['10'], 'GS_SUB-CURR': ['EUR'] } };
+  const cellsOfRows = (html: string) => html.split('<div class="row').slice(1)
+    .map((r) => r.split('<div class="cell"').slice(1).map((x) => (/Row [A-Z0-9]+|Next|Sum [0-9]+|Cur [A-Z]+/.exec(x) || [''])[0]));
+  it('T_CELLNR moves that many cells on (1 = the next cell); a loop in the end event flows into the table cells', () => {
+    const html = new Renderer(c, vals).page().html as string;
+    const rows = cellsOfRows(html);
+    expect(rows[0].slice(0, 2)).toEqual(['Row ZZ', 'Next']);
+    expect(rows[1]).toEqual(['', '', '', 'Sum 10', 'Cur EUR']);
+  });
+});
+
+describe('smartform-preview: per-group values outside a loop start again in each group (r17 note)', () => {
+  it('a value given per sort group is read from the group array, one value per appearance, from its first in each group', () => {
+    const r = new Renderer(CONTENT, { values: { G_X: [['a', 'b'], ['c', 'd']] } });
+    const read = () => r.symbol('G_X').replace(/<[^>]*>/g, '');
+    r.curGroup = 0;
+    const g0 = [read(), read()];
+    r.curGroup = 1;
+    const g1 = [read(), read()];
+    expect([g0, g1]).toEqual([['a', 'b'], ['c', 'd']]);
+  });
+});
+
+describe('smartform-preview: page scripts read the zoom their rects carry (WebKit applies no CSS zoom to rects)', () => {
+  it('no script divides rects by a constant zoom; the runtime factor is the sheet zoom or 1', () => {
+    const r = new Renderer({ ...CONTENT, pages: [CONTENT.pages[0]] }, { values: {} });
+    r.markHeads = true;
+    const html = (pagesFromBlocks(r, Array.from({ length: 80 }, (_, i) => ({ t: i * 5, b: (i + 1) * 5, brk: false })))?.html || r.page().html) as string;
+    expect(html).not.toMatch(/var Z=4[,;]/);
+    expect(html).not.toMatch(/\)\*4;|lineHeight\)\*4/);
+    // read once per script into a variable, never re-read per element inside a loop (verifier-3 r21 N2)
+    expect(html).not.toMatch(/[*/]\(function\(\)\{var s=document\.querySelector\('\.sheet'\)/);
+    const rt = /var Z=(\(function\(\)\{[\s\S]*?\}\)\(\))/.exec(html)?.[1];
+    expect(rt).toBeTruthy();
+    // the factor in a Chromium-like and a WebKit-like document
+    const run = (rectW: number) => new Function('document', `return ${rt};`)({ querySelector: () => ({ offsetWidth: 794, dataset: { zoom: '4' }, getBoundingClientRect: () => ({ width: rectW }) }) });
+    expect(run(3175)).toBe(4);
+    expect(run(794)).toBe(1);
   });
 });

@@ -174,7 +174,7 @@ function bphTable(m, T) {
   const body = [];
   for (const r of m.rows) {
     const hasKids = m.rows.some(x => x.code.startsWith(`${r.code}.`)) || r.variants.length > 0;
-    const toggle = hasKids ? `<button class="tg" type="button" data-code="${esc(r.code)}" aria-label="toggle">▾</button>` : '';
+    const toggle = hasKids ? `<button class="tg" type="button" data-code="${esc(r.code)}" aria-expanded="true" aria-label="${esc(`${T.foldOpen} ${r.code}`)}">▾</button>` : '';
     const label = r.level === 4 ? `${ed(P(r.code, 'label'), r.label)} <a class="go" href="#${anchorId(r.code)}" title="${esc(T.details)}">↘</a>` : ed(P(r.code, 'label'), r.label);
     const pad = `padding-left:${(r.level - 1) * 18}px`;
     body.push(`<tr class="lv${r.level}" data-code="${esc(r.code)}" data-level="${r.level}" data-kind="${esc(r.kind || '')}">`
@@ -193,7 +193,7 @@ function bphTable(m, T) {
   const tools = `<div class="bph-tools" data-xf="${esc(JSON.stringify(xf))}"><input id="bph-q" type="search" placeholder="${esc(T.filter)}" aria-label="${esc(T.filter)}">`
     + `<button type="button" id="bph-clear">${esc(T.xfClearAll)}</button>`
     + `<button type="button" id="bph-collapse">${esc(T.collapse)}</button><button type="button" id="bph-expand">${esc(T.expand)}</button></div>`;
-  return tools + `<div class="tw"><table class="bph"><thead><tr>${[T.code, T.process, T.system, T.kind, T.tcodes, T.objects, T.owner, T.usage, T.remark]
+  return tools + `<div class="tw"><table class="bph" data-fold-open="${esc(T.foldOpen)}" data-fold-closed="${esc(T.foldClosed)}"><thead><tr>${[T.code, T.process, T.system, T.kind, T.tcodes, T.objects, T.owner, T.usage, T.remark]
     .map(h => `<th>${esc(h)}</th>`).join('')}</tr></thead><tbody>${body.join('')}</tbody></table></div>`;
 }
 

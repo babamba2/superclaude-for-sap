@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'child_process';
-import { mkdtempSync, readFileSync } from 'fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 // @ts-expect-error — plain .mjs module without type declarations
@@ -8,17 +8,40 @@ import { tablesFromSource, sourceIsReadChannel, stripAbapNoise } from '../../scr
 
 const ROOT = join(__dirname, '..', '..');
 const HOOK = join(ROOT, 'scripts', 'hooks', 'block-forbidden-tables.mjs');
-const CWD = mkdtempSync(join(tmpdir(), 'sc4sap-hook-'));
 
-function run(tool: string, input: Record<string, unknown>): string | null {
+// Hermetic: the hook walks up from its cwd to the first .sc4sap/ with profile state. From the OS temp
+// folder that walk reached the developer's ~/.sc4sap (active profile, e.g. blocklistProfile "off") and
+// the deny cases passed or failed by machine. Each test workspace now holds its own profile, and
+// SC4SAP_HOME_DIR points at an empty folder, so no real profile is ever read.
+function workspace(profile: string): string {
+  const dir = mkdtempSync(join(tmpdir(), 'sc4sap-hook-'));
+  mkdirSync(join(dir, '.sc4sap'));
+  writeFileSync(join(dir, '.sc4sap', 'config.json'), JSON.stringify({ blocklistProfile: profile }));
+  return dir;
+}
+const HOME = mkdtempSync(join(tmpdir(), 'sc4sap-home-'));
+const CWD = workspace('strict');
+
+function run(tool: string, input: Record<string, unknown>, cwd = CWD): string | null {
   const r = spawnSync(process.execPath, [HOOK], {
-    cwd: CWD,
+    cwd,
+    env: { ...process.env, SC4SAP_HOME_DIR: HOME },
     input: JSON.stringify({ tool_name: `mcp__plugin_sc4sap_sap__${tool}`, tool_input: input }),
     encoding: 'utf8',
   });
   if (!r.stdout.trim()) return null;
   return JSON.parse(r.stdout).hookSpecificOutput.permissionDecision;
 }
+
+describe('blocklist hook — tests run in their own workspace', () => {
+  it("reads the test workspace's profile, not the machine's", () => {
+    // The same deny-tier read: denied under the workspace's strict profile, let through only when that
+    // same workspace says off. If the hook read any other profile, one of the two would not hold.
+    const read = { table_name: 'USR02', destination: 'PRDCLNT100' };
+    expect(run('GetRemoteTableContents', read)).toBe('deny');
+    expect(run('GetRemoteTableContents', read, workspace('off'))).toBeNull();
+  });
+});
 
 const probe = (select: string) => `REPORT yprobe.
 CLASS ltcl DEFINITION FINAL FOR TESTING DURATION SHORT RISK LEVEL HARMLESS.

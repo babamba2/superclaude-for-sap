@@ -60,16 +60,16 @@ Every non-frontmatter model below is passed as an explicit `model:` on the `Agen
 | Phase 1A → 2 scout | DDIC / FM / reference-program facts | `sap-checker` ×N → **Haiku** |
 | Phase 2 (planner) | Cross-file reasoning, CBO gate, consultant reconcile | planner → **Opus** |
 | Phase 3 (writer) | Spec drafting from plan | writer → **Opus** (override) |
-| Phase 4 Wave 1 (DDIC) | Small novel DDIC writes | executor → **Opus** (override) |
-| Phase 4 Wave 2 G2/G3 | Novel classes / FMs | executor → **Opus** (override) |
+| Phase 4 Wave 1 (DDIC) | Small novel DDIC writes | executor → **Opus** (override); eco → Sonnet (`skills/create-program/cost-rules.md` § 2) |
+| Phase 4 Wave 2 G2/G3 | Novel classes / FMs | executor → **Opus** (override); eco → Sonnet (`skills/create-program/cost-rules.md` § 2) |
 | Phase 4 Wave 2 G4-prep | `CreateTextElement` × N | executor → **Sonnet**; count check `sap-checker` → **Haiku** |
-| Phase 4 Wave 3 (Includes + Main) | Code layout + cross-include refs | executor → **Opus** (override) |
+| Phase 4 Wave 3 (Includes + Main) | Code layout + cross-include refs | executor → **Opus** (override); eco → Sonnet (`skills/create-program/cost-rules.md` § 2) |
 | Phase 4 Wave 4 (Screen/GUI) | Template Create/Update | executor → **Sonnet**; verify `sap-checker` ×N → **Haiku** |
 | Phase 4 Final (activation) | `ActivateObjects` | main thread; inactive-count verify `sap-checker` → **Haiku** |
 | Phase 5 (QA) | Unit test generation + prod fixes | qa-tester → **Opus** (override) |
 | Phase 6 `buckets` strategy | Rule-matching per bucket | code-reviewer ×4 → **Sonnet**, MAJOR escalation → **Opus** |
 | Phase 6 `detect-judge` strategy | Detection / adjudication | `sap-checker` ×N → **Haiku**, code-reviewer judge → **Opus** |
-| Phase 6 fixes | `Update*` on confirmed findings | executor → **Opus** (override) |
+| Phase 6 fixes | `Update*` on confirmed findings | main-thread Edit for small fixes, else a fresh executor → **Opus** (eco: Sonnet) — `skills/create-program/cost-rules.md` § 1a |
 | Phase 7 (debugger) | Dump + code cross-reference | debugger → **Opus** (override) |
 | Phase 8 (report) | Template-filled report | writer → **Sonnet** (override) |
 

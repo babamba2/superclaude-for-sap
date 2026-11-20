@@ -187,11 +187,13 @@ export const GAP_SCRIPT = String.raw`
   document.addEventListener('change', function(e){ if (e.target && FILTERS.indexOf(e.target.id) >= 0) apply(); });
   document.addEventListener('click', function(e){
     var t = e.target.closest && e.target.closest('.tg'); if (!t) return;
-    var c = t.dataset.code; closed[c] = !closed[c]; t.textContent = closed[c] ? '▸' : '▾'; apply();
+    var c = t.dataset.code; closed[c] = !closed[c]; tgSync(t); apply();
   });
+  // A fold toggle says what it does and whether its rows are open.
+  function tgSync(b){ var shut = !!closed[b.dataset.code]; b.textContent = shut ? '▸' : '▾'; b.setAttribute('aria-expanded', shut ? 'false' : 'true'); b.setAttribute('aria-label', (shut ? L.expand : L.collapse) + ' ' + b.dataset.code); }
   document.addEventListener('keydown', function(e){ var t = e.target.closest && e.target.closest('.tg'); if (t && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); t.click(); } });
-  function collapseAll(){ document.querySelectorAll('table.gm .tg[data-level="3"]').forEach(function(b){ closed[b.dataset.code] = true; b.textContent = '▸'; }); apply(); }
-  function expandAll(){ closed = {}; document.querySelectorAll('table.gm .tg').forEach(function(b){ b.textContent = '▾'; }); apply(); }
+  function collapseAll(){ document.querySelectorAll('table.gm .tg[data-level="3"]').forEach(function(b){ closed[b.dataset.code] = true; tgSync(b); }); apply(); }
+  function expandAll(){ closed = {}; document.querySelectorAll('table.gm .tg').forEach(tgSync); apply(); }
 
   // ── a disposition change switches the WRICEF toggle (retrofit / rebuild on, everything else off) ──
   document.addEventListener('ed:change', function(e){
@@ -217,7 +219,8 @@ export const GAP_SCRIPT = String.raw`
   }
   function csv(){
     var m = model();
-    var cell = function(x){ x = String(x == null ? '' : x); return /[",\n]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
+    // no cell is read as a formula: the rule of scripts/lib/csv-safe.mjs (CSV_FORMULA_START), copied — this script cannot import
+    var cell = function(x){ x = String(x == null ? '' : x); if (/^[=+\-@\t\r]/.test(x)) x = "'" + x; return /[",\n\r]/.test(x) ? '"' + x.replace(/"/g, '""') + '"' : x; };
     var head = [L.code, L.process, L.fit, L.usage, L.stdTcodes, L.coverage, L.disposition, L.include, L.wkind, L.note];
     var lines = [head.map(cell).join(',')];
     (m.rows || []).forEach(function(r){

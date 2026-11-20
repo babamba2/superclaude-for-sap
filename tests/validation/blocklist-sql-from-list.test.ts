@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { spawnSync } from 'child_process';
-import { mkdtempSync } from 'fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 // @ts-expect-error — plain .mjs module without type declarations
@@ -8,11 +8,17 @@ import { tablesFromSql } from '../../scripts/hooks/block-forbidden-tables.mjs';
 
 const ROOT = join(__dirname, '..', '..');
 const HOOK = join(ROOT, 'scripts', 'hooks', 'block-forbidden-tables.mjs');
+// Hermetic (see blocklist-source-hook.test.ts): an own workspace with the strict profile, and an empty
+// SC4SAP_HOME_DIR, so the developer's ~/.sc4sap profile is never read.
 const CWD = mkdtempSync(join(tmpdir(), 'sc4sap-hook-sql-'));
+mkdirSync(join(CWD, '.sc4sap'));
+writeFileSync(join(CWD, '.sc4sap', 'config.json'), JSON.stringify({ blocklistProfile: 'strict' }));
+const HOME = mkdtempSync(join(tmpdir(), 'sc4sap-home-'));
 
 function run(tool: string, input: Record<string, unknown>): string | null {
   const r = spawnSync(process.execPath, [HOOK], {
     cwd: CWD,
+    env: { ...process.env, SC4SAP_HOME_DIR: HOME },
     input: JSON.stringify({ tool_name: `mcp__plugin_sc4sap_sap__${tool}`, tool_input: input }),
     encoding: 'utf8',
   });

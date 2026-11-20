@@ -60,6 +60,7 @@ Print the Output_Format block (SKILL.md). Tell the user how to edit: open the pa
 |---|---|
 | Edited page handed back | `<B> import <file>` (the page's own version and sheet-7 row are kept) |
 | "SAP에서 다시 읽기" | Step 3a on the same code (keeps what people wrote) |
+| "SAP 반영 확인", "is the document what SAP has?" | `<B> verify --code <CODE> [--users]` — the document's own technical roles read from SAP (read-only) and compared: per role as in SAP / differs / not in SAP; differences = T-codes missing or extra per business role, authorization values, org-level values, user assignments (with `--users`); the D / C / F level is shown for reference, not counted. The result goes on the cover checks. Report the counts and the differences (≤ 20), then ask which to take into the document: `<B> verify-apply --code <CODE> --ids <ids.json> | all` (a new version with a sheet-7 row). Roles only in SAP: Step 3a |
 | Add SoD rules of a module | `<B> sod --code <CODE> --modules <M>` |
 | Changes by chat (rename a role, move T-codes, add users) | `Edit` the model, `<B> check`, `<B> build --code <CODE> --note "<what>"` |
 | Final version | `<B> build --code <CODE> --major --note "<what>"` |

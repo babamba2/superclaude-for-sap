@@ -1,5 +1,7 @@
 // Phone layer for the HTML deliverables (spec, manual, process, config, project, role, relmap, ops, transport,
-// interface mapping, UAT). Applies only under 600px — PC and print stay exactly as they were.
+// interface mapping, UAT). Applies under 600px — PC and print stay as they were, except one rule for Korean pages:
+// html[lang=ko] breaks lines only between words (keep-all) at every width, and a word longer than its box (a long
+// object or role ID) still breaks (overflow-wrap: break-word, which leaves table column sizing alone).
 //
 //   import { RESPONSIVE_CSS, RESPONSIVE_JS } from '../lib/responsive.mjs';
 //   <style>…${RESPONSIVE_CSS}</style> … <script>${RESPONSIVE_JS}</script></body>
@@ -10,11 +12,13 @@
 //     opt out with `m-keep`. Cells with class `m-hide` disappear (decorative arrows).
 //   · other tables wider than their box → wrapped in `.m-scroll` (scrolls sideways inside the wrapper, the
 //     page never does); the first column stays put while scrolling (cells without colspan).
+//   · tables tagged `cards` (a page's own phone card layout) are left as they are.
 //   · toolbars tagged `m-bar` wrap; their buttons and every form control get 44px touch targets; inputs 16px
 //     (iOS does not zoom into them).
 // The script re-runs after a page re-renders (MutationObserver) and when the width crosses 600px.
 
 export const RESPONSIVE_CSS = `
+html[lang=ko]{word-break:keep-all;overflow-wrap:break-word}
 @media (max-width:600px){
 html{-webkit-text-size-adjust:100%}
 p,li,dd,dt,blockquote,h1,h2,h3,h4{overflow-wrap:anywhere}img,video{max-width:100%;height:auto}pre{overflow-x:auto;max-width:100%}
@@ -23,6 +27,7 @@ table.m-kv{display:block;width:100%!important;max-width:100%;table-layout:auto!i
 table.m-kv>tbody,table.m-kv>thead,table.m-kv>tfoot{display:grid;grid-template-columns:minmax(6.5em,36%) minmax(0,1fr)}
 table.m-kv>tbody>tr,table.m-kv>thead>tr,table.m-kv>tfoot>tr{display:contents}
 table.m-kv th,table.m-kv td{width:auto!important;min-width:0!important;max-width:none!important;white-space:normal!important;overflow-wrap:anywhere;word-break:normal}
+html[lang=ko] table.m-kv th,html[lang=ko] table.m-kv td{word-break:keep-all}
 table.m-kv th[colspan]:not([colspan="1"]),table.m-kv .m-full{grid-column:1/-1}
 table.m-kv .m-hide{display:none!important}
 .m-scroll{overflow-x:auto;max-width:100%;box-sizing:border-box;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
@@ -111,6 +116,7 @@ function mobileLayer() {
     var ts = document.querySelectorAll('table');
     for (var i = 0; i < ts.length; i++) {
       var t = ts[i];
+      if (t.classList.contains('cards')) continue;
       if (t.classList.contains('m-kv') || kvLike(t)) { t.classList.add('m-kv'); continue; }
       if (t.closest('.m-kv')) continue;
       var tight = squeezed(t);

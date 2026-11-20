@@ -15,7 +15,9 @@
 
 import { readFileSync, existsSync, readdirSync } from 'fs';
 import { join } from 'path';
-import { readTable, readIn } from './sap-reader.mjs';
+// sap-reader.mjs pulls the MCP SDK at its top: it is loaded only by the functions here that read SAP, so the pure
+// helpers of this file load where the plugin has no node_modules (the web image, 2026-11-18).
+const sapReader = () => import('./sap-reader.mjs');
 
 export const GGB_AREAS = { FI: ['GL', 'FI'], CO: ['CO'] };
 // Assignment table → kind and the column naming the rule.
@@ -127,6 +129,7 @@ async function readFormPool(c, pool) {
  * Returns { kinds, rules: { VAL: {...}, SUB: {...} }, booleans, messages, exits, errors }.
  */
 export async function readGgb(c, module, tables, langs = ['3', 'E']) {
+  const { readTable, readIn } = await sapReader();
   const errors = {};
   const named = { VAL: new Set(), SUB: new Set() };
   for (const [t, specs] of Object.entries(ASSIGN)) for (const sp of specs) for (const r of tables[t]?.rows || []) if (s(r[sp.col])) named[sp.kind].add(s(r[sp.col]));

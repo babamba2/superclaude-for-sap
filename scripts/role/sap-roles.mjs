@@ -15,6 +15,8 @@ import { arr, MODULES, LEVEL_RANK, normalizeModel } from './role-model.mjs';
 export const ROLE_TABLES = ['AGR_DEFINE', 'AGR_TEXTS', 'AGR_FLAGS', 'AGR_AGRS', 'AGR_TCODES', 'AGR_1251', 'AGR_1252'];
 export const USER_TABLES = ['AGR_USERS'];
 /** Every table readRoles reads — the fixed allow list a caller hands its own connection (never named by a request). */
+/** TSTC / TSTCT key length (CHAR 20). */
+export const TCODE_LEN = 20;
 export const ROLE_READ_TABLES = (withUsers = true) => [...ROLE_TABLES, ...(withUsers ? USER_TABLES : []), 'TSTCT', 'TOBJT', 'AUTHX', 'DD04T', 'USORG'];
 
 const ORG_NAMES = { BUKRS: 'Company Code', WERKS: 'Plant', IWERK: 'Planning Plant', SWERK: 'Plant', VKORG: 'Sales Org', EKORG: 'Purchasing Org', KOKRS: 'Controlling Area',
@@ -191,8 +193,11 @@ export function keepShared(old, fresh) {
   return out;
 }
 
-/** Reads the roles matching the patterns from the connected system. */
-export async function readRoles({ patterns = ['Z*'], withUsers = true, lang = 'ko', maxRoles = 5000, client: given = null } = {}) {
+/**
+ * Reads the roles matching the patterns from the connected system — or, with `names`, exactly those roles
+ * (AGR_DEFINE in IN lists; "SAP 반영 확인" reads the document's own roles this way, role-verify.mjs).
+ */
+export async function readRoles({ patterns = ['Z*'], names: exact = null, withUsers = true, lang = 'ko', maxRoles = 5000, client: given = null } = {}) {
   // A caller's own connection (e.g. a backend with its own guards) is used as given and left open; else one is opened
   // here with ROLE_READ_TABLES as its allow list and closed at the end.
   const client = given || await connect('role-matrix', { allowTables: ROLE_READ_TABLES(withUsers) });
@@ -207,12 +212,15 @@ export async function readRoles({ patterns = ['Z*'], withUsers = true, lang = 'k
   try {
     const spras = lang === 'en' ? 'E' : lang === 'ja' ? 'J' : '3';
     const define = [], seen = new Set();
-    for (const p of patterns) {
+    if (Array.isArray(exact)) {
+      const wanted = [...new Set(exact.map((n) => String(n).trim().toUpperCase()).filter(Boolean))];
+      for (const x of need(await readIn(client, 'AGR_DEFINE', 'AGR_NAME', wanted), 'AGR_DEFINE')) if (!seen.has(x.AGR_NAME)) { seen.add(x.AGR_NAME); define.push(x); }
+    } else for (const p of patterns) {
       const r = await readRoleNames(client, p, maxRoles);
       for (const x of need(r, `AGR_DEFINE ${p}`)) if (!seen.has(x.AGR_NAME)) { seen.add(x.AGR_NAME); define.push(x); }
     }
     const names = define.map((d) => d.AGR_NAME);
-    if (!names.length) return { rows: { define }, errors: errors.length ? errors : [`no role matches ${patterns.join(', ')}`] };
+    if (!names.length) return { rows: { define }, errors: errors.length ? errors : [Array.isArray(exact) ? 'none of the roles is in the system' : `no role matches ${patterns.join(', ')}`] };
     const rows = { define };
     rows.texts = need(await readIn(client, 'AGR_TEXTS', 'AGR_NAME', names, { extra: { SPRAS: spras } }), 'AGR_TEXTS');
     if (!rows.texts.length && spras !== 'E') rows.texts = need(await readIn(client, 'AGR_TEXTS', 'AGR_NAME', names, { extra: { SPRAS: 'E' } }), 'AGR_TEXTS');
@@ -222,7 +230,11 @@ export async function readRoles({ patterns = ['Z*'], withUsers = true, lang = 'k
     rows.auth = need(await readIn(client, 'AGR_1251', 'AGR_NAME', names, { chunk: 10 }), 'AGR_1251');
     rows.org = need(await readIn(client, 'AGR_1252', 'AGR_NAME', names), 'AGR_1252');
     if (withUsers) rows.users = need(await readIn(client, 'AGR_USERS', 'AGR_NAME', names, { fields: ['AGR_NAME', 'UNAME', 'FROM_DAT', 'TO_DAT'] }), 'AGR_USERS');
-    const tcs = [...new Set(rows.tcodes.map((t) => t.TCODE || t.LOW).filter(Boolean))];
+    // Texts for the T-codes the document keeps (TYPE TR, not excluded — mergeSync / compareRoles skip the rest).
+    // A role menu also holds Web Dynpro, URL and other entries (e.g. R3TRWDYA/…, 30+ characters): TSTCT.TCODE is
+    // CHAR 20 and S/4's data preview answers HTTP 400 for a longer value, which used to lose its whole chunk of 40
+    // (live on S4-DEV, 2026-11-18). Such values are not T-codes and are not looked up.
+    const tcs = [...new Set(rows.tcodes.filter((t) => (t.TYPE || 'TR') === 'TR' && !t.EXCLUDE).map((t) => String(t.TCODE || t.LOW || '')).filter((c) => c && c.length <= TCODE_LEN))];
     // A language not installed on the system (often Japanese) has no texts: English then.
     const texts = async (table, key, keys, langField, extra = {}) => {
       const got = need(await readIn(client, table, key, keys, { extra: { [langField]: spras, ...extra } }), table);

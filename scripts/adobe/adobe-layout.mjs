@@ -440,6 +440,23 @@ function trimTail(line) {
   }
 }
 
+/** Where the text after a right / centre / decimal tab stop ends once placed as the line placement does: right / centre
+ *  end / centre on the stop, decimal puts the radix there; never left of where the tab began (base). */
+function alignedEnd(seg, add, font) {
+  seg.text += add;
+  const f = seg.font = seg.font || font;
+  const wOf = (t) => textWidthMm(t, f.pt, { bold: f.bold, face: f.face });
+  const segW = wOf(seg.text);
+  let start = seg.stop.pos;
+  if (seg.stop.align === 'right') start -= segW;
+  else if (seg.stop.align === 'center') start -= segW / 2;
+  else if (seg.stop.align === 'decimal') {
+    const ri = seg.text.search(/[.,](?=\d+\D*$)/);
+    start -= wOf(ri < 0 ? seg.text.replace(/\s+$/, '') : seg.text.slice(0, ri));
+  }
+  return Math.max(seg.base, start) + segW;
+}
+
 /** Break paragraphs into lines for a width: [{ runs: [{ text, font }], w, para }] */
 function wrapParagraphs(paras, width0, wrap) {
   const lines = [];
@@ -454,10 +471,14 @@ function wrapParagraphs(paras, width0, wrap) {
       if (r.tab) {
         // the tab takes the room up to the next stop (exact alignment of right / centre / decimal stops is done
         // when the line is placed); past the last stop the default distance
+        line.seg = null;
         const stop = (p.tabs || []).find((t) => t.pos > line.w + 0.01);
         const pos = stop ? stop.pos : (Math.floor(line.w / DEFAULT_TAB) + 1) * DEFAULT_TAB;
         const tw = Math.max(0, pos - line.w);
         line.runs.push({ tab: true, text: '', font: r.font, stop: stop || { align: 'left', pos, dflt: true } });
+        // the text after a right / centre / decimal stop ends where it is placed (see the line placement below), not at
+        // stop + its width: EX14 '250.00' on 'decimal 4cm' then 'left 5cm' + 'EUR' stays one line, as in ADS
+        if (stop && stop.align !== 'left') line.seg = { stop, base: line.w, text: '', font: r.font };
         line.w += tw;
         continue;
       }
@@ -485,7 +506,8 @@ function wrapParagraphs(paras, width0, wrap) {
         const prev = line.runs[line.runs.length - 1];
         if (prev && !prev.tab && prev.font === r.font && !!prev.embed === !!r.embed && !!prev.datePic === !!r.datePic) prev.text += w;
         else line.runs.push({ text: w, font: r.font, ...(r.embed ? { embed: true } : {}), ...(r.datePic ? { datePic: true } : {}) });
-        line.w += ww;
+        if (line.seg) line.w = alignedEnd(line.seg, w, r.font);
+        else line.w += ww;
       }
     }
     trimTail(line);
@@ -729,6 +751,16 @@ class Layout {
     // word earlier)
     this.edgePt = !this.legacy && templateVersion({ attrs: { xmlns: (template?.pi || []).find((p) => /^originalXFAVersion/.test(p)) || '' } }) < 2.2
       && (template?.pi || []).some((p) => /^originalXFAVersion/.test(p));
+    // … and one that keeps XFA 2.1 positioning (<?originalXFAVersion …/2.1/ LegacyPositioning:1 …?>) lays its field values
+    // out as 2.1 did: whole 1.15 em lines plus 1/32 inch above and below, baseline as in 2.1 (FP_TEST_03: grown rows
+    // of minH 5 mm fields are 7.64 mm in ADS — 4.06 + 1.59 + 2 mm insets — not 5.31 mm). Draws keep the 2.4+ rules;
+    // forms upgraded without the flag (FP_TEST_00 / 01, nested table) are unchanged.
+    this.legacyPos = !this.legacy && (template?.pi || []).some((p) => /^originalXFAVersion/.test(p) && /LegacyPositioning:1/.test(p));
+  }
+
+  /** XFA 2.1 text rules for this node: a 2.1 template, or a field of a template that keeps 2.1 positioning. */
+  legacyText(n) {
+    return this.legacy || (this.legacyPos && n?.kind === 'field');
   }
 
   embed(ref, n) {
@@ -817,7 +849,7 @@ class Layout {
       if (h === null) {
         // grown height: the text block (last line to its descent), plus the line gap a plain multi-line field starts with
         const lead = n.kind === 'field' && ui.multiLine && !content.rich && n.shape?.lines.length ? VMETRICS.gap * n.shape.lines[0].pt * PT : 0;
-        const textH = content.image ? 0 : this.legacy ? n.shape.h + (n.kind === 'field' ? 2 * LEGACY_VINSET : 0) : blockHeight(n.shape) + lead + (n.shape?.after || 0);
+        const textH = content.image ? 0 : this.legacyText(n) ? n.shape.h + (n.kind === 'field' ? 2 * LEGACY_VINSET : 0) : blockHeight(n.shape) + lead + (n.shape?.after || 0);
         h = Math.min(maxH, Math.max(minH, textH + m.t + m.b + capH + um.t + um.b));
       }
       n.w = w; n.h = h;
@@ -1031,7 +1063,7 @@ class Layout {
     const em = first.pt * PT;
     let asc = VMETRICS.ascent * em;
     let top;
-    if (this.legacy) {
+    if (this.legacyText(n)) {
       // XFA 2.1 (Designer 6 forms): whole 1.15 em line boxes, baseline a line gap plus the ascent below the box
       // top; a field's value and caption sit 1/8 em lower still (measured on SAP's PDFs)
       const blockH = shape.h - (shape.after || 0);
@@ -1062,7 +1094,7 @@ class Layout {
       const role = (n?.kind === 'field' && !caption) || l.runs.some((r) => r.embed) ? 'field' : 'fixed';
       const text = l.runs.map((r) => r.text).join('');
       if (!text.trim()) continue;
-      const baseline = top + l.top + (this.legacy ? (l === first ? asc : asc / em * l.pt * PT) : this.lineAscent(l, l === first ? asc : VMETRICS.ascent * l.pt * PT, l === lines[lines.length - 1]));
+      const baseline = top + l.top + (this.legacyText(n) ? (l === first ? asc : asc / em * l.pt * PT) : this.lineAscent(l, l === first ? asc : VMETRICS.ascent * l.pt * PT, l === lines[lines.length - 1]));
       // a rich line of embedded values only (no typed text, not even a blank) starts at the content's left edge:
       // ADS leaves out the paragraph's CSS margins and text-align (calibration 4 / 5: EX10 FLDATE centred, PRICE
       // right-aligned, CURRENCY margin-left 0.71 mm all print at the cell edge; one typed blank or letter before the

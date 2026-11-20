@@ -25,10 +25,14 @@ function topLevelBlocks(css: string) {
 }
 
 describe('phone layer for HTML deliverables', () => {
-  it('CSS applies only on phones (≤ 600 / 380 px) or keeps print as it was', () => {
+  it('CSS applies only on phones (≤ 600 / 380 px) or keeps print as it was — plus the one Korean line-break rule', () => {
     const heads = topLevelBlocks(RESPONSIVE_CSS);
     expect(heads.length).toBeGreaterThan(0);
-    for (const h of heads) expect(h).toMatch(/^@media (\(max-width:(600|380)px\)|print)$/);
+    // the only rule outside a media block: Korean pages break between words at every width, a too-long ID still breaks
+    const global = heads.filter((h) => !h.startsWith('@media'));
+    expect(global).toEqual(['html[lang=ko]']);
+    expect(RESPONSIVE_CSS).toMatch(/html\[lang=ko\]\{word-break:keep-all;overflow-wrap:break-word\}/);
+    for (const h of heads.filter((x) => x.startsWith('@media'))) expect(h).toMatch(/^@media (\(max-width:(600|380)px\)|print)$/);
     expect(RESPONSIVE_CSS).toMatch(/table\.m-kv>tbody[^{]*\{display:grid/);
     expect(RESPONSIVE_CSS).toMatch(/input,select,textarea\{font-size:16px/);
     expect(RESPONSIVE_CSS).toMatch(/min-height:44px/);
@@ -49,12 +53,12 @@ describe('phone layer for HTML deliverables', () => {
 
   it('a table slightly wider than its padded box is wrapped (the box padding is not room for the table)', () => {
     // minimal stand-in DOM: a 390px phone, <main> with 16px side padding, a table of a given width
-    const run = (tableWidth: number, vw = 390, pad = 16) => {
+    const run = (tableWidth: number, vw = 390, pad = 16, cls = '') => {
       const body: any = { tagName: 'BODY' };
       const box: any = { tagName: 'MAIN', parentElement: body, clientWidth: vw, style: {}, kids: [] as any[], insertBefore(w: any) { this.kids.push(w); } };
       const t: any = {
         tHead: null, rows: [{ cells: [{ tagName: 'TD', textContent: 'col0xx', getBoundingClientRect: () => ({ width: tableWidth / 5 }) }] }],
-        classList: { contains: () => false, add() {} }, closest: () => null, style: {}, parentElement: box,
+        classList: { contains: (k: string) => k === cls, add() {} }, closest: () => null, style: {}, parentElement: box,
         scrollWidth: tableWidth, getBoundingClientRect: () => ({ width: tableWidth, right: pad + tableWidth }),
       };
       const wraps: any[] = [];
@@ -68,6 +72,8 @@ describe('phone layer for HTML deliverables', () => {
       new Function('window', 'document', 'getComputedStyle', 'requestAnimationFrame', 'MutationObserver', RESPONSIVE_JS)(window, document, getComputedStyle, (f: any) => f(), undefined);
       return wraps.filter((w) => w.className === 'm-scroll').length;
     };
+    // a page's own phone cards (table.cards) are left alone even when wider than the box
+    expect(run(600, 390, 16, 'cards')).toBe(0);
     expect(run(376)).toBe(1);   // 376 > 390 − 2 × 16 = 358: wrapped (before: compared with 390, left 2px sideways scroll)
     expect(run(360)).toBe(1);
     expect(run(350)).toBe(0);   // fits the content box
@@ -137,5 +143,18 @@ describe('phone layer for HTML deliverables', () => {
     expect(html.match(/data-sc4sap-responsive/g)).toHaveLength(2);
     expect(html).toMatch(/class="topbar m-bar"/);
     expect(html).toMatch(/\.tw>table\{min-width:1100px\}/);
+  });
+});
+
+describe('Korean line breaks are not undone by a page', () => {
+  it('prose and table cells of the document pages keep keep-all (no word-break override), long IDs still wrap', () => {
+    // doc-kit (cutover / weekly / meeting / migration), the interface spec and the process map's filter labels
+    for (const rel of ['project/doc-kit.mjs', 'interface/if-spec-page.mjs', 'process/process-page.mjs']) {
+      const src = readFileSync(join(SCRIPTS, rel), 'utf8');
+      expect(src, rel).not.toMatch(/word-break:\s*break-(word|all)/);
+      expect(src, rel).toMatch(/overflow-wrap:(anywhere|break-word)/);
+    }
+    // the layer's own key-value cells reset word-break on phones: Korean pages get keep-all back there
+    expect(RESPONSIVE_CSS).toContain('html[lang=ko] table.m-kv th,html[lang=ko] table.m-kv td{word-break:keep-all}');
   });
 });

@@ -9,6 +9,10 @@
 //   auths   5. authorization objects per technical role (object / field / value)
 //   sod     6. segregation-of-duties rules + the users and roles that break them
 //   revisions 7. change history
+//
+// One import: lib/csv-safe.mjs (role-page.mjs inlines it in front of this file for the browser).
+
+import { csvSafe } from '../lib/csv-safe.mjs';
 
 export const arr = (v) => (Array.isArray(v) ? v : []);
 export const LEVELS = ['F', 'C', 'D'];
@@ -26,6 +30,19 @@ const up = (v) => str(v).toUpperCase();
 const pick = (v, list, d) => (list.includes(v) ? v : d);
 // Values of the company layout's own columns (layout column `e:<name>`), per row.
 const ext = (v) => Object.fromEntries(Object.entries(v && typeof v === 'object' && !Array.isArray(v) ? v : {}).map(([k, x]) => [k, str(x)]).filter(([, x]) => x));
+
+const CHECK_STATUS = ['ok', 'diff', 'missing'];
+const CHECK_KINDS = ['tcode-doc', 'tcode-sap', 'level', 'auth-diff', 'auth-doc', 'auth-sap', 'org', 'user-doc', 'user-sap'];
+/** The last "SAP 반영 확인" (role-verify.mjs), sanitized; null when there is none. */
+export function normalizeSapCheck(c) {
+  if (!c || typeof c !== 'object' || Array.isArray(c)) return null;
+  const roles = arr(c.roles).slice(0, 5000).map((r) => ({ id: up(r?.id), status: pick(r?.status, CHECK_STATUS, 'diff') })).filter((r) => r.id);
+  const diffs = arr(c.diffs).slice(0, 20000).filter((d) => CHECK_KINDS.includes(d?.kind)).map((d) => ({ id: str(d.id).slice(0, 200), kind: d.kind, roles: arr(d.roles).map(up).filter(Boolean).slice(0, 50),
+    brole: str(d.brole), key: str(d.key).slice(0, 120), doc: str(d.doc).slice(0, 2000), sap: str(d.sap).slice(0, 2000), text: str(d.text).slice(0, 200), counted: d.counted !== false && d.kind !== 'level', ...(d.level ? { level: up(d.level) } : {}) }));
+  const counts = { ok: 0, diff: 0, missing: 0 };
+  for (const r of roles) counts[r.status] += 1;
+  return { date: str(c.date), system: str(c.system), tier: str(c.tier), withUsers: !!c.withUsers, version: str(c.version), counts, roles, diffs, applied: arr(c.applied).map(str).filter(Boolean) };
+}
 
 /** Fills defaults so every sheet can be drawn from a partial model (new drafts, SAP reads, edited pages). */
 export function normalizeModel(m = {}) {
@@ -46,9 +63,12 @@ export function normalizeModel(m = {}) {
     level: pick(up(s.level), RISK, 'M'), mitigation: str(s.mitigation), approver: str(s.approver), status: pick(s.status, SOD_STATUS, 'open'), note: str(s.note),
     tcodesA: arr(s.tcodesA).map(up), tcodesB: arr(s.tcodesB).map(up), ext: ext(s.ext) }));
   const revisions = arr(m.revisions).map((r) => ({ ver: str(r.ver), date: str(r.date), author: str(r.author), change: str(r.change), approver: str(r.approver), note: str(r.note), ext: ext(r.ext) }));
+  const sapCheck = normalizeSapCheck(m.sapCheck);
   return { lang: ['en', 'ja'].includes(m.lang) ? m.lang : 'ko', doc, broles, troles, tcodes, users, auths, sod, revisions, source: m.source || null,
     // company layout (sheets, columns, level codes, cover, theme) — see skills/role-matrix/layout.md; null = the default workbook
-    layout: m.layout && typeof m.layout === 'object' ? m.layout : null };
+    layout: m.layout && typeof m.layout === 'object' ? m.layout : null,
+    // the last "SAP 반영 확인"; a document never checked has no such key
+    ...(sapCheck ? { sapCheck } : {}) };
 }
 
 /** Business roles a T-code row gives, and the highest level among them. */
@@ -109,6 +129,13 @@ export function deriveView(model) {
   // one ID on several rows: a shared (team / position) ID in a planning workbook — allowed, but flagged
   for (const d of new Set(dup(m.users.map((u) => u.uid)))) add('users', 'warn', 'dupUser', d);
   for (const a of m.auths) if (a.trole && !trIds.has(a.trole)) add('auths', 'warn', 'authUnknownTrole', `${a.trole} · ${a.object}`);
+  // "SAP 반영 확인": when and against which system, and whether the document changed since (a later version)
+  if (m.sapCheck) {
+    const c = m.sapCheck;
+    const open = c.diffs.filter((d) => d.counted && !c.applied.includes(d.id)).length;
+    add('troles', c.counts.missing || open ? 'warn' : 'info', 'sapVerify', `${c.date} · ${c.system || '-'} · ${c.counts.ok} / ${c.counts.diff} / ${c.counts.missing}`);
+    if (c.version !== str(arr(m.revisions).at(-1)?.ver)) add('troles', 'warn', 'sapVerifyStale', `${c.version || '-'} → ${str(arr(m.revisions).at(-1)?.ver) || '-'}`);
+  } else if (m.troles.length) add('troles', 'info', 'sapVerifyNone', '');
   for (const s of m.sod) {
     const h = hitById.get(s.id);
     if (h.users.length && s.status !== 'accepted' && s.status !== 'mitigated') add('sod', s.level === 'H' ? 'err' : 'warn', 'sodUsers', `${s.id}: ${h.users.join(', ')}`);
@@ -163,8 +190,8 @@ export function addRevision(model, { author = '', note = '', major = false, vers
   return { model: m, version: nv };
 }
 
-/** RFC 4180 CSV with a BOM so Excel opens Korean text correctly. */
+/** RFC 4180 CSV with a BOM so Excel opens Korean text correctly; no cell is read as a formula (lib/csv-safe.mjs). */
 export function toCsv(head, rows) {
-  const q = (v) => { const s = v == null ? '' : String(v); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
+  const q = (v) => { const s = csvSafe(v == null ? '' : String(v)); return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
   return `﻿${[head, ...rows].map((r) => r.map(q).join(',')).join('\r\n')}\r\n`;
 }

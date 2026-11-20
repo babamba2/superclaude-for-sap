@@ -2,7 +2,7 @@
 
 Authoritative pipeline for the `sc4sap:create-program` skill. `SKILL.md` references this file instead of inlining the phase definitions. Every phase below is MANDATORY unless explicitly marked conditional. Do not skip, reorder, or merge phases.
 
-**Context + model discipline** — every phase declares its context kit (files the lead agent MUST read) per [`../../common/context-loading-protocol.md`](../../common/context-loading-protocol.md), and its expected model (Opus / Sonnet / Haiku — non-frontmatter models are passed as an explicit `model:`) per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md). Per-phase values in the per-Wave detail file `phase4-parallel.md` and the bullets below are authoritative — do not preload beyond them.
+**Context + model discipline** — every phase declares its context kit (files the lead agent MUST read) per [`../../common/context-loading-protocol.md`](../../common/context-loading-protocol.md), and its expected model (Opus / Sonnet / Haiku — non-frontmatter models are passed as an explicit `model:`) per [`../../common/model-routing-rule.md`](../../common/model-routing-rule.md). Per-phase values in the per-Wave detail file `phase4-parallel.md` and the bullets below are authoritative — do not preload beyond them. **Cost rules** (fix rounds, post-delivery `--fix` hand-off, eco executor model, main-thread context): [`cost-rules.md`](cost-rules.md) — they override any conflicting line below.
 
 ## Phase 0 — SAP Version Preflight (skill itself, mandatory)
 - Resolve/confirm platform (ECC / S4 On-Prem / S4 Cloud Public / S4 Cloud Private) and `abapRelease`
@@ -44,7 +44,7 @@ Phase 1 splits into **Phase 1A (Module Interview)** and **Phase 1B (Program Inte
 - **Gate**: business ambiguity ≤ 5%
 - **Output**: `.sc4sap/program/{PROG}/module-interview.md`
 - **Enforcement**: Phase 1B refuses to start if this file is missing or its ambiguity score > 5%.
-- **DDIC scout (Haiku, after `module-interview.md` is written)**: collect every table / structure / BAPI / FM / reference program named in `module-interview.md` (+ the top reuse candidates in `cbo-context.md`). Dispatch one `sc4sap:sap-checker` per object (`MODE: scout`, max 12, one message; banner `▶ phase=1A.scout · agent=sap-checker×N · model=Haiku`). Main concatenates the `FACT` lines into `.sc4sap/program/{PROG}/ddic-brief.md`. Phase 1B agents, consultants and the Phase 2 planner read `ddic-brief.md` first and call `Get*` themselves only for objects missing from it — Opus tokens go to reasoning, not raw DDIC output.
+- **DDIC scout (Haiku, after `module-interview.md` is written)**: collect every table / structure / BAPI / FM / reference program named in `module-interview.md` (+ the top reuse candidates in `cbo-context.md`). Dispatch one `sc4sap:sap-checker` per object (`MODE: scout`, max 12, one message; banner `▶ phase=1A.scout · agent=sap-checker×N · model=Haiku`). Main concatenates the `FACT` lines into `.sc4sap/program/{PROG}/ddic-brief.md`. Phase 1B agents, consultants and the Phase 2 planner read `ddic-brief.md` first and call `Get*` themselves only for objects missing from it — Opus tokens go to reasoning, not raw DDIC output. Reference sources (named programs, helper includes) are scouted too, never read on the main thread — [`cost-rules.md`](cost-rules.md) § 3.
 - **teamMode variant (Type A)**: when `module_set.length ≥ 2` AND per-consultant answers cite cross-module touchpoints (dim 3/4/5), run a post-interview reconciliation team per [`team-mode.md`](team-mode.md) § Phase 1A BEFORE writing `module-interview.md`. Single-module or no-touchpoint paths skip teamMode.
 
 ### Phase 1A → 1B Execution-Style Gate (MANDATORY)
@@ -124,7 +124,7 @@ Full procedure — `trust-session` invocation, auto/manual/hybrid mode prompt, s
 
 ## Phase 4 — Implementation: `sap-executor` (PARALLELIZED)
 
-> **Model** (frontmatter is Sonnet): Waves 1–3 (DDIC, classes / FMs, includes + main) dispatch with **`model: "opus"`**; G4-prep text elements and Wave 4 screen / GUI writes stay Sonnet; every post-write check (text counts, screen / GUI body, inactive count) is a Haiku `sap-checker` fan-out per [`phase4-verify.md`](./phase4-verify.md).
+> **Model** (frontmatter is Sonnet): Waves 1–3 (DDIC, classes / FMs, includes + main) dispatch with **`model: "opus"`** (eco: Sonnet · medium with Opus escalation — [`cost-rules.md`](cost-rules.md) § 2); G4-prep text elements and Wave 4 screen / GUI writes stay Sonnet; every post-write check (text counts, screen / GUI body, inactive count) is a Haiku `sap-checker` fan-out per [`phase4-verify.md`](./phase4-verify.md).
 
 **Authoritative flow**: [`phase4-parallel.md`](./phase4-parallel.md) — local source generation → parallel `CreateInclude` → `CreateProgram` → single `GetAbapSemanticAnalysis(main)` → batch activation via `GetInactiveObjects`. Replaces the old per-include create-check-activate loop (40–60% faster for typical 6–10 include programs).
 
@@ -155,7 +155,7 @@ Full procedure — `trust-session` invocation, auto/manual/hybrid mode prompt, s
 
 **Authoritative checklist**: see [`phase6-review.md`](./phase6-review.md) in this skill folder. It defines the per-convention review items, the file format for `.sc4sap/program/{PROG}/review.md`, and the failure-handling loop. Read it before delegating to `sap-code-reviewer`, and pass its path to the agent.
 
-**Execution strategy** (`~/.sc4sap/preferences.json` → `phase6Strategy`): `buckets` (default) — [`phase6-buckets.md`](./phase6-buckets.md), 4-bucket parallel Sonnet review + Opus escalation on MAJOR; or `detect-judge` (opt-in) — [`phase6-detect-judge.md`](./phase6-detect-judge.md), Haiku detectors × N + one Opus judge. The reviewer is read-only either way; fixes go to `sap-executor` (`model: "opus"`). In `manual`/`hybrid` mode: prompt before starting Phase 6; the bucket run itself is uninterrupted once started.
+**Execution strategy** (`~/.sc4sap/preferences.json` → `phase6Strategy`): `buckets` (default) — [`phase6-buckets.md`](./phase6-buckets.md), 4-bucket parallel Sonnet review + Opus escalation on MAJOR; or `detect-judge` (opt-in) — [`phase6-detect-judge.md`](./phase6-detect-judge.md), Haiku detectors × N + one Opus judge. The reviewer is read-only either way; fixes and re-reviews follow [`cost-rules.md`](cost-rules.md) § 1a (main-thread Edit or a fresh executor, never a resumed agent; diff-only re-review). In `manual`/`hybrid` mode: prompt before starting Phase 6; the bucket run itself is uninterrupted once started.
 
 ## Phase 7 — Debug escalation: `sap-debugger` (dispatch with `model: "opus"`)
 - Activation failures persisting after retry
@@ -187,7 +187,7 @@ Output:
 - File: `.sc4sap/program/{PROG}/report.md` (written by the writer agent)
 - In `manual`/`hybrid` mode: main prompts the user before dispatching Phase 8
 - **HTML copies (optional, after the report is shown)**: close with one line — *"Also want HTML copies of spec.md and report.md? (y/N)"* (a closing question, not a phase-transition prompt, so it applies in `auto` mode too). On yes, run `node "<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs" <file>.md` for each (`<PLUGIN_ROOT>` = two levels above this skill folder) → single-file `.html` beside it. The `.md` files stay — they are pipeline state (resume, review).
-- **Test hand-off (after the HTML line)**: offer one line — *"Test {PROG} now against DEV data (or QA rows) with `/sc4sap:program-test`?"*. On yes, invoke `Skill("sc4sap:program-test", "{PROG} spec=<path of spec.md>")`; it reads the spec and the program itself.
+- **Test hand-off (after the HTML line)**: offer one line — *"Test {PROG} now against DEV data (or QA rows) with `/sc4sap:program-test`?"*. On yes, invoke `Skill("sc4sap:program-test", "{PROG} spec=<path of spec.md>")`; it reads the spec and the program itself. Then write `handoff.md` and close with the `--fix` new-session line per [`cost-rules.md`](cost-rules.md) § 1b.
 
 ## State.json — Resume Support (C-2)
 

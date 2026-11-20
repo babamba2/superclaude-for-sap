@@ -9,6 +9,8 @@
 //   node build-role-doc.mjs init --code <CODE> [--from <draft.json>] [--project ..] [--system ..] [--module PM] [--author ..] [--lang ko|en|ja] [--force]
 //   node build-role-doc.mjs sync --code <CODE> --patterns "Z_PM*,Y_PM*" [--module PM] [--no-users] [--replace]
 //   node build-role-doc.mjs sod --code <CODE> --modules PM,MM          add the SoD library rules of those modules
+//   node build-role-doc.mjs verify --code <CODE> [--users]              "SAP 반영 확인": the document's roles against SAP (read-only)
+//   node build-role-doc.mjs verify-apply --code <CODE> --ids <file.json | all>   SAP's side into the document for those differences
 //   node build-role-doc.mjs build --code <CODE> [--same-version | --major] [--note "<text>"]
 //   node build-role-doc.mjs import <saved.html>
 //   node build-role-doc.mjs check --code <CODE>
@@ -91,6 +93,45 @@ export async function cmdSync({ root, code, patterns, module = '', withUsers = t
 }
 
 
+/**
+ * "SAP 반영 확인" (role-verify.mjs): the document's technical roles read from SAP — exactly those, user assignments
+ * only with --users — compared with the document; the result is kept on the model (`sapCheck`, cover checks) and
+ * the page redrawn in the same version. Nothing is written to SAP.
+ */
+export async function cmdVerify({ root, code, withUsers = false, read = null }) {
+  const { readRoles } = await import('./sap-roles.mjs');
+  const { compareRoles, docRoleNames, withCheck } = await import('./role-verify.mjs');
+  const f = files(root, code);
+  if (!existsSync(f.model)) throw new Error(`${f.model} not found — init or sync first`);
+  const model = normalizeModel(readJson(f.model));
+  const names = docRoleNames(model);
+  if (!names.length) throw new Error('the document lists no technical role');
+  const { rows, errors } = await (read || readRoles)({ names, withUsers, lang: model.lang });
+  const result = compareRoles(model, rows, { withUsers, today: today() });
+  const checked = withCheck(model, result, { date: today(), system: process.env.SAP_SID || '', tier: process.env.SAP_TIER || '', withUsers });
+  // the version buildDoc is about to draw (the current one; a document without a version gets its first)
+  checked.sapCheck.version = `v${lastVer(checked) || nextVersion('')}`;
+  writeJson(f.model, checked);
+  const r = buildDoc({ root, code, sameVersion: true });
+  return { ...r, counts: result.counts, differences: result.diffs.filter((d) => d.counted).length, reference: result.diffs.filter((d) => !d.counted).length, readErrors: errors };
+}
+
+/** The accepted differences of the last check into the document (SAP's side); a new version with a history row. */
+export async function cmdVerifyApply({ root, code, ids }) {
+  const { applyVerify } = await import('./role-verify.mjs');
+  const f = files(root, code);
+  const model = normalizeModel(readJson(f.model));
+  if (!model.sapCheck) throw new Error('no SAP check on the document — run verify first');
+  const want = ids === 'all' ? model.sapCheck.diffs.filter((d) => d.counted).map((d) => d.id) : ids;
+  const { model: next, applied, skipped } = applyVerify(model, want);
+  // the check stays current: it belongs to the version this apply makes
+  next.sapCheck.version = `v${nextVersion(lastVer(next))}`;
+  writeJson(f.model, next);
+  const c = next.sapCheck;
+  const r = buildDoc({ root, code, note: say(next.lang, `SAP 반영 확인 결과 ${applied.length}건 반영 (${c.system || '-'}, ${c.date})`, `${applied.length} differences taken from SAP (${c.system || '-'}, ${c.date})`, `SAP 反映確認の結果 ${applied.length} 件を反映 (${c.system || '-'}, ${c.date})`) });
+  return { ...r, applied: applied.length, skipped };
+}
+
 /** Adds the library SoD rules of the given modules (skips rules already there by kind). */
 export function cmdSod({ root, code, modules }) {
   const f = files(root, code);
@@ -168,6 +209,8 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
   (async () => {
     let r;
     if (cmd === 'init') r = cmdInit({ root, code: need(), from: get('--from') ? resolve(get('--from')) : '', doc, lang: get('--lang') || 'ko', force: args.includes('--force') });
+    else if (cmd === 'verify') r = await cmdVerify({ root, code: need(), withUsers: args.includes('--users') });
+    else if (cmd === 'verify-apply') { const ids = get('--ids'); r = await cmdVerifyApply({ root, code: need(), ids: ids === 'all' ? 'all' : JSON.parse(readFileSync(ids, 'utf8')) }); }
     else if (cmd === 'sync') r = await cmdSync({ root, code: need(), patterns: String(get('--patterns') || 'Z*').split(/[,\s]+/).filter(Boolean), module: get('--module') || '', withUsers: !args.includes('--no-users'), replace: args.includes('--replace'), lang: get('--lang') || 'ko', doc });
     else if (cmd === 'sod') r = cmdSod({ root, code: need(), modules: String(get('--modules') || '').split(/[,\s]+/).filter(Boolean) });
     else if (cmd === 'build') r = buildDoc({ root, code: need(), sameVersion: args.includes('--same-version'), major: args.includes('--major'), note: get('--note') || '' });
@@ -177,7 +220,7 @@ if (process.argv[1] && resolve(process.argv[1]) === thisFile) {
     else if (cmd === 'columns') r = columnCatalog(get('--lang') || 'ko');
     else if (cmd === 'template') r = (await import('./read-template.mjs')).readTemplate(resolve(args[0]), { out: get('--out') ? resolve(get('--out')) : '' });
     else if (cmd === 'check') { const v = deriveView(readJson(files(root, need()).model)); r = { totals: v.totals, checks: v.checks }; }
-    else { console.error('Usage: node build-role-doc.mjs init|sync|sod|build|import|import-form|check|layout|columns|template … (see the header)'); process.exit(2); }
+    else { console.error('Usage: node build-role-doc.mjs init|sync|verify|verify-apply|sod|build|import|import-form|check|layout|columns|template … (see the header)'); process.exit(2); }
     console.log(JSON.stringify(r));
   })().catch((e) => { console.error(`build-role-doc: ${e.message}`); process.exit(1); });
 }

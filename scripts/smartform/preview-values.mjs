@@ -79,19 +79,25 @@ export function valuesFromRaw(content, raw = {}, { ddic = {}, dateFormat = 'MM/D
     if (/^(INT1|INT2|INT4|INT8)$/.test(type)) return String(Math.round(Number(v)));
     return String(v);
   };
-  for (const [k, v] of Object.entries(raw || {})) {
-    const P = up(k);
+  // deep structures are walked: a structure field that is itself a structure or a table becomes "P-F-…" (a deep
+  // interface like LB_BIL_INVOICE's IS_BIL_INVOICE: &IS_BIL_INVOICE-HD_GEN-BIL_NUMBER&, a loop over
+  // IS_BIL_INVOICE-IT_GEN into GS_IT_GEN); DDIC keys follow the same path
+  const put = (P, v) => {
     if (Array.isArray(v)) {
       rows = Math.max(rows, v.length);
       const fields = [...new Set(v.flatMap((r) => (r && typeof r === 'object' ? Object.keys(r).map(up) : [])))];
       for (const f of fields) {
-        const col = v.map((r) => { const e = Object.entries(r || {}).find(([x]) => up(x) === f); return fmt(P, f, e?.[1], r); });
+        const col = v.map((r) => { const e = Object.entries(r || {}).find(([x]) => up(x) === f); return e?.[1] !== null && typeof e?.[1] === 'object' ? '' : fmt(P, f, e?.[1], r); });
         values[`${P}-${f}`] = col;
         for (const wa of was[P] || []) values[`${wa}-${f}`] = col;
       }
     } else if (v && typeof v === 'object') {
-      for (const [f, x] of Object.entries(v)) values[`${P}-${up(f)}`] = fmt(P, up(f), x, v);
+      for (const [f, x] of Object.entries(v)) {
+        if (x !== null && typeof x === 'object') put(`${P}-${up(f)}`, x);
+        else values[`${P}-${up(f)}`] = fmt(P, up(f), x, v);
+      }
     } else values[P] = fmt(P, '', v, null);
-  }
+  };
+  for (const [k, v] of Object.entries(raw || {})) put(up(k), v);
   return { values, rows };
 }

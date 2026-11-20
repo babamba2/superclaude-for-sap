@@ -520,6 +520,16 @@ describe('adobe-preview: ADS rules measured on the calibration form and on migra
     const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(cour12, 'Mig'))}</subform>`, '2.2');
     close(by(t, 'Mig').y, 20 + 0.629 * 12 * PT);
   });
+
+  it('measures text after a decimal stop where it is placed: "1480.50" on decimal 4cm, then left 5cm + EUR stays one line (EX10 / EX14)', () => {
+    const css = "font-family : 'Courier New' ; font-size : 12pt ; line-height : 4.23mm ; margin-left : 1.99mm ; tab-stops : decimal 4cm left 5cm ;";
+    const tab = '<span style="xfa-tab-count : 1 ;"/>';
+    const t = run(`<subform layout="tb" name="S" w="150mm">${draw('D', div(css, `${tab}<span style="font-family : 'Arial' ; font-size : 10pt ;">1480.50</span>${tab}<span style="font-family : 'Arial' ; font-size : 10pt ;">EUR</span>`), '62.5mm')}</subform>`);
+    const amount = t.find((x: any) => x.text.includes('1480.50')), cur = t.find((x: any) => x.text.includes('EUR'));
+    close(cur.y, amount.y);
+    // EUR starts on the 5 cm stop: 10 mm right of the 4 cm decimal stop, where the radix sits after "1480" (4 Arial digits)
+    close(cur.x - amount.x, 10 + 4 * 0.556 * 10 * 25.4 / 72);
+  });
 });
 
 describe('adobe-preview: off-page content in the layout JSON', () => {
@@ -627,5 +637,45 @@ describe('adobe-preview / smartform: program lines the runner understands', () =
     const last = runInitCoding(['if not gs_next is initial.', 'collect gs_next into gt_total.', 'endif.'], values, {}, body);
     expect(last).toMatchObject({ ok: true, tables: { GT_TOTAL: [{ AMOUNT: 14.75, CURR: 'EUR' }, { AMOUNT: 2, CURR: 'USD' }] } });
     expect(runInitCoding(['clear t_x[].', 'append l_y to t_x.'], {}, {}, { tables: { T_X: [{ A: 1 }] } }).tables.T_X).toEqual([{}]);
+  });
+});
+
+describe('adobe-preview: runInitCoding — deep names, structure copies, READ TABLE, LOOP WHERE, lenient mode', () => {
+  const raw = { IS_INV: { HD_GEN: { NUMBER: 'ZZ1', WAERK: 'EUR' }, HD_ADR: [{ NUMBER: 'ZZ1', ROLE: 'RE', ADDR_NO: 'A1' }, { NUMBER: 'ZZ1', ROLE: 'WE', ADDR_NO: 'A2' }],
+    IT_KOND: [{ ITM: '10', KBETR: 3 }, { ITM: '20', KBETR: 4 }] }, IS_NAST: { PARVW: 'WE' } };
+  it('copies a structure whole, field by field (MOVE-CORRESPONDING) and from deep paths', () => {
+    const r = runInitCoding(['CLEAR GS_HD.', 'GS_HD = IS_INV-HD_GEN.', 'MOVE-CORRESPONDING IS_INV-HD_GEN TO GS_B.', 'GS_C-W = IS_INV-HD_GEN-WAERK.', 'X = IS_INV-HD_GEN-NUMBER.'], raw);
+    expect(r.ok).toBe(true);
+    expect(r.vars.GS_HD).toEqual({ NUMBER: 'ZZ1', WAERK: 'EUR' });
+    expect(r.vars.GS_B).toEqual({ NUMBER: 'ZZ1', WAERK: 'EUR' });
+    expect(r.vars.GS_C).toEqual({ W: 'EUR' });
+    expect(r.vars.X).toBe('ZZ1');
+  });
+  it('reads a table component by key and loops one with WHERE', () => {
+    const r = runInitCoding(['READ TABLE IS_INV-HD_ADR INTO GS_ADR WITH KEY NUMBER = IS_INV-HD_GEN-NUMBER', 'ROLE = IS_NAST-PARVW BINARY SEARCH.',
+      "LOOP AT IS_INV-IT_KOND INTO W WHERE ITM = '20'.", 'APPEND W TO GT.', 'ENDLOOP.'], raw);
+    expect(r.ok).toBe(true);
+    expect(r.vars.GS_ADR.ADDR_NO).toBe('A2');
+    expect(r.tables.GT).toEqual([{ ITM: '20', KBETR: 4 }]);
+  });
+  it('stays strict by default; lenient skips an unsupported statement (with its block) and lists it', () => {
+    const lines = ['SELECT * FROM NAST INTO TABLE LT.', "IF A = 'B'.", 'G = 2.', 'ENDIF.', 'G = 1.'];
+    expect(runInitCoding(lines, raw).ok).toBe(false);
+    const r = runInitCoding(lines, raw, {}, {}, { lenient: true });
+    expect(r.ok).toBe(true);
+    expect(r.vars.G).toBe(1);
+    expect(r.skipped).toEqual(['SELECT * FROM NAST INTO TABLE LT', "IF A = 'B'"]);
+  });
+});
+
+describe('adobe-preview: DDIC of a work area field from its table (migrated SmartForm loops: GS_SFLIGHT-PRICE → T_SFLIGHT-PRICE)', () => {
+  const node = (name: string, field: string) => ({ kind: 'data', name, field, active: true, conditions: [], children: [] });
+  const ctx = { kind: 'context', active: true, conditions: [], children: [node('PRICE', 'GS_X-PRICE'), node('SEATS', 'GS_X-SEATS')] };
+  it('takes the one entry with the same component (CURR 2 → 250.00, as ADS prints it); entries that disagree leave it untyped', () => {
+    const { record } = buildRecord(ctx, { values: { GS_X: { PRICE: 250, SEATS: 3 } }, ddic: { 'T_X-PRICE': { type: 'CURR', length: 15, decimals: 2 }, 'T_X-SEATS': { type: 'INT4', length: 10, decimals: 0 }, 'T_Y-SEATS': { type: 'DEC', length: 5, decimals: 1 } } });
+    expect(record.children.map((c: any) => c.value)).toEqual(['250.00', '3']);
+    // an exact entry always wins
+    const exact = buildRecord(ctx, { values: { GS_X: { PRICE: 250, SEATS: 3 } }, ddic: { 'GS_X-PRICE': { type: 'DEC', length: 5, decimals: 1 }, 'T_X-PRICE': { type: 'CURR', length: 15, decimals: 2 } } });
+    expect(exact.record.children[0].value).toBe('250.0');
   });
 });

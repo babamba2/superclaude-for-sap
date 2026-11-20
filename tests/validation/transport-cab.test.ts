@@ -221,6 +221,23 @@ describe('CAB notes — rollback facts', () => {
     expect(rollbackOf({ trkorr: 'DEVK900002', kind: 'customizing', objects: [{ pgmid: 'R3TR', object: 'TABU', name: 'ZFOO_CONFIG', type: 'CONTENT' }] }, null).map((x) => x.code))
       .toEqual(['no-auto', 'customizing', 'target-unread']);
   });
+  it('ko writes the request type and the evidence results in Korean; cycle names and en stay as they are', () => {
+    const m = buildCabModel({ ...collect(), targetSystem: undefined }, {});
+    m.requests[0].evidence = [
+      { source: 'wricef', how: 'direct', ref: 'P/W1', text: 'Foo report', result: 'sit' },
+      { source: 'issue', how: 'direct', ref: 'S/I1', text: 'Price wrong', result: 'waiting' },
+      { source: 'uat', how: 'heuristic', ref: 'S/SC/ST', text: 'ZFOO1', result: '2nd fail' },
+      { source: 'uat', how: 'heuristic', ref: 'S/SC/ST2', text: 'ZFOO2', result: 'open' },
+    ];
+    const ko = renderHtml(m, 'ko'), en = renderHtml(m, 'en');
+    expect(ko).toContain('Foo report — SIT');
+    expect(ko).toContain('Price wrong — 대기');
+    expect(ko).toContain('ZFOO1 — 2nd 실패');
+    expect(ko).toContain('ZFOO2 — 미실행');
+    expect(ko).toContain(' · 워크벤치 · ');
+    expect(en).toContain('ZFOO1 — 2nd fail');
+    expect(en).toContain(' · workbench · ');
+  });
 });
 
 describe('CAB notes — evidence', () => {

@@ -3,7 +3,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, mkdirSync } from 'fs'
 import { tmpdir } from 'os';
 import { join } from 'path';
 // @ts-expect-error — plain .mjs script, no type declarations
-import { mergeSync, ROLE_READ_TABLES, ROLE_TABLES, USER_TABLES, readRoles } from '../../scripts/role/sap-roles.mjs';
+import { mergeSync, ROLE_READ_TABLES, ROLE_TABLES, TCODE_LEN, USER_TABLES, readRoles } from '../../scripts/role/sap-roles.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
 import { cmdSync } from '../../scripts/role/build-role-doc.mjs';
 // @ts-expect-error — plain .mjs script, no type declarations
@@ -77,5 +77,37 @@ describe('role sync — one merge for the CLI and the web (mergeSync)', () => {
     expect(r.rows.define).toEqual([]);
     expect(closed).toBe(false);
     expect(asked.every((t) => ROLE_READ_TABLES(false).includes(t))).toBe(true);
+  });
+
+  it("T-code texts are read for the menu's T-codes only: a Web Dynpro / URL entry (longer than TSTCT.TCODE) is not sent and does not sink its chunk", async () => {
+    const wda = 'R3TRWDYA/PLMU/WDA_AUTH_ACC_OIF';
+    const tcodes = [
+      ...Array.from({ length: 45 }, (_, i) => ({ AGR_NAME: 'Z_R1', TYPE: 'TR', TCODE: `ZT${String(i).padStart(3, '0')}` })),
+      { AGR_NAME: 'Z_R1', TYPE: 'OT', TCODE: wda },
+      { AGR_NAME: 'Z_R1', TYPE: 'TR', TCODE: 'ZEXCL', EXCLUDE: 'X' },
+    ];
+    const sent: string[] = [];
+    const client = {
+      cache: new Map(),
+      async callTool({ arguments: a }: any) {
+        const table = /FROM (\w+)/.exec(a.sql_query)![1];
+        const rows = table === 'AGR_DEFINE' ? [{ AGR_NAME: 'Z_R1', PARENT_AGR: '' }]
+          : table === 'AGR_TCODES' ? tcodes
+          : table === 'TSTCT' ? [...a.sql_query.matchAll(/'(ZT\d{3})'/g)].map((m: RegExpMatchArray) => ({ TCODE: m[1], SPRSL: 'E', TTEXT: `text ${m[1]}` }))
+          : [];
+        if (table === 'TSTCT') {
+          sent.push(a.sql_query);
+          // S/4 data preview: a key value longer than the field is a 400 for the whole statement
+          if ([...a.sql_query.matchAll(/'([^']*)'/g)].some((m: RegExpMatchArray) => m[1].length > TCODE_LEN)) return { isError: true, content: [{ text: 'ADT error: Request failed with status code 400' }] };
+        }
+        return { content: [{ text: JSON.stringify({ rows, truncated: false }) }] };
+      },
+      async close() {},
+    };
+    const r = await readRoles({ names: ['Z_R1'], withUsers: false, lang: 'en', client });
+    expect(r.errors.filter((e: string) => e.startsWith('TSTCT'))).toEqual([]);
+    expect(r.rows.tstct.map((t: any) => t.TCODE).sort()).toEqual(tcodes.slice(0, 45).map((t) => t.TCODE));
+    expect(sent.join(' ')).not.toContain(wda);
+    expect(sent.join(' ')).not.toContain('ZEXCL');
   });
 });

@@ -133,7 +133,7 @@ async function defFromDdl(client, src, depth = 0) {
   return fields.length ? { fields, description: label } : null;
 }
 
-async function ddicObject(client, name) {
+export async function ddicObject(client, name) {
   const t = await call(client, 'GetTable', { table_name: name });
   const td = inner(t, 'table_data');
   if (td?.fields?.length) return { kind: td.tabclass === 'VIEW' ? 'VIEW' : 'TABLE', def: td };

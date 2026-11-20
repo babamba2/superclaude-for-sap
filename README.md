@@ -8,9 +8,15 @@
 
 # SuperClaude for SAP (sc4sap)
 
-> Claude Code plugin for SAP ABAP development — SAP ECC / S/4HANA On-Premise / S/4HANA Cloud (Public & Private)
+> Claude Code, connected to your SAP system. It does ABAP development, documentation and operations work for you.
 
-**Website:** [sc4sap.dev](https://sc4sap.dev)
+<p align="center">
+  <a href="https://sc4sap.dev"><img src="sc4sap-bear.gif" alt="sc4sap mascot" width="480"/></a>
+</p>
+
+<h1 align="center"><a href="https://sc4sap.dev">🌐 sc4sap.dev</a></h1>
+
+<p align="center"><b>Official site — try it in the browser</b></p>
 
 [![Website](https://img.shields.io/badge/website-sc4sap.dev-0A66C2)](https://sc4sap.dev)
 [![MCP server on npm](https://img.shields.io/npm/v/@babamba2/abap-mcp-adt-powerup?label=mcp-server&color=cb3837&logo=npm)](https://www.npmjs.com/package/@babamba2/abap-mcp-adt-powerup)
@@ -20,46 +26,113 @@
 
 ## What is sc4sap?
 
-SuperClaude for SAP transforms Claude Code into a full-stack SAP development assistant. It connects to your SAP system via the [MCP ABAP ADT server](https://github.com/babamba2/abap-mcp-adt-powerup) (150+ tools) to create, read, update, and delete ABAP objects directly — classes, function modules, reports, CDS views, Dynpro, GUI status, and more.
+sc4sap is a plugin for Claude Code. It connects Claude to your SAP system.
 
-## Core Capabilities
+- It works with SAP ECC, S/4HANA On-Premise and S/4HANA Cloud (Public and Private).
+- It helps developers, functional consultants, project managers and operations teams.
+- You ask in plain words. Claude reads the system, does the work and shows you the result.
 
-| Capability | What it does |
-|------------|--------------|
-| 🔌 **Auto MCP Install** | `abap-mcp-adt-powerup` is auto-installed, configured, and connection-tested during `/sc4sap:setup`. No manual MCP wiring. |
-| 🌐 **Multi-Environment Profiles (Dev / QA / Prod)** | Register multiple SAP systems per company (e.g. `KR-DEV`, `KR-QA`, `KR-PRD`, `US-DEV`) and hot-switch between them in-session via `/sc4sap:sap-option`. **QA and Prod profiles are auto-protected**: a 2-layer defense (PreToolUse hook + MCP-server guard) blocks `Create*/Update*/Delete*`, `CreateTransport`, and runtime code execution tools — bypassing the hook does not bypass enforcement. Passwords are stored in the **OS keychain** (`@napi-rs/keyring` — Windows Credential Manager / macOS Keychain / libsecret) so `.sc4sap/` never leaks secrets to git. Artifacts (specs, CBO catalogs, audits) are isolated per profile with read-only cross-view so QA sessions can inspect Dev-produced specs without contaminating them. |
-| 🏗️ **Formatted Auto Program Maker** | Builds ABAP programs end-to-end: Main + conditional Includes (OOP/Procedural), full ALV + Docking, Dynpro + GUI Status, mandatory Text Elements, ABAP Unit tests — platform-aware (ECC / S4 On-Prem / Cloud). |
-| 🔍 **Program Analyze** | Read any ABAP object via MCP, run Clean ABAP / performance / security review, or reverse-engineer into Functional/Technical Spec (Markdown/Excel). |
-| 🧪 **Analyze Code** | `/sc4sap:analyze-code` — dedicated static review pass (`sap-code-reviewer`): Clean ABAP, performance, security, SAP standard compliance. Severity-ranked findings with concrete fix suggestions. |
-| 🔀 **Compare Programs** | `/sc4sap:compare-programs` — side-by-side business comparison of 2–5 ABAP programs that share the same scenario but split by module (MM/CO), country (KR/EU), or persona (controller/warehouse). Consultant-facing editable HTML report across 10 configurable dimensions — coloured verdict matrix with a *Differences only* switch, field-by-field differences, screens drawn side by side, decision guide, versions + English companion. |
-| ⚙️ **Config → Document** | `/sc4sap:config-to-document` — one module's configuration documented as it is in the connected system (MM first). One offline HTML file that follows the IMG tree: per IMG activity the real table values drawn on an SM30-style screen, rows changed by customer transports with their transport history, configuration checks, SAP's IMG documentation, and consultant notes written by the module consultant agent and reviewed by `sap-critic`. Read-only on SAP; an in-page edit mode lets the consultant correct the notes, values and change history and hand the file back for the next version. |
-| 🔌 **Interface Mapping Spec** | `/sc4sap:interface-mapping-spec` — interface mapping specification as one editable HTML page in the classic template layout: cover, revision history, Source → Target field grid with conversion-rule and MAPPING columns, synchronous response block, extraction condition, field guide. Built for new interfaces: scenario presets, SAP fields from a `TABLE-FIELD` list or the module consultant's proposal (checked against DDIC) — or read from an existing table, structure, view or RFC — with the counterpart side, DB types and conversion rules proposed. In-page checks (missing items, truncation, type and key mismatches, unmapped fields), Excel paste, versions with revision history, English companion, refresh when the SAP structure changes. |
-| 🖨️ **SmartForm Preview** | `/sc4sap:smartform-preview` — the expected print of a SmartForm as a JPG, without a print program or test data: windows at their real mm positions, SmartStyle fonts, template grids with borders and shading, SE78 graphics (logo, signature), loops with sample rows. The `&fields&` get invented sample values sized to their DDIC types, and the report lists the cells and windows whose content is cut off. Read-only. → `smartforms/<FORM>/<FORM>-preview.{jpg,html}` |
-| 🩺 **Operations Report** | `/sc4sap:ops-health-check` — an operations report for the customer or PMO (summary, KPIs vs the previous period, dump trend, issues & actions, editable, A4 print): short dumps grouped by runtime error and program and compared with the period before, the transport requests that changed a dumping program, aborted jobs, update errors and IDocs in error — with a verdict and the next step for each finding (which dump to analyze, which TCode to open). A table the system will not read is shown as *not readable*, never as empty. Read-only; user names are counted, never listed. |
-| 🚚 **Transport Check (CTS)** | `/sc4sap:transport-readiness` — before requests move to QA or production: open tasks, inactive objects, objects in a local package, objects that also sit in other open requests (import order), and code that needs a DDIC object of another unreleased request. Optionally checks the target system through an SM59 destination: changes made only in the target that the import would overwrite, used DDIC objects missing there, roll-backs. A verdict per request (ready / check / blocked) in one report. Read-only. |
-| 🔬 **Program Test** | `/sc4sap:program-test` — Test a program on DEV before it moves to QA: test cases and expected results are fixed from the spec first, then real rows are read from DEV (default) or, on request, QA through your SM59 destination (personal fields masked inside the MCP server before anything reaches the AI; production data follows with the next MCP release, confirmed per table). The rows go into a `$TMP` harness as test doubles and the program's own code runs with ABAP Unit. Verdict per case from SAP's result; planted bugs must be caught; cases that cannot be tested are counted, never passed. |
-| 🧪 **UAT Scenarios** | `/sc4sap:uat-scenarios` — UAT test scenarios kept as one editable set per module: scenarios with STEP rows (activity, system, T-code, check points, input data, expected output, test user, result per test cycle, follow-up). The module consultant drafts it and proposes changes item by item for you to accept or reject; T-codes are checked in the system; gaps and per-cycle progress are listed; Excel export in the integrated-test or the flat scenario-list layout. |
-| 📄 **SmartForm from PDF** | `/sc4sap:smartform-from-pdf` — builds a SmartForm from a PDF (or screenshot) of the printed form: ruled areas become templates, every text sits where the source has it in the closest format of an existing SmartStyle, then the values become `&fields&`, item lines a loop over an internal table and the interface is added — decided with you. Uploaded to the DEV system, printed there and scored against the source page. → `smartforms/<FORM>/` |
-| 📊 **Project Dashboard** | `/sc4sap:project-dashboard` — one editable HTML page per SAP project for the PM and the PMO (summary, KPIs, milestones with Q-gates, WBS with Gantt, team, history) plus a portfolio page over every project. Templates for new implementation (SAP Activate), S/4 conversion, rollout, AMS release and small projects; module and development consultants tracked separately (WRICEF stages, hand-off queue); actuals read from the connected system (transports split into customizing vs workbench, package objects, inactive objects, dumps after go-live). Members join and leave by date; open items of leavers are flagged. Spreadsheet-style editing, works on mobile. → `projects/<CODE>/` |
-| 🔐 **Role Matrix** | `/sc4sap:role-matrix` — the project's role & authorization document as one editable HTML workbook: cover with checks, business roles, PFCG roles, business role × T-code matrix (F/C/D), user × role assignment, authorization objects, SoD rules with automatic conflict check, change history. New design from the module consultant's proposal (narrowed to the T-codes users run when ST03N usage is available) or read from SAP (roles, T-codes, authorization values, org levels, user assignment by user ID only — no user master data). Large systems are paged; search, CSV and paste cover the whole sheet. Read-only on SAP. → `roles/<CODE>/` |
-| 🗺️ **Module → Process** | `/sc4sap:module-to-process` — one **editable HTML process map** per module, built only from the TCodes users actually run (productive ST03N): CBO programs of all the module's packages placed on the standard L1–L4 process backbone with variants, owners and systems, an L3 scenario swimlane each, and a PDD-style task sheet per L4 (business rules with source lines, steps, related objects, interfaces, S/4 conversion notes); optional module-consultant review, existing-BPH reconciliation and English companion |
-| 🩺 **Maintenance Diagnosis** | Operational triage loop: ST22 dumps, SM02 system messages, /IWFND/ERROR_LOG, profiler traces, logs, where-used graphs — all from Claude. |
-| 🕸️ **CBO Relation Map** | `/sc4sap:cbo-relation-map` — one HTML page per package that shows how its customer objects relate, drawn from the `stock-cbo` graph without a SAP call: tables → data elements → domains, check tables, search helps, view bases, and programs / function modules reading and writing tables. Most connected objects, groups of related objects, a neighbourhood view with filters, the shortest path between two objects, and the DDIC row or source line behind every relation. Standard objects are left out. → `cbo/<MODULE>/<PACKAGE>/<PACKAGE>-relation-map-{ko,en}.html` |
-| ♻️ **CBO Reuse (Brownfield Accelerator)** | Inventory a Z-package once — `create-program` / `program-to-spec` prefer reusing existing CBO assets over duplicates. |
-| 🧷 **CBO Extension Awareness (CMOD / GGB0·1 / BTE / VOFM / BAdI / APPEND)** | Inventories user-exits (CMOD), validations & substitutions (GGB0/GGB1), BTE function modules, VOFM routines (requirements / formulas / data transfer), BAdI implementations, and APPEND structures. `create-program` / BAPI flows prefer existing Extension fields (e.g. BAPI `EXTENSIONIN` / table appends) over new CBOs; dump & incident diagnosis inspects Extension points as first-class suspects. |
-| 🏭 **Industry Context** | 14 industry reference files (retail, fashion, cosmetics, tire, automotive, pharma, F&B, chemical, electronics, construction, steel, utilities, banking, public-sector). |
-| 🌏 **Country / Localization** | 15 per-country files + EU-common (KR/JP/CN/US/DE/GB/FR/IT/ES/NL/BR/MX/IN/AU/SG). e-invoicing, banking, payroll, tax localization. |
-| 🧩 **Active-Module Awareness** | Cross-module integration hints: MM + PS active → auto-suggest WBS fields on MM CBOs; SD + CO active → CO-PA derivation. [Details →](common/active-modules.md) |
-| 🤝 **Module Consultation** | `sap-analyst` / `sap-critic` / `sap-planner` / `sap-architect` delegate to 14 module consultants + 1 BC consultant when business judgement is needed. Users can also ask a module consultant directly via `/sc4sap:ask-consultant` — auto-routes SD/MM/FI/CO/PP/PS/PM/QM/TR/HCM/WM/TM/BW/Ariba/BC by keywords, answers against the configured SAP environment (version, industry, country, active modules), read-only. |
-| ⚡ **Per-Phase Model Routing** | Every skill's main thread follows your session model (`model: inherit`) while delegating heavy work to specialized agents (Opus for novel ABAP generation, cross-module synthesis, and incident triage; Sonnet for facts extraction; Haiku for report rendering). No skill switches the main thread, so your model choice holds and the prompt cache is never re-written mid-session; per-phase `Agent()` dispatches run on their declared tier. Model choice is visible in every response prefix + per-phase banner (e.g. `▶ phase=3 (writer-spec) · agent=sap-writer · model=Opus`). Full matrix — per-skill, per-phase — in [docs/skill-model-architecture.md](docs/skill-model-architecture.md). |
+Current plugin version: 1.0.0.
+
+## What you can do
+
+### Developers
+
+| What you say or type | What you get |
+|---|---|
+| `/sc4sap:create-program` | A finished ABAP program (report, ALV, batch), tested and activated |
+| `/sc4sap:create-object` | One ABAP object (class, table, function module ...) on a transport |
+| `/sc4sap:program-test` | A program tested on DEV with real rows and ABAP Unit, before it moves to QA |
+| `/sc4sap:analyze-code` | A review of your code with ranked findings and fix suggestions |
+| `/sc4sap:program-to-spec` | A functional or technical spec written from existing code |
+| `/sc4sap:program-to-manual` | An end-user manual for one program, with screen drawings |
+| `/sc4sap:compare-programs` | A side-by-side comparison of 2 to 5 similar programs |
+| `/sc4sap:interface-mapping-spec` | An interface mapping spec: source field to target field, with rules |
+| `/sc4sap:smartform-preview` | A picture of the expected SmartForm print, without a print program |
+| `/sc4sap:smartform-from-pdf` | A SmartForm built from a PDF of the printed form |
+| `/sc4sap:smartform-to-adobe`, `adobe-preview`, `adobe-from-pdf` | Adobe form work: conversion plan, print preview, build from PDF. `adobe-from-pdf` is not runnable yet |
+
+### Functional consultants
+
+| What you say or type | What you get |
+|---|---|
+| `/sc4sap:ask-consultant` | An answer from the consultant for the right module (SD, MM, FI, CO ...) |
+| `/sc4sap:assist` | Lookups and changes of business documents: open POs, goods receipt, billing ... Every change is shown first and needs your yes |
+| `/sc4sap:config-to-document` | One HTML file with a module's configuration as it is in the system |
+| `/sc4sap:module-to-process` | A process map of a module, from the TCodes users really run |
+| `/sc4sap:uat-scenarios` | UAT and integration test scenarios, kept as one editable set |
+| `/sc4sap:cbo-relation-map` | A map of how your custom objects relate |
+| `/sc4sap:stock-cbo` | A list of the custom objects of a package, so new work reuses them |
+
+### PM and PMO
+
+| What you say or type | What you get |
+|---|---|
+| `/sc4sap:project-dashboard` | One page per project: milestones, WBS, team, SAP actuals. Plus a portfolio page |
+| `/sc4sap:role-matrix` | A role and authorization workbook with SoD conflict checks |
+
+### Operations (SM, AMS, Basis)
+
+| What you say or type | What you get |
+|---|---|
+| `/sc4sap:analyze-symptom` | The root cause of a dump or error, found step by step. Nothing is changed |
+| `/sc4sap:ops-health-check` | An operations report: dumps, aborted jobs, update errors, IDocs |
+| `/sc4sap:transport-readiness` | A ready / check / blocked verdict for each transport request |
+| `/sc4sap:sap-doctor` | A health check of the plugin, the MCP server and the SAP connection |
+
+## Get started
+
+1. Install Claude Code and Node.js 20 or newer. You also need an SAP user with ADT access.
+2. In Claude Code, add the marketplace and install the plugin:
+   ```
+   /plugin marketplace add https://github.com/babamba2/superclaude-for-sap.git
+   /plugin install sc4sap
+   ```
+3. Run `/sc4sap:setup`. It installs the MCP server, saves your SAP connection and tests it.
+4. Try one request, for example: `Show me the open purchase orders of vendor 1000.`
+5. Files that a skill writes (HTML pages, specs) go to the `.sc4sap/` folder of your project, under your profile.
+
+New to the tools? Follow the step-by-step guide: [Getting Started](docs/GETTING-STARTED.md).
+
+## Just talk to it
+
+You do not need slash commands. Claude picks the right skill from your sentence.
+
+- "Why did program ZMMR00040 dump yesterday?"
+- "Write a report that lists open sales orders in ALV."
+- "Which TCodes does the MM team use most?"
+
+Questions and lookups run at once. For documents and code, Claude proposes the skill in one line and waits for your yes.
+
+## Safe by design
+
+- QA and PRD profiles are read-only. A hook and the MCP server both block changes.
+- Table data is read only after a check against a blocklist. Sensitive tables ask you first, table by table.
+- Passwords are kept in your operating system's credential store, not in project files.
+- Only customer objects (Z and Y) are changed. SAP standard objects are never touched.
+- Every change goes on a transport. It is syntax-checked and activated.
+- Business documents are never changed without a preview and your yes.
+
+## Cost modes
+
+- `standard`: quality first. This is the default.
+- `eco`: cheaper models for the helper agents. You get the same deliverable.
+- Set the mode with `/sc4sap:sap-option`. For one run only, use `/sc4sap:eco <skill>`.
+
+## How it works
+
+- An MCP server for ABAP ADT ([abap-mcp-adt-powerup](https://github.com/babamba2/abap-mcp-adt-powerup), 150+ tools) reads and writes SAP objects.
+- 27 specialised agents share the work: module consultants, executor, reviewer, checker and more.
+- You can register several SAP profiles (DEV, QA, PRD) and switch between them in a session.
+- Industry context (14 industries) and country context (15 countries plus EU) shape the answers.
 
 ## Documentation
 
-- 🚀 **[Getting Started (first-time users) →](docs/GETTING-STARTED.md)** — step-by-step on Windows: PowerShell policy, Git, Node.js, Claude Code, sign-in, plugin install, SAP connection, health check, troubleshooting
-- 📦 **[Installation & Setup →](docs/INSTALLATION.md)** — requirements, install options, wizard steps, blocklist configuration
-- 🎯 **[Features Deep-Dive →](docs/FEATURES.md)** — 26 agents, 14 skills, MCP tools, RFC backends, hooks, data-extraction policy
-- 🧠 **[Skill Model Architecture →](docs/skill-model-architecture.md)** — per-skill / per-phase model allocation (Haiku / Sonnet / Opus), model override patterns, escalation ladders, design rationale
-- 📜 **[Changelog →](docs/CHANGELOG.md)** — version history and breaking changes
+- [Getting Started](docs/GETTING-STARTED.md): step by step for first-time users
+- [Installation and Setup](docs/INSTALLATION.md): requirements, options, blocklist
+- [Features](docs/FEATURES.md): all skills, agents, hooks and policies
+- [Skill Model Architecture](docs/skill-model-architecture.md): which model does which step
+- [Changelog](docs/CHANGELOG.md): version history
 
 ## Unleashed
 
@@ -76,6 +149,7 @@ SuperClaude for SAP transforms Claude Code into a full-stack SAP development ass
 ## Contributors
 
 - **김시훈 (Kim Sihun)** &nbsp; [![LinkedIn](https://img.shields.io/badge/-LinkedIn-0A66C2?style=flat-square&logo=linkedin&logoColor=white)](https://www.linkedin.com/in/sihun-kim-27737132b/)
+- **Jan Bloudicek** &nbsp; [![GitHub](https://img.shields.io/badge/-GitHub-181717?style=flat-square&logo=github&logoColor=white)](https://github.com/JanBloudicek) — model tier aliases for the agents ([#47](https://github.com/babamba2/superclaude-for-sap/pull/47))
 
 ## Acknowledgments
 

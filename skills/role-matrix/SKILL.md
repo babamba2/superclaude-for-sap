@@ -21,6 +21,7 @@ Role design is a project deliverable that changes every week: business roles are
 - "권한 매트릭스", "Role 매트릭스", "역할 설계", "권한 설계서", "PFCG 역할 정리", "SoD 점검", "권한 감사", "사용자 권한 배정표", "role matrix", "authorization concept", "SoD", "role audit"
 - **Triage** — "권한 오류", "권한 없음 분석", "no authorization", "SU53", "어떤 롤을 줘야", "authorization error": one user gets "no authorization" in one T-code → [`triage.md`](triage.md)
 - A project needs its role & authorization document (new design), or an existing system's roles must be documented / reviewed (audit, SoD review — read from SAP)
+- "SAP 반영 확인" — is the document what the system holds (roles, T-codes, authorization values, org levels, assignments)? → `verify` in [`workflow.md`](workflow.md) § Operations
 </Use_When>
 
 <Do_Not_Use_When>

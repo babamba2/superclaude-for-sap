@@ -38,7 +38,7 @@ The reviewer agent is read-only (`disallowedTools: [Write, Edit]`, no `Update*` 
 ## Step 3 — Fix loop
 
 - Fix list empty → `review.md` verdict `✅ ALL PASS` → Phase 8.
-- Otherwise main dispatches `sc4sap:sap-executor` with `model: "opus"` and the `FIX` lines (one dispatch; split per object only when > 10 fixes). Executor applies `Update*` + re-activates.
+- Otherwise the `FIX` lines are applied per [`cost-rules.md`](cost-rules.md) § 1a — small fixes by main-thread Edit, larger ones by one fresh `sc4sap:sap-executor` (split per object only when > 10 fixes; never a resumed agent), with `Update*` + re-activation; the re-review covers the diff only.
 - Re-run Step 1 **only for the fixed objects and only the groups that produced the findings**, then the judge **scoped to those findings**. Max 3 iterations; afterwards residual MAJOR → `❌ BLOCKED` per `phase6-output-format.md`.
 - In `manual` / `hybrid` mode, prompt before the first fix dispatch.
 

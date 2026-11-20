@@ -77,6 +77,7 @@ li.open>.row .tw{transform:rotate(90deg)}li:not(.open)>ul{display:none}
 .row .cnt{margin-left:auto;font-size:11px;color:var(--mute);background:#eef2f6;border-radius:999px;padding:0 7px;flex:none}
 .leaf{display:flex;align-items:baseline;gap:7px;padding:4px 8px;border-radius:6px;font-size:13px;color:var(--ink);cursor:pointer}
 .leaf:hover{background:#eef2f6}.leaf.active{background:var(--sel);font-weight:600}.leaf .nb{margin-left:auto;font-size:11px}
+@media (pointer:coarse){.row,.leaf{min-height:44px;align-items:center}}
 .dot{width:7px;height:7px;border-radius:50%;flex:none;align-self:center}
 .s-custom{background:var(--custom)}.s-standard{background:var(--std)}.s-empty{background:var(--empty)}.s-none{background:var(--none)}.s-blocked{background:var(--blocked)}
 .hidden{display:none!important}mark{background:var(--hl);padding:0}
@@ -158,12 +159,14 @@ details.card summary{cursor:pointer;font-size:13px;color:var(--ink2);font-weight
 .lb{position:fixed;inset:0;background:rgba(10,20,32,.86);display:none;flex-direction:column;z-index:50}.lb.on{display:flex}
 .lbbar{display:flex;gap:6px;justify-content:flex-end;align-items:center;padding:10px 14px}.lbbar span{color:#fff;font-size:12px;min-width:48px;text-align:center}
 .lbbar button{background:#fff;border:0;border-radius:5px;min-width:34px;height:30px;padding:0 9px;font:inherit;font-size:14px;cursor:pointer}
-.lbv{flex:1;overflow:auto;display:flex;padding:0 24px 24px;cursor:grab;touch-action:none}.lbv.drag{cursor:grabbing}
+.lbv{flex:1;overflow:auto;display:flex;padding:0 24px 24px;cursor:grab;touch-action:none;overscroll-behavior:contain}
+@media (pointer:coarse),(max-width:600px){.lbbar{padding-top:max(10px,env(safe-area-inset-top));padding-right:max(14px,env(safe-area-inset-right))}.lbbar button{min-width:44px;height:44px;font-size:16px}.lbv{padding:0 8px max(8px,env(safe-area-inset-bottom))}}
+.mock:focus-visible,#ref .case .flow:focus-visible{outline:2px solid var(--ink);outline-offset:2px}.lbv.drag{cursor:grabbing}
 .lbc{margin:auto;flex:none;background:#fff;border-radius:6px;line-height:0}.lbc svg,.lbc img{display:block;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
 #ref .case .flow{cursor:zoom-in}
 .mock.shot img{display:block;max-width:100%;height:auto}
-@media (max-width:1300px){#ref{position:fixed;top:52px;right:0;bottom:0;z-index:10;transform:translateX(100%);transition:transform .2s;width:min(440px,92vw)}body.ref-open #ref{transform:none;box-shadow:0 0 0 100vw rgba(22,50,79,.35)}}
-@media (max-width:860px){aside{position:fixed;top:52px;bottom:0;left:0;z-index:11;transform:translateX(-100%);transition:transform .2s;width:min(340px,90vw)}body.menu-open aside{transform:none}#menubtn{display:block}main{padding:18px 16px 40px}}
+@media (max-width:1300px){#ref{position:fixed;top:52px;right:0;bottom:0;z-index:10;transform:translateX(100%);visibility:hidden;transition:transform .2s,visibility 0s .2s;width:min(440px,92vw)}body.ref-open #ref{transform:none;visibility:visible;transition:transform .2s;box-shadow:0 0 0 100vw rgba(22,50,79,.35)}}
+@media (max-width:860px){aside{position:fixed;top:52px;bottom:0;left:0;z-index:11;transform:translateX(-100%);visibility:hidden;transition:transform .2s,visibility 0s .2s;width:min(340px,90vw)}body.menu-open aside{transform:none;visibility:visible;transition:transform .2s}#menubtn{display:block}main{padding:18px 16px 40px}}
 @media (max-width:600px){header{gap:8px;padding:0 10px}header h1{font-size:14px;flex:1 1 auto;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}header .sub{display:none}header button{white-space:nowrap;padding:4px 7px;flex:none}#refbtn{margin-left:0}}
 @media print{header,aside,#ref,.navbtns,.tblbar{display:none!important}body{height:auto;overflow:visible;display:block}main{overflow:visible;padding:0}.tblwrap,.mock{max-height:none;overflow:visible}}
 `;
@@ -218,7 +221,7 @@ function rowsHtml(v,limit){const custSet=new Set(v.cust);return v.rows.slice(0,l
 // Code of a row's object (validation / substitution exits), shown under the row like a BAdI method.
 function xsrcRow(s,n){const r=s.refs||{};const refs=[['FM',r.fms],[T.readsF,r.reads],[T.writesF,r.writes],['PERFORM',r.performs]].filter(p=>p[1]&&p[1].length).map(p=>'<div><small>'+esc(p[0])+'</small> '+p[1].map(esc).join(', ')+'</div>').join('');return '<tr class="xsrc"><td colspan="'+n+'">'+(refs?'<div class="mono xrefs">'+refs+'</div>':'')+(s.source?'<details><summary>'+esc(T.srcF)+' · '+esc(s.include||'')+' · '+esc(String(s.lines))+' '+esc(T.linesU)+'</summary><pre class="src">'+esc(s.source)+(s.truncated?' …':'')+'</pre>'+(s.subs||[]).map(y=>'<div class="note" style="margin-top:8px">'+esc(y.name)+(y.via?' · '+esc(y.via):'')+(y.lines!=null?' · '+y.lines+' '+esc(T.linesU):'')+'</div><pre class="src">'+esc(y.source||'')+(y.truncated?' …':'')+'</pre>').join('')+'</details>':'')+'</td></tr>'}
 // A view's screen: the drawn SM30 screen, or the screenshot that replaced it in edit mode.
-function pic(v,key,style){const im=(v.shots||{})[key];const ok=typeof im==='string'&&/^data:image\/(png|jpeg|gif|webp);base64,/.test(im);if(!ok&&!SV[key])return key===v.key?shotTools(v.key,key,false):'';return '<div class="mock'+(ok?' shot':'')+'"'+(style||'')+' data-svg="'+esc(key)+'" title="'+esc(T.zoom)+'">'+(ok?'<img src="'+esc(im)+'" alt="">':SV[key])+'</div>'+shotTools(v.key,key,ok)}
+function pic(v,key,style){const im=(v.shots||{})[key];const ok=typeof im==='string'&&/^data:image\/(png|jpeg|gif|webp);base64,/.test(im);if(!ok&&!SV[key])return key===v.key?shotTools(v.key,key,false):'';return '<div class="mock'+(ok?' shot':'')+'"'+(style||'')+' data-svg="'+esc(key)+'" title="'+esc(T.zoom)+'" tabindex="0" role="button" aria-label="'+esc(T.zoom)+'">'+(ok?'<img src="'+esc(im)+'" alt="">':SV[key])+'</div>'+shotTools(v.key,key,ok)}
 // Note badge: the system part was reviewed against this snapshot's rows (verifiedAgainst), or the note shows only the
 // general part from the knowledge base (no passed review of its own). Rows changed since that review (vaStale, set by
 // build-config-doc markStale) turn the badge into a warning.
@@ -253,36 +256,52 @@ if(recent.length)h+='<div class="card"><h3>'+esc(T.recent)+'</h3><table class="h
 $('#main').innerHTML=h+'</div>';$('#main').scrollTop=0}
 $('#main').addEventListener('click',e=>{const g=e.target.closest('[data-go]');if(g){e.preventDefault();return go(g.dataset.go)}const al=e.target.closest('[data-all]');if(al)return fullTable(al.dataset.all);const m=e.target.closest('.mock');if(m)return openLb(m.classList.contains('shot')?m.innerHTML:SV[m.dataset.svg]||'');const ar=e.target.closest('.area');if(ar){term='';$('#q').value='';renderTree();document.querySelectorAll('#tree .lv0').forEach(l=>{if(l.querySelector('.row span:nth-child(2)').textContent===ar.dataset.area)l.classList.add('open')})}});
 $('#main').addEventListener('input',e=>{const i=e.target.dataset.tbl??e.target.dataset.cust;if(i==null)return;const t=fullTable(i);const q=$('[data-tbl="'+i+'"]').value.trim().toLowerCase();const only=$('[data-cust="'+i+'"]').checked;t.querySelectorAll('tr').forEach((r,ri)=>{if(!ri)return;if(r.classList.contains('xsrc')){r.classList.toggle('hidden',!!r.previousElementSibling&&r.previousElementSibling.classList.contains('hidden'));return}const nx=r.nextElementSibling;const txt=r.textContent+(nx&&nx.classList.contains('xsrc')?nx.textContent:'');r.classList.toggle('hidden',(only&&!r.classList.contains('cust'))||(q&&!txt.toLowerCase().includes(q)))})});
-// Lightbox: a drawing opens fitted to the window; the wheel, the bar buttons and + - 0 zoom
-// around the pointer, dragging pans, a double click toggles fit and 2x, Esc or the backdrop closes.
-let lbW=0,lbH=0,lbZ=1,lbFit=1,lbDrag=null,lbMoved=false;
+// Lightbox: a drawing opens fitted to the window; pinch, the wheel, the bar buttons (44 px on touch) and
+// + - 0 zoom around the fingers or the pointer, one finger or the mouse pans, a double tap / click toggles
+// fit and 2x; ×, Esc or a tap on the backdrop closes. A modal dialog: focus goes to × and comes back on close.
+// A drawing (.mock, a case flow) is a button too: Enter or Space opens it.
+let lbW=0,lbH=0,lbZ=1,lbFit=1,lbDrag=null,lbMoved=false,lbPts={},lbPinch=null,lbTap=0,lbBack=null;
 function lbZoom(z,cx,cy){const v=$('#lbv'),c=$('#lbc'),r=c.getBoundingClientRect(),vr=v.getBoundingClientRect();if(cx==null){cx=vr.left+vr.width/2;cy=vr.top+vr.height/2}
 const px=r.width?(cx-r.left)/r.width:.5,py=r.height?(cy-r.top)/r.height:.5;lbZ=Math.min(lbFit*8,Math.max(lbFit/4,z));c.style.width=lbW*lbZ+'px';c.style.height=lbH*lbZ+'px';
 const r2=c.getBoundingClientRect();v.scrollLeft+=r2.left+px*r2.width-cx;v.scrollTop+=r2.top+py*r2.height-cy;$('#lbpct').textContent=Math.round(lbZ*100)+'%'}
-async function openLb(html){const c=$('#lbc');c.innerHTML=html;const el=c.firstElementChild;if(!el)return;$('#lb').classList.add('on');
+async function openLb(html){const c=$('#lbc');c.innerHTML=html;const el=c.firstElementChild;if(!el)return;lbBack=document.activeElement;$('#lb').classList.add('on');$('#lb [data-z="x"]').focus();
 if(el.tagName.toLowerCase()==='img'){await el.decode().catch(()=>{});lbW=el.naturalWidth;lbH=el.naturalHeight}
 else{const n=a=>{const s=el.getAttribute(a)||'';return /%/.test(s)?0:parseFloat(s)||0};const vb=(el.getAttribute('viewBox')||'').trim().split(/[\s,]+/).map(Number);
 lbW=n('width')||vb[2]||800;lbH=n('height')||vb[3]||600;if(!el.getAttribute('viewBox'))el.setAttribute('viewBox','0 0 '+lbW+' '+lbH)}
-const v=$('#lbv');lbFit=Math.min((v.clientWidth-48)/lbW,(v.clientHeight-24)/lbH,4);c.style.width=c.style.height='';lbZoom(lbFit)}
-const closeLb=()=>{$('#lb').classList.remove('on');$('#lbc').innerHTML=''};
-$('#lb').addEventListener('click',e=>{const b=e.target.closest('[data-z]');if(b){const z=b.dataset.z;return z==='x'?closeLb():lbZoom(z==='fit'?lbFit:lbZ*(z==='+'?1.25:0.8))}if(!lbMoved&&(e.target.id==='lb'||e.target.id==='lbv'))closeLb()});
+const v=$('#lbv'),cs=getComputedStyle(v);lbFit=Math.min((v.clientWidth-parseFloat(cs.paddingLeft)-parseFloat(cs.paddingRight))/lbW,(v.clientHeight-parseFloat(cs.paddingTop)-parseFloat(cs.paddingBottom))/lbH,4);c.style.width=c.style.height='';lbZoom(lbFit)}
+const closeLb=()=>{$('#lb').classList.remove('on');$('#lbc').innerHTML='';lbPts={};lbPinch=null;lbDrag=null;if(lbBack&&lbBack.focus&&document.contains(lbBack))lbBack.focus();lbBack=null};
+$('#lb').addEventListener('click',e=>{const b=e.target.closest('[data-z]');if(b){const z=b.dataset.z;return z==='x'?closeLb():lbZoom(z==='fit'?lbFit:lbZ*(z==='+'?1.25:0.8))}if(e.target.id==='lb')closeLb()});
 $('#lbv').addEventListener('wheel',e=>{e.preventDefault();lbZoom(lbZ*Math.exp(-e.deltaY*0.0015),e.clientX,e.clientY)},{passive:false});
-$('#lbv').addEventListener('pointerdown',e=>{if(e.button)return;const v=$('#lbv');lbDrag={x:e.clientX,y:e.clientY,l:v.scrollLeft,t:v.scrollTop};lbMoved=false;v.setPointerCapture(e.pointerId)});
-$('#lbv').addEventListener('pointermove',e=>{if(!lbDrag)return;const dx=e.clientX-lbDrag.x,dy=e.clientY-lbDrag.y;if(Math.abs(dx)+Math.abs(dy)>4){lbMoved=true;$('#lbv').classList.add('drag')}$('#lbv').scrollLeft=lbDrag.l-dx;$('#lbv').scrollTop=lbDrag.t-dy});
-$('#lbv').addEventListener('pointerup',()=>{lbDrag=null;$('#lbv').classList.remove('drag')});
-$('#lbc').addEventListener('dblclick',e=>lbZoom(Math.abs(lbZ-lbFit)<.01?lbFit*2:lbFit,e.clientX,e.clientY));
-document.addEventListener('keydown',e=>{if(!$('#lb').classList.contains('on'))return;const k=e.key;if(k==='Escape')closeLb();else if(k==='+'||k==='=')lbZoom(lbZ*1.25);else if(k==='-')lbZoom(lbZ*0.8);else if(k==='0')lbZoom(lbFit);else return;e.preventDefault()});
+// Pointers: one pans, two pinch around their midpoint; a tap that did not move toggles 2x when it is the second
+// of two quick ones, and closes on the backdrop when it is a single one (after the double-tap window).
+const lbN=()=>Object.keys(lbPts).length,lbTwo=()=>{const k=Object.keys(lbPts);return [lbPts[k[0]],lbPts[k[1]]]},lbGrab=p=>{const v=$('#lbv');lbDrag={x:p.x,y:p.y,l:v.scrollLeft,t:v.scrollTop}};
+$('#lbv').addEventListener('pointerdown',e=>{if(e.button)return;lbPts[e.pointerId]={x:e.clientX,y:e.clientY};try{$('#lbv').setPointerCapture(e.pointerId)}catch(err){}
+if(lbN()===1){lbMoved=false;lbGrab(lbPts[e.pointerId])}else if(lbN()===2){const p=lbTwo();lbPinch={d:Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)||1,z:lbZ};lbDrag=null;lbMoved=true}});
+$('#lbv').addEventListener('pointermove',e=>{if(!lbPts[e.pointerId])return;lbPts[e.pointerId]={x:e.clientX,y:e.clientY};
+if(lbPinch&&lbN()>=2){const p=lbTwo();return lbZoom(lbPinch.z*Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)/lbPinch.d,(p[0].x+p[1].x)/2,(p[0].y+p[1].y)/2)}
+if(!lbDrag)return;const dx=e.clientX-lbDrag.x,dy=e.clientY-lbDrag.y;if(Math.abs(dx)+Math.abs(dy)>4){lbMoved=true;$('#lbv').classList.add('drag')}$('#lbv').scrollLeft=lbDrag.l-dx;$('#lbv').scrollTop=lbDrag.t-dy});
+const lbUp=e=>{if(!lbPts[e.pointerId])return;delete lbPts[e.pointerId];if(lbN()<2)lbPinch=null;if(lbN()===1){const k=Object.keys(lbPts)[0];return lbGrab(lbPts[k])}if(lbN())return;
+lbDrag=null;$('#lbv').classList.remove('drag');if(lbMoved||e.type==='pointercancel')return;const now=Date.now();
+if(now-lbTap<320){lbTap=0;return lbZoom(Math.abs(lbZ-lbFit)<.01?lbFit*2:lbFit,e.clientX,e.clientY)}lbTap=now;
+if(e.target.id==='lbv')setTimeout(()=>{if(lbTap===now&&$('#lb').classList.contains('on'))closeLb()},330)};
+$('#lbv').addEventListener('pointerup',lbUp);$('#lbv').addEventListener('pointercancel',lbUp);
+document.addEventListener('keydown',e=>{if(!$('#lb').classList.contains('on')){const z=e.target.closest&&e.target.closest('.mock[data-svg],#ref .case .flow');if(z&&(e.key==='Enter'||e.key===' ')){e.preventDefault();z.click()}return}
+const k=e.key;if(k==='Escape')closeLb();else if(k==='+'||k==='=')lbZoom(lbZ*1.25);else if(k==='-')lbZoom(lbZ*0.8);else if(k==='0')lbZoom(lbFit);
+else if(k==='Tab'){const all=$('#lb').querySelectorAll('.lbbar button'),f=all[0],l=all[all.length-1],a=document.activeElement;if(e.shiftKey&&a===f)l.focus();else if(!e.shiftKey&&a===l)f.focus();else if(!$('#lb').contains(a))f.focus();else return}else return;e.preventDefault()});
 // Right panel: the activity's reference material (consultant-written, reviewed) on a detail
 // page, the module checklist on the overview; tabs switch between the two.
 let refTab='ref';
 $('#ref').addEventListener('click',e=>{const t=e.target.closest('[data-tab]');if(t){refTab=t.dataset.tab;return renderRef()}const c=e.target.closest('.chk');if(c&&c.dataset.act){go(c.dataset.act);document.body.classList.remove('ref-open')}const f=e.target.closest('.flow');if(f)openLb(f.innerHTML)});
 $('#refbtn').onclick=()=>document.body.classList.toggle('ref-open');$('#menubtn').onclick=()=>document.body.classList.toggle('menu-open');
+// The two drawer buttons say whether their drawer is open (a closed drawer is hidden by the stylesheet, so its controls are out of reach).
+const drawerState=()=>{$('#refbtn').setAttribute('aria-expanded',String(!matchMedia('(max-width:1300px)').matches||document.body.classList.contains('ref-open')));$('#menubtn').setAttribute('aria-expanded',String(document.body.classList.contains('menu-open')))};
+$('#refbtn').setAttribute('aria-controls','ref');new MutationObserver(drawerState).observe(document.body,{attributes:true,attributeFilter:['class']});matchMedia('(max-width:1300px)').addEventListener('change',drawerState);drawerState();
 const found=D.checks.filter(c=>c.items.length).sort((a,b)=>['error','warn','info'].indexOf(a.severity)-['error','warn','info'].indexOf(b.severity));
 function checklistHtml(){return '<div class="legend">'+STATUS.map(s=>'<span><i class="dot s-'+s+'"></i>'+esc(T[s])+'</span>').join('')+'</div>'+(found.length?found.map(checkHtml).join(''):'<p class="note">'+esc(T.checkNone)+'</p>')+D.checks.filter(c=>c.skipped).map(c=>'<p class="note">'+esc(c.id)+' '+esc(T.skipped)+': '+esc(c.skipped)+'</p>').join('')}
 function refHtml(id){const n=(D.notes||{})[id];if(!n||!EDIT&&!(n.sapdoc||n.cases||n.sources&&n.sources.length))return '<p class="note">'+esc(T.noRef)+'</p>';let h='';
 const rc=n.review==='ok'||n.review==='revised'?'b-standard':n.review==='open'?'b-warn':'b-none';h+='<div class="vchk"><span class="badge '+rc+'">'+esc(n.kbOnly?T.rv.kb:(T.rv[n.review]||T.rv.none))+'</span>'+editedBadge(n)+vaBadge(n)+esc(n.kbOnly?T.kbBy:T.rvBy.replace('{c}','sap-'+String(D.meta.module).toLowerCase()+'-consultant'))+'</div>';
 if(n.sapdoc||EDIT)h+='<h4>'+esc(T.sapdocKo)+'</h4>'+F('sapdoc',n.sapdoc,'p','txt');
-const C=n.cases;if(C&&C.list.length){h+=F('cases.title',C.title,'h4')+C.list.map((c,i)=>{const yes=/^(yes|예|해당)/i.test(c.thisSystem||'');const P='cases.list.'+i+'.';return '<div class="case'+(yes?' this':'')+'"><b>'+F(P+'title',c.title)+(yes?'<span class="badge b-custom">'+esc(T.thisSys)+'</span>':'')+'</b>'+(c.svg?'<div class="flow" title="'+esc(T.zoom)+'">'+c.svg+'</div>':'')+F(P+'desc',c.desc,'p')+(c.when||EDIT?'<div class="when">'+esc(T.when)+' — '+F(P+'when',c.when)+'</div>':'')+(EDIT?'<div class="when">'+esc(T.thisSys)+': '+F(P+'thisSystem',c.thisSystem)+'</div>':c.thisSystem?'<div class="when">'+esc(T.thisSys)+': '+esc(c.thisSystem.replace(/^(yes|no|예|아니오)\s*[—–-]?\s*/i,''))+'</div>':'')+'</div>'}).join('');if(n.mix||EDIT)h+=F('mix',n.mix,'p','mix')}
+const C=n.cases;if(C&&C.list.length){h+=F('cases.title',C.title,'h4')+C.list.map((c,i)=>{const yes=/^(yes|예|해당)/i.test(c.thisSystem||'');const P='cases.list.'+i+'.';return '<div class="case'+(yes?' this':'')+'"><b>'+F(P+'title',c.title)+(yes?'<span class="badge b-custom">'+esc(T.thisSys)+'</span>':'')+'</b>'+(c.svg?'<div class="flow" title="'+esc(T.zoom)+'" tabindex="0" role="button" aria-label="'+esc(T.zoom)+'">'+c.svg+'</div>':'')+F(P+'desc',c.desc,'p')+(c.when||EDIT?'<div class="when">'+esc(T.when)+' — '+F(P+'when',c.when)+'</div>':'')+(EDIT?'<div class="when">'+esc(T.thisSys)+': '+F(P+'thisSystem',c.thisSystem)+'</div>':c.thisSystem?'<div class="when">'+esc(T.thisSys)+': '+esc(c.thisSystem.replace(/^(yes|no|예|아니오)\s*[—–-]?\s*/i,''))+'</div>':'')+'</div>'}).join('');if(n.mix||EDIT)h+=F('mix',n.mix,'p','mix')}
 if(n.compare&&n.compare.length>1)h+='<h4>'+esc(T.cmp)+'</h4><table class="cmp"><tr>'+n.compare[0].map((x,c)=>F('compare.0.'+c,x,'th')).join('')+'</tr>'+n.compare.slice(1).map((r,ri)=>'<tr>'+r.map((x,c)=>F('compare.'+(ri+1)+'.'+c,x,'td')).join('')+'</tr>').join('')+'</table>';
 if(EDIT||n.checklist&&n.checklist.length)h+='<h4>'+esc(T.checklist)+'</h4>'+FL('checklist',n.checklist,'chklist');
 const cr=n.criteria||{};const ck=Object.keys(T.crit).filter(k=>EDIT||cr[k]);if(ck.length)h+='<h4>'+esc(T.criteria)+'</h4><table class="cmp crit">'+ck.map(k=>'<tr'+(k==='rec'?' class="rec"':'')+'><td>'+esc(T.crit[k])+'</td>'+F('criteria.'+k,cr[k]||'','td')+'</tr>').join('')+'</table>';
@@ -315,7 +334,7 @@ export function pageHtml(data, svgs) {
 <main id="main"></main>
 <section id="ref"></section>
 </div>
-<div class="lb" id="lb"><div class="lbbar"><button data-z="-" title="${T.zoomOut}">−</button><span id="lbpct"></span><button data-z="+" title="${T.zoomIn}">+</button><button data-z="fit">${T.fit}</button><button data-z="x" title="${T.close}">×</button></div><div class="lbv" id="lbv"><div class="lbc" id="lbc"></div></div></div>
+<div class="lb" id="lb" role="dialog" aria-modal="true" aria-label="${T.zoom}"><div class="lbbar"><button type="button" data-z="-" title="${T.zoomOut}" aria-label="${T.zoomOut}">−</button><span id="lbpct"></span><button type="button" data-z="+" title="${T.zoomIn}" aria-label="${T.zoomIn}">+</button><button type="button" data-z="fit">${T.fit}</button><button type="button" data-z="x" title="${T.close}" aria-label="${T.close}">×</button></div><div class="lbv" id="lbv"><div class="lbc" id="lbc"></div></div></div>
 <script type="application/octet-stream" id="data">${packed({ ...data, edits: undefined, T: clientT, EL })}</script>
 <script type="application/json" id="config-edits">${JSON.stringify(data.edits || {}).replace(/</g, '\\u003c')}</script>
 <script type="application/octet-stream" id="svgs">${packed(svgs)}</script>

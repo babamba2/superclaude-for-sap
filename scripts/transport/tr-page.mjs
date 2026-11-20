@@ -16,6 +16,26 @@ const T = {
     status: '상태', objects: '오브젝트', none: '확인할 것 없음.',
     kinds: { 'open-task': '열린 작업', inactive: '비활성', 'local-package': '로컬 패키지', 'other-request': '다른 열린 요청에도 있음', dependency: '미릴리스 요청에 의존', released: '릴리스됨', 'inactive-unread': '비활성 — 조회 못 함', 'inactive-partial': '비활성 — 본인 것만 조회', 'dependency-unread': '의존성 — 조회 못 함', empty: '빈 요청', 'target-diverged': '대상 시스템에서 변경됨', 'missing-in-target': '대상 시스템에 없음', 'older-than-target': '대상 시스템보다 오래됨', 'target-unread': '대상 시스템 — 조회 못 함', 'target-partial': '대상 시스템 — 일부만 조회' },
     merge: { title: '대상 시스템 병합', dest: '연결(SM59)', checked: '점검 오브젝트', existing: '대상에 이미 있음', diverged: '대상에서 바뀜(원본에 없는 요청)', missing: '대상에 없는 사용 DDIC', pending: '다른 릴리스 요청으로만 들어감', older: '대상에 더 최신 버전', unread: '대상 시스템이 응답하지 않았어요. 대상 상태는 알 수 없어요.', clean: '대상 시스템과 충돌 없음.' },
+    msg: {
+      released: '이미 릴리스됐어요. 이관 순서만 다시 확인해 주세요.',
+      'open-task': (f) => `릴리스하지 않은 작업이 ${f.n}개 있어요.`,
+      inactive: (f) => `활성화하지 않은 오브젝트가 ${f.n}개 있어요.`,
+      'inactive-unread': '비활성 오브젝트를 읽지 못했어요. SE80의 비활성 오브젝트에서 확인해 주세요.',
+      'inactive-partial': '비활성 오브젝트는 연결 사용자 것만 읽었어요.',
+      'local-package': (f) => `로컬 패키지($)에 있는 오브젝트가 ${f.n}개 있어요.`,
+      'other-request': (f) => `오브젝트 ${f.n}개가 다른 열린 요청에도 있어요. 이관 순서를 맞춰 주세요.`,
+      dependency: (f) => `오브젝트 ${f.n}개가 아직 릴리스하지 않은 요청의 DDIC 오브젝트를 써요.`,
+      'dependency-unread': '다른 요청과의 의존성을 확인하지 못했어요.',
+      empty: '요청과 작업에 오브젝트가 없어요.',
+      'target-unread': (f) => `대상 시스템 ${f.target}을(를) ${f.dest} 연결로 읽지 못했어요.${f.error ? ` — ${f.error}` : ''}`,
+      'target-diverged': (f) => `오브젝트 ${f.n}개가 원본에 없는 요청으로 대상 시스템에서 바뀌었어요. 이관하면 그 변경을 덮어써요.`,
+      'missing-in-target': (f) => (f.level === 'block'
+        ? `코드가 쓰는 고객 DDIC 오브젝트 ${f.n}개가 대상 시스템에도, 릴리스된 요청에도 없어요.`
+        : `코드가 쓰는 고객 DDIC 오브젝트 ${f.n}개는 다른 릴리스된 요청으로만 들어가요. 그 요청을 먼저 이관해 주세요.`),
+      'older-than-target': (f) => `오브젝트 ${f.n}개는 대상 시스템에 더 최신 버전이 있어요. 이관하면 예전 버전으로 돌아가요.`,
+      'target-partial': '대상 병합 점검을 일부만 했어요. 버전 디렉터리나 사용 오브젝트를 다 읽지 못했어요.',
+    },
+    kindName: { workbench: '워크벤치', customizing: '커스터마이징', 'transport of copies': '사본 이관' }, statusName: { open: '미릴리스', released: '릴리스됨' },
     note: '조회 전용 점검이에요. "이관 불가"는 이관이 실패하거나 대상 시스템을 깨뜨릴 수 있다는 뜻이고, "확인 필요"는 순서만 맞추면 이관할 수 있다는 뜻이에요.',
   },
   ja: {
@@ -24,9 +44,32 @@ const T = {
     status: 'ステータス', objects: 'オブジェクト', none: '指摘なし。',
     kinds: { 'open-task': '未リリースのタスク', inactive: '非有効', 'local-package': 'ローカルパッケージ', 'other-request': '他の未リリース依頼にもある', dependency: '未リリース依頼に依存', released: 'リリース済み', 'inactive-unread': '非有効 — 照会不可', 'inactive-partial': '非有効 — 本人分のみ', 'dependency-unread': '依存関係 — 照会不可', empty: '空の依頼', 'target-diverged': '移送先で変更済み', 'missing-in-target': '移送先に存在しない', 'older-than-target': '移送先より古い', 'target-unread': '移送先 — 照会不可', 'target-partial': '移送先 — 一部のみ照会' },
     merge: { title: '移送先へのマージ', dest: '接続先 (SM59)', checked: 'チェック対象', existing: '移送先に既存', diverged: '移送先で変更 (移送元にない依頼)', missing: '移送先にない使用 DDIC', pending: '別のリリース済み依頼でのみ移送', older: '移送先の方が新しいバージョン', unread: '移送先が応答しませんでした。移送先の状態は不明です。', clean: '移送先との競合なし。' },
+    msg: {
+      released: 'すでにリリース済みです。移送の順序だけ確認してください。',
+      'open-task': (f) => `未リリースのタスクが ${f.n} 件あります。`,
+      inactive: (f) => `有効化されていないオブジェクトが ${f.n} 件あります。`,
+      'inactive-unread': '非有効オブジェクトを照会できませんでした。SE80 の非有効オブジェクトで確認してください。',
+      'inactive-partial': '非有効オブジェクトは接続ユーザーの分だけ照会しました。',
+      'local-package': (f) => `ローカルパッケージ ($) のオブジェクトが ${f.n} 件あります。`,
+      'other-request': (f) => `${f.n} 件のオブジェクトが他の未リリース依頼にもあります。移送の順序をそろえてください。`,
+      dependency: (f) => `${f.n} 件のオブジェクトが未リリース依頼の DDIC オブジェクトを使っています。`,
+      'dependency-unread': '他の依頼との依存関係を確認できませんでした。',
+      empty: '依頼にもタスクにもオブジェクトがありません。',
+      'target-unread': (f) => `移送先 ${f.target} を ${f.dest} で照会できませんでした。${f.error ? ` — ${f.error}` : ''}`,
+      'target-diverged': (f) => `${f.n} 件のオブジェクトが、移送元にない依頼で移送先で変更されています。移送するとその変更を上書きします。`,
+      'missing-in-target': (f) => (f.level === 'block'
+        ? `コードが使う顧客 DDIC オブジェクト ${f.n} 件が、移送先にもリリース済み依頼にもありません。`
+        : `コードが使う顧客 DDIC オブジェクト ${f.n} 件は、別のリリース済み依頼でのみ移送されます。その依頼を先に移送してください。`),
+      'older-than-target': (f) => `${f.n} 件のオブジェクトは移送先の方が新しいバージョンです。移送すると古いバージョンに戻ります。`,
+      'target-partial': '移送先へのマージチェックは一部だけです。バージョンディレクトリや使用オブジェクトを読み切れませんでした。',
+    },
+    kindName: { workbench: 'ワークベンチ', customizing: 'カスタマイジング', 'transport of copies': 'コピー移送' }, statusName: { open: '未リリース', released: 'リリース済み' },
     note: '照会のみのチェックです。「移送不可」は移送の失敗や移送先の破損につながるもの、「確認が必要」は順序を守れば移送できるものです。',
   },
 };
+
+/** The finding's sentence in the page language; English (and an unknown kind or an older model without `n`) keeps the model's text. */
+const sentence = (t, f) => { const v = t.msg?.[f.kind]; return typeof v === 'function' ? ((f.kind === 'target-unread' ? f.dest == null : f.n == null) ? f.text : v(f)) : v ?? f.text; };
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
@@ -53,8 +96,8 @@ export function renderHtml(m, lang = 'en') {
   const t = T[lang] || T.en;
   const cards = m.requests.map((r) => `<section class="req ${r.verdict}">
 <h2><code>${esc(r.trkorr)}</code> <span class="v ${r.verdict}">${esc(t.verdict[r.verdict])}</span></h2>
-<p class="meta">${esc(r.text)} · ${esc(t.owner)} ${esc(r.owner)} · ${esc(t.type)} ${esc(r.kind)} · ${esc(t.status)} ${esc(r.status)} · ${esc(t.objects)} ${r.objects}</p>
-${r.findings.length ? `<ul>${r.findings.map((f) => `<li class="${f.level}"><b>${esc(t.kinds[f.kind] || f.kind)}</b> — ${esc(f.text)}${f.objects.length ? `<br><small>${f.objects.slice(0, 30).map(esc).join(' · ')}${f.objects.length > 30 ? ' …' : ''}</small>` : ''}</li>`).join('')}</ul>` : `<p class="none">${esc(t.none)}</p>`}
+<p class="meta">${esc(r.text)} · ${esc(t.owner)} ${esc(r.owner)} · ${esc(t.type)} ${esc(t.kindName?.[r.kind] || r.kind)} · ${esc(t.status)} ${esc(t.statusName?.[r.status] || r.status)} · ${esc(t.objects)} ${r.objects}</p>
+${r.findings.length ? `<ul>${r.findings.map((f) => `<li class="${f.level}"><b>${esc(t.kinds[f.kind] || f.kind)}</b> — ${esc(sentence(t, f))}${f.objects.length ? `<br><small>${f.objects.slice(0, 30).map(esc).join(' · ')}${f.objects.length > 30 ? ' …' : ''}</small>` : ''}</li>`).join('')}</ul>` : `<p class="none">${esc(t.none)}</p>`}
 ${r.merge ? mergeBlock(r.merge, t) : ''}
 </section>`).join('\n');
   return withResponsive(`<!doctype html>

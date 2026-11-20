@@ -36,22 +36,23 @@ export function objectsOf(objects, trkorr) {
 
 export function findingsFor(req, c) {
   const out = [];
-  const add = (level, kind, text, objects = []) => out.push({ level, kind, text, objects });
+  // `text` is the English sentence; the page writes ko / ja from kind + n (+ target / dest / error)
+  const add = (level, kind, text, objects = [], x = {}) => out.push({ level, kind, text, objects, ...x });
   if (req.status === 'released') add('warn', 'released', 'already released — re-check only the import order');
 
   const open = arr(c.tasks).filter((t) => t.parent === req.trkorr && t.status === 'open');
-  if (open.length) add('block', 'open-task', `${open.length} task(s) not released`, open.map((t) => `${t.trkorr} (${t.owner || '?'})`));
+  if (open.length) add('block', 'open-task', `${open.length} task(s) not released`, open.map((t) => `${t.trkorr} (${t.owner || '?'})`), { n: open.length });
 
   const objs = objectsOf(c.objects, req.trkorr);
   const mine = new Set(objs.map((o) => key(o.object, o.name)));
 
   const inactive = arr(c.inactive?.rows).filter((i) => mine.has(key(i.object, i.name)) || objs.some((o) => up(o.name) === up(i.name)));
-  if (inactive.length) add('block', 'inactive', `${inactive.length} object(s) not activated`, inactive.map((i) => key(i.object, i.name)));
+  if (inactive.length) add('block', 'inactive', `${inactive.length} object(s) not activated`, inactive.map((i) => key(i.object, i.name)), { n: inactive.length });
   if (c.inactive && !c.inactive.ok) add('warn', 'inactive-unread', 'inactive objects could not be read — check SE80 / Inactive objects');
   else if (c.inactive?.scope === 'own') add('warn', 'inactive-partial', 'inactive objects read for the connection user only');
 
   const local = arr(c.tadir?.rows).filter((t) => mine.has(key(t.object, t.name)) && String(t.package).startsWith('$'));
-  if (local.length) add('block', 'local-package', `${local.length} object(s) in a local package`, local.map((t) => `${key(t.object, t.name)} (${t.package})`));
+  if (local.length) add('block', 'local-package', `${local.length} object(s) in a local package`, local.map((t) => `${key(t.object, t.name)} (${t.package})`), { n: local.length });
 
   const elsewhere = new Map();
   for (const r of arr(c.others?.rows)) {
@@ -61,11 +62,11 @@ export function findingsFor(req, c) {
   }
   if (elsewhere.size) {
     add('warn', 'other-request', `${elsewhere.size} object(s) also in another open request — import order matters`,
-      [...elsewhere].map(([k, rs]) => `${k} ← ${[...new Set(rs)].join(', ')}`));
+      [...elsewhere].map(([k, rs]) => `${k} ← ${[...new Set(rs)].join(', ')}`), { n: elsewhere.size });
   }
 
   const deps = arr(c.deps?.rows).filter((d) => d.trkorr === req.trkorr);
-  if (deps.length) add('block', 'dependency', `${deps.length} object(s) need DDIC objects of an unreleased request`, deps.map((d) => `${key(d.object, d.name)} → ${d.needs} in ${d.in}`));
+  if (deps.length) add('block', 'dependency', `${deps.length} object(s) need DDIC objects of an unreleased request`, deps.map((d) => `${key(d.object, d.name)} → ${d.needs} in ${d.in}`), { n: deps.length });
   if (c.deps && !c.deps.ok) add('warn', 'dependency-unread', 'dependencies on other requests could not be checked');
 
   if (!objs.length && !open.length) add('warn', 'empty', 'no objects in the request or its tasks');
@@ -93,12 +94,12 @@ export function targetMerge(req, objs, t) {
 }
 
 function targetFindings(req, objs, t, add) {
-  if (!t.ok) { add('warn', 'target-unread', `target ${t.label || t.dest} could not be read through ${t.dest}${t.error ? ` — ${t.error}` : ''}`); return; }
+  if (!t.ok) { add('warn', 'target-unread', `target ${t.label || t.dest} could not be read through ${t.dest}${t.error ? ` — ${t.error}` : ''}`, [], { target: t.label || t.dest || '', dest: t.dest || '', error: t.error || '' }); return; }
   const m = targetMerge(req, objs, t);
-  if (m.diverged.length) add('block', 'target-diverged', `${m.diverged.length} object(s) were changed in the target by a request the source does not know — the import would overwrite them`, m.diverged);
-  if (m.missing.length) add('block', 'missing-in-target', `${m.missing.length} customer DDIC object(s) the code uses are not in the target and not in a released request`, m.missing);
-  if (m.pending.length) add('warn', 'missing-in-target', `${m.pending.length} customer DDIC object(s) the code uses reach the target only with another released request — import it first`, m.pending);
-  if (m.older.length) add('warn', 'older-than-target', `${m.older.length} object(s) have a later version in the target — the import would roll it back`, m.older);
+  if (m.diverged.length) add('block', 'target-diverged', `${m.diverged.length} object(s) were changed in the target by a request the source does not know — the import would overwrite them`, m.diverged, { n: m.diverged.length });
+  if (m.missing.length) add('block', 'missing-in-target', `${m.missing.length} customer DDIC object(s) the code uses are not in the target and not in a released request`, m.missing, { n: m.missing.length });
+  if (m.pending.length) add('warn', 'missing-in-target', `${m.pending.length} customer DDIC object(s) the code uses reach the target only with another released request — import it first`, m.pending, { n: m.pending.length });
+  if (m.older.length) add('warn', 'older-than-target', `${m.older.length} object(s) have a later version in the target — the import would roll it back`, m.older, { n: m.older.length });
   if (t.vrsdOk === false || t.needsOk === false || t.truncated) add('warn', 'target-partial', 'target merge check partial (version directory or used objects not fully read)');
 }
 

@@ -213,3 +213,27 @@ describe('adobe-preview: lr-tb break — an item taller than the room whose rows
     });
   }
 });
+
+describe('adobe-preview: a template that keeps XFA 2.1 positioning (originalXFAVersion … LegacyPositioning:1, FP_TEST_03)', () => {
+  const xdp = (pi = '') => `<?xml version="1.0" encoding="utf-8"?><xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/"><template xmlns="http://www.xfa.org/schema/xfa-template/2.4/">
+<subform layout="tb" name="data"><pageSet><pageArea name="P1"><contentArea x="10mm" y="10mm" w="150mm" h="200mm"/><medium short="210mm" long="297mm" stock="a4"/></pageArea></pageSet>
+${['A', 'B', 'C'].map((n) => `<field name="${n}" w="40mm" minH="5mm"><ui><textEdit><border><edge presence="hidden"/></border><margin/></textEdit></ui><font typeface="Arial"/><margin topInset="1mm" bottomInset="1mm" leftInset="1mm" rightInset="1mm"/><para vAlign="middle"/></field>`).join('')}
+<draw name="D1" w="40mm"><value><text>d1</text></value><font typeface="Arial"/></draw><draw name="D2" w="40mm"><value><text>d2</text></value><font typeface="Arial"/></draw>
+</subform>${pi}</template></xdp:xdp>`;
+  const rec = { name: 'data', children: ['A', 'B', 'C'].map((n) => ({ name: n, value: n.toLowerCase() })) };
+  const ys = (pi: string) => {
+    const t = layoutForm(readXdp(xdp(pi)).template, rec, {}).pages[0].items.filter((i: any) => i.type === 'text');
+    const y = (s: string) => t.find((x: any) => x.text === s).y;
+    return { pitch: y('b') - y('a'), draws: y('d2') - y('d1') };
+  };
+  it('grows a minH field to 1.15 em + 1/32 inch above and below + insets (7.64 mm for Arial 10, 1 mm insets), as ADS', () => {
+    const legacy = ys('<?originalXFAVersion http://www.xfa.org/schema/xfa-template/2.1/ LegacyPositioning:1 LegacyEventModel:1?>');
+    expect(legacy.pitch).toBeCloseTo(10 * 1.15 * 25.4 / 72 + 25.4 / 16 + 2, 1);
+    // draws keep the 2.4+ rules; a 2.1 upgrade without the flag is unchanged
+    const upgraded = ys('<?originalXFAVersion http://www.xfa.org/schema/xfa-template/2.1/?>');
+    const plain = ys('');
+    expect(upgraded.pitch).toBeCloseTo(plain.pitch, 3);
+    expect(legacy.draws).toBeCloseTo(plain.draws, 3);
+    expect(legacy.pitch - plain.pitch).toBeGreaterThan(2);
+  });
+});

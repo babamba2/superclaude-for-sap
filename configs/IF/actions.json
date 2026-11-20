@@ -1,0 +1,160 @@
+{
+  "schemaVersion": 1,
+  "module": "IF",
+  "channel": "web",
+  "description": "Interface test call: one existing remote-enabled function module of an interface mapping specification, called with parameters the user reviewed (handler ZCL_MCP_BIZ_IF, 7.40 / S/4HANA, development clients only). Used by the /interfaces 인터페이스 테스트 button. channel web: the assist chat never lists or matches it (scripts/assist/catalog.mjs).",
+  "actions": [
+    {
+      "id": "IF.TEST.CALL",
+      "object": "Interface",
+      "kind": "write",
+      "risk": "high",
+      "max_items": 1,
+      "chat": false,
+      "title": "Test-call an interface's function module",
+      "intents": {
+        "en": [
+          "test the interface function module",
+          "call the RFC of the interface spec"
+        ],
+        "ko": [
+          "인터페이스 테스트",
+          "인터페이스 RFC 호출 테스트"
+        ]
+      },
+      "params": [
+        {
+          "name": "fm_name",
+          "type": "string",
+          "required": true,
+          "note": "the remote-enabled function module of the specification (Z*, Y* or BAPI_*)"
+        },
+        {
+          "name": "fm_params",
+          "type": "string",
+          "required": false,
+          "note": "one JSON object as text: parameter names in upper case, structures as objects, tables as arrays"
+        },
+        {
+          "name": "ack_posting",
+          "type": "enum",
+          "values": [
+            "true",
+            ""
+          ],
+          "required": false,
+          "note": "true: the user confirmed the module may post or commit data (required when the preview shows posting signs)"
+        },
+        {
+          "name": "commit",
+          "type": "enum",
+          "values": [
+            "true",
+            ""
+          ],
+          "required": false,
+          "note": "true: BAPI_TRANSACTION_COMMIT after the call; otherwise the call is rolled back"
+        }
+      ],
+      "preview_limits": {
+        "en": [
+          "The preview checks the parameters against the signature and reads the module's own source for posting signs; it does not run the module.",
+          "Posting in modules the function calls is not seen; a module that commits by itself cannot be rolled back."
+        ],
+        "ko": [
+          "미리보기는 시그니처와 파라미터를 대조하고 모듈 자체 소스에서 전기 흔적만 찾아요. 모듈을 실행하지는 않아요.",
+          "모듈이 부르는 다른 모듈의 전기는 보이지 않아요. 스스로 커밋하는 모듈은 되돌릴 수 없어요."
+        ]
+      },
+      "impl": {
+        "ECC": {
+          "fm": "the specification's function module (dynamic CALL FUNCTION, PARAMETER-TABLE)",
+          "testrun": "none",
+          "preview": "signature (FUPARAREF), parameter names / required importing parameters / types (/UI2/CL_JSON into RTTI data), posting signs (name; COMMIT WORK, IN UPDATE TASK, database writes in its own source); nothing is called",
+          "commit": "BAPI_TRANSACTION_COMMIT (WAIT) only with commit = true and no E / A message; otherwise ROLLBACK WORK in the same LUW",
+          "return": "BAPIRET* parameters, classic exceptions, ERROR_MESSAGE; exporting / changing / tables parameters as JSON; document numbers",
+          "note": "7.40 and later only (/UI2/CL_JSON); not installed on 7.31. Development (customizing) clients only: T000-CCCATEGORY C."
+        },
+        "S4": {
+          "fm": "the specification's function module (dynamic CALL FUNCTION, PARAMETER-TABLE)",
+          "testrun": "none",
+          "preview": "as on ECC: signature, parameters, posting signs; nothing is called",
+          "commit": "BAPI_TRANSACTION_COMMIT (WAIT) only with commit = true and no E / A message; otherwise ROLLBACK WORK in the same LUW",
+          "return": "as on ECC",
+          "note": "Development (customizing) clients only: T000-CCCATEGORY C."
+        }
+      },
+      "auth": [
+        {
+          "object": "S_RFC",
+          "fields": {
+            "RFC_TYPE": "FUNC",
+            "RFC_NAME": "<function module>",
+            "ACTVT": "16"
+          }
+        }
+      ],
+      "verified_on": []
+    },
+    {
+      "id": "IF.LOG.CHECK",
+      "object": "InterfaceLog",
+      "kind": "query",
+      "risk": "none",
+      "chat": false,
+      "title": "Check that my interface test log rows hold no values",
+      "intents": {
+        "en": [
+          "check the interface test log",
+          "are there values in the interface test log"
+        ],
+        "ko": [
+          "인터페이스 테스트 로그 점검",
+          "인터페이스 테스트 로그에 값이 남았는지"
+        ]
+      },
+      "params": [
+        {
+          "name": "date_from",
+          "type": "date",
+          "required": false,
+          "note": "first day to check (YYYY-MM-DD); default today"
+        },
+        {
+          "name": "max_rows",
+          "type": "integer",
+          "required": false,
+          "note": "newest rows first; default 50, at most 200"
+        }
+      ],
+      "rules": [
+        "only the caller's own IF.* rows of ZMCP_BIZ_LOG, in the logon client",
+        "returns no value: token (first 8 characters), action, status, creation time and Y / N flags (extra keys, hash set, fm_result, sig, doc_no, message text, ok)",
+        "a QUERY: not written to the log itself"
+      ],
+      "impl": {
+        "ECC": {
+          "source": [
+            "ZMCP_BIZ_LOG"
+          ],
+          "method": "select (own user, this client), flags computed in ABAP",
+          "note": "7.40 and later only, like IF.TEST.CALL"
+        },
+        "S4": {
+          "source": [
+            "ZMCP_BIZ_LOG"
+          ],
+          "method": "select (own user, this client), flags computed in ABAP"
+        }
+      },
+      "auth": [
+        {
+          "object": "none",
+          "fields": {},
+          "note": "the caller's own log rows; no business data"
+        }
+      ],
+      "verified_on": []
+    }
+  ]
+}
