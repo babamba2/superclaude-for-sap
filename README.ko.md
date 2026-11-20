@@ -1,3 +1,7 @@
+<h2 align="center"><a href="https://sc4sap.dev/install-guide.html">📘 처음이라면 설치 가이드부터 →</a></h2>
+
+<p align="center">Windows 기준 단계별 안내예요. 30~40분이면 끝나요.</p>
+
 <p align="center">
   <img src="sc4sap.png" alt="SuperClaude for SAP" width="720"/>
 </p>
