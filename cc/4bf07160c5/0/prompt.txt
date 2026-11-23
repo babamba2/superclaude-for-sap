@@ -1,0 +1,22 @@
+<pasted_content id="e49c">
+
+4. 실제 테스트 (새 세션)
+
+- 활성 프로필을 HKT-DEV로 바꿔 뒀어요(이전 값은 RM-DEV-NCO).
+- 순서는 이래요.
+  a. Claude Code를 완전히 재시작해요.
+  b. 새 세션에서 아래 체크리스트를 읽게 하고 시작해요.
+     - C:\Users\pssps\Documents\Projects\sc4sap_project\notes\live-test-review-questions.md
+  c. hybrid 1회, auto 1회를 돌려요. 시나리오는 미결 PO 납품완료 ALV, 패키지는 $TMP예요.
+- 체크리스트에는 모드마다 확인할 항목이 정리돼 있어요.
+  - 질문이 뜨는지(hybrid), 아무것도 묻지 않는지(auto)
+  - 자동 결정이 report.html에 남는지
+  - 결과 아티팩트 링크가 나오는지
+
+남은 일
+
+- 테스트가 통과하면 sc4sap과 sc4sap_web 두 저장소를 커밋해요.
+  - 앞서 말씀드린 기존 미커밋 3건(ALV 텍스트 길이, setup 위저드, 폼 점수)은 제 변경과 따로 커밋할지 정해 주세요.
+- sc4sap_web의 plugin_module 복사본은 플러그인 릴리스 때 동기화해요.
+- 웹 리뷰 페이지를 390px 모바일 화면에서 확인해야 해요.
+</pasted_content id="e49c">
