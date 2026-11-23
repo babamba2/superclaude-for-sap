@@ -43,6 +43,24 @@ ENDFORM.
 
 Adjust per-field properties (examples: `coltext`, `qfieldname`, `cfieldname`, `do_sum`, `no_out`, `outputlen`, `hotspot`) via `CASE` on `FIELDNAME`. See `field-catalog-guide.abap` for a worked example.
 
+### Column Text Lengths
+
+`SCRTEXT_S` is CHAR10, `SCRTEXT_M` CHAR20, `SCRTEXT_L` CHAR40 (`REPTEXT` 55, LVC `COLTEXT` 40). The grid may show the short or medium text depending on column width, so a long text copied into all three gets cut off in the header.
+
+- Each text field gets a text that fits its own length: S ≤ 10, M ≤ 20, L ≤ 40 characters. Never chain one long literal into all three (`a = b = c = 'long text'`).
+- When only one text is wanted, set `COLTEXT` (LVC) / `SELTEXT_L` / `REPTEXT` and leave the shorter ones blank, or set `DD_OUTLEN` / `OUTPUTLEN` so the long text is used.
+- Or reference a data element (`REF_TABLE` / `REF_FIELD`) whose texts already fit.
+
+```abap
+" Correct - one text per field, each within its limit
+ls_fcat-scrtext_s = 'Qty'.
+ls_fcat-scrtext_m = 'Order Qty'.
+ls_fcat-scrtext_l = 'Confirmed Order Quantity'.
+
+" Wrong - the long literal is truncated in S (10) and M (20)
+ls_fcat-scrtext_s = ls_fcat-scrtext_m = ls_fcat-scrtext_l = 'Confirmed Order Quantity'.
+```
+
 ### OOP programs
 
 - Step 1 may come from the ALV framework base class (`GET_FIELDCAT( it_data = … )`, SALV-metadata based) when `alvFramework` ≠ `none` — that counts as compliant. With `alvFramework = none`, call `cl_salv_controller_metadata=>get_lvc_fieldcatalog` directly.

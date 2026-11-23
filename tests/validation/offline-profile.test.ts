@@ -131,3 +131,23 @@ describe('offline-mode rule coverage', () => {
     expect(rule).toContain(`\`${skill}\``);
   });
 });
+
+describe('sap-profile-cli — on-premise only (no SAP BTP / cloud)', () => {
+  const online = { tier: 'DEV', host: 'https://dev.example:44300', client: '100', username: 'U', ...identity };
+  it('refuses xsuaa auth and the cloud system type', () => {
+    const a = run(['add'], { alias: 'C1', authType: 'xsuaa', ...online });
+    expect(a.status).toBe(2);
+    expect(a.stderr).toContain('authType must be basic');
+    const c = run(['add'], { alias: 'C2', systemType: 'cloud', ...online });
+    expect(c.status).toBe(2);
+    expect(c.stderr).toContain('systemType cloud is not supported');
+    expect(existsSync(join(home, 'profiles', 'C1'))).toBe(false);
+    expect(existsSync(join(home, 'profiles', 'C2'))).toBe(false);
+  });
+  it('writes basic auth and onprem when neither is given', () => {
+    const r = run(['add'], { alias: 'C3', ...online });
+    expect(r.status, r.stderr).toBe(0);
+    expect(envOf('C3')).toMatch(/^SAP_AUTH_TYPE=basic$/m);
+    expect(envOf('C3')).toMatch(/^SAP_SYSTEM_TYPE=onprem$/m);
+  });
+});

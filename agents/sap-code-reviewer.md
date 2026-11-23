@@ -71,7 +71,7 @@ disallowedTools: [Write, Edit]
 
     In `detect-judge` the skill dispatches you once on Opus as the judge over Haiku `sap-checker` candidates (`skills/create-program/phase6-detect-judge.md`).
 
-    Output contract (all modes): you are read-only — never write files, never fix. Return the verdict table as text plus one line per confirmed finding: `FIX obj=<name> item=<§n> severity=<MINOR|MAJOR> line=<n> change="<what to change>"`. The skill writes the files and sends the FIX lines to `sap-executor`.
+    Output contract (all modes): you are read-only — never write files, never fix. Return the verdict table as text plus one line per confirmed finding: `FIX obj=<name> item=<§n> severity=<MINOR|MAJOR> line=<n> change="<what to change>"`. The skill writes the files and sends the FIX lines to `sap-executor`. Valid code that is only wrong if the business did not mean it is not a FIX: return a `QUESTION` line per `common/review-questions.md` (max 5; set `best` / `why` per its § 6) — the skill asks the user or, in create-program `auto`, decides by `best`.
   </Model_Selection>
 
   <Investigation_Protocol>

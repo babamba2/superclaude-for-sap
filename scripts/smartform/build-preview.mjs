@@ -927,10 +927,15 @@ class Renderer {
    *  T_LINETYPE in its first cell, T_NEWCELL moves to the next cell, otherwise the node
    *  joins the current cell (ZSF_DEMO_19 %TABLE1). */
   tableFlow(n, list) {
-    // a new cell with a cell number (T_CELLNR, a tableCell without a line) moves that many cells on — 1 is the next cell:
+    // a new cell with a cell number (T_CELLNR, a tableCell without a line) skips that many cells after the next one:
     // S4-DEV SF_SUBTOTALS (old table) prints its subtotal (new line + new cell, T_CELLNR 003) in cell 4 and the currency
-    // after it in cell 5; LB_BIL_INVOICE's header (new cell, T_CELLNR 001) goes on cell by cell
+    // after it in cell 5; LB_BIL_INVOICE's header (new cell, T_CELLNR 001) after cell 4 prints "Price Unit" in cell 6
+    // (x 140) and "Value" right-aligned in cell 8 (SAP print, S4-DEV)
     const cellNr = (ch) => (ch.tableCell && !ch.tableCell.line && Number(ch.tableCell.cell) > 0 ? Number(ch.tableCell.cell) : 0);
+    // a node whose condition fails is not processed, so its output options (new line / new cell / cell number) do
+    // not move the cell either: LB_BIL_INVOICE LOOP_KOND has COL2 / COL2A (KOEIN NE / EQ '%', both T_CELLNR 002) —
+    // counting both pushes the amounts past the last of its 9 cells (verifier r27 P1)
+    list = list.filter((ch) => !ch.condition || this.printsHere(ch.condition));
     const rows = [];
     let row = null;
     let ci = 1;
@@ -947,7 +952,7 @@ class Renderer {
         const nCells = (n.cells || []).filter((c) => c.line === row.lt).length;
         ci = o.T_NEWLINE === 'X' && o.T_NEWCELL === 'X' && nCells > k - idx ? 2 : 1;
         if (o.T_NEWCELL === 'X' && cellNr(ch)) ci = 1 + cellNr(ch);
-      } else if (o.T_NEWCELL === 'X') ci += cellNr(ch) || 1;
+      } else if (o.T_NEWCELL === 'X') ci += 1 + cellNr(ch);
       (row.cells[ci] = row.cells[ci] || []).push(ch);
     });
     return rows.map((r) => {

@@ -43,6 +43,8 @@ Agent({
        Give every finding a FINDING line in the format of
        skills/analyze-code/detect-judge.md § Finding line format (verbatim evidence quote;
        line numbers relative to the include / class / FM, not to GetProgFullCode output).
+       A business-intent item (valid code that is only wrong if the business did not mean it)
+       is NOT a finding: return a QUESTION line per common/review-questions.md § 1–2 (max 5).
     5. Include summary metrics: total findings by severity · overall quality score (0–10)
        · top-3 highest-impact fixes.
 
@@ -55,13 +57,15 @@ The reviewer agent already has the full MCP tool set and rule-file protocols (se
 
 On `BLOCKED` from the reviewer (or the judge in 2c), surface the reason verbatim and stop.
 
-After Step 2d, the report in Step 3 counts only verified findings; failed ones go to a closing **Unverified** section with the checker's evidence line.
+After Step 2d, the report in Step 3 counts only verified findings; failed ones go to a closing **Unverified** section with the checker's evidence line. `QUESTION` lines go through 2d the same way and never count toward severity or score ([`../../common/review-questions.md`](../../common/review-questions.md)).
 
-**teamMode variant (Type B)** — after the reviewer (or judge) returns and Step 2d has run, if its **verified** findings include ≥ 1 business-alignment finding (business purpose, business-rule faithfulness, or cross-module side-effects — judged by the reviewer, not by dimension number) AND the object touches 2+ modules: with the `team` argument, run Type B teamMode per [`team-mode.md`](team-mode.md) BEFORE Step 3; otherwise write the Step 3 report first (business-alignment findings tagged `consultant review recommended`) and then offer the review (opt-in, see `SKILL.md` `<Team_Mode>`). Consultants live-validate the reviewer's interpretation; the final report in Step 3 then carries "peer-validated" / "peer-refined" / "residual-divergence" annotations.
+**teamMode variant (Type B)** — after the reviewer (or judge) returns and Step 2d has run, if its **verified** findings include ≥ 1 business-alignment finding (business purpose, business-rule faithfulness, or cross-module side-effects — judged by the reviewer, not by dimension number) or a `QUESTION` the user left open AND the object touches 2+ modules: with the `team` argument, ask the Step 3b questions first, then run Type B teamMode per [`team-mode.md`](team-mode.md) on the business-alignment findings plus the open questions, BEFORE Step 3 (Step 3b is then not repeated); otherwise write the Step 3 report first (business-alignment findings tagged `consultant review recommended`) and then offer the review (opt-in, see `SKILL.md` `<Team_Mode>`). Consultants live-validate the reviewer's interpretation; the final report in Step 3 then carries "peer-validated" / "peer-refined" / "residual-divergence" annotations.
 
 ## Step 3 — Report (branching on verified counts)
 
-Compute the branch from the findings left after Step 2d (Unverified ones excluded): **canned** if `critical_count == 0 && total_findings < 10`, else **briefing**.
+Compute the branch from the findings left after Step 2d (Unverified ones excluded): **canned** if `critical_count == 0 && total_findings < 10`, else **briefing**. Questions do not change the branch.
+
+Both branches start with the **To do** header of [`review-questions.md`](../../common/review-questions.md) § 3 — to fix / to answer counts, review load, what was read, what was **not** read (scopes left unscanned or `BLOCKED`, callers beyond the top 10, runtime data, customizing values, called standard code), then the To do list with questions first.
 
 ### Branch A — canned report (main thread)
 
@@ -81,13 +85,17 @@ Required sections (Markdown, 25–40 lines):
 
 Rules: do NOT restate the full findings list (Branch A covers raw enumeration); be concrete — prefer "SELECT * on VBAP inside LOOP — move to FOR ALL ENTRIES above the LOOP" over "performance could be improved".
 
+## Step 3b — Business questions (main thread)
+
+Runs only when verified `QUESTION` lines exist. Right after the report, ask them per [`review-questions.md`](../../common/review-questions.md) § 4 (`AskUserQuestion`, ≤ 4 per call; `Intended — keep` / `Not intended — fix` / `Not sure — leave open`). Apply § 5: *not intended* → a finding with `sev_if_not` (re-count; print the changed To do counts in one line); *intended* / open → the report's **Questions** section. Unattended runs skip the asking and list every question as open. Questions left open may go to the Type B consultant review together with the business-alignment findings.
+
 ## Step 4 — Action Menu (main thread)
 
-After the report (canned or briefing), offer:
+After the report (canned or briefing) and Step 3b, offer:
 
 1. **"Fix findings"** — explain options: manual `UpdateClass` / `UpdateProgram` / `UpdateInclude`, full rewrite via `/sc4sap:create-program`, or dispatch `sap-executor` here. If user picks executor delegation, emit banner `▶ phase=4.fix · agent=sap-executor · model=Sonnet` and dispatch.
 2. **"Show where-used callers"** — display from the reviewer's or judge's where-used data (already in the response; on the judge path it may be only the top 10 — say so).
 3. **"Explain finding #N in more detail"** — main re-reads the specific finding entry and expands it.
-4. **"Save report — Markdown / HTML / both"** — main writes `.sc4sap/analysis/<object>-<timestamp>.md` (the report as rendered in Step 3). For HTML, convert it with `node "<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs" <that .md> <same path .html>` (`<PLUGIN_ROOT>` = two levels above this skill folder; one self-contained file); for HTML only, delete the `.md` afterwards.
+4. **"Save report — Markdown / HTML / both"** — main writes `.sc4sap/analysis/<object>-<timestamp>.md` (the report as rendered in Step 3, with the Step 3b answers). For HTML, convert it with `node "<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs" <that .md> <same path .html>` (`<PLUGIN_ROOT>` = two levels above this skill folder; one self-contained file); for HTML only, delete the `.md` afterwards.
 
 Stop on user selection or silence.

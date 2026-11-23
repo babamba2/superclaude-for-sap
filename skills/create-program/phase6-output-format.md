@@ -15,6 +15,8 @@ Write to `.sc4sap/program/{PROG}/review.md`:
 **Spec ref**: spec.md
 **Objects reviewed**: list of N objects
 
+<To do header — common/review-questions.md § 3: to fix / to answer, review load, read, not read, To do list>
+
 ## Conventions Checked
 
 | # | Convention | Verdict | Notes |
@@ -36,6 +38,12 @@ Write to `.sc4sap/program/{PROG}/review.md`:
 
 For each FIX-APPLIED entry: object name, line excerpt, what was changed, why.
 
+## Questions
+
+| # | Object:line | Question | Answer | Effect |
+|---|-------------|----------|--------|--------|
+| Q1 | {PROG}F01:120 | Should one failed item stop the whole run? | Intended — keep / Not intended — fix / Open / Auto: keep / Auto: fix (why) | none / FIX-APPLIED / open (if_not fix shown) |
+
 ## Final Verdict
 
 ✅ ALL PASS — proceed to Phase 8
@@ -43,9 +51,25 @@ or
 ❌ BLOCKED — list residual violations and reason
 ```
 
+## Business Questions
+
+Runs after the merge (buckets) or the judge (detect-judge) and BEFORE the first fix dispatch. Rules: [`../../common/review-questions.md`](../../common/review-questions.md).
+
+Before anything is asked or decided, main drops every question that `decisions.md` (incl. the Phase 4 live consultant review lines — Phase 3.5 Step 1b) or `plan.md` § *Conflict Resolutions* already answers (`review-questions.md` § 1).
+
+| Mode (`state.json` → `execution_mode`) | What happens |
+|---|---|
+| `manual` / `hybrid` | Ask with `AskUserQuestion` (≤ 4 per call, `best` option first as *Recommended*). In `hybrid` this is the only stop between Phase 4 and Phase 8. |
+| `auto` | Never ask. Apply `best` per `review-questions.md` § 6 and record it as auto-decided. |
+| any mode, unattended per `review-questions.md` § 4 | Same as `auto`. |
+
+- *Not intended — fix* or auto `fix` → one `FIX` line with `sev_if_not` and `if_not`; it joins the fix loop below like any finding. *Intended — keep* or auto `keep` → no fix. Each question is one line in `decisions.md` in the format of `review-questions.md` § 5. An auto `fix` that fails or does not converge is reverted and left open — never `❌ BLOCKED` (`review-questions.md` § 6).
+- Open and not-asked questions never block the verdict — they are not convention violations, and the Phase 8 gate ignores `review.md` § Questions. They are listed in `review.md` § Questions, in the Phase 8 report (*Decisions & Assumptions* → *Open questions*, with the `if_not` fix) and in `handoff.md` open items. A later answer runs as `--fix` ([`cost-rules.md`](cost-rules.md) § 1c).
+- Auto-decided questions go into the Phase 8 report section *Business questions decided automatically* and force the `report.html` copy (`review-questions.md` § 6).
+
 ## Failure Handling
 
-- On any violation: the reviewer (read-only) returns a `FIX` line per finding and the fix is applied per [`cost-rules.md`](cost-rules.md) § 1a (small fix: main-thread Edit; larger: a fresh `sap-executor` with the `FIX` lines only; never a resumed agent) via `Update*` and re-activated. Documentation-only flagging is NOT acceptable — every confirmed finding is fixed or the run ends `❌ BLOCKED`.
+- On any violation: the reviewer (read-only) returns a `FIX` line per finding and the fix is applied per [`cost-rules.md`](cost-rules.md) § 1a (small fix: main-thread Edit; larger: a fresh `sap-executor` with the `FIX` lines only; never a resumed agent) via `Update*` and re-activated. Documentation-only flagging is NOT acceptable — every confirmed finding is fixed or the run ends `❌ BLOCKED` (auto-decided fixes excepted: reverted and left open, `review-questions.md` § 6).
 - After all fixes, re-verify the diff only (changed lines + enclosing FORM / method, scoped to the fixed findings); skip it when every fixed finding was MINOR (none touched a MAJOR-class item) and syntax check + activation + inactive check pass. Loop until ALL PASS or 3 iterations exhausted.
 - If 3 iterations exhausted with residual violations: STOP, write `review.md` with `❌ BLOCKED`, surface to user with the specific violation list. Phase 8 is blocked.
 

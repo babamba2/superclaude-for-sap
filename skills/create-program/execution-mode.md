@@ -23,9 +23,12 @@ Display this verbatim to the user:
 
   [1] auto    — Phase 4–8 runs unattended (recommended for simple CRUD/Report)
                  └ only pauses on error or Phase 6 BLOCKED verdict
+                 └ business questions from the review are decided with the best option
+                   and listed in the report (report.html) for you to check
   [2] manual  — prompts "proceed to Phase N?" at every phase transition
                  └ tool permission prompts already suppressed (trust-session active)
-  [3] hybrid  — Phase 4 (implementation) runs auto; Phase 5–8 prompt per phase
+  [3] hybrid  — runs like auto, but stops to ask you the business questions
+                 when the review has any (no phase-transition prompts)
 
 Choice: 1 / 2 / 3  (default: 2)
 ```
@@ -51,17 +54,19 @@ Write the selection to `.sc4sap/program/{PROG}/state.json` under `execution_mode
 
 ### Step 3 — Mode Semantics
 
-| Mode | Phase 4 | Phase 5 | Phase 6 | Phase 7 | Phase 8 | Tool prompt |
-|------|---------|---------|---------|---------|---------|-------------|
-| `auto` | run | run | run | run on fail | run | suppressed |
-| `manual` | prompt before | prompt before | prompt before | prompt before | prompt before | suppressed |
-| `hybrid` | run | prompt before | prompt before | prompt before | prompt before | suppressed |
+| Mode | Phase 4 | Phase 5 | Phase 6 | Phase 7 | Phase 8 | Business questions (Phase 6) | Tool prompt |
+|------|---------|---------|---------|---------|---------|------------------------------|-------------|
+| `auto` | run | run | run | run on fail | run | **auto-decided** — best option, listed in the report | suppressed |
+| `manual` | prompt before | prompt before | prompt before | prompt before | prompt before | asked | suppressed |
+| `hybrid` | run | run | run | run on fail | run | asked | suppressed |
 
-**In ALL modes, permission prompts for MCP tools are suppressed** via `trust-session` (bootstrapped at Phase 1A). The prompt the user sees in `manual` / `hybrid` is ONLY the phase-transition confirmation — never a tool approval.
+**In ALL modes, permission prompts for MCP tools are suppressed** via `trust-session` (bootstrapped at Phase 1A). The prompts the user sees are the phase-transition confirmation (`manual` only) and the business questions (`manual` / `hybrid`) — never a tool approval.
+
+Business questions are the `QUESTION` lines of the Phase 6 review — valid code whose correctness depends on business intent that `spec.md` / `interview.md` / `consult-{module}.md` / `decisions.md` (incl. the Step 1b live consultant review lines) / `plan.md` § *Conflict Resolutions* do not settle. Asking, the best-option rule and the records: [`../../common/review-questions.md`](../../common/review-questions.md) § 4–6; Phase 6 flow: [`phase6-output-format.md`](./phase6-output-format.md) § Business Questions. An unattended run (exactly as defined in `review-questions.md` § 4 — a slow or silent user is not one) treats `manual` / `hybrid` questions like `auto`.
 
 ### Step 4 — Manual-Mode Prompt Format
 
-Between phases in `manual` or `hybrid`, display:
+Between phases in `manual`, display:
 
 ```
 ✓ Phase {N-1} complete — {1-line summary}
@@ -92,7 +97,7 @@ Proceed to Phase {N}?
     "5_qa":          { "status": "skipped | completed | blocked", "ts": "..." },
     "6_review":      { "status": "completed | blocked", "ts": "..." },
     "7_debug":       { "status": "skipped | completed", "ts": "..." },
-    "8_report":      { "status": "completed", "ts": "..." }
+    "8_report":      { "status": "completed", "ts": "...", "artifact_url": "https://claude.ai/artifact/… (first creation, result-artifact.md)" }
   },
   "objects_created": [ "..." ],
   "transport": "DEVK904224"
@@ -109,6 +114,8 @@ On next `/sc4sap:create-program` invocation with the same `{PROG}`:
 ## Enforcement Contract
 
 - Phase 4 Executor MUST refuse to run if `state.json.phases.3_5_mode_gate.status != "completed"`.
-- If user picked `auto` and a phase transition happens, the skill MUST NOT prompt — a prompt is a bug.
-- If user picked `manual` / `hybrid`, the skill MUST NOT auto-proceed — missing the confirmation is a bug.
+- If user picked `auto` or `hybrid` and a phase transition happens, the skill MUST NOT prompt — a prompt is a bug.
+- If user picked `manual`, the skill MUST NOT auto-proceed — missing the confirmation is a bug.
+- `auto` MUST NOT ask a business question — it applies the best option and records it (`review.md` § Questions, `decisions.md`, report § *Business questions decided automatically*); a silent decision is a bug.
+- `manual` / `hybrid` MUST ask every business question before the Phase 6 fix loop — deciding one without the user (unless the run is unattended per `review-questions.md` § 4) is a bug.
 - `trust-session` activation is always required regardless of mode.

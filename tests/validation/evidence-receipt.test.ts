@@ -69,6 +69,26 @@ describe('receipt verdicts', () => {
     expect(r.verdict).toBe('FAIL');
   });
 
+  it('an active text-pool write after activation is no change; activate=false still is', () => {
+    const pool = (activateFlag: boolean | undefined, answer?: unknown) => entry('WriteTextElementsBulk',
+      { program_name: 'ZMMR0010', text_elements: [{ type: 'I', key: '001', text: 'x' }], ...(activateFlag === undefined ? {} : { activate: activateFlag }) }, answer);
+    const ok = (action: string) => mcp({ success: true, program_name: 'ZMMR0010', activate: action === 'WRITE', rfc_action: action, steps_completed: [action === 'WRITE' ? 'write_active' : 'write_inactive'] });
+    // the pool write is made after the activation (the ledger clock ticks per entry)
+    const run = (mk: () => ReturnType<typeof entry>) => { const pre = [write('ZMMR0010'), activate(['ZMMR0010'])]; const w = mk(); return { w, r: buildReceipt([...pre, w, inactive([])], 'ZMMR0010') }; };
+    for (const mk of [() => pool(true, ok('WRITE')), () => pool(undefined, ok('WRITE')), () => pool(undefined)]) {
+      const { w, r } = run(mk);
+      expect(w).toMatchObject({ kind: 'write', names: ['ZMMR0010'], writes_active: true });
+      expect(byId(r, 'activation').status).toBe('PASS');
+      expect(r.verdict).toBe('PASS');
+    }
+    for (const mk of [() => pool(false, ok('WRITE_INACTIVE')), () => pool(false), () => pool(true, mcp({ error: 'RFC failed' }, true))]) {
+      const { w, r } = run(mk);
+      expect(w).toMatchObject({ writes_active: false });
+      expect(byId(r, 'activation').result).toContain('changed after its last activation: ZMMR0010');
+      expect(r.verdict).toBe('FAIL');
+    }
+  });
+
   it('FAIL names objects written but never activated separately from stale ones', () => {
     const r = buildReceipt([write('ZMMR0010'), write('ZMMR0010TOP'), activate(['ZMMR0010']), inactive([])], 'ZMMR0010');
     expect(byId(r, 'activation').status).toBe('FAIL');

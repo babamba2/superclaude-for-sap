@@ -155,7 +155,7 @@ Do not inline or paraphrase phase logic here — update `agent-pipeline.md` inst
 - `CreateScreen` + `UpdateScreen` — custom screens (ALV full mode)
 - `CreateGuiStatus` + `UpdateGuiStatus` — PF-Status for custom screens
 - `CreateTextElement` + `UpdateTextElement` — text-xxx resources
-- `GetAbapSemanticAnalysis` — pre-activation syntax check
+- `GetAbapSemanticAnalysis` — local parse of the text it is given (no include resolution); the SAP syntax check runs inside `ActivateObjects`
 - `GetInactiveObjects` — post-activation verification
 - `RunUnitTest` / `GetUnitTestResult` — QA (OOP mode)
 </MCP_Tools_Used>
@@ -176,7 +176,7 @@ Do not inline or paraphrase phase logic here — update `agent-pipeline.md` inst
 - `.sc4sap/program/{PROG}/review.md` — Phase 6 consolidated review
 - `.sc4sap/program/{PROG}/decisions.md` — executor `## Decisions` lines, appended by main (feeds the report's *Decisions & Assumptions*)
 - `.sc4sap/program/{PROG}/receipt.json` — Done Criteria verdicts built by `scripts/evidence/build-receipt.mjs` from the hook-written `.sc4sap/evidence/ledger.jsonl` (agents never write either; see `common/evidence-receipt.md`)
-- `.sc4sap/program/{PROG}/report.md` — final completion report (Evidence first, per `common/verification-evidence.md`)
+- `.sc4sap/program/{PROG}/report.md` — final completion report (Evidence first, per `common/verification-evidence.md`); on a first creation also `report.html`, published as a private claude.ai Artifact when the host has the Artifact tool ([`result-artifact.md`](result-artifact.md))
 - `.sc4sap/program/{PROG}/{spec,report}.html` — optional single-file HTML copies, offered after Phase 8
 - `.sc4sap/program/{PROG}/handoff.md` — written after Phase 8; the only start context of a `--fix` run in a new session ([`cost-rules.md`](cost-rules.md) § 1b–1c)
 - `.claude/settings.local.json` — permissions allowlist (written by `/sc4sap:trust-session` during Phase 3.5)

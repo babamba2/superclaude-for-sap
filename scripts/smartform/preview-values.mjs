@@ -15,6 +15,8 @@
 // NUMC / CHAR / others as given.
 
 const up = (s) => String(s ?? '').trim().toUpperCase();
+// T006 DECAN of units that print without decimals (SAP standard: each, piece)
+const UNIT_DEC = { EA: 0, PC: 0, ST: 0 };
 const CUR_DEC = { JPY: 0, KRW: 0, VND: 0, IDR: 0, CLP: 0, ISK: 0, HUF: 2, KWD: 3, BHD: 3, JOD: 3, OMR: 3, TND: 3 };
 
 function fmtDate(v, f) {
@@ -55,7 +57,7 @@ function workAreas(content) {
   return Object.fromEntries(Object.entries(map).map(([k, v]) => [k, [...v]]));
 }
 
-export function valuesFromRaw(content, raw = {}, { ddic = {}, dateFormat = 'MM/DD/YYYY', decimal = '.', group = ',' } = {}) {
+export function valuesFromRaw(content, raw = {}, { ddic = {}, dateFormat = 'MM/DD/YYYY', decimal = '.', group = ',', initials = true } = {}) {
   const dd = {};
   for (const [k, v] of Object.entries(ddic || {})) dd[up(k)] = v;
   const was = workAreas(content);
@@ -74,7 +76,25 @@ export function valuesFromRaw(content, raw = {}, { ddic = {}, dateFormat = 'MM/D
         const key = Object.entries(rec || {}).find(([f]) => up(dd[`${param}-${up(f)}`]?.type) === 'CUKY')?.[1];
         if (key !== undefined && CUR_DEC[up(key)] !== undefined) dec = CUR_DEC[up(key)];
       }
-      return fmtNum(v, dec, { decimal, group, signed: t?.signed });
+      if (type === 'QUAN') {
+        // WRITE … UNIT: the unit of the row (one UNIT field of the same structure with a value) drops the decimals
+        // it does not have when they are zero — S4-DEV LB_BIL_INVOICE prints FKIMG 1.000 EA as "1"
+        // the DDIC reference unit field (refField) when it is known, else the one UNIT field of the row with a value
+        const ref = t?.refField ? Object.entries(rec || {}).find(([f]) => up(f) === up(t.refField))?.[1] : undefined;
+        const units = ref !== undefined ? [up(ref)].filter(Boolean)
+          : [...new Set(Object.entries(rec || {}).filter(([f, x]) => up(dd[`${param}-${up(f)}`]?.type) === 'UNIT' && up(x)).map(([, x]) => up(x)))];
+        const ud = units.length === 1 ? UNIT_DEC[units[0]] : undefined;
+        if (ud !== undefined && ud < dec && Number.isFinite(Number(v)) && Number(Number(v).toFixed(ud)) === Number(v)) dec = ud;
+      }
+      const s = fmtNum(v, dec, { decimal, group, signed: t?.signed });
+      // SAP prints a number right-justified in its output length (digits, group separators, decimal point, sign
+      // place) — a left-aligned &GS_HD_KOMK-FKWRT& (CURR 15,2: 21 places) prints "0.00" 16 blanks in (LB_BIL_INVOICE)
+      const L = Number(t?.length), d = Number(t?.decimals ?? 0);
+      if (/^(CURR|DEC|QUAN)$/.test(type) && L > 0 && d >= 0 && d < L) {
+        const out = L + Math.floor((L - d - 1) / 3) + (d ? 1 : 0) + (t?.signed === false ? 0 : 1);
+        return s.padStart(out);
+      }
+      return s;
     }
     if (/^(INT1|INT2|INT4|INT8)$/.test(type)) return String(Math.round(Number(v)));
     return String(v);
@@ -99,5 +119,25 @@ export function valuesFromRaw(content, raw = {}, { ddic = {}, dateFormat = 'MM/D
     } else values[P] = fmt(P, '', v, null);
   };
   for (const [k, v] of Object.entries(raw || {})) put(up(k), v);
+  // a loop over a table of a given interface parameter that the values leave out has no rows — SAP prints nothing,
+  // the preview would draw its default sample rows (S4-DEV LB_BIL_INVOICE without items: LOOP_CONFBATCH over
+  // IS_BIL_INVOICE-IT_CONFBATCH). "WA-%ROWS": [] tells build-preview the loop has 0 rows.
+  const rawUp = Object.fromEntries(Object.entries(raw || {}).map(([k, v]) => [up(k), v]));
+  const at = (path) => path.split('-').reduce((o, seg) => (o && typeof o === 'object' && !Array.isArray(o) ? Object.entries(o).find(([k]) => up(k) === seg)?.[1] : undefined), rawUp);
+  for (const [t, list] of Object.entries(was)) {
+    const root = t.split('-')[0];
+    const given = at(t);
+    if (!(root in rawUp) || (given !== undefined && !(Array.isArray(given) && !given.length))) continue;
+    for (const wa of [t, ...list]) if (!Object.keys(values).some((k) => k.startsWith(`${wa}-`))) values[`${wa}-%ROWS`] = [];
+  }
+  // a numeric field (CURR / QUAN / DEC) outside any loop that nothing fills prints its initial value — S4-DEV
+  // LB_BIL_INVOICE prints &GS_HD_KOMK-FKWRT& (global TYPE KOMK, filled by program lines) as "0.00"
+  const loopKeys = new Set(Object.entries(was).flatMap(([t, l]) => [t, ...l]));
+  for (const [k, t] of Object.entries(dd)) {
+    if (!initials || !/^(CURR|QUAN|DEC)$/.test(up(t?.type)) || k in values) continue;
+    const parent = k.split('-').slice(0, -1).join('-');
+    if (!parent || loopKeys.has(parent)) continue;
+    values[k] = fmt(parent, k.split('-').pop(), 0, null);
+  }
   return { values, rows };
 }

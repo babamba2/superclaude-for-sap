@@ -30,9 +30,8 @@ A skill states what "verified" means **before** the work starts, as a short list
 
 | Check | Pass |
 |---|---|
-| `ActivateObjects` on every created object | no error messages |
+| `ActivateObjects` on every created object (the SAP syntax check runs inside it) | no error messages |
 | `GetInactiveObjects` | none of this run's objects listed |
-| `GetAbapSemanticAnalysis(<main program>)` — includes are not checked standalone | no errors |
 | `RunUnitTest` (when Phase 5 ran) | all tests green, count > 0 |
 
 Do not redefine "done" after the result is in. If a check could not run (tool missing, ECC limit, user skipped Phase 5), the result is **not run** — never pass.

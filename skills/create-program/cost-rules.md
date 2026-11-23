@@ -9,7 +9,7 @@ Sections 1 and 3 apply in **both** cost modes — they move work, they never dro
 ### 1a. Fix rounds (Phase 4 syntax, Phase 5 QA, Phase 6 review, `--fix`)
 
 - **Never resume** a finished executor or reviewer (`SendMessage` to its id) for a fix or re-review. A resumed agent re-reads its whole earlier context (measured: 840k tokens for a few-line fix).
-- **Small fix → main thread**: every finding ≤ ~10 changed lines, ≤ ~30 changed lines in total per include, the include ≤ ~300 lines, and no structural change (no new include, class, FORM / method signature or screen). The main thread reads the paradigm's convention file the fix touches (`oop-pattern.md` / `procedural-form-naming.md`, or the code template's `profile.md`), fetches that one include, Edits locally, `Update*`, then `GetAbapSemanticAnalysis(main)` + activation + inactive check (Haiku `sap-checker`).
+- **Small fix → main thread**: every finding ≤ ~10 changed lines, ≤ ~30 changed lines in total per include, the include ≤ ~300 lines, and no structural change (no new include, class, FORM / method signature or screen). The main thread reads the paradigm's convention file the fix touches (`oop-pattern.md` / `procedural-form-naming.md`, or the code template's `profile.md`), fetches that one include, Edits locally, `Update*`, then activation (the SAP syntax check runs inside it) + inactive check (Haiku `sap-checker`).
 - **Larger or structural fix → fresh executor**: a new `sap-executor` gets only the `FIX` lines, the object names and the paths of `spec.md` / `plan.md` (no source pasted into the prompt). Model per § 2 (standard: Opus). Escalate after two failed attempts on the same finding — counted across actors, main thread included.
 - **Logs, whoever fixes**: append the `## Decisions` lines to `decisions.md` and the check result lines to `verify-phase4.md` (newest wins), as [`agent-pipeline.md`](agent-pipeline.md) Phase 4 requires; rebuild `receipt.json` with `scripts/evidence/build-receipt.mjs` before the report.
 - **Re-review covers the diff only**: the changed lines plus their enclosing FORM / method, scoped to the fixed findings — a fresh reviewer, never the earlier one.
@@ -42,7 +42,7 @@ Entry: the arguments carry `--fix "<request>"`, or name a `{PROG}` whose `state.
 | G4-prep text elements, Wave 4 screens / GUI status | Sonnet (frontmatter effort) | Sonnet · low |
 | Fix rounds (§ 1a) | main thread first, else Opus | main thread first, else Sonnet · medium |
 
-- Escalate one dispatch to **Opus · medium** (banner `▶ … escalate`) when `GetAbapSemanticAnalysis` fails twice on the same object, the executor returns `BLOCKED`, or the spec marks a step as novel algorithm (pricing / allocation / scheduling logic with no reference program and no template). This replaces the general eco `BLOCKED` rule in `cost-mode.md` for create-program executors.
+- Escalate one dispatch to **Opus · medium** (banner `▶ … escalate`) when `ActivateObjects` reports syntax errors twice on the same object, the executor returns `BLOCKED`, or the spec marks a step as novel algorithm (pricing / allocation / scheduling logic with no reference program and no template). This replaces the general eco `BLOCKED` rule in `cost-mode.md` for create-program executors.
 - Both modes: the executor writes each include **in one local Write** (complete file), not as a chain of small Edits, and uploads it with one `Create*` / `Update*`. Pass spec / plan / ddic-brief as **paths**, never pasted content.
 
 ## 3. Main-thread context (Phases 1A – 2, and `--fix`)
@@ -52,3 +52,4 @@ Entry: the arguments carry `--fix "<request>"`, or name a `{PROG}` whose `state.
 - Local files: main reads whole only files ≤ ~200 lines; larger ones (CBO inventory, earlier specs) by Grep or a line range.
 - A user hint arriving mid-interview ("use include ZXXX for authority check") is a scout dispatch plus one line in `module-interview.md` / `interview.md`, not a main-thread read.
 - Exception: a fix in § 1a fetches the one include it changes.
+- Main-thread writes to `.sc4sap/program/{PROG}/` files use the Write / Edit tools, not shell redirection, because the evidence guard may deny shell commands that name the sc4sap state folder.

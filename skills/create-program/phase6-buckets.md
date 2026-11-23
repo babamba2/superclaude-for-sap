@@ -15,7 +15,7 @@ The 12 convention items in `phase6-review.md` are split into 4 buckets. Each buc
 | Bucket | Items (from phase6-review.md) | Scope |
 |--------|-------------------------------|-------|
 | **B1 — ALV + UI** | #1 alv-rules, #2 text-element-rule | ALV field catalog, Docking vs Custom Control, text-Txx, MESSAGE literals; for ALV roles mapped to a code template, the template's DDIC / metadata-based field catalog method and container type are compliant (`alv-rules.md` § Code template exception) |
-| **B2 — Logic Hygiene** | #3 constant-rule, #8 clean-code (shared baseline + paradigm-specific file) | Magic literals, SY-SUBRC, SELECT *, inline decl, commented code. B2 reviewer reads `interview.md` Paradigm dimension first, then loads `clean-code.md` + either `clean-code-oop.md` OR `clean-code-procedural.md` accordingly — never both. |
+| **B2 — Logic Hygiene** | #3 constant-rule, #8 clean-code (shared baseline + paradigm-specific file) + business questions | Magic literals, SY-SUBRC, SELECT *, inline decl, commented code. B2 reviewer reads `interview.md` Paradigm dimension first, then loads `clean-code.md` + either `clean-code-oop.md` OR `clean-code-procedural.md` accordingly — never both. **B2 alone owns `QUESTION` detection** ([`../../common/review-questions.md`](../../common/review-questions.md) § 1): it also gets `spec.md`, `interview.md`, `consult-{module}.md`, `decisions.md` and `plan.md` (§ *Conflict Resolutions*) and reads the business logic (commits, status filters, amounts, org filters, error policy) against them. |
 | **B3 — Structure + Naming** | #4 procedural-form-naming, #5 oop-pattern, #6 include-structure, #7 naming-conventions | Include suffix, class split, Z prefix, `_{screen_no}` FORM; for roles mapped to a code template, structure is checked against `templates/<NAME>/` instead ([`code-template.md`](code-template.md)) |
 | **B4 — Platform + Config** | #9 abap-release-reference, #10 sap-version-reference, #11 spro-lookup, #12 activation-state | Release-allowed syntax, ECC vs S/4, SPRO tables, inactive objects |
 
@@ -34,7 +34,7 @@ Agent({
   subagent_type: "sc4sap:sap-code-reviewer",
   model: "sonnet",
   description: "Phase 6 review — bucket B2 (Logic Hygiene)",
-  prompt: "Review bucket B2 covering items [3,8] (constant-rule, clean-code). Read interview.md Paradigm dimension first; then load clean-code.md + one of clean-code-oop.md / clean-code-procedural.md accordingly."
+  prompt: "Review bucket B2 covering items [3,8] (constant-rule, clean-code) and the business questions. Read interview.md Paradigm dimension first; then load clean-code.md + one of clean-code-oop.md / clean-code-procedural.md accordingly. For QUESTION lines follow common/review-questions.md § 1–2 and § 6 (set best / why); inputs: <paths of spec.md, interview.md, consult-{module}.md, decisions.md, plan.md>."
 })
 Agent({
   subagent_type: "sc4sap:sap-code-reviewer",
@@ -50,7 +50,7 @@ Agent({
 })
 ```
 
-Every bucket prompt ends with: "Return the verdict table as text plus one `FIX …` line per finding; do not write files." Each bucket agent:
+Every bucket prompt ends with: "Return the verdict table as text plus one `FIX …` line per finding; do not write files." B2's prompt adds: "and one `QUESTION …` line per business-intent item." B1 / B3 / B4 never return `QUESTION` lines — a business doubt there is noted in one line for B2's scope, not fixed. Each bucket agent:
 1. Fetches source of all created objects via MCP (`GetInclude`, `GetProgram`, etc.)
 2. Runs its subset of checklist items
 3. Classifies each finding `PASS` / `MINOR` / `MAJOR`, with one `FIX obj=<name> item=<§n> severity=<…> line=<n> change="<…>"` line per finding
@@ -63,6 +63,7 @@ Wait for all 4 buckets. Merge into consolidated `review.md`.
 - **PASS** — no violation found
 - **MINOR** — violation exists but non-blocking (e.g., a TEXT-Txx missing an optional tooltip). Main applies the `FIX` lines per [`cost-rules.md`](cost-rules.md) § 1a (main-thread Edit, or a fresh executor); once applied the item is recorded `FIX-APPLIED`.
 - **MAJOR** — violation blocks Phase 8 (e.g., manual LVC_T_FCAT build, Docking replaced by Custom Control, ECC-deprecated pattern on S/4). Escalate per below.
+- **QUESTION** — valid code whose correctness depends on business intent the inputs do not settle ([`../../common/review-questions.md`](../../common/review-questions.md)). Not counted below, not fixed; handled per [`phase6-output-format.md`](./phase6-output-format.md) § Business Questions after the merge (step 5 of § Merge Algorithm). Cap 5.
 
 ## Model Escalation (6-3)
 
@@ -70,7 +71,7 @@ After all 4 buckets finish, count MAJOR findings:
 
 | MAJOR count | Action |
 |-------------|--------|
-| **0** | Skip Opus. Merge bucket outputs into `review.md`, final verdict `✅ ALL PASS`. Proceed to Phase 8. |
+| **0** | Skip Opus. Merge bucket outputs into `review.md` → business questions (§ Merge Algorithm step 5) → apply MINOR and answer-driven fixes per [`cost-rules.md`](cost-rules.md) § 1a → final verdict `✅ ALL PASS` → Phase 8. |
 | **1–2** | Dispatch `Agent({subagent_type: "sc4sap:sap-code-reviewer", model: "opus", ...})` **scoped only to the MAJOR findings** — pass finding list + affected object names. Opus re-reviews and returns a confirmed fix list; main applies it per [`cost-rules.md`](cost-rules.md) § 1a, then re-runs a fresh Opus review on the diff of those findings only (up to 3 iterations per finding; never resume the earlier reviewer). Main writes the final verdict to `review.md`. |
 | **3+** | Dispatch Opus with full context (all 4 bucket reports + source). Opus decides whether to fix (fix list → `sap-executor` as above) or BLOCK. If BLOCK, write `review.md` with `❌ BLOCKED` and surface to user. |
 
@@ -89,12 +90,13 @@ After buckets (and optional Opus pass) complete:
    **Timing**: parallel_sec={T1}, opus_sec={T2}, total_sec={T1+T2}
    ```
 4. Delete the per-bucket files (they remain in git history if versioned; otherwise clean up to avoid clutter)
+5. **Business questions** — B2's `QUESTION` lines (after any Opus pass) are asked or auto-decided per [`phase6-output-format.md`](./phase6-output-format.md) § Business Questions, before any fix is applied. A `FIX` that comes from an answer follows the path of its `sev_if_not`: MINOR → § 1a fix + diff re-review; MAJOR → the 1–2 MAJOR row above, scoped to that finding.
 
 ## Failure Handling
 
 - If any bucket agent crashes or times out: retry that bucket ONCE with the same model. On second failure, escalate to Opus immediately for that bucket's scope.
 - If bucket verdicts conflict (e.g., B2 says constant-rule PASS, B3 says naming-conventions MAJOR on the same constant name): treat as MAJOR and include in Opus escalation.
-- If user is in `manual` execution mode: after bucket parallel run, prompt before dispatching Opus escalation — user may choose to review MAJOR findings themselves instead.
+- If user is in `manual` execution mode: after bucket parallel run, prompt before dispatching Opus escalation — user may choose to review MAJOR findings themselves instead. `hybrid` escalates like `auto`; its only stop is the business questions.
 
 ## State.json Recording
 
@@ -116,4 +118,4 @@ After buckets (and optional Opus pass) complete:
 
 ## Compatibility with Manual Mode
 
-In `manual` / `hybrid` execution mode, the bucket parallel run itself is NOT interrupted mid-flight — the user confirmation happens BEFORE Phase 6 starts (Phase 5→6 transition). Once Phase 6 is approved to start, the 4 buckets run to completion, then the Opus escalation decision is either automatic (auto mode) or prompted (manual/hybrid mode).
+In `manual` execution mode, the bucket parallel run itself is NOT interrupted mid-flight — the user confirmation happens BEFORE Phase 6 starts (Phase 5→6 transition). Once Phase 6 is approved to start, the 4 buckets run to completion, then the Opus escalation decision is either automatic (`auto` / `hybrid`) or prompted (`manual`). Business questions are asked (`manual` / `hybrid`) or auto-decided (`auto`) after the merge, before the fix loop.

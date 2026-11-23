@@ -90,6 +90,16 @@ export function parseAunit(xml) {
   return { programs, methods: methods.length, failed: failed.length, failed_methods: failed.slice(0, 10), method_results: methodResults, outside_fail: outsideFail, first_alert: firstTitle ? firstTitle.trim().slice(0, 200) : undefined };
 }
 
+/** True when a WriteTextElementsBulk call wrote the pool ACTIVE (answer first, else the input's activate flag). */
+export function textPoolWrittenActive(input, resp) {
+  if (isErrorResponse(resp)) return false;
+  const data = tryJson(responseText(resp));
+  if (data && (data.success === false || data.error)) return false;
+  if (data && typeof data.rfc_action === 'string') return data.rfc_action === 'WRITE';
+  if (data && Array.isArray(data.steps_completed)) return data.steps_completed.includes('write_active');
+  return input?.activate !== false;
+}
+
 /** One ledger line for a PostToolUse payload, or null when the call is not evidence. */
 export function ledgerEntry(payload, now = new Date()) {
   const handler = handlerName(payload?.tool_name);
@@ -100,6 +110,10 @@ export function ledgerEntry(payload, now = new Date()) {
     const w = { ...base, kind: 'write', names: namesFromInput(input) };
     // Hash of the uploaded source (CR / trailing blanks ignored) — program-test proves the upload is the generated file.
     if (typeof input.source_code === 'string') w.source_sha256 = srcSha(input.source_code);
+    // A text pool written ACTIVE (activate=true, the default → rfc_action WRITE, step write_active)
+    // needs no program activation, so it does not make the program "changed after activation".
+    // activate=false (WRITE_INACTIVE) or an error stays a change.
+    if (handler === 'WriteTextElementsBulk') w.writes_active = textPoolWrittenActive(input, payload.tool_response);
     return w;
   }
   if (!CHECK_TOOLS.has(handler)) return null;
@@ -146,7 +160,8 @@ export function buildReceipt(entries, prog, opts = {}) {
   const sorted = [...entries].sort((a, b) => (a.t < b.t ? -1 : a.t > b.t ? 1 : 0));
 
   const lastWrite = new Map();
-  for (const e of sorted) if (e.kind === 'write') for (const n of e.names || []) if (mine(n)) lastWrite.set(n, e.t);
+  // an active text-pool write (writes_active) is already active — not a change that needs activation
+  for (const e of sorted) if (e.kind === 'write' && !e.writes_active) for (const n of e.names || []) if (mine(n)) lastWrite.set(n, e.t);
   const lastWriteAll = [...lastWrite.values()].sort().pop();
 
   const checks = [];

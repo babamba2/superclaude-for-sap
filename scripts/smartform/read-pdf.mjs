@@ -619,7 +619,12 @@ export function mergeRuns(texts, maxGapBlanks = 1.6) {
   const runs = [];
   for (const t of ts) {
     const blank = (t.cid ? 0.5 : 0.28) * t.pt * PT; // a CID (CJK) font's blank is half an em
-    const r = runs.find((q) => Math.abs(q.y - t.y) < 0.15 && Math.abs(q.pt - t.pt) < 0.3 && t.x - (q.x + q.w) > -0.3 && t.x - (q.x + q.w) < maxGapBlanks * blank);
+    const fits = (q) => Math.abs(q.y - t.y) < 0.15 && Math.abs(q.pt - t.pt) < 0.3 && t.x - (q.x + q.w) > -0.3 && t.x - (q.x + q.w) < maxGapBlanks * blank;
+    // strings drawn over each other (a migrated header row: "Carrier", "Connection", "Currency" at one spot, glyph by
+    // glyph in a browser's PDF) stay apart: a piece goes on the run whose last piece came just before it in the page's
+    // content, before any other run it would also fit (EX10 / EX11 old: "Carriercy n" was three words interleaved)
+    const fitting = runs.filter(fits);
+    const r = fitting.find((q) => q.pieces[q.pieces.length - 1] === t.i - 1) || fitting[0];
     if (!r) { runs.push({ x: t.x, y: t.y, w: t.w, text: t.text, pt: t.pt, font: t.font, bold: t.bold, italic: t.italic, ...(t.sapFont ? { sapFont: t.sapFont } : {}), ...(t.wEst ? { wEst: true } : {}), pieces: [t.i] }); continue; }
     if (t.wEst) r.wEst = true;
     const gap = t.x - (r.x + r.w);

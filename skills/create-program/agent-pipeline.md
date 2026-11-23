@@ -120,22 +120,22 @@ Persist to `.sc4sap/program/{PROG}/state.json` → `phase1b.execution_style`. Ph
 
 Full procedure — `trust-session` invocation, auto/manual/hybrid mode prompt, state.json schema, resume behavior — lives in [`execution-mode.md`](./execution-mode.md). Read it before dispatching Phase 4.
 
-**One-line summary**: Invoke `/sc4sap:trust-session` (suppresses all tool permission prompts for the session) → prompt user for mode (`auto` / `manual` / `hybrid`) → persist to `state.json` → proceed to Phase 4 per the chosen cadence. Permission prompts are suppressed in ALL modes; the only prompt in `manual`/`hybrid` is the phase-transition confirmation.
+**One-line summary**: Invoke `/sc4sap:trust-session` (suppresses all tool permission prompts for the session) → prompt user for mode (`auto` / `manual` / `hybrid`) → persist to `state.json` → proceed to Phase 4 per the chosen cadence. Permission prompts are suppressed in ALL modes; `manual` confirms each phase transition, `hybrid` runs like `auto` but asks the Phase 6 business questions, `auto` decides them with the best option and lists them in the report.
 
 ## Phase 4 — Implementation: `sap-executor` (PARALLELIZED)
 
 > **Model** (frontmatter is Sonnet): Waves 1–3 (DDIC, classes / FMs, includes + main) dispatch with **`model: "opus"`** (eco: Sonnet · medium with Opus escalation — [`cost-rules.md`](cost-rules.md) § 2); G4-prep text elements and Wave 4 screen / GUI writes stay Sonnet; every post-write check (text counts, screen / GUI body, inactive count) is a Haiku `sap-checker` fan-out per [`phase4-verify.md`](./phase4-verify.md).
 
-**Authoritative flow**: [`phase4-parallel.md`](./phase4-parallel.md) — local source generation → parallel `CreateInclude` → `CreateProgram` → single `GetAbapSemanticAnalysis(main)` → batch activation via `GetInactiveObjects`. Replaces the old per-include create-check-activate loop (40–60% faster for typical 6–10 include programs).
+**Authoritative flow**: [`phase4-parallel.md`](./phase4-parallel.md) — local source generation → parallel `CreateInclude` → `CreateProgram` → text pool (`WriteTextElementsBulk`, `activate: true`) → batch activation via `GetInactiveObjects` (the SAP syntax check of the whole program runs inside `ActivateObjects`; `GetAbapSemanticAnalysis` parses only the text it is given). Replaces the old per-include create-check-activate loop (40–60% faster for typical 6–10 include programs).
 
 **Multi-executor split**: when Phase 2 plan.md § *Execution Sizing* crosses the thresholds in [`multi-executor-split.md`](./multi-executor-split.md), the skill dispatches 2 or 3 parallel `sap-executor` instances per Strategy A / B / C in that file. Shared transport, single activation at Final Step.
 
 - Apply shared conventions: `oop-pattern.md` (OOP), `alv-rules.md`, `text-element-rule.md`, `constant-rule.md`, `procedural-form-naming.md` (Procedural), `naming-conventions.md`
 - Screens / GUI status / text elements run AFTER main activation (see phase4-parallel.md Step G)
 - Syntax failures → fix-and-retry loop (max 3 iterations on the main program, NOT per include)
-- In `manual`/`hybrid` mode: prompt user before starting Phase 4; do NOT prompt mid-flow once started
+- In `manual` mode: prompt user before starting Phase 4; do NOT prompt mid-flow once started
 - **Decisions log**: every agent that writes production code returns a `## Decisions` section (choices not dictated by spec.md / plan.md) — Phase 4 executors (single, split, teamMode), Phase 5 QA fixes, Phase 6 fix rounds, Phase 7 debugger fixes (ask for the section in the dispatch prompt when the agent's own output format lacks it). Main appends those lines, unedited, to `.sc4sap/program/{PROG}/decisions.md` as each returns (teamMode: the lead appends the WORKER_REFINEMENT rationale).
-- **Check results log**: main appends each `GetAbapSemanticAnalysis(<main>)` / `ActivateObjects` result line from the executor's `## Verification` (returned excerpt, not pass/fail) to `verify-phase4.md`, next to the inactive-list CHECKER blocks. After a later fix round, the newest result for a check wins.
+- **Check results log**: main appends each `ActivateObjects` result line (syntax errors included) from the executor's `## Verification` (returned excerpt, not pass/fail) to `verify-phase4.md`, next to the inactive-list CHECKER blocks. After a later fix round, the newest result for a check wins.
 
 ## Phase 5 — QA (conditional): `sap-qa-tester` (dispatch with `model: "opus"`)
 
@@ -147,7 +147,7 @@ Full procedure — `trust-session` invocation, auto/manual/hybrid mode prompt, s
 - Test class SHOULD already exist — Phase 4 executor creates the `{PROG}ct` include (`LCL_TEST` + optional `LTC_*`) as part of the initial parallel batch (see phase4-parallel.md Step B). Phase 5 agent only writes test methods + runs them.
 - Call `RunUnitTest` → `GetUnitTestResult`
 - On FAIL: fix production code (not tests) → re-activate → re-run (loop until green or 3 attempts)
-- In `manual`/`hybrid` mode: prompt before starting Phase 5 (unless skip condition matched, then auto-skip with message)
+- In `manual` mode: prompt before starting Phase 5 (unless skip condition matched, then auto-skip with message)
 
 ## Phase 6 — Review (MANDATORY — never skip, never conditional): `sap-code-reviewer`
 
@@ -155,7 +155,7 @@ Full procedure — `trust-session` invocation, auto/manual/hybrid mode prompt, s
 
 **Authoritative checklist**: see [`phase6-review.md`](./phase6-review.md) in this skill folder. It defines the per-convention review items, the file format for `.sc4sap/program/{PROG}/review.md`, and the failure-handling loop. Read it before delegating to `sap-code-reviewer`, and pass its path to the agent.
 
-**Execution strategy** (`~/.sc4sap/preferences.json` → `phase6Strategy`): `buckets` (default) — [`phase6-buckets.md`](./phase6-buckets.md), 4-bucket parallel Sonnet review + Opus escalation on MAJOR; or `detect-judge` (opt-in) — [`phase6-detect-judge.md`](./phase6-detect-judge.md), Haiku detectors × N + one Opus judge. The reviewer is read-only either way; fixes and re-reviews follow [`cost-rules.md`](cost-rules.md) § 1a (main-thread Edit or a fresh executor, never a resumed agent; diff-only re-review). In `manual`/`hybrid` mode: prompt before starting Phase 6; the bucket run itself is uninterrupted once started.
+**Execution strategy** (`~/.sc4sap/preferences.json` → `phase6Strategy`): `buckets` (default) — [`phase6-buckets.md`](./phase6-buckets.md), 4-bucket parallel Sonnet review + Opus escalation on MAJOR; or `detect-judge` (opt-in) — [`phase6-detect-judge.md`](./phase6-detect-judge.md), Haiku detectors × N + one Opus judge. The reviewer is read-only either way; fixes and re-reviews follow [`cost-rules.md`](cost-rules.md) § 1a (main-thread Edit or a fresh executor, never a resumed agent; diff-only re-review). In `manual` mode: prompt before starting Phase 6; the bucket run itself is uninterrupted once started. Business questions (`QUESTION` lines) are asked in `manual` / `hybrid` and auto-decided in `auto` before the fix loop — [`phase6-output-format.md`](./phase6-output-format.md) § Business Questions.
 
 ## Phase 7 — Debug escalation: `sap-debugger` (dispatch with `model: "opus"`)
 - Activation failures persisting after retry
@@ -171,7 +171,7 @@ Full procedure — `trust-session` invocation, auto/manual/hybrid mode prompt, s
 
 Dispatch input (writer receives, does NOT re-fetch via MCP):
 
-- **Pre-condition (HARD GATE, enforced by main before dispatching)**: `.sc4sap/program/{PROG}/review.md` must exist and end in PASS verdicts for every applicable convention. If missing or contains unresolved violations, return to Phase 6 — do not dispatch Phase 8 and do not tell the user the program is done.
+- **Pre-condition (HARD GATE, enforced by main before dispatching)**: `.sc4sap/program/{PROG}/review.md` must exist and end in PASS verdicts for every applicable convention. If missing or contains unresolved violations (open / not-asked rows of § Questions are not violations), return to Phase 6 — do not dispatch Phase 8 and do not tell the user the program is done.
 - **Receipt gate (main, before dispatching)**: build `.sc4sap/program/{PROG}/receipt.json` with `scripts/evidence/build-receipt.mjs` per [`../../common/evidence-receipt.md`](../../common/evidence-receipt.md) § Procedure (`--also` = run objects not starting with `{PROG}` from plan.md; `--unit-test required` when Done Criteria list unit tests). FAIL → back to the owning phase, never "done".
 - Objects created + activation status
 - Transport number
@@ -179,14 +179,14 @@ Dispatch input (writer receives, does NOT re-fetch via MCP):
 - Reference to `review.md` (Phase 6 verdicts)
 - **Timing summary** — per-phase `timing` / `sec` fields from `state.json` so the writer can render the total-duration table (Phase 4 parallel gains, Phase 6 bucket gains, Opus escalation ratio)
 - User conversation language (so the report localizes — Korean / English / Japanese / etc.)
-- spec.md § *9. Done Criteria* and the files holding their results — the writer reads these, it does not re-fetch: `receipt.json` (activation / inactive / unit-test statuses copied verbatim, never upgraded), `verify-phase4.md` (semantic-analysis / activation lines + inactive-list CHECKER blocks, newest wins), Phase 5 `GetUnitTestResult` output, `review.md` § 12 Activation State; plus `decisions.md` and plan.md § *Conflict Resolutions*
+- spec.md § *9. Done Criteria* and the files holding their results — the writer reads these, it does not re-fetch: `receipt.json` (activation / inactive / unit-test statuses copied verbatim, never upgraded), `verify-phase4.md` (activation lines — the activation result is the syntax check; any semantic-analysis line is informational only — + inactive-list CHECKER blocks, newest wins), Phase 5 `GetUnitTestResult` output, `review.md` § 12 Activation State; plus `decisions.md` and plan.md § *Conflict Resolutions*
 
-**Report rules** — [`../../common/verification-evidence.md`](../../common/verification-evidence.md): Evidence block first (one line per Done Criteria check, PASS / FAIL / NOT RUN with the returned value, plus its "does not prove" line), then the summary, then *Decisions & Assumptions* (from `decisions.md` + conflict resolutions + interview defaults the agent proposed and the user only acknowledged with ok / yes), then one *Still check by hand* line. A check with no result in those files is NOT RUN. A FAIL or NOT RUN is reported as such — never folded into "done".
+**Report rules** — [`../../common/verification-evidence.md`](../../common/verification-evidence.md): Evidence block first (one line per Done Criteria check, PASS / FAIL / NOT RUN with the returned value, plus its "does not prove" line), then *Business questions decided automatically* when `decisions.md` has `auto-decided` lines (per question: code place, question, decision, reason, how to reverse — [`../../common/review-questions.md`](../../common/review-questions.md) § 6), then the summary, then *Decisions & Assumptions* (from `decisions.md` + conflict resolutions + interview defaults the agent proposed and the user only acknowledged with ok / yes), then one *Still check by hand* line. A check with no result in those files is NOT RUN. A FAIL or NOT RUN is reported as such — never folded into "done".
 
 Output:
-- File: `.sc4sap/program/{PROG}/report.md` (written by the writer agent)
-- In `manual`/`hybrid` mode: main prompts the user before dispatching Phase 8
-- **HTML copies (optional, after the report is shown)**: close with one line — *"Also want HTML copies of spec.md and report.md? (y/N)"* (a closing question, not a phase-transition prompt, so it applies in `auto` mode too). On yes, run `node "<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs" <file>.md` for each (`<PLUGIN_ROOT>` = two levels above this skill folder) → single-file `.html` beside it. The `.md` files stay — they are pipeline state (resume, review).
+- File: `.sc4sap/program/{PROG}/report.md` — the writer **returns the full report text** in its reply (Claude Code refuses report-file writes from subagents: *"Subagents should return findings as text"*); **main writes `report.md`** from that text verbatim, then runs the HTML step below
+- In `manual` mode: main prompts the user before dispatching Phase 8
+- **HTML copies (optional, after the report is shown)**: close with one line — *"Also want HTML copies of spec.md and report.md? (y/N)"* (a closing question, not a phase-transition prompt, so it applies in `auto` mode too). When the report has auto-decided business questions, or on a first creation, `report.html` is written without asking (the line then offers `spec.html` only). **First creation**: `report.html` is then published as a private Artifact and the link shown — [`result-artifact.md`](./result-artifact.md). On yes, run `node "<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs" <file>.md` for each (`<PLUGIN_ROOT>` = two levels above this skill folder) → single-file `.html` beside it. The `.md` files stay — they are pipeline state (resume, review).
 - **Test hand-off (after the HTML line)**: offer one line — *"Test {PROG} now against DEV data (or QA rows) with `/sc4sap:program-test`?"*. On yes, invoke `Skill("sc4sap:program-test", "{PROG} spec=<path of spec.md>")`; it reads the spec and the program itself. Then write `handoff.md` and close with the `--fix` new-session line per [`cost-rules.md`](cost-rules.md) § 1b.
 
 ## State.json — Resume Support (C-2)
@@ -194,6 +194,6 @@ Output:
 All phases above record their completion into `.sc4sap/program/{PROG}/state.json` per the schema in [`execution-mode.md`](./execution-mode.md). On a subsequent invocation for the same `{PROG}`, the skill:
 1. Reads `state.json` and finds the first non-completed, non-skipped phase
 2. Resumes from that phase, skipping all preceding ones
-3. In `auto` mode, resumption happens silently; in `manual`/`hybrid`, the user is shown the resume point and asked to confirm
+3. In `auto` / `hybrid` mode, resumption happens silently; in `manual`, the user is shown the resume point and asked to confirm
 
 Phase restart (rerun a completed phase) requires the user to delete the corresponding `state.json` entry explicitly — the pipeline does not re-run completed phases automatically.

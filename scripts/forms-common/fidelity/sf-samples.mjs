@@ -138,7 +138,7 @@ export function sampleValues(content, xml, raw0, ddic0, at) {
   const { raw, ddic, perGroup, notes } = programValues(content, xml, raw0, ddic0);
   const { values, rows } = valuesFromRaw(content, raw, { ddic });
   for (const [t, groups] of Object.entries(perGroup)) {
-    const per = groups.map((g) => valuesFromRaw(content, { [t]: g }, { ddic }).values);
+    const per = groups.map((g) => valuesFromRaw(content, { [t]: g }, { ddic, initials: false }).values);
     for (const k of new Set(per.flatMap((v) => Object.keys(v)))) values[k] = per.map((v) => v[k] || []);
   }
   const day = String(at || '').slice(0, 10).split('-');

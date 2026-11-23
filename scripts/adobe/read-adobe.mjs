@@ -125,7 +125,7 @@ const KIND = {
   CL_FP_LOOP_DATA: 'loop-data', CL_FP_SINGLE_RECORD: 'single-record', CL_FP_TEXT_MODULE: 'text-module',
   // an SO10 include text is CL_FP_TEXT_INCLUDE (FP_TEST_01 INCLUDETEXT1); CL_FP_INCLUDE_TEXT kept as an alias
   CL_FP_TEXT: 'text', CL_FP_TEXT_INCLUDE: 'text', CL_FP_INCLUDE_TEXT: 'text', CL_FP_ADDRESS: 'address', CL_FP_GRAPHIC: 'graphic',
-  CL_FP_ALTERNATIVE: 'alternative', CL_FP_FOLDER: 'folder',
+  CL_FP_ALTERNATIVE: 'alternative', CL_FP_FOLDER: 'folder', CL_FP_PROGRAMLINES: 'program-lines',
 };
 
 function conditionsOf(c) {
@@ -150,6 +150,8 @@ export function readContext(formXml) {
       generated: val(node, 'GENERATED') === 'X', conditions: conditionsOf(ref(kid(node, 'CONDITION'))), children: [] };
     const own = kid(o, cls);
     if (n.kind === 'data') { n.field = val(own, 'FIELD'); n.label = val(own, 'FIELD_LABEL'); }
+    // program lines of a migrated SmartForm (GET_HD_KOMK_SUM: GS_HD_KOMK-FKWRT = IS_BIL_INVOICE-HD_KOMK-FKWRT)
+    if (n.kind === 'program-lines') n.coding = kids(kid(own, 'CODING')).map((x) => textOf(x));
     if (n.kind === 'loop') {
       Object.assign(n, { table: val(own, 'TABLE_NAME'), into: val(own, 'LOOP_INTO') === 'X', workArea: val(own, 'WORK_AREA'),
         from: Number(val(own, 'FIRST_LINE')) || 0, to: Number(val(own, 'LAST_LINE')) || 0,

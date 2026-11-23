@@ -283,6 +283,13 @@ class Scope {
   }
   push(f) { this.frames.push(f); }
   pop() { this.frames.pop(); }
+  /** All names visible now (inner frames win), for code that runs in this scope. */
+  flat() { return Object.assign({}, ...this.frames); }
+  /** Values set by program lines (top level only today): written into the global frame. */
+  setBase(vals) {
+    const f = this.frames[0];
+    for (const [k, v] of Object.entries(vals)) f[Object.keys(f).find((x) => up(x) === up(k)) ?? up(k)] = v;
+  }
   lookup(path) {
     const p = up(path);
     if (p in this.system) return this.system[p];
@@ -587,6 +594,7 @@ export function buildRecord(context, sample = {}, { references = [] } = {}) {
     return l && l.length && sameType(l) ? l[0] : undefined;
   };
   const missingTexts = new Set();
+  const progState = {};
   const root = { name: 'data', children: [] };
   const walk = (n, parent) => {
     if (!n.active) return;
@@ -595,6 +603,32 @@ export function buildRecord(context, sample = {}, { references = [] } = {}) {
       case 'context':
         for (const c of n.children) walk(c, parent);
         return;
+      // program lines (migrated SmartForms fill their globals here: GS_HD_KOMK-FKWRT = IS_BIL_INVOICE-HD_KOMK-FKWRT):
+      // run them in place, in context order, like the generated function module, when all their statements are simple
+      // ones (no SELECT, CALL FUNCTION …). What they set is visible to the nodes after them.
+      case 'program-lines': {
+        if (!(n.coding || []).some((l) => String(l).trim() && !/^\s*[*"]/.test(l))) return;
+        // inside a loop (running totals per row, EX10 / EX11) not yet: the rows of a total table printed there still
+        // differ from SAP's print, so those globals stay as in the sample
+        if (scope.frames.length > 1) return;
+        // a structure the code writes field by field keeps its other fields, as in ABAP: it starts from its current value
+        const vars = { ...(progState.vars || {}) };
+        for (const l of n.coding) {
+          const t = /^\s*(\w+)-\w/.exec(String(l))?.[1];
+          if (!t || vars[up(t)] !== undefined) continue;
+          const cur = scope.lookup(t);
+          if (cur && typeof cur === 'object' && !Array.isArray(cur)) vars[up(t)] = Object.fromEntries(Object.entries(JSON.parse(JSON.stringify(cur))).map(([k, v]) => [up(k), v]));
+        }
+        // a node runs only when every statement of it can run here: half a node (its SELECT skipped) leaves values SAP
+        // would not have (EX13: item rows SAP's print does not show); a statement the runner trips on counts the same
+        let r;
+        try { r = runInitCoding(n.coding, scope.flat(), sample?.ddic || {}, { tables: progState.tables, vars }); } catch { return; }
+        if (!r.ok) return;
+        progState.tables = r.tables;
+        progState.vars = r.vars;
+        scope.setBase({ ...r.tables, ...r.vars });
+        return;
+      }
       // a folder (migrated SmartForms: windows, texts, rows) is a data group named like the folder; its own
       // condition was checked above
       case 'folder':
@@ -618,12 +652,17 @@ export function buildRecord(context, sample = {}, { references = [] } = {}) {
         let rows = rowsOf(scope.lookup(n.table));
         if (n.from > 0 || n.to > 0) rows = rows.slice(Math.max(0, n.from - 1), n.to > 0 ? n.to : undefined);
         const wa = up(n.workArea || n.table);
+        let hit = 0;
         for (const row of rows) {
           if (!evalConditions(n.where, scope, row)) continue;
+          hit++;
           scope.push({ [wa]: row });
           for (const c of n.children) walk(c, el);
           scope.pop();
         }
+        // a loop without rows is left out: ADS prints no instance of a table bound to it, not even its header row
+        // (FP_TEST_NESTED_TABLE: the bookings table under a connection without bookings)
+        if (!hit) parent.children.pop();
         return;
       }
       case 'loop-data': {

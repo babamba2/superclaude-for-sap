@@ -449,11 +449,27 @@ describe('smartform-preview: old-table cells — T_CELLNR and a loop in a sort e
   const vals = { rows: 1, values: { 'GS_FL-CARRID': ['ZZ'], 'GS_SUB-PRICE': ['10'], 'GS_SUB-CURR': ['EUR'] } };
   const cellsOfRows = (html: string) => html.split('<div class="row').slice(1)
     .map((r) => r.split('<div class="cell"').slice(1).map((x) => (/Row [A-Z0-9]+|Next|Sum [0-9]+|Cur [A-Z]+/.exec(x) || [''])[0]));
-  it('T_CELLNR moves that many cells on (1 = the next cell); a loop in the end event flows into the table cells', () => {
+  it('T_CELLNR skips that many cells after the next one (LB_BIL_INVOICE header: 1 → cell 6 after cell 4); a loop in the end event flows into the table cells', () => {
     const html = new Renderer(c, vals).page().html as string;
     const rows = cellsOfRows(html);
-    expect(rows[0].slice(0, 2)).toEqual(['Row ZZ', 'Next']);
+    expect(rows[0].slice(0, 3)).toEqual(['Row ZZ', '', 'Next']);
     expect(rows[1]).toEqual(['', '', '', 'Sum 10', 'Cur EUR']);
+  });
+  it('a node whose condition fails does not move the cell (LB_BIL_INVOICE LOOP_KOND COL2 / COL2A pair)', () => {
+    const cond = (cop: string) => ({ COND: [{ COP: cop, OP1: 'GS_FL-CARRID', OP2: "'ZZ'" }] });
+    const alt = {
+      ...table, cells: [1, 2, 3, 4, 5, 6].map(cell), children: [
+        t('C1', 'Row &GS_FL-CARRID&', { T_NEWLINE: 'X', T_LINETYPE: 'LINE' }),
+        { ...t('A1', 'Alt1', { T_NEWCELL: 'X' }, { line: null, cell: 1 }), condition: cond('EQ') },
+        { ...t('A2', 'Alt2', { T_NEWCELL: 'X' }, { line: null, cell: 1 }), condition: cond('NE') },
+        t('L', 'Last', { T_NEWCELL: 'X' }),
+      ],
+    };
+    const ca = { ...c, pages: [{ ...c.pages[0], windows: [{ ...c.pages[0].windows[0], content: [alt] }] }] };
+    const html = new Renderer(ca, vals).page().html as string;
+    const rows = html.split('<div class="row').slice(1)
+      .map((r) => r.split('<div class="cell"').slice(1).map((x) => (/Row [A-Z0-9]+|Alt1|Alt2|Last/.exec(x) || [''])[0]));
+    expect(rows[0]).toEqual(['Row ZZ', '', 'Alt1', 'Last', '', '']);
   });
 });
 

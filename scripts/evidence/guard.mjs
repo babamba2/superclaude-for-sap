@@ -23,8 +23,20 @@ import { readStdin } from '../lib/stdin.mjs';
 
 // The one pt.mjs allowed to write program-test run files: this plugin's own copy, resolved from
 // this file's location — a copy written elsewhere does not pass.
-const PT_PATH = resolve(dirname(fileURLToPath(import.meta.url)), '..', 'program-test', 'pt.mjs');
+const GUARD_DIR = dirname(fileURLToPath(import.meta.url));
+const PT_PATH = resolve(GUARD_DIR, '..', 'program-test', 'pt.mjs');
+// The allow-listed md-to-html.mjs / build-receipt.mjs: this plugin's own copies, resolved the same way.
+const MD_PATH = resolve(GUARD_DIR, '..', 'spec', 'md-to-html.mjs');
+const BR_PATH = resolve(GUARD_DIR, 'build-receipt.mjs');
 const normPath = (p) => resolve(p).replace(/\\/g, '/').toLowerCase();
+const WIN = process.platform === 'win32';
+/** A Git Bash drive path (/c/Users/…) as Windows reads it (C:/Users/…); other paths unchanged. */
+const nativePath = (p) => (WIN ? String(p).replace(/^\/([a-zA-Z])(?=\/|$)/, '$1:') : String(p));
+/** True when `script`, resolved against `base`, is exactly `target` (case-insensitive on Windows). */
+const isPluginScript = (script, base, target) => {
+  const key = (p) => { const r = resolve(p).replace(/\\/g, '/'); return WIN ? r.toLowerCase() : r; };
+  return key(resolve(nativePath(base || process.cwd()), nativePath(script))) === key(target);
+};
 
 /** True when the command only runs the plugin's own pt.mjs (absolute, or relative to the cwd) with plain arguments. */
 export function onlyPluginPt(cmd, cwd) {
@@ -53,8 +65,11 @@ const SHELL_TOOLS = new Set(['Bash', 'PowerShell']);
 //   - shell commands naming the profiles folder (cd / pushd / Set-Location into it included),
 //     unless they only move / delete, or read exactly <profile>/sap.env or config.json;
 //   - shell commands reading the sc4sap home with a wildcard or recursively;
+//   - links (ln / mklink / SymbolicLink / Junction) in commands naming the sc4sap home; a shell
+//     whose cwd is inside the home climbing out of it;
 //   - interpreter one-liners (node -e, python -c, powershell -c, bash -c, …) and encoded
 //     PowerShell that reference the sc4sap home or the user's home folder.
+// Allowed despite the above: only the two whole commands of allowListedCommand (below).
 const MASK_KEY = /mask\.key/i;
 const WIDE_READ = /[*?]|(?:^|\s)-[a-zA-Z]*[rR][a-zA-Z]*\b|-Recurse\b|\s\/s\b|\btar\b|\bzip\b|\brobocopy\b|\bxcopy\b/;
 const MOVE_ONLY = /^\s*(?:rm|mv|mkdir|rmdir|Remove-Item|Move-Item|New-Item)\b/i;
@@ -68,6 +83,53 @@ const HOME_REF = /\.sc4sap|sc4sap_home|homedir|USERPROFILE|\$HOME\b|\$env:HOME\b
 // Decoding inside a command hides the path it reads (`cat $(echo <base64> | base64 -d)`).
 const DECODE = /\bbase64\b[^|;&]*\s(?:-d|-D|--decode)\b|\bcertutil(?:\.exe)?\b[^|;&]*\s[-/]decode(?:hex)?\b|FromBase64String|\bopenssl\b[^|;&]*\b(?:base64|enc)\b[^|;&]*\s-d\b|\bxxd\b[^|;&]*\s-r\b/i;
 const ENCODED_PS =/\b(?:powershell|pwsh)(?:\.exe)?\b[^|;&]*\s-(?:e|ec|encodedcommand)\b/i;
+const GLOB_CHARS = /[*?[\]]/;
+const DOT_DOT = /(?:^|[\\/\s"'=])\.\.(?:[\\/\s"']|$)/;
+const PROFILES_WORD = /profiles/i;
+const LINK = /(?:^|[\s;&|(])(?:ln|link|mklink|fsutil)(?:\.exe)?\s|SymbolicLink|Junction|HardLink|CreateSymbolicLink|symlink/i;
+// a shell whose cwd is inside the home must not walk up from it (pwd | dirname, (Get-Item .).Parent, ~+)
+const CLIMB = /\b(?:pwd|dirname|Split-Path|Get-Location|Get-Item|Resolve-Path|realpath|readlink|find|xargs)\b|\.Parent\b|\$PWD\b|~\+|\bgl\b|\bgi\b/i;
+
+// ── allow-list: two plugin scripts on a program's state folder ──────────────
+// The ONE exception to the home checks below. The WHOLE command (trimmed) must be, after an
+// optional leading `cd <dir> && ` (<dir> without .sc4sap):
+//   node <path>/scripts/spec/md-to-html.mjs <path>/.sc4sap/program/<NAME>/<file>.md
+//   node <path>/scripts/evidence/build-receipt.mjs <NAME> [--also <list>] [--unit-test required]
+// <path> = [A-Za-z0-9_:/.-], optionally in double quotes, no `..` segment, no `profiles`; no shell
+// syntax anywhere (; | & $ ` { } \ * ? [ < > or a line break). The script, resolved against the
+// hook's cwd and the optional `cd <dir>`, must be this plugin's own copy (MD_PATH / BR_PATH) — a
+// same-named script elsewhere does not pass. No token is ever cut out of a command: anything else
+// naming the sc4sap home goes through the checks unchanged.
+const AL_TOK = String.raw`("[A-Za-z0-9_:/.-]+"|[A-Za-z0-9_:/.-]+)`;
+const AL_CD = new RegExp(String.raw`^cd[ \t]+${AL_TOK}[ \t]+&&[ \t]+`);
+const AL_MD = new RegExp(String.raw`^node[ \t]+${AL_TOK}[ \t]+${AL_TOK}$`);
+const AL_BR = new RegExp(String.raw`^node[ \t]+${AL_TOK}[ \t]+[A-Z0-9_/]{1,40}(?:[ \t]+--also[ \t]+[A-Z0-9_/,]{1,400})?(?:[ \t]+--unit-test[ \t]+required)?$`);
+const AL_FORBIDDEN = /[;|&$`{}\\*?[\]<>\r\n]/;
+const MD_TARGET = /^(?:([A-Za-z0-9_:/.-]*)\/)?\.sc4sap\/program\/[A-Z0-9_/]{1,40}\/[A-Za-z0-9_.-]+\.md$/;
+const unq = (t) => t.replace(/^"(.*)"$/, '$1');
+const plainPath = (p) => !p.split('/').includes('..') && !PROFILES_WORD.test(p);
+const scriptPath = (t, base, target) => { const p = unq(t); return plainPath(p) && !/\.sc4sap/i.test(p) && isPluginScript(p, base, target); };
+/** True when the whole command is one of the two allow-listed plugin script calls. */
+export function allowListedCommand(command, cwd) {
+  let c = String(command).trim();
+  let base = cwd || process.cwd();
+  const cd = c.match(AL_CD);
+  if (cd) {
+    const dir = unq(cd[1]);
+    const homeN = normPath(sc4sapHome());
+    base = resolve(nativePath(base), nativePath(dir));
+    if (!plainPath(dir) || /\.sc4sap/i.test(dir) || dir.toLowerCase().includes(homeN) || within(base, sc4sapHome()) || within(resolve(cwd || process.cwd(), dir), sc4sapHome())) return false;
+    c = c.slice(cd[0].length);
+  }
+  if (AL_FORBIDDEN.test(c)) return false;
+  const md = c.match(AL_MD);
+  if (md && scriptPath(md[1], base, MD_PATH)) {
+    const target = unq(md[2]).match(MD_TARGET);
+    return !!target && plainPath(unq(md[2])) && !/\.sc4sap/i.test(target[1] || '');
+  }
+  const br = c.match(AL_BR);
+  return !!br && scriptPath(br[1], base, BR_PATH);
+}
 const sc4sapHome = () => resolve(process.env.SC4SAP_HOME_DIR || join(homedir(), '.sc4sap'));
 const within = (child, parent) => {
   const c = normPath(child);
@@ -94,13 +156,23 @@ export function maskKeyRefusal(payload) {
   }
   if (SHELL_TOOLS.has(tool)) {
     const raw = String(input.command || '');
-    const cmd = flatten(raw);
+    const full = flatten(raw);
+    const fullNb = flattenNoBackslash(raw);
     // the shell already sits in a profile folder (its working directory persists)
     if (payload?.cwd && within(resolve(payload.cwd), join(sc4sapHome(), 'profiles'))) return `${reason}; leave the profile folder first`;
+    // a shell inside the sc4sap home (e.g. a program folder there) must not climb, name profiles,
+    // build a path from variables / braces / substitutions, or make links
+    if (payload?.cwd && within(resolve(payload.cwd), sc4sapHome())
+      && (DOT_DOT.test(full) || DOT_DOT.test(fullNb) || PROFILES_WORD.test(full) || PROFILES_WORD.test(fullNb) || /[$`{]/.test(raw) || LINK.test(full) || LINK.test(fullNb) || CLIMB.test(full)))
+      return `${reason}; leave the sc4sap folder first`;
+    // the one exception: the whole command is an allow-listed plugin script call
+    if (allowListedCommand(raw, payload?.cwd)) return null;
     // the sc4sap home as written (.sc4sap / SC4SAP_HOME_DIR) or as its resolved path
     const homeN = normPath(sc4sapHome());
-    const lower = cmd.toLowerCase();
     const namesHome = (s) => SC4SAP_HOME_REF.test(s) || s.toLowerCase().includes(homeN);
+    const cmd = full;
+    if ((namesHome(full) || namesHome(fullNb)) && (LINK.test(full) || LINK.test(fullNb))) return `${reason}; no links to or inside the sc4sap folder`;
+    const lower = cmd.toLowerCase();
     const namesProfiles = (s) => PROFILES_REF.test(s) || s.toLowerCase().includes(`${homeN}/profiles`);
     const exactFiles = new RegExp(`${homeN.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}/profiles/+[\\w.-]+/+(?:sap\\.env|config\\.json)(?![\\w.])`, 'gi');
     if (ENCODED_PS.test(raw)) return `${reason}; encoded PowerShell cannot be checked`;
@@ -111,9 +183,12 @@ export function maskKeyRefusal(payload) {
       const rest = cmd.replace(EXACT_PROFILE_FILE, '').replace(exactFiles, '');
       const exactFilesOnly = !namesProfiles(rest) && !CHAINED.test(raw) && !CD_LIKE.test(cmd) && !WIDE_READ.test(cmd);
       if (!moveOnly && !exactFilesOnly) return `${reason}; name the one file you need (sap.env / config.json)`;
+    } else if ((namesHome(cmd) || namesHome(fullNb)) && (PROFILES_WORD.test(cmd) || PROFILES_WORD.test(fullNb)) && !(MOVE_ONLY.test(cmd) && !CHAINED.test(raw))) {
+      // the home and `profiles` split apart, e.g. D=~/.sc4sap; cat $D/profiles/S4-DEV/x
+      return `${reason}; name the one file you need (sap.env / config.json)`;
     }
     if (CD_LIKE.test(cmd) && namesHome(cmd)) return `${reason}; do not change into the sc4sap folder`;
-    if (namesHome(cmd) && WIDE_READ.test(cmd) && !MOVE_ONLY.test(cmd)) return `${reason}; name the one file you need (sap.env / config.json)`;
+    if (namesHome(cmd) && (WIDE_READ.test(cmd) || GLOB_CHARS.test(raw)) && !MOVE_ONLY.test(cmd)) return `${reason}; name the one file you need (sap.env / config.json)`;
   }
   return null;
 }
@@ -130,7 +205,9 @@ export function decide(payload) {
   if (SHELL_TOOLS.has(tool)) {
     const cmd = String(input.command || '');
     if (!PROTECTED.test(cmd)) return null;
-    const onlyBuilder = /^\s*node\s+("[^"]*build-receipt\.mjs"|\S*build-receipt\.mjs)(\s+[\w\-,.:\\/"]+)*\s*$/.test(cmd);
+    // the plugin's own build-receipt.mjs (resolved against the cwd, as pt.mjs) with plain arguments
+    const b = cmd.match(/^\s*node\s+("[^"]*build-receipt\.mjs"|\S*build-receipt\.mjs)(\s+[\w\-,.:\\/"]+)*\s*$/);
+    const onlyBuilder = !!b && isPluginScript(unq(b[1]), payload?.cwd, BR_PATH);
     return onlyBuilder || onlyPluginPt(cmd, payload?.cwd) ? null : 'evidence ledger, receipt.json and program-test run files are protected; use the Read tool to read them, build-receipt.mjs / the plugin\'s program-test/pt.mjs to write them';
   }
   return null;

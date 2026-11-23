@@ -44,7 +44,7 @@ If the chosen alias shares a `-`-segmented prefix with any existing profile (e.g
 
 ```
 SAP_INDUSTRY, SAP_ACTIVE_MODULES, SAP_LANGUAGE, SAP_VERSION,
-ABAP_RELEASE, SAP_SYSTEM_TYPE, MCP_BLOCKLIST_PROFILE, namingConvention (config.json)
+ABAP_RELEASE, MCP_BLOCKLIST_PROFILE, namingConvention (config.json)
 ```
 
 Connection fields (host/client/user/password) are ALWAYS entered fresh. Default: **ask explicitly** (`yes, copy` / `no, enter fresh`). Do NOT auto-apply. Rationale: sharing a prefix is a naming convention, not a guarantee of system identity — the KR-DEV system may be S/4HANA while KR-PRD is still ECC during a migration window. When the user declines the copy, fall through to §4.4b which re-collects the three identity fields (SAP_VERSION / ABAP_RELEASE / SAP_INDUSTRY) fresh.
@@ -55,11 +55,11 @@ Connection fields (host/client/user/password) are ALWAYS entered fresh. Default:
 |---|---|---|
 | `SAP_URL` | `^https?://[^ ]+$`, no trailing `/` | Same host for the tier |
 | `SAP_CLIENT` | Exactly 3 digits | |
-| `SAP_AUTH_TYPE` | `basic` \| `xsuaa` | If `xsuaa` → also collect `XSUAA_URL / XSUAA_CLIENT_ID / XSUAA_CLIENT_SECRET / XSUAA_TOKEN_URL` |
 | `SAP_USERNAME` | Non-empty | |
 | `SAP_PASSWORD` | NEVER ask in chat | Not collected by the wizard. §4.6 sends `passwordPrompt: true`; the CLI opens a masked password window and stores the value in the OS keychain |
 | `SAP_LANGUAGE` | 2-letter uppercase, default `EN` | |
-| `SAP_SYSTEM_TYPE` | `onprem` \| `cloud`, default `onprem` | Deployment only: `onprem` = on-premise (S/4HANA or ECC) · `cloud` = S/4HANA Cloud. ECC vs S/4HANA goes in `SAP_VERSION` (§4.4b). Any other value hides the on-prem-only tools |
+
+**On-premise only.** Setup connects S/4HANA or ECC on-premise systems (the difference goes in `SAP_VERSION`, §4.4b). Auth type and system type are not asked; the CLI writes `SAP_AUTH_TYPE=basic` and `SAP_SYSTEM_TYPE=onprem` and refuses `authType` other than `basic` or `systemType: "cloud"` (exit 2). If the user asks for a SAP BTP or S/4HANA Cloud system, say setup does not support it.
 
 **Password — never in the chat.** Do not ask for the password with `AskUserQuestion` or free text. If the user types a password in the chat anyway, do not repeat it, do not put it in a payload; tell them to change it later via `set-password` if they worry about the transcript. Before §4.6 tell the user one line: "A password window will open — type the SAP password there."
 
@@ -86,7 +86,7 @@ Free-form short label, stored in `sap.env`. Used by HUD + `sap-option list`. Exa
 Compose the JSON payload and pipe it on stdin:
 
 ```bash
-echo '{"alias":"KR-DEV","tier":"DEV","host":"https://<host>:<port>","client":"<client>","username":"<user>","passwordPrompt":true,"language":"EN","systemType":"onprem","version":"S4","abapRelease":"816","industry":"other","activeModules":"MM,SD,FI,CO,PP","description":"...","copyFrom":"KR-DEV"}' \
+echo '{"alias":"KR-DEV","tier":"DEV","host":"https://<host>:<port>","client":"<client>","username":"<user>","passwordPrompt":true,"language":"EN","version":"S4","abapRelease":"816","industry":"other","activeModules":"MM,SD,FI,CO,PP","description":"...","copyFrom":"KR-DEV"}' \
   | node "$CLAUDE_PLUGIN_ROOT/scripts/sap-profile-cli.mjs" add
 ```
 

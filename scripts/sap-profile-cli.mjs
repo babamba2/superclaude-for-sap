@@ -279,6 +279,14 @@ async function cmdAdd() {
   if (offline && (payload.host || payload.password || payload.passwordPrompt)) {
     die(2, 'add: an offline profile takes no host / password — create it online or switch later with set-connection');
   }
+  // Setup connects on-premise systems only (S/4HANA or ECC). SAP BTP / S/4HANA Cloud (xsuaa auth, cloud system type)
+  // is not supported: refuse it here so no wizard misroute writes such a profile.
+  if (payload.authType && String(payload.authType).trim().toLowerCase() !== 'basic') {
+    die(2, 'add: authType must be basic — SAP BTP / xsuaa is not supported');
+  }
+  if (String(payload.systemType || '').trim().toLowerCase() === 'cloud') {
+    die(2, 'add: systemType cloud is not supported — on-premise (S/4HANA or ECC) only');
+  }
   const targetDir = join(profilesDir(), alias);
   if (existsSync(targetDir)) die(4, `profile already exists: ${alias}`);
 
@@ -288,7 +296,7 @@ async function cmdAdd() {
     if (!src) die(3, `copyFrom profile not found: ${payload.copyFrom}`);
     base = {
       SAP_LANGUAGE: src.language,
-      SAP_SYSTEM_TYPE: normalizeSystemType(src.systemType),
+      SAP_SYSTEM_TYPE: normalizeSystemType(src.systemType) === 'cloud' ? 'onprem' : normalizeSystemType(src.systemType),
       SAP_VERSION: src.version,
       ABAP_RELEASE: src.abapRelease,
       SAP_INDUSTRY: src.industry,
@@ -367,7 +375,7 @@ async function cmdAdd() {
   const env = {
     SAP_URL: payload.host || '',
     SAP_CLIENT: payload.client || '',
-    SAP_AUTH_TYPE: payload.authType || 'basic',
+    SAP_AUTH_TYPE: 'basic',
     SAP_USERNAME: username,
     SAP_PASSWORD: passwordRef,
     SAP_LANGUAGE: payload.language || base.SAP_LANGUAGE || 'EN',
