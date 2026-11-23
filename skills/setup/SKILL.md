@@ -76,7 +76,7 @@ Full spec: see [`../trust-session/SKILL.md`](../trust-session/SKILL.md).
 > - Do not advance to the next question until the user has answered the current one.
 > - As soon as the user answers, record/apply the value and move to the next step.
 > - Even when a single step has multiple fields (e.g., Step 4 SAP connection info), ask **one field per message**.
->   Example: ask `SAP_URL?` → wait for answer → ask `SAP_CLIENT?` → wait → ask `SAP_AUTH_TYPE?` → ...
+>   Example: ask `SAP_URL?` → wait for answer → ask `SAP_CLIENT?` → wait → ask `SAP_USERNAME?` → ...
 > - If a value already exists in `.sc4sap/sap.env` or `.sc4sap/config.json`, show the current value and offer "press Enter to keep / type a new value".
 > - Keep prompts short. Do not paste long wall-of-text instructions.
 >
