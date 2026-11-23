@@ -149,6 +149,11 @@ This file lists the Clean ABAP rules that apply regardless of paradigm. Follow e
   - OOP — ABAP Unit `LOCAL CLASS ... FOR TESTING`, `CL_ABAP_TESTDOUBLE`, `LOCAL FRIENDS` only for constructor access — see [`clean-code-oop.md`](clean-code-oop.md) § Testing.
   - Procedural — FORM testing limits (hard to mock globals); recommend extracting testable logic into a helper class tested separately — see [`clean-code-procedural.md`](clean-code-procedural.md) § Testing.
 
+## Commit and Current Date / Time
+
+- **`COMMIT WORK AND WAIT`, not bare `COMMIT WORK`.** Bare `COMMIT WORK` returns before the update task has written the data, so a read-back, a follow-on step or a message with the document number can see nothing. With BAPIs call `BAPI_TRANSACTION_COMMIT` with `wait = abap_true`. Bare `COMMIT WORK` only when asynchronous update is intended — one-line comment saying why. No commit at all inside update-task function modules.
+- **`sy-datlo` / `sy-timlo`, not `sy-datum` / `sy-uzeit`**, for the current date and time: the user's time zone, not the application server's. Applies to selection-screen defaults, screen and ALV output, and log and message texts. `sy-datum` / `sy-uzeit` only where server time is required (e.g. compared with a field the system writes in server time, or a document date such as a posting date that the module takes in server time) — one-line comment saying why. Stored timestamps: `GET TIME STAMP FIELD` (UTC).
+
 ## Performance
 
 - **Measure, don't guess**. Use `RuntimeRunClassWithProfiling` / `RuntimeAnalyzeProfilerTrace`.
@@ -180,3 +185,4 @@ This file lists the Clean ABAP rules that apply regardless of paradigm. Follow e
 6. `ActivateObjects` without errors (it is the syntax check; `GetAbapSemanticAnalysis` is at most informational) and `RunUnitTest` green; `GetInactiveObjects` empty.
 7. Syntax matches the configured `ABAP_RELEASE`.
 8. Blocklist / `acknowledge_risk` rules respected in any `GetTableContents` / `GetSqlQuery` invocation.
+9. Commits are `COMMIT WORK AND WAIT` (or `BAPI_TRANSACTION_COMMIT` with `wait`); current date / time uses `sy-datlo` / `sy-timlo` — any other form carries a comment saying why.
