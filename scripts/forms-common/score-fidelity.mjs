@@ -85,18 +85,41 @@ export function scaleLayout(layout, f) {
 function blocksOf(page) {
   // a text outside the page box (content a writer keeps off the sheet) is not printed
   const inPage = (t) => !(page.w > 0 && page.h > 0) || (t.x >= -1 && t.x <= page.w + 1 && t.y >= -1 && t.y <= page.h + 1);
-  // the same text drawn twice at one spot is one printed text (synthetic bold: a writer draws the glyphs twice)
-  const seen = new Set();
-  const texts = (page.texts || []).filter((t) => {
-    if (!norm(t.text) || !inPage(t)) return false;
-    const k = `${t.text}|${Math.round(t.x * 10)}|${Math.round(t.y * 10)}`;
-    if (seen.has(k)) return false;
-    seen.add(k);
-    return true;
+  // the same text drawn twice at one spot is one printed text (synthetic bold: a writer draws the glyphs twice).
+  // With widths the pieces are merged first and whole runs compared: single glyphs drawn at one spot can belong to
+  // different strings (a migrated header row prints "Carrier" / "Connection" / "Currency" over each other — EX10 old)
+  const dedupe = (list) => {
+    const seen = new Set();
+    return list.filter((t) => {
+      const k = `${norm(t.text)}|${Math.round(t.x * 10)}|${Math.round(t.y * 10)}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+  };
+  const all = (page.texts || []).filter((t) => norm(t.text) && inPage(t));
+  const merge = all.length && all.every((t) => Number.isFinite(+t.w) && Number.isFinite(+t.pt));
+  // Before merging, drop a piece that repeats an earlier one only when the copy is a real double draw (a preview's
+  // synthetic bold draws a run twice, glyph by glyph): the copy comes right after the original, or the run of
+  // pieces around it repeats the original's run in content order for 3+ pieces or for the whole original word.
+  // Glyphs that only share their spot with glyphs of another string (overprinted header words: "Carrier" and
+  // "Currency" share "C" and "rr") stay, so the merge can keep those strings apart.
+  const key = (t) => t && `${norm(t.text)}|${Math.round(t.x * 10)}|${Math.round(t.y * 10)}`;
+  const touch = (a, b) => a && b && Math.abs(a.y - b.y) < 0.15 && Math.abs(b.x - (a.x + +a.w)) < 0.3;
+  const firstAt = new Map();
+  const texts = !merge ? all : all.filter((t, k) => {
+    const K = key(t);
+    if (!firstAt.has(K)) { firstAt.set(K, k); return true; }
+    const j = firstAt.get(K);
+    if (k === j + 1) return false;
+    let b = 0, f = 0;
+    while (j - b - 1 >= 0 && j - b - 1 !== k - b - 1 && key(all[j - b - 1]) === key(all[k - b - 1])) b++;
+    while (j + f + 1 < k && key(all[j + f + 1]) === key(all[k + f + 1])) f++;
+    const word = !touch(all[j - b - 1], all[j - b]) && !touch(all[j + f], all[j + f + 1]);
+    return !(b + f + 1 >= 3 || word);
   });
-  const merge = texts.length && texts.every((t) => Number.isFinite(+t.w) && Number.isFinite(+t.pt));
   // raw keeps the blanks inside a block (a gap the block itself prints, e.g. "Total" + 26 blanks + ":")
-  return (merge ? mergeRuns(texts) : texts).filter((b) => norm(b.text)).map((b) => ({ x: r2(b.x), y: r2(b.y), text: norm(b.text),
+  return dedupe(merge ? mergeRuns(texts) : texts).filter((b) => norm(b.text)).map((b) => ({ x: r2(b.x), y: r2(b.y), text: norm(b.text),
     raw: String(b.text).normalize('NFC').replace(/[\t ]/g, ' ').trim(),
     ...(Number.isFinite(+b.w) ? { w: r2(b.w) } : {}), ...(Number.isFinite(+b.pt) ? { pt: +b.pt } : {}), ...(b.wEst ? { wEst: true } : {}) }));
 }

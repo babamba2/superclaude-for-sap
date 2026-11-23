@@ -244,3 +244,33 @@ describe('score-fidelity: the start check is only for widths the PDF reader esti
     });
   }
 });
+
+describe('score-fidelity: strings drawn over each other, glyph by glyph (EX10 old header row) and synthetic bold', () => {
+  // pieces in the order a page draws them; every glyph 2 mm wide at 12 pt
+  const glyphs = (word: string, x: number, y: number) => [...word].map((ch, i) => ({ x: x + 2 * i, y, w: 2, pt: 12, text: ch }));
+  const words = (list: string[], x: number, y: number) => list.map((text) => ({ x, y, w: 2 * text.length, pt: 12, text }));
+  const page = (texts: object[]) => ({ pages: [{ w: 210, h: 297, texts, lines: [] }] });
+  const header = ['Carrier', 'Connection', 'Currency'];
+  it('keeps three words printed at one spot apart, each matched (was "Carriercy n" + "onnection" + "urrency")', () => {
+    const r = scoreFidelity(page(words(header, 20, 30)), page(header.flatMap((w) => glyphs(w, 20, 30))));
+    expect(r.counts).toMatchObject({ matched: 3, missing: 0, extra: 0 });
+  });
+  it('still counts a word drawn twice at one spot once (synthetic bold), whole or glyph by glyph', () => {
+    const ref = page(words(['Total'], 20, 30));
+    expect(scoreFidelity(ref, page([...words(['Total'], 20, 30), ...words(['Total'], 20, 30)])).counts).toMatchObject({ matched: 1, extra: 0 });
+    const twice = glyphs('Total', 20, 30).flatMap((g) => [g, { ...g }]);
+    expect(scoreFidelity(ref, page(twice)).counts).toMatchObject({ matched: 1, extra: 0 });
+    expect(scoreFidelity(ref, page([...glyphs('Total', 20, 30), ...glyphs('Total', 20, 30)])).counts).toMatchObject({ matched: 1, extra: 0 });
+  });
+  it('a line of words drawn twice glyph by glyph counts once (preview synthetic bold; geometry of an ECC corpus form)', () => {
+    // 15 pt monospace, glyph 2.65 mm on a 2.75 mm pitch. The first copy is in a CID font (a blank is half an em, so the
+    // whole line merges into one run), the second in a non-CID fallback font (the line splits into words): merged runs
+    // of the two copies differ, so only a dedupe of the pieces before the merge sees the double draw (was 4 extras)
+    const mono = (word: string, x: number, cid: boolean) => [...word].map((ch, i) => ({ x: x + 2.75 * i, y: 34.59, w: 2.65, pt: 15, cid, text: ch }));
+    const at: [string, number][] = [['Samples', 12], ['Text', 33.89], ['Example', 47.53], ['Firm.', 69.42]];
+    const copy = (cid: boolean) => at.flatMap(([w, x]) => mono(w, x, cid));
+    // SAP prints the line as one string
+    const ref = page([{ x: 11.99, y: 34.59, w: 70.17, pt: 15, cid: true, text: 'Samples Text Example Firm.' }]);
+    expect(scoreFidelity(ref, page([...copy(true), ...copy(false)])).counts).toMatchObject({ missing: 0, extra: 0 });
+  });
+});
