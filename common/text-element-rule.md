@@ -46,6 +46,7 @@ For the `create-program` skill, the planner's text-element table in `plan.md` mu
 ## Enforcement
 
 - `CreateTextElement` MCP registers each text id per program/screen — caller MUST pass `text_type` explicitly (`I` / `S` / `R` / `H`); no default.
+- `WriteTextElementsBulk` (one call per language, all types) is written after the program exists, with `activate: true` (the default — the pool is active at once). Never `activate: false`: that pool stays inactive, is not on the inactive worklist, and program activation does not promote it.
 - For every program, the executor emits (per language pass, primary + `'E'`):
   - 1× type `R` (program title)
   - N× type `I` (one per `TEXT-xxx` literal in source)

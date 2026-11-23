@@ -26,21 +26,22 @@ Dispatch rules (main thread, ONE message):
 
 ## Step 2 — Opus judge (`sc4sap:sap-code-reviewer`, `model: "opus"`)
 
-One dispatch. The judge receives `review-candidates.md`, the object list, `spec.md`, `interview.md`, and `consult-{module}.md` paths. It:
+One dispatch. The judge receives `review-candidates.md`, the object list, `spec.md`, `interview.md`, `consult-{module}.md`, `decisions.md` and `plan.md` paths (the last two settle business points for § 1 of `review-questions.md`). The judge owns `QUESTION` detection on this path. It:
 
 1. **Adjudicates every `CAND` line** — confirm or reject with a one-line reason. Opens source only around the cited line (`GetInclude` / `GetProgram`), not whole programs. Merges duplicates across groups.
 2. **Runs the judgment items itself** (no detector can decide these): §5 OOP two-class separation, §8 paradigm-specific design (method size / responsibility, template conformance of Main), §11 SPRO consistency against `consult-{module}.md`. Reads only the files those sections name.
 3. **Reviews every "unscanned" scope** from Step 1 directly.
-4. Classifies each confirmed finding `MINOR` / `MAJOR` per `phase6-buckets.md` § Finding Classification, and returns the full `review.md` body (per-item verdict table) plus a machine-readable fix list: `FIX obj=<name> item=<§n> severity=<MINOR|MAJOR> line=<n> change="<what to change>"`.
+4. Classifies each confirmed finding `MINOR` / `MAJOR` per `phase6-buckets.md` § Finding Classification, and returns the full `review.md` body (per-item verdict table) plus a machine-readable fix list: `FIX obj=<name> item=<§n> severity=<MINOR|MAJOR> line=<n> change="<what to change>"`, and `QUESTION` lines for business-intent items ([`../../common/review-questions.md`](../../common/review-questions.md) § 1–2, max 5) — a candidate that is valid code but may be deliberate becomes a question, not a fix.
 
 The reviewer agent is read-only (`disallowedTools: [Write, Edit]`, no `Update*` tools) — it **returns** text; main writes `review.md`. Banner: `▶ phase=6.judge · agent=sap-code-reviewer · model=Opus`.
 
 ## Step 3 — Fix loop
 
+- First handle the `QUESTION` lines per [`phase6-output-format.md`](./phase6-output-format.md) § Business Questions (asked in `manual` / `hybrid`, auto-decided in `auto`); *not intended* answers and auto `fix` decisions join the fix list.
 - Fix list empty → `review.md` verdict `✅ ALL PASS` → Phase 8.
 - Otherwise the `FIX` lines are applied per [`cost-rules.md`](cost-rules.md) § 1a — small fixes by main-thread Edit, larger ones by one fresh `sc4sap:sap-executor` (split per object only when > 10 fixes; never a resumed agent), with `Update*` + re-activation; the re-review covers the diff only.
-- Re-run Step 1 **only for the fixed objects and only the groups that produced the findings**, then the judge **scoped to those findings**. Max 3 iterations; afterwards residual MAJOR → `❌ BLOCKED` per `phase6-output-format.md`.
-- In `manual` / `hybrid` mode, prompt before the first fix dispatch.
+- Re-run Step 1 **only for the fixed objects and only the groups that produced the findings**, then the judge **scoped to those findings**. Max 3 iterations; afterwards residual MAJOR → `❌ BLOCKED` per `phase6-output-format.md` (an auto-decided fix is reverted and left open instead — `review-questions.md` § 6).
+- In `manual` mode, prompt before the first fix dispatch.
 
 ## Golden-set gate (before making `detect-judge` the default)
 

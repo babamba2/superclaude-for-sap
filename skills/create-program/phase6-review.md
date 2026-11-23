@@ -19,11 +19,13 @@ A successful activation from Phase 4 only proves the code **compiles and links**
 Delegate to `sap-code-reviewer`. Pass:
 - The list of object names created in Phase 4 (with type: PROG/I, PROG/P, DYNP, CUAD, etc.)
 - The transport number
-- The path to `spec.md`
+- The path to `spec.md` (plus `interview.md`, `consult-{module}.md`, `decisions.md`, `plan.md` for the reviewer that owns business questions — B2 or the judge)
 - A reminder that it returns text only — the main thread writes `.sc4sap/program/{PROG}/review.md`
 - The path to `verify-phase4.md` (Phase 4 Haiku verify results; a created screen / GUI status with no block there is a MAJOR finding under §1)
 
 **Execution strategy** — chosen by `~/.sc4sap/preferences.json` → `phase6Strategy`: `buckets` (default — 4-bucket parallel Sonnet + Opus escalation, [`phase6-buckets.md`](./phase6-buckets.md)) or `detect-judge` (opt-in — Haiku detectors × N + one Opus judge, [`phase6-detect-judge.md`](./phase6-detect-judge.md)). Both share the PASS / MINOR / MAJOR classification in `phase6-buckets.md`; in both the reviewer is read-only and fixes follow [`cost-rules.md`](cost-rules.md) § 1a (main-thread Edit or a fresh `sap-executor`; diff-only re-review). The checklist below remains the source of truth for WHAT is checked; buckets only govern HOW the checks are distributed.
+
+**Business questions** — besides the checklist, a reviewer that meets valid code whose correctness depends on a business rule that `spec.md` / `interview.md` / `consult-{module}.md` / `decisions.md` do not settle returns a `QUESTION` line, not a `FIX` ([`../../common/review-questions.md`](../../common/review-questions.md), max 5). Questions are handled before the fix loop — asked in `manual` / `hybrid`, decided with the best option in `auto` ([`execution-mode.md`](./execution-mode.md)); points the Phase 4 live consultant review already settled are never asked again — see [`phase6-output-format.md`](./phase6-output-format.md) § Business Questions.
 
 ## Convention Checklist
 

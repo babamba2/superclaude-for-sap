@@ -67,7 +67,8 @@ import { FLOW_EDITOR_STYLE, FLOW_EDITOR_SCRIPT, FLOW_PAGE_SCRIPT, flowEditorLabe
 import { SPEC_EDITOR_STYLE, SPEC_EDITOR_SCRIPT, specEditorLabels, quillAssets } from './spec-editor.mjs';
 import { withResponsive } from '../lib/responsive.mjs';
 
-const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.min.js';
+// Exact version: claude.ai Artifacts (create-program result page) refuse a range like @11.
+const MERMAID_CDN = 'https://cdn.jsdelivr.net/npm/mermaid@11.4.1/dist/mermaid.min.js';
 
 const MIME = {
   '.png': 'image/png',

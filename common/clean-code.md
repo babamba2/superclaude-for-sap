@@ -177,6 +177,6 @@ This file lists the Clean ABAP rules that apply regardless of paradigm. Follow e
 3. Methods short, one responsibility, ≤ 3 params.
 4. Every exception is caught by a handler that does something, or rethrown.
 5. Text Elements used; no language literals in output.
-6. `RunUnitTest` and `GetAbapSemanticAnalysis` both green; `GetInactiveObjects` empty.
+6. `ActivateObjects` without errors (it is the syntax check; `GetAbapSemanticAnalysis` is at most informational) and `RunUnitTest` green; `GetInactiveObjects` empty.
 7. Syntax matches the configured `ABAP_RELEASE`.
 8. Blocklist / `acknowledge_risk` rules respected in any `GetTableContents` / `GetSqlQuery` invocation.

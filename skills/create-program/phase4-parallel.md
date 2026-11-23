@@ -29,7 +29,7 @@ Wave 1 (HIGHEST PRIORITY — must fully complete before Wave 2):
         │
         ▼
 Wave 2 (parallel, all launch simultaneously after Wave 1):
-   G2 (Classes + Interfaces)  ║  G3 (Functions)  ║  G4-prep (Text Elements only)
+   G2 (Classes + Interfaces)  ║  G3 (Functions)  ║  G4-prep (Text Element rows; pool written after CreateProgram)
         │                           │                   │
         ▼                           ▼                   ▼
         └─────────┬─────────────────┘
@@ -46,7 +46,7 @@ Final step:
    Batch activation via GetInactiveObjects
 ```
 
-**Why G4 splits**: Text Elements are attached to the main program but don't need the program to exist during creation (they're just strings). Screens and GUI Status, however, are child objects of the program — they must be created AFTER the main program exists. So `G4-prep` (Text Elements) runs with Wave 2; `G4-late` (Screens + GUI Status) runs as Wave 4.
+**Why G4 splits**: Text Elements are just strings, so their rows are prepared with Wave 2 — but the text pool is **written only after the main program exists** (right after Wave 3 `CreateProgram`), with `WriteTextElementsBulk` `activate: true`, which writes it active at once (no program activation needed). Screens and GUI Status are child objects of the program with their own Create → Update → Verify protocol, so `G4-late` runs as Wave 4.
 
 ## Multi-Executor Split — triggered by Phase 2 sizing
 
@@ -77,18 +77,18 @@ Between steps, NO activation call — SAP can create inactive chains. Activation
 > **teamMode variant (Type B, opt-in)** — only when `state.json` → `consultant_live_review: true` (Phase 3.5 Step 1b). Then within G2 (Classes) and G3 (Function Modules), if the drafted code touches tables/FMs in 2+ modules AND is novel business logic, activate Type B teamMode per [`team-mode-b.md`](team-mode-b.md) BEFORE `ActivateObjects`. Consultants live-review; findings annotated `peer-validated` propagate to Phase 6 (avoids double-review). Skip for template-fill / boilerplate.
 
 - **Context kit**: `../../common/oop-pattern.md` (OOP), `../../common/function-module-rule.md`, `../../common/text-element-rule.md` (G4-prep)
-- **Model**: Opus for G2/G3 (`model: "opus"` override — novel classes/FMs; eco: Sonnet · medium with Opus escalation per [`cost-rules.md`](cost-rules.md) § 2); **Sonnet for G4-prep** (bulk repetitive CreateTextElement); **Haiku `sap-checker`** for the G4-prep count check
+- **Model**: Opus for G2/G3 (`model: "opus"` override — novel classes/FMs; eco: Sonnet · medium with Opus escalation per [`cost-rules.md`](cost-rules.md) § 2); **Sonnet for G4-prep** (bulk `WriteTextElementsBulk`, `activate: true`); **Haiku `sap-checker`** for the G4-prep count check
 
-All three groups launch in a single multi-tool-use message as **two** `Agent(...)` calls — one `sap-executor` with `model: "opus"` (eco: `"sonnet"`, `cost-rules.md` § 2) for G2 + G3, one with `model: "sonnet"` for G4-prep (one model per dispatch). Within each group, members launch in parallel too:
+All three groups launch in a single multi-tool-use message as **two** `Agent(...)` calls — one `sap-executor` with `model: "opus"` (eco: `"sonnet"`, `cost-rules.md` § 2) for G2 + G3, one with `model: "sonnet"` for G4-prep (one model per dispatch; its pool write waits for `CreateProgram` — see G4-prep below). Within each group, members launch in parallel too:
 
 - **G2**: parallel `CreateInterface` + `CreateClass` calls. If a class `IMPLEMENTS` an interface, SAP tolerates inactive interface refs during creation — activation resolves them in the final batch.
 - **G3**: `CreateFunctionGroup` first (small-serial), then parallel `CreateFunctionModule` within the group. Each `UpdateFunctionModule` body **MUST follow [`../../common/function-module-rule.md`](../../common/function-module-rule.md)** — inline `IMPORTING / EXPORTING / CHANGING / TABLES / EXCEPTIONS` clauses directly in the `FUNCTION` statement (not as `*"` comments, not as shadow locals). Empty signature placeholder `" You can use the template 'functionModuleParameter' ...` is a failure marker.
-- **G4-prep**: parallel `CreateTextElement` calls. **MANDATORY — emit all four applicable types per [`../../common/text-element-rule.md`](../../common/text-element-rule.md)**:
+- **G4-prep** — **written after the main program exists** (dispatch it once Wave 3 step 2 `CreateProgram` has returned, in parallel with Wave 3 step 3 / Wave 4; the Wave 2 executor only prepares the rows). One `WriteTextElementsBulk(program_name, language, text_elements)` per language pass with **`activate: true`** (the default — never pass `false`: an inactive pool is not on the inactive worklist, so program activation does not promote it and the program runs with raw names). `CreateTextElement` only for a single later addition. **MANDATORY — emit all four applicable types per [`../../common/text-element-rule.md`](../../common/text-element-rule.md)**:
   - Type `R` — 1× program title (per language pass).
   - Type `I` — one per `TEXT-xxx` literal used in source (ALV coltext, MESSAGE, titles in code).
   - **Type `S` — one per `SELECT-OPTIONS` and `PARAMETERS` name on the selection screen.** Skipping `S` is the single most common Phase 4 regression — runtime shows `S_BUDAT` / `P_FILE` instead of human labels. Do not rely on a later pass to add them.
   - Type `H` — only when the program emits classical WRITE lists (skip for ALV-only).
-  - After creation, the main thread dispatches one `sap-checker` (`MODE: verify`) per language pass per [`phase4-verify.md`](./phase4-verify.md) § Verification fan-out; it calls `ReadTextElementsBulk(program, language)` and asserts: `counts.R ≥ 1` AND `counts.I == emitted_I` AND `counts.S == declared_select_options_and_parameters`. On mismatch, re-emit the missing rows before Wave 3 starts.
+  - After creation, the main thread dispatches one `sap-checker` (`MODE: verify`) per language pass per [`phase4-verify.md`](./phase4-verify.md) § Verification fan-out; it calls `ReadTextElementsBulk(program, language)` and asserts: `counts.R ≥ 1` AND `counts.I == emitted_I` AND `counts.S == declared_select_options_and_parameters`. On mismatch, re-emit the missing rows (again `activate: true`) before the Final Step activation.
 
 ### Wave 3 — G5 (Includes + Main Program)
 
@@ -110,9 +110,9 @@ Any structural deviation (event block reordering, include-suffix rename, bootstr
 Then:
 1. **Parallel**: `CreateInclude` for every required include (`{PROG}T` / `S` / `C` / `CT` / `E` / `O` / `I` / `F` as the spec dictates — see `include-structure.md`)
 2. **Single**: `CreateProgram` for the main REPORT (attaches include refs)
-3. **Single**: `GetAbapSemanticAnalysis(main)` — analyzes the whole include tree together; per-include check is skipped because includes cannot parse standalone (cross-include type refs fail).
+3. **No program-wide syntax check here.** `GetAbapSemanticAnalysis` only parses the text it is given and does not resolve includes, so it is not a syntax check of the program (optional: a quick local parse of one self-contained body). The SAP syntax check of the whole include tree runs inside `ActivateObjects` at the Final Step ([`../../common/evidence-receipt.md`](../../common/evidence-receipt.md) § Syntax).
 
-On syntax errors, parse locations → identify offending include(s) → **parallel** `UpdateInclude` patches → re-run `GetAbapSemanticAnalysis(main)`. Loop max 3 iterations. On persistent failure, escalate to Phase 7 (sap-debugger).
+On activation syntax errors, parse the include / line from the `ActivateObjects` messages → **parallel** `UpdateInclude` patches → activate again. Loop max 3 iterations. On persistent failure, escalate to Phase 7 (sap-debugger).
 
 ### Wave 4 — G4-late (Screens + GUI Status) + Final Step — Batch Activation
 
@@ -128,6 +128,7 @@ Moved to [`phase4-verify.md`](./phase4-verify.md): the 3-step `Create → Update
 | G2 classes and G3 FMs can be concurrent | No hard dependency; activation resolves |
 | Includes → Main Program | Main references include names |
 | Main Program → Screens + GUI Status | Screen flow logic lives in main |
+| Main Program → text pool write | `WriteTextElementsBulk` (`activate: true`) targets the existing program |
 | Everything → activation | Activation resolves all cross-refs at once |
 
 ## Error Recovery Matrix
@@ -137,7 +138,7 @@ Moved to [`phase4-verify.md`](./phase4-verify.md): the 3-step `Create → Update
 | Wave 1 — Domain/DTEL/Table collision | Abort; user confirms overwrite via `Update*` |
 | Wave 1 — ECC DDIC helper path | Pause, emit user message, wait for user confirmation |
 | Wave 2 — class/interface collision | Same as Wave 1 |
-| Wave 3 — syntax errors on main | Wave 3 Step E loop (max 3) |
+| Wave 3 / Final Step — syntax errors from `ActivateObjects` | Wave 3 patch loop (max 3) |
 | Wave 3 — unresolved include | Step D missed an include; re-run just that include |
 | Wave 4 — screen/GUI collision | Abort; user confirms overwrite |
 | Batch activation failure | Reorder by dependency, retry. Persistent fail → Phase 7 |

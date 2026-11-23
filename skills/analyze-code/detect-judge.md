@@ -48,7 +48,7 @@ One dispatch. Banner: `▶ phase=2c (judge) · agent=sap-code-reviewer · model=
 1. **Adjudicates every `CAND` line** — confirm or reject with a one-line reason, reading source only around the cited line. Merges duplicates across groups.
 2. **Evaluates the judgment dimensions itself** — §1 Syntax/semantics (`GetAbapAST`, `GetAbapSemanticAnalysis`), §4 OO patterns (`common/oop-pattern.md`), §9 SPRO lookup (`common/spro-lookup.md`), §14 where-used impact (`GetWhereUsed` — the scout's top-10 is only a start), plus module-aware naming from `configs/common/naming-conventions.md`.
 3. **Reviews every "unscanned" scope** directly.
-4. Returns the same contract as the single reviewer: `FINDING` lines below, summary metrics, top-3 fixes.
+4. Returns the same contract as the single reviewer: `FINDING` lines below, `QUESTION` lines for business-intent items ([`../../common/review-questions.md`](../../common/review-questions.md) § 1–2, max 5), summary metrics, top-3 fixes. A candidate that is valid code but may be deliberate becomes a `QUESTION`, not a rejection.
 
 `BLOCKED` from the judge → surface the reason verbatim and stop, as for the single reviewer.
 
@@ -72,6 +72,7 @@ Catches findings whose quoted code does not exist — the reviewer's most damagi
 - Each assertion: `a<F-id>` — "`<unit>` contains `<evidence>` (whitespace and case ignored); evidence = the line number where it occurs".
 - `PASS` → finding stays; if the reported line differs from the cited one by more than 3, main corrects `line` to the reported one. `FAIL` → finding moves to an **Unverified** list: left out of severity counts and the quality score, shown at the end of the report with the checker's evidence line.
 - `line=-` findings skip 2d and are labelled *not line-anchored* in the report. Skip 2d entirely when there are no line-anchored findings.
+- Line-anchored `QUESTION` lines are checked the same way (assertion `a<Q-id>`). `FAIL` → the question moves to the Unverified list and is not asked.
 
 ## Cost and fallback
 

@@ -60,6 +60,7 @@ Phase banner per consultant:
 
 - All CONCUR → proceed directly to `ActivateObjects` (label finding as "peer-validated" in phase6 metadata).
 - Any CHALLENGE → R2.
+- **Business record (every round)**: the lead appends one line per consultant verdict to `decisions.md` — `Consultant <peer> <CONCUR|CHALLENGE|ESCALATE> <object>/<method> — <business point checked, ≤120 chars>`. The task directory is temporary; these lines are what Phase 6 reads to leave already-settled points out of its business questions ([`../../common/review-questions.md`](../../common/review-questions.md) § 1).
 
 ### R2 — WORKER_REFINEMENT
 

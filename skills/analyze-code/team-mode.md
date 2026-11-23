@@ -6,7 +6,7 @@ Companion to `SKILL.md` + `workflow.md`. Applies Type B (Coder ↔ Consultant, a
 
 teamMode is **opt-in** (`team` argument, or the user accepts the offer after Step 3 — see `SKILL.md` `<Team_Mode>`). It runs AFTER Step 2 (single reviewer, or detectors + judge) and Step 2d (evidence verify). The offer is made only when ALL:
 
-1. The **verified** findings include ≥ 1 **business-alignment** finding — business purpose, business-rule faithfulness, or cross-module side-effects. The reviewer / judge decides this from the finding's content; the dimension numbers in [`analysis-dimensions.md`](analysis-dimensions.md) (§1 Syntax, §2 Naming, §13 Security) are not the trigger.
+1. The **verified** findings include ≥ 1 **business-alignment** finding — business purpose, business-rule faithfulness, or cross-module side-effects — or a `QUESTION` the user left open in Step 3b ([`../../common/review-questions.md`](../../common/review-questions.md)). The reviewer / judge decides this from the finding's content; the dimension numbers in [`analysis-dimensions.md`](analysis-dimensions.md) (§1 Syntax, §2 Naming, §13 Security) are not the trigger.
 2. The analyzed object touches **2+ modules** (imports from FI tables AND MM FM, or similar).
 
 When not satisfied → no offer. With the `team` argument and an unmet gate, say so in one line and skip. When the user accepts after Step 3, run the rounds and then re-issue the Step 3 report with the team annotations (replaces the earlier one).
@@ -30,7 +30,7 @@ Transport is return-based ([`../../common/team-consultation-protocol.md`](../../
    - members: `sap-code-reviewer`, `sap-<module>-consultant` × N
    - environment (omit null fields)
    - object: `<type>/<name>`
-   - reviewer's Step 2 findings (inline summary of the verified business-alignment findings, NOT full report)
+   - reviewer's Step 2 findings (inline summary of the verified business-alignment findings, NOT full report) and the open `QUESTION` lines (ask + `if_not`); questions the user answered in Step 3b are settled and not sent
 3. Emit phase banner:
    ```
    ▶ phase=2.R0 (draft) · agent=sap-code-reviewer · model=Opus

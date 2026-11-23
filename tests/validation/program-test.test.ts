@@ -4,7 +4,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { ledgerEntry, parseAunit } from '../../scripts/evidence/lib.mjs';
-import { decide as guard, onlyPluginPt } from '../../scripts/evidence/guard.mjs';
+import { decide as guard, onlyPluginPt, allowListedCommand } from '../../scripts/evidence/guard.mjs';
 import { activePath, capture } from '../../scripts/program-test/pt-capture.mjs';
 import { gate, serverMaskingProven } from '../../scripts/program-test/pt-gate.mjs';
 import {
@@ -518,6 +518,207 @@ describe('guard and CLI', () => {
     }
   });
 
+  // create-program live run: the plugin scripts on a program state folder were refused after `cd <project>`.
+  // Only the two allow-listed whole commands pass; nothing is cut out of other commands.
+  it('guard allows exactly the allow-listed md-to-html / build-receipt commands', () => {
+    const home = join(tmp, 'sc4sap-home-run1');
+    const prev = process.env.SC4SAP_HOME_DIR;
+    process.env.SC4SAP_HOME_DIR = home;
+    try {
+      const H = home.replace(/\\/g, '/');
+      const PROJ = '/c/Users/dev/Documents/Projects/p';
+      const sh = (command: string, tool = 'Bash', cwd = 'C:/Users/dev/Documents/Projects/p') => guard({ tool_name: tool, tool_input: { command }, cwd });
+      const PS = `${PROJ}/.sc4sap/program/ZPROG_DEMO`;
+      // only the plugin's own scripts are allow-listed: the repo is the plugin root here
+      const PLUGIN = ROOT.replace(/\\/g, '/');
+      const MD = `node "${PLUGIN}/scripts/spec/md-to-html.mjs" "C:/Users/dev/Documents/Projects/p/.sc4sap/program/ZPROG_DEMO/report.md"`;
+      const BR = `node "${PLUGIN}/scripts/evidence/build-receipt.mjs" ZPROG_DEMO`;
+      const allowed = [
+        MD,
+        `cd ${PROJ} && ${MD}`,
+        `cd "${PROJ}" && ${MD}`,
+        `node ${PLUGIN}/scripts/spec/md-to-html.mjs .sc4sap/program/ZPROG_DEMO/report.md`,
+        BR,
+        `cd ${PROJ} && ${BR}`,
+        `cd ${PROJ} && ${BR} --also ZCL_DEMO_A,ZFG_DEMO_B --unit-test required`,
+        `${BR} --unit-test required`,
+      ];
+      for (const command of allowed) {
+        expect(allowListedCommand(command), command).toBe(true);
+        expect(sh(command), command).toBeNull();
+      }
+      expect(sh(MD, 'PowerShell')).toBeNull();
+      // each allowed shape with anything extra is not allow-listed and is refused
+      const PROF = '~/.sc4sap/profiles/S4-DEV/x';
+      for (const base of [MD, `cd ${PROJ} && ${MD}`, `cd ${PROJ} && ${BR}`]) {
+        for (const command of [
+          `${base}; cat ${PROF}`, `${base} && cat ${PROF}`, `${base} | cat ${PROF}`, `${base} & cat ${PROF}`,
+          `${base} $x`, `${base} > /tmp/o`, `${base}\ncat ${PROF}`, `${base} \`cat ${PROF}\``,
+        ]) {
+          expect(allowListedCommand(command), command).toBe(false);
+          // refused when it names the profiles, or changes directory and names the home
+          // (`cd <project> && build-receipt … $x` names neither; `md-to-html … > /tmp/o` is as in HEAD)
+          if (command.includes(PROF) || (base.startsWith('cd ') && base.includes('.sc4sap'))) expect(sh(command), command).toMatch(/masking key/);
+        }
+      }
+      for (const command of [
+        `cd ${PROJ}/.. && ${MD}`,
+        `cd ~/.sc4sap/program/ZPROG_DEMO && ${MD}`,
+        `cd ${H}/program/ZPROG_DEMO && ${BR}`,
+        `node "${PLUGIN}/scripts/spec/md-to-html.mjs" "C:/Users/dev/p/.sc4sap/program/ZPROG_DEMO/../../profiles/S4-DEV/x.md"`,
+        `node "${PLUGIN}/../x/scripts/spec/md-to-html.mjs" "C:/Users/dev/p/.sc4sap/program/ZPROG_DEMO/report.md"`,
+        `node "${PLUGIN}/scripts/spec/md-to-html.mjs" "C:/Users/dev/p/.sc4sap/program/ZPROG_DEMO/sap.env"`,
+        `node "${PLUGIN}/scripts/spec/md-to-html.mjs" "C:/Users/dev/.sc4sap/profiles/S4/.sc4sap/program/ZPROG_DEMO/a.md"`,
+        `node "${PLUGIN}/scripts/spec/md-to-html.mjs" "C:/Users/dev/p/.sc4sap/program/ZPROG_DEMO/*.md"`,
+        `node "${PLUGIN}/scripts/spec/md-to-html.mjs" "C:/Users/dev/p/.sc4sap/program/ZPROG_DEMO/report.md" --out x`,
+        `cd ${PROJ} && cd ~/.sc4sap && ${BR}`,
+        `${BR} ZPROG_DEMO/../..`,
+      ]) expect(allowListedCommand(command), command).toBe(false);
+      for (const command of [
+        `cd ${PROJ}/.. && ${MD}`, `cd ~/.sc4sap/program/ZPROG_DEMO && ${MD}`,
+        `node "${PLUGIN}/scripts/spec/md-to-html.mjs" "C:/Users/dev/p/.sc4sap/program/ZPROG_DEMO/*.md"`,
+        `cd ${PROJ} && cd ~/.sc4sap && ${BR}`,
+      ]) expect(sh(command), command).toMatch(/masking key/);
+      // suffix spoof: a same-named script outside the plugin, reached through `cd` or a relative path
+      for (const [command, cwd] of [
+        ['cd /tmp/evil && node scripts/spec/md-to-html.mjs C:/Users/x/.sc4sap/program/ZP/a.md', undefined],
+        ['cd /tmp/evil && node scripts/evidence/build-receipt.mjs ZP', undefined],
+        ['node /tmp/evil/scripts/spec/md-to-html.mjs .sc4sap/program/ZP/a.md', 'C:/Users/dev/Documents/Projects/p'],
+        ['node scripts/evidence/build-receipt.mjs ZP', 'C:/tmp/evil'],
+        [`cd ${PLUGIN}/.. && node scripts/spec/md-to-html.mjs .sc4sap/program/ZP/a.md`, undefined],
+      ] as const) expect(allowListedCommand(command, cwd), command).toBe(false);
+      expect(sh('cd /tmp/evil && node scripts/spec/md-to-html.mjs C:/Users/x/.sc4sap/program/ZP/a.md')).toMatch(/masking key/);
+      // the plugin's own script by a relative path from the plugin root, also after `cd` (Git Bash /c/ form)
+      expect(allowListedCommand('node scripts/spec/md-to-html.mjs .sc4sap/program/ZP/a.md', PLUGIN)).toBe(true);
+      if (process.platform === 'win32')
+        expect(allowListedCommand(`cd ${PLUGIN.replace(/^([A-Za-z]):/, (_, d) => `/${d.toLowerCase()}`)} && node scripts/evidence/build-receipt.mjs ZP`)).toBe(true);
+      // shell writes / cd into a state folder that HEAD already refused stay refused
+      for (const command of [
+        `cd ${PS} && printf x >> spec.md`,
+        `cat >> ${PS}/verify-phase4.md <<'EOF'\n## Phase 4\n* bullet one\nEOF`,
+        'cd ~/.sc4sap/program/ZP && cat spec.md',
+      ]) expect(sh(command), command).toMatch(/masking key/);
+      // documented setup steps (setup wizard steps 04 and 12) pass as in HEAD
+      for (const command of [
+        `printf '%s' "$alias" > "$PWD/.sc4sap/active-profile.txt"`,
+        `printf '%s' "DEMO-DEV" > "/c/Users/dev/p/.sc4sap/active-profile.txt"`,
+        `mkdir -p "$TMP/.sc4sap" "$HOME/.sc4sap/profiles/_SMOKE_QA"`,
+        `printf '_SMOKE_QA' > "$TMP/.sc4sap/active-profile.txt"`,
+        String.raw`printf 'SAP_TIER=QA\nSAP_URL=http://x\nSAP_CLIENT=100\n' > "$HOME/.sc4sap/profiles/_SMOKE_QA/sap.env"`,
+        `rm -rf "$TMP" "$HOME/.sc4sap/profiles/_SMOKE_QA"`,
+        'mkdir -p /c/Users/dev/.sc4sap/profiles/DEMO-DEV',
+      ]) for (const tool of ['Bash', 'PowerShell']) expect(sh(command, tool), command).toBeNull();
+      // still refused: the profile folders by glob, cd, variable, climbing out of a state folder
+      for (const command of [
+        'cat ~/.sc4sap/profiles/S4-DEV/*',
+        'cd ~/.sc4sap/profiles/S4-DEV',
+        'cd ~/.sc4sap',
+        'ls ~/.sc4sap/*',
+        'D=~/.sc4sap/profiles/S4-DEV; cat $D/*',
+        'D=~/.sc4sap; cat $D/profiles/S4-DEV/x',
+        'cd ~/.sc4sap/program/ZP && cat ../../profiles/S4-DEV/x',
+        'cat ~/.sc4sap/program/ZP/../../profiles/S4-DEV/x',
+        `cd ${PS} && cat ~/.sc4sap/profiles/S4-DEV/x`,
+        `cat ${PS}/spec.md; cat ~/.sc4sap/profiles/S4-DEV/*`,
+        `cat ${PS}/../../../.sc4sap/profiles/S4-DEV/mask.key`,
+        // a heredoc append through a variable
+        `D=${PS}; cat >> $D/decisions.md <<'EOF'\n- **D1** cd is not needed; see *spec.md* -r\nEOF`,
+        // a heredoc fed to a shell is code, not data
+        `bash <<'EOF'\ncd ~/.sc4sap/program/ZP\ncat ../../profiles/S4-DEV/*\nEOF`,
+      ]) expect(sh(command), command).toMatch(/masking key/);
+      // a shell sitting in a state folder inside the home must not climb or name profiles
+      expect(sh('cat ../../profiles/S4-DEV/x', 'Bash', `${H}/program/ZP`)).toMatch(/leave the sc4sap folder/);
+      expect(sh('cat spec.md', 'Bash', `${H}/program/ZP`)).toBeNull();
+    } finally {
+      if (prev === undefined) delete process.env.SC4SAP_HOME_DIR;
+      else process.env.SC4SAP_HOME_DIR = prev;
+    }
+  });
+
+  // verifier probes against the state-folder cut: dots rebuilt by escapes / variables / braces, links
+  it('guard does not let a program state folder path climb into the profile folders', () => {
+    const home = join(tmp, 'sc4sap-home-run2');
+    const prev = process.env.SC4SAP_HOME_DIR;
+    process.env.SC4SAP_HOME_DIR = home;
+    try {
+      const H = home.replace(/\\/g, '/');
+      const HW = home.replace(/\//g, '\\');
+      const sh = (command: string, tool = 'Bash', cwd = 'C:/p') => guard({ tool_name: tool, tool_input: { command }, cwd });
+      for (const [command, tool] of [
+        [String.raw`cat ~/.sc4sap/program/ZP/.\./.\./profiles/S4-DEV/*`, 'Bash'],
+        [String.raw`cat ~/.sc4sap/program/ZP/$'\x2e\x2e'/$'\x2e\x2e'/profiles/S4-DEV/*`, 'Bash'],
+        ['P=..; cat ~/.sc4sap/program/ZP/$P/$P/profiles/S4-DEV/*', 'Bash'],
+        ['cat ~/.sc4sap/program/ZP/${P}/${P}/profiles/S4-DEV/*', 'Bash'],
+        ['cat ~/.sc4sap/program/ZP/.{.,.}/profiles/S4-DEV/*', 'Bash'],
+        ['cp -r ~/.sc4sap/program/ZP/$P/$P/profiles /tmp/x', 'Bash'],
+        ['grep -r . ~/.sc4sap/program/ZP/$P/$P/', 'Bash'],
+        ['Get-Content ~/.sc4sap/program/ZP/$p/$p/profiles/S4-DEV/*', 'PowerShell'],
+        ['Get-ChildItem -Recurse ~/.sc4sap/program/ZP/$p/$p | Get-Content', 'PowerShell'],
+        [String.raw`cat ~/.sc4sap/program/ZP/.\./.\./profiles/S4-DEV/mask.ke?`, 'Bash'],
+        [`cat ${HW}\\program\\ZP\\..\\..\\profiles\\S4-DEV\\*`, 'Bash'],
+        [String.raw`cat ${H}/program/ZP/.\./.\./profiles/S4-DEV/*`, 'Bash'],
+        [String.raw`cat "$HOME/.sc4sap/program/ZP/.\./.\./profiles/S4-DEV/"*`, 'Bash'],
+        ['cat ~/.sc4sap/config.json ~/.sc4sap/profiles/S4-DEV/*', 'Bash'],
+        [String.raw`cat ~/.sc4sap/active-profile.txt; cat ~/.sc4sap/prof\iles/S4-DEV/*`, 'Bash'],
+        [String.raw`cd ~/.sc4sap/program/ZP && cat $P/$P/prof\iles/S4-DEV/*`, 'Bash'],
+        // symlink chain: a link in a program folder, then a glob / archive read through it
+        ['ln -s ~/.sc4sap/profiles/S4-DEV ~/.sc4sap/program/L', 'Bash'],
+        [String.raw`ln -s ../prof\iles/S4-DEV ~/.sc4sap/program/L`, 'Bash'],
+        ['New-Item -ItemType SymbolicLink -Path ~/.sc4sap/program/L -Target ../x', 'PowerShell'],
+        ['cat ~/.sc4sap/program/L/*', 'Bash'],
+        ['cat ~/.sc4sap/program/L/ma*', 'Bash'],
+        ['tar cf - ~/.sc4sap/program/L/ | cat', 'Bash'],
+        ['cat ~/.sc4sap/program/L/[a-z][a-z][a-z][a-z].[a-z][a-z][a-z]', 'Bash'],
+      ] as const) expect(sh(command, tool), command).toMatch(/masking key/);
+      // a shell already inside the home: escaped dots, variables, backslash-split names
+      for (const command of [String.raw`cat $P/$P/prof\iles/S4-DEV/*`, String.raw`cat .\./.\./profiles/S4-DEV/*`, String.raw`ls -R .\./.\.`, 'ln -s ../x L'])
+        expect(sh(command, 'Bash', `${H}/program/ZP`), command).toMatch(/leave the sc4sap folder/);
+    } finally {
+      if (prev === undefined) delete process.env.SC4SAP_HOME_DIR;
+      else process.env.SC4SAP_HOME_DIR = prev;
+    }
+  });
+
+  // second verifier pass: climbing from a program folder, interpreters on a state path, heredoc scripts
+  it('guard refuses climbs, interpreters and heredoc scripts around a program state folder', () => {
+    const home = join(tmp, 'sc4sap-home-run3');
+    const prev = process.env.SC4SAP_HOME_DIR;
+    process.env.SC4SAP_HOME_DIR = home;
+    try {
+      const H = home.replace(/\\/g, '/');
+      const sh = (command: string, tool = 'Bash', cwd = 'C:/p') => guard({ tool_name: tool, tool_input: { command }, cwd });
+      for (const [command, tool] of [
+        ['cd ~/.sc4sap/program/ZP && pwd | xargs dirname | xargs dirname | xargs -I D find D -type f | xargs cat', 'Bash'],
+        ['Set-Location ~/.sc4sap/program/ZP; (Get-Item .).Parent.Parent.GetDirectories().GetDirectories().GetFiles() | Get-Content', 'PowerShell'],
+        [`python -c "import os,sys;d=os.path.dirname;w=os.walk(d(d(d(sys.argv.pop()))))" ~/.sc4sap/program/ZP/x`, 'Bash'],
+        [`node -p "require('fs').readdirSync(process.argv.at(-1))" ~/.sc4sap/program/ZP/x`, 'Bash'],
+        [`cat >/tmp/x.sh <<'EOF'\ncat ~/.sc4sap/pro*/*/*\nEOF\nbash /tmp/x.sh`, 'Bash'],
+        [`cat >/tmp/x.sh <<'EOF'\ncd ~/.sc4sap/program/ZP\ncat ../../x\nEOF\nsh /tmp/x.sh`, 'Bash'],
+        [`cat <<'EOF' | bash\ncat ~/.sc4sap/program/ZP/x/../../profiles/S4-DEV/*\nEOF`, 'Bash'],
+        [`cat <<'EOF' >/tmp/y.sh\ncd ~/.sc4sap\nEOF\n. /tmp/y.sh`, 'Bash'],
+        ['realpath -m ~/.sc4sap/program/ZP/x | xargs dirname | xargs dirname | xargs -I D grep -r . D', 'Bash'],
+        ['cd ~/.sc4sap/program/ZP && grep -r . ~+/../..', 'Bash'],
+        ['cd ~/.sc4sap/program/ZP && cd - && ls', 'Bash'],
+        ['cd ~/.sc4sap/program && cd ZP && cd ../.. && ls', 'Bash'],
+        ['Set-Location ~/.sc4sap/program/ZP; Get-ChildItem (Split-Path (Split-Path (Get-Location))) -Directory | Get-Content', 'PowerShell'],
+        ['cat ~/.sc4sap/program/ZP/x ~/.sc4sap/p"r"ofiles/S4-DEV/x', 'Bash'],
+        ['cat $HOME/.sc4sap/program/ZP/x $HOME/.sc4sap/PROFILES/S4-DEV/x', 'Bash'],
+        ['cat ~/.sc4sap/program/ZP/x ~/.sc4sap/work/A/program/ZP/../../../../profiles/x', 'Bash'],
+        ['Get-Content -Path ~/.sc4sap/program/ZP/x -Include mask.k*', 'PowerShell'],
+        ['robocopy ~/.sc4sap/program/ZP /tmp/o', 'Bash'],
+      ] as const) expect(sh(command, tool), command).toMatch(/masking key/);
+      // a shell already inside a program folder of the home must not walk up from it
+      for (const [command, tool] of [
+        ['pwd | xargs dirname | xargs dirname | xargs -I D find D -type f | xargs cat', 'Bash'],
+        ['(Get-Item .).Parent.Parent.GetDirectories().GetDirectories().GetFiles() | Get-Content', 'PowerShell'],
+      ] as const) expect(sh(command, tool, `${H}/program/ZP`), command).toMatch(/leave the sc4sap folder/);
+      expect(sh('cat spec.md', 'Bash', `${H}/program/ZP`)).toBeNull();
+    } finally {
+      if (prev === undefined) delete process.env.SC4SAP_HOME_DIR;
+      else process.env.SC4SAP_HOME_DIR = prev;
+    }
+  });
+
   it('guard refuses commands that decode a hidden path or command', () => {
     const sh = (command: string, tool = 'Bash') => guard({ tool_name: tool, tool_input: { command }, cwd: 'C:/p' });
     for (const [command, tool] of [
@@ -545,6 +746,12 @@ describe('guard and CLI', () => {
     expect(onlyPluginPt(`node C:/tmp/evil/program-test/pt.mjs verdict --run ${base}`, ROOT)).toBe(false);
     expect(sh(`node C:/tmp/evil/program-test/pt.mjs verdict --run ${base}`)).toBeTruthy();
     expect(sh(`node "${PT}" verdict --run ${base} && echo x > ${base}/state.json`)).toBeTruthy();
+    // the same holds for build-receipt.mjs on a protected path: the plugin's own copy only
+    const receipt = 'C:/p/.sc4sap/program/ZP/receipt.json';
+    expect(sh(`node "${join(ROOT, 'scripts', 'evidence', 'build-receipt.mjs')}" ZP ${receipt}`)).toBeNull();
+    expect(sh(`node scripts/evidence/build-receipt.mjs ZP ${receipt}`, ROOT)).toBeNull();
+    expect(sh(`node C:/tmp/evil/scripts/evidence/build-receipt.mjs ZP ${receipt}`)).toBeTruthy();
+    expect(sh(`node scripts/evidence/build-receipt.mjs ZP ${receipt}`, 'C:/tmp/evil')).toBeTruthy();
   });
 
   it('init refuses QA without a destination and explains the SM59 setup', () => {
