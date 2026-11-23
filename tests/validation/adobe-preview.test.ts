@@ -708,3 +708,27 @@ describe('adobe-preview: a loop without rows is not in the data (FP_TEST_NESTED_
     expect(buildRecord(ctx, { values: { T_ITEMS: [] } }).record.children).toEqual([]);
   });
 });
+
+describe('adobe-preview: context program lines (migrated SmartForms fill their globals there: EX13 GET_HD_KOMK_SUM)', () => {
+  const data = (name: string, field: string) => ({ kind: 'data', name, field, active: true, conditions: [], children: [] });
+  const prog = (coding: string[]) => ({ kind: 'program-lines', name: 'P', active: true, conditions: [], children: [], coding });
+  const run = (nodes: object[], values: object) => buildRecord({ kind: 'context', active: true, conditions: [], children: nodes }, { values }).record.children;
+  const inv = { IS_INV: { HD: { AMT: '12.50', CUR: 'EUR' } } };
+  it('runs simple statements in context order; later nodes see what they set', () => {
+    const r = run([data('BEFORE', 'GS_HD-AMT'), prog(['CLEAR GS_HD.', 'GS_HD-AMT = IS_INV-HD-AMT.', 'GS_HD-CUR = IS_INV-HD-CUR.']), data('AMT', 'GS_HD-AMT'), data('CUR', 'GS_HD-CUR')], inv);
+    expect(r.map((c: any) => [c.name, c.value])).toEqual([['BEFORE', ''], ['AMT', '12.50'], ['CUR', 'EUR']]);
+  });
+  it('leaves a node out whole when one of its statements needs SAP', () => {
+    const r = run([prog(['GS_HD-AMT = IS_INV-HD-AMT.', 'SELECT SINGLE * FROM T005 INTO LS_T005 WHERE LAND1 = GS_HD-CUR.']), data('AMT', 'GS_HD-AMT')], inv);
+    expect(r[0].value).toBe('');
+  });
+  it('keeps the other fields of a structure written field by field; a statement the runner trips on skips the node', () => {
+    const r = run([prog(['GS_HD-AMT = IS_INV-HD-AMT.']), data('AMT', 'GS_HD-AMT'), data('CUR', 'GS_HD-CUR')], { ...inv, GS_HD: { AMT: '1', CUR: 'USD' } });
+    expect(r.map((c: any) => c.value)).toEqual(['12.50', 'USD']);
+    expect(() => run([prog(["GV = 'a'.", "GV-F = 'b'."]), data('GV', 'GV')], {})).not.toThrow();
+  });
+  it('does not run program lines inside a loop yet', () => {
+    const loop = { kind: 'loop', name: 'L', table: 'T', workArea: 'WA', active: true, conditions: [], where: [], children: [prog(['GS_HD-AMT = IS_INV-HD-AMT.'])] };
+    expect(run([loop, data('AMT', 'GS_HD-AMT')], { ...inv, T: [{ X: 1 }] })[1].value).toBe('');
+  });
+});
