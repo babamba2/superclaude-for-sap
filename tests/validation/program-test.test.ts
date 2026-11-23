@@ -578,8 +578,13 @@ describe('guard and CLI', () => {
         `cat ${home}/profiles/S4-DEV/sap.env`, 'node -e "console.log(1)"',
         // a lone ~ in prose next to shell variables is not a path built at run time
         'T=$(date +%H:%M) && echo "- $T git -C ~ add still open" >> notes/journal.md',
-        'cp $SRC/a ~/Documents/x', 'cat ~/.claude/$F', 'p=src; ls $p/*', 'S=/tmp/x; node "$S/a.mjs"'])
+        'cp $SRC/a ~/Documents/x', 'cat ~/.claude/$F', 'p=src; ls $p/*', 'S=/tmp/x; node "$S/a.mjs"',
+        // a backslash escape in a search pattern is not a root path
+        'grep -rn "SELECT \\*`|BREAK-POINT" skills/analyze-code/*.md', 'rg "\\(x\\)" src', 'grep -rnE "foo\\|bar" scripts',
+        'rg -n "^\\s*\\*" scripts', 'grep -E "\\.\\./x" -r scripts', 'find . -name "*.md" -exec grep -l "\\*\\*" {} \\;'])
         expect(sh(command), command).toBeNull();
+      // PowerShell: a backslash is a path separator, never an escape
+      expect(sh(`gc ${U.replace(/\//g, '\\')}\\*\\*\\*\\*`, 'PowerShell'), 'PowerShell backslash glob').toMatch(/masking key/);
       // a near miss of the allow-list says what the allowed shape is
       expect(sh(`node /x/scripts/spec/md-to-html.mjs ${home}/program/Z/r.md; echo "exit=$?"`)).toMatch(/nothing before or after it/);
     } finally {

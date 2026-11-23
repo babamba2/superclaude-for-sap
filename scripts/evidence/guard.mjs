@@ -286,15 +286,22 @@ const inlineVars = (s) => {
   return out;
 };
 /** Deny detail for shell commands that reach the home through variables, globs, recursion or links, else null. */
-export function shellReachRefusal(raw, cwd) {
+export function shellReachRefusal(raw, cwd, tool = 'Bash') {
   for (const variant of new Set([String(raw), ...braceVariants(String(raw))])) {
-    const r = reachOne(variant, raw, cwd);
+    const r = reachOne(variant, raw, cwd, tool);
     if (r) return r;
   }
   return null;
 }
-function reachOne(cmdText, raw, cwd) {
-  const view = expandHome(inlineVars(cmdText.replace(/["'`^]/g, '').replace(/\\/g, '/')));
+function reachOne(cmdText, raw, cwd, tool) {
+  // Bash: a backslash is an escape (grep '^\s*\*', -exec … \;) unless the token starts like a Windows path
+  // (C:\…, \\host\…, ~\…, .\ / ..\, %VAR%\…, $VAR\…) — then it stays a path separator.
+  // PowerShell: a backslash is always a path separator (gc C:\Users\x\*\* keeps its folder levels).
+  const WIN_PATH_START = /^(?:[A-Za-z]:\\|\\\\|~[\w.-]*\\|\.{1,2}\\|%\w+%\\|\$\{?(?:env:)?\w+\}?\\)/;
+  const unescaped = tool === 'Bash'
+    ? cmdText.replace(/(^|[\s"'=(])([^\s"']+)/g, (m, pre, tok) => pre + (WIN_PATH_START.test(tok) ? tok : tok.replace(/\\(.)/g, '$1')))
+    : cmdText;
+  const view = expandHome(inlineVars(unescaped.replace(/["'`^]/g, '').replace(/\\/g, '/')));
   // the key's name put together from variables (k=ma; …/${k}sk.key)
   if (MASK_KEY.test(view)) return 'the key file name built from variables';
   const base0 = cwd || process.cwd();
@@ -355,7 +362,7 @@ export function maskKeyRefusal(payload) {
       return `${reason}; leave the sc4sap folder first`;
     // the one exception: the whole command is an allow-listed plugin script call
     if (allowListedCommand(raw, payload?.cwd)) return null;
-    const reach = shellReachRefusal(raw, payload?.cwd);
+    const reach = shellReachRefusal(raw, payload?.cwd, tool);
     if (reach) return `${reason}; ${reach}`;
     // the checks below run on the command as written and again with home variables / ~ written out
     for (const v of new Set([raw, ...braceVariants(raw)])) {
