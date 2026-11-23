@@ -1,0 +1,32 @@
+<pasted_content id="c091">
+sc4sap
+- 8ac370e를 active에 커밋하고 push했어요. 파일 29개, Entire-Checkpoint cc4bf07160c5예요.
+- 다른 세션의 커밋 5개도 함께 올라갔어요. setup, forms, adobe-preview, 그리고 새로 생긴 smartform-preview e505635예요.
+- PR #64(active → main)를 만들었어요: https://github.com/babamba2/superclaude-for-sap/pull/64
+- 커밋 전 검증은 세 번 FAIL이 났어요. 모두 evidence guard가 원인이었어요.
+  - "안전한 경로를 잘라내는" 방식은 구멍을 막을 때마다 새 구멍이 생겼어요.
+  - 그래서 최종안은 이렇게 했어요. 일반 로직은 HEAD 그대로 두고, 거부만 더하는 강화를 넣었어요. 허용은 플러그인 자체의 md-to-html.mjs와 build-receipt.mjs를 정확히 그 형태로 부를 때뿐이에요.
+  - 기존 공격 하니스에서 "HEAD는 막는데 새 가드는 통과"하는 경우는 0건이에요. 3차 검증에서 나온 두 지적(스크립트 경로를 끝부분만 비교, setup 단계가 막힘)도 고쳤어요.
+  - 이 마지막 수정은 별도 검증을 다시 돌리지 않았어요. 수정 에이전트의 하니스 결과와 클린 worktree 게이트만으로 판단했어요.
+- 게이트: 다른 세션이 아직 커밋하지 않은 폼 파일 3개를 빼려고, HEAD + 이번 패치만으로 클린 worktree를 만들어 돌렸어요. keyring OK, tsc OK, 테스트 105파일 1881 통과, 6 skipped이에요. skip은 vendor 파일이 없어서 생긴 것으로, 이번 변경과는 관계없어요.
+- 다른 세션의 미커밋 파일(build-preview.mjs, score-fidelity.mjs, sf-samples.mjs)은 건드리지 않았어요.
+
+sc4sap_web
+- bc4852d를 active에 push했어요(파일 5개).
+- web의 main은 운영 배포라서 아직 머지하지 않았어요. 리뷰 페이지를 390px에서 확인한 뒤에 진행해요.
+
+스모크 테스트 준비
+- 커밋한 파일 29개를 marketplace와 캐시 1.0.0에 동기화했어요. 세 곳의 diff는 0건이고, 원래 캐시 파일은 scratchpad에 백업해 뒀어요.
+- 확인할 항목은 notes/smoke-test-pr64.md에 정리했어요.
+  - md-to-html과 build-receipt가 허용되는지
+  - profiles 접근이 거부되는지
+  - preferences.json을 읽을 수 있는지
+  - 원하시면 analyze-code의 질문 흐름까지
+- 할 일: Claude Code를 완전히 재시작한 뒤, 새 세션에서 이 체크리스트를 읽게 하세요. 모두 통과하면 gh pr merge 64로 머지해요.
+
+남은 후속 작업
+- evidence guard의 기존 구멍이 남아 있어요. HEAD에도 있던 것들이에요(? glob, 8.3 짧은 이름, find/rsync/7z로 홈 전체 읽기, ~ 링크). memory에 기록해 뒀어요.
+- $TMP의 테스트 프로그램 ZMMR_HQ_HYB와 ZMMR_HQ_AUT는 아직 남아 있어요. 삭제는 호출마다 승인을 받고 할게요.
+
+저널에도 기록했어요. 이 세션의 맥락이 매우 길어서, 스모크 테스트는 재시작 후 새 세션에서 하는 게 좋아요.
+</pasted_content id="c091">
