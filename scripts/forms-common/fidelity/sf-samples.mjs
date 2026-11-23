@@ -55,7 +55,17 @@ export function programValues(content, xml, raw0, ddic0) {
   const perGroup = {};
   const code = codeOf(xml);
   if (!Object.keys(code).length) return { raw, ddic, perGroup, notes };
-  let state = { tables: {}, vars: {} };
+  // globals start at their default value (ABAP VALUE): SF_TOTALS G_ADDFLAG 'X' lets NLAST_ADDITION add the last row
+  const vars0 = {};
+  for (const d of content?.data || []) {
+    if (d.scope !== 'global' || d.defaultValue === undefined) continue;
+    const s = String(d.defaultValue).trim();
+    const q = /^'(.*)'$/.exec(s), bq = /^`(.*)`$/.exec(s);
+    if (q) vars0[String(d.name).toUpperCase()] = q[1].replace(/''/g, "'");
+    else if (bq) vars0[String(d.name).toUpperCase()] = bq[1].replace(/``/g, '`');
+    else if (/^-?\d+(\.\d+)?$/.test(s)) vars0[String(d.name).toUpperCase()] = Number(s);
+  }
+  let state = { tables: {}, vars: vars0 };
   let skipped = 0;
   const run = (n) => {
     const r = runInitCoding([...code[n.name]], { ...raw, ...state.tables }, ddic, state, { lenient: true });

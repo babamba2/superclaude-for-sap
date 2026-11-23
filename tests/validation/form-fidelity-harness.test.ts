@@ -94,4 +94,11 @@ describe('form fidelity harness: program-line globals and statements the runner 
     expect(r.values['GS_IT-ITM']).toEqual(['10']);
     expect(r.notes.join(' ')).toMatch(/1 program-line statement\(s\) not run/);
   });
+  it('starts globals at their default value (SF_TOTALS G_ADDFLAG \'X\'); without it the guarded code does not run', () => {
+    const x = `<x>${code('LAST', ['if not g_flag is initial.', "gs_out-mark = 'Y'.", 'clear g_flag.', 'endif.'])}</x>`;
+    const c = (dv?: string) => ({ data: [{ name: 'G_FLAG', scope: 'global', typing: 'TYPE', typeName: 'CHAR01', ...(dv ? { defaultValue: dv } : {}) }],
+      pages: [{ windows: [{ name: 'MAIN', type: 'MAIN', content: [{ kind: 'code', name: 'LAST', children: [] }] }] }] });
+    expect(sampleValues(c("'X'"), x, {}, {}, '').values['GS_OUT-MARK']).toBe('Y');
+    expect(sampleValues(c(), x, {}, {}, '').values['GS_OUT-MARK']).toBeUndefined();
+  });
 });

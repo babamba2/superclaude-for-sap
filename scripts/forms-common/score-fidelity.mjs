@@ -62,7 +62,7 @@ export function layoutOf(input) {
     pages: list.map((p) => ({
       w: Number(p.w ?? p.widthMm ?? 0), h: Number(p.h ?? p.heightMm ?? 0),
       texts: (p.texts || []).filter((t) => t && Number.isFinite(+t.x) && Number.isFinite(+t.y)).map((t) => ({ ...t, x: +t.x, y: +t.y, text: String(t.text ?? '') })),
-      lines: (p.lines || []).filter((l) => l && [l.x1, l.y1, l.x2, l.y2].every((v) => Number.isFinite(+v))).map((l) => ({ x1: +l.x1, y1: +l.y1, x2: +l.x2, y2: +l.y2 })),
+      lines: (p.lines || []).filter((l) => l && [l.x1, l.y1, l.x2, l.y2].every((v) => Number.isFinite(+v))).map((l) => ({ x1: +l.x1, y1: +l.y1, x2: +l.x2, y2: +l.y2, ...(l.color !== undefined ? { color: l.color } : {}) })),
       rects: (p.rects || []).filter((r) => r && [r.x, r.y, r.w, r.h].every((v) => Number.isFinite(+v))).map((r) => ({ ...r, x: +r.x, y: +r.y, w: +r.w, h: +r.h })),
     })),
   };
@@ -127,18 +127,30 @@ function blocksOf(page) {
 const PT = 25.4 / 72;
 // right edge of a block: its width when known, else its characters at about 0.6 em (2.5 mm a character without a size)
 const rightOf = (b) => b.x + (Number.isFinite(b.w) ? b.w : squash(b.text).length * (b.pt ? 0.6 * b.pt * PT : 2.5));
-const isWhite = (f) => f === 1 || /^#?f{6}$/i.test(String(f ?? ''));
+const isWhite = (f) => f === 1 || /^#?(f{6}|f{3})$/i.test(String(f ?? ''));
 
 /** Rules of a page as merged segments { dir, pos, a, b }. */
 function rulesOf(page, tol = DEFAULTS.tol) {
-  const segs = [];
+  let segs = [];
   for (const l of page.lines || []) {
-    if (Math.abs(l.y1 - l.y2) < 0.2) segs.push({ dir: 'H', pos: (l.y1 + l.y2) / 2, a: Math.min(l.x1, l.x2), b: Math.max(l.x1, l.x2) });
-    else if (Math.abs(l.x1 - l.x2) < 0.2) segs.push({ dir: 'V', pos: (l.x1 + l.x2) / 2, a: Math.min(l.y1, l.y2), b: Math.max(l.y1, l.y2) });
+    const s = Math.abs(l.y1 - l.y2) < 0.2 ? { dir: 'H', pos: (l.y1 + l.y2) / 2, a: Math.min(l.x1, l.x2), b: Math.max(l.x1, l.x2) }
+      : Math.abs(l.x1 - l.x2) < 0.2 ? { dir: 'V', pos: (l.x1 + l.x2) / 2, a: Math.min(l.y1, l.y2), b: Math.max(l.y1, l.y2) } : null;
+    if (!s) continue;
+    // a white line prints nothing on white paper (S4-DEV SF_TOTALS: SAP strokes its row borders white), and it erases
+    // the part of an earlier line it is drawn over (drawing order = the order of the lines) — only at the same position:
+    // a white line 0.18 mm beside a grey one is the inner edge of a 3D field border (ADS FP_TEST_COUNT), not over it
+    if (isWhite(l.color)) {
+      segs = segs.flatMap((q) => {
+        if (q.dir !== s.dir || Math.abs(q.pos - s.pos) > 0.05 || q.b <= s.a || q.a >= s.b) return [q];
+        return [{ ...q, b: Math.min(q.b, s.a) }, { ...q, a: Math.max(q.a, s.b) }].filter((x) => x.b - x.a > 0.3);
+      });
+      continue;
+    }
+    segs.push(s);
   }
   const rects = page.rects || [];
   for (const r of rects) {
-    if (r.stroke !== undefined) {
+    if (r.stroke !== undefined && !isWhite(r.stroke)) {
       segs.push({ dir: 'H', pos: r.y, a: r.x, b: r.x + r.w }, { dir: 'H', pos: r.y + r.h, a: r.x, b: r.x + r.w },
         { dir: 'V', pos: r.x, a: r.y, b: r.y + r.h }, { dir: 'V', pos: r.x + r.w, a: r.y, b: r.y + r.h });
     }
