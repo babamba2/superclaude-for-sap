@@ -234,14 +234,17 @@ function mergeContainer(t0, ctx, root, ids, report, starIndex) {
       datas = resolveRef(b.ref, ctx, root, star ? undefined : starIndex);
       if (!star) datas = datas.slice(0, 1);
     } else if (b.match === 'once' && t.attrs.name && tag === 'subform') {
-      const hits = (ctx?.children || []).filter((c) => c.name === t.attrs.name && c.children);
+      // a text node (text module / include) is an element with content in SAP's data XML, so a subform of its name
+      // binds to it like to a group (migrated forms wrap the text field in such a subform: EX14 ADDR_INCL)
+      const hits = (ctx?.children || []).filter((c) => c.name === t.attrs.name && (c.children || c.rich));
       datas = occ.max === 1 ? hits.slice(0, 1) : hits;
     }
     const out = [];
     const make = (d, idx) => {
       const n = formNode(t, tag, d);
       n.index = idx;
-      const inner = d || ctx;
+      // a text node gives the instance, not the data scope: its subform's other fields still bind in the parent's data
+      const inner = d && !d.rich ? d : ctx;
       for (const c of kids(t)) {
         const cu = resolveUse(c, ids);
         if (!CONTAINERS.has(cu.tag) || cu.tag === 'pageSet') continue;
@@ -572,7 +575,9 @@ function contentOf(n, ctx) {
   }
   let raw;
   if (n.over.rawValue !== undefined) raw = n.over.rawValue;
-  else if (n.kind === 'field' && n.data) raw = n.data.rich ? n.data.rich.map((p) => p.text).join('\n') : n.data.value;
+  // a text module in a plain (non-rich) field: ADS takes the text of its paragraphs and new lines ('/') run together,
+  // without a break (migrated footer: "… sam gb" / "Payment by …" prints "sam gbPayment by …", wrapped at the field width)
+  else if (n.kind === 'field' && n.data) raw = n.data.rich ? n.data.rich.map((p) => p.text.replace(/\n/g, '')).join('') : n.data.value;
   else raw = vi.el ? textOf(vi.el) : '';
   if (n.kind === 'field' && n.data?.image) return { image: true, vi, data: n.data.value };
   let text;

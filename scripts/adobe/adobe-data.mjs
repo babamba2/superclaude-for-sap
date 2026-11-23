@@ -618,12 +618,17 @@ export function buildRecord(context, sample = {}, { references = [] } = {}) {
         let rows = rowsOf(scope.lookup(n.table));
         if (n.from > 0 || n.to > 0) rows = rows.slice(Math.max(0, n.from - 1), n.to > 0 ? n.to : undefined);
         const wa = up(n.workArea || n.table);
+        let hit = 0;
         for (const row of rows) {
           if (!evalConditions(n.where, scope, row)) continue;
+          hit++;
           scope.push({ [wa]: row });
           for (const c of n.children) walk(c, el);
           scope.pop();
         }
+        // a loop without rows is left out: ADS prints no instance of a table bound to it, not even its header row
+        // (FP_TEST_NESTED_TABLE: the bookings table under a connection without bookings)
+        if (!hit) parent.children.pop();
         return;
       }
       case 'loop-data': {

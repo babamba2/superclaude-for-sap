@@ -412,6 +412,25 @@ describe('adobe-preview: layouts SAP migration writes (div rich text without bod
     close(three.x, one.x);
     expect(three.y).toBeGreaterThan(one.y + 3);
   });
+
+  // a migrated text module: a name-bound subform around a plain field bound to the text node (EX14 / EX15 address and footer)
+  const mod = (name: string) => `<subform layout="lr-tb" name="${name}" w="170mm"><occur min="0"/><bind/><field name="F" w="170mm"><ui><textEdit multiLine="1"/></ui><bind match="dataRef" ref="$record.${name}"/></field></subform>`;
+  const textNode = (name: string, paras: string[]) => ({ name, rich: paras.map((text) => ({ text, spans: [{ text, style: '' }], style: '' })), text: name });
+  const runData = (body: string, children: object[]) => texts(layoutForm(readXdp(xdp(body)).template, { name: 'data', children }, {}).pages[0]);
+
+  it('binds a name-bound subform to a text node of its name (occur min 0 still prints it)', () => {
+    expect(runData(mod('ADDR_INCL'), [textNode('ADDR_INCL', ['Sender line'])]).map((t: any) => t.text)).toEqual(['Sender line']);
+  });
+
+  it('runs a text node\'s paragraphs and new lines together in a plain field, as ADS does', () => {
+    const t = runData(mod('FOOTER_INCL'), [textNode('FOOTER_INCL', ['Phone 1\nPayment by A', 'Account 2'])]);
+    expect(t.map((x: any) => x.text)).toEqual(['Phone 1Payment by AAccount 2']);
+  });
+
+  it('keeps the parent data scope inside a subform bound to a text node', () => {
+    const body = `<subform layout="lr-tb" name="T" w="170mm"><field name="CITY" w="50mm"><ui><textEdit/></ui></field></subform>`;
+    expect(runData(body, [textNode('T', ['x']), { name: 'CITY', value: 'Berlin' }]).map((t: any) => t.text)).toEqual(['Berlin']);
+  });
 });
 
 describe('adobe-preview: ADS rules measured on the calibration form and on migrated SmartForms', () => {
@@ -677,5 +696,15 @@ describe('adobe-preview: DDIC of a work area field from its table (migrated Smar
     // an exact entry always wins
     const exact = buildRecord(ctx, { values: { GS_X: { PRICE: 250, SEATS: 3 } }, ddic: { 'GS_X-PRICE': { type: 'DEC', length: 5, decimals: 1 }, 'T_X-PRICE': { type: 'CURR', length: 15, decimals: 2 } } });
     expect(exact.record.children[0].value).toBe('250.0');
+  });
+});
+
+describe('adobe-preview: a loop without rows is not in the data (FP_TEST_NESTED_TABLE: no header row for an empty inner table)', () => {
+  const data = (name: string, field: string) => ({ kind: 'data', name, field, active: true, conditions: [], children: [] });
+  const loop = { kind: 'loop', name: 'ITEMS', table: 'T_ITEMS', workArea: 'WA', active: true, conditions: [], where: [], children: [data('NAME', 'WA-NAME')] };
+  const ctx = { kind: 'context', active: true, conditions: [], children: [loop] };
+  it('writes the loop group only when it has rows', () => {
+    expect(buildRecord(ctx, { values: { T_ITEMS: [{ NAME: 'A' }] } }).record.children.map((c: any) => c.name)).toEqual(['ITEMS']);
+    expect(buildRecord(ctx, { values: { T_ITEMS: [] } }).record.children).toEqual([]);
   });
 });
