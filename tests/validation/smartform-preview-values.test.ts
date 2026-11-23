@@ -39,6 +39,42 @@ describe('smartform-preview: values from interface values', () => {
   });
 });
 
+describe('smartform-preview: SAP print rules for numbers and empty tables (S4-DEV LB_BIL_INVOICE)', () => {
+  const c = { pages: [{ windows: [{ name: 'MAIN', type: 'MAIN', content: [
+    { kind: 'table46', name: 'T', dataTable: 'IS_INV-IT_GEN', attrs: { TABHEADER: 'GS_IT' }, children: [] },
+    { kind: 'loop', name: 'L', dataTable: 'IS_INV-IT_BATCH', attrs: { TABHEADER: 'GS_BATCH' }, children: [] },
+  ] }] }] };
+  it('a quantity in a unit without decimals drops its zero decimals (WRITE … UNIT), not others', () => {
+    const dd = { 'IS_INV-IT_GEN-QTY': { type: 'QUAN', decimals: 3 }, 'IS_INV-IT_GEN-UNIT': { type: 'UNIT' } };
+    const raw = { IS_INV: { IT_GEN: [{ QTY: 1, UNIT: 'EA' }, { QTY: 1.5, UNIT: 'EA' }, { QTY: 1, UNIT: 'KG' }] } };
+    expect(valuesFromRaw(c, raw, { ddic: dd }).values['GS_IT-QTY']).toEqual(['1 ', '1.500 ', '1.000 ']);
+    // a known reference unit field wins over the other unit fields of the row
+    const dr = { ...dd, 'IS_INV-IT_GEN-QTY': { type: 'QUAN', decimals: 3, refField: 'UNIT' }, 'IS_INV-IT_GEN-WUNIT': { type: 'UNIT' } };
+    const rr = { IS_INV: { IT_GEN: [{ QTY: 1, UNIT: 'EA', WUNIT: 'KG' }, { QTY: 1, UNIT: 'KG', WUNIT: 'EA' }] } };
+    expect(valuesFromRaw(c, rr, { ddic: dr }).values['GS_IT-QTY']).toEqual(['1 ', '1.000 ']);
+  });
+  it('pads a number with a DDIC length to its output length (digits, separators, decimal point, sign place)', () => {
+    const dd = { 'H-AMT': { type: 'CURR', length: 15, decimals: 2 }, 'H-QTY': { type: 'QUAN', length: 13, decimals: 3, signed: false } };
+    const { values } = valuesFromRaw(c, { H: { AMT: 0, QTY: 2 } }, { ddic: dd });
+    expect(values['H-AMT']).toBe(`${' '.repeat(16)}0.00 `);
+    expect(values['H-QTY']).toBe(`${' '.repeat(12)}2.000`);
+  });
+  it('prints an unfilled numeric field outside loops as its initial value; initials: false leaves it out', () => {
+    const dd = { 'GS_KOMK-NET': { type: 'CURR', decimals: 2 }, 'GS_IT-PRICE': { type: 'CURR', decimals: 2 } };
+    const { values } = valuesFromRaw(c, { IS_INV: { IT_GEN: [{ X: 'a' }] } }, { ddic: dd });
+    expect(values['GS_KOMK-NET']).toBe('0.00 ');
+    expect(values['GS_IT-PRICE']).toBeUndefined();
+    expect(valuesFromRaw(c, {}, { ddic: dd, initials: false }).values['GS_KOMK-NET']).toBeUndefined();
+  });
+  it('a loop over a table the given interface parameter leaves out has 0 rows', () => {
+    const { values } = valuesFromRaw(c, { IS_INV: { IT_GEN: [{ X: 'a' }] } }, { ddic: {} });
+    expect(values['GS_BATCH-%ROWS']).toEqual([]);
+    expect(values['GS_IT-%ROWS']).toBeUndefined();
+    expect(valuesFromRaw(c, { IS_INV: { IT_GEN: [{ X: 'a' }], IT_BATCH: [] } }, { ddic: {} }).values['GS_BATCH-%ROWS']).toEqual([]);
+    expect(valuesFromRaw(c, {}, { ddic: {} }).values['GS_BATCH-%ROWS']).toBeUndefined(); // parameter not given: unknown
+  });
+});
+
 describe('smartform-preview: values from a deep interface structure', () => {
   it('walks structures and tables inside a structure; a loop over the table component fills its work area', () => {
     const c = { pages: [{ windows: [{ name: 'MAIN', type: 'MAIN', content: [{ kind: 'table46', name: 'T', dataTable: 'IS_INV-IT_GEN', attrs: { TABHEADER: 'GS_IT' }, children: [] }] }] }] };
