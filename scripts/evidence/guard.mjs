@@ -267,7 +267,24 @@ const RECURSE_FLAG = /(?:^|\s)-[a-zA-Z]*[rRa][a-zA-Z]*(?=\s|$)|\s-Recurse\b|\s-D
 const VAR_USE = /\$(?!\?)[\w{(]|%\w+%/;
 const JOIN = /\s-join\b|Join-Path|::Combine|\s-f\s|\.Parent\b|Split-Path|\bdirname\b|\brealpath\b/i;
 const LINK_ANY = /(?:^|[\s;&|(])(?:ln|link|mklink|fsutil|subst|mount|New-PSDrive|ndr)(?:\.exe)?(?=\s|$)|SymbolicLink|Junction|HardLink|CreateSymbolicLink|symlink/i;
-const CD_TARGET = /(?:^|[;&|\s(])(?:cd|pushd|Set-Location|sl|chdir)\s+(\S+)/gi;
+const CD_TARGET = /(?:^|[;&|\s(])(?:cd|pushd|Set-Location|sl|chdir)\s+([^\s;&|)]+)/gi;
+// NAME=value (sh) or $NAME = value (PowerShell): later $NAME / ${NAME} uses get the value written in
+const ASSIGN = /(?:^|[;&|\s(])\$?([A-Za-z_]\w*)\s*=\s*([^\s;&|]+)/g;
+const inlineVars = (s) => {
+  let out = s;
+  for (let round = 0; round < 4; round++) {
+    let changed = false;
+    for (const [, name, value] of [...out.matchAll(ASSIGN)]) {
+      if (value.includes(`$${name}`)) continue;
+      // uses only: `$h/x`, `${h}x` — not the assignment itself (`$h = …` in PowerShell)
+      const use = new RegExp(String.raw`\$\{${name}\}|\$${name}(?!\w)(?!\s*=)`, 'g');
+      const next = out.replace(use, value);
+      if (next !== out) { out = next; changed = true; }
+    }
+    if (!changed) break;
+  }
+  return out;
+};
 /** Deny detail for shell commands that reach the home through variables, globs, recursion or links, else null. */
 export function shellReachRefusal(raw, cwd) {
   for (const variant of new Set([String(raw), ...braceVariants(String(raw))])) {
@@ -277,7 +294,9 @@ export function shellReachRefusal(raw, cwd) {
   return null;
 }
 function reachOne(cmdText, raw, cwd) {
-  const view = expandHome(cmdText.replace(/["'`^]/g, '').replace(/\\/g, '/'));
+  const view = expandHome(inlineVars(cmdText.replace(/["'`^]/g, '').replace(/\\/g, '/')));
+  // the key's name put together from variables (k=ma; …/${k}sk.key)
+  if (MASK_KEY.test(view)) return 'the key file name built from variables';
   const base0 = cwd || process.cwd();
   const bases = [base0];
   for (const m of view.matchAll(CD_TARGET)) bases.push(absOf(m[1], base0));
@@ -299,7 +318,10 @@ function reachOne(cmdText, raw, cwd) {
   if (reachesUp && tree) return 'no recursive read, copy or archive of a folder that holds the sc4sap home';
   if (reachesUp && LINK_ANY.test(view)) return 'no link or drive alias to a folder that holds the sc4sap home';
   // a path next to the sc4sap home completed at run time ($x, ${x}, %x%, -join, Join-Path, 'a'+'b')
-  if ((ancestor || inHome) && (VAR_USE.test(view) || JOIN.test(view) || /['"]\s*\+\s*['"]/.test(raw))) return 'no path next to the sc4sap folder built from variables or joins — write the one file out in plain text';
+  // (a variable inside one path token that starts at the home; or a join next to such a token — not a lone ~ in prose)
+  const varPath = toks.some((t) => VAR_USE.test(t) && pathy(pathPart(t)) && bases.some((b) => { const a = absOf(pathPart(t), b); return within(home, a) || within(a, home); }));
+  const joined = (ancestor || inHome) && (/\s-join\b|Join-Path|::Combine/i.test(view) || /['"]\s*\+\s*['"]/.test(raw));
+  if (varPath || joined) return 'no path next to the sc4sap folder built from variables or joins — write the one file out in plain text';
   return null;
 }
 
@@ -339,7 +361,9 @@ export function maskKeyRefusal(payload) {
     for (const v of new Set([raw, ...braceVariants(raw)])) {
       const f = flatten(v);
       const fNb = flattenNoBackslash(v);
-      const detail = shellHomeChecks(f, fNb, v) || shellHomeChecks(expandHome(f), expandHome(fNb), v);
+      const fIn = flatten(inlineVars(v));
+      const detail = shellHomeChecks(f, fNb, v) || shellHomeChecks(expandHome(f), expandHome(fNb), v)
+        || (fIn !== f && shellHomeChecks(expandHome(fIn), expandHome(flattenNoBackslash(inlineVars(v))), v));
       if (detail) return `${reason}; ${detail}`;
     }
   }

@@ -562,6 +562,11 @@ describe('guard and CLI', () => {
         'Get-ChildItem $HOME -Depth 9 -Include *.key | Get-Content',
         "[IO.Directory]::EnumerateFiles($HOME,'*.key','AllDirectories') | % { gc $_ }",
         'gci (Split-Path (Split-Path (Split-Path $PROFILE))) -Recurse | gc',
+        // the home held in a variable first, or a cd ending in `;`
+        'h=~; x=.sc4; cat $h/${x}sap/profiles/S4-DEV/y',
+        `h=${home}; p=pro; cat $h/\${p}files/S4-DEV/x`,
+        'h=$HOME; cat $h/$d/$p/S4-DEV/$k',
+        'cd ~; cat $d/$p/S4-DEV/$k',
         // an admin share maps to a drive only on Windows
         ...(process.platform === 'win32' ? [`cat //localhost/${U[0].toLowerCase()}$${U.slice(2)}/*/*/*/*`] : []),
       ]) expect(sh(command), command).toMatch(/masking key/);
@@ -570,7 +575,10 @@ describe('guard and CLI', () => {
       // still allowed
       for (const command of ['ls src/*', 'cat src/*/*/*.ts', 'grep -rn foo src', 'rg foo', 'find . -name "*.mjs"', 'cp -r dist /tmp/x', 'ls ~', 'cat ~/.claude/settings.json',
         'ln -s ../shared node_modules/shared', 'cat config/profiles/*/settings.json', 'ls PROGRA~1', 'cat C:/Users/ABCDEF~1/AppData/Local/Temp/x.txt', 'ls src/m*', 'echo a / b',
-        `cat ${home}/profiles/S4-DEV/sap.env`, 'node -e "console.log(1)"'])
+        `cat ${home}/profiles/S4-DEV/sap.env`, 'node -e "console.log(1)"',
+        // a lone ~ in prose next to shell variables is not a path built at run time
+        'T=$(date +%H:%M) && echo "- $T git -C ~ add still open" >> notes/journal.md',
+        'cp $SRC/a ~/Documents/x', 'cat ~/.claude/$F', 'p=src; ls $p/*', 'S=/tmp/x; node "$S/a.mjs"'])
         expect(sh(command), command).toBeNull();
       // a near miss of the allow-list says what the allowed shape is
       expect(sh(`node /x/scripts/spec/md-to-html.mjs ${home}/program/Z/r.md; echo "exit=$?"`)).toMatch(/nothing before or after it/);
