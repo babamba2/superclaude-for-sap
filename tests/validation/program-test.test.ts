@@ -1,6 +1,6 @@
 import { spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { homedir, tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { afterAll, describe, expect, it } from 'vitest';
 import { ledgerEntry, parseAunit } from '../../scripts/evidence/lib.mjs';
@@ -512,6 +512,81 @@ describe('guard and CLI', () => {
       // still allowed
       for (const command of [`cat ${P}/config.json`, `cat ${P}/sap.env`, 'rm -rf ~/.sc4sap/profiles/OLD', 'mkdir -p ~/.sc4sap/profiles/NEW', 'npm test', 'node scripts/x.mjs --dir src', 'node -e "console.log(1)"'])
         expect(sh(command), command).toBeNull();
+    } finally {
+      if (prev === undefined) delete process.env.SC4SAP_HOME_DIR;
+      else process.env.SC4SAP_HOME_DIR = prev;
+    }
+  });
+
+  // 2026-11-23 follow-up of PR #64: the gaps HEAD already had (globs, 8.3 names, recursive reads, links, variables)
+  it('guard refuses globs, 8.3 names, recursive reads and links that reach the sc4sap home', () => {
+    // a path only (nothing is created): it must sit under the user's home on every OS
+    const home = join(homedir(), '.sc4sap-test-gaps').replace(/\\/g, '/');
+    const prev = process.env.SC4SAP_HOME_DIR;
+    process.env.SC4SAP_HOME_DIR = home;
+    try {
+      const U = homedir().replace(/\\/g, '/');
+      const sh = (command: string, tool = 'Bash') => guard({ tool_name: tool, tool_input: { command }, cwd: 'C:/p' });
+      for (const command of [
+        `cat ${home.replace(/test-gaps$/, 'test-gap?')}/pr?files/*/m?sk.k?y`,
+        `cat ${home}/p*/*/m*`,
+        'cat /tmp/h/.sc4sa?/pr?files/*/*',
+        'cat x/profiles/*/*.key',
+        `cat ${home}/PROFIL~1/S4-DEV/MASK~1.KEY`,
+        'type C:\\Users\\x\\SC4SAP~1\\PROFIL~1\\S4-DEV\\sap.env',
+        'find ~ -type f | xargs cat',
+        'cp -a ~ /tmp/h',
+        'rsync -a ~/ /tmp/h',
+        '7z a /tmp/h.7z ~',
+        'grep -r . ~',
+        'rg . ~',
+        'find / -name "*.key"',
+        `robocopy ${U} C:\\tmp\\h /E`,
+        'Get-ChildItem -Recurse $env:USERPROFILE | Get-Content',
+        'ln -s ~ /tmp/h',
+        'mklink /J C:\\tmp\\h %USERPROFILE%',
+        'subst X: %USERPROFILE%',
+        'New-PSDrive -Name H -PSProvider FileSystem -Root $env:USERPROFILE',
+        'cat ${SC4SAP_HOME_DIR}/profiles/*/*',
+        'node -e "require(\'fs\').readdirSync(process.env.HOME)"',
+        // verifier round 2: braces, split variables, joins, ~user, other home variables, long flags, .NET calls
+        `cat ${home}/pro{f,}iles/S4-DEV/ma{s,}k.key`,
+        `a=pro; b=files; cat ${home}/$a$b/S4-DEV/x`,
+        'x=.sc4; cat ~/${x}sap/profiles/S4-DEV/y',
+        `$d=('.sc4','sap') -join ''; gc "$HOME\\$d\\profiles\\S4-DEV\\x"`,
+        `find ~${U.split('/').pop()} -name '*.key' -exec cat {} +`,
+        "find $HOMEDRIVE$HOMEPATH -name '*.key' -exec cat {} +",
+        'find "$APPDATA/../.." -name "*.key" -exec cat {} +',
+        'grep --recursive "" ~',
+        'du --all ~ | xargs cat',
+        'Get-ChildItem $HOME -Depth 9 -Include *.key | Get-Content',
+        "[IO.Directory]::EnumerateFiles($HOME,'*.key','AllDirectories') | % { gc $_ }",
+        'gci (Split-Path (Split-Path (Split-Path $PROFILE))) -Recurse | gc',
+        // the home held in a variable first, or a cd ending in `;`
+        'h=~; x=.sc4; cat $h/${x}sap/profiles/S4-DEV/y',
+        `h=${home}; p=pro; cat $h/\${p}files/S4-DEV/x`,
+        'h=$HOME; cat $h/$d/$p/S4-DEV/$k',
+        'cd ~; cat $d/$p/S4-DEV/$k',
+        // an admin share maps to a drive only on Windows
+        ...(process.platform === 'win32' ? [`cat //localhost/${U[0].toLowerCase()}$${U.slice(2)}/*/*/*/*`] : []),
+      ]) expect(sh(command), command).toMatch(/masking key/);
+      // Grep through \\?\ or an admin share
+      expect(guard({ tool_name: 'Grep', tool_input: { pattern: '.', path: `\\\\?\\${U.replace(/\//g, '\\')}`, glob: '*.key' }, cwd: 'C:/p' })).toMatch(/masking key/);
+      // still allowed
+      for (const command of ['ls src/*', 'cat src/*/*/*.ts', 'grep -rn foo src', 'rg foo', 'find . -name "*.mjs"', 'cp -r dist /tmp/x', 'ls ~', 'cat ~/.claude/settings.json',
+        'ln -s ../shared node_modules/shared', 'cat config/profiles/*/settings.json', 'ls PROGRA~1', 'cat C:/Users/ABCDEF~1/AppData/Local/Temp/x.txt', 'ls src/m*', 'echo a / b',
+        `cat ${home}/profiles/S4-DEV/sap.env`, 'node -e "console.log(1)"',
+        // a lone ~ in prose next to shell variables is not a path built at run time
+        'T=$(date +%H:%M) && echo "- $T git -C ~ add still open" >> notes/journal.md',
+        'cp $SRC/a ~/Documents/x', 'cat ~/.claude/$F', 'p=src; ls $p/*', 'S=/tmp/x; node "$S/a.mjs"',
+        // a backslash escape in a search pattern is not a root path
+        'grep -rn "SELECT \\*`|BREAK-POINT" skills/analyze-code/*.md', 'rg "\\(x\\)" src', 'grep -rnE "foo\\|bar" scripts',
+        'rg -n "^\\s*\\*" scripts', 'grep -E "\\.\\./x" -r scripts', 'find . -name "*.md" -exec grep -l "\\*\\*" {} \\;'])
+        expect(sh(command), command).toBeNull();
+      // PowerShell: a backslash is a path separator, never an escape
+      expect(sh(`gc ${U.replace(/\//g, '\\')}\\*\\*\\*\\*`, 'PowerShell'), 'PowerShell backslash glob').toMatch(/masking key/);
+      // a near miss of the allow-list says what the allowed shape is
+      expect(sh(`node /x/scripts/spec/md-to-html.mjs ${home}/program/Z/r.md; echo "exit=$?"`)).toMatch(/nothing before or after it/);
     } finally {
       if (prev === undefined) delete process.env.SC4SAP_HOME_DIR;
       else process.env.SC4SAP_HOME_DIR = prev;

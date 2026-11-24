@@ -16,11 +16,12 @@
 // from the local MCP output (default <artifactBase>/mcp-output/src) — never from SAP.
 //
 // Prints one JSON line: { page, bytes, nodes, edges, members, custom, groups, isolated, droppedEdges,
-// foldedIncludes, byBasis, usage, stdChecks, snippets, sourcesParsed, packages[, reason] }.
+// foldedIncludes, byBasis, usage, stdChecks, snippets, sourcesParsed, packages, fields, tours[, reason] }.
+// Tours (relmap-tour.mjs) are walked from the graph — one per entry TCode, no model call.
 // Exit 2 = graph.json missing or no customer object. Never calls SAP.
 
 import { existsSync, readdirSync, readFileSync, statSync, mkdirSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildModel } from './relmap-model.mjs';
 import { renderPage } from './relmap-page.mjs';
@@ -29,6 +30,22 @@ import { isCustomName } from '../graph/ddic-edges.mjs';
 import { mergeGraphs } from '../process/merge-graphs.mjs';
 import { TEXT_READS } from '../graph/ddic-queries.mjs';
 import { findGraphs } from './relmap-find.mjs';
+import { buildTours } from './relmap-tour.mjs';
+import { buildDomains } from './relmap-domain.mjs';
+
+/**
+ * The module-to-process model next to the inventory folders: <AB>/cbo/<MODULE>/<PKG> → <AB>/processes/<MODULE>/
+ * _state/process-model.json (first folder that has one). `none` turns it off; a path names it.
+ */
+export function findProcessModel(dirs, given) {
+  if (given === 'none') return null;
+  if (given) return existsSync(given) ? given : null;
+  for (const d of dirs) {
+    const p = join(d, '..', '..', '..', 'processes', basename(resolve(d, '..')), '_state', 'process-model.json');
+    if (existsSync(p)) return resolve(p);
+  }
+  return null;
+}
 
 const TEXT_BY_TABLE = new Map(TEXT_READS.map((t) => [t.table, t]));
 
@@ -129,7 +146,7 @@ export function snippetReader(srcDirs, { around = 10, budget = SNIPPET_BYTES } =
   };
 }
 
-export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 40, groups = 60, fold = true, snippets = false, src, fields = [], sid }) {
+export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 40, groups = 60, fold = true, snippets = false, src, fields = [], sid, processModel }) {
   const gs = graphs.map((g) => (typeof g === 'string' ? JSON.parse(readFileSync(g, 'utf8')) : g));
   let graph = gs[0];
   if (gs.length > 1) {
@@ -157,6 +174,12 @@ export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 4
   const model = buildModel(graph, { hubs, groups, fold, info, snippets: reader });
   const fxList = [...(info.fields || []), ...fields];
   if (fxList.length) model.fx = buildFieldBlock(mergeFields(fxList), model, { snippets: reader, jobs: info.jobs });
+  model.tours = buildTours(model);
+  // processModel: an object, a path, 'none', or undefined (look next to the inventory folders)
+  const pmPath = typeof processModel === 'object' && processModel ? null : findProcessModel(dirs, processModel);
+  const pm = typeof processModel === 'object' && processModel ? processModel : pmPath ? readJson(pmPath) : null;
+  model.domains = buildDomains(model, pm, { file: pmPath ? basename(pmPath) : '' });
+  model.stats.tours = model.tours.length;
   const html = renderPage(model, { lang });
   if (out) { mkdirSync(dirname(out), { recursive: true }); writeFileSync(out, html, 'utf8'); }
   const s = model.stats;
@@ -164,7 +187,8 @@ export function buildRelationMap({ graphs, dirs = [], out, lang = 'ko', hubs = 4
     page: out || null, bytes: Buffer.byteLength(html), nodes: s.nodes, edges: s.edges, members: s.members, custom: s.custom,
     groups: s.groups, isolated: s.isolated, droppedEdges: s.droppedEdges, foldedIncludes: s.foldedIncludes, byBasis: s.byBasis,
     usage: model.meta.hasUsage ? s.usage : null, stdChecks: s.stdChecks, snippets: snippets ? s.snippets : null,
-    sourcesParsed: model.meta.sourcesParsed, packages: model.meta.packages, fields: model.fx ? model.fx.stats : null,
+    sourcesParsed: model.meta.sourcesParsed, packages: model.meta.packages, fields: model.fx ? model.fx.stats : null, tours: s.tours,
+    domains: { kind: model.domains.kind, ...model.domains.stats, handOffs: model.domains.hand.length, process: pmPath },
     html: out ? undefined : html,
   };
 }
@@ -184,6 +208,7 @@ function args(argv) {
     else if (k === '--src') a.src.push(resolve(v()));
     else if (k === '--max-bytes') { a.maxBytes = Number(v()); if (!(a.maxBytes > 0)) throw new Error('--max-bytes must be a positive number'); }
     else if (k === '--sid') a.sid = String(v() || '').trim();
+    else if (k === '--process') { const x = String(v() || '').trim(); a.processModel = x === 'none' ? 'none' : resolve(x); }
     else throw new Error(`unknown option ${k}`);
   }
   if (!['ko', 'en', 'ja'].includes(a.lang)) throw new Error('--lang must be ko, en or ja');
@@ -240,6 +265,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     }
     // <artifactBase>/cbo/<MODULE>/<PACKAGE> → <artifactBase>/mcp-output/src
     if (a.snippets && !a.src.length) a.src = [join(first, '..', '..', '..', 'mcp-output', 'src')];
+    if (a.processModel && a.processModel !== 'none' && !existsSync(a.processModel)) console.error(`process model not found: ${a.processModel} — Process areas fall back to the groups`);
     const r = buildToFile({ ...a, graphs });
     if (!r.nodes) { console.error('graph.json has no customer (Z/Y/namespace) object'); process.exit(2); }
     console.log(JSON.stringify(r));

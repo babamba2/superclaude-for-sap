@@ -17,8 +17,8 @@ FORM set_screen.
   IF s_audat[] IS INITIAL.
     s_audat[] = VALUE #( ( sign   = 'I'
                            option = 'BT'
-                           low    = sy-datum - gc_default_days
-                           high   = sy-datum ) ).
+                           low    = sy-datlo - gc_default_days
+                           high   = sy-datlo ) ).
   ENDIF.
 
   ls_variant-report = sy-repid.

@@ -79,7 +79,7 @@ Main thread NEVER calls `GetPackageContents` / `GetWhereUsed` itself for the inv
 - Discovery: `GetPackage`, `GetPackageContents`, `GetPackageTree`, `SearchObject`, `GetObjectsByType`
 - Object detail: `GetTable`, `GetStructure`, `GetDataElement`, `GetDomain`, `GetView`, `GetClass`, `GetInterface`, `GetFunctionGroup`, `GetFunctionModule`, `GetProgram`, `GetObjectInfo`
 - Usage graph: `GetWhereUsed`
-- DDIC relations (Step G3a only): `GetSqlQuery` on **DD* repository tables only** — the statements of the plan `scripts/graph/ddic-queries.mjs` writes, run by `sap-checker` `MODE: dd-read` with `output: "file"`, never `acknowledge_risk`
+- DDIC relations (Step G3a only): `GetSqlQuery` on **DD* repository tables only** — the statements of the plan `scripts/graph/ddic-queries.mjs` writes, run as one main-thread batch (`scripts/lib/sap-batch.mjs`, which refuses any other statement; `sap-checker` `MODE: dd-read` only as fallback) with `output: "file"`, never `acknowledge_risk`
 - NEVER used by this skill: `GetTableContents`; `GetSqlQuery` on any non-DD table (no row data — DDIC metadata only)
 </MCP_Tools_Used>
 

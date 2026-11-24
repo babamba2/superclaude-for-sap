@@ -170,7 +170,7 @@ Used by `create-program` Phase 4 (executor drafts code) and `analyze-code` (revi
 
 Same transport as Type A: every block is returned to the lead, which persists it and inlines it into the next dispatch.
 
-- **R0 DRAFT** — worker returns a `DRAFT` → lead writes `10-<worker>-draft.md`. Only entry point; peers do not post R0.
+- **R0 DRAFT** — worker returns a `DRAFT` → lead writes `10-<worker>-draft.md`. Only entry point; peers do not post R0. When the worker's findings already exist as a verified return (analyze-code Step 2), the lead writes the DRAFT from that return and the worker is dispatched only at R2, if any R1 CHALLENGE.
 - **R1 Peer review** (parallel) — each peer returns a `CHALLENGE` or `CONCUR` → `20-<peer>-challenge-<worker>.md` / `20-<peer>-concur-<worker>.md`.
 - **R2 WORKER_REFINEMENT** (conditional — only if any R1 CHALLENGE) — worker returns it → `30-<worker>-refinement.md`.
 - **R3 Final peer review** — each peer returns CONCUR or ESCALATE → `40-<peer>-final-<worker>.md`.

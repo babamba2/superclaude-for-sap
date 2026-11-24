@@ -180,3 +180,81 @@ describe('hooks end to end', () => {
     expect(out.hookSpecificOutput.permissionDecision).toBe('deny');
   });
 });
+
+describe('evidence ledger — patch mode and unit test summaries', () => {
+  it('hashes the source_file the server uploaded, like source_code', async () => {
+    const { mkdtempSync, writeFileSync } = await import('fs');
+    const { join } = await import('path');
+    const { tmpdir } = await import('os');
+    // @ts-expect-error — plain .mjs module without type declarations
+    const { srcSha } = await import('../../scripts/evidence/lib.mjs');
+    const p = join(mkdtempSync(join(tmpdir(), 'ev-')), 'z1.prog.abap');
+    writeFileSync(p, '﻿REPORT z1.\r\nWRITE 1.\r\n');
+    const viaFile = entry('UpdateProgram', { program_name: 'Z1', source_file: p });
+    const viaCode = entry('UpdateProgram', { program_name: 'Z1', source_code: 'REPORT z1.\nWRITE 1.' });
+    expect(viaFile.source_sha256).toBe(srcSha('REPORT z1.\nWRITE 1.'));
+    expect(viaFile.source_sha256).toBe(viaCode.source_sha256);
+    expect(viaFile.source_file).toBe(p);
+  });
+
+  it('hashes the source_file when source_code is an empty string (the server uploads the file then)', async () => {
+    const { mkdtempSync, writeFileSync } = await import('fs');
+    const { join } = await import('path');
+    const { tmpdir } = await import('os');
+    // @ts-expect-error — plain .mjs module without type declarations
+    const { srcSha } = await import('../../scripts/evidence/lib.mjs');
+    const p = join(mkdtempSync(join(tmpdir(), 'ev-')), 'z2.prog.abap');
+    writeFileSync(p, 'REPORT z2.\nWRITE 2.\n');
+    const e = entry('UpdateProgram', { program_name: 'Z2', source_file: p, source_code: '' });
+    expect(e.source_sha256).toBe(srcSha('REPORT z2.\nWRITE 2.'));
+    expect(e.source_sha256).not.toBe(srcSha(''));
+    expect(e.source_file).toBe(p);
+  });
+
+  it('records source_patches as count + hash of the canonical patch JSON, plus the server upload hash', async () => {
+    const { createHash } = await import('crypto');
+    const patches = [{ new_string: 'WRITE 2.', old_string: 'WRITE 1.' }, { old_string: 'a', new_string: 'b', replace_all: true }];
+    const canon = JSON.stringify([
+      { old_string: 'WRITE 1.', new_string: 'WRITE 2.', replace_all: false },
+      { old_string: 'a', new_string: 'b', replace_all: true },
+    ]);
+    const e = entry('UpdateProgram', { program_name: 'Z1', source_patches: patches },
+      mcp({ success: true, patched: { count: 2, replacements: 3, bytes: 20, source_sha256: 'f'.repeat(64) } }));
+    expect(e.kind).toBe('write');
+    expect(e.source_sha256).toBeUndefined();
+    expect(e.source_patches).toEqual({
+      count: 2,
+      sha256: createHash('sha256').update(canon, 'utf8').digest('hex'),
+      uploaded_sha256: 'f'.repeat(64),
+    });
+    // key order in the call does not change the hash; a different patch does
+    const same = entry('UpdateProgram', { program_name: 'Z1', source_patches: [patches[0], { replace_all: true, new_string: 'b', old_string: 'a' }] });
+    expect(same.source_patches.sha256).toBe(e.source_patches.sha256);
+    const other = entry('UpdateProgram', { program_name: 'Z1', source_patches: [{ old_string: 'WRITE 1.', new_string: 'WRITE 3.' }] });
+    expect(other.source_patches.sha256).not.toBe(e.source_patches.sha256);
+  });
+
+  it('never records source_patches mixed with a source field as a plain source upload', () => {
+    const p = [{ old_string: 'WRITE 1.', new_string: 'WRITE 2.' }];
+    for (const source_code of ['', '   ']) {
+      const e = entry('UpdateProgram', { program_name: 'Z1', source_code, source_patches: p });
+      expect(e.source_sha256).toBeUndefined();
+      expect(e.source_patches).toBeUndefined();
+      expect(e.source_patches_mixed).toEqual(['source_code']);
+    }
+    const f = entry('UpdateProgram', { program_name: 'Z1', source_file: '/x.abap', source_patches: p });
+    expect(f.source_file).toBeUndefined();
+    expect(f.source_patches_mixed).toEqual(['source_file']);
+  });
+
+  it('reads a result_format "summary" run and fails it on a failing method', () => {
+    const run = (summary: unknown) => entry('RunUnitTest', { tests: [{ container_class: 'ZMMR0010', test_class: 'LTCL', container_type: 'PROG' }] },
+      mcp({ success: true, run_id: 'object-sync', run_summary: summary }));
+    const ok = run({ classes: 1, methods: 2, passed: 2, failed: 0, failures: [] });
+    expect(ok.aunit).toMatchObject({ methods: 2, failed: 0, outside_fail: false, summary: true, programs: ['ZMMR0010'] });
+    const bad = run({ classes: 1, methods: 2, passed: 1, failed: 1, failures: [{ class: 'LTCL', method: 'sum_ok', kind: 'failedAssertion', severity: 'critical', title: 'Sum', details: [] }] });
+    expect(bad.aunit).toMatchObject({ failed: 1, failed_methods: ['SUM_OK'], first_alert: 'Sum' });
+    const r = buildReceipt([write('ZMMR0010'), activate(['ZMMR0010']), inactive([]), bad], 'zmmr0010', { unitTestRequired: true });
+    expect(r.checks.some((c: { status: string }) => c.status === 'FAIL')).toBe(true);
+  });
+});

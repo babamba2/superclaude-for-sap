@@ -26,6 +26,7 @@ import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { resolveConfigJsonPath } from '../lib/profile-resolve.mjs';
+import { patchMixOf, sourcePatchesOf, sourceTextOf } from '../lib/source-file-input.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const EXCEPTIONS_DIR = resolve(__dirname, '..', '..', 'exceptions');
@@ -225,7 +226,7 @@ function extractTables(toolName, toolInput) {
     for (const t of tablesFromSql(sql)) tables.add(t);
   }
   if (SOURCE_TOOL_RE.test(toolName) && sourceIsReadChannel(toolName, toolInput)) {
-    for (const t of tablesFromSource(toolInput)) tables.add(t);
+    for (const t of tablesFromSource(toolInput, toolName)) tables.add(t);
   }
   return tables;
 }
@@ -291,36 +292,102 @@ export function sourceIsReadChannel(toolName, toolInput) {
   if (TEST_TOOL_RE.test(toolName) || CDS_TOOL_RE.test(toolName)) return true;
   for (const key of SOURCE_KEYS) {
     const v = toolInput?.[key];
-    if (typeof v === 'string' && /\bFOR\s+TESTING\b/i.test(stripAbapNoise(v))) return true;
+    if (typeof v === 'string' && isTestCodeText(stripAbapNoise(v))) return true;
   }
+  return false;
+}
+
+/**
+ * Test code in already-stripped source: `FOR TESTING`, or a class IMPLEMENTATION whose DEFINITION is not
+ * in the same text (a test class split over two includes — its implementation alone carries no
+ * FOR TESTING but still runs under RunUnitTest). Same rule as the MCP server's isReadChannel.
+ */
+export function isTestCodeText(clean) {
+  // Colon chaining (`FOR: TESTING`, `CLASS: x IMPLEMENTATION`) splits keywords; the chain colon is only
+  // a separator for this check.
+  const t = clean.replace(/:/g, ' ');
+  if (/\bFOR\s+TESTING\b/i.test(t)) return true;
+  return hasOrphanClassImplementation(t);
+}
+
+/**
+ * A CLASS … IMPLEMENTATION without a CLASS … DEFINITION (not DEFERRED / LOAD / LOCAL FRIENDS) of that
+ * class in the text. Known trade-off (accepted 2026-11-24): business code whose definitions sit in another
+ * include (class pool CCIMP, older TOP + F01 programs) counts too — its upload is then scanned against the
+ * deny tier, and the MCP server refuses source_patches to it (full source instead).
+ */
+export function hasOrphanClassImplementation(clean) {
+  const t = clean.replace(/:/g, ' ');
+  const defined = new Set();
+  for (const m of t.matchAll(/\bCLASS\s+([\w/]+)\s+DEFINITION\b(?!\s+(?:DEFERRED|LOAD|LOCAL\s+FRIENDS)\b)/gi)) defined.add(m[1].toUpperCase());
+  for (const m of t.matchAll(/\bCLASS\s+([\w/]+)\s+IMPLEMENTATION\b/gi)) if (!defined.has(m[1].toUpperCase())) return true;
   return false;
 }
 
 // String-valued input fields that may carry source code.
 const SOURCE_KEYS = ['source_code', 'source', 'code', 'ddl_source', 'ddl', 'test_class_source', 'class_source',
-  'implementation', 'definitions', 'local_types', 'local_definitions', 'macros', 'test_classes'];
+  'implementation', 'definitions', 'local_types', 'local_definitions', 'macros', 'test_classes',
+  // MCP field names of the local class part tools (UpdateLocalTestClass / Types / Definitions / Macros)
+  'test_class_code', 'local_types_code', 'definitions_code', 'macros_code'];
 
-/** Remove ABAP comments and literals so "FROM" in a message text does not count. */
-export function stripAbapNoise(src) {
-  return src
-    .split(/\r?\n/)
-    .filter((line) => !/^\*/.test(line))
-    .map((line) => line
-      .replace(/'(?:[^']|'')*'/g, "''")
-      .replace(/`(?:[^`]|``)*`/g, '``')
-      .replace(/\|(?:[^|\\]|\\.)*\|/g, '||')
-      .replace(/".*$/, '')
-      .replace(/\/\/.*$/, ''))
-    .join('\n');
+/**
+ * Remove ABAP comments and literal text so "FROM" in a message text does not count. A character scanner
+ * (same as the MCP server's stripAbapComments): `*` in column 1 and `"` (and `//` for CDS) comment to the
+ * end of the line; '…' / `…` become '' / `` (doubled quote = escaped); a string template |…| keeps its
+ * delimiters and the CODE of its embedded expressions { … } (which may hold literals and templates of
+ * their own) and drops its text (\ escapes). '…', `…` and template text end at the line end. So a quote
+ * inside one literal never opens another and never swallows the code after it.
+ */
+export function stripAbapNoise(src, opts = {}) {
+  const s = String(src).replace(/\r\n?/g, '\n');
+  const n = s.length;
+  const stack = []; // 'tpl' = inside template text, 'emb' = inside an embedded expression (code)
+  let out = '';
+  let lineStart = true;
+  let i = 0;
+  const toEol = () => { while (i < n && s[i] !== '\n') i++; };
+  while (i < n) {
+    const c = s[i];
+    if (c === '\n') {
+      if (stack[stack.length - 1] === 'tpl') { stack.pop(); out += '|'; }
+      out += '\n'; lineStart = true; i++; continue;
+    }
+    const atStart = lineStart;
+    lineStart = false;
+    if (stack[stack.length - 1] === 'tpl') {
+      if (c === '\\') { i += s[i + 1] === '\n' ? 1 : 2; continue; }
+      if (c === '|') { stack.pop(); out += '|'; i++; continue; }
+      if (c === '{') { stack.push('emb'); out += '{'; i++; continue; }
+      i++; continue;
+    }
+    if (atStart && c === '*') { toEol(); continue; }
+    if (c === '"') { toEol(); continue; }
+    if (opts.cds && c === '/' && s[i + 1] === '/') { toEol(); continue; }
+    if (c === "'" || c === '`') {
+      let j = i + 1;
+      while (j < n && s[j] !== '\n') {
+        if (s[j] === c) { if (s[j + 1] === c) { j += 2; continue; } break; }
+        j++;
+      }
+      out += c + c;
+      i = j < n && s[j] === c ? j + 1 : j;
+      continue;
+    }
+    if (c === '|') { stack.push('tpl'); out += '|'; i++; continue; }
+    if (c === '}' && stack[stack.length - 1] === 'emb') { stack.pop(); out += '}'; i++; continue; }
+    out += c; i++;
+  }
+  return out;
 }
 
 /** Tables read by uploaded source: FROM / JOIN targets in ABAP SQL and CDS DDL. */
-export function tablesFromSource(toolInput) {
+export function tablesFromSource(toolInput, toolName = '') {
   const out = new Set();
   const texts = [];
   for (const key of SOURCE_KEYS) if (typeof toolInput[key] === 'string') texts.push(toolInput[key]);
+  const cds = CDS_TOOL_RE.test(toolName) || typeof toolInput.ddl_source === 'string' || typeof toolInput.ddl === 'string';
   for (const text of texts) {
-    const clean = stripAbapNoise(text);
+    const clean = stripAbapNoise(text, { cds });
     const re = /\b(?:FROM|JOIN)\s+(?:TABLE\s+)?@?([A-Z0-9_\/]+)/gi;
     let m;
     while ((m = re.exec(clean)) !== null) out.add(m[1].toUpperCase());
@@ -372,8 +439,53 @@ async function main() {
   try { payload = JSON.parse(raw); } catch { process.exit(0); }
 
   const toolName = payload.tool_name || payload.toolName || '';
-  const toolInput = payload.tool_input || payload.toolInput || payload.arguments || {};
+  let toolInput = payload.tool_input || payload.toolInput || payload.arguments || {};
   const isSourceUpload = SOURCE_TOOL_RE.test(toolName);
+  const deny = (why) => {
+    console.log(JSON.stringify({
+      hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: why },
+    }));
+    process.exit(0);
+  };
+  // Server-side patch (source_patches) is for business code only — the same as a full upload, which this hook
+  // scans only for test code. Source with test classes (or a test-class part) is always sent as full
+  // source_code: the MCP server refuses a patch whose current or patched text is test code; here the call
+  // shape (a source field or source_file next to source_patches, any value even "", is denied), the patch
+  // format, and visible test code (a test-class tool, or FOR TESTING in any old_string / new_string) are
+  // denied. Every other patch is left to the server.
+  if (isSourceUpload && Object.prototype.hasOwnProperty.call(toolInput, 'source_patches')) {
+    const mixed = patchMixOf(toolInput);
+    if (mixed.length) deny(`sc4sap blocklist: source_patches together with ${mixed.join(', ')} — send source_patches alone or the full source alone.`);
+    const pt = sourcePatchesOf(toolInput);
+    if (pt.error) deny(`sc4sap blocklist: ${pt.error} — the hook checks every patch before it reaches SAP.`);
+    const fragments = toolInput.source_patches.map((p) => `${p.old_string}\n${p.new_string}`).join('\n');
+    if (TEST_TOOL_RE.test(toolName) || /\bFOR\s+TESTING\b/i.test(stripAbapNoise(fragments).replace(/:/g, ' '))) {
+      deny('sc4sap blocklist: source_patches refused — this source contains test classes; send the full source_code so the blocklist hook can check it.');
+    }
+    process.exit(0);
+  }
+  // source_file next to source_code is refused whatever the values: the server uploads the file when
+  // source_code is "", so scanning source_code alone would let an unscanned file through.
+  const hasKey = (k) => Object.prototype.hasOwnProperty.call(toolInput, k);
+  if (isSourceUpload && hasKey('source_file') && hasKey('source_code')) {
+    deny('sc4sap blocklist: source_file together with source_code — send one of them, not both.');
+  }
+  // Patch mode: scan the file the server will upload. A source_file the hook cannot read is refused —
+  // otherwise a test class reading a blocked table would pass unscanned.
+  if (isSourceUpload && toolInput.source_file !== undefined) {
+    const src = sourceTextOf(toolInput);
+    if (src.text === null) {
+      console.log(JSON.stringify({
+        hookSpecificOutput: {
+          hookEventName: 'PreToolUse',
+          permissionDecision: 'deny',
+          permissionDecisionReason: `sc4sap blocklist: ${src.error} — the hook scans uploaded source before it reaches SAP. Pass the absolute path of the edited file.`,
+        },
+      }));
+      process.exit(0);
+    }
+    toolInput = { ...toolInput, source_code: src.text };
+  }
   if (!/GetTableContents|GetRemoteTableContents|GetSqlQuery/i.test(toolName) && !isSourceUpload) process.exit(0);
   if (isSourceUpload && !sourceIsReadChannel(toolName, toolInput)) process.exit(0);
 

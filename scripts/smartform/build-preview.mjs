@@ -892,7 +892,7 @@ class Renderer {
         // pattern lines between cells / rows; the frame comes as one outline below
         const b = pat.all ? { right: ci < r.cells.length - 1 ? pat.th : 0, bottom: ri < rows.length - 1 ? pat.th : 0 }
           : pat.tops ? { top: pat.th } : pat.rows ? { bottom: ri < rows.length - 1 ? pat.th : 0 } : pat.cols ? { right: ci < r.cells.length - 1 ? pat.th : 0 } : c.borders || {};
-        const bs = ['top', 'right', 'bottom', 'left'].map((s) => (b[s] ? `border-${s}:${b[s]}mm solid #000;` : '')).join('');
+        const bs = this.cellBorders(c, b);
         const inner = (at[`${r.key}/${c.column}`] || []).map((x) => this.node(x)).join('');
         html += `<div class="cell" style="width:${c.widthMm}mm;${c.fill ? `background:${c.fill};` : ''}">${inner}${bs ? `<div class="frame" style="${bs}"></div>` : ''}</div>`;
       });
@@ -915,11 +915,33 @@ class Renderer {
       const h = tl.heightMm || ref?.heightMm || tl.heightMm;
       const own = byLine[tl.name]?.length ? byLine[tl.name] : (ref && byLine[ref.name]) || [];
       for (let nr = tl.from; nr <= tl.to; nr++)
-        // a line type covering several rows may give each row its own lines (cells[].rows)
-        rows.push({ key: nr, h, cells: own.slice().sort((a, b) => a.column - b.column).map((c) => (c.rows ? { ...c, ...(c.rows[nr - tl.from] || {}) } : c)) });
+        // a line type covering several rows may give each row its own lines (cells[].rows); a row's colours and
+        // colourless sides are its own — not row 1's (verifier r28 P1; fill keeps the older behaviour)
+        rows.push({ key: nr, h, cells: own.slice().sort((a, b) => a.column - b.column).map((c) => (c.rows ? { ...c, ...(c.rows[nr - tl.from] ? { borderColors: undefined, bordersUnset: undefined } : {}), ...(c.rows[nr - tl.from] || {}) } : c)) });
     }
     // a template is never split over pages (ZSF_DEMO_18: the 2nd certificate goes to page 2 whole)
     return this.grid(n, rows).replace('<div class="tpl"', '<div class="tpl tmpl"');
+  }
+
+  /** CSS borders of one drawn cell. b = the cell's own borders (c.borders) or the lines a table pattern draws (black).
+   *  Own sides print in their colour (borderColors, black when none is listed); a side with a width but no colour
+   *  (bordersUnset) prints in the pen colour the line before left — SAP draws a cell left, right, top, bottom and
+   *  sets a colour only for a side that has one (S4-DEV SF_TOTALS: row bottoms after white sides print white;
+   *  SF_SUBTOTALS: header cell 2 prints its colourless sides black after cell 1). */
+  cellBorders(c, b) {
+    const own = b === c.borders || !c.borders;
+    const set = b || {};
+    const out = {};
+    for (const s of ['left', 'right', 'top', 'bottom']) {
+      const w = set[s] || (own ? c.bordersUnset?.[s] : 0);
+      if (!w) continue;
+      let col = '#000000';
+      if (set[s]) {
+        if (own) { col = c.borderColors?.[s] || '#000000'; this.pen = col; }
+      } else col = this.pen || '#000000';
+      out[s] = `border-${s}:${w}mm solid ${col === '#000000' ? '#000' : col};`;
+    }
+    return ['top', 'right', 'bottom', 'left'].map((s) => out[s] || '').join('');
   }
 
   /** Table node: one row per line type its texts use, in the order they appear. */
@@ -962,7 +984,7 @@ class Renderer {
       const html = cells.map((c) => {
         const b = pat.all ? { top: pat.th, right: pat.th, bottom: pat.th, left: pat.th }
           : pat.tops ? { top: pat.th } : pat.rows ? { bottom: r !== rows[rows.length - 1] ? pat.th : 0 } : pat.cols ? { right: c !== cells[cells.length - 1] ? pat.th : 0 } : c.borders || {};
-        const bs = ['top', 'right', 'bottom', 'left'].map((s) => (b[s] ? `border-${s}:${b[s]}mm solid #000;` : '')).join('');
+        const bs = this.cellBorders(c, b);
         return `<div class="cell" style="width:${c.widthMm}mm;${c.fill ? `background:${c.fill};` : ''}">${this.nodes(r.cells[c.column])}${bs ? `<div class="frame" style="${bs}"></div>` : ''}</div>`;
       }).join('');
       return `<div class="row${h ? '' : ' autoh'}" style="${h ? `height:${h}mm` : ''}">${html}</div>`;
@@ -1260,7 +1282,7 @@ class Renderer {
       const contents = (r.children || []).filter((c) => c.kind === 'section-E');
       const html = cells.map((c, i) => {
         const b = c.borders || {};
-        const bs = ['top', 'right', 'bottom', 'left'].map((s) => (b[s] ? `border-${s}:${b[s]}mm solid #000;` : '')).join('');
+        const bs = this.cellBorders(c, b);
         const inner = contents[i] ? this.node(contents[i]) : '';
         return `<div class="cell" style="width:${c.widthMm}mm;${c.fill ? `background:${c.fill};` : ''}">${inner}${bs ? `<div class="frame" style="${bs}"></div>` : ''}</div>`;
       }).join('');
@@ -1379,6 +1401,8 @@ class Renderer {
       this.pageNo = k; this.pageCount = n;
       this.sysPage = { 'SFSY-PAGE': String(k + 1), 'SFSY-FORMPAGES': String(n), 'SFSY-JOBPAGES': String(n) };
       this.inMain = true;
+      // each sheet starts with a black pen (cellBorders: colourless sides take the pen; verifier r28 P1)
+      this.pen = undefined;
       const hasMain = def.windows.some((w) => w.type === 'MAIN');
       const mainContent = hasMain && mainWin ? this.windowNodes(mainWin) : '';
       bodies.push(this.sheetBody(def, mainContent, hasMain ? s : null));
@@ -1390,6 +1414,8 @@ class Renderer {
 
   page(index = 0, multi = null) {
     const p = this.c.pages[index] || this.c.pages[0];
+    // a render starts with a black pen — the measuring passes before it must not leave theirs (verifier r28 P1)
+    if (!multi) this.pen = undefined;
     if (this.c.pages.length > 1 && !multi) this.approx.push(p === this.c.pages[0] ? `form has ${this.c.pages.length} pages — first page drawn (${p.name})` : `form has ${this.c.pages.length} pages — page ${p.name} drawn`);
     const landscape = p.orientation === 'landscape';
     const [w, h] = landscape ? [297, 210] : [210, 297];

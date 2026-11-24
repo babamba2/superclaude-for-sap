@@ -83,13 +83,13 @@ ENDIF.
 
 **Allowed (740+)**
 ```abap
-DATA(lv_msg) = |Order { lv_vbeln } posted on { sy-datum DATE = USER } with { lines( lt_items ) } items|.
+DATA(lv_msg) = |Order { lv_vbeln } posted on { sy-datlo DATE = USER } with { lines( lt_items ) } items|.
 ```
 
 **Not allowed (< 740)**
 ```abap
 DATA lv_msg TYPE string.
-CONCATENATE 'Order' lv_vbeln 'posted on' sy-datum 'with' lines( lt_items ) 'items' INTO lv_msg SEPARATED BY space.
+CONCATENATE 'Order' lv_vbeln 'posted on' sy-datlo 'with' lines( lt_items ) 'items' INTO lv_msg SEPARATED BY space.
 ```
 
 ### 2.5 `FOR` Expressions (≥ 740 SP08)

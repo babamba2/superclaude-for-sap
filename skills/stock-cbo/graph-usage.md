@@ -4,32 +4,30 @@ Runs between Step C (scouts) and Step D (finalize) of [`stocker-fanout.md`](stoc
 
 `<DIR>` = the inventory directory from the `WALKED` line. `<PLUGIN_ROOT>` = the folder that holds `skills/`, `scripts/`, `common/` (two levels above this skill's `SKILL.md`, or `$CLAUDE_PLUGIN_ROOT`); quote it in shell commands. `<SAPV>` = `ECC` or `S4` as in `stocker-fanout.md`.
 
-Banner: `▶ phase=graph · agent=main + sap-checker×<n> · model=Haiku`. Every sub-step is mechanical — no judgment, so no Sonnet / Opus dispatch here.
+Banner: `▶ phase=graph · agent=main · batch reads`. Every sub-step is mechanical — no judgment, so no Sonnet / Opus dispatch here. G1, G1b and G3a run as **batch reads on the main thread**: `scripts/graph/fetch-plan.mjs` writes the plan, `scripts/lib/sap-batch.mjs` runs it in one process (read tools only; DD-shaped `GetSqlQuery` only) and prints one line per call — `<id>⇥OK⇥<value>` or `<id>⇥ERROR⇥<message>`. Results stay on disk; never Read the sources or the SQL results. Batch fallback: when `sap-batch` fails as a whole (`sap-batch: <error>`, exit ≠ 0 — the bridge did not start), print `↳ batch reads unavailable: <error>` and run the same scope with `sc4sap:sap-checker` (`MODE: scout`, 10 objects per checker, at most 8 per message, one line per object `key="src" value="<folder>"` / `value="ERROR <message>"`, never read the source).
 
-## G1 — Fetch sources (`sc4sap:sap-checker` × n, `MODE: scout`)
+## G1 — Fetch sources (main thread, batch)
 
-Scope = every `PROG/P` and `FUGR` in `walk.json → objects[]` (`PROG/I` members are includes: read through their owner, or in G1b), 10 per checker, at most 8 checkers per message. Skip the dispatch when there are none.
+Scope = every `PROG/P` and `FUGR` in `walk.json → objects[]` (`PROG/I` members are includes: read through their owner, or in G1b). `calls` = 0 → skip.
 
-```
-MODE: scout
-Objects (your whole scope): <NAME:PROG, NAME:FUGR, …>
-For each object return exactly one line:
-- key="src" value="<absolute folder path>" — GetProgFullCode once with output: "file" (type "PROG/P" for PROG,
-  "FUGR" for FUGR). The folder is the directory of the first code_objects[].path (it ends in .prog or .fugr).
-  Never read the source. On error: key="src" value="ERROR <message>".
+```bash
+node "<PLUGIN_ROOT>/scripts/graph/fetch-plan.mjs" --sources "<DIR>/walk.json" --out "<DIR>/fetch-src.json"
+node "<PLUGIN_ROOT>/scripts/lib/sap-batch.mjs" --plan "<DIR>/fetch-src.json"
 ```
 
-`<SRC>` = the parent directory of the returned folders (they share one MCP output directory). `ERROR` lines are not retried — `build-package-graph` lists those objects under `sourcesMissing`, and finalize names them in `index.md`.
+Callers that keep sources between runs add `--skip-present "<SRC>"` to the first command (member folders already on disk are not fetched again). More than 150 calls → run the plan in parts, `--from 1 --to 150`, `--from 151 --to 300`, … (one Bash call each; a part takes about two minutes). `OK` lines carry the member folder (`GetProgFullCode` `output: "file"`, ends in `.prog` / `.fugr`). `<SRC>` = their parent directory (one MCP output directory). `ERROR` lines are not retried — `build-package-graph` lists those objects under `sourcesMissing`, and finalize names them in `index.md`.
 
 ### G1b — Includes no member program pulls in
 
-Package includes no G1 folder holds: user-exit includes (included by SAP programs such as `MV45AFZZ`), leftovers, and includes a member program pulls in that its `GetProgFullCode` folder came back without. List them:
+Package includes no G1 folder holds: user-exit includes (included by SAP programs such as `MV45AFZZ`), leftovers, and includes a member program pulls in that its `GetProgFullCode` folder came back without:
 
 ```bash
-node "<PLUGIN_ROOT>/scripts/graph/build-package-graph.mjs" --dir "<DIR>" --src "<SRC>" --orphans
+node "<PLUGIN_ROOT>/scripts/graph/build-package-graph.mjs" --dir "<DIR>" --src "<SRC>" --orphans > "<DIR>/orphans.json"
+node "<PLUGIN_ROOT>/scripts/graph/fetch-plan.mjs" --orphans "<DIR>/orphans.json" --out "<DIR>/fetch-incl.json"
+node "<PLUGIN_ROOT>/scripts/lib/sap-batch.mjs" --plan "<DIR>/fetch-incl.json"
 ```
 
-It prints `{ orphans: [...], alreadyRead }`. Empty `orphans` → skip. Otherwise `sc4sap:sap-checker` × n, `MODE: scout`, 20 names per checker, at most 8 per message: for each name `GetInclude` with `output: "file"` once, return `key="src" value="ok"` or `value="ERROR <message>"`, never read the source. The files land in `<SRC>` as `<name>.incl.abap`. G5 joins an include to the member program whose source has `INCLUDE <name>`; the others become objects of their own. Its summary reports what is still missing under `orphanIncludes`.
+`calls` = 0 → skip the last command. The files land in `<SRC>` as `<name>.incl.abap`. G5 joins an include to the member program whose source has `INCLUDE <name>`; the others become objects of their own. Its summary reports what is still missing under `orphanIncludes`.
 
 ## G2 — TCodes (main thread)
 
@@ -39,7 +37,7 @@ TRAN members → one `GetTransaction` call with `transaction_names: [...]` (batc
 
 Two ways in. G3a reads the DD repository tables once per table kind. G3b is the per-object checker read: it is the fallback for what G3a could not read, and the only way for callers that do not allow `GetSqlQuery` (`module-to-process`). Edge kinds: `types` (field → DTEL, `.INCLUDE` / `.APPEND` → STRU, DTEL → DOMA), `checks` (field → check table, with cardinality), `searchHelp`, `valueTable`, `rowType`, `basedOn` (view → base table), `selects` (search help → selection method), `contains` (collective search help). Only customer (Z / Y / namespace) targets and members become nodes.
 
-### G3a — DD reads (`sc4sap:sap-checker` × n, `MODE: dd-read`, stock-cbo only)
+### G3a — DD reads (main thread, batch; stock-cbo only)
 
 The one exception to "no `GetSqlQuery`" in this skill: **DD\* repository tables and repository short-text tables only** — the statements in the plan file, nothing else, never `acknowledge_risk`. They are metadata about the package's DDIC objects, never business rows. The `permission-approver` hook auto-approves these statements (`output: "file"` is part of the match — never drop it); any other form prompts. Neither the SQL text nor the results pass through the main thread.
 
@@ -47,13 +45,14 @@ The one exception to "no `GetSqlQuery`" in this skill: **DD\* repository tables 
 node "<PLUGIN_ROOT>/scripts/graph/ddic-queries.mjs" --dir "<DIR>" --sap-version <SAPV> --lang <SAP_LANGUAGE> --out "<DIR>/ddic-plan.json"
 ```
 
-It writes the plan (DD03L, DD08L, DD05S, DD35L, DD04L, DD01L, DD40L, DD26S, DD30L, DD31S — single-table `SELECT … WHERE … IN (…)`; S4 packs 200 names per statement, ECC 50 because the `TABLE_READ` condition travels in a URL), plus the object short texts in the logon language and English (DD02T, DD04T, DD01T, DD40T, DD30T, DD25T, TRDIRT, TSTCT, TFTIT, TLIBT, SEOCLASSTX — repository texts, never business rows; the relation map shows them as descriptions). On ECC, names containing `SELECT` or `JOIN` are left out: `TABLE_READ` refuses any condition with those words, literals included. It prints `{ plan, statements, slices: [{ from, to }] }`. `statements` = 0 → no DDIC members; skip G3. One checker per slice, at most 8 per message (banner `▶ phase=graph-dd · agent=sap-checker×<n> · model=Haiku`):
+It writes the plan (DD03L, DD08L, DD05S, DD35L, DD04L, DD01L, DD40L, DD26S, DD30L, DD31S — single-table `SELECT … WHERE … IN (…)`; S4 packs 200 names per statement, ECC 50 because the `TABLE_READ` condition travels in a URL), plus the object short texts in the logon language and English (DD02T, DD04T, DD01T, DD40T, DD30T, DD25T, TRDIRT, TSTCT, TFTIT, TLIBT, SEOCLASSTX — repository texts, never business rows; the relation map shows them as descriptions). On ECC, names containing `SELECT` or `JOIN` are left out: `TABLE_READ` refuses any condition with those words, literals included. It prints `{ plan, statements, slices: [{ from, to }] }`. `statements` = 0 → no DDIC members; skip G3. Otherwise run every statement as one batch (`sap-batch` refuses any statement that is not in the DD shape the hook auto-approves):
 
+```bash
+node "<PLUGIN_ROOT>/scripts/graph/fetch-plan.mjs" --ddic "<DIR>/ddic-plan.json" --out "<DIR>/fetch-dd.json"
+node "<PLUGIN_ROOT>/scripts/lib/sap-batch.mjs" --plan "<DIR>/fetch-dd.json"
 ```
-MODE: dd-read
-Plan file: <DIR>/ddic-plan.json — run entries <from>–<to> (1-based, in order).
-For each entry call GetSqlQuery { sql_query: <entry.sql>, row_number: <entry.row_number>, output: "file" }.
-```
+
+Batch fallback (see the banner note): one `sap-checker` per slice, `MODE: dd-read`, prompt `Plan file: <DIR>/ddic-plan.json — run entries <from>–<to> (1-based, in order). For each entry call GetSqlQuery { sql_query: <entry.sql>, row_number: <entry.row_number>, output: "file" }.`
 
 Then (main thread, one Bash call; `<SQLDIR>` = the `sql` folder of the MCP output directory, next to `<SRC>` — `<PROJECT>/.sc4sap/work/<alias>/mcp-output/sql`):
 
@@ -61,9 +60,9 @@ Then (main thread, one Bash call; `<SQLDIR>` = the `sql` folder of the MCP outpu
 node "<PLUGIN_ROOT>/scripts/graph/collect-ddic-reads.mjs" --dir "<DIR>" --sql-dir "<SQLDIR>"
 ```
 
-It matches each plan entry to its result file by exact SQL text and writes `<DIR>/ddic-reads.json` (`{ id, table, path, rows, truncated }` or `{ id, table, error }`), printing `{ reads, ok, errors, truncated }`. Checker `RUN … result=error` lines are only for the progress line.
+It matches each plan entry to its result file by exact SQL text and writes `<DIR>/ddic-reads.json` (`{ id, table, path, rows, truncated }` or `{ id, table, error }`), printing `{ reads, ok, errors, truncated }`. Batch `ERROR` lines (or checker `RUN … result=error` lines) are only for the progress line.
 
-G3b then covers the gaps: a `dd03l-*` read failed or truncated → the tables of that statement; a `DD04L` / `DD01L` / `DD40L` / `DD26S` read failed → the DTEL / DOMA / TTYP / VIEW members of that statement. A failed `DD08L` / `DD05S` / `DD35L` / `DD30L` / `DD31S` read only loses cardinality or search help detail — no G3b for it. A checker returns `result=inline` (MCP server older than 4.8.19 ignores `output`) → G3b for the whole scope; same when every read failed with the same error — print `↳ G3a DD reads unavailable: <error>`. On ECC an `is not allowed` error means the system's `ZMCP_ADT_DISPATCH` predates the DD allow list (reinstall via `/sc4sap:setup`).
+G3b then covers the gaps: a `dd03l-*` read failed or truncated → the tables of that statement; a `DD04L` / `DD01L` / `DD40L` / `DD26S` read failed → the DTEL / DOMA / TTYP / VIEW members of that statement. A failed `DD08L` / `DD05S` / `DD35L` / `DD30L` / `DD31S` read only loses cardinality or search help detail — no G3b for it. No result file was written (MCP server older than 4.8.19 ignores `output`; a fallback checker reports `result=inline`) → G3b for the whole scope; same when every read failed with the same error — print `↳ G3a DD reads unavailable: <error>`. On ECC an `is not allowed` error means the system's `ZMCP_ADT_DISPATCH` predates the DD allow list (reinstall via `/sc4sap:setup`).
 
 ### G3b — Per-object reads (`sc4sap:sap-checker` × n, `MODE: scout`)
 

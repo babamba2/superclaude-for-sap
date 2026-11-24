@@ -51,8 +51,8 @@ CLASS lcl_data IMPLEMENTATION.
   METHOD initialization.
     s_fldate[] = VALUE #( ( sign   = gc_sign_include
                             option = gc_option_between
-                            low    = |{ sy-datum(4) }{ gc_first_day }|
-                            high   = |{ sy-datum(4) }{ gc_last_day }| ) ).
+                            low    = |{ sy-datlo(4) }{ gc_first_day }|
+                            high   = |{ sy-datlo(4) }{ gc_last_day }| ) ).
   ENDMETHOD.
 
   METHOD get_data.

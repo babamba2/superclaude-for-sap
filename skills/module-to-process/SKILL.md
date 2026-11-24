@@ -87,7 +87,7 @@ Settled at design time (2026-10-27) — do not ask the user again:
 The main thread follows the session model; every `subagent_type` uses the plugin prefix `sc4sap:`.
 
 - **Main thread** — Steps 0–3, 8, 9: intake, usage calls (`GetTcodeUsage`, `GetTransaction`), gates, `usage-scope.mjs` / `backbone.mjs` / `build-process-doc.mjs` runs, state checkpoints, user approvals.
-- **`sap-checker` × N (Haiku)** — Step 2: sources of the used programs only (graph-usage G1 / G3), 10 per checker; then `usage-scope.mjs` + `build-package-graph.mjs` on the main thread.
+- **Main-thread batch reads** — Step 2: sources of the used programs only (graph-usage G1, `sap-batch.mjs`; `sap-checker` × N, 10 per checker, only as fallback); **`sap-checker` × N (Haiku)** — G3b DDIC reads; then `usage-scope.mjs` + `build-package-graph.mjs` on the main thread.
 - **`sap-analyst` (Opus)** — Step 4 hierarchy (backbone + attach proposals → L1–L4 rows, variants, lanes) and Step 5 task sheets (parallel parts of ≤ 8 tasks). Returns JSON as text; the main thread writes it once.
 - **`sap-<module>-consultant` (frontmatter model)** — Step 6, **optional** (the user chooses), one per module in scope, in parallel: wording, owners, std-task sheets, conversion notes, glossary, open questions. Writes its own patch file.
 - **No writer agent** — Step 7 assembles `process-model.json` with `scripts/process/assemble-model.mjs` (deterministic).

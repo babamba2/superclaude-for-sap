@@ -9,6 +9,7 @@
 
 import { createHash } from 'node:crypto';
 import { existsSync } from 'node:fs';
+import { patchMixOf, sourcePatchesOf, sourceTextOf } from '../lib/source-file-input.mjs';
 import { homedir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 
@@ -90,6 +91,27 @@ export function parseAunit(xml) {
   return { programs, methods: methods.length, failed: failed.length, failed_methods: failed.slice(0, 10), method_results: methodResults, outside_fail: outsideFail, first_alert: firstTitle ? firstTitle.trim().slice(0, 200) : undefined };
 }
 
+/**
+ * RunUnitTest result_format "summary" (run_summary: counts + failing methods / class alerts) → the parseAunit
+ * shape. No method_results: per-method passes are not in a summary, so program-test (which needs them) keeps
+ * result_format "full" and finds no usable run here — it never reads a summary as a pass.
+ */
+export function aunitFromSummary(s, containers = []) {
+  const failures = Array.isArray(s?.failures) ? s.failures : [];
+  const inMethod = failures.filter((f) => f.method);
+  const outside = failures.filter((f) => !f.method);
+  const first = failures[0]?.title;
+  return {
+    programs: containers,
+    methods: Number(s?.methods) || 0,
+    failed: Number(s?.failed) || 0,
+    failed_methods: [...new Set(inMethod.map((f) => up(f.method)))].slice(0, 10),
+    outside_fail: outside.length > 0,
+    first_alert: first ? String(first).trim().slice(0, 200) : undefined,
+    summary: true,
+  };
+}
+
 /** True when a WriteTextElementsBulk call wrote the pool ACTIVE (answer first, else the input's activate flag). */
 export function textPoolWrittenActive(input, resp) {
   if (isErrorResponse(resp)) return false;
@@ -109,7 +131,25 @@ export function ledgerEntry(payload, now = new Date()) {
   if (isWriteTool(handler)) {
     const w = { ...base, kind: 'write', names: namesFromInput(input) };
     // Hash of the uploaded source (CR / trailing blanks ignored) — program-test proves the upload is the generated file.
-    if (typeof input.source_code === 'string') w.source_sha256 = srcSha(input.source_code);
+    // Patch mode: the source sits in source_file (the server uploaded that file's text).
+    // source_patches next to a source field or source_file (any value, even "") is a refused mix: never
+    // recorded as a plain source upload — no source_sha256, no source_patches, only the mix flag.
+    const mix = patchMixOf(input);
+    if (mix.length) {
+      w.source_patches_mixed = mix;
+      return w;
+    }
+    const src = sourceTextOf(input);
+    if (src.text !== null) w.source_sha256 = srcSha(src.text);
+    if (src.file) w.source_file = src.file;
+    // Server-side patch: only the fragments were sent. Record their count + hash of the canonical patch JSON,
+    // plus the server's sha256 of the text it uploaded (result `patched.source_sha256`, raw — not srcSha).
+    const pt = src.text === null ? sourcePatchesOf(input) : null;
+    if (pt && !pt.error) {
+      w.source_patches = { count: pt.count, sha256: pt.sha256 };
+      const up = tryJson(responseText(payload.tool_response))?.patched?.source_sha256;
+      if (typeof up === 'string') w.source_patches.uploaded_sha256 = up;
+    }
     // A text pool written ACTIVE (activate=true, the default → rfc_action WRITE, step write_active)
     // needs no program activation, so it does not make the program "changed after activation".
     // activate=false (WRITE_INACTIVE) or an error stays a change.
@@ -133,6 +173,7 @@ export function ledgerEntry(payload, now = new Date()) {
     if (handler === 'RunUnitTest') entry.containers = (input.tests || []).map((x) => up(x.container_class || ''));
     const r = data.run_result;
     if (r !== undefined) entry.aunit = parseAunit(typeof r === 'string' ? r : JSON.stringify(r)) || { unparsed: true };
+    else if (data.run_summary) entry.aunit = aunitFromSummary(data.run_summary, entry.containers);
   }
   return entry;
 }

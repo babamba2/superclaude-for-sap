@@ -607,7 +607,8 @@ function lastResult(entries, prog, after) {
   const P = up(prog);
   const runs = new Map();
   for (const e of entries) if (e.tool === 'RunUnitTest' && e.run_id && (e.containers || []).includes(P)) runs.set(e.run_id, e);
-  const hits = entries.filter((e) => ts(e) >= after && e.aunit && !e.aunit.unparsed && (((e.containers || []).includes(P) && e.tool === 'RunUnitTest') || (e.tool === 'GetUnitTestResult' && runs.has(e.run_id) && (runs.get(e.run_id).containers || []).includes(P)) || (e.aunit.programs || []).includes(P)));
+  // a result_format "summary" run has no per-method passes: never a program-test verdict source
+  const hits = entries.filter((e) => ts(e) >= after && e.aunit && !e.aunit.unparsed && !e.aunit.summary && (((e.containers || []).includes(P) && e.tool === 'RunUnitTest') || (e.tool === 'GetUnitTestResult' && runs.has(e.run_id) && (runs.get(e.run_id).containers || []).includes(P)) || (e.aunit.programs || []).includes(P)));
   return hits[hits.length - 1] || null;
 }
 

@@ -111,7 +111,7 @@ Required by the MCP server for Screen, GUI Status, and Text Element operations.
 
 **S/4HANA note:** if `SAP_VERSION=S4`, these five ECC-only files are NOT installed. S/4HANA's `sc4sap` MCP server handles DDIC writes directly via ADT endpoints (`CreateTable` / `CreateTableType` / `CreateDataElement` / `CreateDomain`). Do not port these FMs to the S/4 primary layer.
 
-## 9a.3 — DDIC Read + Workload FMs (ECC ONLY — skip on S/4HANA)
+## 9a.3 — DDIC Read + Workload FMs (DDIC read FMs: ECC ONLY; `ZMCP_WL` workload FMs: ECC and S/4HANA)
 
 On ECC the MCP server reads tables, data elements and domains, BAdI implementations and ST03N usage through these FMs (ADT 7.40 has no DDIC read endpoints). Without them `GetTable` / `GetDataElement` / `GetDomain` fail with "`<FM>` is not installed on this system".
 
@@ -121,8 +121,10 @@ On ECC the MCP server reads tables, data elements and domains, BAdI implementati
 | `ZMCP_ADT_DDIC_DTEL_READ` | `ZMCP_ADT_UTILS` | `abap/zmcp_adt_ddic_dtel_read_ecc.abap` |
 | `ZMCP_ADT_DDIC_DOMA_READ` | `ZMCP_ADT_UTILS` | `abap/zmcp_adt_ddic_doma_read_ecc.abap` |
 | `ZMCP_ADT_DDIC_BADI` | `ZMCP_ADT_UTILS` | `abap/zmcp_adt_ddic_badi_ecc.abap` |
-| `ZMCP_WL_TCODE_USAGE` | `ZMCP_WL` (create in `$TMP`) | `abap/zmcp_wl_tcode_usage_ecc.abap` |
-| `ZMCP_WL_JOB_USAGE` | `ZMCP_WL` | `abap/zmcp_wl_job_usage_ecc.abap` |
+| `ZMCP_WL_TCODE_USAGE` | `ZMCP_WL` (create in `$TMP`) | ECC: `abap/zmcp_wl_tcode_usage_ecc.abap` · S/4HANA: `abap/zmcp_wl_tcode_usage_s4.abap` |
+| `ZMCP_WL_JOB_USAGE` | `ZMCP_WL` | ECC: `abap/zmcp_wl_job_usage_ecc.abap` · S/4HANA: `abap/zmcp_wl_job_usage_s4.abap` |
+
+On S/4HANA install only the two `ZMCP_WL` rows (the four DDIC rows stay ECC-only; native ADT serves them). `GetTcodeUsage` / `GetJobUsage` reach them there through `ZMCP_ADT_DISPATCH` action `FM_PROXY` (no OData function import); the dispatcher needs the release that has `FM_PROXY` with both names on its allow list.
 
 `CreateFunctionModule` + `UpdateFunctionModule` (`activate=true`) as in 9a. They need not be remote-enabled: the MCP server reaches them through `ZMCP_ADT_DISPATCH` (`FM_PROXY` on the `nco` backend, the OData function imports on `odata`).
 

@@ -2,7 +2,7 @@
 
 Authoritative rule for how `sap-code-reviewer` runs Phase 6 reviews in parallel buckets with a Sonnet→Opus escalation ladder. Referenced from `phase6-review.md`. This is the **default** strategy (`~/.sc4sap/preferences.json` → `phase6Strategy` = `buckets`); the opt-in alternative is [`phase6-detect-judge.md`](./phase6-detect-judge.md).
 
-**Read-only reviewer**: `sap-code-reviewer` has `disallowedTools: [Write, Edit]` and no `Update*` MCP tools. It **returns** bucket verdicts and fix lists as text; the main thread writes every file below and dispatches `sap-executor` for fixes.
+**Read-only reviewer**: `sap-code-reviewer` has `disallowedTools: [Write, Edit]` and no `Update*` MCP tools. It **returns** bucket verdicts and fix lists as text; the main thread writes every file below and dispatches `sap-executor` for fixes. Every fix — by the main thread or the executor — is uploaded in patch mode ([`../../common/patch-mode.md`](../../common/patch-mode.md)): `source_patches` when the finding quotes the exact current lines, else `Edit` the object's source file, `source_file` upload; the fix prompt names that rule.
 
 ## Goal
 

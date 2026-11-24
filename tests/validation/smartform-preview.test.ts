@@ -473,6 +473,37 @@ describe('smartform-preview: old-table cells — T_CELLNR and a loop in a sort e
   });
 });
 
+describe('smartform-preview: cell border colours and sides without a colour (S4-DEV SF_TOTALS / SF_SUBTOTALS)', () => {
+  it('a side without a colour prints in the pen colour of the side before (left, right, top, bottom); own colours print as given', () => {
+    const r = new Renderer(CONTENT, { values: {} });
+    const white = { borders: { left: 0.26, right: 0.26, top: 0, bottom: 0 }, borderColors: { left: '#ffffff', right: '#ffffff' }, bordersUnset: { bottom: 0.26 } };
+    expect(r.cellBorders(white, white.borders)).toBe('border-right:0.26mm solid #ffffff;border-bottom:0.26mm solid #ffffff;border-left:0.26mm solid #ffffff;');
+    // a black cell after it sets the pen back to black; its colourless top follows
+    const black = { borders: { left: 0.26, right: 0, top: 0, bottom: 0 }, bordersUnset: { top: 0.26 } };
+    expect(r.cellBorders(black, black.borders)).toBe('border-top:0.26mm solid #000;border-left:0.26mm solid #000;');
+    // a table pattern draws its own black lines: no colours, no colourless sides, the pen stays (white here)
+    r.cellBorders(white, white.borders);
+    expect(r.cellBorders(white, { bottom: 0.3 })).toBe('border-bottom:0.3mm solid #000;');
+    const bare = { borders: { left: 0, right: 0, top: 0, bottom: 0 }, bordersUnset: { bottom: 0.26 } };
+    expect(r.cellBorders(bare, bare.borders)).toBe('border-bottom:0.26mm solid #ffffff;');
+    // a new render starts with a black pen
+    r.page();
+    expect(r.cellBorders(bare, bare.borders)).toBe('border-bottom:0.26mm solid #000;');
+  });
+  it('a template row with its own lines (cells[].rows) does not take row 1\'s colours or colourless sides', () => {
+    const cell = { line: '%L', column: 1, widthMm: 30, borders: { left: 0.26, top: 0, right: 0, bottom: 0 }, borderColors: { left: '#ffffff' }, bordersUnset: { bottom: 0.26 },
+      rows: [
+        { borders: { left: 0.26, top: 0, right: 0, bottom: 0 }, borderColors: { left: '#ffffff' }, bordersUnset: { bottom: 0.26 } },
+        { borders: { left: 0.26, top: 0, right: 0, bottom: 0 } },
+      ] };
+    const tpl = { kind: 'template', name: 'TPL', width: { mm: 30 }, templateLines: [{ name: '%L', from: 1, to: 2, heightMm: 5 }], cells: [cell], children: [] };
+    const c = { ...CONTENT, pages: [{ ...CONTENT.pages[0], windows: [{ name: 'MAIN', type: 'MAIN', leftMm: 10, topMm: 30, widthMm: 190, heightMm: 200, content: [tpl] }] }] };
+    const html = new Renderer(c, { values: {} }).page().html as string;
+    const frames = [...html.matchAll(/<div class="frame" style="([^"]*)"><\/div>/g)].map((m) => m[1]);
+    expect(frames).toEqual(['border-bottom:0.26mm solid #ffffff;border-left:0.26mm solid #ffffff;', 'border-left:0.26mm solid #000;']);
+  });
+});
+
 describe('smartform-preview: per-group values outside a loop start again in each group (r17 note)', () => {
   it('a value given per sort group is read from the group array, one value per appearance, from its first in each group', () => {
     const r = new Renderer(CONTENT, { values: { G_X: [['a', 'b'], ['c', 'd']] } });

@@ -114,6 +114,19 @@ describe('score-fidelity', () => {
     expect(c.forms[0]).toMatchObject({ passed: false, pagesMismatch: true });
   });
 
+  it('a white line or white stroked box prints nothing and is no rule (SF_TOTALS row borders stroked white)', () => {
+    const page = (lines: any[], rects: any[] = []) => ({ pages: [{ w: 210, h: 297, texts: [{ x: 20, y: 30, text: 'A' }], lines, rects }] });
+    const black = { x1: 20, y1: 60, x2: 190, y2: 60 };
+    const ref = page([black, { x1: 20, y1: 70, x2: 190, y2: 70, color: '#ffffff' }], [{ x: 20, y: 80, w: 50, h: 10, stroke: 1 }]);
+    const r = scoreFidelity(ref, page([black]));
+    expect(r.counts).toMatchObject({ refRules: 1, rulesMatched: 1, rulesMissing: 0, rulesExtra: 0 });
+    // white drawn over an earlier black line erases that part; the rest stays a rule; black over white prints
+    const over = page([{ x1: 20, y1: 60, x2: 190, y2: 60 }, { x1: 100, y1: 60, x2: 190, y2: 60, color: '#fff' },
+      { x1: 20, y1: 90, x2: 190, y2: 90, color: '#ffffff' }, { x1: 20, y1: 90, x2: 190, y2: 90 }]);
+    const short = page([{ x1: 20, y1: 60, x2: 100, y2: 60 }, { x1: 20, y1: 90, x2: 190, y2: 90 }]);
+    expect(scoreFidelity(over, short).counts).toMatchObject({ refRules: 2, rulesMatched: 2, rulesExtra: 0 });
+  });
+
   it('compares rules by direction, position and both ends within 1 mm; thin filled bars count, barcodes do not', () => {
     const c = clone(BASE); c.lines = [[20, 60.5, 190.5, 60.5]];
     const r = scoreFidelity(pdf([BASE]), pdf([c]));

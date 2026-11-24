@@ -5,6 +5,28 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [1.1.0] — 2026-11-24
+
+Relation map tours and process areas, patch mode for source changes, S/4HANA usage reads, evidence-guard hardening. Needs MCP **4.15.0** (pin below).
+
+### Added
+- **Patch mode** (`common/patch-mode.md`): to change an existing object whose current lines are known, skills send `source_patches` (exact replacements applied by the MCP server to the newest saved source) or a `source_file` instead of retyping the whole source; the hook and the evidence ledger understand both, and test code is never changed through a patch. `RunUnitTest` results are asked as a summary outside `program-test`.
+- **Batch reads** (`scripts/lib/sap-batch.mjs`): three or more calls of one read tool whose results a script consumes run on the main thread in one process (read tools only, DD-shaped `GetSqlQuery` only) — `stock-cbo` G1 / G1b / G3a, the relation map and `module-to-process` collection use it.
+- **S/4HANA usage**: `abap/` helper FMs for `GetTcodeUsage` / `GetJobUsage` through the dispatcher's FM proxy, and the dispatcher branch behind the MCP `DeleteAdobeForm`.
+- **Clean ABAP rule** (`common/clean-code.md`): `COMMIT WORK AND WAIT` (or `BAPI_TRANSACTION_COMMIT` with wait) and `sy-datlo` / `sy-timlo` in generated ABAP; another form only with a one-line reason. The `create-program` Phase 6 hygiene detector flags both.
+- `/sc4sap:cbo-relation-map` **Tours tab and object summary**, both computed from the graph (no model call). A tour starts at an entry TCode (TCodes on the same program merged; root reports when fewer than three) and walks program → calls per depth → tables changed (C / U / D) → tables only read → other TCodes changing the same tables; each step adds its objects to the drawing and rings the current ones, with Back / Next, a progress bar, ← → keys and a history entry per step (`#tour=…&s=n`). Up to 200 tours, used-directly first, searchable. The side panel opens with a summary (TCodes that run the object, what it calls, tables it changes and reads; for a table its writers, readers and the TCodes changing it) and tags; the node card shows the tags and *Start tour*. The tour UX follows Understand-Anything's tour panel (MIT); no code is taken from it. Korean, English and Japanese texts; phone layouts hide the step dots and the count columns.
+- `/sc4sap:cbo-relation-map` **Process areas tab**: the `/sc4sap:module-to-process` model next to the inventory (`processes/<MODULE>/_state/process-model.json`, or `--process <file>`; `--process none` skips it) laid onto the map — L2 process chains as area cards, L3 processes as lanes, L4 tasks as steps left to right. A task's TCodes and objects are matched to map objects by name; code relations (two levels) give the tables it changes (C / U / D) and reads. Hand-offs between areas come from the source: one area changes a table another reads (table list per pair). A task opens its objects, standard TCodes as text, names not on the map, related tasks, *Draw it* (its objects in Explore) and *Start tour*. Without a process model the Louvain groups stand in. Domain view after Understand-Anything's domain → flow → step view, built here from the reviewed process map instead of a model guess.
+
+### Changed
+- **MCP pin** `abap-mcp-adt-powerup` 23161c3 (4.14.0) → 69d2d67 (4.15.0: `source_patches` with undo, `source_file`, `RunUnitTest` `result_format`, `DeleteAdobeForm`, S/4HANA usage through the FM proxy, `GetSqlQuery` line wrap, SmartForm border / default fields).
+- **Team mode** (`analyze-code` review team): the lead writes the round-0 draft from the Step 2 result, the reviewer joins at round 2; module consultants get read-only source tools (`output: "file"` + Read / Grep).
+- **`smartform-preview`**: a cell side with a width but no colour prints in the pen colour of the side before; own side colours as given (white row borders print white); global fields start at their default value; the fidelity scorer treats white lines as erasers, not rules.
+
+### Fixed
+- **Evidence guard** (`scripts/evidence/guard.mjs`, deny-only): globs, short names, recursive reads / copies / archives, links and drive aliases that reach the profile folders; the home written as variables, aliases or joins; a home held in a variable and used later; Bash backslash escapes in patterns are no longer read as root paths (PowerShell keeps backslashes as separators). Checked against 147,360 fuzz inputs with no new allow.
+- `sap-batch`: `dir:` picks split Windows paths on Linux too.
+- **Blocklist hook / evidence ledger** (patch mode): `source_file` together with `source_code` is refused whatever the values. An empty `source_code` no longer stands in for the file: the MCP server uploads the file in that case, so the ledger hashes the file; the hook refuses the pair.
+
 ## [1.0.1] — 2026-11-20
 
 CLI flow of the newer skills made as easy to follow as the web app. No breaking change; the MCP pin stays.
