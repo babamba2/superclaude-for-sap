@@ -24,6 +24,9 @@
   const kindIx = (k) => M.kinds.indexOf(k);
   const multi = (M.meta.packages || []).length > 1;
   const groupName = (g) => `G${g + 1}${M.comms[g] && M.comms[g].label ? ' · ' + M.comms[g].label : ''}`;
+  // tours (relmap-tour.mjs): { e: entry node, s: [[kind, nodes[], total, letters[]|null, depth]] }
+  const TOURS = M.tours || [];
+  const tourOf = new Map(TOURS.flatMap((t, x) => [[t.e, x], ...(t.a || []).map((i) => [i, x])]));
 
   // relation presets: business = everything but typing; DDIC = the DD* kinds; code = what source states
   const DDIC_KINDS = ['types', 'checks', 'valueTable', 'searchHelp', 'rowType', 'basedOn', 'selects', 'contains'];
@@ -39,7 +42,7 @@
 
   // ---------- state ----------
   const S = {
-    mode: 'none', center: -1, group: -1, path: null, paths: [], pathIx: 0, target: -1, impact: null,
+    mode: 'none', center: -1, group: -1, path: null, paths: [], pathIx: 0, target: -1, impact: null, tour: -1, step: 0, dom: -1, domStep: '',
     depth: 1, dir: 'both', max: 200, pathDir: 'any', colorBy: 'type', preset: defaultPreset,
     kinds: new Set(PRESETS[defaultPreset]), types: new Set(M.types.map((_, i) => i)), bases: new Set([0, 1, 2]),
     usage: new Set([-1, 0, 1, 2, 3]), pkgs: new Set([-1, ...M.pkgs.map((_, i) => i)]),
@@ -62,6 +65,9 @@
   const usageBadge = (i) => (nUsage(i) >= 0 ? ` <span class="u u${nUsage(i)}">${esc(T.usageShort[M.usage[nUsage(i)]])}</span>` : '');
   const nodeLink = (i, withDesc) => `<a href="#" class="nl" data-n="${i}">${esc(nName(i))}</a> <small>${esc(nType(i))}</small>${usageBadge(i)}${withDesc && nDesc(i) ? ` <small class="desc">${esc(nDesc(i))}</small>` : ''}`;
   document.addEventListener('click', (ev) => {
+    const tb = ev.target.closest('[data-tour]');
+    if (tb) { ev.preventDefault(); if (!tb.disabled) startTour(Number(tb.dataset.tour), Number(tb.dataset.step || 0)); return; }
+    if (ev.target.closest('[data-tour-exit]')) { ev.preventDefault(); focusNode(TOURS[S.tour] ? TOURS[S.tour].e : S.center); return; }
     const a = ev.target.closest('[data-n]');
     if (a) { ev.preventDefault(); focusNode(Number(a.dataset.n)); return; }
     const g = ev.target.closest('[data-g]');
@@ -113,6 +119,197 @@
     $('#tab-groups').innerHTML = `<h2>${esc(T.hGroups)}</h2><p class="muted">${esc(T.groupsHelp)}</p>
       <table><thead><tr><th>${esc(T.colGroup)}</th><th>${esc(T.colLabel)}</th><th>${esc(T.colSize)}</th><th>${esc(T.colInner)}</th><th>${esc(T.colMix)}</th><th>${esc(T.colTop)}</th></tr></thead><tbody>${rows}</tbody></table>${more}`;
   }
+
+  // ---------- tours: one per entry TCode, walked from the graph (UX after Understand-Anything's LearnPanel) ----------
+  const crudSpan = (s) => (s ? `<span class="crud">${s.split('').map((c) => `<b class="c-${c}">${c}</b>`).join('')}</span> ` : '');
+  function stepText(t, x) {
+    const [k, nodes, total, , depth] = TOURS[t].s[x], e = TOURS[t].e, X = T.tourStep[k] || {};
+    const fill = (s) => String(s || '').replace('{n}', nName(e)).replace('{t}', fmt(total)).replace('{s}', fmt(nodes.length)).replace('{d}', fmt(depth || 1));
+    const body = k === 'entry' ? (nType(e) === 'TRAN' ? X.bodyTran : X.bodyProg) : X.body;
+    return { title: fill(X.title), body: fill(body) };
+  }
+  function tours() {
+    const sec = $('#tab-tours');
+    if (!TOURS.length) { sec.innerHTML = `<h2>${esc(T.hTours)}</h2><p class="muted">${esc(T.toursNone)}</p>`; return; }
+    const count = (t, k) => { const st = t.s.find((x) => x[0] === k); return st ? fmt(st[2]) : '–'; };
+    const alt = (t) => (t.a && t.a.length ? `<div class="desc">${esc(T.tourAlt)}: ${t.a.map((i) => esc(nName(i))).join(', ')}</div>` : '');
+    const row = (t, x) => `<tr><td class="r">${x + 1}</td><td>${nodeLink(t.e, true)}${alt(t)}</td><td class="r tc">${fmt(t.s.length)}</td>
+      <td class="r tc">${count(t, 'writes')}</td><td class="r tc">${count(t, 'reads')}</td><td class="r tc">${count(t, 'shared')}</td>
+      <td><button type="button" class="pri" data-tour="${x}">▶ ${esc(T.tourStart)}</button></td></tr>`;
+    const SHOW = 50;
+    const render = (q) => {
+      const Q = q.trim().toUpperCase();
+      const hit = TOURS.map((t, x) => [t, x]).filter(([t]) => !Q || [t.e, ...(t.a || [])].some((i) => nName(i).includes(Q) || nDesc(i).toUpperCase().includes(Q)));
+      $('#tour-body').innerHTML = hit.slice(0, SHOW).map(([t, x]) => row(t, x)).join('')
+        + (hit.length > SHOW ? `<tr><td colspan="7" class="muted">${esc(T.more.replace('{n}', fmt(hit.length - SHOW)))}</td></tr>` : '')
+        + (!hit.length ? `<tr><td colspan="7" class="muted">${esc(T.noMatch)}</td></tr>` : '');
+    };
+    sec.innerHTML = `<h2>${esc(T.hTours)}</h2><p class="muted">${esc(T.toursHelp)}</p>
+      <div class="bar"><input id="tour-q" type="search" placeholder="${esc(T.tourSearch)}"><small>${esc(T.toursCount.replace('{n}', fmt(TOURS.length)))}</small></div>
+      <table class="tours"><thead><tr><th>#</th><th>${esc(T.colEntry)}</th><th class="tc">${esc(T.colSteps)}</th><th class="tc">${esc(T.colWrites)}</th><th class="tc">${esc(T.colReadOnly)}</th><th class="tc">${esc(T.colShared)}</th><th></th></tr></thead><tbody id="tour-body"></tbody></table>`;
+    render('');
+    $('#tour-q').addEventListener('input', (ev) => render(ev.target.value));
+  }
+  function tourPanel() {
+    const t = TOURS[S.tour], n = t.s.length, x = S.step, [, nodes, total, letters] = t.s[x], { title, body } = stepText(S.tour, x);
+    const items = nodes.map((i, j) => `<li>${crudSpan(letters && letters[j])}${nodeLink(i)}${nDesc(i) ? `<div class="desc">${esc(nDesc(i))}</div>` : ''}</li>`).join('');
+    const more = total > nodes.length ? `<p class="muted">${esc(T.tourMore.replace('{n}', fmt(total - nodes.length)))}</p>` : '';
+    const dots = t.s.map((st, j) => `<button type="button" class="${j === x ? 'on' : ''}" data-tour="${S.tour}" data-step="${j}" title="${esc(stepText(S.tour, j).title)}" aria-label="${j + 1}"></button>`).join('');
+    const last = x === n - 1;
+    return `<div class="tour"><div class="th"><b>${esc(T.tourShort)} · ${esc(nName(t.e))}</b><span>${x + 1} / ${n}</span><a href="#" data-tour-exit>${esc(T.tourExit)}</a></div>
+      <div class="tbar"><i style="width:${((x + 1) / n) * 100}%"></i></div>
+      ${x === 0 && nDesc(t.e) ? `<p class="desc big">${esc(nDesc(t.e))}</p>` : ''}
+      ${x === 0 && t.a && t.a.length ? `<p class="desc">${esc(T.tourAlt)}: ${t.a.map((i) => nodeLink(i)).join(', ')}</p>` : ''}
+      <h3>${esc(title)}</h3><p>${esc(body)}</p><ul class="el">${items}</ul>${more}
+      <div class="tdots">${dots}</div>
+      <div class="tnav"><button type="button" data-tour="${S.tour}" data-step="${x - 1}" ${x === 0 ? 'disabled' : ''}>← ${esc(T.tourPrev)}</button>
+      ${last ? `<button type="button" class="pri" data-tour-exit>${esc(T.tourFinish)}</button>` : `<button type="button" class="pri" data-tour="${S.tour}" data-step="${x + 1}">${esc(T.tourNext)} →</button>`}</div>
+      <p class="muted small tkeys">${esc(T.tourKeys)}</p></div>`;
+  }
+
+  // ---------- summary: what the graph says about one object (no model call) ----------
+  const CODE_T = new Set(['PROG', 'FUGR', 'FUNC', 'CLAS', 'INTF', 'TRAN', 'INCL']);
+  function summaryOf(i) {
+    const t = nType(i), rows = [], tags = [];
+    const kW = kindIx('writes'), kR = kindIx('reads'), kC = kindIx('checks'), kT = kindIx('types');
+    const outs = (kd) => [...new Set(out[i].filter((k) => M.edges[k][2] === kd).map((k) => M.edges[k][1]))];
+    const ins = (kd) => [...new Set(inn[i].filter((k) => M.edges[k][2] === kd).map((k) => M.edges[k][0]))];
+    const list = (arr, lettersOf) => {
+      const top = arr.slice().sort((a, b) => nBiz(b) - nBiz(a)).slice(0, 4);
+      return top.map((x) => crudSpan(lettersOf ? lettersOf(x) : '') + nodeLink(x)).join(', ') + (arr.length > 4 ? ` <small>${esc(T.andMore.replace('{n}', fmt(arr.length - 4)))}</small>` : '');
+    };
+    const letters = (ks) => { const s = ks.map(crudOf).join(''); return ['C', 'U', 'D'].filter((c) => s.includes(c)).join(''); };
+    if (CODE_T.has(t)) {
+      if (t !== 'TRAN') { const tc = impactOf(i).tcodes; rows.push([T.sumStartedBy, tc.length ? list(tc) : esc(T.sumNoTcode)]); }
+      const callees = [...new Set(out[i].filter((k) => CODE_IX.has(M.edges[k][2])).map((k) => M.edges[k][1]))];
+      if (callees.length) rows.push([T.sumCalls, list(callees)]);
+      const w = outs(kW), r = outs(kR).filter((x) => !w.includes(x));
+      rows.push([T.sumWrites, w.length ? list(w, (x) => letters(out[i].filter((k) => M.edges[k][1] === x && M.edges[k][2] === kW))) : esc(T.sumNone)]);
+      if (r.length) rows.push([T.sumReads, list(r)]);
+      tags.push(w.length ? T.tagWrites : r.length ? T.tagReadOnly : '');
+      if (tourOf.has(i)) tags.push(T.tagEntry);
+    } else if (t === 'TABL' || t === 'VIEW') {
+      const w = ins(kW), r = ins(kR);
+      rows.push([T.sumWrittenBy, w.length ? list(w, (x) => letters(inn[i].filter((k) => M.edges[k][0] === x && M.edges[k][2] === kW))) : esc(T.sumNone)]);
+      rows.push([T.sumReadBy, r.length ? list(r) : esc(T.sumNone)]);
+      if (w.length) {
+        const tc = new Set();
+        for (const x of w) { if (nType(x) === 'TRAN') tc.add(x); for (const y of impactOf(x).tcodes) tc.add(y); }
+        rows.push([T.sumChangedVia, tc.size ? list([...tc]) : esc(T.sumNoTcode)]);
+      }
+      if (outs(kC).length) rows.push([T.sumChecks, list(outs(kC))]);
+      if (ins(kC).length) rows.push([T.sumCheckedBy, list(ins(kC))]);
+      if (M.meta.sourcesParsed) tags.push(!w.length && r.length ? T.tagNoWriter : w.length && !r.length ? T.tagNoReader : '');
+    } else {
+      const users = ins(kT);
+      if (users.length) rows.push([T.sumTypedBy, list(users)]);
+      if (inn[i].length > users.length) rows.push([T.sumUsedBy, esc(fmt(inn[i].length - users.length))]);
+    }
+    if (M.hubs.slice(0, 10).includes(i)) tags.push(T.tagHub);
+    if (nUsage(i) === 2) tags.push(T.tagUnused);
+    return { rows, tags: tags.filter(Boolean) };
+  }
+  const tagsHtml = (tags) => (tags.length ? `<p class="tags">${tags.map((x) => `<span>${esc(x)}</span>`).join('')}</p>` : '');
+  function summaryHtml(i) {
+    const { rows, tags } = summaryOf(i);
+    if (!rows.length && !tags.length) return '';
+    return `<div class="sum"><h4>${esc(T.hSummary)}</h4>${tagsHtml(tags)}<dl>${rows.map(([l, v]) => `<dt>${esc(l)}</dt><dd>${v}</dd>`).join('')}</dl></div>`;
+  }
+
+  // ---------- process areas: module-to-process L2 → L3 → L4 on the map (relmap-domain.mjs) ----------
+  // domain view after Understand-Anything's domain → flow → step view; hand-offs = tables one area changes and another reads
+  const DOM = M.domains || { kind: 'groups', doms: [], hand: [], stats: {} }, DOMS = DOM.doms;
+  const stepOf = (d, code) => { for (const f of (DOMS[d] || { f: [] }).f) for (const s of f.s) if (s.c === code) return s; return null; };
+  const domOfStep = (code) => DOMS.findIndex((d) => d.f.some((f) => f.s.some((s) => s.c === code)));
+  // what a step draws: its TCodes, the programs they launch (listed once under TCodes), its objects and tables
+  const stepNodes = (s) => {
+    const kL = kindIx('launches'), runs = s.t.flatMap((x) => out[x].filter((k) => M.edges[k][2] === kL).map((k) => M.edges[k][1]));
+    return [...new Set([...s.t, ...runs, ...s.o, ...s.w.map((x) => x[0]), ...s.r])];
+  };
+  const linkList = (ids, lettersOf) => {
+    const html = (xs) => xs.map((x, j) => `<li>${crudSpan(lettersOf ? lettersOf(j) : '')}${nodeLink(x)}${nDesc(x) ? `<div class="desc">${esc(nDesc(x))}</div>` : ''}</li>`).join('');
+    if (ids.length <= 12) return `<ul class="el">${html(ids)}</ul>`;
+    return `<ul class="el">${html(ids.slice(0, 12))}</ul><details><summary>${esc(T.more.replace('{n}', fmt(ids.length - 12)))}</summary><ul class="el">${ids.slice(12).map((x, j) => `<li>${crudSpan(lettersOf ? lettersOf(j + 12) : '')}${nodeLink(x)}</li>`).join('')}</ul></details>`;
+  };
+  function stepHtml(d, s) {
+    const tour = s.t.find((x) => tourOf.has(x));
+    const nn = s.nn || [s.t.length, s.o.length, s.w.length, s.r.length], lists = [s.t, s.o, s.w, s.r];
+    const sec = (title, k, body) => (nn[k] ? `<h4>${esc(title)} <small>${fmt(nn[k])}</small></h4>${body}${nn[k] > lists[k].length ? `<p class="muted small">${esc(T.domCapped.replace('{n}', fmt(nn[k])).replace('{s}', fmt(lists[k].length)))}</p>` : ''}` : '');
+    const chips = [T.procKind[s.k] || s.k, T.procUsage[s.u] || s.u].filter(Boolean).map((x) => `<span>${esc(x)}</span>`).join('');
+    const links = s.ln.map(([c, note]) => { const dd = domOfStep(c), st = dd >= 0 ? stepOf(dd, c) : null; return `<li>${st ? `<a href="#" data-dom-go="${esc(c)}">${esc(c)} ${esc(st.l)}</a>` : esc(c)}${note ? `<div class="desc">${esc(note)}</div>` : ''}</li>`; }).join('');
+    return `<div class="stepd"><h3>${esc(s.c)} ${esc(s.l)}</h3><p class="tags">${chips}</p>
+      <p>${stepNodes(s).length ? `<button type="button" class="pri" data-dom-draw="${esc(s.c)}">${esc(T.domDraw)}</button> ` : ''}${tour !== undefined ? `<button type="button" data-tour="${tourOf.get(tour)}">▶ ${esc(T.tourStart)} · ${esc(nName(tour))}</button>` : ''}</p>
+      ${!stepNodes(s).length ? `<p class="muted">${esc(T.domNoMatch)}</p>` : ''}
+      ${sec(T.domTcodes, 0, linkList(s.t))}${sec(T.domObjects, 1, linkList(s.o))}
+      ${sec(T.sumWrites, 2, linkList(s.w.map((x) => x[0]), (j) => s.w[j][1]))}${sec(T.sumReads, 3, linkList(s.r))}
+      ${s.std.length ? `<h4>${esc(T.domStd)}</h4><p class="mono">${s.std.map(esc).join(', ')}</p>` : ''}
+      ${s.m ? `<p class="muted small">${esc(T.domMissing.replace('{n}', fmt(s.m)))}</p>` : ''}
+      ${links ? `<h4>${esc(T.domLinks)}</h4><ul class="el">${links}</ul>` : ''}</div>`;
+  }
+  function handRows(list) {
+    return list.map(([a, b, ts, n]) => `<tr><td><a href="#" data-dom="${a}">${esc(DOMS[a].c)} ${esc(DOMS[a].l)}</a></td><td>→</td><td><a href="#" data-dom="${b}">${esc(DOMS[b].c)} ${esc(DOMS[b].l)}</a></td><td class="r">${fmt(n)}</td><td>${ts.slice(0, 5).map((t) => nodeLink(t)).join(', ')}${n > 5 ? ` <small>${esc(T.andMore.replace('{n}', fmt(n - 5)))}</small>` : ''}</td></tr>`).join('');
+  }
+  const handHead = () => `<thead><tr><th>${esc(T.domFrom)}</th><th></th><th>${esc(T.domTo)}</th><th>${esc(T.domTables)}</th><th>${esc(T.colTable)}</th></tr></thead>`;
+  function domains() {
+    const sec = $('#tab-domains');
+    if (!sec) return;
+    if (!DOMS.length) { sec.innerHTML = `<h2>${esc(T.hDomains)}</h2><p class="muted">${esc(T.domNone)}</p>`; return; }
+    const isProc = DOM.kind === 'process';
+    if (S.dom < 0 || !DOMS[S.dom]) {
+      const src = isProc ? T.domSrc.replace('{m}', DOM.src.module || '').replace('{s}', fmt(DOM.stats.steps)).replace('{n}', fmt(DOM.stats.matched)) : T.domSrcGroups;
+      let lastL1 = null, cards = '';
+      DOMS.forEach((d, x) => {
+        if (isProc && d.l1 !== lastL1 && new Set(DOMS.map((y) => y.l1)).size > 1) { cards += `<h3 class="l1">${esc(d.l1)}</h3>`; }
+        lastL1 = d.l1;
+        const outs = DOM.hand.filter((h) => h[0] === x).slice(0, 4).map((h) => `<span>→ ${esc(DOMS[h[1]].c)} <small>${fmt(h[3])}</small></span>`).join('');
+        const stat = isProc ? T.domStat.replace('{s}', fmt(d.n[0])).replace('{o}', fmt(d.n[1])).replace('{w}', fmt(d.n[2])) : T.domStatGroup.replace('{o}', fmt(d.n[1])).replace('{w}', fmt(d.n[2]));
+        cards += `<button type="button" class="dom${d.n[1] ? '' : ' off'}" data-dom="${x}"><b>${esc(d.c)}</b> ${esc(d.l)}<small>${esc(stat)}</small>${outs ? `<span class="outs">${outs}</span>` : ''}</button>`;
+      });
+      sec.innerHTML = `<h2>${esc(T.hDomains)}</h2><p class="muted">${esc(isProc ? T.domHelp : T.domHelpGroups)}</p><p class="note">${esc(src)}</p>
+        <div class="doms">${cards}</div>
+        <h3>${esc(T.hHand)}</h3><p class="muted">${esc(T.handHelp)}</p>
+        ${DOM.hand.length ? `<div class="tw"><table>${handHead()}<tbody>${handRows(DOM.hand.slice(0, 40))}</tbody></table></div>${DOM.hand.length > 40 ? `<p class="muted">${esc(T.more.replace('{n}', fmt(DOM.hand.length - 40)))}</p>` : ''}` : `<p class="muted">${esc(T.handNone)}</p>`}`;
+      return;
+    }
+    const d = DOMS[S.dom];
+    const lanes = d.f.map((f) => `<div class="lane"><div class="lh"><b>${esc(f.c)}</b> ${esc(f.l)}</div><div class="ls">${f.s.map((s, j) => `${j ? '<span class="ar">→</span>' : ''}<button type="button" class="stp${s.c === S.domStep ? ' on' : ''}${stepNodes(s).length ? '' : ' off'}" data-dom-step="${esc(s.c)}"><b>${esc(s.c)}</b> ${esc(s.l)}<small>${esc(T.procKind[s.k] || s.k)} · ${esc(T.domStepStat.replace('{t}', fmt((s.nn || [s.t.length])[0])).replace('{w}', fmt((s.nn || [0, 0, s.w.length])[2])).replace('{r}', fmt((s.nn || [0, 0, 0, s.r.length])[3])))}</small></button>`).join('')}</div></div>`).join('');
+    const st = S.domStep ? stepOf(S.dom, S.domStep) : null;
+    const outH = DOM.hand.filter((h) => h[0] === S.dom), inH = DOM.hand.filter((h) => h[1] === S.dom);
+    sec.innerHTML = `<p><a href="#" data-dom-all>← ${esc(T.domAll)}</a></p><h2>${esc(d.c)} ${esc(d.l)}</h2>
+      <p class="muted">${esc(T.domStat.replace('{s}', fmt(d.n[0])).replace('{o}', fmt(d.n[1])).replace('{w}', fmt(d.n[2])))} · ${esc(T.domLaneHelp)}</p>
+      <div class="lanes">${lanes}</div>
+      ${st ? stepHtml(S.dom, st) : `<p class="muted">${esc(T.domPickStep)}</p>`}
+      ${outH.length ? `<h3>${esc(T.domOut)}</h3><div class="tw"><table>${handHead()}<tbody>${handRows(outH)}</tbody></table></div>` : ''}
+      ${inH.length ? `<h3>${esc(T.domIn)}</h3><div class="tw"><table>${handHead()}<tbody>${handRows(inH)}</tbody></table></div>` : ''}`;
+  }
+  function openDom(d, step = '', push = true) {
+    if (DOM.kind === 'groups' && DOMS[d]) { focusGroup(DOMS[d].g); return; }
+    S.dom = d; S.domStep = step;
+    const v = { m: 'dom', d: d >= 0 && DOMS[d] ? DOMS[d].c : '', st: step }, cur = history.state;
+    const hash = v.d ? '#dom=' + encodeURIComponent(v.d) + (step ? '&st=' + encodeURIComponent(step) : '') : '#tab=domains';
+    if (push && cur) history.pushState({ v, d: (cur.d || 0) + 1, back: viewLabel(cur.v) }, '', hash);
+    else history.replaceState({ v, d: cur ? cur.d || 0 : 0, back: cur ? cur.back : '' }, '', hash);
+    navUI(); domains(); showTab('domains');
+    if (step) { const el = document.querySelector('.stepd'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+  }
+  function drawStep(d, code, push = true) {
+    if (!stepOf(d, code)) return;
+    S.mode = 'step'; S.dom = d; S.domStep = code; S.center = -1; S.path = null; S.paths = []; S.target = -1;
+    record(push); showTab('explore');
+  }
+  function stepSet() {
+    const s = stepOf(S.dom, S.domStep);
+    const nodes = s ? stepNodes(s).slice(0, S.max) : [];
+    return { nodes, depth: new Map(), total: s ? stepNodes(s).length : 0 };
+  }
+  document.addEventListener('click', (ev) => {
+    const t = ev.target;
+    const dr = t.closest('[data-dom-draw]'); if (dr) { ev.preventDefault(); drawStep(S.dom, dr.dataset.domDraw); return; }
+    const go = t.closest('[data-dom-go]'); if (go) { ev.preventDefault(); const d = domOfStep(go.dataset.domGo); if (d >= 0) openDom(d, go.dataset.domGo); return; }
+    const sp = t.closest('[data-dom-step]'); if (sp) { ev.preventDefault(); openDom(S.dom, sp.dataset.domStep === S.domStep ? '' : sp.dataset.domStep); return; }
+    if (t.closest('[data-dom-all]')) { ev.preventDefault(); openDom(-1); return; }
+    const dm = t.closest('[data-dom]'); if (dm) { ev.preventDefault(); openDom(Number(dm.dataset.dom)); }
+  });
 
   // ---------- tables: who creates / reads / updates / deletes ----------
   const OP_LETTER = { INSERT: 'C', MODIFY: 'CU', UPDATE: 'U', DELETE: 'D' };
@@ -414,11 +611,15 @@
   // ---------- view history: every move to another object / group / path is a browser history entry, so the
   // in-page Back button and the browser's back / forward both return to the earlier view ----------
   function viewOf() {
-    return { m: S.mode, c: S.center >= 0 ? nId(S.center) : '', g: S.group, t: S.target >= 0 ? nId(S.target) : '', pd: S.pathDir };
+    return { m: S.mode, c: S.center >= 0 ? nId(S.center) : '', g: S.group, t: S.target >= 0 ? nId(S.target) : '', pd: S.pathDir, s: S.mode === 'tour' ? S.step : 0,
+      ...(S.mode === 'step' ? { d: DOMS[S.dom] ? DOMS[S.dom].c : '', st: S.domStep } : {}) };
   }
   function viewLabel(v) {
     if (!v) return '';
+    if (v.m === 'step' || (v.m === 'dom' && v.st)) { const d = DOMS.findIndex((x) => x.c === v.d), s = d >= 0 ? stepOf(d, v.st) : null; return s ? `${s.c} ${s.l}` : T.hDomains; }
+    if (v.m === 'dom') { const d = DOMS.find((x) => x.c === v.d); return d ? `${d.c} ${d.l}` : T.hDomains; }
     if (v.m === 'group') return groupName(v.g);
+    if (v.m === 'tour') return `${T.tourShort} ${(v.c || '').split(':')[1] || ''} ${(v.s || 0) + 1}`;
     if (v.m === 'path') return `${(v.c || '').split(':')[1] || ''} → ${(v.t || '').split(':')[1] || ''}`;
     return (v.c || '').split(':')[1] || T.tOverview;
   }
@@ -426,9 +627,11 @@
     if (v.m === 'group') return '#g=' + (v.g + 1);
     if (v.m === 'path') return '#n=' + encodeURIComponent(v.c) + '&to=' + encodeURIComponent(v.t) + (v.pd === 'out' ? '&dir=out' : '');
     if (v.m === 'impact') return '#n=' + encodeURIComponent(v.c) + '&impact=1';
+    if (v.m === 'tour') return '#tour=' + encodeURIComponent(v.c) + '&s=' + ((v.s || 0) + 1);
+    if (v.m === 'step') return '#dom=' + encodeURIComponent(v.d) + '&st=' + encodeURIComponent(v.st) + '&draw=1';
     return v.c ? '#n=' + encodeURIComponent(v.c) : '#';
   }
-  const sameView = (a, b) => a && b && a.m === b.m && a.c === b.c && a.g === b.g && a.t === b.t && (a.m !== 'path' || a.pd === b.pd);
+  const sameView = (a, b) => a && b && a.m === b.m && a.c === b.c && a.g === b.g && a.t === b.t && (a.m !== 'path' || a.pd === b.pd) && (a.m !== 'tour' || a.s === b.s) && (a.m !== 'step' || (a.d === b.d && a.st === b.st));
   function record(push) {
     const v = viewOf(), cur = history.state;
     if (push && cur && cur.v && !sameView(cur.v, v)) history.pushState({ v, d: (cur.d || 0) + 1, back: viewLabel(cur.v) }, '', hashOf(v));
@@ -446,10 +649,17 @@
   function restore(st) {
     const v = st && st.v;
     if (!v || v.m === 'none') { S.mode = 'none'; S.center = -1; navUI(); showTab('overview'); return; }
+    if (v.m === 'dom' || v.m === 'step') {
+      const d = DOMS.findIndex((x) => x.c === v.d);
+      S.dom = d; S.domStep = v.st || '';
+      if (v.m === 'step' && d >= 0 && stepOf(d, v.st)) { S.mode = 'step'; S.center = -1; navUI(); showTab('explore'); return; }
+      navUI(); domains(); showTab('domains'); return;
+    }
     const c = v.c ? byId.get(v.c) : -1, t = v.t ? byId.get(v.t) : -1;
     S.path = null; S.paths = []; S.pathDir = v.pd || 'any'; $('#path-dir').value = S.pathDir;
     if (v.m === 'group') { S.mode = 'group'; S.group = v.g; S.center = -1; navUI(); showTab('explore'); return; }
     if (c === undefined || c < 0) { navUI(); showTab('overview'); return; }
+    if (v.m === 'tour' && tourOf.has(c)) { setTour(tourOf.get(c), v.s || 0); navUI(); showTab('explore'); return; }
     S.center = c; S.impact = impactOf(c); $('#q').value = nName(c);
     if (v.m === 'path' && t >= 0) { S.target = t; $('#q2').value = nName(t); showTab('explore'); findPath(false); navUI(); return; }
     S.target = -1; $('#q2').value = '';
@@ -465,6 +675,24 @@
     record(push);
     showTab('explore');
   }
+  function setTour(t, s) {
+    S.mode = 'tour'; S.tour = t; S.step = Math.max(0, Math.min(s, TOURS[t].s.length - 1));
+    S.center = TOURS[t].e; S.path = null; S.paths = []; S.target = -1; S.impact = impactOf(S.center);
+    $('#q').value = nName(S.center); $('#q2').value = '';
+  }
+  function startTour(t, s = 0, push = true) {
+    if (!TOURS[t]) return;
+    setTour(t, s);
+    record(push);
+    showTab('explore');
+  }
+  addEventListener('keydown', (ev) => {
+    if (S.mode !== 'tour' || ev.altKey || ev.ctrlKey || ev.metaKey || /^(INPUT|SELECT|TEXTAREA)$/.test((ev.target && ev.target.tagName) || '')) return;
+    if (!$('#tab-explore').classList.contains('on')) return;
+    const n = TOURS[S.tour].s.length;
+    if (ev.key === 'ArrowRight' && S.step < n - 1) { ev.preventDefault(); startTour(S.tour, S.step + 1); }
+    else if (ev.key === 'ArrowLeft' && S.step > 0) { ev.preventDefault(); startTour(S.tour, S.step - 1); }
+  });
   function focusGroup(g, push = true) {
     S.mode = 'group'; S.group = g; S.center = -1; S.path = null; S.paths = [];
     record(push);
@@ -490,6 +718,12 @@
       frontier = next;
     }
     return { nodes: order, depth, total: total + 1 };
+  }
+  // a tour builds up: every step so far stays drawn, the current step's objects are lit
+  function tourSet() {
+    const st = TOURS[S.tour].s, nodes = [], seen = new Set();
+    for (let x = 0; x <= S.step; x++) for (const i of st[x][1]) if (!seen.has(i)) { seen.add(i); nodes.push(i); }
+    return { nodes, depth: new Map(), total: nodes.length };
   }
   function groupSet() {
     const all = []; for (let i = 0; i < N; i++) if (nComm(i) === S.group && nodeOk(i)) all.push(i);
@@ -607,7 +841,7 @@
   const G = {
     canvas: null, ctx: null, w: 800, h: 520, bodies: new Map(), ids: [], links: [], mid: -1, mid2: -1,
     cam: { x: 0, y: 0, k: 1, tx: 0, ty: 0, tk: 1, e: 0.12 }, energy: 0, hover: -1, drag: null, raf: null,
-    col: {}, top: new Set(), sel: -1, moved: false, autoFit: false, lastStep: 0, lastFrame: 0, midAt: 0, reduced: false, deg: new Map(),
+    col: {}, top: new Set(), hl: new Set(), sel: -1, moved: false, autoFit: false, lastStep: 0, lastFrame: 0, midAt: 0, reduced: false, deg: new Map(),
   };
   const COLORS = JSON.parse(document.getElementById('relmap-colors').textContent), TYPE_COLOR = COLORS.types, KIND_COLOR = COLORS.kinds;
 
@@ -784,7 +1018,9 @@
       const p = toScreen(b);
       if (p.x < -80 || p.y < -80 || p.x > w + 80 || p.y > h + 80) continue;
       const rr = rOf(i, b, c.k), colour = (S.colorBy === 'pkg' ? pkgColour(M.nodes[i][11]) : TYPE_COLOR[nType(i)]) || col.muted;
-      const alpha = b.a * (hv >= 0 && !lit.has(i) ? 0.16 : 1) * (nUsage(i) === 2 && i !== hv ? 0.4 : 1), main = i === G.mid || i === G.mid2;
+      // in a tour the objects of earlier steps step back, the current step's stay full
+      const lead = G.hl.has(i), back = hv < 0 && G.hl.size && !lead && i !== G.mid;
+      const alpha = b.a * (hv >= 0 && !lit.has(i) ? 0.16 : 1) * (nUsage(i) === 2 && i !== hv ? 0.4 : 1) * (back ? 0.35 : 1), main = i === G.mid || i === G.mid2;
       if (main) {
         if (halo && i === G.mid) {
           const t = (sinceMid % 1200) / 1200;
@@ -807,9 +1043,13 @@
         ctx.globalAlpha = b.a; ctx.strokeStyle = col.ink; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
         ctx.beginPath(); ctx.arc(p.x, p.y, rr + 7, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
       }
-      const la = main || lit.has(i) ? 1 : (G.top.has(i) ? 1 : labelAlpha) * (hv >= 0 ? 0.2 : 1);
+      if (lead && !main && hv < 0) {
+        ctx.globalAlpha = b.a; ctx.strokeStyle = colour; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(p.x, p.y, rr + 5, 0, Math.PI * 2); ctx.stroke();
+      }
+      const la = main || lit.has(i) || (lead && hv < 0) ? 1 : (G.top.has(i) && !back ? 1 : labelAlpha) * (hv >= 0 || back ? 0.2 : 1);
       if (la > 0.02) {
-        const pr = main ? 0 : i === hv ? 1 : lit.has(i) ? 2 : G.top.has(i) ? 3 : 4;
+        const pr = main ? 0 : i === hv ? 1 : lit.has(i) || lead ? 2 : G.top.has(i) ? 3 : 4;
         labels.push([pr, -(G.deg.get(i) || 0), i, p.x, p.y + rr + 6, b.a * la, main]);
       }
     }
@@ -940,10 +1180,12 @@
     const isCenter = i === S.center;
     card.innerHTML = `<div class="ch"><span class="dot t-${esc(nType(i))}"></span><b>${esc(nName(i))}</b> <small>${esc(nType(i))}</small>${usageBadge(i)}<button type="button" class="cx" data-card="close" aria-label="${esc(T.cardClose)}">×</button></div>
       ${nDesc(i) ? `<p class="desc big">${esc(nDesc(i))}</p>` : ''}
+      ${tagsHtml(summaryOf(i).tags)}
       <p class="cf">${facts.join('<br>')}</p>
       ${rel ? `<div class="crs">${rel}</div>` : `<p class="muted">${esc(T.cardNoRel)}</p>`}
       <div class="cb">
         ${isCenter ? `<span class="muted">${esc(T.cardIsCenter)}</span>` : `<button type="button" class="pri" data-card="focus">${esc(T.cardFocus)}</button>`}
+        ${tourOf.has(i) && !(S.mode === 'tour' && S.tour === tourOf.get(i)) ? `<button type="button" data-tour="${tourOf.get(i)}">▶ ${esc(T.tourStart)}</button>` : ''}
       </div>`;
     card.hidden = false;
     const p = toScreen(b), w = card.offsetWidth, h = card.offsetHeight;
@@ -972,18 +1214,22 @@
 
   function draw() {
     const info = $('#vinfo');
-    const empty = (msg) => { info.textContent = msg; setGraph([], [], -1, -1); panel(); };
+    const empty = (msg) => { info.textContent = msg; G.hl = new Set(); setGraph([], [], -1, -1); panel(); };
     if (S.mode === 'none') return empty(T.pickHint);
     let set;
     if (S.mode === 'path') {
       if (S.path.none) return empty(T.noPath.replace('{a}', nName(S.center)).replace('{b}', nName(S.target)));
       set = { nodes: S.path.nodes, total: S.path.nodes.length };
-    } else set = S.mode === 'ego' ? egoSet() : S.mode === 'impact' ? impactSet() : groupSet();
+    } else set = S.mode === 'ego' ? egoSet() : S.mode === 'impact' ? impactSet() : S.mode === 'tour' ? tourSet() : S.mode === 'step' ? stepSet() : groupSet();
     const nodes = set.nodes, inSet = new Set(nodes), pathEdges = S.mode === 'path' ? new Set(S.path.edges) : null;
+    const tourKinds = S.mode === 'tour' || S.mode === 'step', typesKd = kindIx('types');
+    const curStep = S.mode === 'step' ? stepOf(S.dom, S.domStep) : null;
+    G.hl = S.mode === 'tour' ? new Set(TOURS[S.tour].s[S.step][1]) : curStep ? new Set([...curStep.t, ...curStep.o]) : new Set();
     const drawn = [];
     for (const v of nodes) for (const k of out[v]) {
       if (!inSet.has(M.edges[k][1]) || M.edges[k][0] === M.edges[k][1]) continue;
-      if (pathEdges ? !pathEdges.has(k) : !edgeOk(k)) continue;
+      // a tour draws every business relation among its objects, whatever the filters say
+      if (pathEdges ? !pathEdges.has(k) : tourKinds ? M.edges[k][2] === typesKd : !edgeOk(k)) continue;
       if (S.mode === 'impact' && !(S.impact.depth.get(M.edges[k][0]) > (S.impact.depth.get(M.edges[k][1]) ?? -1))) continue;
       drawn.push(k);
     }
@@ -991,6 +1237,8 @@
     const shown = nodes.length;
     const msg = S.mode === 'path' ? T.pathInfo.replace('{a}', nName(S.pathRev ? S.target : S.center)).replace('{b}', nName(S.pathRev ? S.center : S.target)).replace('{n}', S.path.edges.length)
       : S.mode === 'impact' ? T.impactInfo.replace('{what}', nName(S.center))
+      : S.mode === 'tour' ? T.tourInfo.replace('{what}', nName(S.center)).replace('{x}', S.step + 1).replace('{y}', TOURS[S.tour].s.length)
+      : S.mode === 'step' ? T.stepInfo.replace('{what}', curStep ? `${curStep.c} ${curStep.l}` : '')
         : S.mode === 'group' ? T.groupInfo.replace('{what}', groupName(S.group)) : T.viewInfo.replace('{what}', nName(S.center));
     info.textContent = msg.replace('{n}', fmt(shown)).replace('{e}', fmt(drawn.length)) + (set.total > shown ? ' ' + T.capped.replace('{n}', fmt(set.total)) : '');
     panel();
@@ -1006,6 +1254,11 @@
         <h4>${esc(T.colTop)}</h4><ul class="el">${c.top.map((i) => `<li>${nodeLink(i, true)}</li>`).join('')}</ul>`;
       return;
     }
+    if (S.mode === 'tour' && TOURS[S.tour]) { p.innerHTML = tourPanel(); return; }
+    if (S.mode === 'step' && stepOf(S.dom, S.domStep)) {
+      p.innerHTML = `<p><a href="#" data-dom="${S.dom}">← ${esc(DOMS[S.dom].c)} ${esc(DOMS[S.dom].l)}</a></p>` + stepHtml(S.dom, stepOf(S.dom, S.domStep)).replace(/<button type="button" class="pri" data-dom-draw="[^"]*">[^<]*<\/button> /, '');
+      return;
+    }
     if (S.center < 0) { p.innerHTML = `<p class="muted">${esc(T.pickHint)}</p>`; return; }
     const i = S.center;
     const facts = [
@@ -1015,7 +1268,9 @@
     if (nComm(i) >= 0) facts.push(`${esc(T.colGroup)} <a href="#" data-g="${nComm(i)}">${esc(groupName(nComm(i)))}</a>`);
     if (nUsage(i) >= 0) facts.push(`${esc(T.hUsage)}${usageBadge(i)} ${esc(T.usageName[M.usage[nUsage(i)]])}`);
     if (nParent(i) >= 0) facts.push(`${esc(T.parent)} ${nodeLink(nParent(i))}`);
-    let html = `<h3><span class="dot t-${esc(nType(i))}"></span>${esc(nName(i))}</h3>${nDesc(i) ? `<p class="desc big">${esc(nDesc(i))}</p>` : ''}<p>${facts.join('<br>')}</p>`;
+    let html = `<h3><span class="dot t-${esc(nType(i))}"></span>${esc(nName(i))}</h3>${nDesc(i) ? `<p class="desc big">${esc(nDesc(i))}</p>` : ''}`
+      + (tourOf.has(i) ? `<p><button type="button" class="pri" data-tour="${tourOf.get(i)}">▶ ${esc(T.tourStart)}</button></p>` : '')
+      + summaryHtml(i) + `<p>${facts.join('<br>')}</p>`;
     if (nInc(i).length) html += `<details><summary>${esc(T.includes)} <small>${fmt(nInc(i).length)}</small></summary><p class="mono">${nInc(i).map(esc).join(', ')}</p></details>`;
     if (nStd(i).length) html += `<details><summary>${esc(T.stdChecks)} <small>${fmt(nStd(i).length)}</small></summary><p class="muted">${esc(T.stdChecksHelp)}</p><p class="mono">${nStd(i).map(esc).join(', ')}</p></details>`;
     if (S.mode === 'path' && S.path && !S.path.none) {
@@ -1063,15 +1318,22 @@
 
   // ---------- boot ----------
   window.__relmap = { S, G }; // read-only peek for checks (console / automation); the page never reads it
-  overview(); groups(); crud(); fields(); controls();
+  overview(); tours(); domains(); groups(); crud(); fields(); controls();
   const h = new URLSearchParams(location.hash.slice(1));
   if (h.get('dir') === 'out') { S.pathDir = 'out'; $('#path-dir').value = 'out'; }
   const hn = h.get('n') ? resolveName(h.get('n')) : -1, ht = h.get('to') ? resolveName(h.get('to')) : -1;
+  const htour = h.get('tour') ? resolveName(h.get('tour')) : -1;
   if (history.state && history.state.v) restore(history.state); // a reload keeps the history entries
+  else if (htour >= 0 && tourOf.has(htour)) startTour(tourOf.get(htour), Math.max(0, Number(h.get('s') || 1) - 1), false);
+  else if (h.get('dom') && DOMS.some((x) => x.c === h.get('dom'))) {
+    const hd = DOMS.findIndex((x) => x.c === h.get('dom'));
+    if (h.get('draw') && h.get('st') && stepOf(hd, h.get('st'))) drawStep(hd, h.get('st'), false);
+    else openDom(hd, h.get('st') && stepOf(hd, h.get('st')) ? h.get('st') : '', false);
+  }
   else if (hn >= 0) {
     focusNode(hn, false);
     if (ht >= 0) { S.target = ht; $('#q2').value = nName(ht); findPath(false); }
     else if (h.get('impact')) { S.mode = 'impact'; record(false); draw(); }
   } else if (h.get('g')) focusGroup(Number(h.get('g')) - 1, false);
-  else { history.replaceState({ v: { m: 'none' }, d: 0, back: '' }, '', location.hash || '#'); navUI(); showTab(['groups', 'crud', 'fields'].includes(h.get('tab')) ? h.get('tab') : 'overview'); }
+  else { history.replaceState({ v: { m: 'none' }, d: 0, back: '' }, '', location.hash || '#'); navUI(); showTab(['tours', 'domains', 'groups', 'crud', 'fields'].includes(h.get('tab')) ? h.get('tab') : 'overview'); }
 })();

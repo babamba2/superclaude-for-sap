@@ -82,12 +82,65 @@ details.more{margin-top:12px}details.more summary{cursor:pointer;font-weight:600
 #card .cx{position:absolute;right:-4px;top:-4px;width:24px;height:24px;padding:0;border:0;background:none;color:var(--muted);font-size:18px;line-height:1}#card .cx:hover{color:var(--fg)}
 #card .cf{margin:6px 0;line-height:1.6}#card .crs{display:flex;flex-wrap:wrap;gap:4px 10px;margin:4px 0 10px;font-size:12px}#card .cr b{font-weight:600;color:var(--muted)}
 #card .cb{display:flex;gap:6px;flex-wrap:wrap}#card .cb button{padding:5px 12px;border-radius:8px}#card .cb .pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}.legend{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:12px;color:var(--muted);margin:6px 0}
+button.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}button:disabled{opacity:.45;cursor:default}.small{font-size:11.5px}
+.tour .th{display:flex;gap:8px;align-items:baseline;justify-content:space-between;margin:6px 0 4px}.tour .th span{color:var(--muted);font-size:12px}
+.tbar{height:4px;background:var(--line);border-radius:2px;overflow:hidden}.tbar i{display:block;height:100%;background:var(--accent)}
+.tdots{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}.tdots button{width:14px;height:14px;padding:0;border:0;border-radius:50%;background:var(--line)}.tdots button.on{background:var(--accent)}
+.tnav{display:flex;justify-content:space-between;gap:8px}.tnav button{padding:5px 12px;border-radius:8px}
+@media (max-width:600px),(hover:none){.tdots,.tkeys{display:none}.tnav{margin-top:10px}}
+@media (max-width:600px){table.tours .tc{display:none}}
+.doms{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin:10px 0}h3.l1{grid-column:1/-1;margin:8px 0 0}
+button.dom{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:10px 12px;border-radius:10px;background:var(--card);font-size:14px;white-space:normal}
+button.dom small{color:var(--muted);font-size:12px}button.dom.off,button.stp.off{opacity:.5}
+.outs{display:flex;flex-wrap:wrap;gap:4px}.outs span{font-size:11px;padding:0 6px;border-radius:999px;background:var(--head)}
+.lanes{display:flex;flex-direction:column;gap:10px;margin:10px 0}.lane{border:1px solid var(--line);border-radius:10px;padding:6px 8px}.lh{font-size:13px;margin:0 0 6px}
+.ls{display:flex;align-items:stretch;gap:6px;overflow-x:auto;padding-bottom:4px}.ar{align-self:center;color:var(--muted)}
+button.stp{flex:0 0 190px;display:flex;flex-direction:column;align-items:flex-start;gap:2px;text-align:left;padding:6px 9px;border-radius:8px;background:var(--bg);font-size:12.5px;white-space:normal}
+button.stp small{color:var(--muted);font-size:11px}button.stp.on{border-color:var(--accent);box-shadow:inset 0 0 0 2px var(--accent)}
+.stepd{border:1px solid var(--line);border-radius:10px;padding:4px 14px 10px;margin:10px 0;background:var(--card)}.tw{overflow-x:auto}
+.tags{display:flex;flex-wrap:wrap;gap:4px;margin:4px 0}.tags span{font-size:11px;line-height:18px;padding:0 8px;border-radius:999px;background:var(--head);color:var(--fg)}
+.sum{border:1px solid var(--line);border-radius:8px;padding:2px 10px 4px;margin:6px 0;background:var(--card)}.sum h4{margin:6px 0 2px}
+.sum dl{display:grid;grid-template-columns:max-content minmax(0,1fr);gap:3px 10px;margin:4px 0}.sum dt{color:var(--muted)}.sum dd{margin:0}
 ${Object.entries(TYPE_COLOR).map(([t, c]) => `.t-${t}{--c:${c}}`).join('')}
 ${Object.entries(KIND_COLOR).map(([k, c]) => `.k-${k}{--k:${c}}`).join('')}
 `;
 
 export const TEXT = {
   ko: {
+    tDomains: '업무 영역', hDomains: '업무 영역',
+    domHelp: '프로세스 맵(module-to-process)의 L2 프로세스 체인을 영역으로, L3 프로세스를 레인으로, L4 작업을 단계로 놓았어요. 작업의 TCode와 객체 이름을 이 관계도의 객체와 맞췄어요. 거기서 코드 관계를 2단계까지 따라가 바꾸는 테이블과 읽는 테이블을 찾았어요.',
+    domHelpGroups: '프로세스 맵이 없어서 객체 그룹을 영역으로 보여 줘요. module-to-process를 실행하면 L2 → L3 → L4로 보여 줘요.',
+    domNone: '보여 줄 영역이 없어요.', domSrc: '프로세스 맵 {m}: L4 작업 {s}개 중 {n}개가 이 관계도의 객체와 맞았어요.', domSrcGroups: '영역 = 객체 그룹(Louvain)',
+    domStat: '작업 {s}개 · 객체 {o}개 · 바꾸는 테이블 {w}개', domStatGroup: '객체 {o}개 · 바꾸는 테이블 {w}개',
+    hHand: '영역 사이 데이터 전달', handHelp: '한 영역이 바꾸는 테이블을 다른 영역이 읽으면 데이터가 넘어간다고 봤어요. 소스의 SQL 문에서 찾았어요. 테이블이 많은 순서예요.',
+    handNone: '영역 사이에 넘어가는 테이블이 없어요.', domFrom: '바꾸는 영역', domTo: '읽는 영역', domTables: '테이블 수', domAll: '전체 영역',
+    domLaneHelp: '레인 하나가 L3 프로세스예요. 작업을 누르면 자세히 볼 수 있어요.', domPickStep: '작업 상자를 누르면 연결된 객체와 테이블을 보여 줘요.',
+    domOut: '이 영역이 바꾼 테이블을 읽는 영역', domIn: '이 영역이 읽는 테이블을 바꾸는 영역', domStepStat: 'TCode {t} · 바꿈 {w} · 읽음 {r}',
+    domCapped: '{n}개 중 {s}개만 담았어요.', domDraw: '그림으로 보기', domNoMatch: '이 작업의 TCode와 객체가 이 관계도에 없어요. 다른 패키지에 있거나 표준만 써요.',
+    domTcodes: 'TCode', domObjects: '프로그램·함수·클래스', domStd: '표준 TCode', domMissing: '관계도에 없는 이름 {n}개예요. 표준 객체이거나 이 관계도에 없는 패키지의 객체예요.', domLinks: '관련 작업',
+    stepInfo: '{what} — 객체 {n}개, 연결 {e}개.',
+    procKind: { std: '표준', cbo: 'CBO', enh: '표준 + 확장', manual: '수작업', ext: '외부 시스템' }, procUsage: { used: '사용', unused: '미사용', unknown: '사용 미확인' },
+    tTours: '투어', hTours: '업무 흐름 투어',
+    toursHelp: 'TCode 하나에서 시작해 실행 프로그램, 부르는 객체, 바꾸는 테이블, 읽는 테이블 순서로 따라가요. 같은 테이블을 바꾸는 다른 TCode도 보여 줘요. 그래프만으로 만들었고 AI 요약은 없어요. 직접 쓰는 TCode가 먼저 나와요.',
+    toursNone: '투어를 만들 시작점이 없어요. 다른 객체를 실행하는 TCode나 리포트가 그래프에 없어요.',
+    tourAlt: '같은 프로그램을 실행하는 다른 TCode', tourSearch: 'TCode 이름·설명', toursCount: '투어 {n}개', tourStart: '투어 시작', tourShort: '투어', tourExit: '끝내기', tourPrev: '이전', tourNext: '다음', tourFinish: '투어 끝내기',
+    tourMore: '{n}개 더 있어요. 탐색에서 볼 수 있어요.', tourKeys: '← → 키로도 넘길 수 있어요.',
+    tourInfo: '{what} 투어 {x}/{y}단계 — 객체 {n}개, 연결 {e}개.',
+    colEntry: '시작점', colSteps: '단계', colWrites: '바꾸는 테이블', colReadOnly: '읽는 테이블', colShared: '같은 테이블을 바꾸는 TCode',
+    tourStep: {
+      entry: { title: '시작점', bodyTran: 'TCode {n}에서 업무가 시작돼요.', bodyProg: '리포트 {n}에서 시작해요. 다른 객체가 부르지 않는 프로그램이에요. 직접 실행하거나 잡으로 돌려요.' },
+      program: { title: '실행되는 프로그램', body: 'TCode가 실행하는 프로그램이에요. 인클루드는 이 노드 하나로 합쳐져 있어요.' },
+      calls: { title: '{d}단계 호출', body: '앞 단계 객체가 부르는 함수·클래스·프로그램 {t}개예요. 연결이 많은 {s}개를 보여 줘요.' },
+      writes: { title: '바꾸는 테이블', body: '이 흐름이 만들고(C) 고치고(U) 지우는(D) 테이블 {t}개예요. 이 업무가 남기는 결과예요.' },
+      reads: { title: '읽기만 하는 테이블', body: '이 흐름이 읽기만 하는 테이블 {t}개예요.' },
+      shared: { title: '같은 테이블을 바꾸는 다른 TCode', body: '위 테이블을 다른 TCode {t}개도 바꿔요. 이 흐름을 고치면 함께 테스트하세요.' },
+    },
+    hSummary: '요약 (그래프에서 계산)',
+    sumStartedBy: '실행하는 TCode', sumNoTcode: '이 객체까지 오는 TCode를 못 찾았어요', sumCalls: '부르는 객체', sumWrites: '바꾸는 테이블', sumReads: '읽는 테이블',
+    sumNone: '없음', sumWrittenBy: '쓰는 객체', sumReadBy: '읽는 객체', sumChangedVia: '바꾸는 TCode', sumChecks: '검사 테이블', sumCheckedBy: '이 테이블로 검사하는 테이블',
+    sumTypedBy: '이 타입을 쓰는 객체', sumUsedBy: '그 밖에 쓰는 곳', andMore: '외 {n}개',
+    tagWrites: '데이터 변경', tagReadOnly: '조회만', tagEntry: '투어 시작점', tagHub: '연결 상위 10', tagUnused: '미사용',
+    tagNoWriter: '이 관계도에서 쓰는 곳 없음', tagNoReader: '이 관계도에서 읽는 곳 없음',
     allOn: "전체 선택",
     allOff: "전체 해제",
     kindDesc: {"types": "필드가 어떤 데이터 요소를 쓰는지, 데이터 요소가 어떤 도메인을 쓰는지, 구조가 어떤 구조를 .INCLUDE / .APPEND 하는지예요. DD03L·DD04L에 적혀 있어요.", "checks": "필드 값이 검사 테이블에 있어야 하는 관계(외래 키)예요. 카디널리티와 필드 대응은 DD08L·DD05S에서 가져와요.", "valueTable": "도메인의 값 테이블이에요(DD01L). 입력 도움말과 외래 키 제안에 쓰여요.", "searchHelp": "데이터 요소나 테이블 필드에 붙은 서치헬프(F4)예요(DD04L·DD35L).", "rowType": "테이블 타입의 한 줄이 어떤 구조·테이블·데이터 요소인지예요(DD40L).", "basedOn": "뷰가 어떤 테이블을 기준으로 만들어졌는지예요(DD26S).", "selects": "서치헬프가 값을 고르는 테이블·뷰(선택 방법)예요(DD30L).", "contains": "묶음 서치헬프가 포함하는 하위 서치헬프예요(DD31S).", "include": "프로그램·함수 그룹이 INCLUDE 문으로 소스를 넣는 관계예요. 기본은 인클루드를 포함한 프로그램·함수 그룹 노드 하나로 합쳐서 보여 줘요(카드·패널의 \"포함된 인클루드\").", "calls": "CALL FUNCTION이나 메서드 호출처럼 다른 객체를 부르는 관계예요.", "submits": "SUBMIT으로 다른 리포트를 실행하는 관계예요.", "starts": "CALL TRANSACTION / LEAVE TO TRANSACTION으로 트랜잭션을 시작하는 관계예요.", "launches": "트랜잭션이 실행하는 프로그램이나 SM30·SM34 뷰예요(TSTC).", "reads": "SELECT로 테이블·뷰를 읽는 관계예요.", "writes": "INSERT / UPDATE / MODIFY / DELETE로 테이블을 고치는 관계예요. 패널과 CRUD 탭에 C·U·D로 표시해요.", "uses": "TYPE REF TO, 클래스·인터페이스 사용, 객체 생성처럼 클래스를 쓰는 관계예요."},
@@ -146,6 +199,40 @@ export const TEXT = {
     kindName: { types: '필드 → 데이터 요소, 데이터 요소 → 도메인, .INCLUDE', checks: '필드 → 검사 테이블(외래 키)', valueTable: '도메인 → 값 테이블', searchHelp: '필드·데이터 요소 → 서치헬프', rowType: '테이블 타입 → 행 타입', basedOn: '뷰 → 기준 테이블', selects: '서치헬프 → 선택 방법', contains: '묶음 서치헬프 → 하위 서치헬프', include: 'INCLUDE', calls: 'CALL FUNCTION / 메서드 호출', submits: 'SUBMIT', starts: 'CALL TRANSACTION', launches: '트랜잭션 → 프로그램', reads: 'SELECT', writes: 'INSERT / UPDATE / MODIFY / DELETE', uses: 'TYPE REF TO / 클래스 사용' },
   },
   en: {
+    tDomains: 'Process areas', hDomains: 'Process areas',
+    domHelp: 'From the process map of module-to-process: each L2 process chain is an area, each L3 process a lane, each L4 task a step. Task TCodes and objects are matched to the objects of this map by name; code relations are followed two levels down to the tables a task changes and reads.',
+    domHelpGroups: 'No process map, so the object groups stand in as areas. Run module-to-process to see L2 → L3 → L4.',
+    domNone: 'No area to show.', domSrc: 'Process map {m}: {n} of {s} L4 tasks match objects of this map.', domSrcGroups: 'Areas = object groups (Louvain)',
+    domStat: '{s} tasks · {o} objects · {w} tables changed', domStatGroup: '{o} objects · {w} tables changed',
+    hHand: 'Data handed between areas', handHelp: 'An area hands data to another when it changes a table the other reads. Found in the SQL statements of the source. Most tables first.',
+    handNone: 'No table passes between areas.', domFrom: 'Changed in', domTo: 'Read in', domTables: 'Tables', domAll: 'All areas',
+    domLaneHelp: 'Each lane is an L3 process. Click a task for details.', domPickStep: 'Click a task box to see its objects and tables.',
+    domOut: 'Areas reading the tables this area changes', domIn: 'Areas changing the tables this area reads', domStepStat: 'TCodes {t} · changes {w} · reads {r}',
+    domCapped: 'Only {s} of {n} kept.', domDraw: 'Draw it', domNoMatch: 'None of this task’s TCodes or objects is on this map. They sit in other packages, or the task runs on standard only.',
+    domTcodes: 'TCodes', domObjects: 'Programs, functions, classes', domStd: 'Standard TCodes', domMissing: '{n} names are not on this map: standard objects, or objects of packages this map does not hold.', domLinks: 'Related tasks',
+    stepInfo: '{what} — {n} objects, {e} relations.',
+    procKind: { std: 'standard', cbo: 'CBO', enh: 'standard + enhancement', manual: 'manual', ext: 'external system' }, procUsage: { used: 'used', unused: 'unused', unknown: 'usage unknown' },
+    tTours: 'Tours', hTours: 'Business flow tours',
+    toursHelp: 'Each tour starts at one TCode and follows the program it runs, the objects it calls, the tables it changes and the tables it reads. It also names the other TCodes that change the same tables. Built from the graph only, with no AI summary. TCodes used directly come first.',
+    toursNone: 'No entry point for a tour: the graph has no TCode or report that runs other objects.',
+    tourAlt: 'Other TCodes running the same program', tourSearch: 'TCode name or description', toursCount: '{n} tours', tourStart: 'Start tour', tourShort: 'Tour', tourExit: 'Exit', tourPrev: 'Back', tourNext: 'Next', tourFinish: 'Finish tour',
+    tourMore: '{n} more. Explore shows them all.', tourKeys: 'The ← → keys work too.',
+    tourInfo: 'Tour of {what}, step {x} of {y} — {n} objects, {e} relations.',
+    colEntry: 'Entry', colSteps: 'Steps', colWrites: 'Tables changed', colReadOnly: 'Tables read', colShared: 'TCodes changing the same tables',
+    tourStep: {
+      entry: { title: 'Entry point', bodyTran: 'The business flow starts at TCode {n}.', bodyProg: 'Starts at report {n}. No other object calls it: it runs directly or as a job.' },
+      program: { title: 'Program run', body: 'The program the TCode runs. Its includes are folded into this node.' },
+      calls: { title: 'Calls, level {d}', body: '{t} functions, classes and programs called by the step before. The {s} with the most links are shown.' },
+      writes: { title: 'Tables changed', body: '{t} tables this flow creates (C), updates (U) or deletes (D). They hold what this flow leaves behind.' },
+      reads: { title: 'Tables only read', body: '{t} tables this flow only reads.' },
+      shared: { title: 'Other TCodes changing the same tables', body: '{t} other TCodes change these tables too. Test them together when this flow changes.' },
+    },
+    hSummary: 'Summary (from the graph)',
+    sumStartedBy: 'Run from TCodes', sumNoTcode: 'No TCode found that reaches this object', sumCalls: 'Calls', sumWrites: 'Changes tables', sumReads: 'Reads tables',
+    sumNone: 'none', sumWrittenBy: 'Written by', sumReadBy: 'Read by', sumChangedVia: 'Changed from TCodes', sumChecks: 'Check tables', sumCheckedBy: 'Tables checked against it',
+    sumTypedBy: 'Used as a type by', sumUsedBy: 'Other users', andMore: 'and {n} more',
+    tagWrites: 'changes data', tagReadOnly: 'read only', tagEntry: 'tour entry', tagHub: 'top 10 by links', tagUnused: 'unused',
+    tagNoWriter: 'no writer in this map', tagNoReader: 'no reader in this map',
     allOn: "Select all",
     allOff: "Clear all",
     kindDesc: {"types": "Which data element a field uses, which domain a data element uses, which structure a structure .INCLUDEs / .APPENDs. Stated in DD03L / DD04L.", "checks": "A field whose values must exist in a check table (foreign key). Cardinality and field map from DD08L / DD05S.", "valueTable": "A domain's value table (DD01L), used for input help and foreign key proposals.", "searchHelp": "The search help (F4) attached to a data element or a table field (DD04L / DD35L).", "rowType": "The line type of a table type: a structure, table or data element (DD40L).", "basedOn": "The tables a view is built on (DD26S).", "selects": "The table or view a search help selects its values from (DD30L).", "contains": "The elementary search helps inside a collective search help (DD31S).", "include": "A program or function group pulling in source with INCLUDE. Includes are folded into their owner by default.", "calls": "Calling another object, e.g. CALL FUNCTION or a method call.", "submits": "Running another report with SUBMIT.", "starts": "Starting a transaction with CALL TRANSACTION / LEAVE TO TRANSACTION.", "launches": "The program or SM30 / SM34 view a transaction runs (TSTC).", "reads": "Reading a table or view with SELECT.", "writes": "Changing a table with INSERT / UPDATE / MODIFY / DELETE, shown as C / U / D in the panel and the CRUD tab.", "uses": "Using a class: TYPE REF TO, class or interface use, object creation."},
@@ -219,7 +306,7 @@ export function renderPage(model, { lang = 'ko' } = {}) {
 <style>${STYLE}</style></head>
 <body>
 <div class="topbar"><div class="t">${esc(T.title)} · ${esc(pkg)}<small>${esc([model.meta.system, model.meta.sapVersion].filter(Boolean).join(' · '))}</small></div><button id="theme">${esc(T.theme)}</button></div>
-<nav class="tabs"><button data-tab="overview">${esc(T.tOverview)}</button><button data-tab="explore">${esc(T.tExplore)}</button><button data-tab="groups">${esc(T.tGroups)}</button><button data-tab="crud">${esc(T.tCrud)}</button><button data-tab="fields">${esc(T.tFields)}</button></nav>
+<nav class="tabs"><button data-tab="overview">${esc(T.tOverview)}</button><button data-tab="explore">${esc(T.tExplore)}</button>${(model.tours || []).length ? `<button data-tab="tours">${esc(T.tTours)}</button>` : ''}${model.domains && model.domains.doms.length ? `<button data-tab="domains">${esc(T.tDomains)}</button>` : ''}<button data-tab="groups">${esc(T.tGroups)}</button><button data-tab="crud">${esc(T.tCrud)}</button><button data-tab="fields">${esc(T.tFields)}</button></nav>
 <main>
 <section class="tab" id="tab-overview"></section>
 <section class="tab" id="tab-explore">
@@ -247,6 +334,8 @@ export function renderPage(model, { lang = 'ko' } = {}) {
   <div id="qtip" hidden></div>
   <div class="legend">${esc(T.legendHelp)}</div>
 </section>
+<section class="tab" id="tab-tours"></section>
+<section class="tab" id="tab-domains"></section>
 <section class="tab" id="tab-groups"></section>
 <section class="tab" id="tab-crud"></section>
 <section class="tab" id="tab-fields"></section>

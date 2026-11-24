@@ -5,6 +5,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+### Added
+- `/sc4sap:cbo-relation-map` **Tours tab and object summary**, both computed from the graph (no model call). A tour starts at an entry TCode (TCodes on the same program merged; root reports when fewer than three) and walks program → calls per depth → tables changed (C / U / D) → tables only read → other TCodes changing the same tables; each step adds its objects to the drawing and rings the current ones, with Back / Next, a progress bar, ← → keys and a history entry per step (`#tour=…&s=n`). Up to 200 tours, used-directly first, searchable. The side panel opens with a summary (TCodes that run the object, what it calls, tables it changes and reads; for a table its writers, readers and the TCodes changing it) and tags; the node card shows the tags and *Start tour*. The tour UX follows Understand-Anything's tour panel (MIT); no code is taken from it. Korean, English and Japanese texts; phone layouts hide the step dots and the count columns.
+- `/sc4sap:cbo-relation-map` **Process areas tab**: the `/sc4sap:module-to-process` model next to the inventory (`processes/<MODULE>/_state/process-model.json`, or `--process <file>`; `--process none` skips it) laid onto the map — L2 process chains as area cards, L3 processes as lanes, L4 tasks as steps left to right. A task's TCodes and objects are matched to map objects by name; code relations (two levels) give the tables it changes (C / U / D) and reads. Hand-offs between areas come from the source: one area changes a table another reads (table list per pair). A task opens its objects, standard TCodes as text, names not on the map, related tasks, *Draw it* (its objects in Explore) and *Start tour*. Without a process model the Louvain groups stand in. Domain view after Understand-Anything's domain → flow → step view, built here from the reviewed process map instead of a model guess.
+
 ## [1.0.1] — 2026-11-20
 
 CLI flow of the newer skills made as easy to follow as the web app. No breaking change; the MCP pin stays.
