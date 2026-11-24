@@ -265,6 +265,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     }
     // <artifactBase>/cbo/<MODULE>/<PACKAGE> → <artifactBase>/mcp-output/src
     if (a.snippets && !a.src.length) a.src = [join(first, '..', '..', '..', 'mcp-output', 'src')];
+    if (a.processModel && a.processModel !== 'none' && !existsSync(a.processModel)) console.error(`process model not found: ${a.processModel} — Process areas fall back to the groups`);
     const r = buildToFile({ ...a, graphs });
     if (!r.nodes) { console.error('graph.json has no customer (Z/Y/namespace) object'); process.exit(2); }
     console.log(JSON.stringify(r));

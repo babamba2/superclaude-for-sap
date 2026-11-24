@@ -124,7 +124,7 @@
   const crudSpan = (s) => (s ? `<span class="crud">${s.split('').map((c) => `<b class="c-${c}">${c}</b>`).join('')}</span> ` : '');
   function stepText(t, x) {
     const [k, nodes, total, , depth] = TOURS[t].s[x], e = TOURS[t].e, X = T.tourStep[k] || {};
-    const fill = (s) => String(s || '').replace('{n}', nName(e)).replace('{t}', fmt(total)).replace('{s}', fmt(nodes.length)).replace('{d}', fmt(depth || 1));
+    const fill = (s) => String(s || '').replace('{n}', () => nName(e)).replace('{t}', fmt(total)).replace('{s}', fmt(nodes.length)).replace('{d}', fmt(depth || 1));
     const body = k === 'entry' ? (nType(e) === 'TRAN' ? X.bodyTran : X.bodyProg) : X.body;
     return { title: fill(X.title), body: fill(body) };
   }
@@ -256,7 +256,7 @@
     if (!DOMS.length) { sec.innerHTML = `<h2>${esc(T.hDomains)}</h2><p class="muted">${esc(T.domNone)}</p>`; return; }
     const isProc = DOM.kind === 'process';
     if (S.dom < 0 || !DOMS[S.dom]) {
-      const src = isProc ? T.domSrc.replace('{m}', DOM.src.module || '').replace('{s}', fmt(DOM.stats.steps)).replace('{n}', fmt(DOM.stats.matched)) : T.domSrcGroups;
+      const src = isProc ? T.domSrc.replace('{m}', () => DOM.src.module || '').replace('{s}', fmt(DOM.stats.steps)).replace('{n}', fmt(DOM.stats.matched)) : T.domSrcGroups;
       let lastL1 = null, cards = '';
       DOMS.forEach((d, x) => {
         if (isProc && d.l1 !== lastL1 && new Set(DOMS.map((y) => y.l1)).size > 1) { cards += `<h3 class="l1">${esc(d.l1)}</h3>`; }
@@ -290,7 +290,8 @@
     if (push && cur) history.pushState({ v, d: (cur.d || 0) + 1, back: viewLabel(cur.v) }, '', hash);
     else history.replaceState({ v, d: cur ? cur.d || 0 : 0, back: cur ? cur.back : '' }, '', hash);
     navUI(); domains(); showTab('domains');
-    if (step) { const el = document.querySelector('.stepd'); if (el) el.scrollIntoView({ block: 'nearest' }); }
+    // #panel can still hold a hidden copy from an earlier Draw it: scroll to the one in this tab
+    if (step) { const el = document.querySelector('#tab-domains .stepd'); if (el) el.scrollIntoView({ block: 'nearest' }); }
   }
   function drawStep(d, code, push = true) {
     if (!stepOf(d, code)) return;
@@ -1224,7 +1225,8 @@
     const nodes = set.nodes, inSet = new Set(nodes), pathEdges = S.mode === 'path' ? new Set(S.path.edges) : null;
     const tourKinds = S.mode === 'tour' || S.mode === 'step', typesKd = kindIx('types');
     const curStep = S.mode === 'step' ? stepOf(S.dom, S.domStep) : null;
-    G.hl = S.mode === 'tour' ? new Set(TOURS[S.tour].s[S.step][1]) : curStep ? new Set([...curStep.t, ...curStep.o]) : new Set();
+    // a drawn task lights all its objects, tables too (nothing of an earlier step to step back from)
+    G.hl = S.mode === 'tour' ? new Set(TOURS[S.tour].s[S.step][1]) : curStep ? new Set(stepNodes(curStep)) : new Set();
     const drawn = [];
     for (const v of nodes) for (const k of out[v]) {
       if (!inSet.has(M.edges[k][1]) || M.edges[k][0] === M.edges[k][1]) continue;
@@ -1238,7 +1240,7 @@
     const msg = S.mode === 'path' ? T.pathInfo.replace('{a}', nName(S.pathRev ? S.target : S.center)).replace('{b}', nName(S.pathRev ? S.center : S.target)).replace('{n}', S.path.edges.length)
       : S.mode === 'impact' ? T.impactInfo.replace('{what}', nName(S.center))
       : S.mode === 'tour' ? T.tourInfo.replace('{what}', nName(S.center)).replace('{x}', S.step + 1).replace('{y}', TOURS[S.tour].s.length)
-      : S.mode === 'step' ? T.stepInfo.replace('{what}', curStep ? `${curStep.c} ${curStep.l}` : '')
+      : S.mode === 'step' ? T.stepInfo.replace('{what}', () => (curStep ? `${curStep.c} ${curStep.l}` : ''))
         : S.mode === 'group' ? T.groupInfo.replace('{what}', groupName(S.group)) : T.viewInfo.replace('{what}', nName(S.center));
     info.textContent = msg.replace('{n}', fmt(shown)).replace('{e}', fmt(drawn.length)) + (set.total > shown ? ' ' + T.capped.replace('{n}', fmt(set.total)) : '');
     panel();

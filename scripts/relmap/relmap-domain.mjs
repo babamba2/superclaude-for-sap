@@ -55,7 +55,8 @@ function tablesFrom(model, gx, start) {
     else if (e[2] === gx.kR) r.add(e[1]);
   }
   const letters = (s) => ['C', 'U', 'D'].filter((c) => s.includes(c)).join('');
-  return { w: new Map([...w].map(([t, s]) => [t, letters(s)])), r: new Set([...r].filter((t) => !w.has(t))) };
+  // r = only read (shown per step); rAll = every table read, also those the flow changes (for hand-offs)
+  return { w: new Map([...w].map(([t, s]) => [t, letters(s)])), r: new Set([...r].filter((t) => !w.has(t))), rAll: r };
 }
 
 /** hand-offs: domain a changes a table that domain b reads (a ≠ b), most tables first */
@@ -88,7 +89,7 @@ function fromProcess(model, gx, pm, file) {
   let steps = 0, matched = 0;
   for (const d of rows.filter((r) => r.level === 2)) {
     const dom = { c: d.code, l: d.label || d.code, l1: l1Of.get(segs(d.code)[0]) || '', f: [] };
-    const dw = new Map(), dr = new Set(), dObj = new Set();
+    const dw = new Map(), dr = new Set(), dRead = new Set(), dObj = new Set();
     for (const fl of rows.filter((r) => r.level === 3 && segs(r.code).slice(0, 2).join('.') === d.code)) {
       const flow = { c: fl.code, l: fl.label || fl.code, s: [] };
       for (const st of rows.filter((r) => r.level === 4 && segs(r.code).slice(0, 3).join('.') === fl.code)) {
@@ -99,13 +100,17 @@ function fromProcess(model, gx, pm, file) {
         for (const n of tcNames) { const i = pick(n, true); if (i < 0) { miss++; if (!/^[ZY]/i.test(n) && std.length < 6) std.push(n); } else (gx.type(i) === 'TRAN' ? t : o).add(i); }
         for (const n of obNames) { const i = pick(n, false); if (i < 0) miss++; else if (!t.has(i)) (gx.type(i) === 'TRAN' ? t : o).add(i); }
         const start = [...t, ...o];
-        const { w, r } = start.length ? tablesFrom(model, gx, start) : { w: new Map(), r: new Set() };
+        const { w, r, rAll } = start.length ? tablesFrom(model, gx, start) : { w: new Map(), r: new Set(), rAll: new Set() };
         for (const i of o) if (DATA.has(gx.type(i))) { o.delete(i); if (!w.has(i)) r.add(i); }
         // a program named like one of the step's TCodes is what that TCode runs: listed once, under TCodes
         const tNames = new Set([...t].map((i) => String(model.nodes[i][0])));
         for (const i of o) if (gx.type(i) === 'PROG' && tNames.has(String(model.nodes[i][0]))) o.delete(i);
         steps++; if (start.length) matched++;
-        for (const [k, v] of w) dw.set(k, v); for (const k of r) dr.add(k); for (const i of start) dObj.add(i);
+        for (const [k, v] of w) dw.set(k, ['C', 'U', 'D'].filter((c) => (dw.get(k) || '').includes(c) || v.includes(c)).join(''));
+        for (const k of r) dr.add(k);
+        for (const k of rAll) dRead.add(k);
+        for (const k of r) dRead.add(k);
+        for (const i of start) dObj.add(i);
         flow.s.push({
           c: st.code, l: st.label || st.code, k: st.kind || '', u: st.usage || '',
           t: [...t].slice(0, CAP), o: [...o].slice(0, CAP), w: [...w].slice(0, CAP), r: [...r].slice(0, CAP), nn: [t.size, o.size, w.size, r.size], m: miss, std,
@@ -116,7 +121,8 @@ function fromProcess(model, gx, pm, file) {
     }
     for (const k of dw.keys()) dr.delete(k);
     dom.n = [dom.f.reduce((s, f) => s + f.s.length, 0), dObj.size, dw.size, dr.size];
-    doms.push(dom); wOf.push(dw); rOf.push(dr);
+    // hand-offs use every table the area reads, also one it changes itself (B reads what A writes, then updates it)
+    doms.push(dom); wOf.push(dw); rOf.push(dRead);
   }
   return {
     kind: 'process',
@@ -136,8 +142,8 @@ function fromGroups(model, gx) {
       if (!DATA.has(gx.type(e[1]))) continue;
       if (e[2] === gx.kW) w.set(e[1], 1); else if (e[2] === gx.kR) r.add(e[1]);
     }
-    for (const k of w.keys()) r.delete(k);
-    doms.push({ c: `G${c.id + 1}`, l: c.label || `G${c.id + 1}`, l1: '', f: [], g: c.id, n: [0, members.length, w.size, r.size] });
+    const readOnly = [...r].filter((k) => !w.has(k)).length;
+    doms.push({ c: `G${c.id + 1}`, l: c.label || `G${c.id + 1}`, l1: '', f: [], g: c.id, n: [0, members.length, w.size, readOnly] });
     wOf.push(w); rOf.push(r);
   }
   return { kind: 'groups', src: {}, doms, hand: handOffs(doms, wOf, rOf), stats: { domains: doms.length, steps: 0, matched: 0 } };

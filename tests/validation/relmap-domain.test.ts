@@ -63,6 +63,14 @@ describe('relation-map process areas', () => {
     expect(D.hand.map(([a, b, ts, c]: any) => `${D.doms[a].c}>${D.doms[b].c}:${ts.map(name).join(',')}:${c}`)).toEqual(['1.1>1.2:ZORD:1', '1.2>1.3:ZBIL:1']);
   });
 
+  it('a hand-off counts when the reading area also changes the table', () => {
+    const g2 = { ...graph, edges: [...graph.edges, e('PROG:ZBP', 'writes', 'TABL:ZORD', ['UPDATE'])] };
+    const D2: any = buildDomains(buildModel(g2), pm);
+    const m2: any = buildModel(g2);
+    expect(D2.hand.map(([a, b, ts]: any) => `${D2.doms[a].c}>${D2.doms[b].c}:${ts.map((i: number) => m2.nodes[i][0]).join(',')}`)).toContain('1.1>1.2:ZORD');
+    expect(D2.doms[1].f[0].s[0].w.map(([t, l]: any) => `${m2.nodes[t][0]}:${l}`)).toContain('ZORD:U');
+  });
+
   it('no process model → the Louvain groups stand in, no flows', () => {
     const G: any = buildDomains(model, null);
     expect(G.kind).toBe('groups');

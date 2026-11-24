@@ -130,7 +130,7 @@ export const TEXT = {
     tourStep: {
       entry: { title: '시작점', bodyTran: 'TCode {n}에서 업무가 시작돼요.', bodyProg: '리포트 {n}에서 시작해요. 다른 객체가 부르지 않는 프로그램이에요. 직접 실행하거나 잡으로 돌려요.' },
       program: { title: '실행되는 프로그램', body: 'TCode가 실행하는 프로그램이에요. 인클루드는 이 노드 하나로 합쳐져 있어요.' },
-      calls: { title: '{d}단계 호출', body: '앞 단계 객체가 부르는 함수·클래스·프로그램 {t}개예요. 연결이 많은 {s}개를 보여 줘요.' },
+      calls: { title: '{d}단계 호출', body: '앞 단계 객체가 부르거나 실행하는 함수·클래스·프로그램·TCode {t}개예요. 연결이 많은 {s}개를 보여 줘요.' },
       writes: { title: '바꾸는 테이블', body: '이 흐름이 만들고(C) 고치고(U) 지우는(D) 테이블 {t}개예요. 이 업무가 남기는 결과예요.' },
       reads: { title: '읽기만 하는 테이블', body: '이 흐름이 읽기만 하는 테이블 {t}개예요.' },
       shared: { title: '같은 테이블을 바꾸는 다른 TCode', body: '위 테이블을 다른 TCode {t}개도 바꿔요. 이 흐름을 고치면 함께 테스트하세요.' },
@@ -222,7 +222,7 @@ export const TEXT = {
     tourStep: {
       entry: { title: 'Entry point', bodyTran: 'The business flow starts at TCode {n}.', bodyProg: 'Starts at report {n}. No other object calls it: it runs directly or as a job.' },
       program: { title: 'Program run', body: 'The program the TCode runs. Its includes are folded into this node.' },
-      calls: { title: 'Calls, level {d}', body: '{t} functions, classes and programs called by the step before. The {s} with the most links are shown.' },
+      calls: { title: 'Calls, level {d}', body: '{t} functions, classes, programs and TCodes the step before calls or starts. The {s} with the most links are shown.' },
       writes: { title: 'Tables changed', body: '{t} tables this flow creates (C), updates (U) or deletes (D). They hold what this flow leaves behind.' },
       reads: { title: 'Tables only read', body: '{t} tables this flow only reads.' },
       shared: { title: 'Other TCodes changing the same tables', body: '{t} other TCodes change these tables too. Test them together when this flow changes.' },
