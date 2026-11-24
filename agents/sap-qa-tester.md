@@ -104,7 +104,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
 
   <Tool_Usage>
     - Use Write to create ABAP Unit test classes.
-    - Use Edit to modify existing test classes.
+    - Use Edit to modify existing test classes — in patch mode ([`../common/patch-mode.md`](../common/patch-mode.md)): the test include / class read with `output: "file"`, `Edit`, upload with `source_file` (never `source_patches` — test code is always uploaded whole). `RunUnitTest` uses `result_format: "summary"`, except inside `/sc4sap:program-test` (it needs every method's result).
     - Use Read/Grep to understand the code under test and find existing test patterns.
     - Use Bash for executing test suites and capturing results.
     - Use WebSearch for ABAP Unit framework documentation and test double patterns.

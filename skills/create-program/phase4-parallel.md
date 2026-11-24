@@ -112,7 +112,7 @@ Then:
 2. **Single**: `CreateProgram` for the main REPORT (attaches include refs)
 3. **No program-wide syntax check here.** `GetAbapSemanticAnalysis` only parses the text it is given and does not resolve includes, so it is not a syntax check of the program (optional: a quick local parse of one self-contained body). The SAP syntax check of the whole include tree runs inside `ActivateObjects` at the Final Step ([`../../common/evidence-receipt.md`](../../common/evidence-receipt.md) § Syntax).
 
-On activation syntax errors, parse the include / line from the `ActivateObjects` messages → **parallel** `UpdateInclude` patches → activate again. Loop max 3 iterations. On persistent failure, escalate to Phase 7 (sap-debugger).
+On activation syntax errors, parse the include / line from the `ActivateObjects` messages → **parallel** `UpdateInclude` patches in patch mode ([`../../common/patch-mode.md`](../../common/patch-mode.md): `source_patches` when the lines' current text is known, else `Edit` the include file, upload with `source_file` — never retype the include) → activate again. Loop max 3 iterations. On persistent failure, escalate to Phase 7 (sap-debugger).
 
 ### Wave 4 — G4-late (Screens + GUI Status) + Final Step — Batch Activation
 

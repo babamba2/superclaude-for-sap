@@ -31,7 +31,7 @@ Multi-phase skill. Before each `Agent(...)` dispatch, emit `▶ phase=<id> (<lab
 </Use_When>
 
 <Do_Not_Use_When>
-- Modifying an existing object -- use direct MCP `Update*` tools (`UpdateClass`, `UpdateProgram`, `UpdateInclude`, etc.)
+- Modifying an existing object -- use direct MCP `Update*` tools (`UpdateClass`, `UpdateProgram`, `UpdateInclude`, etc.) in patch mode ([`../../common/patch-mode.md`](../../common/patch-mode.md))
 - Creating multiple interdependent objects -- use `/sc4sap:create-program` for a full program with includes
 - User just wants to understand what type to use -- ask a module consultant agent directly
 </Do_Not_Use_When>

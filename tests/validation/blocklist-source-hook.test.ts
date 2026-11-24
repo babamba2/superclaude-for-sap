@@ -100,6 +100,18 @@ describe('blocklist hook — source uploads', () => {
     expect(run('UpdateProgram', { program_name: 'YPROBE', source_code: src })).toBeNull();
   });
 
+  it('denies a test-class implementation include (definition in another include) reading a deny-tier table', () => {
+    const src = 'CLASS ltcl_x IMPLEMENTATION.\n  METHOD t1.\n    SELECT bname FROM usr21 INTO TABLE @DATA(lt).\n' +
+      '    cl_abap_unit_assert=>fail( msg = |{ lines( lt ) }| ).\n  ENDMETHOD.\nENDCLASS.';
+    expect(run('UpdateInclude', { include_name: 'ZPROBE_T99', source_code: src })).toBe('deny');
+  });
+
+  it('denies test code hidden behind a literal holding another quote kind', () => {
+    const src = "lv = `don't`. CLASS ltcl DEFINITION FOR TESTING. lv2 = 'x'.\n" +
+      'CLASS ltcl IMPLEMENTATION.\n  METHOD t.\n    SELECT bname FROM usr21 INTO TABLE @DATA(lt).\n  ENDMETHOD.\nENDCLASS.';
+    expect(run('UpdateProgram', { program_name: 'ZPROBE', source_code: src })).toBe('deny');
+  });
+
   it('still denies GetSqlQuery on a deny-tier table', () => {
     expect(run('GetSqlQuery', { sql_query: 'SELECT bname FROM usr21' })).toBe('deny');
   });
@@ -117,6 +129,41 @@ describe('blocklist hook — helpers and wiring', () => {
     expect(sourceIsReadChannel('mcp__plugin_sc4sap_sap__UpdateView', {})).toBe(true);
   });
 
+  it('literal stripping is one left-to-right scan: a quote inside one literal never opens another', () => {
+    const rc = (s: string) => sourceIsReadChannel('mcp__plugin_sc4sap_sap__UpdateProgram', { source_code: s });
+    expect(rc("lv = `don't`. CLASS ltcl DEFINITION FOR TESTING. lv2 = 'x'.")).toBe(true);
+    expect(rc("lv = |'|. CLASS ltcl DEFINITION FOR TESTING. lv2 = 'x'.")).toBe(true);
+    expect(rc("lv = 'FOR TESTING'. \" FOR TESTING")).toBe(false);
+    expect(stripAbapNoise("a = '\"'. b = 1. \" c")).toBe("a = ''. b = 1. ");
+  });
+
+  it('a | inside an embedded expression of a template hides neither test code nor tables (verifier F1)', () => {
+    const rc = (s: string) => sourceIsReadChannel('mcp__plugin_sc4sap_sap__UpdateProgram', { source_code: s });
+    expect(rc("DATA(s) = |{ '|' }|. CLASS ltc DEFINITION FOR TESTING. ENDCLASS. DATA(t) = |x|.")).toBe(true);
+    expect(rc("DATA(u) = |{ '|' }|. CLASS ltc IMPLEMENTATION. METHOD m. ENDMETHOD. ENDCLASS. DATA(v) = |x|.")).toBe(true);
+    expect(rc("lv = |FOR TESTING { 'FOR TESTING' }|.")).toBe(false);
+    expect([...tablesFromSource({ source_code: "DATA(s) = |{ '|' }|. SELECT * FROM usr02. DATA(t) = |x|." })]).toEqual(['USR02']);
+    expect(stripAbapNoise("x = |a{ y }b|. \" c\n* z\nw = 'q'.")).toBe("x = |{ y }|. \n\nw = ''.");
+  });
+
+  it('colon chaining, LOCAL FRIENDS and // outside CDS (verifier F2, F4, F5)', () => {
+    const rc = (s: string) => sourceIsReadChannel('mcp__plugin_sc4sap_sap__UpdateProgram', { source_code: s });
+    expect(rc('CLASS ltc DEFINITION FOR: TESTING.')).toBe(true);
+    expect(rc('CLASS: ltc IMPLEMENTATION.\nENDCLASS.')).toBe(true);
+    expect(rc('CLASS zcl_a DEFINITION LOCAL FRIENDS ltc.\nCLASS ltc IMPLEMENTATION.\nENDCLASS.')).toBe(true);
+    expect(rc("WRITE // 'x'. CLASS ltc DEFINITION FOR TESTING.")).toBe(true);
+    expect([...tablesFromSource({ ddl_source: 'select from kna1 // from usr02' }, 'mcp__plugin_sc4sap_sap__CreateView')]).toEqual(['KNA1']);
+  });
+
+  it('a class implementation without its definition in the same text is test code; with it, not', () => {
+    const rc = (s: string) => sourceIsReadChannel('mcp__plugin_sc4sap_sap__UpdateInclude', { source_code: s });
+    const impl = 'CLASS lcl_a IMPLEMENTATION.\nENDCLASS.';
+    expect(rc(impl)).toBe(true);
+    expect(rc('CLASS lcl_a DEFINITION DEFERRED.\n' + impl)).toBe(true);
+    expect(rc('CLASS lcl_a DEFINITION FINAL.\nENDCLASS.\n' + impl)).toBe(false);
+    expect(rc("lv = 'CLASS x IMPLEMENTATION'.")).toBe(false);
+  });
+
   it('is registered in the plugin hooks for source uploads and row reads', () => {
     const hooks = JSON.parse(readFileSync(join(ROOT, 'hooks', 'hooks.json'), 'utf8'));
     const entry = hooks.hooks.PreToolUse.find((e: { hooks: { command: string }[] }) =>
@@ -127,5 +174,75 @@ describe('blocklist hook — helpers and wiring', () => {
       expect(re.test(`mcp__plugin_sc4sap_sap__${t}`), t).toBe(true);
     }
     expect(re.test('mcp__plugin_sc4sap_sap__GetProgram')).toBe(false);
+  });
+});
+
+describe('blocklist hook — patch mode (source_file)', () => {
+  const dir = mkdtempSync(join(tmpdir(), 'sc4sap-src-'));
+  const file = (name: string, text: string) => { const p = join(dir, name); writeFileSync(p, text); return p; };
+
+  it('scans the file the server will upload', () => {
+    const bad = file('bad.prog.abap', probe(`SELECT SINGLE persnumber FROM usr21 WHERE bname = 'X' INTO @DATA(lv).`));
+    const good = file('good.prog.abap', probe(`SELECT SINGLE bukrs FROM t001 INTO @DATA(lv).`));
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_file: bad })).toBe('deny');
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_file: good })).toBeNull();
+  });
+
+  it('refuses a source_file it cannot read (relative or missing) instead of skipping the scan', () => {
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_file: 'src/bad.prog.abap' })).toBe('deny');
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_file: join(dir, 'missing.abap') })).toBe('deny');
+  });
+});
+
+describe('blocklist hook — server-side patch (source_patches)', () => {
+  const patch = (old_string: string, new_string: string) => ({ old_string, new_string });
+
+  it('business code: a patch reading or typing KNA1 / USR21 passes (same as a full upload)', () => {
+    expect(run('UpdateProgram', {
+      program_name: 'YPROBE',
+      source_patches: [patch('FROM t001', 'FROM kna1'), patch('lv = 1.', 'DATA ls_kna1 TYPE kna1.')],
+    })).toBeNull();
+    expect(run('UpdateClass', {
+      class_name: 'YCL_PROBE',
+      source_patches: [patch('t001 INTO', 'usr21 INTO')],
+    })).toBeNull();
+  });
+
+  it('visible test code is refused: FOR TESTING in a new_string or an old_string', () => {
+    const SEND_FULL = /send the full source_code so the blocklist hook can check it/;
+    const out = (input: Record<string, unknown>) => spawnSync(process.execPath, [HOOK], {
+      cwd: CWD, env: { ...process.env, SC4SAP_HOME_DIR: HOME },
+      input: JSON.stringify({ tool_name: 'mcp__plugin_sc4sap_sap__UpdateProgram', tool_input: input }), encoding: 'utf8',
+    }).stdout;
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_patches: [patch('ENDCLASS.', probe('lv = 1.'))] })).toBe('deny');
+    expect(out({ program_name: 'YPROBE', source_patches: [patch('ENDCLASS.', probe('lv = 1.'))] })).toMatch(SEND_FULL);
+    // removing FOR TESTING: the marker is in old_string
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_patches: [patch('FINAL FOR TESTING', 'FINAL')] })).toBe('deny');
+    // FOR TESTING only in a comment / literal is not test code
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_patches: [patch('WRITE 1.', `WRITE 'FOR TESTING'. " FOR TESTING`)] })).toBeNull();
+  });
+
+  it('refuses malformed source_patches', () => {
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_patches: 'WRITE 2.' })).toBe('deny');
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_patches: [] })).toBe('deny');
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_patches: [{ old_string: '', new_string: 'x' }] })).toBe('deny');
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_patches: [{ old_string: 'a' }] })).toBe('deny');
+  });
+
+  it('denies source_patches next to a source field or source_file, whatever the value ("" / blank)', () => {
+    const p = [patch('WRITE 1.', 'WRITE 2.')];
+    for (const source_code of ['', '   ', 'REPORT yprobe.'])
+      expect(run('UpdateProgram', { program_name: 'YPROBE', source_code, source_patches: p })).toBe('deny');
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_file: '', source_patches: p })).toBe('deny');
+    expect(run('UpdateLocalTestClass', { class_name: 'YCL_PROBE', test_class_code: '', source_patches: p })).toBe('deny');
+  });
+
+  it('UpdateLocalTestClass patches are refused, whatever they change', () => {
+    expect(run('UpdateLocalTestClass', { class_name: 'YCL_PROBE', source_patches: [patch('lv = 1.', 'lv = 2.')] })).toBe('deny');
+    expect(run('UpdateLocalTestClass', { class_name: 'YCL_PROBE', source_patches: [patch('t001 INTO', 'usr21 INTO')] })).toBe('deny');
+  });
+
+  it('scans the local test class field of UpdateLocalTestClass', () => {
+    expect(run('UpdateLocalTestClass', { class_name: 'YCL_PROBE', test_class_code: probe(`SELECT SINGLE persnumber FROM usr21 INTO @DATA(lv).`) })).toBe('deny');
   });
 });

@@ -91,7 +91,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
     - Use Grep to search for ABAP error patterns, function module calls, and SELECT statements.
     - Use Read to examine ABAP source at the specific error location.
     - Use Bash for system log analysis and transport log examination.
-    - Use Edit for minimal ABAP fixes (type corrections, missing checks, index hints).
+    - Use Edit for minimal ABAP fixes (type corrections, missing checks, index hints) — in patch mode ([`../common/patch-mode.md`](../common/patch-mode.md)): `source_patches` when the exact current text is known, else source read with `output: "file"`, `Edit`, upload with `source_file`; never retype the unchanged source. Re-runs of `RunUnitTest` use `result_format: "summary"`.
     - Use WebSearch for SAP Note lookup when error matches known SAP issues.
   </Tool_Usage>
 

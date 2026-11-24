@@ -32,7 +32,7 @@ sc4sap:create-program is the flagship skill for creating new ABAP programs. It h
 
 <Do_Not_Use_When>
 - Creating a single class/interface/table — use `/sc4sap:create-object`
-- Modifying an existing program — use direct `UpdateProgram` / `UpdateInclude` MCP calls
+- Modifying an existing program — use direct `UpdateProgram` / `UpdateInclude` MCP calls in patch mode ([`../../common/patch-mode.md`](../../common/patch-mode.md))
 - Creating a RAP business object / OData service — use `/sc4sap:create-object` (with service binding + behavior definition)
 - User wants only scaffolding without coding — use `/sc4sap:create-object` with type=program
 </Do_Not_Use_When>

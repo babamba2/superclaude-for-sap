@@ -102,6 +102,7 @@ tools: [Read, Grep, Glob, Bash, Edit, Write, WebFetch, WebSearch, mcp__plugin_sc
 
   <Tool_Usage>
     - Use Edit for modifying existing ABAP files, Write for creating new ABAP objects.
+    - **Changing an object that already exists in SAP → patch mode** ([`../common/patch-mode.md`](../common/patch-mode.md)): exact current text of the lines known → `source_patches` on the `Update*` call (one call, no fetch); else read it with `output: "file"`, `Edit` the lines, upload with `source_file` (absolute path) instead of `source_code`. Never retype an unchanged source. `RunUnitTest` → `result_format: "summary"` unless the caller needs every method's result.
     - Use Grep/Glob/Read for understanding existing ABAP code patterns before changing.
     - Use Bash for running syntax checks and transport operations.
     - Use WebSearch for ABAP keyword documentation and SAP Note references.

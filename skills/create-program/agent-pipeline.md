@@ -145,8 +145,8 @@ Full procedure — `trust-session` invocation, auto/manual/hybrid mode prompt, s
 
 **When running**:
 - Test class SHOULD already exist — Phase 4 executor creates the `{PROG}ct` include (`LCL_TEST` + optional `LTC_*`) as part of the initial parallel batch (see phase4-parallel.md Step B). Phase 5 agent only writes test methods + runs them.
-- Call `RunUnitTest` → `GetUnitTestResult`
-- On FAIL: fix production code (not tests) → re-activate → re-run (loop until green or 3 attempts)
+- Call `RunUnitTest` (`result_format: "summary"`) → `GetUnitTestResult` when the run is asynchronous
+- On FAIL: fix production code (not tests) in patch mode (`../../common/patch-mode.md`) → re-activate → re-run (loop until green or 3 attempts)
 - In `manual` mode: prompt before starting Phase 5 (unless skip condition matched, then auto-skip with message)
 
 ## Phase 6 — Review (MANDATORY — never skip, never conditional): `sap-code-reviewer`

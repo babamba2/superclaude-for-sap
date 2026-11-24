@@ -217,3 +217,11 @@ Runs the steps of `CL_SSF_MIGRATION=>MIGRATE` with SAP's own classes for a SAP-d
 - Strict: if any op is not applied, the form is not saved.
 
 **Install (DEV only):** create the FM in `ZMCP_FP` ($TMP) with the source, activate; add the `FP_MIGRATE` branch and the FORM to the live dispatcher (read and back it up first); activate.
+
+## ZMCP_FP_DELETE + dispatcher action FP_DELETE (DeleteAdobeForm) — DEV write
+
+Deletes a Z/Y Adobe form (SFPF, with its layout and generated function module) or form interface (SFPI) of package **`$TMP`** — for objects left by `CreateAdobeFormFromSmartForm` or tests. Any other package is refused: SAP's delete removes the TADIR entry only for `$TMP`, and a transportable object's deletion belongs on a transport (use SFP). An interface that a form still uses (`FPCONTEXT`) is refused with the list of forms — delete those first; a form delete keeps its interface (delete it afterwards with kind `INTERFACE`). Development-type clients only (`T000-CCCATEGORY` C / D / E). Without `confirm` nothing is deleted and the result says what would be. The deletion is SAP's own (`CL_FP_WB_FORM=>DELETE` with `I_DARK`, `CL_FP_WB_INTERFACE=>DELETE`: lock, both versions, texts, documentation, working area, TADIR of a `$TMP` object), then `COMMIT WORK AND WAIT` and a TADIR read-back (`tadirLeft`).
+
+**Sources:** `zmcp_fp_delete.abap` (FM `ZMCP_FP_DELETE`: IV_NAME, IV_KIND `FORM` | `INTERFACE`, IV_CONFIRM → EV_SUBRC / EV_MESSAGE / EV_RESULT `{"name","kind","package","usedBy","deleted","tadirLeft"}`), `zmcp_adt_dispatch_fp_delete_branch.abap` (`WHEN 'FP_DELETE'.` plus `FORM fp_delete_call`).
+
+**Install (DEV only):** create the FM in `ZMCP_FP` ($TMP) — **not** remote-enabled — with the source, activate; read and back up the live `ZMCP_ADT_DISPATCH`, add the branch and the FORM, activate. Test: dry run on an existing `$TMP` interface, a refused call on a used interface and on a transportable object, then one real delete of an interface and one of a form through the dispatcher (no dialog may appear in the RFC session). Until the branch is in, `DeleteAdobeForm` answers with an install hint (`Unknown action: FP_DELETE`).

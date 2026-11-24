@@ -93,7 +93,7 @@ Runs only when verified `QUESTION` lines exist. Right after the report, ask them
 
 After the report (canned or briefing) and Step 3b, offer:
 
-1. **"Fix findings"** — explain options: manual `UpdateClass` / `UpdateProgram` / `UpdateInclude`, full rewrite via `/sc4sap:create-program`, or dispatch `sap-executor` here. If user picks executor delegation, emit banner `▶ phase=4.fix · agent=sap-executor · model=Sonnet` and dispatch.
+1. **"Fix findings"** — explain options: manual `UpdateClass` / `UpdateProgram` / `UpdateInclude`, full rewrite via `/sc4sap:create-program`, or dispatch `sap-executor` here. If user picks executor delegation, emit banner `▶ phase=4.fix · agent=sap-executor · model=Sonnet` and dispatch. Every fix upload uses patch mode ([`../../common/patch-mode.md`](../../common/patch-mode.md)).
 2. **"Show where-used callers"** — display from the reviewer's or judge's where-used data (already in the response; on the judge path it may be only the top 10 — say so).
 3. **"Explain finding #N in more detail"** — main re-reads the specific finding entry and expands it.
 4. **"Save report — Markdown / HTML / both"** — main writes `.sc4sap/analysis/<object>-<timestamp>.md` (the report as rendered in Step 3, with the Step 3b answers). For HTML, convert it with `node "<PLUGIN_ROOT>/scripts/spec/md-to-html.mjs" <that .md> <same path .html>` (`<PLUGIN_ROOT>` = two levels above this skill folder; one self-contained file); for HTML only, delete the `.md` afterwards.
