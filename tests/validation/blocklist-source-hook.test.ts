@@ -192,6 +192,13 @@ describe('blocklist hook — patch mode (source_file)', () => {
     expect(run('UpdateProgram', { program_name: 'YPROBE', source_file: 'src/bad.prog.abap' })).toBe('deny');
     expect(run('UpdateProgram', { program_name: 'YPROBE', source_file: join(dir, 'missing.abap') })).toBe('deny');
   });
+
+  it('denies source_file next to source_code whatever the values (an empty source_code must not skip the file scan)', () => {
+    const bad = file('bad2.prog.abap', probe(`SELECT SINGLE persnumber FROM usr21 WHERE bname = 'X' INTO @DATA(lv).`));
+    const good = file('good2.prog.abap', probe(`SELECT SINGLE bukrs FROM t001 INTO @DATA(lv).`));
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_file: bad, source_code: '' })).toBe('deny');
+    expect(run('UpdateProgram', { program_name: 'YPROBE', source_file: good, source_code: 'REPORT yprobe.' })).toBe('deny');
+  });
 });
 
 describe('blocklist hook — server-side patch (source_patches)', () => {

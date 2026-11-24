@@ -464,9 +464,15 @@ async function main() {
     }
     process.exit(0);
   }
+  // source_file next to source_code is refused whatever the values: the server uploads the file when
+  // source_code is "", so scanning source_code alone would let an unscanned file through.
+  const hasKey = (k) => Object.prototype.hasOwnProperty.call(toolInput, k);
+  if (isSourceUpload && hasKey('source_file') && hasKey('source_code')) {
+    deny('sc4sap blocklist: source_file together with source_code — send one of them, not both.');
+  }
   // Patch mode: scan the file the server will upload. A source_file the hook cannot read is refused —
   // otherwise a test class reading a blocked table would pass unscanned.
-  if (isSourceUpload && toolInput.source_file !== undefined && typeof toolInput.source_code !== 'string') {
+  if (isSourceUpload && toolInput.source_file !== undefined) {
     const src = sourceTextOf(toolInput);
     if (src.text === null) {
       console.log(JSON.stringify({

@@ -3,7 +3,7 @@
 // evidence ledger) must read the same file, or they would see no source at all.
 //
 // sourceTextOf(input) → { text, file } :
-//   - `source_code` string                 → { text: source_code, file: null }
+//   - `source_code` non-empty string       → { text: source_code, file: null }   ("" counts as absent)
 //   - `source_file` absolute, readable     → { text: file content (BOM dropped), file }
 //   - `source_file` relative / unreadable  → { text: null, file, error }   (callers fail closed)
 //   - neither                              → { text: null, file: null }
@@ -58,7 +58,8 @@ export function sourcePatchesOf(input) {
 }
 
 export function sourceTextOf(input) {
-  if (typeof input?.source_code === 'string') return { text: input.source_code, file: null };
+  // An empty source_code counts as absent: the MCP server then uploads source_file, so the hooks must read it too.
+  if (typeof input?.source_code === 'string' && input.source_code.length > 0) return { text: input.source_code, file: null };
   const file = input?.source_file;
   if (typeof file !== 'string' || !file.trim()) return { text: null, file: null };
   if (!isAbsolute(file)) return { text: null, file, error: 'source_file must be an absolute path' };

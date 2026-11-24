@@ -197,6 +197,20 @@ describe('evidence ledger — patch mode and unit test summaries', () => {
     expect(viaFile.source_file).toBe(p);
   });
 
+  it('hashes the source_file when source_code is an empty string (the server uploads the file then)', async () => {
+    const { mkdtempSync, writeFileSync } = await import('fs');
+    const { join } = await import('path');
+    const { tmpdir } = await import('os');
+    // @ts-expect-error — plain .mjs module without type declarations
+    const { srcSha } = await import('../../scripts/evidence/lib.mjs');
+    const p = join(mkdtempSync(join(tmpdir(), 'ev-')), 'z2.prog.abap');
+    writeFileSync(p, 'REPORT z2.\nWRITE 2.\n');
+    const e = entry('UpdateProgram', { program_name: 'Z2', source_file: p, source_code: '' });
+    expect(e.source_sha256).toBe(srcSha('REPORT z2.\nWRITE 2.'));
+    expect(e.source_sha256).not.toBe(srcSha(''));
+    expect(e.source_file).toBe(p);
+  });
+
   it('records source_patches as count + hash of the canonical patch JSON, plus the server upload hash', async () => {
     const { createHash } = await import('crypto');
     const patches = [{ new_string: 'WRITE 2.', old_string: 'WRITE 1.' }, { old_string: 'a', new_string: 'b', replace_all: true }];
