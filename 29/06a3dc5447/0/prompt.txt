@@ -1,0 +1,1 @@
+sc4sap 에 https://github.com/Egonex-AI/Understand-Anything 를 적용해볼 수 있니? 지식 그래프라는데
