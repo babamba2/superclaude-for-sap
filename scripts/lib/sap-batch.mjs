@@ -60,7 +60,8 @@ function pickValue(obj, spec) {
   };
   const v = walk(obj, p.split('.'));
   if (v === undefined) return undefined;
-  if (asDir && typeof v === 'string') return path.dirname(v);
+  // MCP paths are Windows paths on Windows; posix dirname does not split "\".
+  if (asDir && typeof v === 'string') return v.includes('\\') ? path.win32.dirname(v) : path.dirname(v);
   return typeof v === 'string' ? v : JSON.stringify(v);
 }
 
