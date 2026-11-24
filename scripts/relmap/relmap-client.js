@@ -644,7 +644,7 @@
     if (!b) return;
     const can = Boolean(st && st.d > 0);
     b.disabled = !can;
-    b.title = can ? T.navBackTo.replace('{v}', st.back || '') : T.navBackNone;
+    b.title = can ? T.navBackTo.replace('{v}', () => st.back || '') : T.navBackNone;
     b.querySelector('span').textContent = can && st.back ? st.back : '';
   }
   function restore(st) {
@@ -1044,7 +1044,8 @@
         ctx.globalAlpha = b.a; ctx.strokeStyle = col.ink; ctx.lineWidth = 2; ctx.setLineDash([4, 3]);
         ctx.beginPath(); ctx.arc(p.x, p.y, rr + 7, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
       }
-      if (lead && !main && hv < 0) {
+      // ring the current tour step only: a drawn task lights every drawn object, so a ring would mark them all
+      if (lead && !main && hv < 0 && S.mode === 'tour') {
         ctx.globalAlpha = b.a; ctx.strokeStyle = colour; ctx.lineWidth = 2;
         ctx.beginPath(); ctx.arc(p.x, p.y, rr + 5, 0, Math.PI * 2); ctx.stroke();
       }
