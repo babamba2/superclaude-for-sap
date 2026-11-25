@@ -32,9 +32,10 @@ const LAUNCHER = resolve(VENDOR_DIR, 'dist', 'server', 'launcher.js');
 // checks out exactly this SHA so a compromised upstream main cannot push code
 // into user machines. Bump this on a vetted vendor upgrade, cut a new sc4sap
 // release, document the old → new SHA in release notes.
-// 4.15.0 + 63f15b8 (screen transport for the LIMU DYNP dispatcher, OData $batch
-// for long calls, CreateProgram error text), on origin main.
-const DEFAULT_PINNED_SHA = '63f15b825dc7555dd5dd3336b6fe8c99026855a5';
+// 4.16.0 (GetObjectVersions / GetObjectVersionSource; screen transport for the
+// LIMU DYNP dispatcher, OData $batch for long calls, CreateProgram error text),
+// on origin main.
+const DEFAULT_PINNED_SHA = 'd45cce204d8987384be1e8fe6f64467b0fcf103a';
 // Env override for maintainers / CI testing an unreleased vendor commit. Must
 // be a 40-hex SHA; anything else is rejected so the override cannot be an
 // accidental branch name like "main".

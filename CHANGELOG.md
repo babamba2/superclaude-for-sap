@@ -5,6 +5,19 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); version
 
 ## [Unreleased]
 
+## [1.1.1] — 2026-11-25
+
+Object version history through MCP. Needs MCP **4.16.0** (pin below).
+
+### Added
+- **`GetObjectVersions` / `GetObjectVersionSource`** in the read tool catalog (`data/sc4sap-mcp-tools-read.md`): the versions of a program, include, class part, interface or function module (number, date, author, transport request) and the source of one version, to see what a transport changed. Read-only, auto-approved like the other `Get*` tools.
+
+### Fixed
+- **Dispatcher screen writes** (`abap/` ZMCP_ADT_DISPATCH, S/4 and ECC copies): screen create / update / delete record the screen (LIMU DYNP) in the given transport request first, so the insert no longer stops on the transport popup in background RFC (customer programs only; `$` packages skip it); delete uses `RS_SCRP_DELETE` (`RPY_DYNPRO_DELETE` does not exist on ECC 7.40 or S/4HANA).
+
+### Changed
+- **MCP pin** `abap-mcp-adt-powerup` 69d2d67 (4.15.0) → d45cce2 (4.16.0: the two version tools; screen transport for the dispatcher, OData `$batch` for long calls, `CreateProgram` error text).
+
 ## [1.1.0] — 2026-11-25
 
 Relation map tours and process areas, patch mode for source changes, S/4HANA usage reads, evidence-guard hardening. Needs MCP **4.15.0** (pin below).
