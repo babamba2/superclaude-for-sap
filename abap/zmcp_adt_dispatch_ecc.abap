@@ -27,7 +27,9 @@ FUNCTION zmcp_adt_dispatch
 * Supported actions:
 *   DYNPRO_INSERT  — create screen   (RPY_DYNPRO_INSERT)
 *   DYNPRO_READ    — read screen     (RPY_DYNPRO_READ)
-*   DYNPRO_DELETE  — delete screen   (RPY_DYNPRO_DELETE)
+*   DYNPRO_DELETE  — delete screen   (RS_SCRP_DELETE; ECC has no RPY_DYNPRO_DELETE)
+*   Both screen writes take `transport` and record LIMU DYNP on it first
+*   (FORM dynpro_corr), so no transport dialog opens in the RFC session.
 *   CUA_FETCH      — read GUI status (RS_CUA_INTERNAL_FETCH)
 *   CUA_WRITE      — write GUI status (RS_CUA_INTERNAL_WRITE)
 *   CUA_DELETE     — delete GUI status (RS_CUA_DELETE)
@@ -106,8 +108,9 @@ ENDFUNCTION.
 *   FIELDS_TO_CONTAINERS TYPE DYFATC_TAB, FLOW_LOGIC LIKE RPY_DYFLOW
 *   (one component LINE CHAR 72) - all mandatory; PARAMS optional.
 * Same semantics as S/4: SUPPRESS_EXIST_CHECKS = 'X', so an existing
-* screen is overwritten (UpdateScreen deletes it first anyway). Because
-* that flag also skips the TRDIR check, the program is checked here.
+* screen is overwritten in place (UpdateScreen no longer deletes first).
+* Because that flag also skips the TRDIR check, the program is checked here.
+* params: transport — request for LIMU DYNP; required outside $ packages.
 FORM dynpro_insert USING iv_params TYPE string
                    CHANGING ev_subrc   TYPE i
                             ev_message TYPE string
@@ -122,7 +125,13 @@ FORM dynpro_insert USING iv_params TYPE string
           program     TYPE string,
           dynpro      TYPE string,
           dynpro_data TYPE string,
+          transport   TYPE string,
         END OF ls_input.
+
+  DATA: lv_prog     TYPE syrepid,
+        lv_dynnr    TYPE sydynnr,
+        lv_korrnum  TYPE trkorr,
+        lv_use_korr TYPE c LENGTH 1.
 
   DATA: BEGIN OF ls_dynpro,
           header               TYPE rpy_dyhead,
@@ -153,6 +162,7 @@ FORM dynpro_insert USING iv_params TYPE string
   IF ls_dynpro-header-screen IS INITIAL.
     ls_dynpro-header-screen = ls_input-dynpro.
   ENDIF.
+  ls_dynpro-header-screen = |{ ls_dynpro-header-screen ALPHA = IN WIDTH = 4 }|.
   TRANSLATE ls_dynpro-header-program TO UPPER CASE.
 
   SELECT SINGLE name FROM trdir INTO lv_name
@@ -177,10 +187,24 @@ FORM dynpro_insert USING iv_params TYPE string
     APPEND ls_flow TO lt_flow.
   ENDLOOP.
 
+  lv_prog  = ls_dynpro-header-program.
+  lv_dynnr = ls_dynpro-header-screen.
+  PERFORM dynpro_corr USING lv_prog lv_dynnr ls_input-transport
+                      CHANGING ev_subrc ev_message lv_korrnum.
+  IF ev_subrc <> 0.
+    RETURN.
+  ENDIF.
+  IF lv_korrnum IS NOT INITIAL.
+    lv_use_korr = abap_true.
+  ENDIF.
+
+  CLEAR sy-msgid.
   CALL FUNCTION 'RPY_DYNPRO_INSERT'
     EXPORTING
-      header                 = ls_dynpro-header
-      suppress_exist_checks  = abap_true
+      header                   = ls_dynpro-header
+      suppress_exist_checks    = abap_true
+      corrnum                  = lv_korrnum
+      use_corrnum_immediatedly = lv_use_korr
     TABLES
       containers             = ls_dynpro-containers
       fields_to_containers   = ls_dynpro-fields_to_containers
@@ -288,30 +312,176 @@ FORM dynpro_delete USING iv_params TYPE string
                             ev_result  TYPE string.
 
   DATA: BEGIN OF ls_input,
-          program TYPE string,
-          dynpro  TYPE string,
+          program   TYPE string,
+          dynpro    TYPE string,
+          transport TYPE string,
         END OF ls_input.
+
+  DATA: lv_prog    TYPE syrepid,
+        lv_dynnr   TYPE sydynnr,
+        lv_korrnum TYPE trkorr,
+        lv_sap_msg TYPE string.
 
   /ui2/cl_json=>deserialize(
     EXPORTING json = iv_params
     CHANGING  data = ls_input ).
 
-  CALL FUNCTION 'RPY_DYNPRO_DELETE'
+  lv_prog  = to_upper( ls_input-program ).
+  lv_dynnr = |{ ls_input-dynpro ALPHA = IN WIDTH = 4 }|.
+
+  " RS_SCRP_DELETE runs with SUPPRESS_CHECKS = 'X': its own checks open a
+  " confirmation popup and re-lock the program that the MCP caller already
+  " holds. Existence is checked here instead.
+  SELECT SINGLE prog FROM d020s INTO lv_prog
+    WHERE prog = lv_prog AND dnum = lv_dynnr.
+  IF sy-subrc <> 0.
+    ev_subrc   = 4.
+    ev_message = |Screen { lv_prog }/{ lv_dynnr } does not exist|.
+    RETURN.
+  ENDIF.
+
+  PERFORM dynpro_corr USING lv_prog lv_dynnr ls_input-transport
+                      CHANGING ev_subrc ev_message lv_korrnum.
+  IF ev_subrc <> 0.
+    RETURN.
+  ENDIF.
+
+  CLEAR sy-msgid.
+  CALL FUNCTION 'RS_SCRP_DELETE'
     EXPORTING
-      progname         = CONV syrepid( to_upper( ls_input-program ) )
-      dynnr            = CONV sydynnr( ls_input-dynpro )
+      dynnr                  = lv_dynnr
+      progname               = lv_prog
+      suppress_checks        = abap_true
+      with_popup             = space
+    CHANGING
+      corrnum                = lv_korrnum
     EXCEPTIONS
-      cancelled        = 1
-      not_found        = 2
-      permission_error = 3
-      OTHERS           = 4.
+      enqueued_by_user       = 1
+      enqueue_system_failure = 2
+      not_executed           = 3
+      not_exists             = 4
+      no_modify_permission   = 5
+      popup_canceled         = 6
+      OTHERS                 = 7.
 
   ev_subrc = sy-subrc.
-  IF sy-subrc <> 0.
-    ev_message = |RPY_DYNPRO_DELETE failed (sy-subrc={ sy-subrc })|.
+  IF ev_subrc <> 0.
+    IF sy-msgid IS NOT INITIAL.
+      MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_sap_msg.
+    ENDIF.
+    ev_message = |RS_SCRP_DELETE failed (sy-subrc={ ev_subrc }): { lv_sap_msg }|.
   ELSE.
-    ev_message = |Screen { ls_input-program }/{ ls_input-dynpro } deleted|.
+    ev_message = |Screen { lv_prog }/{ lv_dynnr } deleted|.
     ev_result  = '{}'.
+  ENDIF.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form DYNPRO_CORR
+*&---------------------------------------------------------------------*
+* Records LIMU DYNP <program><screen> on the caller's request before a
+* screen is written or deleted, without any dialog. RPY_DYNPRO_INSERT and
+* RS_SCRP_DELETE call RS_CORR_INSERT themselves with dialog; in an RFC
+* session that fails with "Sending of dynpro SAPLSTRD ... not possible".
+* Once the entry sits in a task of the caller they find it and ask nothing.
+* Local package ($...): nothing to record. Otherwise a request is required.
+* ev_korrnum: the request or task RS_CORR_INSERT used ('' when local).
+FORM dynpro_corr USING iv_program   TYPE syrepid
+                       iv_dynpro    TYPE sydynnr
+                       iv_transport TYPE string
+                 CHANGING ev_subrc   TYPE i
+                          ev_message TYPE string
+                          ev_korrnum TYPE trkorr.
+
+  DATA: lv_devclass TYPE tadir-devclass,
+        lv_masterl  TYPE tadir-masterlang,
+        lv_fugr     TYPE tadir-obj_name,
+        lv_object   TYPE e071-obj_name,
+        lv_korrnum  TYPE trkorr,
+        lv_sap_msg  TYPE string.
+
+  CLEAR: ev_subrc, ev_message, ev_korrnum.
+
+  " Customer screens only: the standard FMs' own authority, lock and
+  " modification checks are bypassed on the delete path.
+  IF NOT ( iv_program CP 'Z*' OR iv_program CP 'Y*'
+        OR iv_program CP 'SAPMZ*' OR iv_program CP 'SAPMY*'
+        OR iv_program CP 'SAPLZ*' OR iv_program CP 'SAPLY*' ).
+    ev_subrc   = 4.
+    ev_message = |Program { iv_program } is not a customer (Z/Y) program; its screens are not changed|.
+    RETURN.
+  ENDIF.
+
+  SELECT SINGLE devclass masterlang FROM tadir
+    INTO (lv_devclass, lv_masterl)
+    WHERE pgmid = 'R3TR' AND object = 'PROG' AND obj_name = iv_program.
+  IF sy-subrc <> 0 AND iv_program CP 'SAPL*'.
+    " Function group main program SAPL<group>.
+    lv_fugr = iv_program+4.
+    SELECT SINGLE devclass masterlang FROM tadir
+      INTO (lv_devclass, lv_masterl)
+      WHERE pgmid = 'R3TR' AND object = 'FUGR' AND obj_name = lv_fugr.
+  ENDIF.
+  IF sy-subrc <> 0.
+    ev_subrc   = 4.
+    ev_message = |No TADIR entry for program { iv_program }|.
+    RETURN.
+  ENDIF.
+  IF lv_devclass IS INITIAL.
+    ev_subrc   = 4.
+    ev_message = |Program { iv_program } has no package in TADIR|.
+    RETURN.
+  ENDIF.
+  IF lv_devclass(1) = '$'.
+    RETURN.
+  ENDIF.
+  IF iv_transport IS INITIAL.
+    ev_subrc   = 4.
+    ev_message = |Transport request required: program { iv_program } is in package { lv_devclass }|.
+    RETURN.
+  ENDIF.
+
+  lv_korrnum = to_upper( iv_transport ).
+  " Object key as the Screen Painter builds it: program (40) + screen (4).
+  lv_object       = iv_program.
+  lv_object+40(4) = iv_dynpro.
+
+  CLEAR sy-msgid.
+  CALL FUNCTION 'RS_CORR_INSERT'
+    EXPORTING
+      object                   = lv_object
+      object_class             = 'SCRP'
+      global_lock              = space
+      devclass                 = lv_devclass
+      korrnum                  = lv_korrnum
+      use_korrnum_immediatedly = abap_true
+      master_language          = lv_masterl
+      suppress_dialog          = abap_true
+    IMPORTING
+      korrnum                  = ev_korrnum
+    EXCEPTIONS
+      cancelled                = 1
+      permission_failure       = 2
+      unknown_objectclass      = 3
+      OTHERS                   = 4.
+
+  IF sy-subrc <> 0.
+    ev_subrc = sy-subrc.
+    IF sy-msgid IS NOT INITIAL.
+      MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_sap_msg.
+    ENDIF.
+    ev_message = |Screen { iv_program }/{ iv_dynpro } could not be recorded on { lv_korrnum } | &&
+                 |(RS_CORR_INSERT sy-subrc={ ev_subrc }): { lv_sap_msg }. | &&
+                 |The request must be modifiable and hold a task of user { sy-uname }.|.
+    CLEAR ev_korrnum.
+    RETURN.
+  ENDIF.
+  IF ev_korrnum IS INITIAL.
+    ev_korrnum = lv_korrnum.
   ENDIF.
 
 ENDFORM.
