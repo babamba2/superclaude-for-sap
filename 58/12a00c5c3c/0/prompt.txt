@@ -1,0 +1,32 @@
+<pasted_content id="a7d1">
+만든 것 (MCP abap-mcp-adt-powerup, 커밋 전)
+
+- GetObjectVersions: 버전 목록이에요. 번호, 일시, 작성자, TR, 소스 링크(content_uri)를 줘요.
+  - 대상은 PROG, 인클루드, 클래스(파트별), INTF, FM이에요.
+  - ADT 버전 feed를 먼저 쓰고, feed가 없는 시스템이면 VRSD로 목록만 줘요. 404 같은 오류일 때만 전환하고, 401 같은 진짜 오류는 그대로 보고해요.
+- GetObjectVersionSource: 한 버전의 소스예요. content_uri나 객체와 버전 번호로 불러요.
+  - 버전 소스 URL이 아니면 거부해요.
+- 공용 로직은 src/lib/objectVersions.ts에 있어요. 두 도구 모두 읽기 전용 그룹에 등록했어요.
+
+확인
+
+- 새 단위 테스트 12개가 통과했어요. feed 해석, 타입별 URL, VRSD 대체, 401 처리, 버전 번호로 소스 읽기를 봐요.
+- MCP 게이트도 통과했어요: tsc OK, jest 65개 suite에서 772개 통과.
+- 빌드한 dist/를 실행 캐시(cache/sc4sap/sc4sap/1.1.0/vendor)에 복사했어요. 원본과 차이 0을 확인했어요.
+- 복사 전 캐시 백업:
+  C:\Users\pssps\AppData\Local\Temp\claude\37d31161a47d1abd\e9353116-7112-46f4-84f1-26f08b366343\scratchpad\vendor-dist-backup-4.15.0
+
+주의할 점
+
+- feed XML 형식은 Eclipse ADT와 공개된 ADT 클라이언트의 형식을 기준으로 만들었어요. 실제 시스템 응답과 다를 수 있어요.
+- 7.40에서 이 API가 열려 있는지도 아직 몰라요. 그래서 실제 응답을 보고 해석 코드를 맞춰야 할 수 있어요.
+
+재시작 후 순서
+
+1. HKT-DEV(ECC 7.40): ZSDM21330의 버전 목록을 읽어요. feed인지 VRSD인지도 확인해요. 그다음 버전 하나의 소스를 읽어요.
+2. S4-DEV: 같은 시험을 해요.
+3. 7.40에서 feed가 없으면 디스패처 대체 경로(B)를 설계해요. 그 경로는 설치 전에 검증부터 받아요.
+4. 그다음 sc4sap 도구 목록과 읽기 전용 분류 등록, sc4sap_app 변경 탭 연동으로 넘어가요.
+
+재시작하신 뒤 "계속"이라고 말씀해 주세요.
+</pasted_content id="a7d1">
