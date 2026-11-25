@@ -39,6 +39,8 @@ Get / Read / List / Search handlers — schema, metadata, object introspection, 
 - mcp__plugin_sc4sap_sap__GetObjectNodeFromCache
 - mcp__plugin_sc4sap_sap__GetObjectStructure
 - mcp__plugin_sc4sap_sap__GetObjectStructureLow
+- mcp__plugin_sc4sap_sap__GetObjectVersionSource
+- mcp__plugin_sc4sap_sap__GetObjectVersions
 - mcp__plugin_sc4sap_sap__GetObjectsByType
 - mcp__plugin_sc4sap_sap__GetObjectsList
 - mcp__plugin_sc4sap_sap__GetPackage
