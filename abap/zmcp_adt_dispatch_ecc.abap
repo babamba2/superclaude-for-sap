@@ -30,6 +30,9 @@ FUNCTION zmcp_adt_dispatch
 *   DYNPRO_DELETE  — delete screen   (RS_SCRP_DELETE; ECC has no RPY_DYNPRO_DELETE)
 *   Both screen writes take `transport` and record LIMU DYNP on it first
 *   (FORM dynpro_corr), so no transport dialog opens in the RFC session.
+*   TEXTPOOL_CORR  — record LIMU REPT <program> on `transport` before
+*                    ZMCP_ADT_TEXTPOOL writes the text pool (INSERT TEXTPOOL
+*                    never records anything itself) (FORM textpool_corr)
 *   CUA_FETCH      — read GUI status (RS_CUA_INTERNAL_FETCH)
 *   CUA_WRITE      — write GUI status (RS_CUA_INTERNAL_WRITE)
 *   CUA_DELETE     — delete GUI status (RS_CUA_DELETE)
@@ -60,6 +63,9 @@ FUNCTION zmcp_adt_dispatch
                               CHANGING ev_subrc ev_message ev_result.
         WHEN 'DYNPRO_DELETE'.
           PERFORM dynpro_delete USING iv_params
+                                CHANGING ev_subrc ev_message ev_result.
+        WHEN 'TEXTPOOL_CORR'.
+          PERFORM textpool_corr USING iv_params
                                 CHANGING ev_subrc ev_message ev_result.
         WHEN 'CUA_FETCH'.
           PERFORM cua_fetch USING iv_params
@@ -483,6 +489,128 @@ FORM dynpro_corr USING iv_program   TYPE syrepid
   IF ev_korrnum IS INITIAL.
     ev_korrnum = lv_korrnum.
   ENDIF.
+
+ENDFORM.
+
+
+*&---------------------------------------------------------------------*
+*& Form TEXTPOOL_CORR
+*&---------------------------------------------------------------------*
+* Records LIMU REPT <program> (the text pool) on the caller's request,
+* without any dialog, before ZMCP_ADT_TEXTPOOL writes the pool. INSERT
+* TEXTPOOL never touches the transport system, so without this step the
+* texts change in the system but no request carries them. RS_CORR_INSERT
+* object class 'TEXT' maps to LIMU REPT (SAPLSEUQ determine_lock_key).
+* Same checks as dynpro_corr: Z/Y programs only, local package ($...)
+* records nothing, any other package needs a request.
+* params: program, transport.
+* ev_result: {"korrnum":"<request or task used>","local":true|false}.
+FORM textpool_corr USING iv_params TYPE string
+                   CHANGING ev_subrc   TYPE i
+                            ev_message TYPE string
+                            ev_result  TYPE string.
+
+  DATA: BEGIN OF ls_input,
+          program   TYPE string,
+          transport TYPE string,
+        END OF ls_input.
+
+  DATA: lv_program  TYPE syrepid,
+        lv_devclass TYPE tadir-devclass,
+        lv_masterl  TYPE tadir-masterlang,
+        lv_fugr     TYPE tadir-obj_name,
+        lv_object   TYPE e071-obj_name,
+        lv_korrnum  TYPE trkorr,
+        lv_used     TYPE trkorr,
+        lv_sap_msg  TYPE string.
+
+  /ui2/cl_json=>deserialize(
+    EXPORTING json = iv_params
+    CHANGING  data = ls_input ).
+
+  lv_program = to_upper( ls_input-program ).
+  IF lv_program IS INITIAL.
+    ev_subrc   = 4.
+    ev_message = 'Parameter program is required'.
+    RETURN.
+  ENDIF.
+
+  IF NOT ( lv_program CP 'Z*' OR lv_program CP 'Y*'
+        OR lv_program CP 'SAPMZ*' OR lv_program CP 'SAPMY*'
+        OR lv_program CP 'SAPLZ*' OR lv_program CP 'SAPLY*' ).
+    ev_subrc   = 4.
+    ev_message = |Program { lv_program } is not a customer (Z/Y) program; its text pool is not recorded|.
+    RETURN.
+  ENDIF.
+
+  SELECT SINGLE devclass masterlang FROM tadir
+    INTO (lv_devclass, lv_masterl)
+    WHERE pgmid = 'R3TR' AND object = 'PROG' AND obj_name = lv_program.
+  IF sy-subrc <> 0 AND lv_program CP 'SAPL*'.
+    " Function group main program SAPL<group>.
+    lv_fugr = lv_program+4.
+    SELECT SINGLE devclass masterlang FROM tadir
+      INTO (lv_devclass, lv_masterl)
+      WHERE pgmid = 'R3TR' AND object = 'FUGR' AND obj_name = lv_fugr.
+  ENDIF.
+  IF sy-subrc <> 0.
+    ev_subrc   = 4.
+    ev_message = |No TADIR entry for program { lv_program }|.
+    RETURN.
+  ENDIF.
+  IF lv_devclass IS INITIAL.
+    ev_subrc   = 4.
+    ev_message = |Program { lv_program } has no package in TADIR|.
+    RETURN.
+  ENDIF.
+  IF lv_devclass(1) = '$'.
+    ev_result = '{"korrnum":"","local":true}'.
+    RETURN.
+  ENDIF.
+  IF ls_input-transport IS INITIAL.
+    ev_subrc   = 4.
+    ev_message = |Transport request required: program { lv_program } is in package { lv_devclass }|.
+    RETURN.
+  ENDIF.
+
+  lv_korrnum = to_upper( ls_input-transport ).
+  lv_object  = lv_program.
+
+  CLEAR sy-msgid.
+  CALL FUNCTION 'RS_CORR_INSERT'
+    EXPORTING
+      object                   = lv_object
+      object_class             = 'TEXT'
+      global_lock              = space
+      devclass                 = lv_devclass
+      korrnum                  = lv_korrnum
+      use_korrnum_immediatedly = abap_true
+      master_language          = lv_masterl
+      suppress_dialog          = abap_true
+    IMPORTING
+      korrnum                  = lv_used
+    EXCEPTIONS
+      cancelled                = 1
+      permission_failure       = 2
+      unknown_objectclass      = 3
+      OTHERS                   = 4.
+
+  IF sy-subrc <> 0.
+    ev_subrc = sy-subrc.
+    IF sy-msgid IS NOT INITIAL.
+      MESSAGE ID sy-msgid TYPE 'S' NUMBER sy-msgno
+        WITH sy-msgv1 sy-msgv2 sy-msgv3 sy-msgv4 INTO lv_sap_msg.
+    ENDIF.
+    ev_message = |Text pool of { lv_program } could not be recorded on { lv_korrnum } | &&
+                 |(RS_CORR_INSERT sy-subrc={ ev_subrc }): { lv_sap_msg }. | &&
+                 |The request must be modifiable and hold a task of user { sy-uname }.|.
+    RETURN.
+  ENDIF.
+  IF lv_used IS INITIAL.
+    lv_used = lv_korrnum.
+  ENDIF.
+
+  ev_result = |\{"korrnum":"{ lv_used }","local":false\}|.
 
 ENDFORM.
 
