@@ -472,6 +472,12 @@ describe('guard and CLI', () => {
       expect(g('Bash', { command: 'cat ~/.sc4sap/profiles/S4-DEV/config.json' })).toBeNull();
       expect(g('Bash', { command: 'rm -rf ~/.sc4sap/profiles/OLD-DEV' })).toBeNull();
       expect(g('Bash', { command: 'mv ~/.sc4sap/profiles/OLD-DEV ~/.sc4sap/profiles/.trash/OLD-DEV-1' })).toBeNull();
+      // the single file the Grep refusal points to (Windows backslashes too)
+      expect(g('Grep', { pattern: 'abapRelease|sapVersion', path: join(home, 'profiles', 'S4-DEV', 'config.json') })).toBeNull();
+      expect(g('Grep', { pattern: 'SAP_URL', path: join(home, 'profiles', 'S4-DEV', 'sap.env').replace(/\//g, '\\') })).toBeNull();
+      // but not another file of the profile, nor a config.json deeper down
+      expect(g('Grep', { pattern: 'x', path: join(home, 'profiles', 'S4-DEV', 'other.json') })).toMatch(/masking key/);
+      expect(g('Grep', { pattern: 'x', path: join(home, 'profiles', 'S4-DEV', 'sub', 'config.json') })).toMatch(/masking key/);
       expect(g('Grep', { pattern: 'mask', path: 'C:/p/src' })).toBeNull();
       expect(g('Grep', { pattern: 'x' }, 'C:/p')).toBeNull();
       expect(g('Bash', { command: 'grep -r foo src' })).toBeNull();
