@@ -133,8 +133,8 @@ describe('role workbench — Excel export', () => {
   it('cover + seven sheets in the page language (ko / ja); a company layout names and orders the sheets', () => {
     const m = modelFromDraft(draft(), { code: 'Z_TEST_RM' }, 'ko');
     const ko = sheetNames(roleXlsx(m));
-    expect(ko).toEqual(['표지', '1.업무역할', '2.기술역할', '3.역할-TCode', '4.사용자-역할', '5.권한객체', '6.SoD점검', '7.변경이력']);
-    expect(sheetNames(roleXlsx({ ...m, lang: 'ja' }))).toEqual(['表紙', '1.業務ロール', '2.技術ロール', '3.ロール×Tコード', '4.ユーザー×ロール', '5.権限オブジェクト', '6.職務分掌', '7.変更履歴']);
+    expect(ko).toEqual(['개요', '업무 역할', 'PFCG 역할', '역할별 T-Code', '사용자 배정', '권한 객체', 'SoD', '이력']);
+    expect(sheetNames(roleXlsx({ ...m, lang: 'ja' }))).toEqual(['概要', '業務ロール', 'PFCG ロール', 'ロール別 Tコード', 'ユーザー割当', '権限オブジェクト', '職務分掌', '履歴']);
     const layout = { name: 'form-a', sheets: [{ key: 'broles', tab: 'Roles', cols: [{ k: 'name', h: 'Role name' }, { k: 'id', h: 'Role code' }] }, { key: 'tcodes', tab: 'Matrix' }] };
     const withLayout = roleXlsx({ ...m, layout });
     const names = sheetNames(withLayout);

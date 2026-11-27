@@ -8,7 +8,7 @@ model: inherit
 
 > **Offline profile** ([`common/offline-mode.md`](../../common/offline-mode.md)): full — new design only (no ST03N narrowing); `sync` and triage are blocked.
 
-One **editable HTML workbook per role design** — the classic SAP role-matrix workbook (seven sheets and a cover) as a page the security owner, module consultants and the business edit together. Built new from a consultant's proposal, or read from the roles that already exist in SAP.
+One **editable HTML workbook per role design** — a role & authorization workbook (seven tabs and an overview) as a page the security owner, module consultants and the business edit together. Built new from a consultant's proposal, or read from the roles that already exist in SAP.
 
 <Purpose>
 Role design is a project deliverable that changes every week: business roles are argued over with the business, T-codes move between roles, users are assigned before go-live, SoD conflicts must be found before an auditor does. Spreadsheets drift from what PFCG really holds. This skill keeps one model, draws the workbook from it, checks it (unmapped roles, T-codes in no role, SoD conflicts per user and inside a role), and can read the real roles from SAP so the document starts from the system — not from memory.
@@ -39,14 +39,14 @@ Settled with the user (2026-10-28) — do not ask again:
 
 | Topic | Decision |
 |---|---|
-| Layout | The classic workbook: cover (document info, sheet guide, legend, computed summary, checks), 1 business roles, 2 technical roles, 3 business role × T-code (F/C/D), 4 user × business role (X), 5 authorization objects, 6 SoD, 7 change history |
+| Layout | The default workbook: overview (figures, document info, checks, tab cards, symbols), business roles, PFCG roles, T-codes by role (F/C/D), user assignment (X), authorization objects, SoD, history |
 | Company form | Forms differ by company. The workbook above is the default; on request a **company layout** ([`layout.md`](layout.md)) read from the company's own form (.html / .docx) sets sheet titles and order, columns and headers, own columns, level codes, cover fields, colours, font and logo — editing, CSV, checks and SoD stay the same |
 | Output | ONE self-contained HTML page per document with spreadsheet-style editing (range select, F/C/D/X typed over a range, Excel copy / paste, fill down, undo, rename an ID everywhere) and CSV per sheet. No xlsx |
 | Mode | Always ask: **new design** or **read from SAP**; a third mode **triage** (one user + one T-code authorization error) runs [`triage.md`](triage.md) — no workbook is built |
 | SAP reads | Role design tables (AGR_DEFINE, AGR_TEXTS, AGR_FLAGS, AGR_AGRS, AGR_TCODES, AGR_1251, AGR_1252) and the assignment table AGR_USERS (**user ID and validity only**). Names, departments and positions of users are typed in the page. USR* tables are never read |
 | New design | The module consultant proposes business roles, T-codes with levels, technical roles (master + derived per org value), authorization objects (SU24 view) and SoD rules; narrowed to the T-codes users run when ST03N usage is available |
 | SoD | Rules by business-role pair or by T-code sets (library `scripts/role/sod-library.json`); conflicts are computed per user and inside a single role |
-| Versions | 0.1 steps in sheet 7; each Save in the page adds a row; `--major` for 1.0 |
+| Versions | 0.1 steps in the history tab; each Save in the page adds a row; `--major` for 1.0 |
 </Decisions_Fixed>
 
 <Paths>
