@@ -10,7 +10,7 @@ Companion file split from [`phase4-parallel.md`](./phase4-parallel.md) (200-line
 4. Any `result=FAIL` or `status=BLOCKED` → main re-dispatches the **writer** (`sap-executor`, same model as the writing step) for that object only, with the failing `ASSERT` lines as context; then verify again. Max 2 rewrite attempts per object, then escalate to Phase 7 with the evidence.
 5. Banner: one line per fan-out — `▶ phase=4.W4.verify · agent=sap-checker×N · model=Haiku`.
 
-Text Elements (G4-prep) use the same protocol with the assertions in `phase4-parallel.md` § Wave 2 (`counts.R ≥ 1`, `counts.I == emitted_I`, `counts.S == declared selection fields`) — one checker per language pass. The pool is written after the main program exists, with `WriteTextElementsBulk` **`activate: true`** (the default; the answer shows `rfc_action: WRITE`). `activate: false` stages an inactive pool that program activation does not promote — never use it here; a rewrite after a FAIL uses `activate: true` too.
+Text Elements (G4-prep) use the same protocol with the assertions in `phase4-parallel.md` § Wave 2 (`counts.R ≥ 1`, `counts.I == emitted_I`, `counts.S == declared selection fields`) — one checker per language pass. The pool is written after the main program exists, with `WriteTextElementsBulk` **`activate: true`** (the default; the answer shows `rfc_action: WRITE`). `activate: false` stages an inactive pool that program activation does not promote — never use it here; a rewrite after a FAIL uses `activate: true` too. Every write (first and rewrite) passes the program's `transport_request`; the checker also asserts `transport.recorded` (or `transport.local` for a `$` package) — a `transport.warning` is a FAIL (pool on no request).
 
 ## Wave 4 — G4-late (Screens + GUI Status)
 

@@ -29,6 +29,19 @@ Steps:
 Reuse gating rule (applied by `sap-planner` and `sap-writer`):
 - If an inventory entry matches the spec's semantic need (same role + matching FK pattern + purpose overlap), **default to reuse**. Only propose a new Z-object when the consultant or user explicitly rejects the candidate, with the rejection reason logged in `plan.md`.
 
+## CBO Graph Lookup (tables the program changes or reads)
+
+**Runs right after the CBO Inventory Lookup**, once the interview names the tables the program changes or reads (customer tables, and standard tables it would update). Local, no SAP call — rules in [`../../common/cbo-graph-lookup.md`](../../common/cbo-graph-lookup.md).
+
+1. `<CBO_BASE>` per that file (missing → record `cbo_graph: "not collected"` in `platform.md` and skip; never collect unasked — the stock offer above covers it).
+2. One Bash call for all those tables: `node "<PLUGIN_ROOT>/scripts/graph/cbo-lookup.mjs" --base "<CBO_BASE>" --system "<alias>,<SID>" table <T1> <T2> … --md`. A field the spec changes on a shared table → also `table <T>-<FIELD>`.
+3. Append to `cbo-context.md` a `## Existing writers and readers` section: per table, the objects that already change it (with ops and the TCodes reaching them) and the readers, plus the lookup's notes (stale, not collected) verbatim.
+
+Gating (applied by `sap-planner` and `sap-writer`):
+- A customer FM / method that already changes the table (e.g. an `*_UPD` / `*_SAVE` FM) is the **default write path** — call it instead of a new direct `INSERT` / `UPDATE` / `MODIFY`, unless `plan.md` records why not.
+- A new direct write to a table other programs also change → `plan.md` names those programs and states how the new program stays consistent with them (lock object, same key logic, same status field values).
+- A direct write to a standard table is already a finding in Phase 6; the lookup shows the precedent programs — a precedent is never a justification by itself.
+
 ## Customization Inventory Lookup
 
 **Runs immediately after the CBO Inventory Lookup and uses the same resolved `<MODULE>`.** Loads the per-module enhancement + extension cache so the planner/writer prefer extending existing customer assets over creating new ones — critical for BAPI extension / BAdI impl / append-structure scenarios.

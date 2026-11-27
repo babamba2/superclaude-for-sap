@@ -9,13 +9,13 @@ One `AskUserQuestion` with two questions, then one free-text ask:
 1. **IF ID numbering** — options: `{module}{seq:5}` (e.g. SD00001) · `IF-{seq:4}` (e.g. IF-0001) · "No numbering, I give the ID each time". The user may type another pattern via Other (`{module}`, `{seq:N}`, fixed text).
 2. **Region list** — options: "Default list (Korea, China, Asia-Pacific, Europe, Americas, Global)" (Recommended) · "Our own list" (ask for it in the free-text step).
 
-Free text, one message: project name, document title (default: the template title in the page language), document-number pattern (default `IF-MAP-{ifId}`), copyright / confidentiality lines, own region list if chosen.
+Free text, one message: project name, document title (default: the template title in the page language), document-number pattern (default `IFS-{ifId}`), copyright / confidentiality lines, own region list if chosen.
 
 ```json
 {
   "projectName": { "ko": "…", "en": "…" },
-  "title": { "ko": "인터페이스 매핑 정의서", "en": "Interface Mapping Specification" },
-  "docNo": "IF-MAP-{ifId}",
+  "title": { "ko": "인터페이스 매핑 명세서", "en": "Interface mapping specification" },
+  "docNo": "IFS-{ifId}",
   "copyright": ["…"],
   "idPattern": "{module}{seq:5}",
   "codes": { "region": ["…"] }

@@ -346,8 +346,11 @@ export function maskKeyRefusal(payload) {
     const given = typeof input.path === 'string' && input.path ? expandHome(slash(input.path)) : '.';
     const root = resolve(payload?.cwd || process.cwd(), nativePath(given));
     const profiles = join(sc4sapHome(), 'profiles');
-    // a search root at or above the profile folders, or inside one of them
-    if (within(profiles, root) || within(root, profiles)) return `${reason}; grep a single file such as config.json instead`;
+    // a search root at or above the profile folders, or inside one of them — except the one
+    // file the refusal points to: <profile>/config.json or sap.env, as Read and `cat` allow
+    const rel = normPath(root).slice(normPath(profiles).length);
+    const profileFile = within(root, profiles) && /^\/[\w.-]+\/(?:sap\.env|config\.json)$/.test(rel);
+    if (!profileFile && (within(profiles, root) || within(root, profiles))) return `${reason}; grep a single file such as config.json instead`;
   }
   if (SHELL_TOOLS.has(tool)) {
     const raw = String(input.command || '');

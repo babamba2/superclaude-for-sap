@@ -1,6 +1,6 @@
 ---
 name: interface-mapping-spec
-description: Write an interface mapping specification as one editable HTML page in the classic template layout — cover, revision history, header, Source → Target field grid with conversion rules and MAPPING, optional synchronous response block, extraction condition, field guide. SAP side read from DDIC (table, structure, view, function module) or, for new interfaces, from a field list or the module consultant's proposal; non-SAP side proposed; in-page checks; versioned; English companion.
+description: Write an interface mapping specification as one editable HTML page in a clean mapping layout — cover, revision history, header, Source → Target field grid with conversion rules and MAPPING, optional synchronous response block, extraction condition, field guide. SAP side read from DDIC (table, structure, view, function module) or, for new interfaces, from a field list or the module consultant's proposal; non-SAP side proposed; in-page checks; versioned; English companion.
 model: inherit
 ---
 
@@ -49,7 +49,7 @@ Settled with the user when the skill was designed — do not ask again:
 | Checks | Empty required (*) items, MAPPING to a missing row, unknown R id, size truncation, type-family mismatch, unmapped target field, key mismatch — all in the page's Checks panel |
 | Versions | v0.1 → +0.1 per saved / imported edit, per refresh with changes; the revision-history table fills itself (author, change, optional approver) |
 | Language | Page language from `.sc4sap/config.json` (`language`, else `ko`); English companion always built unless the user opts out |
-| Settings | `<base>/interfaces/project.json`: cover (project name, title, document-number pattern `IF-MAP-{ifId}`, copyright), `idPattern` for IF ID numbering, code-list overrides (`codes`) |
+| Settings | `<base>/interfaces/project.json`: cover (project name, title, document-number pattern `IFS-{ifId}`, copyright), `idPattern` for IF ID numbering, code-list overrides (`codes`) |
 | File name | Page: `<IF_ID>_<OBJECT>_<interface name>-v<ver>-<lang>.html` (SAP object of the SAP side, else the object typed in the system block; empty parts left out). The model json stays `<IF_ID>-v<ver>-<lang>.json` |
 | Location | `<base>/interfaces/<IF_ID>/` — `<base>` per [`../../common/multi-profile-artifact-resolution.md`](../../common/multi-profile-artifact-resolution.md) (`.sc4sap/work/<alias>/` with an active profile) |
 | Template content | Generic: never put customer, vendor or people names into the skill or into public docs; real names belong only in the user's `project.json` and documents |

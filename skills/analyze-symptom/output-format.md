@@ -90,6 +90,16 @@ In the final round (no open questions), produce a consolidated report with final
 
 Rules for Evidence, Decisions & Assumptions and Still check by hand: [`../../common/verification-evidence.md`](../../common/verification-evidence.md).
 
+## Follow-up Routing (Step 4 — pointers only, this skill never applies a fix)
+
+This skill is analysis-only. When the user asks for the fix, do NOT call any write tool and do NOT dispatch a write-mode agent from here. Point them to where the change belongs, and stop:
+
+- **Custom code fix** → the user applies the "Proposed fix — not applied" block in SE38 / ADT, or asks for the change as a separate request outside this skill
+- **Code quality review** → `/sc4sap:analyze-code`
+- **Module-specific configuration / business-process question** → `/sc4sap:ask-consultant` with the target module
+- **Dump reproduction** → the user re-runs the transaction in SAP GUI; profiling runs are not started from this skill
+- **Cross-user authorization check** → user runs SU53 externally
+
 ## Round Counter
 
 Track round number in memory across the conversation. Do not persist to file — each `/sc4sap:analyze-symptom` invocation starts at Round 1.

@@ -8,7 +8,7 @@
 // Without a process model the Louvain groups stand in as domains (no flows).
 //
 // Output: { kind: 'process' | 'groups', src, doms: [{ c, l, l1, f: [{ c, l, s: [step] }], g?, n: [steps, objs, w, r] }],
-//           hand: [[fromDom, toDom, tables[], count]], stats }
+//           hand: [[fromDom, toDom, tables[], count]], graph: areaLayout(), stats }
 // step = { c, l, k: kind, u: usage, t: [TRAN nodes], o: [other nodes], w: [[table, 'CUD']], r: [tables] (each list up to
 //          CAP), nn: [t, o, w, r totals], m: unmatched names count, std: [first standard TCodes], ln: [[code, note]] }
 
@@ -72,8 +72,39 @@ function handOffs(doms, wOf, rOf) {
 
 export function buildDomains(model, pm, { file = '' } = {}) {
   const gx = graphIndex(model);
-  if (pm && arr(pm.rows).length) return fromProcess(model, gx, pm, file);
-  return fromGroups(model, gx);
+  const D = pm && arr(pm.rows).length ? fromProcess(model, gx, pm, file) : fromGroups(model, gx);
+  D.graph = areaLayout(D.doms, D.hand);
+  return D;
+}
+
+const GRAPH_NODES = 24;
+const GRAPH_EDGES = 60;
+export const AREA_VIEW = { w: 1000, h: 640 };
+
+/**
+ * The area graph: one circle per area, one arrow per hand-off (A changes a table B reads), on a circle so every
+ * arrow stays readable. Areas with a hand-off first, then by objects; up to GRAPH_NODES areas, GRAPH_EDGES arrows
+ * among them. Process areas stay in model order (L1 together); groups go by size.
+ * Output: { n: [[dom, x, y, r]], e: [[fromDom, toDom, count]], cut: [areasLeft, arrowsLeft] }
+ */
+export function areaLayout(doms, hand) {
+  const inHand = new Set(hand.flatMap((h) => [h[0], h[1]]));
+  const cand = doms.map((d, i) => i).filter((i) => doms[i].n[1] > 0 || inHand.has(i));
+  const keep = new Set(cand.slice().sort((a, b) => Number(inHand.has(b)) - Number(inHand.has(a)) || doms[b].n[1] - doms[a].n[1] || a - b).slice(0, GRAPH_NODES));
+  const order = cand.filter((i) => keep.has(i));
+  if (!order.length) return { n: [], e: [], cut: [doms.length, 0] };
+  const { w, h } = AREA_VIEW, cx = w / 2, cy = h / 2;
+  const R = order.length === 1 ? 0 : Math.min(cx, cy) - 90;
+  const max = Math.max(1, ...order.map((i) => doms[i].n[1]));
+  // neighbours on the ring never overlap: the biggest circle takes at most 45 % of the gap between centres
+  const rMax = order.length < 3 ? 40 : Math.max(10, Math.min(40, (0.9 * Math.PI * R) / order.length));
+  const rMin = Math.min(14, rMax / 2);
+  const n = order.map((d, k) => {
+    const a = -Math.PI / 2 + (2 * Math.PI * k) / order.length;
+    return [d, Math.round(cx + R * Math.cos(a)), Math.round(cy + R * Math.sin(a)), Math.round(rMin + (rMax - rMin) * Math.sqrt(doms[d].n[1] / max))];
+  });
+  const edges = hand.filter((x) => keep.has(x[0]) && keep.has(x[1]));
+  return { n, e: edges.slice(0, GRAPH_EDGES).map((x) => [x[0], x[1], x[3]]), cut: [doms.length - order.length, hand.length - Math.min(edges.length, GRAPH_EDGES)] };
 }
 
 function fromProcess(model, gx, pm, file) {

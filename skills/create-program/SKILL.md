@@ -88,7 +88,7 @@ Outputs:
 </Preflight_SAP_Version_Check>
 
 <Inventory_Lookups>
-**Runs immediately after package + module are resolved during the interview** (Phase 1 dimension #6) and feeds every downstream phase. Two sequential inventory passes: **CBO Inventory** (reusable Z*/Y* objects in the target package — delegated to `sap-stocker` on cache miss) then **Customization Inventory** (existing BAdI impls / CMOD projects / form-based exits / appends per module).
+**Runs immediately after package + module are resolved during the interview** (Phase 1 dimension #6) and feeds every downstream phase. Three sequential passes: **CBO Inventory** (reusable Z*/Y* objects in the target package — delegated to `sap-stocker` on cache miss), **CBO Graph Lookup** (the existing writers and readers of the tables the program will change or read — local graph, [`common/cbo-graph-lookup.md`](../../common/cbo-graph-lookup.md)), then **Customization Inventory** (existing BAdI impls / CMOD projects / form-based exits / appends per module).
 
 Full procedure (when-to-stock, three-option prompt, dispatch template, persistence paths, reuse-gating rules) lives in **[`inventory-lookups.md`](inventory-lookups.md)**. Read and follow literally. Output files consumed by planner / writer / executor:
 - `.sc4sap/program/{PROG}/cbo-context.md`

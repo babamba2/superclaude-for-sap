@@ -47,6 +47,7 @@ For the `create-program` skill, the planner's text-element table in `plan.md` mu
 
 - `CreateTextElement` MCP registers each text id per program/screen — caller MUST pass `text_type` explicitly (`I` / `S` / `R` / `H`); no default.
 - `WriteTextElementsBulk` (one call per language, all types) is written after the program exists, with `activate: true` (the default — the pool is active at once). Never `activate: false`: that pool stays inactive, is not on the inactive worklist, and program activation does not promote it.
+- Every text-pool write (`WriteTextElementsBulk`, `CreateTextElement`, `UpdateTextElement`, `DeleteTextElement`) passes `transport_request` — the same request as the program's includes. The tool records `LIMU REPT <program>` on it before writing; without it a transportable program's text pool is refused (only `$` packages need none). Check `transport.recorded` / `transport.korrnum` in the response; a `transport.warning` means the system's ZMCP_ADT_DISPATCH predates `TEXTPOOL_CORR` and the pool is on no request — re-install the dispatcher (setup Step 9a).
 - For every program, the executor emits (per language pass, primary + `'E'`):
   - 1× type `R` (program title)
   - N× type `I` (one per `TEXT-xxx` literal in source)

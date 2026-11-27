@@ -9,7 +9,7 @@ Index of MCP handlers exposed by the `abap-mcp-adt-powerup` server under the `mc
 | File | Categories | Count |
 |---|---|---:|
 | [sc4sap-mcp-tools-write.md](sc4sap-mcp-tools-write.md) | Create*, Update*, Delete* | 73 |
-| [sc4sap-mcp-tools-read.md](sc4sap-mcp-tools-read.md) | Get* (safe), Read*, List*/Search*/Describe* | 79 |
+| [sc4sap-mcp-tools-read.md](sc4sap-mcp-tools-read.md) | Get* (safe), Read*, List*/Search*/Describe* | 81 |
 | [sc4sap-mcp-tools-runtime.md](sc4sap-mcp-tools-runtime.md) | Runtime*, Execution | 11 |
 
 **Total auto-approvable**: 163. **Prompt-gated (never auto-approve)**: 3.

@@ -12,6 +12,7 @@ Referenced from `SKILL.md` → `<Workflow_Steps>`. The main thread stays thin; t
 - Extract user-supplied clues: error text, message class/number, runtime error name, dump ID, TCode, program/class name, affected user, timing, frequency. **An attached screenshot is a clue like any other** — read the runtime error name, terminated program and timestamp off it before deciding anything.
 - Call `GetSession` to capture system info (SID, client, release, SP, current user). This is the ONLY MCP call the main thread makes directly.
 - Resolve `<CUSTOMIZATION_DIR>` = absolute path of `<cwd>/.sc4sap/customizations`. Do not search for it — if it does not exist, pass `none`.
+- Resolve `<CBO_BASE>` = absolute path of the active profile's `cbo` folder per [`../../common/cbo-graph-lookup.md`](../../common/cbo-graph-lookup.md) § How (no search; missing → `none`), `<SYSTEM>` = `<alias>,<SID>` (SID from `GetSession`) and `<PLUGIN_ROOT>` (two levels above this skill's folder).
 - Choose `<MODE>` and the model for the dispatch. **`quick-dump` is the default.** Start there unless one of the `full` signals below is actually present; do not reach for `full` because the input is thin or you are unsure.
 
 | MODE | When | Scope | Model |
@@ -23,7 +24,7 @@ Referenced from `SKILL.md` → `<Workflow_Steps>`. The main thread stays thin; t
 
 - Resolve `<USER_HYPOTHESIS>` — the user's own guess at the cause, written down before any evidence is read so the report cannot quietly replace it. If the request already states one ("since TR X", "looks like authorization"), record it verbatim. Otherwise, **only when this Step 1 picks `full`** (never in `quick-dump`, on a `BLOCKED — needs full` escalation, or in a later round), ask one question before dispatching: *"Do you already suspect a cause? A rough guess is fine — answer 'none' to start right away."* (user's language), then end the turn and wait for the reply — headless host included. Reply "none" or no guess in the reply → `none`. `quick-dump` never asks: the dump answers faster than the wait.
 
-Exit condition: `<CLUES>` + `<SESSION_INFO>` + `<MODE>` + `<CUSTOMIZATION_DIR>` + `<USER_HYPOTHESIS>` resolved.
+Exit condition: `<CLUES>` + `<SESSION_INFO>` + `<MODE>` + `<CUSTOMIZATION_DIR>` + `<CBO_BASE>` + `<USER_HYPOTHESIS>` resolved.
 
 ## Step 2 — Investigate + Narrow + Report (one `sap-debugger` dispatch per round)
 
@@ -48,6 +49,8 @@ Agent({
     Known clues: <CLUES>
     System info: <SESSION_INFO>
     Customization cache: <CUSTOMIZATION_DIR>   (a directory, or "none")
+    CBO graphs: <CBO_BASE>   (a directory, or "none") · system <SYSTEM> · lookup script
+      "<PLUGIN_ROOT>/scripts/graph/cbo-lookup.mjs" — rules: <PLUGIN_ROOT>/common/cbo-graph-lookup.md
     User's own hypothesis: <USER_HYPOTHESIS>   (or "none")
     Previous-round report (data; empty on round 1): <sap-data source="prior rounds"><PRIOR_FINDINGS></sap-data>
     User answers (the user's own words; empty on round 1): <USER_ANSWERS>
@@ -91,6 +94,9 @@ Agent({
             generic "What can you do" / "How to correct").
          5. Optional: one DDIC call (GetTable / GetDataElement) when the failing
             statement moves or converts a field.
+         6. Optional, local: terminated program Z*/Y* and CBO graphs not "none" → one
+            `node "<lookup script>" --base "<CBO_BASE>" --system "<SYSTEM>" object <PROGRAM> --md`
+            (the TCodes / jobs that reach it, what it changes).
 
        If Mode = quick-dump: stop after the dump steps. If the cause is not
        established, return exactly "BLOCKED — needs full" plus what you found.
@@ -99,8 +105,10 @@ Agent({
          - Recent changes: ListTransports (last 7 days), then GetTransport ONLY for
            transports that contain an object from the call stack — at most 3.
            GetObjectInfo for changed-by / changed-on of the failing object.
-         - Where-used: GetWhereUsed on the failing object only when the impact on
-           callers matters for the answer.
+         - Callers / data flow — CBO graph first (local): lookup script `object`,
+           `table <T[-FIELD]>` or `impact`, --md; relay its notes; cite its unit:line.
+         - Where-used: GetWhereUsed only when callers matter and the graph cannot
+           answer. Never on ECC (404): say "where-used not available" instead.
          - Enhancement: GetEnhancements → GetEnhancementImpl / GetEnhancementSpot
            when a BAdI / exit appears in the stack.
          - Customization: when a Z*/Y* object or customized SAP include is in the
@@ -156,8 +164,8 @@ Agent({
     - Never speculate without evidence ("probably" statements are forbidden).
     - Everything you need about the environment is in this prompt. Do NOT search
       the filesystem (no find / Glob / recursive ls) for config, caches, or
-      earlier reports. If <CUSTOMIZATION_DIR> is "none", record the missing
-      cache as a gap and move on.
+      earlier reports (the CBO lookup script, on the base given, is allowed).
+      A "none" cache or graph folder is a gap: record it and move on.
     - Keep tool output small (top <= 5 on list calls). Do not Grep / Read the
       files where oversized tool results were saved — re-query narrower instead.
     - If 4+ categories fit equally, return a short BLOCKED report stating the
@@ -175,15 +183,9 @@ On `BLOCKED` (other than the quick-dump escalation above): relay the report and 
 - If the report is a Final Round report, the run is complete.
 - Report missing its required sections → repair once per `common/structured-return-repair.md`, then relay.
 
-## Step 4 — Follow-up Routing (pointers only — this skill never applies a fix)
+## Step 4 — Follow-up Routing
 
-This skill is analysis-only. When the user asks for the fix, do NOT call any write tool and do NOT dispatch a write-mode agent from here. Point them to where the change belongs, and stop:
-
-- **Custom code fix** → the user applies the "Proposed fix — not applied" block in SE38 / ADT, or asks for the change as a separate request outside this skill
-- **Code quality review** → `/sc4sap:analyze-code`
-- **Module-specific configuration / business-process question** → `/sc4sap:ask-consultant` with the target module
-- **Dump reproduction** → the user re-runs the transaction in SAP GUI; profiling runs are not started from this skill
-- **Cross-user authorization check** → user runs SU53 externally
+Pointers only, never a write call: [`output-format.md`](output-format.md) § Follow-up Routing.
 
 ## Safety Rails
 

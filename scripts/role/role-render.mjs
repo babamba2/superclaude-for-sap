@@ -12,80 +12,80 @@ export const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&a
 
 const LABELS = {
   ko: {
-    title: 'SAP 권한 매트릭스 (Role Matrix)',
-    tabs: { cover: '표지', broles: '1.업무역할', troles: '2.기술역할', tcodes: '3.역할-TCode', users: '4.사용자-역할', auths: '5.권한객체', sod: '6.SoD점검', revisions: '7.변경이력' },
+    title: '역할 · 권한 설계서',
+    tabs: { cover: '개요', broles: '업무 역할', troles: 'PFCG 역할', tcodes: '역할별 T-Code', users: '사용자 배정', auths: '권한 객체', sod: 'SoD', revisions: '이력' },
     heads: {
-      broles: ['1. 업무역할(Business Role) 정의', '업무 관점의 역할입니다. 업무역할 ID는 3.역할-TCode, 4.사용자-역할 시트의 열이 됩니다.'],
-      troles: ['2. 기술역할(SAP PFCG Role) 정의', 'PFCG에 만들 역할입니다. Derived 역할은 상위(Master) 역할과 조직 값을 적습니다.'],
-      tcodes: ['3. 업무역할 × T-Code 권한 매트릭스', '칸 값: F=전체, C=변경, D=조회, 공란=권한 없음. 편집 모드에서 칸을 누르면 넣을 값을 고를 수 있습니다.'],
-      users: ['4. 사용자 × 업무역할 배정', '배정할 업무역할에 X. 기술역할은 1.업무역할의 매핑에 따라 BC 담당이 PFCG에서 부여합니다.'],
-      auths: ['5. 기술역할별 권한객체(Authorization Object) 상세', 'PFCG 반영 기준. 실제 값은 SU24 제안값과 단위테스트(SU53) 결과로 확정합니다.'],
-      sod: ['6. 직무분리(SoD) 점검', '함께 부여하면 안 되는 역할 조합입니다. 4.사용자-역할 배정을 자동으로 점검합니다.'],
-      revisions: ['7. 문서 변경 이력', ''],
+      broles: ['업무 역할', '업무 기준으로 나눈 역할이에요. 이 ID가 역할별 T-Code와 사용자 배정 탭의 열이 돼요.'],
+      troles: ['PFCG 역할', 'PFCG에 만들 역할이에요. Derived 역할에는 Master 역할과 조직 값을 적어요.'],
+      tcodes: ['역할별 T-Code', 'F = 전체, C = 변경, D = 조회, 빈칸 = 권한 없음. 편집 모드에서 칸을 누르면 값을 고를 수 있어요.'],
+      users: ['사용자 배정', '부여할 업무 역할 칸에 X를 넣어요. PFCG 역할은 업무 역할 탭의 연결대로 권한 담당이 부여해요.'],
+      auths: ['PFCG 역할별 권한 객체', 'PFCG에 넣을 값이에요. 최종 값은 SU24 제안값과 SU53 테스트 결과로 정해요.'],
+      sod: ['직무 분리 (SoD)', '한 사용자가 함께 가지면 안 되는 역할 조합이에요. 사용자 배정이 자동으로 점검돼요.'],
+      revisions: ['이력', ''],
     },
-    cover: { info: '■ 문서 정보', sheets: '■ 시트 구성', legend: '■ 표기 규칙', summary: '■ 현황 요약 (자동 계산)', checks: '■ 점검 결과', noChecks: '점검할 항목이 없습니다.',
-      fields: { project: '프로젝트명', system: '대상 시스템 / 모듈', author: '작성자 / 소속', date: '작성일', version: '문서 버전', reviewer: '검토자 / 승인자', source: '원천' },
-      sheetRows: [['broles', '업무 관점의 역할 정의 — 누가 어떤 업무를 하는가', '현업 PI / 모듈 담당', '요구사항 분석'], ['troles', 'PFCG 역할 정의 — Single/Composite/Derived, 조직레벨', 'BC(권한) 담당', '설계'],
-        ['tcodes', '업무역할 × T-Code 매트릭스 — 핵심 산출물 (F/C/D)', '모듈 담당 + 현업 확인', '설계 ~ 테스트'], ['users', '사용자 × 업무역할 배정 — 실제 ID 부여 기준', '현업 부서장 확정', '이관 전'],
-        ['auths', '기술역할별 권한객체·필드·값 (PFCG 반영 기준)', 'BC(권한) 담당', '개발'], ['sod', '직무분리 충돌 역할 조합 점검과 완화 통제', '보안 / 감사 담당', '설계·운영'], ['revisions', '문서 변경 이력', '작성자', '수시']],
-      sheetCols: ['시트', '목적', '작성 주체', '작성 시점'],
-      legendRows: [['F', 'Full — 생성·변경·삭제·조회 (ACTVT 01/02/03/06 등)'], ['C', 'Change — 변경·조회 (ACTVT 02/03)'], ['D', 'Display — 조회 전용 (ACTVT 03)'], ['(공란)', '권한 없음'], ['X', '4.사용자-역할: 해당 업무역할 배정'], ['추정', 'SAP에서 읽은 권한값으로 수준(F/C/D)을 추정한 칸 — 확인 필요']],
-      sum: { broles: '업무역할 수', troles: '기술역할 수', tcodes: '매트릭스 T-Code 수', users: '사용자 수', auths: '권한객체 행 수', sod: 'SoD 규칙 수', sodBroken: 'SoD 위반 규칙 수' },
-      mode: { new: '신규 설계', sap: 'SAP 연동' } },
+    cover: { info: '문서', sheets: '탭 안내', legend: '기호', summary: '한눈에 보기', checks: '확인할 것', noChecks: '확인할 것이 없어요.',
+      fields: { project: '프로젝트', system: '시스템 · 모듈', author: '작성', date: '날짜', version: '버전', reviewer: '검토 · 승인', source: '작성 근거' },
+      sheetRows: [['broles', '누가 어떤 일을 하는지 업무 기준으로 정리', '현업 · 모듈 컨설턴트', '요구사항'], ['troles', 'PFCG에 만들 역할 (Single / Composite / Derived, 조직 레벨)', '권한 담당', '설계'],
+        ['tcodes', '업무 역할마다 쓰는 T-Code와 수준 (F / C / D)', '모듈 컨설턴트 · 현업', '설계 → 테스트'], ['users', '사용자 ID별 업무 역할', '현업 부서장', '오픈 전'],
+        ['auths', 'PFCG 역할마다 권한 객체 · 필드 · 값', '권한 담당', '개발'], ['sod', '함께 주면 안 되는 역할 조합과 완화 통제', '보안 · 감사', '설계 · 운영'], ['revisions', '문서가 바뀐 기록', '작성자', '수시']],
+      sheetCols: ['탭', '담는 내용', '주로 쓰는 사람', '단계'],
+      legendRows: [['F', '전체 — 생성 · 변경 · 삭제 · 조회 (ACTVT 01/02/03/06 등)'], ['C', '변경 — 변경 · 조회 (ACTVT 02/03)'], ['D', '조회 전용 (ACTVT 03)'], ['빈칸', '권한 없음'], ['X', '사용자 배정 탭: 이 업무 역할을 줌'], ['추정', 'SAP 권한값으로 수준을 짐작한 칸 — 확인 필요']],
+      sum: { broles: '업무 역할', troles: 'PFCG 역할', tcodes: 'T-Code', users: '사용자', auths: '권한 객체 행', sod: 'SoD 규칙', sodBroken: 'SoD 위반' },
+      mode: { new: '신규 설계', sap: 'SAP에서 읽음' } },
     cols: {
-      no: 'No', id: '업무역할 ID', name: '업무역할명(국문)', nameEn: '업무역할명(영문)', module: '모듈', desc: '역할 설명', tasks: '주요 업무(요약)', org: '담당 조직 / 직무', troles: '매핑 기술역할 ID', users: '예상 사용자수', note: '비고', tcN: 'T-Code 수', userN: '배정 사용자',
-      tid: '기술역할 ID', tdesc: '역할명(설명)', bname: '업무역할명', bdesc: '업무역할 설명', type: '역할 유형', parent: '상위(Master) 역할', brole: '업무역할 ID', orgLevel: '조직 레벨', orgValue: '조직 값', owner: 'Role Owner', status: '상태', children: '구성 역할',
-      area: '업무영역', tcode: 'T-Code', text: 'T-Code 명', roleN: '권한부여 역할 수',
-      empNo: '사번', uid: '사용자 ID', uname: '성명', dept: '부서', pos: '직위/직무', plant: 'Plant', assigned: '배정 역할 수', approval: '부서장 승인', sodWarn: 'SoD', valid: '유효기간',
-      trole: '기술역할 ID', object: '권한객체', objText: '권한객체 설명', field: '필드', fieldText: '필드 설명', value: '값',
-      sid: '충돌 ID', a: '역할 A', b: '역할 B', kind: '충돌 유형', risk: '위험 내용', level: '위험도', mitigation: '완화 통제', approver: '승인자', sodUsers: '위반 사용자', inherent: '역할 자체 충돌',
-      ver: '버전', date: '일자', author: '작성자', change: '변경 내용' },
+      no: '#', id: '업무 역할 ID', name: '이름', nameEn: '이름 (영문)', module: '모듈', desc: '설명', tasks: '주요 업무', org: '조직 · 직무', troles: 'PFCG 역할', users: '예상 사용자', note: '메모', tcN: 'T-Code', userN: '배정 인원',
+      tid: 'PFCG 역할 ID', tdesc: '설명', bname: '업무 역할', bdesc: '업무 역할 설명', type: '유형', parent: 'Master 역할', brole: '업무 역할 ID', orgLevel: '조직 레벨', orgValue: '조직 값', owner: '역할 담당', status: '상태', children: '포함 역할',
+      area: '업무 영역', tcode: 'T-Code', text: '내역', roleN: '역할 수',
+      empNo: '사번', uid: '사용자 ID', uname: '이름', dept: '부서', pos: '직무', plant: 'Plant', assigned: '역할 수', approval: '승인', sodWarn: 'SoD', valid: '유효 기간',
+      trole: 'PFCG 역할 ID', object: '권한 객체', objText: '객체 설명', field: '필드', fieldText: '필드 설명', value: '값',
+      sid: 'ID', a: '역할 A', b: '역할 B', kind: '유형', risk: '위험', level: '등급', mitigation: '완화 통제', approver: '승인', sodUsers: '해당 사용자', inherent: '한 역할 안의 충돌',
+      ver: '버전', date: '날짜', author: '작성', change: '내용' },
     pager: { range: '{a}–{b} / {n}행', of: '전체 {n}행', page: '{p} / {n}쪽', cols: '역할 열 {a}–{b} / {n}', fOn: '필터 {n}개', fClear: '필터 모두 해제', filter: '필터', fAny: '있음', fNone: '공란', fPicked: '{n}개 선택', fType: '포함 검색' },
     foot: { tcAll: '역할별 T-Code 수', F: '└ F(전체)', C: '└ C(변경)', D: '└ D(조회)', users: '역할별 배정 사용자 수' },
     enums: { type: Object.fromEntries(ROLE_TYPES.map((t) => [t, t])), status: { design: '설계', build: '개발', unit: '단위테스트', integration: '통합테스트', live: '운영이관', retired: '폐기' },
       approval: { pending: '대기', approved: '승인', rejected: '반려' }, sodStatus: { open: '확인중', mitigated: '완화적용', accepted: '승인(수용)', resolved: '해소' }, level: { H: 'H', M: 'M', L: 'L' } },
-    checks: { dupBrole: '업무역할 ID 중복', dupTrole: '기술역할 ID 중복', dupTcode: 'T-Code 중복 행', noTrole: '매핑된 기술역할 없음', unknownTrole: '2.기술역할에 없는 기술역할', noTcode: 'T-Code가 하나도 없는 업무역할',
-      noParent: 'Derived인데 상위 역할 없음', parentNotListed: '상위 역할이 2.기술역할에 없음', unknownBrole: '1.업무역할에 없는 업무역할', tcodeNoRole: '어느 역할에도 없는 T-Code', userNoRole: '배정 역할 없는 사용자',
-      dupUser: '여러 행이 같은 사용자 ID를 씀 (공용 ID)', authUnknownTrole: '2.기술역할에 없는 기술역할의 권한객체', sodUsers: 'SoD 위반 사용자', sodInherent: '한 역할 안에 충돌하는 T-Code',
+    checks: { dupBrole: '업무 역할 ID 중복', dupTrole: 'PFCG 역할 ID 중복', dupTcode: 'T-Code가 두 번 나옴', noTrole: '연결된 PFCG 역할 없음', unknownTrole: 'PFCG 역할 탭에 없는 역할', noTcode: 'T-Code가 없는 업무 역할',
+      noParent: 'Derived인데 Master 역할 없음', parentNotListed: 'Master 역할이 PFCG 역할 탭에 없음', unknownBrole: '업무 역할 탭에 없는 역할', tcodeNoRole: '어느 역할에도 없는 T-Code', userNoRole: '역할이 없는 사용자',
+      dupUser: '같은 사용자 ID가 여러 행에 있음 (공용 ID)', authUnknownTrole: 'PFCG 역할 탭에 없는 역할의 권한 객체', sodUsers: 'SoD 위반 사용자', sodInherent: '한 역할 안에서 충돌하는 T-Code',
       sapVerify: 'SAP 반영 확인 (반영됨 / 차이 있음 / SAP에 없음)', sapVerifyStale: 'SAP 반영 확인 뒤 문서가 바뀜 (버전)', sapVerifyNone: 'SAP 반영 확인 전' },
     sev: { err: '오류', warn: '주의', info: '참고' }, guess: '추정', none: '없음',
   },
   en: {
-    title: 'SAP role matrix',
-    tabs: { cover: 'Cover', broles: '1.Business roles', troles: '2.Technical roles', tcodes: '3.Role × T-code', users: '4.User × role', auths: '5.Auth objects', sod: '6.SoD', revisions: '7.History' },
+    title: 'Roles & authorizations',
+    tabs: { cover: 'Overview', broles: 'Business roles', troles: 'PFCG roles', tcodes: 'T-codes by role', users: 'User assignment', auths: 'Auth objects', sod: 'SoD', revisions: 'History' },
     heads: {
-      broles: ['1. Business roles', 'Roles from the business view. Their IDs are the columns of sheets 3 and 4.'],
-      troles: ['2. Technical roles (PFCG)', 'Roles to build in PFCG. Derived roles name their master role and organizational values.'],
-      tcodes: ['3. Business role × T-code matrix', 'F = full, C = change, D = display, blank = none. In edit mode a click offers the values to choose from.'],
-      users: ['4. User × business role', 'Mark the business roles to assign with X. Basis assigns the technical roles mapped in sheet 1.'],
-      auths: ['5. Authorization objects per technical role', 'What goes into PFCG. Final values come from SU24 proposals and unit tests (SU53).'],
-      sod: ['6. Segregation of duties', 'Role pairs one user must not hold together. Sheet 4 is checked automatically.'],
-      revisions: ['7. Change history', ''],
+      broles: ['Business roles', 'Roles as the business sees them. Their IDs become the columns of the T-code and user tabs.'],
+      troles: ['PFCG roles', 'Roles to build in PFCG. Derived roles name their master role and organizational values.'],
+      tcodes: ['T-codes by role', 'F = full, C = change, D = display, blank = none. In edit mode a click offers the values to choose from.'],
+      users: ['User assignment', 'Mark the business roles to assign with X. Security assigns the PFCG roles linked on the business roles tab.'],
+      auths: ['Authorization objects per PFCG role', 'What goes into PFCG. Final values come from SU24 proposals and SU53 tests.'],
+      sod: ['Segregation of duties', 'Role pairs one user must not hold together. User assignment is checked automatically.'],
+      revisions: ['History', ''],
     },
-    cover: { info: '■ Document', sheets: '■ Sheets', legend: '■ Legend', summary: '■ Summary (computed)', checks: '■ Checks', noChecks: 'Nothing to check.',
-      fields: { project: 'Project', system: 'System / module', author: 'Author / team', date: 'Date', version: 'Version', reviewer: 'Reviewer / approver', source: 'Source' },
-      sheetRows: [['broles', 'Business roles — who does what', 'Business PI / module consultant', 'Requirements'], ['troles', 'PFCG roles — single / composite / derived, org levels', 'Basis (security)', 'Design'],
-        ['tcodes', 'Business role × T-code matrix — the core deliverable (F/C/D)', 'Module consultant + business', 'Design to test'], ['users', 'User × business role — basis of user provisioning', 'Department heads', 'Before go-live'],
-        ['auths', 'Authorization objects, fields, values per technical role', 'Basis (security)', 'Build'], ['sod', 'Conflicting role pairs and mitigating controls', 'Security / audit', 'Design, operation'], ['revisions', 'Change history', 'Author', 'Any time']],
-      sheetCols: ['Sheet', 'Purpose', 'Owner', 'When'],
-      legendRows: [['F', 'Full — create, change, delete, display (ACTVT 01/02/03/06 …)'], ['C', 'Change — change, display (ACTVT 02/03)'], ['D', 'Display only (ACTVT 03)'], ['(blank)', 'No access'], ['X', 'Sheet 4: business role assigned'], ['guess', 'Level derived from the authorization values read from SAP — please confirm']],
-      sum: { broles: 'Business roles', troles: 'Technical roles', tcodes: 'T-codes in the matrix', users: 'Users', auths: 'Authorization rows', sod: 'SoD rules', sodBroken: 'SoD rules broken' },
+    cover: { info: 'Document', sheets: 'Tabs', legend: 'Symbols', summary: 'At a glance', checks: 'To look at', noChecks: 'Nothing to look at.',
+      fields: { project: 'Project', system: 'System · module', author: 'Author', date: 'Date', version: 'Version', reviewer: 'Review · approval', source: 'Based on' },
+      sheetRows: [['broles', 'Who does what, in business terms', 'Business · module consultant', 'Requirements'], ['troles', 'Roles to build in PFCG (single / composite / derived, org levels)', 'Security', 'Design'],
+        ['tcodes', 'The T-codes each business role uses and the level (F / C / D)', 'Module consultant · business', 'Design → test'], ['users', 'Business roles per user ID', 'Department heads', 'Before go-live'],
+        ['auths', 'Authorization objects, fields and values per PFCG role', 'Security', 'Build'], ['sod', 'Role pairs not to combine, and mitigating controls', 'Security · audit', 'Design · operation'], ['revisions', 'What changed in this document', 'Author', 'Any time']],
+      sheetCols: ['Tab', 'What it holds', 'Mainly used by', 'Phase'],
+      legendRows: [['F', 'Full — create, change, delete, display (ACTVT 01/02/03/06 …)'], ['C', 'Change — change, display (ACTVT 02/03)'], ['D', 'Display only (ACTVT 03)'], ['blank', 'No access'], ['X', 'User assignment: business role given'], ['guess', 'Level guessed from the authorization values in SAP — please confirm']],
+      sum: { broles: 'Business roles', troles: 'PFCG roles', tcodes: 'T-codes', users: 'Users', auths: 'Auth object rows', sod: 'SoD rules', sodBroken: 'SoD broken' },
       mode: { new: 'New design', sap: 'Read from SAP' } },
     cols: {
-      no: 'No', id: 'Business role ID', name: 'Name', nameEn: 'Name (English)', module: 'Module', desc: 'Description', tasks: 'Main tasks', org: 'Organization / job', troles: 'Technical roles', users: 'Expected users', note: 'Note', tcN: 'T-codes', userN: 'Users assigned',
-      tid: 'Technical role ID', tdesc: 'Description', bname: 'Business role name', bdesc: 'Business role description', type: 'Type', parent: 'Master role', brole: 'Business role', orgLevel: 'Org level', orgValue: 'Org value', owner: 'Role owner', status: 'Status', children: 'Contains',
+      no: '#', id: 'Business role ID', name: 'Name', nameEn: 'Name (English)', module: 'Module', desc: 'Description', tasks: 'Main tasks', org: 'Organization · job', troles: 'PFCG roles', users: 'Expected users', note: 'Note', tcN: 'T-codes', userN: 'Users',
+      tid: 'PFCG role ID', tdesc: 'Description', bname: 'Business role', bdesc: 'Business role description', type: 'Type', parent: 'Master role', brole: 'Business role', orgLevel: 'Org level', orgValue: 'Org value', owner: 'Role owner', status: 'Status', children: 'Contains',
       area: 'Area', tcode: 'T-code', text: 'T-code text', roleN: 'Roles',
       empNo: 'Employee no.', uid: 'User ID', uname: 'Name', dept: 'Department', pos: 'Position', plant: 'Plant', assigned: 'Roles', approval: 'Approval', sodWarn: 'SoD', valid: 'Valid',
-      trole: 'Technical role', object: 'Auth object', objText: 'Object text', field: 'Field', fieldText: 'Field text', value: 'Value',
+      trole: 'PFCG role', object: 'Auth object', objText: 'Object text', field: 'Field', fieldText: 'Field text', value: 'Value',
       sid: 'Conflict ID', a: 'Role A', b: 'Role B', kind: 'Conflict type', risk: 'Risk', level: 'Level', mitigation: 'Mitigating control', approver: 'Approver', sodUsers: 'Users in conflict', inherent: 'Conflict inside a role',
       ver: 'Version', date: 'Date', author: 'Author', change: 'Change' },
     pager: { range: '{a}–{b} of {n} rows', of: '{n} in all', page: 'page {p} of {n}', cols: 'role columns {a}–{b} of {n}', fOn: '{n} filter(s)', fClear: 'Clear filters', filter: 'Filter', fAny: 'any', fNone: 'blank', fPicked: '{n} picked', fType: 'contains' },
     foot: { tcAll: 'T-codes per role', F: '└ F (full)', C: '└ C (change)', D: '└ D (display)', users: 'Users per role' },
     enums: { type: Object.fromEntries(ROLE_TYPES.map((t) => [t, t])), status: { design: 'Design', build: 'Build', unit: 'Unit test', integration: 'Integration test', live: 'Live', retired: 'Retired' },
       approval: { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' }, sodStatus: { open: 'Open', mitigated: 'Mitigated', accepted: 'Accepted', resolved: 'Resolved' }, level: { H: 'H', M: 'M', L: 'L' } },
-    checks: { dupBrole: 'Duplicate business role ID', dupTrole: 'Duplicate technical role ID', dupTcode: 'T-code listed twice', noTrole: 'No technical role mapped', unknownTrole: 'Technical role not in sheet 2', noTcode: 'Business role without T-codes',
-      noParent: 'Derived role without master', parentNotListed: 'Master role not in sheet 2', unknownBrole: 'Business role not in sheet 1', tcodeNoRole: 'T-code in no role', userNoRole: 'User without roles',
-      dupUser: 'User ID on several rows (shared ID)', authUnknownTrole: 'Authorization row of a role not in sheet 2', sodUsers: 'Users in SoD conflict', sodInherent: 'Conflicting T-codes inside one role',
+    checks: { dupBrole: 'Duplicate business role ID', dupTrole: 'Duplicate PFCG role ID', dupTcode: 'T-code listed twice', noTrole: 'No PFCG role linked', unknownTrole: 'Role not on the PFCG roles tab', noTcode: 'Business role without T-codes',
+      noParent: 'Derived role without master', parentNotListed: 'Master role not on the PFCG roles tab', unknownBrole: 'Role not on the business roles tab', tcodeNoRole: 'T-code in no role', userNoRole: 'User without roles',
+      dupUser: 'User ID on several rows (shared ID)', authUnknownTrole: 'Authorization row of a role not on the PFCG roles tab', sodUsers: 'Users in SoD conflict', sodInherent: 'Conflicting T-codes inside one role',
       sapVerify: 'Checked against SAP (as in SAP / differs / not in SAP)', sapVerifyStale: 'Document changed since the SAP check (version)', sapVerifyNone: 'Not checked against SAP yet' },
     sev: { err: 'Error', warn: 'Warning', info: 'Note' }, guess: 'guess', none: 'none',
   },
@@ -359,12 +359,15 @@ export function renderCover(v, L, { version = '', date = '' } = {}) {
   const hide = new Set(arr(L.layout?.cover?.hide));
   const logo = /^data:image\//.test(L.layout?.theme?.logo || '') ? `<img class="logo" alt="" src="${esc(L.layout.theme.logo)}">` : '';
   const guide = sheetsOf(L).map((k) => L.cover.sheetRows.find((x) => x[0] === k)).filter(Boolean);
-  return `<div class="cvh">${logo}<h1>${esc(L.title)}</h1></div>
-<div class="cv"><section><h3>${esc(L.cover.info)}</h3><table class="plain kv"><tbody>${info}</tbody></table>
-${hide.has('summary') ? '' : `<h3>${esc(L.cover.summary)}</h3><div class="tiles">${sum}</div>`}</section>
-${hide.has('checks') ? '' : `<section><h3>${esc(L.cover.checks)}</h3>${checks}</section>`}</div>
-${hide.has('sheets') ? '' : `<h3>${esc(L.cover.sheets)}</h3><div class="gw"><table class="plain"><thead><tr>${L.cover.sheetCols.map((c) => `<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${guide.map(([k, a, b, c]) => `<tr data-go="${k}"><td><a href="#${k}">${esc(L.tabs[k])}</a></td><td>${esc(a)}</td><td>${esc(b)}</td><td>${esc(c)}</td></tr>`).join('')}</tbody></table></div>`}
-${hide.has('legend') ? '' : `<h3>${esc(L.cover.legend)}</h3><table class="plain legend"><tbody>${L.cover.legendRows.map(([k, t, cls]) => `<tr><th><span class="lv lv-${esc(cls || k)}">${esc(k)}</span></th><td>${esc(t)}</td></tr>`).join('')}</tbody></table>`}`;
+  // Overview: title band, figures, document | checks, tab cards, symbols as chips.
+  const sub = [d.project, d.system, version ? `v${version}` : ''].filter(Boolean).map(esc).join(' · ');
+  const [, , by, phase] = L.cover.sheetCols;
+  return `<div class="cvh">${logo}<div><div class="kick">${esc(L.tabs.cover)}</div><h1>${esc(L.title)}</h1>${sub ? `<div class="cvs">${sub}</div>` : ''}</div></div>
+${hide.has('summary') ? '' : `<h3 class="cvt">${esc(L.cover.summary)}</h3><div class="tiles">${sum}</div>`}
+<div class="cv"><section><h3 class="cvt">${esc(L.cover.info)}</h3><table class="plain kv"><tbody>${info}</tbody></table></section>
+${hide.has('checks') ? '' : `<section><h3 class="cvt">${esc(L.cover.checks)}</h3>${checks}</section>`}</div>
+${hide.has('sheets') ? '' : `<h3 class="cvt">${esc(L.cover.sheets)}</h3><div class="cards">${guide.map(([k, a, b, c]) => `<a class="card" href="#${k}" data-go="${k}"><b>${esc(L.tabs[k])}</b><span>${esc(a)}</span><small title="${esc(by || '')} · ${esc(phase || '')}">${esc(b)} · ${esc(c)}</small></a>`).join('')}</div>`}
+${hide.has('legend') ? '' : `<h3 class="cvt">${esc(L.cover.legend)}</h3><ul class="chips legend">${L.cover.legendRows.map(([k, t, cls]) => `<li><span class="lv lv-${esc(cls || k)}">${esc(k)}</span>${esc(t)}</li>`).join('')}</ul>`}`;
 }
 
 /** Tabs of a model — every sheet, or only opts.only; opts.view[sheet] = { q, page }. */

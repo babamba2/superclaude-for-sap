@@ -15,9 +15,9 @@ import { withResponsive } from '../lib/responsive.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 const inline = (f) => readFileSync(join(here, f), 'utf8').replace(/^import .*$/gm, '').replace(/^export \{[^}]*\};?$/gm, '').replace(/^export (const|function|async function|let)/gm, '$1');
 
-const LIGHT = '--bg:#ffffff;--fg:#1d2733;--muted:#5a6675;--line:#d3dbe4;--head:#eef2f6;--card:#f6f8fa;--accent:#1d4f73;--link:#0b62c4;--sel:rgba(40,110,200,.14);'
+const LIGHT = '--bg:#ffffff;--fg:#1d2733;--muted:#5a6675;--line:#d3dbe4;--head:#edf3f1;--card:#f6f8fa;--accent:#0f6b5c;--link:#0b62c4;--sel:rgba(40,110,200,.14);'
   + '--red:#c62828;--amber:#b26a00;--green:#2e7d32;--red-bg:#fdecea;--amber-bg:#fff4e0;--green-bg:#e8f5e9;--F:#1f6fb2;--F-bg:#dcebf8;--C:#2e7d32;--C-bg:#e3f2e4;--D:#6b7480;--D-bg:#eceff2;--in:#fffbe6;--headfg:#1d2733';
-const DARK = '--bg:#0f141a;--fg:#e4eaf0;--muted:#95a1ae;--line:#36414d;--head:#18202a;--card:#161d26;--accent:#5b9bd0;--link:#5aa2f0;--sel:rgba(90,160,240,.2);'
+const DARK = '--bg:#0f141a;--fg:#e4eaf0;--muted:#95a1ae;--line:#36414d;--head:#18202a;--card:#161d26;--accent:#4fbfa8;--link:#5aa2f0;--sel:rgba(90,160,240,.2);'
   + '--red:#ef6b6b;--amber:#e0a43a;--green:#5cb85f;--red-bg:#3a1d1d;--amber-bg:#3a2c12;--green-bg:#1b3320;--F:#8cc0ee;--F-bg:#1d3550;--C:#8fd18f;--C-bg:#1d3a22;--D:#b4bcc6;--D-bg:#283039;--in:#2a2716;--headfg:#e4eaf0';
 
 const STYLE = `
@@ -49,7 +49,7 @@ table{border-collapse:separate;border-spacing:0;font-size:13px}
 .grid td.ro{color:var(--muted);background:var(--card)}.grid td.key{font-weight:600}.grid td.num{text-align:right}
 .grid th.mx,.grid td.lv,.grid td.xx{text-align:center;min-width:46px;padding-left:3px;padding-right:3px}.grid th.mx{cursor:default}.editing .grid th.mx{cursor:pointer}
 .lv{font-weight:700}.lv-F{color:var(--F);background:var(--F-bg)!important}.lv-C{color:var(--C);background:var(--C-bg)!important}.lv-D{color:var(--D);background:var(--D-bg)!important}
-.legend .lv{display:inline-block;min-width:26px;text-align:center;border-radius:4px;padding:0 4px}
+.legend .lv{display:inline-block;min-width:26px;text-align:center;border-radius:6px;padding:1px 6px;border:1px solid var(--line)}
 .xx.on{font-weight:700;color:var(--accent);background:var(--F-bg)!important}
 .rk-H{color:var(--red);font-weight:700}.rk-M{color:var(--amber);font-weight:700}
 tr.guess td.lv:not(:empty){font-style:italic;box-shadow:inset 0 0 0 1px var(--amber)}tr.guess td[data-c=tcode]::after{content:" ?";color:var(--amber)}
@@ -72,7 +72,11 @@ tr.sodbad td[data-c=uid]{box-shadow:inset 3px 0 0 var(--red)}
 #help .hbox{width:min(680px,94vw);max-height:84vh;overflow:auto;background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:6px 18px 16px;position:relative}
 #help .hx{position:absolute;right:10px;top:10px;border:0;background:none;color:var(--muted);font-size:16px}#help th{white-space:nowrap;text-align:left;border-bottom:1px solid var(--line);padding:6px 12px 6px 0;font-family:Consolas,monospace;font-size:12.5px;vertical-align:top}#help td{border-bottom:1px solid var(--line);padding:6px 0}
 .t-touch{display:none}@media (pointer: coarse){.t-touch{display:table}.t-keys{display:none}}
-.cvh{display:flex;align-items:center;gap:14px}.cvh .logo{max-height:56px;max-width:220px}.topbar .logo{height:24px;max-width:120px;object-fit:contain}
+.cvh{display:flex;align-items:center;gap:16px;margin:14px 0 4px;padding:18px 22px;border-radius:12px;background:linear-gradient(135deg,var(--card),var(--head));border-left:5px solid var(--accent)}.cvh h1{margin:2px 0}.cvh .kick{font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:700}.cvh .cvs{color:var(--muted);font-size:13.5px}
+h3.cvt{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:22px 0 8px;font-weight:700}
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:10px}.card{display:flex;flex-direction:column;gap:4px;padding:10px 14px;border:1px solid var(--line);border-top:3px solid var(--accent);border-radius:10px;background:var(--bg);color:var(--fg);text-decoration:none}.card:hover{background:var(--card)}.card span{font-size:13px}.card small{font-size:12px}
+.chips{list-style:none;display:flex;flex-wrap:wrap;gap:8px 18px;margin:0;padding:0;font-size:13px}.chips li{display:flex;align-items:center;gap:6px}
+.cvh .logo{max-height:56px;max-width:220px}.topbar .logo{height:24px;max-width:120px;object-fit:contain}
 dialog{border:1px solid var(--line);border-radius:10px;background:var(--bg);color:var(--fg);min-width:320px}dialog label{display:block;font-size:13px}dialog input{width:100%;font:inherit;padding:5px;margin:4px 0 10px}
 @media (max-width: 760px){
  .topbar .tx,#help-b,.editing .banner.hint,.sub{display:none}.stools input[type=search]{flex-basis:100%}.stools button{padding:3px 9px}.gw{overscroll-behavior:auto}
@@ -92,10 +96,10 @@ const EDIT = {
     filter: '필터', fAll: '(모두 선택)', fBlank: '(공란)', fHas: '포함하는 값으로 찾기', fApply: '적용', fClear: '이 열 필터 해제', fMore: '{n}개 더 있습니다 — 위 칸에 입력해 좁히세요.', pickBlank: '공란 (권한 없음)',
     insAbove: '위에 행 삽입', insBelow: '아래에 행 삽입', needSel: '행을 넣을 위치의 칸을 먼저 누르세요.', fCleared: '새 행이 보이도록 검색과 필터를 해제했습니다.',
     editOn: '편집 모드를 켰습니다.', roCell: '자동 계산 칸입니다.', badValue: '목록에 없는 값이라 넣지 않았습니다.', copied: '{n}칸 복사함 — 엑셀에 붙여 넣을 수 있습니다.', pasted: '{n}칸 붙여 넣음.', deleted: '{n}개 행 삭제함 (Ctrl+Z로 되돌리기).',
-    roleAdded: '업무역할 {x}을(를) 추가했습니다. 1.업무역할에서 이름을 적어 주세요.', stDirty: '변경 {n}건', stClean: '변경 없음',
+    roleAdded: '업무 역할 {x}을(를) 추가했어요. 업무 역할 탭에서 이름을 적어 주세요.', stDirty: '변경 {n}건', stClean: '변경 없음',
     draft: '저장하지 않은 편집이 있습니다.', resume: '이어서 편집', discard: '버리기', unsaved: '저장하지 않은 변경이 있습니다.',
     saveTitle: '저장 — 변경 이력', author: '작성자', note: '변경 내용', noteDefault: '편집 모드에서 수정', needAuthor: '작성자를 입력하세요.', ok: '저장', cancel: '취소',
-    saved: '저장했습니다 (v{v}). 7.변경이력에 한 줄 추가됐습니다. 계속 편집하고 Ctrl+S 하면 같은 파일에 덮어씁니다.',
+    saved: '저장했습니다 (v{v}). 이력 탭에 한 줄 추가됐습니다. 계속 편집하고 Ctrl+S 하면 같은 파일에 덮어씁니다.',
     keys: [['칸 클릭 · 끌기 · Shift+클릭', '칸 / 범위 선택'], ['방향키 · Shift+방향키 · Ctrl+방향키', '이동 · 범위 늘리기 · 끝으로'], ['바로 입력 · Enter · F2 · 두 번 클릭', '편집 시작'],
       ['Enter · Tab · Esc', '저장 후 아래로 · 오른쪽으로 · 취소 (긴 글 칸 줄바꿈: Alt+Enter)'], ['F · C · D (매트릭스)', '선택 범위 전체에 권한 수준 입력 · Space: 값 고르기 · Delete: 비우기'], ['X · Space (사용자-역할)', '배정 / 해제'],
       ['편집 모드에서 매트릭스 칸 클릭', '넣을 값 고르기 (F·C·D·공란) / X 토글'], ['머리글 아래 필터 줄', '열마다 포함하는 값으로 거르기 · 매트릭스 열은 있음 / 공란'], ['머리글 ▾', '열 필터 — 목록에서 값 고르기'], ['칸에서 오른쪽 클릭', '위에 행 삽입 · 아래에 행 삽입 · 행 삭제'], ['Ctrl+C · Ctrl+V', '엑셀과 복사·붙여넣기 (마지막 행 아래로 붙이면 행이 생김)'], ['Ctrl+D', '맨 윗줄 값으로 아래 채우기'],
@@ -108,10 +112,10 @@ const EDIT = {
     filter: 'Filter', fAll: '(Select all)', fBlank: '(blank)', fHas: 'Find values containing', fApply: 'Apply', fClear: 'Clear this filter', fMore: '{n} more — type above to narrow.', pickBlank: 'Blank (no access)',
     insAbove: 'Insert row above', insBelow: 'Insert row below', needSel: 'First pick a cell where the row goes.', fCleared: 'Search and filters cleared so the new row shows.',
     editOn: 'Edit mode on.', roCell: 'Computed cell.', badValue: 'Not in the list — not entered.', copied: '{n} cell(s) copied — paste them into Excel.', pasted: '{n} cell(s) pasted.', deleted: '{n} row(s) deleted (Ctrl+Z to undo).',
-    roleAdded: 'Business role {x} added — name it in sheet 1.', stDirty: '{n} change(s)', stClean: 'no changes',
+    roleAdded: 'Business role {x} added — name it on the business roles tab.', stDirty: '{n} change(s)', stClean: 'no changes',
     draft: 'You have unsaved edits.', resume: 'Continue editing', discard: 'Discard', unsaved: 'You have unsaved changes.',
     saveTitle: 'Save — change history', author: 'Author', note: 'Change', noteDefault: 'Edited in edit mode', needAuthor: 'Enter the author.', ok: 'Save', cancel: 'Cancel',
-    saved: 'Saved (v{v}); one row added to sheet 7. Keep editing — Ctrl+S overwrites the same file.',
+    saved: 'Saved (v{v}); one row added to the history tab. Keep editing — Ctrl+S overwrites the same file.',
     keys: [['Click · drag · Shift+click', 'Select a cell / range'], ['Arrows · Shift+arrows · Ctrl+arrows', 'Move · extend · jump to the end'], ['Type · Enter · F2 · double-click', 'Edit'],
       ['Enter · Tab · Esc', 'Save and go down · right · cancel (new line in long text: Alt+Enter)'], ['F · C · D (matrix)', 'Level for the whole selection · Space: choose · Delete: clear'], ['X · Space (user × role)', 'Assign / remove'],
       ['Click a matrix cell in edit mode', 'Choose the value (F, C, D or blank) / toggle X'], ['Filter row under the headers', 'Filter each column by text it contains · matrix columns: any / blank'], ['▾ in a header', 'Column filter — pick values from a list'], ['Right-click a cell', 'Insert row above · below · delete rows'], ['Ctrl+C · Ctrl+V', 'Copy / paste with Excel (pasting below the last row adds rows)'], ['Ctrl+D', 'Fill down from the top row'],

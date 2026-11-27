@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { buildModel } from '../../scripts/relmap/relmap-model.mjs';
-import { buildDomains } from '../../scripts/relmap/relmap-domain.mjs';
+import { AREA_VIEW, areaLayout, buildDomains } from '../../scripts/relmap/relmap-domain.mjs';
 import { buildRelationMap, findProcessModel } from '../../scripts/relmap/build-relation-map.mjs';
 
 const ev = (unit: string) => [{ unit, line: 1, text: 'x' }];
@@ -78,10 +78,43 @@ describe('relation-map process areas', () => {
     expect(G.doms.every((d: any) => d.f.length === 0 && d.g >= 0)).toBe(true);
   });
 
+  it('area graph: one circle per area with objects, one arrow per hand-off, inside the view', () => {
+    expect(D.graph.n.map((x: any) => D.doms[x[0]].c)).toEqual(['1.1', '1.2', '1.3']);
+    expect(D.graph.e).toEqual([[0, 1, 1], [1, 2, 1]]);
+    expect(D.graph.cut).toEqual([1, 0]);
+    for (const [, x, y, r] of D.graph.n) {
+      expect(x - r).toBeGreaterThanOrEqual(0); expect(x + r).toBeLessThanOrEqual(AREA_VIEW.w);
+      expect(y - r).toBeGreaterThanOrEqual(0); expect(y + r).toBeLessThanOrEqual(AREA_VIEW.h);
+    }
+    expect(new Set(D.graph.n.map((x: any) => `${x[1]},${x[2]}`)).size).toBe(3);
+    const G: any = buildDomains(model, null);
+    expect(G.graph.n.length).toBeGreaterThan(0);
+  });
+
+  it('area graph caps: hand-off areas first, then by objects; arrows only between kept areas', () => {
+    const doms = Array.from({ length: 30 }, (_, i) => ({ c: `A${i}`, n: [0, i, 0, 0] }));
+    const hand = [[0, 1, [], 3], [29, 0, [], 1]];
+    const L: any = areaLayout(doms, hand);
+    expect(L.n.length).toBe(24);
+    const kept = new Set(L.n.map((x: any) => x[0]));
+    expect(kept.has(0) && kept.has(1) && kept.has(29)).toBe(true);
+    expect(kept.has(2)).toBe(false);
+    expect(L.e).toEqual([[0, 1, 3], [29, 0, 1]]);
+    expect(L.cut).toEqual([6, 0]);
+    // neighbours on the ring never overlap, even at the cap
+    for (let k = 0; k < L.n.length; k++) {
+      const [, x1, y1, r1] = L.n[k], [, x2, y2, r2] = L.n[(k + 1) % L.n.length];
+      expect(Math.hypot(x2 - x1, y2 - y1)).toBeGreaterThan(r1 + r2);
+    }
+    expect(areaLayout([], [])).toEqual({ n: [], e: [], cut: [0, 0] });
+  });
+
   it('page: Process areas tab with the model; found next to the inventory folder; none turns it off', () => {
     const r: any = buildRelationMap({ graphs: [graph], lang: 'en', processModel: pm });
     expect(r.domains).toMatchObject({ kind: 'process', domains: 4, steps: 4, matched: 3, handOffs: 2 });
     expect(r.html).toContain('data-tab="domains"');
+    expect(r.html).toContain('"graph":{"n":[[');
+    expect(r.html).toContain('Graph between areas');
     const base = mkdtempSync(join(tmpdir(), 'relmap-dom-'));
     try {
       const dir = join(base, 'cbo', 'SD', 'ZDOM');

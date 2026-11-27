@@ -148,7 +148,7 @@ describe('role-matrix page and files', () => {
     const ph = (s: string) => (s.match(/\{\w+\}/g) || []).sort().join();
     const en = flat(labelsFor('en')), ja = new Map(flat(labelsFor('ja')));
     expect(en.filter(([k, v]) => !ja.has(k) || ph(v) !== ph(ja.get(k)!)).map(([k]) => k)).toEqual([]);
-    expect(labelsFor('ja').tabs.broles).toBe('1.業務ロール');
+    expect(labelsFor('ja').tabs.broles).toBe('業務ロール');
     const dir = mkdtempSync(join(tmpdir(), 'rm-ja-'));
     try {
       const from = join(dir, 'draft.json');
