@@ -50,7 +50,7 @@ export function packagePatterns(text) {
   }));
 }
 
-function graphFiles(base, depth = 4, out = []) {
+export function graphFiles(base, depth = 4, out = []) {
   let names;
   try { names = readdirSync(base); } catch { return out; }
   if (names.includes('graph.json')) out.push(join(base, 'graph.json'));
@@ -69,7 +69,7 @@ export function describeGraph(file, now = Date.now()) {
   const dir = dirname(file), g = readJson(file);
   if (!g || !Array.isArray(g.nodes)) return null;
   const kinds = {};
-  for (const e of g.edges || []) kinds[e.kind] = (kinds[e.kind] || 0) + 1;
+  for (const e of g.edges || []) if (e) kinds[e.kind] = (kinds[e.kind] || 0) + 1;
   const parsed = g.coverage?.parsed ?? 0, hasFields = existsSync(join(dir, 'fields.json'));
   const scope = isUsedName(basename(dir)) || isUsedName(String(g.package || '')) ? 'used' : 'package';
   const notes = [];

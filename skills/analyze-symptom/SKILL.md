@@ -88,6 +88,7 @@ Evidence collection strategy — prefer MCP auto-query, fall back to manual TCod
 | Known issue — only when the failure point is standard SAP code | `WebSearch` / `WebFetch` (SAP Notes, KBAs, SAP Community) — standard identifiers only | SAP for Me |
 | Performance / long runtime | `RuntimeListProfilerTraceFiles`, `RuntimeAnalyzeProfilerTrace` (existing traces only — never start a run) | ST05, SAT, SQLM |
 | Suspect program/class logic | `GetInclude`/`GetProgram`/`GetClass`/`GetFunctionModule`, `GetAbapAST`, `GetAbapSemanticAnalysis`, `GetWhereUsed` | SE80, SE24, SE38 |
+| Callers, TCodes / jobs reaching a Z object, other writers of a table | Local CBO graph via `scripts/graph/cbo-lookup.mjs` before `GetWhereUsed` (the only where-used on ECC) — [`common/cbo-graph-lookup.md`](../../common/cbo-graph-lookup.md) | n/a — local graph |
 | Recent change tracking | `ListTransports`, `GetTransport`, `GetObjectInfo` (Author/Changed-by) | SE09, SE10, SE16 → E070 |
 | **Z\*/Y\* object or customized SAP include in trace** | Local file read (path from Step 1, no search): `<CUSTOMIZATION_DIR>/<MODULE>/enhancements.json` (→ `badiImplementations[]`, `smodExits[]`, `formBasedExits[]`) and `<CUSTOMIZATION_DIR>/<MODULE>/extensions.json` (→ `appendStructures[]`) | n/a — local cache only |
 | Enhancement / BAdI | `GetEnhancements`, `GetEnhancementImpl`, `GetEnhancementSpot` | SE18, SE19, SMOD, CMOD |
@@ -144,7 +145,7 @@ Per-round report template and the final-round consolidated report structure live
 </Output_Format>
 
 <MCP_Tools_Used>
-Main thread: `GetSession` only (Step 1). Everything else runs inside the `sap-debugger` dispatch, so dump payloads, source and transport lists never sit in the orchestrator context. The authoritative tool list and call limits live in the dispatch prompt in [`workflow-steps.md`](workflow-steps.md) § Step 2: dump (`RuntimeListFeeds` dumps feed, `RuntimeGetDumpById` metadata, formatted view only when needed), one failing include (`GetInclude` / `GetProgram` / `GetClass` / `GetFunctionModule`), scoped transports (`ListTransports`, `GetTransport`, `GetObjectInfo`), `GetWhereUsed`, enhancements, existing profiler traces, DDIC schema reads. Never `GetProgFullCode`, `GetTableContents`, `GetSqlQuery` or any write tool.
+Main thread: `GetSession` only (Step 1). Everything else runs inside the `sap-debugger` dispatch, so dump payloads, source and transport lists never sit in the orchestrator context. The authoritative tool list and call limits live in the dispatch prompt in [`workflow-steps.md`](workflow-steps.md) § Step 2: dump (`RuntimeListFeeds` dumps feed, `RuntimeGetDumpById` metadata, formatted view only when needed), one failing include (`GetInclude` / `GetProgram` / `GetClass` / `GetFunctionModule`), scoped transports (`ListTransports`, `GetTransport`, `GetObjectInfo`), the local CBO graph lookup first and `GetWhereUsed` only where it cannot answer (never on ECC), enhancements, existing profiler traces, DDIC schema reads. Never `GetProgFullCode`, `GetTableContents`, `GetSqlQuery` or any write tool.
 </MCP_Tools_Used>
 
 <Common_Pitfalls_To_Avoid>
