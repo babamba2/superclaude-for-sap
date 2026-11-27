@@ -11,63 +11,69 @@ import { withResponsive } from '../lib/responsive.mjs';
 
 const LABELS = {
   ko: {
-    cover: '표지', history: '개정이력', sheet: '매핑 정의서', guide: '항목설명',
-    seq: '순번', version: '버전', date: '변경 일자', change: '변경 내용', author: '작성자', approver: '승인자',
-    historyNote: '※ 변경이 발생되는 위치와 변경 내용을 자세히 기록', required: '※ 별표(*)는 필수 항목',
-    asyncNote: '※ 송신 시스템이 보내고 수신 시스템이 받고 끝나는 비동기 인터페이스는 응답 블록 없이 작성',
-    source: 'Source System', target: 'Target System', response: '응답 (Source ← Target)', request: '요청 (Source → Target)',
-    ifId: '인터페이스 ID', name: '인터페이스 명', summary: '인터페이스 개요', detail: '인터페이스 상세 설명', transfer: '전송방식',
-    trigger: '인터페이스 구동방식', cycle: '인터페이스 주기', cycleCount: '인터페이스 주기 별 회수', perRun: '1회 전송 건수',
-    recordSize: '건당 데이터 크기', relation: '송/수신 시스템 관계', targetLogic: 'Target 기본 로직', writtenBy: '매핑 정의서 작성자',
-    writtenAt: '매핑 정의서 작성일', system: '시스템 명', module: '모듈 명', region: '지역', owner: '시스템 담당자',
-    adapter: 'I/F Methods (Adapter)', object: 'Object', structure: 'Structure', cardinality: '필수(반복) 구분',
-    table: 'Table', field: 'Field', key: 'Key', type: 'Type', size: 'Size', nul: 'Null', desc: 'Desc', 
-    rules: '컬럼별 변환규칙', extract: '데이터 추출조건', remarks: '특이사항', etc: '기타',
-    item: '항목', req: '필수', expl: '설명', checks: '검증', noFindings: '검증 결과 문제가 없습니다.', print: '인쇄',
+    cover: '문서', history: '이력', sheet: '인터페이스 매핑 명세', guide: '항목 안내',
+    seq: '#', version: '버전', date: '날짜', change: '바뀐 내용', author: '작성', approver: '승인',
+    historyNote: '어디가 어떻게 바뀌었는지 적어 주세요.', required: '* 표시는 꼭 채울 항목이에요.',
+    asyncNote: '보내고 끝나는 단방향 비동기 인터페이스는 응답 블록이 없어요.',
+    source: '송신 · Source', target: '수신 · Target', response: '응답 · Source ← Target', request: '요청 · Source → Target',
+    ifId: '인터페이스 ID', name: '이름', summary: '목적', detail: '상세 설명', transfer: '처리 방식',
+    trigger: '실행 방식', cycle: '실행 주기', cycleCount: '주기당 실행 횟수', perRun: '실행당 건수',
+    recordSize: '레코드 크기', relation: '송수신 대응', targetLogic: '수신측 처리', writtenBy: '작성자',
+    writtenAt: '작성일', system: '시스템', module: '모듈', region: '지역', owner: '담당자',
+    adapter: '연계 방식', object: '오브젝트', structure: '구조', cardinality: '발생 횟수',
+    table: '테이블', field: '필드', key: '키', type: '타입', size: '길이', nul: 'Null', desc: '설명',
+    rules: '변환 규칙', extract: '추출 조건', remarks: '참고', etc: '기타',
+    item: '항목', req: '필수', expl: '설명', checks: '검증', noFindings: '검증 결과 문제가 없어요.', print: '인쇄',
     errors: '오류', warns: '경고', infos: '확인', proposed: '제안', added: 'SAP 추가', changed: 'SAP 변경', removed: 'SAP 삭제',
-    ddic: 'SAP DDIC', was: '이전', companion: 'English', fromGroups: '아래 그리드의 그룹(▸)에서 자동 요약', groupName: '이름', sapRead: 'SAP에서 읽음', guideTitle: '매핑 정의서 항목설명',
+    ddic: 'SAP DDIC', was: '이전', companion: 'English', fromGroups: '아래 표의 그룹(▸)에서 자동 요약', groupName: '이름', sapRead: 'SAP에서 읽음', guideTitle: '항목 안내',
+    overview: '개요', systems: '송수신 시스템', mapping: '필드 매핑', logic: '변환 · 추출', ruleH: '규칙', mapH: '매핑', flow: '흐름', project: '프로젝트', docNo: '문서 번호',
   },
   en: {
-    cover: 'Cover', history: 'Revision history', sheet: 'Mapping specification', guide: 'Field guide',
-    seq: 'No.', version: 'Version', date: 'Date', change: 'Change', author: 'Author', approver: 'Approver',
-    historyNote: '※ Record where the change happened and what changed, in detail', required: '※ Items marked * are required',
-    asyncNote: '※ A one-way asynchronous interface (sender sends, receiver takes it, done) has no response block',
-    source: 'Source system', target: 'Target system', response: 'Response (Source ← Target)', request: 'Request (Source → Target)',
-    ifId: 'Interface ID', name: 'Interface name', summary: 'Summary', detail: 'Details', transfer: 'Transfer mode',
-    trigger: 'Trigger', cycle: 'Cycle', cycleCount: 'Runs per cycle', perRun: 'Records per run',
-    recordSize: 'Size per record', relation: 'Sender / receiver relation', targetLogic: 'Target logic', writtenBy: 'Author',
-    writtenAt: 'Date written', system: 'System', module: 'Module', region: 'Region', owner: 'System owner',
-    adapter: 'I/F method (adapter)', object: 'Object', structure: 'Structure', cardinality: 'Occurrence',
-    table: 'Table', field: 'Field', key: 'Key', type: 'Type', size: 'Size', nul: 'Null', desc: 'Desc', 
-    rules: 'Conversion rules', extract: 'Extraction condition', remarks: 'Remarks', etc: 'Other',
+    cover: 'Document', history: 'History', sheet: 'Interface mapping specification', guide: 'Field guide',
+    seq: '#', version: 'Version', date: 'Date', change: 'What changed', author: 'By', approver: 'Approved by',
+    historyNote: 'Note where and what changed.', required: 'Items marked * are required.',
+    asyncNote: 'A one-way asynchronous interface (send and done) has no response block.',
+    source: 'Sender · source', target: 'Receiver · target', response: 'Response · source ← target', request: 'Request · source → target',
+    ifId: 'Interface ID', name: 'Name', summary: 'Purpose', detail: 'Details', transfer: 'Processing',
+    trigger: 'Started by', cycle: 'Frequency', cycleCount: 'Runs per period', perRun: 'Records per run',
+    recordSize: 'Record size', relation: 'Sender : receiver', targetLogic: 'Receiver action', writtenBy: 'Author',
+    writtenAt: 'Written on', system: 'System', module: 'Module', region: 'Region', owner: 'Contact',
+    adapter: 'Integration method', object: 'Object', structure: 'Structure', cardinality: 'Occurrence',
+    table: 'Table', field: 'Field', key: 'Key', type: 'Type', size: 'Length', nul: 'Null', desc: 'Description',
+    rules: 'Conversion rules', extract: 'Selection', remarks: 'Notes', etc: 'Other',
     item: 'Item', req: 'Req.', expl: 'Explanation', checks: 'Checks', noFindings: 'No findings.', print: 'Print',
     errors: 'Errors', warns: 'Warnings', infos: 'To confirm', proposed: 'Proposal', added: 'Added in SAP', changed: 'Changed in SAP', removed: 'Removed in SAP',
-    ddic: 'SAP DDIC', was: 'Before', companion: '한국어', fromGroups: 'Summary of the groups (▸) in the grid below', groupName: 'Name', sapRead: 'Read from SAP', guideTitle: 'Mapping specification — field guide',
+    ddic: 'SAP DDIC', was: 'Before', companion: '한국어', fromGroups: 'Summary of the groups (▸) in the grid below', groupName: 'Name', sapRead: 'Read from SAP', guideTitle: 'Field guide',
+    overview: 'Overview', systems: 'Systems', mapping: 'Field mapping', logic: 'Rules & selection', ruleH: 'Rule', mapH: 'Map', flow: 'Flow', project: 'Project', docNo: 'Document no.',
   },
 };
 export const pageLabels = (lang) => LABELS[String(lang || '').slice(0, 2)] || LABELS.en;
 
 const STYLE = `
-:root{--src:#eef4fb;--srch:#d7e5f5;--srcd:#2c5a8c;--tgt:#eff8ec;--tgth:#d9ecd2;--tgtd:#3d7343;--ink:#1d2d3e;--ink2:#475e75;--mute:#8396a8;--line:#c9d3dd;--soft:#f3f6f9;--head:#dfe8f1;--accent:#0a6ed1;--err:#bb0000;--warn:#c35500;--info:#0a6ed1;--prop:#eef6ff;--added:#e8f6ea;--changed:#fff6db;--removed:#fbeaea}
-*{box-sizing:border-box}html,body{margin:0}body{background:#eef1f4;color:var(--ink);font:13px/1.45 "Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
+:root{--src:#f2f3fb;--srch:#e0e3f6;--srcd:#3e4a8c;--tgt:#fdf7ee;--tgth:#f4e4cb;--tgtd:#8a5a1c;--ink:#1f2933;--ink2:#52606d;--mute:#8a96a3;--line:#d5dbe1;--soft:#f5f7f8;--head:#eef1f3;--accent:#0f6b5c;--err:#bb0000;--warn:#c35500;--info:#0f6b5c;--prop:#eef6ff;--added:#e8f6ea;--changed:#fff6db;--removed:#fbeaea}
+*{box-sizing:border-box}html,body{margin:0}body{background:#f4f5f7;color:var(--ink);font:13px/1.5 "Segoe UI","Malgun Gothic","Apple SD Gothic Neo",sans-serif}
 .top{position:sticky;top:0;z-index:20;background:var(--ink);color:#fff;display:flex;align-items:center;gap:10px;padding:8px 18px;flex-wrap:wrap}
 .top h1{font-size:14.5px;margin:0;font-weight:600;flex:1;min-width:200px}.top .ver{background:#ffffff26;border-radius:10px;padding:1px 8px;font-size:12px}
 .top button,.top a{font:inherit;font-size:12.5px;background:none;border:1px solid #ffffff55;color:#fff;border-radius:6px;padding:3px 11px;cursor:pointer;text-decoration:none}
 .top .cnt{display:inline-block;min-width:18px;border-radius:9px;padding:0 5px;margin-left:4px;font-size:11px;background:#ffffff33}.top .cnt.e{background:var(--err)}
 #doc{max-width:1500px;margin:0 auto;padding:18px 16px 60px}
-section.pg{background:#fff;border:1px solid var(--line);border-radius:6px;padding:22px 26px;margin:0 0 18px}
-section.pg>h2{font-size:16px;margin:0 0 14px;padding-bottom:6px;border-bottom:2px solid var(--ink)}
-.cover{text-align:center;padding:60px 26px 30px!important;min-height:520px;display:flex;flex-direction:column}
-.cover .proj{font-size:15px;color:var(--ink2);margin-top:40px}.cover .title{font-size:30px;font-weight:700;margin:26px 0 30px;letter-spacing:.04em}
-.cover .docno{font-size:14px}.cover .ifname{font-size:14px;margin-top:4px}.cover .cv{font-size:14px;margin-top:4px;font-weight:600}
-.cover .copy{margin-top:auto;font-size:11.5px;color:var(--ink2)}
+section.pg{background:#fff;border:1px solid var(--line);border-radius:12px;padding:22px 26px;margin:0 0 18px;box-shadow:0 1px 2px #0000000d}
+section.pg>h2{font-size:17px;margin:0 0 14px;padding-left:10px;border-left:4px solid var(--accent)}
+.cover{border-left:6px solid var(--accent)!important;padding:26px 30px!important}
+.cover .kick{font-size:12px;letter-spacing:.12em;color:var(--accent);font-weight:700}.cover .title{font-size:26px;font-weight:700;margin:4px 0 2px}
+.cover .ifname{font-size:15px;color:var(--ink2)}
+.cover .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:20px 0 0}.cover .meta div{background:var(--soft);border-radius:8px;padding:8px 12px}
+.cover .meta dt{font-size:11.5px;color:var(--mute)}.cover .meta dd{margin:2px 0 0;font-weight:600}
+.cover .copy{margin-top:16px;font-size:11.5px;color:var(--ink2)}
+.blk>h3 .n,h3.sec .n{display:inline-block;min-width:22px;height:22px;line-height:22px;text-align:center;border-radius:11px;background:var(--accent);color:#fff;font-size:12px;margin-right:8px}
+h3.sec{font-size:14px;margin:22px 0 10px}
 table{border-collapse:collapse;width:100%}th,td{border:1px solid var(--line);padding:4px 6px;vertical-align:top;text-align:left}
 th{background:var(--head);font-weight:600;white-space:nowrap}td{overflow-wrap:break-word}
 .hdr th{width:15%}.hdr td{width:35%}
 .sides th{width:15%}.sides td{width:31%}.sides .arrow{width:8%;text-align:center;font-size:22px;color:var(--ink2);vertical-align:middle;background:var(--soft)}
-.blk{margin-top:18px}.blk>h3{font-size:13.5px;margin:0 0 8px;color:var(--ink2)}
+.blk{margin-top:18px}.blk>h3{font-size:14px;margin:0 0 10px}
 .grid{font-size:12px;table-layout:fixed}.grid th{text-align:center}.grid td{min-height:20px}
-.grid .grp{background:var(--ink);color:#fff}.grid .rc{background:#fff4e0;text-align:center;font-weight:600}
+.grid .grp{background:var(--ink2);color:#fff}.grid .rc{background:#eef6f4;text-align:center;font-weight:600}
 .grid td.no{text-align:center;white-space:nowrap;font-weight:600}.grid td.cen{text-align:center}
 td.sc{background:var(--src)}td.tc{background:var(--tgt)}th.sc{background:var(--srch)}th.tc{background:var(--tgth)}
 .grp.sc,.grid th.grp.sc{background:var(--srcd);color:#fff}.grp.tc,.grid th.grp.tc{background:var(--tgtd);color:#fff}
@@ -81,7 +87,7 @@ td.sc{background:var(--src)}td.tc{background:var(--tgt)}th.sc{background:var(--s
 .dd{border-bottom:1px dotted var(--mute);cursor:help}
 .foot th{width:15%;vertical-align:top}.foot td.rid{width:60px;text-align:center;font-weight:600}.mono{font-family:Consolas,"D2Coding",monospace;font-size:12px;white-space:pre-wrap}
 .ml{white-space:pre-wrap}.tip{color:var(--mute);cursor:help;font-weight:400;margin-left:3px}
-.note{color:var(--ink2);font-size:12px;margin:4px 0}.right{text-align:right}
+.note{color:var(--ink2);font-size:12px;margin:6px 0;padding:5px 10px;background:var(--soft);border-left:3px solid var(--line);border-radius:0 6px 6px 0}.right{text-align:right}
 .v-error{box-shadow:inset 0 0 0 2px var(--err)}.v-warn{box-shadow:inset 0 0 0 2px var(--warn)}.flash{animation:fl 1.2s 2}@keyframes fl{50%{background:#ffe08a}}
 #checks{position:fixed;right:14px;top:56px;bottom:14px;width:330px;background:#fff;border:1px solid var(--line);border-radius:8px;box-shadow:0 6px 24px #0002;z-index:30;display:none;flex-direction:column}
 body.checks #checks{display:flex}#checks h3{margin:0;padding:10px 14px;font-size:13.5px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between}
@@ -90,7 +96,7 @@ body.checks #checks{display:flex}#checks h3{margin:0;padding:10px 14px;font-size
 #checks .s{font-weight:700;flex:none;width:14px}#checks .s.error{color:var(--err)}#checks .s.warn{color:var(--warn)}#checks .s.info{color:var(--info)}
 #checks .where{color:var(--mute);font-size:11px;display:block}
 @media (max-width:900px){#doc{padding:10px}section.pg{padding:14px}.gwrap{overflow-x:auto}.grid{min-width:1100px}#checks{width:auto;left:10px}}
-@media (max-width:600px){.foot td.ml{overflow-wrap:anywhere}.top{padding:6px 10px}.top h1{flex-basis:100%;min-width:0}#doc{padding:8px}section.pg{padding:12px}.cover{min-height:0;padding:28px 12px 20px!important}.cover .title{font-size:22px;margin:16px 0 18px}.cover .proj{margin-top:12px}table.sides .arrow{display:none!important}table.sides th.grp{grid-column:1/-1}table.sides .sc{order:1}table.sides .tc{order:2}.gwrap .grid tr:not(.gh)>td.no,.gwrap .grid thead tr:last-child>th:first-child{position:sticky;left:0;z-index:2;background:#fff;box-shadow:1px 0 0 var(--line)}.gwrap .grid{table-layout:auto}.gwrap .grid th{white-space:nowrap}#checks{top:auto;left:8px;right:8px;width:auto;max-height:70vh}}
+@media (max-width:600px){.foot td.ml{overflow-wrap:anywhere}.top{padding:6px 10px}.top h1{flex-basis:100%;min-width:0}#doc{padding:8px}section.pg{padding:12px}.cover{padding:18px 14px!important}.cover .title{font-size:21px}table.sides .arrow{display:none!important}table.sides th.grp{grid-column:1/-1}table.sides .sc{order:1}table.sides .tc{order:2}.gwrap .grid tr:not(.gh)>td.no,.gwrap .grid thead tr:last-child>th:first-child{position:sticky;left:0;z-index:2;background:#fff;box-shadow:1px 0 0 var(--line)}.gwrap .grid{table-layout:auto}.gwrap .grid th{white-space:nowrap}#checks{top:auto;left:8px;right:8px;width:auto;max-height:70vh}}
 @media print{@page{size:A4 landscape;margin:10mm}body{background:#fff}.top,#checks,.noprint{display:none!important}#doc{max-width:none;padding:0}
 section.pg{border:0;padding:0;margin:0 0 6mm;break-after:page}section.pg:last-child{break-after:auto}.grid{font-size:9.5px}.v-error,.v-warn{box-shadow:none}.tip{display:none}}
 `;
@@ -116,8 +122,10 @@ if(EDIT&&!o.ro){if(code){const list=C[code];const opts=['<option value=""></opti
 return '<'+tag+attrs.replace(' class="',' class="ed ')+(cls?'':' class="ed"')+' contenteditable="plaintext-only" spellcheck="false"'+(o.ml?' data-ml="1"':'')+'>'+esc(v)+'</'+tag+'>'}
 return '<'+tag+attrs+'>'+esc(shown(path,v))+(o.after||'')+'</'+tag+'>'}
 function lbl(k,star){const g=G[k];const req=star!=null?star:(g&&g[0]);return (req?'* ':'')+esc(L[k==='author'?'writtenBy':k]||k)+(g?'<span class="tip" title="'+esc(LANG==='ko'?g[1]:g[2])+'">ⓘ</span>':'')}
-function cover(){const ver='Ver '+esc(D.version);const copy=(P.copyright||[]).map(x=>'<div>'+esc(x)+'</div>').join('');
-return '<section class="pg cover" id="s-cover"><div class="proj">'+esc(P.projectName||'')+'</div><div class="title">'+esc(P.title||'')+'</div><div class="docno">'+esc(P.docNo||'')+'</div><div class="ifname">('+esc(D.header.name||'')+')</div><div class="cv">'+ver+'</div><div class="copy">'+copy+'</div></section>'}
+function cover(){const copy=(P.copyright||[]).map(x=>'<div>'+esc(x)+'</div>').join('');const rq=D.request||{};
+const sys=sd=>((rq[sd]||{}).system)||(sd==='source'?L.source:L.target);
+const meta=[[L.project,P.projectName],[L.version,'v'+D.version],[L.writtenAt,(D.header||{}).writtenAt],[L.flow,sys('source')+' → '+sys('target')]].filter(x=>x[1]).map(([k,v])=>'<div><dt>'+esc(k)+'</dt><dd>'+esc(v)+'</dd></div>').join('');
+return '<section class="pg cover" id="s-cover"><div class="kick">'+esc(P.docNo||L.cover)+'</div><div class="title">'+esc(P.title||L.sheet)+'</div><div class="ifname">'+esc(D.ifId)+(D.header.name?' · '+esc(D.header.name):'')+'</div><dl class="meta">'+meta+'</dl>'+(copy?'<div class="copy">'+copy+'</div>':'')+'</section>'}
 function history(){const rows=(D.revisions||[]).map((r,i)=>'<tr>'+'<td class="right">'+(i+1)+'</td>'+cell('revisions.'+i+'.version')+cell('revisions.'+i+'.date')+cell('revisions.'+i+'.text',{ml:true})+cell('revisions.'+i+'.author')+cell('revisions.'+i+'.approver')+(EDIT?'<td class="noprint"><button class="edx" data-rdel="'+i+'">✕</button></td>':'')+'</tr>').join('');
 return '<section class="pg" id="s-history"><h2>'+esc(L.history)+'</h2><table><thead><tr><th style="width:56px">'+esc(L.seq)+'</th><th style="width:70px">'+esc(L.version)+'</th><th style="width:110px">'+esc(L.date)+'</th><th>'+esc(L.change)+'</th><th style="width:150px">'+esc(L.author)+'</th><th style="width:150px">'+esc(L.approver)+'</th>'+(EDIT?'<th class="noprint"></th>':'')+'</tr></thead><tbody>'+rows+'</tbody></table>'+(EDIT?'<button class="edadd" data-radd="1">'+esc(EL.addRow)+'</button>':'')+'<p class="note">'+esc(L.historyNote)+'</p></section>'}
 function header(){const H=[['ifId'],['name'],['summary'],['detail'],['transfer','trigger'],['cycle','cycleCount'],['perRun','recordSize'],['relation','targetLogic'],['author','writtenAt']];
@@ -135,7 +143,7 @@ function cellTitle(c,k,r,sd){const t=[];if(k==='type'&&c.ddic)t.push(L.ddic+': '
 function grid(bk){const b=D[bk];const rows=b.rows||[];
 const head='<colgroup><col style="width:'+W.no+'px">'+COLS.map(k=>'<col style="width:'+W[k]+'px">').join('')+'<col style="width:'+W.r+'px">'+COLS.slice(0,6).map(k=>'<col style="width:'+W[k]+'px">').join('')+'<col style="width:'+W.map+'px"><col style="width:'+W.desc+'px">'+(EDIT?'<col class="noprint" style="width:118px">':'')+'</colgroup>'+
 '<thead><tr><th colspan="8" class="grp sc">'+esc(L.source)+'</th><th class="grp">'+(bk==='request'?'→':'←')+'</th><th colspan="8" class="grp tc">'+esc(L.target)+'</th>'+(EDIT?'<th class="noprint"></th>':'')+'</tr><tr><th>No</th>'+
-COLS.map(k=>'<th class="sc">'+lbl(k,k==='table'?false:null)+'</th>').join('')+'<th class="rc">R'+'<span class="tip" title="'+esc(LANG==='ko'?G.rule[1]:G.rule[2])+'">ⓘ</span></th>'+COLS.slice(0,6).map(k=>'<th class="tc">'+lbl(k,k==='table'?false:null)+'</th>').join('')+'<th class="tc">MAPPING<span class="tip" title="'+esc(LANG==='ko'?G.mapping[1]:G.mapping[2])+'">ⓘ</span></th><th class="tc">'+lbl('desc')+'</th>'+(EDIT?'<th class="noprint"></th>':'')+'</tr></thead>';
+COLS.map(k=>'<th class="sc">'+lbl(k,k==='table'?false:null)+'</th>').join('')+'<th class="rc">'+esc(L.ruleH)+'<span class="tip" title="'+esc(LANG==='ko'?G.rule[1]:G.rule[2])+'">ⓘ</span></th>'+COLS.slice(0,6).map(k=>'<th class="tc">'+lbl(k,k==='table'?false:null)+'</th>').join('')+'<th class="tc">'+esc(L.mapH)+'<span class="tip" title="'+esc(LANG==='ko'?G.mapping[1]:G.mapping[2])+'">ⓘ</span></th><th class="tc">'+lbl('desc')+'</th>'+(EDIT?'<th class="noprint"></th>':'')+'</tr></thead>';
 const pside=isSap('source')&&!isSap('target')?'t':isSap('target')&&!isSap('source')?'s':'';
 const rowHtml=(r,i)=>{const p=bk+'.rows.'+i;const sy=['added','changed','removed'].includes(r.sync)?r.sync:'';const bd=(r.proposed?'<span class="bdg p">'+esc(L.proposed)+'</span>':'')+(sy?'<span class="bdg '+sy[0]+'">'+esc(L[sy])+'</span>':'');
 const cc=(sd,k)=>['key','size','nul'].includes(k)?'cen ':'';const sc=k=>cell(p+'.s.'+k,{cls:cc('s',k)+'sc'+(pside==='s'?' pc':''),title:cellTitle(r.s||{},k,r,'s')});
@@ -155,12 +163,15 @@ const rr=rules.map((r,i)=>'<tr>'+(i===0?'<th rowspan="'+rules.length+'">'+lbl('r
 const er=ex.map((x,i)=>'<tr>'+(i===0?'<th rowspan="'+ex.length+'">'+lbl('extract')+'</th>':'')+cell('extract.'+i,{ml:true,mono:true,colspan:2})+(EDIT?'<td class="noprint"><button class="edx" data-ldel="extract|'+i+'">✕</button></td>':'')+'</tr>').join('')||'<tr><th>'+lbl('extract')+'</th><td colspan="2"></td>'+(EDIT?'<td class="noprint"></td>':'')+'</tr>';
 return '<table class="foot blk">'+rr+(EDIT?'<tr class="noprint"><th></th><td colspan="3"><button class="edadd" data-ladd="rules">'+esc(EL.addRule)+'</button></td></tr>':'')+er+(EDIT?'<tr class="noprint"><th></th><td colspan="3"><button class="edadd" data-ladd="extract">'+esc(EL.addSql)+'</button></td></tr>':'')+
 '<tr><th>'+lbl('remarks')+'</th>'+cell('remarks',{ml:true,colspan:2})+(EDIT?'<td class="noprint"></td>':'')+'</tr><tr><th>'+lbl('etc')+'</th>'+cell('etc',{ml:true,colspan:2})+(EDIT?'<td class="noprint"></td>':'')+'</tr></table>'}
-function sheet(){const res=D.response?'<div class="blk"><h3>'+esc(L.response)+(EDIT?' <button class="edadd" data-resp="0">'+esc(EL.dropResponse)+'</button>':'')+'</h3>'+sides('response')+'<div style="height:8px"></div>'+grid('response')+'</div>':(EDIT?'<div class="blk noprint"><button class="edadd" data-resp="1">'+esc(EL.addResponse)+'</button></div>':'');
-return '<section class="pg" id="s-sheet"><h2>'+esc(P.title||L.sheet)+'</h2><p class="note right">'+esc(L.required)+'</p><p class="note">'+esc(L.asyncNote)+'</p>'+header()+'<div class="blk"><h3>'+esc(L.request)+'</h3>'+sides('request')+'<div style="height:8px"></div>'+grid('request')+'</div>'+res+foot()+'</section>'}
+function sheet(){let n=0;const num=t=>'<span class="n">'+(++n)+'</span>'+esc(t);
+const head='<h3 class="sec">'+num(L.overview)+'</h3><p class="note">'+esc(L.required)+'</p>'+header();
+const req='<div class="blk"><h3>'+num(L.request)+'</h3>'+sides('request')+'<div style="height:8px"></div>'+grid('request')+'</div>';
+const res=D.response?'<div class="blk"><h3>'+num(L.response)+(EDIT?' <button class="edadd" data-resp="0">'+esc(EL.dropResponse)+'</button>':'')+'</h3>'+sides('response')+'<div style="height:8px"></div>'+grid('response')+'</div>':('<p class="note">'+esc(L.asyncNote)+'</p>'+(EDIT?'<div class="blk noprint"><button class="edadd" data-resp="1">'+esc(EL.addResponse)+'</button></div>':''));
+return '<section class="pg" id="s-sheet"><h2>'+esc(L.sheet)+'</h2>'+head+req+res+'<h3 class="sec">'+num(L.logic)+'</h3>'+foot()+'</section>'}
 function guide(){return '<section class="pg" id="s-guide"><h2>'+esc(L.guideTitle)+'</h2><table><thead><tr><th style="width:200px">'+esc(L.item)+'</th><th style="width:60px">'+esc(L.req)+'</th><th>'+esc(L.expl)+'</th></tr></thead><tbody>'+
-Object.entries(G).map(([k,g])=>'<tr><td>'+esc(L[k==='author'?'writtenBy':k]||(k==='rule'?'R':k==='mapping'?'MAPPING':k))+'</td><td class="cen">'+(g[0]?'Y':'N')+'</td><td class="ml">'+esc(LANG==='ko'?g[1]:g[2])+'</td></tr>').join('')+'</tbody></table></section>'}
+Object.entries(G).map(([k,g])=>'<tr><td>'+esc(k==='rule'?L.ruleH:k==='mapping'?L.mapH:(L[k==='author'?'writtenBy':k]||k))+'</td><td class="cen">'+(g[0]?'Y':'N')+'</td><td class="ml">'+esc(LANG==='ko'?g[1]:g[2])+'</td></tr>').join('')+'</tbody></table></section>'}
 function where(path){const gm=/^(request|response)\.groups\.(\d+)\.(s|t)\.(\w+)$/.exec(path);if(gm){const c=getAt(D,gm[1]+'.groups.'+gm[2]+'.'+gm[3])||{};return (gm[3]==='s'?L.source:L.target)+' · ▸ '+(c.name||shown('x.kind',c.kind||'')||'—')+' · '+(gm[4]==='kind'?L.structure:gm[4]==='card'?L.cardinality:L.groupName)}
-const m=/^(request|response)\.rows\.(\d+)\.(s|t|r|map|no)\.?(\w*)$/.exec(path);if(m){const r=getAt(D,m[1]+'.rows.'+m[2]);return (r&&r.no||'')+' · '+(m[3]==='s'?L.source:m[3]==='t'?L.target:m[3]==='r'?'R':m[3]==='map'?'MAPPING':'No')+(m[4]?' · '+m[4]:'')}
+const m=/^(request|response)\.rows\.(\d+)\.(s|t|r|map|no)\.?(\w*)$/.exec(path);if(m){const r=getAt(D,m[1]+'.rows.'+m[2]);return (r&&r.no||'')+' · '+(m[3]==='s'?L.source:m[3]==='t'?L.target:m[3]==='r'?L.ruleH:m[3]==='map'?L.mapH:'No')+(m[4]?' · '+m[4]:'')}
 const k=path.split('.');const last=k[k.length-1];return (k[0]==='request'||k[0]==='response'?(k[1]==='source'?L.source:L.target)+' · ':'')+(L[last==='author'?'writtenBy':last]||last)}
 function msg(f){return (M[LANG]||M.en)[f.code].replace(/\{(\w+)\}/g,(_,k)=>f.args&&f.args[k]!=null?f.args[k]:'')}
 function checks(){FINDINGS=ifValidate(D);const n={error:0,warn:0,info:0};for(const f of FINDINGS)n[f.sev]++;
@@ -169,7 +180,7 @@ $('#checks ul').innerHTML=FINDINGS.length?FINDINGS.map((f,i)=>'<li data-f="'+i+'
 $('#ck-sum').textContent=L.errors+' '+n.error+' · '+L.warns+' '+n.warn+' · '+L.infos+' '+n.info;
 document.querySelectorAll('.v-error,.v-warn').forEach(x=>x.classList.remove('v-error','v-warn'));
 for(const f of FINDINGS){if(f.sev==='info')continue;const el=document.querySelector('td[data-p="'+CSS.escape(f.path)+'"],th[data-p="'+CSS.escape(f.path)+'"],span[data-p="'+CSS.escape(f.path)+'"]');if(el&&!el.classList.contains('v-error'))el.classList.add(f.sev==='error'?'v-error':'v-warn')}}
-function render(){$('#doc').innerHTML=cover()+history()+sheet()+guide();$('#ttl').textContent=D.ifId+' · '+(D.header.name||'');$('#ver').textContent='v'+D.version;checks()}
+function render(){$('#doc').innerHTML=cover()+sheet()+guide()+history();$('#ttl').textContent=D.ifId+' · '+(D.header.name||'');$('#ver').textContent='v'+D.version;checks()}
 $('#ck-btn').onclick=()=>document.body.classList.toggle('checks');$('#ck-x').onclick=()=>document.body.classList.remove('checks');
 $('#checks ul').addEventListener('click',e=>{const li=e.target.closest('li[data-f]');if(!li)return;const f=FINDINGS[li.dataset.f];const el=document.querySelector('[data-p="'+CSS.escape(f.path)+'"]');if(!el)return;el.scrollIntoView({block:'center',behavior:'smooth'});el.classList.remove('flash');void el.offsetWidth;el.classList.add('flash')});
 $('#pr-btn').onclick=()=>window.print();

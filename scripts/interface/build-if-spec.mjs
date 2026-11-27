@@ -6,7 +6,7 @@
 //   _i18n/                        texts handed to the translator for the English companion
 // and <artifactBase>/interfaces/project.json — cover settings and code-list overrides
 // shared by every interface of the project:
-//   { projectName, title, company, docNo: "IF-MAP-{ifId}", copyright: [..], codes: { region: [..] } }
+//   { projectName, title, company, docNo: "IFS-{ifId}", copyright: [..], codes: { region: [..] } }
 //   (any text may be { ko, en } instead of a string)
 //
 // CLI (prints one JSON line):
@@ -40,7 +40,7 @@ import { pageHtml, modelFromPage } from './if-spec-page.mjs';
 import { readSapObject, splitGroups, resolveRefs } from './sap-fields.mjs';
 
 const FIRST = { ko: '최초 작성', en: 'First version' };
-const TITLES = { ko: '인터페이스 매핑 정의서', en: 'Interface Mapping Specification' };
+const TITLES = { ko: '인터페이스 매핑 명세서', en: 'Interface mapping specification' };
 export const safeId = (id) => String(id || '').trim().replace(/[^A-Za-z0-9_.-]/g, '_');
 const vkey = (v) => String(v).split('.').map((n) => Number(n) || 0);
 const byVer = (a, b) => { const [x, y] = [vkey(a), vkey(b)]; return x[0] - y[0] || x[1] - y[1]; };
@@ -89,7 +89,7 @@ export function projectFor(project, lang, model) {
     projectName: pick(p.projectName) || '',
     title: pick(p.title) || TITLES[lang] || TITLES.en,
     company: pick(p.company) || '',
-    docNo: String(pick(p.docNo) || 'IF-MAP-{ifId}').replace(/\{ifId\}/g, model.ifId).replace(/\{name\}/g, model.header?.name || ''),
+    docNo: String(pick(p.docNo) || 'IFS-{ifId}').replace(/\{ifId\}/g, model.ifId).replace(/\{name\}/g, model.header?.name || ''),
     copyright: Array.isArray(copy) ? copy : copy ? [copy] : [],
   };
 }
