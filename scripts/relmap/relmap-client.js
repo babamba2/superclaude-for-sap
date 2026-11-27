@@ -55,6 +55,7 @@
     document.querySelectorAll('.tabs button').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.tab === name)));
     document.querySelectorAll('section.tab').forEach((s) => s.classList.toggle('on', s.id === 'tab-' + name));
     if (name === 'explore') draw();
+    if (name === 'domains') centreArea();
   }
   document.querySelectorAll('.tabs button').forEach((b) => b.addEventListener('click', () => showTab(b.dataset.tab)));
   $('#theme').addEventListener('click', () => {
@@ -250,6 +251,70 @@
     return list.map(([a, b, ts, n]) => `<tr><td><a href="#" data-dom="${a}">${esc(DOMS[a].c)} ${esc(DOMS[a].l)}</a></td><td>→</td><td><a href="#" data-dom="${b}">${esc(DOMS[b].c)} ${esc(DOMS[b].l)}</a></td><td class="r">${fmt(n)}</td><td>${ts.slice(0, 5).map((t) => nodeLink(t)).join(', ')}${n > 5 ? ` <small>${esc(T.andMore.replace('{n}', fmt(n - 5)))}</small>` : ''}</td></tr>`).join('');
   }
   const handHead = () => `<thead><tr><th>${esc(T.domFrom)}</th><th></th><th>${esc(T.domTo)}</th><th>${esc(T.domTables)}</th><th>${esc(T.colTable)}</th></tr></thead>`;
+  // area graph: positions from relmap-domain.mjs areaLayout (circle per area, arrow per hand-off, width by tables)
+  const AREA_COLORS = ['#2f7ebd', '#d9822b', '#3a9d5d', '#b04b9a', '#b8961a', '#5b6fd6', '#c25450', '#2a9d9d'];
+  // cut a label to the room it has in the view: full-width characters (Hangul, CJK) count as one font size, others ~0.6
+  function fitLabel(s, room, font) {
+    let w = 0, out = '';
+    for (const ch of s) {
+      const cw = /[ᄀ-ᇿ⺀-꓏가-힯豈-﫿＀-￯]/.test(ch) ? font : font * 0.6;
+      if (w + cw > room - font * 0.6) return out + '…';
+      w += cw; out += ch;
+    }
+    return out;
+  }
+  function areaSvg() {
+    const G = DOM.graph;
+    if (!G || !G.n.length) return '';
+    const narrow = window.matchMedia && window.matchMedia('(max-width:600px)').matches;
+    const pos = new Map(G.n.map(([d, x, y, r]) => [d, { x, y, r }]));
+    const l1s = [...new Set(DOMS.map((d) => d.l1))];
+    const fill = (d) => (DOM.kind === 'process' && l1s.length > 1 ? AREA_COLORS[l1s.indexOf(DOMS[d].l1) % AREA_COLORS.length] : AREA_COLORS[0]);
+    const cx = 500, cy = 320;
+    const edges = G.e.map(([a, b, n]) => {
+      const p = pos.get(a), q = pos.get(b), dx = q.x - p.x, dy = q.y - p.y, len = Math.hypot(dx, dy) || 1;
+      // bend to the left of a → b: the two directions of one pair never share a line
+      const mx = (p.x + q.x) / 2 - (dy / len) * len * 0.12, my = (p.y + q.y) / 2 + (dx / len) * len * 0.12;
+      const end = (o, r) => { const ux = o.x - mx, uy = o.y - my, l = Math.hypot(ux, uy) || 1; return [o.x - (ux / l) * r, o.y - (uy / l) * r]; };
+      const [sx, sy] = end(p, p.r + 2), [ex, ey] = end(q, q.r + 7);
+      const w = (1.2 + 1.4 * Math.log2(1 + n)).toFixed(1);
+      const tip = `${DOMS[a].c} ${DOMS[a].l} → ${DOMS[b].c} ${DOMS[b].l} · ${T.domTables} ${n}`;
+      const d = `M${sx.toFixed(1)},${sy.toFixed(1)} Q${mx.toFixed(1)},${my.toFixed(1)} ${ex.toFixed(1)},${ey.toFixed(1)}`;
+      // a wide transparent twin takes the clicks: the drawn line alone is too thin to hit
+      return `<g class="ae" data-ag-edge="${a},${b}" data-a="${a}" data-b="${b}" tabindex="0"><title>${esc(tip)}</title><path class="ah" d="${d}"></path><path class="al" d="${d}" stroke-width="${w}" marker-end="url(#ag-arrow)"></path></g>`;
+    }).join('');
+    const nodes = G.n.map(([d, x, y, r]) => {
+      const ux = x - cx, uy = y - cy, l = Math.hypot(ux, uy);
+      const lx = l ? x + (ux / l) * (r + 10) : x, ly = l ? y + (uy / l) * (r + 10) + 4 : y + r + 16;
+      const anchor = !l || Math.abs(ux) < 40 ? 'middle' : ux > 0 ? 'start' : 'end';
+      const name = `${DOMS[d].c} ${DOMS[d].l}`, room = anchor === 'start' ? 995 - lx : anchor === 'end' ? lx - 5 : 2 * Math.min(lx, 1000 - lx) - 10;
+      const short = fitLabel(name, room, narrow ? 20 : 14);
+      const stat = DOM.kind === 'process' ? T.domStat.replace('{s}', fmt(DOMS[d].n[0])).replace('{o}', fmt(DOMS[d].n[1])).replace('{w}', fmt(DOMS[d].n[2])) : T.domStatGroup.replace('{o}', fmt(DOMS[d].n[1])).replace('{w}', fmt(DOMS[d].n[2]));
+      return `<g class="an" data-dom="${d}" tabindex="0"><title>${esc(name)} · ${esc(stat)}</title><circle cx="${x}" cy="${y}" r="${r}" style="fill:${fill(d)}"></circle><text x="${lx.toFixed(1)}" y="${ly.toFixed(1)}" text-anchor="${anchor}">${esc(short)}</text></g>`;
+    }).join('');
+    const cut = G.cut[0] || G.cut[1] ? `<p class="muted small">${esc(T.domGraphCut.replace('{a}', fmt(G.cut[0])).replace('{e}', fmt(G.cut[1])))}</p>` : '';
+    return `<h3>${esc(T.hDomGraph)}</h3><p class="muted">${esc(T.domGraphHelp)}</p>
+      <div class="ag"><svg viewBox="0 0 1000 640" role="img" aria-label="${esc(T.hDomGraph)}"><defs><marker id="ag-arrow" viewBox="0 0 10 10" refX="8" refY="5" markerUnits="userSpaceOnUse" markerWidth="13" markerHeight="13" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" style="fill:var(--muted)"></path></marker></defs>${edges}${nodes}</svg></div>
+      ${cut}<div id="ag-edge">${G.e.length ? `<p class="muted small">${esc(T.domEdgePick)}</p>` : `<p class="muted small">${esc(T.handNone)}</p>`}</div>`;
+  }
+  function centreArea() { const ag = $('#tab-domains .ag'); if (ag && ag.scrollWidth > ag.clientWidth) ag.scrollLeft = (ag.scrollWidth - ag.clientWidth) / 2; }
+  function areaHover(d) {
+    const svg = $('#tab-domains .ag svg'); if (!svg) return;
+    svg.classList.toggle('hl', d !== null);
+    svg.querySelectorAll('.ae').forEach((p) => p.classList.toggle('on', d !== null && (p.dataset.a === d || p.dataset.b === d)));
+    svg.querySelectorAll('.an').forEach((g) => g.classList.toggle('on', d !== null && (g.dataset.dom === d || [...svg.querySelectorAll('.ae.on')].some((p) => p.dataset.a === g.dataset.dom || p.dataset.b === g.dataset.dom))));
+  }
+  let areaLit = null;
+  document.addEventListener('mouseover', (ev) => {
+    const g = ev.target.closest && ev.target.closest('#tab-domains .an'), d = g ? g.dataset.dom : null;
+    if (d !== areaLit) { areaLit = d; areaHover(d); }
+  });
+  document.addEventListener('keydown', (ev) => {
+    if ((ev.key !== 'Enter' && ev.key !== ' ') || !ev.target.closest) return;
+    const g = ev.target.closest('#tab-domains .an'), e = ev.target.closest('#tab-domains .ae');
+    if (g) { ev.preventDefault(); openDom(Number(g.dataset.dom)); }
+    else if (e) { ev.preventDefault(); e.dispatchEvent(new MouseEvent('click', { bubbles: true })); }
+  });
   function domains() {
     const sec = $('#tab-domains');
     if (!sec) return;
@@ -266,9 +331,12 @@
         cards += `<button type="button" class="dom${d.n[1] ? '' : ' off'}" data-dom="${x}"><b>${esc(d.c)}</b> ${esc(d.l)}<small>${esc(stat)}</small>${outs ? `<span class="outs">${outs}</span>` : ''}</button>`;
       });
       sec.innerHTML = `<h2>${esc(T.hDomains)}</h2><p class="muted">${esc(isProc ? T.domHelp : T.domHelpGroups)}</p><p class="note">${esc(src)}</p>
+        ${areaSvg()}
         <div class="doms">${cards}</div>
         <h3>${esc(T.hHand)}</h3><p class="muted">${esc(T.handHelp)}</p>
         ${DOM.hand.length ? `<div class="tw"><table>${handHead()}<tbody>${handRows(DOM.hand.slice(0, 40))}</tbody></table></div>${DOM.hand.length > 40 ? `<p class="muted">${esc(T.more.replace('{n}', fmt(DOM.hand.length - 40)))}</p>` : ''}` : `<p class="muted">${esc(T.handNone)}</p>`}`;
+      // phones scroll the graph sideways: start in the middle (the tab may still be hidden — try again when shown)
+      centreArea(); requestAnimationFrame(centreArea);
       return;
     }
     const d = DOMS[S.dom];
@@ -309,6 +377,12 @@
     const go = t.closest('[data-dom-go]'); if (go) { ev.preventDefault(); const d = domOfStep(go.dataset.domGo); if (d >= 0) openDom(d, go.dataset.domGo); return; }
     const sp = t.closest('[data-dom-step]'); if (sp) { ev.preventDefault(); openDom(S.dom, sp.dataset.domStep === S.domStep ? '' : sp.dataset.domStep); return; }
     if (t.closest('[data-dom-all]')) { ev.preventDefault(); openDom(-1); return; }
+    const ae = t.closest('[data-ag-edge]');
+    if (ae) {
+      const [a, b] = ae.dataset.agEdge.split(',').map(Number), h = DOM.hand.find((x) => x[0] === a && x[1] === b), box = $('#ag-edge');
+      if (h && box) box.innerHTML = `<div class="tw"><table>${handHead()}<tbody>${handRows([h])}</tbody></table></div>`;
+      return;
+    }
     const dm = t.closest('[data-dom]'); if (dm) { ev.preventDefault(); openDom(Number(dm.dataset.dom)); }
   });
 

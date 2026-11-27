@@ -92,6 +92,13 @@ button.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-w
 .doms{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:10px;margin:10px 0}h3.l1{grid-column:1/-1;margin:8px 0 0}
 button.dom{display:flex;flex-direction:column;align-items:flex-start;gap:4px;text-align:left;padding:10px 12px;border-radius:10px;background:var(--card);font-size:14px;white-space:normal}
 button.dom small{color:var(--muted);font-size:12px}button.dom.off,button.stp.off{opacity:.5}
+.ag{border:1px solid var(--line);border-radius:12px;background:var(--canvas);margin:8px 0}.ag svg{display:block;width:100%;height:auto;max-height:70vh}
+.ag .ae{cursor:pointer}.ag .ae:focus{outline:none}.ag .ae:focus .al{stroke:var(--accent);stroke-opacity:1}.ag .ae path{fill:none}.ag .ah{stroke:transparent;stroke-width:16px;pointer-events:stroke}
+.ag .al{stroke:var(--muted);stroke-opacity:.55;pointer-events:none}.ag .ae:hover .al{stroke:var(--accent);stroke-opacity:1}
+.ag .an{cursor:pointer}.ag .an circle{fill-opacity:.85;stroke:var(--bg);stroke-width:2}.ag .an:focus{outline:none}.ag .an:focus circle,.ag .an:hover circle{stroke:var(--fg)}
+.ag .an text{font-size:14px;fill:var(--label);paint-order:stroke;stroke:var(--halo);stroke-width:4px;stroke-linejoin:round}
+@media (max-width:600px){.ag{overflow-x:auto}.ag svg{min-width:720px;max-height:none}.ag .an text{font-size:20px}}
+.ag svg.hl .ae:not(.on),.ag svg.hl .an:not(.on){opacity:.18}.ag svg.hl .ae.on .al{stroke:var(--accent);stroke-opacity:1}
 .outs{display:flex;flex-wrap:wrap;gap:4px}.outs span{font-size:11px;padding:0 6px;border-radius:999px;background:var(--head)}
 .lanes{display:flex;flex-direction:column;gap:10px;margin:10px 0}.lane{border:1px solid var(--line);border-radius:10px;padding:6px 8px}.lh{font-size:13px;margin:0 0 6px}
 .ls{display:flex;align-items:stretch;gap:6px;overflow-x:auto;padding-bottom:4px}.ar{align-self:center;color:var(--muted)}
@@ -109,8 +116,10 @@ export const TEXT = {
   ko: {
     tDomains: '업무 영역', hDomains: '업무 영역',
     domHelp: '프로세스 맵(module-to-process)의 L2 프로세스 체인을 영역으로, L3 프로세스를 레인으로, L4 작업을 단계로 놓았어요. 작업의 TCode와 객체 이름을 이 관계도의 객체와 맞췄어요. 거기서 코드 관계를 2단계까지 따라가 바꾸는 테이블과 읽는 테이블을 찾았어요.',
-    domHelpGroups: '프로세스 맵이 없어서 객체 그룹을 영역으로 보여 줘요. module-to-process를 실행하면 L2 → L3 → L4로 보여 줘요.',
-    domNone: '보여 줄 영역이 없어요.', domSrc: '프로세스 맵 {m}: L4 작업 {s}개 중 {n}개가 이 관계도의 객체와 맞았어요.', domSrcGroups: '영역 = 객체 그룹(Louvain)',
+    domHelpGroups: '프로세스 맵이 없어서 자동 그룹을 영역으로 보여 줘요. 자동 그룹은 서로 많이 호출하고 같은 테이블을 많이 쓰는 객체끼리 프로그램이 묶은 거예요(Louvain 방식). 업무 기준이 아니라 연결 구조 기준이라 실제 업무와 다르게 묶일 수 있어요. module-to-process를 실행하면 업무 프로세스(L2 → L3 → L4)로 보여 줘요.',
+    domNone: '보여 줄 영역이 없어요.', domSrc: '프로세스 맵 {m}: L4 작업 {s}개 중 {n}개가 이 관계도의 객체와 맞았어요.', domSrcGroups: '영역 = 자동 그룹(Louvain, 연결 구조 기준)',
+    hDomGraph: '영역 사이 그래프', domGraphHelp: '원 하나가 영역이에요. 원이 클수록 객체가 많아요. 화살표는 데이터가 넘어가는 방향이에요(바꾸는 영역 → 읽는 영역). 굵을수록 넘어가는 테이블이 많아요. 원을 누르면 그 영역을 열고, 화살표를 누르면 테이블을 보여 줘요.',
+    domGraphCut: '그래프에서 영역 {a}개와 화살표 {e}개는 뺐어요. 아래 카드와 표에는 모두 있어요.', domEdgePick: '화살표를 누르면 넘어가는 테이블을 여기에 보여 줘요.',
     domStat: '작업 {s}개 · 객체 {o}개 · 바꾸는 테이블 {w}개', domStatGroup: '객체 {o}개 · 바꾸는 테이블 {w}개',
     hHand: '영역 사이 데이터 전달', handHelp: '한 영역이 바꾸는 테이블을 다른 영역이 읽으면 데이터가 넘어간다고 봤어요. 소스의 SQL 문에서 찾았어요. 테이블이 많은 순서예요.',
     handNone: '영역 사이에 넘어가는 테이블이 없어요.', domFrom: '바꾸는 영역', domTo: '읽는 영역', domTables: '테이블 수', domAll: '전체 영역',
@@ -185,7 +194,7 @@ export const TEXT = {
     hTypes: '객체 종류', hKinds: '연결 종류', hHubs: '연결이 가장 많은 객체',
     hubsHelp: '필드 타입을 뺀 업무 관계로 서로 다른 객체와 가장 많이 이어진 객체예요. 바꾸면 영향이 넓게 퍼질 수 있어요.',
     colObject: '객체', colDegree: '이웃 수', colGroup: '그룹', colScope: '위치', colSize: '객체 수', colInner: '그룹 안 연결', colMix: '구성', colTop: '대표 객체',
-    hGroups: '서로 묶이는 객체 그룹', groupsHelp: '안쪽 연결이 많고 바깥 연결이 적은 객체끼리 묶었어요(Louvain). 그룹 하나가 대개 업무 기능 하나예요.',
+    hGroups: '서로 묶이는 객체 그룹', groupsHelp: '서로 많이 호출하고 같은 테이블을 많이 쓰는 객체끼리 프로그램이 자동으로 묶었어요(Louvain 방식: 그룹 안의 연결은 많고 그룹 사이의 연결은 적게 나눠요). 그룹 하나가 대개 업무 기능 하나지만, 업무 기준이 아니라 연결 구조 기준이에요. 공통 모듈 때문에 다른 업무가 한 그룹에 들어가기도 해요.',
     groupsMore: '객체가 적은 그룹 {n}개는 목록에서 뺐어요.',
     search: '객체 검색', searchPh: '이름 2글자 이상', depth: '단계', dir: '방향', dirBoth: '양방향', dirOut: '나가는 쪽', dirIn: '들어오는 쪽', max: '최대 노드',
     filters: '거르기', fKinds: '연결 종류', fTypes: '객체 종류', fBases: '근거',
@@ -201,8 +210,10 @@ export const TEXT = {
   en: {
     tDomains: 'Process areas', hDomains: 'Process areas',
     domHelp: 'From the process map of module-to-process: each L2 process chain is an area, each L3 process a lane, each L4 task a step. Task TCodes and objects are matched to the objects of this map by name; code relations are followed two levels down to the tables a task changes and reads.',
-    domHelpGroups: 'No process map, so the object groups stand in as areas. Run module-to-process to see L2 → L3 → L4.',
-    domNone: 'No area to show.', domSrc: 'Process map {m}: {n} of {s} L4 tasks match objects of this map.', domSrcGroups: 'Areas = object groups (Louvain)',
+    domHelpGroups: 'No process map, so automatic groups stand in as areas. An automatic group is a set of objects that call each other and use the same tables a lot, grouped by the program (Louvain method). It follows the links, not the business, so a group can differ from how the business is split. Run module-to-process to see the business processes (L2 → L3 → L4).',
+    domNone: 'No area to show.', domSrc: 'Process map {m}: {n} of {s} L4 tasks match objects of this map.', domSrcGroups: 'Areas = automatic groups (Louvain, by links)',
+    hDomGraph: 'Graph between areas', domGraphHelp: 'Each circle is an area; bigger means more objects. An arrow shows where data goes (changed in → read in); thicker means more tables. Click a circle to open the area, an arrow to see its tables.',
+    domGraphCut: '{a} areas and {e} arrows are left out of the graph. The cards and the table below hold them all.', domEdgePick: 'Click an arrow to see the tables it hands over here.',
     domStat: '{s} tasks · {o} objects · {w} tables changed', domStatGroup: '{o} objects · {w} tables changed',
     hHand: 'Data handed between areas', handHelp: 'An area hands data to another when it changes a table the other reads. Found in the SQL statements of the source. Most tables first.',
     handNone: 'No table passes between areas.', domFrom: 'Changed in', domTo: 'Read in', domTables: 'Tables', domAll: 'All areas',
@@ -277,7 +288,7 @@ export const TEXT = {
     hTypes: 'Object types', hKinds: 'Relation kinds', hHubs: 'Most connected objects',
     hubsHelp: 'Objects linked to the most distinct other objects by business relations (field typing left out). A change here can spread widely.',
     colObject: 'Object', colDegree: 'Neighbours', colGroup: 'Group', colScope: 'Where', colSize: 'Objects', colInner: 'Links inside', colMix: 'Mix', colTop: 'Main objects',
-    hGroups: 'Groups of related objects', groupsHelp: 'Objects with many links inside and few outside (Louvain). One group is usually one business function.',
+    hGroups: 'Groups of related objects', groupsHelp: 'Objects that call each other and use the same tables a lot, grouped automatically (Louvain method: many links inside a group, few between groups). A group is usually one business function, but it follows the links, not the business; a shared module can pull different functions into one group.',
     groupsMore: '{n} small groups are not listed.',
     search: 'Find object', searchPh: 'name, 2+ characters', depth: 'Depth', dir: 'Direction', dirBoth: 'both', dirOut: 'outgoing', dirIn: 'incoming', max: 'Max nodes',
     filters: 'Filters', fKinds: 'Relation kinds', fTypes: 'Object types', fBases: 'Basis',

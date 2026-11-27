@@ -250,6 +250,12 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
   try {
     if (process.argv[2] === 'find') {
       const r = findGraphs(findArgs(process.argv.slice(3)));
+      // the module-to-process model the build would use (null = Process areas fall back to the groups)
+      if (r.ok) {
+        const pm = findProcessModel(r.dirs || []);
+        // a model without rows gives the groups too: report it as no model so the skill still asks
+        r.processModel = pm && (readJson(pm)?.rows || []).length ? pm : null;
+      }
       console.log(JSON.stringify(r));
       process.exit(r.ok ? 0 : 1);
     }
